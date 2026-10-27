@@ -1,6 +1,6 @@
 id: python/django/drf/permission-classes
 description: "Unless the settings Django runs with (DJANGO_SETTINGS_MODULE from manage.py, wsgi.py or asgi.py, star imports followed) set REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES to a non-empty list without AllowAny (DRF's default is AllowAny), a class inheriting a DRF APIView, generic view or viewset, directly or through the project's own classes and mixins, gets a non-empty permission_classes (or get_permissions) from itself or a project ancestor, and an @api_view function has @permission_classes. permission_classes = [] declares nothing; a base class outside the repository is not followed."
-scope: {language: python, files: ["!**/migrations/**", "!**/tests/**", "!**/test_*.py"]}
+scope: {language: python, files: ["!@django-migrations", "!**/tests/**", "!**/test_*.py"]}
 enforce:
   - target: check
     stage: lint

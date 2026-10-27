@@ -1,3 +1,4 @@
+import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { codeExamples } from "./packs.js";
@@ -29,7 +30,8 @@ const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescri
 
 /** A concrete relative path inside the rule's scope for an example file. */
 export function examplePath(rule: Rule, stem: string): string {
-  const glob = (rule.scope.files ?? []).find((g) => !g.startsWith("!"));
+  // a rule as written names file roles (§15.4): its examples go where Forge's defaults put them
+  const glob = expandGlobs(rule.scope.files ?? [], defaultRoles()).globs.find((g) => !g.startsWith("!"));
   const ext = EXT[rule.scope.language];
   if (!glob) return stem + ext;
   let p = glob
@@ -38,7 +40,8 @@ export function examplePath(rule: Rule, stem: string): string {
     .replace(/(^|\/)\*\*\//g, "$1")
     .replace(/\*\*/g, stem)
     .replace(/\*/g, stem)
-    .replace(/\?/g, "x");
+    .replace(/\?/g, "x")
+    .replace(/\[!?(.)[^\]]*\]/g, (m, c: string) => (m[1] === "!" ? "x" : c));
   if (p.endsWith("/")) p += stem;
   if (!/\.[A-Za-z0-9]+$/.test(basename(p))) p += ext;
   return p;

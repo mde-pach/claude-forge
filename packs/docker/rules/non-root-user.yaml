@@ -1,8 +1,8 @@
 id: docker/non-root-user
 description: "The final stage runs as a non-root USER, set in it or inherited from the named stage it builds on (images that run non-root by default, cgr.dev/, dhi.io/ or *nonroot*, are exempt)."
-scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+scope: {language: any, files: ["@dockerfile"]}
 enforce:
-  - {target: check, stage: lint, run: "forge_docker_nonroot", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+  - {target: check, stage: lint, run: "forge_docker_nonroot", when_changed: ["@dockerfile"]}
 examples:
   match:
     - files: {Dockerfile: "FROM python:3.13-slim\nCMD [\"python\"]\n", .dockerignore: ".env*\n.git\n"}

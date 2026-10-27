@@ -5,4 +5,4 @@ enforce:
   - target: check
     stage: test
     run: "playwright test --reporter=line"
-    when_changed: ["e2e/**", "playwright.config.*"]
+    when_changed: ["@e2e-tests", "playwright.config.*"]

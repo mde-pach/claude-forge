@@ -169,6 +169,8 @@ export interface ProjectConfig {
   disable?: { id: string; reason: string }[];
   /** Config-ratchet findings the user accepted (the exact line check.sh printed). */
   accept?: { rule: string; change: string; reason: string }[];
+  /** File roles (§15.4): patterns added to a role, or replacing its defaults and the tool's config. */
+  files?: Record<string, { add?: string[]; set?: string[] }>;
 }
 
 export interface SettingsEntry {
@@ -185,6 +187,8 @@ export interface Lock {
   settings: SettingsEntry[];
   /** Blocks Forge added to files it does not own (a hook manager's config); written only when there is one. */
   blocks: LockBlock[];
+  /** The effective patterns of the file roles the active rules name, at the last apply ("!" before an exclusion). */
+  roles?: Record<string, string[]>;
 }
 
 /** Forge's marked block in a file it does not own: the pre-commit check in a hook manager (§10.3). */

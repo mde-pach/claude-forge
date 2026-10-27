@@ -6,6 +6,7 @@ import { parse as parseToml } from "smol-toml";
 import { isMap, isScalar, parse as parseYaml, parseDocument } from "yaml";
 import { parseStrictYaml } from "./yaml.js";
 import { directDashedTools } from "./render.js";
+import { unknownRoles } from "./roles.js";
 import { validate } from "./schemas.js";
 import { sha256 } from "./util.js";
 import type { DepSpec, GuardExample, Pack, ProjectConfig, Rule } from "./types.js";
@@ -29,6 +30,8 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
     if (t.target === "check")
       for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
         for (const tool of directDashedTools(cmd ?? "")) throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
+  const unknown = unknownRoles(rule);
+  if (unknown.length) throw new Error(`${file}: invalid rule: unknown file role ${unknown.map((r) => `@${r}`).join(", ")} (§15.4)`);
   return { ...rule, file, hash: sha256(text), origin, pack: rule.id.slice(0, rule.id.lastIndexOf("/")) };
 }
 
@@ -500,7 +503,7 @@ export function detectPack(pack: Pack, facts: DepFacts): boolean {
 
 const globCache = new Map<string, RegExp>();
 
-/** Glob to RegExp: `**` spans directories, `*` and `?` stay within one segment, `{a,b}` alternation (nested, and holding any of these). */
+/** Glob to RegExp: `**` spans directories, `*` and `?` stay within one segment, `[0-9]` / `[!x]` one character, `{a,b}` alternation (nested, and holding any of these). */
 export function globToRegExp(glob: string): RegExp {
   let re = globCache.get(glob);
   if (re) return re;
@@ -522,7 +525,15 @@ function globSource(glob: string): string {
         } else out += ".*";
       } else out += "[^/]*";
     } else if (c === "?") out += "[^/]";
-    else if (c === "{") {
+    else if (c === "[" && glob.indexOf("]", i + 2) > 0) {
+      // a bracket expression: [0-9], [!._] (one character, never "/")
+      const end = glob.indexOf("]", i + 2);
+      let body = glob.slice(i + 1, end);
+      const neg = body.startsWith("!") || body.startsWith("^");
+      if (neg) body = body.slice(1);
+      out += `(?!/)[${neg ? "^" : ""}${body.replace(/[\\\]^]/g, "\\$&")}]`;
+      i = end;
+    } else if (c === "{") {
       // the matching brace, and the alternatives split at depth 0
       const alts: string[] = [];
       let depth = 0;

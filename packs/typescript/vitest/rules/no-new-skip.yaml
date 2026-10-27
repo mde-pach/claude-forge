@@ -1,6 +1,6 @@
 id: typescript/vitest/no-new-skip
 description: Tests are not skipped, made conditional, left as todo or focused with .only.
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "!e2e/**"]}
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

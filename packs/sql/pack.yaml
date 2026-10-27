@@ -1,0 +1,5 @@
+id: sql
+description: Plain SQL migrations (Flyway, Supabase, dbmate, sqitch, Atlas).
+level: project
+detect:
+  files_any: [flyway.conf, flyway.toml, conf/flyway.conf, supabase/config.toml, sqitch.plan, atlas.hcl, "db/migrations/*.sql"]

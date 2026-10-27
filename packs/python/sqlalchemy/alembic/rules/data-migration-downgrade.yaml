@@ -1,6 +1,6 @@
 id: python/sqlalchemy/alembic/data-migration-downgrade
 description: "Advice, once per turn at Stop: a revision whose upgrade() changes rows (UPDATE, INSERT or DELETE through execute(), sa.update/insert/delete, op.bulk_insert, an ORM Session) has a downgrade() that changes rows the same ways (the inverse) or raises: a downgrade that only passes, prints or changes the schema reports success and leaves the data changed."
-scope: {language: python, files: ["alembic/versions/**"]}
+scope: {language: python, files: ["@alembic-migrations"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_alembic_data_downgrade"}
 examples:

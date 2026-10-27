@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { examplePath } from "./audit.js";
+import { applyRoles, defaultRoles } from "./roles.js";
 import { codeExamples, globMatch, guardExamples, loadPacks, loadLocalRules } from "./packs.js";
 import {
   astGrepRulePath,
@@ -366,8 +367,14 @@ export function localSelfTest(repo: string, opts: { toolBins?: string[] } = {}):
 }
 
 /** Structural checks and every example of the given rules. */
-function testRules(rules: Rule[], repo: string | undefined, opts: { toolBins?: string[] }, report: TestReport): void {
+function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?: string[] }, report: TestReport): void {
   const { failures, notes, counts } = report;
+  // file roles (§15.4) with Forge's defaults: examples are written where a default project has them
+  const rules = written.map((r) => {
+    const { rule, empty } = applyRoles(r, defaultRoles());
+    if (empty.length) failures.push(`${r.id}: file role ${empty.map((e) => `@${e}`).join(", ")} has no default files: its examples cannot be placed`);
+    return rule;
+  });
   counts.rules = rules.length;
 
   // structural checks the schema cannot express

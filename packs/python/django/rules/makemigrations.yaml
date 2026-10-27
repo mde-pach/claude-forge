@@ -5,7 +5,7 @@ enforce:
   - target: check
     stage: migration
     timeout: 120
-    when_changed: ["**/models.py", "**/models/**", "**/migrations/**", "**/settings.py", "**/settings/**"]
+    when_changed: ["**/models.py", "**/models/**", "@django-migrations", "@django-settings"]
     run: |
       m=$(git ls-files manage.py '*/manage.py' | awk '{ print gsub("/", "/") "\t" $0 }' | sort -n | head -n 1 | cut -f 2)
       if [ -z "$m" ]; then printf 'forge:%s skipped: no manage.py in the repository\n' "$c_id"; return 0; fi

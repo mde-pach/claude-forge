@@ -1,6 +1,6 @@
 id: python/pytest/no-new-skip
 description: Tests are not skipped, marked xfail or made to skip on a missing import to make the suite pass.
-scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

@@ -132,6 +132,8 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
   - rule: <rule-id>
     change: string          # the finding line exactly as check.sh printed it
     reason: string          # required
+files:                      # file roles (§15.4)
+  <role>: {add: [glob], set: [glob]}   # add to the role, or replace its defaults and the tool's config
 ```
 
 `<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.3).
@@ -353,7 +355,7 @@ One entry point for the Stop hook, the optional pre-commit hook and CI. Each mod
 | `--turn <snapshot>` | Stop (§10.2) | files whose content differs from the turn snapshot | the tree at the start of the turn |
 | `--changed` | pre-commit | `git status --porcelain --no-renames` (staged, unstaged, untracked) | `HEAD` |
 | `--since <ref>` | CI on a pull request | `git diff --name-only <base>` plus untracked files | `git merge-base <ref> HEAD`; none → fail with `forge:forge/since` |
-| `--all` | CI on the default branch | the whole project | `HEAD` (for the comparisons of steps 2–3) |
+| `--all` | CI on the default branch | the whole project | `HEAD` (for the comparisons of step 2) |
 
 Paths are listed NUL-separated (`-z`, here, in the turn snapshot and in the base tree of §10.6), so a name with non-ASCII characters is taken as it is; git would otherwise print it quoted and octal-escaped, and the file would drop out of the change.
 
@@ -364,12 +366,11 @@ Paths are listed NUL-separated (`-z`, here, in the turn snapshot and in the base
 Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 
 1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
-2. **Applied migrations:** any file under `alembic/versions/` or `prisma/migrations/` that exists in the base and is modified or deleted → fail.
-3. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
-4. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
-5. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
-6. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
-7. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
+2. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
+3. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
+4. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
+5. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
+6. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
 
 **Failure output.** A check whose output is not attributed (tests, migrations, a crash) prints `forge:<rule-id> failed` and an excerpt of at most 15 lines (25 for tests; after a comparison with the start of the turn, 20 or 12, §10.6), the failure first: output that fits is shown as it is; otherwise its summary lines (Vitest `Test Files … failed` / `Tests … failed`, pytest's short summary `FAILED …` / `ERROR …` and `=== … failed … ===`), then the failure details (each Vitest `FAIL` line with the error lines of its block and its first stack frame outside `node_modules`; pytest's `____ test ____` headers, `E ` lines and `path:line: Error` locations), or, in output of no known format, the lines naming an error or a failure (not warnings); then `--- output:` and the rest of the output in order, warnings included, as far as the budget allows, and `... (<k> more lines)`.
 
@@ -484,6 +485,7 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 - `diff` and `status` report owned files whose hash differs, appended entries that are missing, and rules whose source changed since the last apply.
 - `remove` deletes listed files and removes exactly the listed settings entries.
 - **Validation.** Every command reading the lock validates it against its schema and refuses it as a whole (exit 1, nothing written or deleted) when a path is not one Forge writes: `files` keys must be owned paths (§4) or git's `hooks/pre-commit` (`git rev-parse --git-path`), `settings[].file` a settings file of that level, `blocks[].file` the file `hookManager` names for its `kind` (`.pre-commit-config.yaml`, `.husky/pre-commit`, `lefthook.yml` / `.yaml` / `.lefthook.yml`, `<core.hooksPath>/pre-commit`); all relative, without `.` or `..` segments, and inside the repository (or `~/.claude`) once symbolic links are resolved.
+- **`roles`** (present only when an active rule names a file role): `{"<role>": ["<glob>", "!<glob>"]}`, the effective patterns at the last apply (§15.4); `status` and `diff` report a role whose patterns changed since (a tool config or `forge.yaml` changed).
 - **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
 - **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed, and the scripts in `.forge/helpers/`, hashed also without `'`, `"`, `` ` ``, `,`, `;`, `(` and `)`: a formatter reflowing Forge's JSON, or rewriting its helper scripts (`ruff format .`, `biome check --write .`: layout, quote style, trailing commas, semicolons, parentheses), is not drift; any other change is. (A change made only of those characters, such as moving a parenthesis, is not detected: the price of letting formatters rewrite the scripts.) A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
 - **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON and helper lines need the normalised content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
@@ -620,6 +622,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/env-misuse` | `tool` ruff `B003`, `PLW1508`, `PLW1507` |
 | `python/no-setup-py` | `permission` ask: `Write(**/setup.py)`, `Write(**/setup.cfg)` |
 | `python/no-ruff-overlap` | `grep` forbid (case-insensitive) in `pyproject.toml` and `.pre-commit-config.yaml`: `black`, `isort`, `flake8`, `autopep8`, `pyupgrade`, `autoflake` as a quoted dependency string, or their pre-commit hook repository URLs |
+| `python/no-dev-server-in-image` | `grep` forbid on `@dockerfile` and `@procfile` (§15.4): a `CMD` / `ENTRYPOINT` / Procfile process line running `--reload`, `fastapi dev` or `flask … --debug` |
 
 Every banned-api rule shares ruff's `TID251`: each rule's examples import only its own module, so the audit tells them apart, and `forge status` merges their tables (§11).
 
@@ -767,6 +770,7 @@ context.md: SQLAlchemy 2.0 async models, queries and sessions (opened with `asyn
 | `python/sqlalchemy/alembic/no-create-all` | `ast-grep` forbid, not in tests: `$M.create_all` with `$M` typed `sqlalchemy` `MetaData` (§15.1: `Base.metadata`, `SQLModel.metadata`; the call and `run_sync(…create_all)`) |
 | `python/sqlalchemy/alembic/sqlite-batch` | `check` lint on `alembic/versions/**`: `forge_alembic_batch`: when `alembic/env.py` sets `render_as_batch=True` or `alembic.ini` has a sqlite URL, no `op.alter_column`, `op.drop_column`, `op.create_foreign_key`, `op.drop_constraint`, `op.create_unique_constraint`, `op.create_check_constraint`, `op.create_primary_key` outside `op.batch_alter_table()`, except under an `if` on the dialect |
 | `python/sqlalchemy/alembic/data-migration-downgrade` | `check` lint on `alembic/versions/**`, advisory (§10.7): `forge_advise forge_alembic_data_downgrade`: an `upgrade()` that changes rows (`UPDATE … SET`, `INSERT INTO`, `DELETE FROM` with `execute(`, `sa.update/insert/delete(…)`, `.update()/.insert()/.delete()`, `op.bulk_insert(`, `Session(`) has a `downgrade()` that changes rows the same ways or has a `raise` statement; reported at the `downgrade` line |
+| `python/sqlalchemy/alembic/applied-migrations` | `check` migration: `forge_applied_migrations @alembic-migrations` (`alembic.ini` `script_location`, §15.4): a revision that exists in the base is not modified or deleted (not with `--all`) |
 
 The migration `check` lint rules above examine the changed revisions, and with `--all` only the head revisions. A required column added without a default (`op.add_column(…, nullable=False)` without `server_default`) is already caught by `migration-lint` (Squawk `adding-required-field`, §13.1).
 
@@ -822,6 +826,9 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/no-mark-safe` | `tool` ruff `S308` |
 | `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
+| `python/django/migration-imports-models` | `ast-grep` forbid on `@django-migrations`: `from <x>.models import …`, `from <x> import models` (not `django.*`) |
+| `python/django/migration-reversible` | `ast-grep` forbid on `@django-migrations`: `migrations.RunPython(…)` without a second positional argument or `reverse_code=`, `migrations.RunSQL(…)` without one or `reverse_sql=` |
+| `python/django/applied-migrations` | `check` migration: `forge_applied_migrations @django-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
 
 context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`; `format_html()` rather than `mark_safe()`; `@csrf_exempt` asked for.
 
@@ -1401,6 +1408,7 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
 | `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
 | `typescript/prisma/no-query-in-loop` | `ast-grep` advise: `await $Q` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap`, where `Q` is `@prisma/client`'s `PrismaPromise` (§15.1): `findMany`, `count`, `aggregate`, `groupBy`, `*Many`; the `Prisma__<Model>Client` of `findUnique`, `findFirst`, `create`, `update`, `upsert`, `delete` extends a type alias of it, which the supertype walk does not follow yet |
+| `typescript/prisma/applied-migrations` | `check` migration: `forge_applied_migrations @prisma-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
 
 context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only (no `Prisma.raw()` from a template); no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
 
@@ -1457,6 +1465,7 @@ Detected by `**/docs/**/*.{md,mdx,rst}`, `**/doc/**/*.{md,mdx,rst}`, `README*`, 
 | Rule | Targets |
 |---|---|
 | `docs/changed-identifiers` | `check` lint, advisory (§10.7): `forge_docs_mentions` on non-test Python, TypeScript and JavaScript files |
+| `docs/adr-immutable` | `check` lint, advisory (§10.7): `forge_adr_edits` on `@adr` (adr-tools `.adr-dir`, else `docs/adr/`, `doc/adr/`, `docs/decisions/`): an ADR accepted in the base (MADR front matter `status: accepted`, or a `## Status` section starting with Accepted) whose change touches more than its status |
 
 ### typescript/drizzle
 
@@ -2005,6 +2014,37 @@ Detected by `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yam
 |---|---|
 | `openapi/no-breaking` | `check` lint, once per turn (§10.7, `forge_once`; pre-commit and CI fail): `forge_oasdiff`, when a YAML or JSON file changed: each OpenAPI document of the repository (an `openapi` / `swagger` version near its top) that existed at the base is compared by the pinned oasdiff (§13.5), `breaking <base> <now> --fail-on ERR --format singleline`; the base side is a copy of the repository's YAML and JSON files with the change undone, so `$ref`s to other files resolve. Each `error at …` line is a finding unless `forge.yaml` accepts it (`accept: [{rule, change: <the line>, reason}]`). Not with `--all` |
 
+### python/uvicorn
+
+Detected by `uvicorn` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/uvicorn/uvicorn-worker` | `grep` forbid on `@dockerfile`, `@procfile`, `@compose`, `@gunicorn-config`, `**/*.py`: `uvicorn.workers.UvicornWorker` / `UvicornH11Worker` (deprecated; `uvicorn_worker.UvicornWorker`) |
+| `python/uvicorn/no-legacy-ws-impl` | `grep` forbid on `@dockerfile`, `@procfile`, `@compose`, `**/*.py`: `--ws websockets`, `ws="websockets"`, `UVICORN_WS=websockets` (the deprecated legacy implementation) |
+| `python/uvicorn/forwarded-allow-all` | `grep` forbid (case-insensitive) on `@dockerfile`, `@procfile`, `@compose`, `@env-files`, `@gunicorn-config`, `**/*.py`: `--forwarded-allow-ips "*"`, `forwarded_allow_ips = "*"`, `FORWARDED_ALLOW_IPS=*` |
+
+### sql
+
+Detected by `flyway.conf`, `flyway.toml`, `conf/flyway.conf`, `supabase/config.toml`, `sqitch.plan`, `atlas.hcl` or `db/migrations/*.sql`. Not tied to a language.
+
+| Rule | Targets |
+|---|---|
+| `sql/applied-migrations` | `check` migration: `forge_applied_migrations @sql-migrations` (§15.4): a migration that exists in the base is not modified or deleted (not with `--all`) |
+
+### typescript/typeorm
+
+| Rule | Targets |
+|---|---|
+| `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
+
+### typescript/cloudflare-workers
+
+| Rule | Targets |
+|---|---|
+| `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
+| `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
+
 ### 13.1 Migration linting
 
 `migration-lint` checks run [Squawk](https://squawkhq.com) (`squawk-cli`, pinned, through `bunx` or `uvx`, like ast-grep) on migration SQL and fail only on the changes that break the running version of the application during a deploy: `renaming-column`, `renaming-table`, `changing-column-type`, `adding-required-field`, `adding-not-nullable-field`, `ban-drop-database`. Squawk's other advice (lock and statement timeouts, `IF NOT EXISTS`, `CONCURRENTLY`, column types) is not enforced: Prisma and Alembic generate SQL that triggers it on every migration. Findings are printed `file:line:column` (from 1). When Squawk cannot run (offline, no `bunx` or `uvx`) or Alembic cannot render a revision, the check prints `forge:<id> skipped: …` and does not block. In CI (`--all`) only the newest migration is linted, so an accepted rename does not fail every later run.
@@ -2104,7 +2144,7 @@ A rule says **what** it needs to know about the code; the engine decides **how**
 |---|---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
 | declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | implemented (§15.6) |
-| files | `@<role>` in `scope.files` and in check helpers | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | designed (§15.4) |
+| files | `@<role>` in `scope.files`, `when_changed`, check commands and a where `module` | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | implemented (§15.4) |
 | tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
 
 ### 15.1 Types
@@ -2138,7 +2178,7 @@ examples:
 
 **Stubs.** A library whose types the checker sees only through a stub package (`django-stubs`, `celery-types`, `asyncpg-stubs`) is named in the target's `needs: [{ecosystem, name}]`: where the rule applies (§5.1) and the project does not declare that package, the target is not rendered and `forge status` reports `not enforced here: the types engine needs <package> installed …`. Its `examples.deps` must install it.
 
-**Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 4 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
+**Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 3 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
 
 **Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json` whose `tsconfig.json` lists the `@types/*` packages among them in `types`, as a project using their globals does: TypeScript 6 and later include none by default; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
 
@@ -2187,36 +2227,49 @@ Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6
 
 ### 15.4 File roles
 
-Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `forge_role <role> <path>` in check helpers. Each role has Forge's defaults; `forge.yaml` changes them:
+Rules and helpers name the files they are about by **role**, not by literal globs: `scope.files: ["@python-tests"]`, `"!@alembic-migrations"`, `when_changed: ["@compose"]`, `forge_role @<role> <path>` in check commands, `module: "@wrangler-types"` in a where type spec. Each role has Forge's defaults; `forge.yaml` changes them:
 
 ```yaml
 files:
-  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults
+  python-tests: {add: ["integration/**/check_*.py"]}   # added to the defaults (or to the tool's config)
   env-files: {set: [".env", ".env.local"]}             # replaces the defaults and the tool's config
 ```
 
-- **Effective patterns** are computed by `forge apply` and rendered literally into the generated scripts (shell `case` patterns, ast-grep `files` / `ignores`), so hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule uses, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`); a changed source is drift (`forge diff`).
-- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, YAML, `schema.prisma`), and then they replace Forge's defaults for that role: pytest `testpaths` / `python_files` (`[tool.pytest.ini_options]`, `pytest.ini`), `alembic.ini` `script_location`, `schema.prisma` generator `output`, `package.json` `prisma.schema`, `[tool.pytest.ini_options]` `DJANGO_SETTINGS_MODULE`. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
+- **Effective patterns** are computed by `forge apply` and rendered literally into the generated files: a rule's `scope.files` and `when_changed` (shell `case` patterns, ast-grep `files` / `ignores`), and `forge_role` in the checks fragment (the roles the active rules name, and those engine helpers name: `@dockerfile`, `@alembic-migrations`). Hooks never parse configs. `forge status` prints a `Files:` section: each role an active rule names, its patterns and where each comes from (`forge default`, the tool's config file, `forge.yaml`), and `matches no file here` for a role no file matches (`--json`: `files`). The lock records each such role's patterns (`roles`); a changed source is drift (`forge status`, `forge diff`: `files @<role> changed since the last apply: …`).
+- **In rules.** `@<role>` in a glob list stands for the role's patterns (its exclusions included); `!@<role>` excludes its files (a role with exclusions cannot be negated). A role a rule names that Forge does not know is an error when the rule is loaded. A rule whose file selection (`scope.files`, or a `when_changed`) is only roles with no pattern is not enforced, and `forge status` says which role to set: it never runs on other files. A where `module` naming a role (`@wrangler-types`) stands for the modules of the role's files, as §15.1 names a project file's module (TypeScript: the path without its extension; Python: dotted); such a role lists files, not globs.
+- **Check helpers.** `forge_role @<role> <path>` succeeds when the repository path is one of the role's files; `forge_role_files @<role>` prints the repository's files of the role (tracked, and untracked but not ignored); `forge_applied_migrations @<role>…` reports migrations of the roles that exist in the base and were modified or deleted (not with `--all`). In a check command a role is an unquoted `@<role>` word; quoted text (`grep -q '@apply'`) is the command's own.
+- **Defaults from the tool's own config**: only when the config is data Forge reads without running code (INI, TOML, JSON, `schema.prisma`, `.adr-dir`, `atlas.hcl` `dir`), read at the repository root, and then they replace Forge's defaults for that role (for `@sql-migrations`, the default of that tool only). What a config says that Forge cannot use as a path (an Alembic package resource `pkg:dir`, a Flyway `classpath:` location) is shown under the role by `forge status`, and the defaults stay. Code configs (`vitest.config.*`, `playwright.config.*`, `drizzle.config.*`, `prisma.config.ts`, `kysely` migrators) are never evaluated: the tool's documented defaults apply, and the user overrides in `forge.yaml`.
 - **Roles and defaults:**
 
 | Role | Defaults | From the tool's config |
 |---|---|---|
-| `compose` | `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`, `compose.*.yaml`, `docker-compose.*.yml` | — |
-| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` | — |
-| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` |
-| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
-| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
-| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` `script_location` + `/versions/**` |
-| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
-| `drizzle-migrations` | `drizzle/**` | — (code config) |
-| `env-files` | `.env`, `.env.*`, `!@env-template` | — |
-| `env-template` | `.env.example`, `.env.sample`, `.env.template` | — |
-| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `adr` | `docs/adr/**`, `doc/adr/**`, `docs/decisions/**` | adr-tools `.adr-dir` + `/**` |
+| `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` (or `[tool.alembic]`) `version_locations`, else `script_location` + `/versions/**` |
+| `better-auth-config` | the auth CLI's search paths: `{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}` | — |
+| `compose` | `**/compose*.yaml`, `**/compose*.yml`, `**/docker-compose*.yaml`, `**/docker-compose*.yml` | — |
+| `django-migrations` | `**/migrations/[0-9]*.py` | — |
+| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` (`a.b` → `a/b.py`, `a/b/*.py`) |
+| `django-templates` | `**/templates/**/*.html`, `**/templates/**/*.txt` | — |
+| `dockerfile` | `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`, `!**/*.dockerignore` | — |
 | `docs` | `docs/**/*.{md,mdx,rst}`, `doc/**/*.{md,mdx,rst}`, `README*` | — |
-| `generated-clients` | none | `schema.prisma` generator `output`; the OpenAPI generator outputs of `package.json` scripts |
-| `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` |
+| `drizzle-migrations` | `drizzle/**` | — (code config) |
+| `e2e-tests` | `e2e/**`, `tests/e2e/**` | — (code config) |
+| `env-files` | `**/.env`, `**/.env.*`, `!@env-template` | — |
+| `env-template` | `**/.env.example`, `**/.env.sample`, `**/.env.template`, `**/.env.dist` | — |
+| `esm-modules` | `**/*.mts`, `**/*.mjs` | plus `<dir>/**/*.{ts,tsx,js,jsx}` for each `package.json` with `"type": "module"`, less those under a nested `package.json` without it |
+| `generated-clients` | none | `schema.prisma` generator `output` (relative to the schema) + `/**` |
+| `gunicorn-config` | `**/gunicorn.conf.py` | — |
+| `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` directory + `/migrations/**` |
+| `procfile` | `Procfile`, `Procfile.*` | — |
+| `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` (`pytest.ini`, `[tool.pytest]` / `[tool.pytest.ini_options]`, `tox.ini`, `setup.cfg`), plus `**/conftest.py` |
+| `sql-migrations` | `db/migration/**/*.sql` (Flyway), `supabase/migrations/*.sql`, `db/migrations/*.sql` (dbmate) | Flyway `flyway.locations` `filesystem:` dirs (`flyway.conf`, `conf/flyway.conf`, `flyway.toml`) replace Flyway's; `deploy/**/*.sql` with `sqitch.plan` (under `sqitch.conf` `top_dir`); Atlas `atlas.hcl` `dir = "file://…"` + `/*.sql` (default `migrations/*.sql`) |
+| `ts-tests` | `**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`, `**/__tests__/**` | — (code config) |
+| `typeorm-datasource` | none: set it in `forge.yaml` | — (code config) |
+| `wrangler-config` | `**/wrangler.toml`, `**/wrangler.json`, `**/wrangler.jsonc` | — |
+| `wrangler-types` | `worker-configuration.d.ts` | — (a CLI argument) |
 
-- A role may include another (`!@env-template`); cycles are rejected. A role an active rule names but nothing matches is reported by `status`, never guessed.
+- Patterns are globs: `**` spans directories, `*` and `?` one segment, `[0-9]` / `[!x]` one character, `{a,b}` alternatives. A role may include another (`!@env-template`); cycles are rejected, and so are roles `forge.yaml` names that Forge does not know.
 
 ### 15.5 Tests (proposed)
 

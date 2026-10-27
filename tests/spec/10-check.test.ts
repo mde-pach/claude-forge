@@ -92,20 +92,21 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/sqlalchemy/alembic/applied-migrations */
   test(
-    "2. applied migrations: a revision that exists at HEAD and is modified fails",
+    "applied migrations: a revision (file role @alembic-migrations) that exists at HEAD and is modified fails",
     () => {
       put(repo, "alembic/versions/0001_users.py", '"""users"""\n\nrevision = "0001"\ndown_revision = "x"\n');
       const r = check();
       expect(r.status).toBe(1);
-      expect(r.stdout).toContain("forge:forge/applied-migration alembic/versions/0001_users.py exists at HEAD and was modified or deleted");
+      expect(r.stdout).toContain("alembic/versions/0001_users.py: an existing migration was modified; it may already be applied somewhere, so write a new migration instead");
       reset();
     },
     T,
   );
 
   test(
-    "3. tests: a test file deleted since HEAD fails",
+    "2. tests: a test file deleted since HEAD fails",
     () => {
       unlinkSync(join(repo, "tests/test_main.py"));
       expect(check().stdout).toContain("forge:forge/deleted-test tests/test_main.py was deleted");
@@ -116,7 +117,7 @@ describe("steps", () => {
 
   /** @rule python/pytest/no-fewer-asserts python/pytest/no-new-skip */
   test(
-    "3. tests: fewer asserts than at HEAD fail (no-decrease), and a new skip fails even in a file new since HEAD (no-increase)",
+    "2. tests: fewer asserts than at HEAD fail (no-decrease), and a new skip fails even in a file new since HEAD (no-increase)",
     () => {
       put(repo, "tests/test_main.py", "from app.main import health\n\n\nasync def test_health() -> None:\n    await health()\n");
       put(repo, "tests/test_new.py", 'import pytest\n\n\n@pytest.mark.skip(reason="x")\ndef test_x() -> None:\n    assert True\n');
@@ -131,7 +132,7 @@ describe("steps", () => {
 
   /** @rule python/no-new-suppressions */
   test(
-    "3. counts: a changed file with more suppression comments than in the base fails (grep no-increase); removing one passes",
+    "2. counts: a changed file with more suppression comments than in the base fails (grep no-increase); removing one passes",
     () => {
       put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\nX = f()  # type: ignore[name-defined]\n");
       const r = check();
@@ -150,7 +151,7 @@ describe("steps", () => {
 
   /** @rule python/sqlalchemy/no-declarative-base */
   test(
-    "4. ast-grep forbid rules report file:line:column with the rule's description",
+    "3. ast-grep forbid rules report file:line:column with the rule's description",
     () => {
       put(repo, "app/repo.py", "def f():\n    return declarative_base(1)\n");
       const r = check();
@@ -163,7 +164,7 @@ describe("steps", () => {
 
   /** @rule python/lint */
   test.if(hasRuff)(
-    "5. lint runs the project's ruff on the changed files and prints the first 15 lines on failure",
+    "4. lint runs the project's ruff on the changed files and prints the first 15 lines on failure",
     () => {
       put(repo, "app/l.py", "import os\n");
       const r = check();
@@ -187,7 +188,7 @@ describe("steps", () => {
 
   /** @rule python/sqlalchemy/alembic/check */
   test(
-    "6. migration checks run only against a local database; a remote DATABASE_URL prints skipped and never blocks",
+    "5. migration checks run only against a local database; a remote DATABASE_URL prints skipped and never blocks",
     () => {
       stub("alembic", 'echo "FAILED: Target database is not up to date."; exit 1');
       put(repo, "app/models/__init__.py", "from sqlalchemy.orm import DeclarativeBase\n\n\nclass Base(DeclarativeBase):\n    pass\n");
@@ -204,7 +205,7 @@ describe("steps", () => {
 
   /** @rule python/pytest/run */
   test(
-    "7. tests: with --changed, pytest gets the changed test files plus tests/**/test_<module>.py of each changed module",
+    "6. tests: with --changed, pytest gets the changed test files plus tests/**/test_<module>.py of each changed module",
     () => {
       stub("pytest", 'printf "ARGS:%s\\n" "$*"; exit 1');
       put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}\n');
@@ -1085,6 +1086,7 @@ describe("added lines", () => {
     T,
   );
 
+  /** @rule python/sqlalchemy/alembic/applied-migrations */
   test(
     "--since: a migration that exists at the merge base and was modified on the branch fails",
     () => {
@@ -1093,9 +1095,9 @@ describe("added lines", () => {
       put(r, "alembic/versions/0001_users.py", '"""users"""\n\nrevision = "0001"\ndown_revision = "x"\n');
       git(r, "add", "-A");
       git(r, "commit", "-qm", "edit", "--no-verify");
-      expect(run(r, "--since", "main").stdout).toContain(
-        "forge:forge/applied-migration alembic/versions/0001_users.py exists at the merge base with main and was modified or deleted",
-      );
+      const out = run(r, "--since", "main").stdout;
+      expect(out).toContain("forge:python/sqlalchemy/alembic/applied-migrations failed");
+      expect(out).toContain("alembic/versions/0001_users.py: an existing migration was modified");
     },
     T,
   );

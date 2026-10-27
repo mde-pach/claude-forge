@@ -1,6 +1,6 @@
 id: python/django/no-raw-sql-format
 description: "QuerySet.extra() and RawSQL() take no SQL built at run time (ruff S610, S611): pass constant SQL with %s placeholders and params, or use annotate() and filter() with expressions. SQL strings built with f-strings, .format(), % or + anywhere, a variable passed to .raw() or cursor.execute() included, are python/no-sql-format (ruff S608)."
-scope: {language: python, files: ["!**/migrations/**"]}
+scope: {language: python, files: ["!@django-migrations"]}
 enforce:
   - target: tool
     tool: ruff

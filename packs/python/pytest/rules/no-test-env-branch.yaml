@@ -1,6 +1,6 @@
 id: python/pytest/no-test-env-branch
 description: Application code does not branch on whether it runs under pytest.
-scope: {language: python, files: ["**/*.py", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!tests/**"]}
+scope: {language: python, files: ["**/*.py", "!@python-tests", "!tests/**"]}
 enforce:
   - target: ast-grep
     mode: forbid

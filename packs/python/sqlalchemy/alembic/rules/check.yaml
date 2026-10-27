@@ -5,5 +5,5 @@ enforce:
   - target: check
     stage: migration
     run: "alembic check"
-    when_changed: ["**/models/**", "**/models.py", "alembic/versions/**"]
+    when_changed: ["**/models/**", "**/models.py", "@alembic-migrations"]
     requires_local_db: true

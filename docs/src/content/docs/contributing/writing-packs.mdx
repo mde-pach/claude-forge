@@ -57,6 +57,12 @@ A tool with no PyPI or npm package runs from its GitHub release: a helper asks t
 
 <Spec file="10-check" describe="pinned release binaries and system tools" />
 
+## Files by role
+
+A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `src/roles.ts`. Rule examples are written where Forge's defaults put the role's files.
+
+<Spec file="15-4-file-roles" describe="roles in rules" />
+
 ## Asking the engine: types
 
 A rule must never decide on names the project chose: `session.query()` is not a SQLAlchemy call because the receiver is called `session`, and a rename should neither hide a match nor create one. When a match depends on **what** an expression is, ask the engine with `where` on the ast-grep target, and say what the type must be, not how to find it:

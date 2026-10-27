@@ -1,6 +1,6 @@
 id: python/pytest/no-mock-increase
 description: "A test file may not gain mocks: unittest.mock's patch (patch.object, patch.dict, patch.multiple), Mock, MagicMock, AsyncMock, NonCallableMock, create_autospec, under their names or an import alias (from unittest.mock import patch as p, import unittest.mock as um), and pytest-mock's mocker.patch*, mocker.spy, mocker.stub and mocker.Mock*; test through the real code or a fake at the boundary. monkeypatch (setattr, setenv, setitem) is not counted: it is pytest's way to set configuration for a test."
-scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: no-increase

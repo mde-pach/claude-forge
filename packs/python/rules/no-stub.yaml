@@ -1,6 +1,6 @@
 id: python/no-stub
 description: No stub left behind. A function whose body is only pass or ..., or that raises NotImplementedError, is a stub unless it is abstract, an overload or part of a Protocol (stub files and migrations are exempt).
-scope: {language: python, files: ["!**/*.pyi", "!**/alembic/versions/**", "!**/migrations/**"]}
+scope: {language: python, files: ["!**/*.pyi", "!@alembic-migrations", "!@django-migrations"]}
 enforce:
   - target: ast-grep
     mode: forbid

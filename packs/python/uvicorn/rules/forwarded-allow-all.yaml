@@ -1,0 +1,14 @@
+id: python/uvicorn/forwarded-allow-all
+description: "Uvicorn and Gunicorn do not trust X-Forwarded-* headers from every client (--forwarded-allow-ips \"*\", forwarded_allow_ips=\"*\", FORWARDED_ALLOW_IPS=*): any client could then set its IP and scheme. List the proxy's addresses; when the app is only reachable through a trusted proxy, ask the user, who can exempt the file with a local rule."
+scope: {language: any, files: ["@dockerfile", "@procfile", "@compose", "@env-files", "@gunicorn-config", "**/*.py"]}
+enforce:
+  - {target: grep, mode: forbid, ignore_case: true, pattern: "forwarded[-_]allow[-_]ips[\"']?[[:space:]]*[=:, ][[:space:]]*[\"']?\\*"}
+examples:
+  match:
+    - "FROM python:3.13-slim\nCMD [\"uvicorn\", \"app.main:app\", \"--proxy-headers\", \"--forwarded-allow-ips\", \"*\"]\n"
+    - "web: uvicorn app.main:app --forwarded-allow-ips='*'\n"
+    - "forwarded_allow_ips = \"*\"\n"
+    - "services:\n  api:\n    environment:\n      FORWARDED_ALLOW_IPS: \"*\"\n"
+  no_match:
+    - "FROM python:3.13-slim\nCMD [\"uvicorn\", \"app.main:app\", \"--proxy-headers\", \"--forwarded-allow-ips\", \"10.0.0.2\"]\n"
+    - "forwarded_allow_ips = \"10.0.0.0/8\"\n"

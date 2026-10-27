@@ -1,6 +1,6 @@
 id: typescript/library/deprecation-shim
 description: "A name exported by a package entry point (package.json exports, main, module, types, mapped from dist/ to src/; export * followed through relative modules) in the base is still exported, and a name that became an alias of another export (export const old = renamed, export { renamed as old }) carries a /** @deprecated */ JSDoc comment on that export. A major version bump does not allow a removal by itself: an intended removal is accepted in forge.yaml (accept)."
-scope: {language: typescript, files: ["!**/*.test.*", "!**/*.spec.*", "!**/__tests__/**", "!e2e/**"]}
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
 enforce:
   - target: check
     stage: lint

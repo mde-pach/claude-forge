@@ -1,0 +1,24 @@
+id: python/django/migration-reversible
+description: migrations.RunPython() has a reverse (reverse_code=, or migrations.RunPython.noop when there is nothing to undo) and migrations.RunSQL() a reverse_sql=, so the migration can be rolled back.
+scope: {language: python, files: ["@django-migrations"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - all:
+            - pattern: migrations.RunPython($$$)
+            - not: {has: {field: arguments, has: {kind: keyword_argument, regex: '^reverse_code\b'}}}
+        - all:
+            - pattern: migrations.RunSQL($$$)
+            - not: {has: {field: arguments, has: {kind: keyword_argument, regex: '^reverse_sql\b'}}}
+      not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {kind: keyword_argument}}}}
+examples:
+  match:
+    - "from django.db import migrations\n\n\ndef forwards(apps, schema_editor):\n    pass\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunPython(forwards)]\n"
+    - "from django.db import migrations\n\n\ndef forwards(apps, schema_editor):\n    pass\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunPython(forwards, elidable=True)]\n"
+    - "from django.db import migrations\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunSQL(\"UPDATE shop_order SET paid = true\")]\n"
+  no_match:
+    - "from django.db import migrations\n\n\ndef forwards(apps, schema_editor):\n    pass\n\n\ndef backwards(apps, schema_editor):\n    pass\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunPython(forwards, backwards)]\n"
+    - "from django.db import migrations\n\n\ndef forwards(apps, schema_editor):\n    pass\n\n\nclass Migration(migrations.Migration):\n    operations = [migrations.RunPython(forwards, reverse_code=migrations.RunPython.noop)]\n"
+    - "from django.db import migrations\n\n\nclass Migration(migrations.Migration):\n    operations = [\n        migrations.RunSQL(\"CREATE INDEX i ON t (a)\", reverse_sql=\"DROP INDEX i\"),\n        migrations.RunSQL(\"CREATE INDEX j ON t (b)\", \"DROP INDEX j\"),\n    ]\n"

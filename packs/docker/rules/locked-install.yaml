@@ -1,8 +1,8 @@
 id: docker/locked-install
 description: "Images install dependencies from the lock file (npm ci, bun install --frozen-lockfile, uv sync --locked, pnpm install --frozen-lockfile, yarn --immutable) and never add packages."
-scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+scope: {language: any, files: ["@dockerfile"]}
 enforce:
-  - {target: check, stage: lint, run: "forge_docker_locked", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+  - {target: check, stage: lint, run: "forge_docker_locked", when_changed: ["@dockerfile"]}
 examples:
   match:
     - files: {Dockerfile: "FROM node:24-slim\nWORKDIR /app\nCOPY . .\nRUN npm install\nUSER node\n", .dockerignore: ".env*\n.git\n"}

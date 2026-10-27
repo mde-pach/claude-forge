@@ -1,9 +1,9 @@
 id: python/sqlalchemy/alembic/migration-lint
 description: New revisions do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL Alembic renders offline.
-scope: {language: python, files: ["alembic/versions/**"]}
+scope: {language: python, files: ["@alembic-migrations"]}
 enforce:
   - target: check
     stage: migration
     run: "forge_squawk_alembic $(alembic heads | forge_alembic_files)"
     changed_run: "forge_squawk_alembic {files}"
-    when_changed: ["alembic/versions/**"]
+    when_changed: ["@alembic-migrations"]

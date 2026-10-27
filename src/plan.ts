@@ -4,6 +4,7 @@ import { parse as parseToml } from "smol-toml";
 import { depMatches, detectAnywhere, detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
 import {
   AUDITED_TOOLS,
+  ENGINE_ROLES,
   PROJECT_TOOLS,
   astGrepRulePath,
   astGrepTestPath,
@@ -27,6 +28,7 @@ import {
   type ActiveGrep,
   type ActiveGuard,
 } from "./render.js";
+import { applyRoles, defaultRoles, resolveRoles, rolesOfRule, type RolePattern, type Roles } from "./roles.js";
 import { listRepoFiles, TY_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
 
@@ -53,6 +55,15 @@ export interface RuleStatus {
   astgrep?: AstGrepTarget;
 }
 
+/** A file role an active rule names (§15.4), as forge status shows it. */
+export interface RoleStatus {
+  name: string;
+  patterns: RolePattern[];
+  notes: string[];
+  /** The active rules naming it. */
+  rules: string[];
+}
+
 export interface Plan {
   level: Level;
   base: string;
@@ -77,6 +88,8 @@ export interface Plan {
   checksFragment?: string;
   /** The types engines the active rules use (§15.2). */
   types: TypesLanguage[];
+  /** The file roles the active rules name, with their effective patterns (§15.4). */
+  roles: RoleStatus[];
 }
 
 export interface PlanOptions {
@@ -89,14 +102,19 @@ export interface PlanOptions {
   config?: ProjectConfig;
   localRules?: Rule[];
   facts?: ProjectFacts;
+  /** The file roles' effective patterns (§15.4); default: Forge's defaults. */
+  roles?: Roles;
 }
 
 /** Reads the project inputs (forge.yaml, .forge/rules, dependency facts) for planProject. */
-export function readProjectInputs(repo: string): Pick<PlanOptions, "config" | "localRules" | "facts"> {
+export function readProjectInputs(repo: string): Pick<PlanOptions, "config" | "localRules" | "facts" | "roles"> {
+  const config = loadProjectConfig(repo);
+  const files = listRepoFiles(repo);
   return {
-    config: loadProjectConfig(repo),
+    config,
     localRules: loadLocalRules(repo),
-    facts: readProjectFacts(repo, () => listRepoFiles(repo)),
+    facts: readProjectFacts(repo, () => files),
+    roles: resolveRoles({ repo, files }, config?.files),
   };
 }
 
@@ -268,7 +286,6 @@ export function plan(opts: PlanOptions): Plan {
   };
   const gatedOut = (rule: Rule): boolean => {
     if (!rule.when || !opts.facts) return false;
-    const where = packDirs(rule.pack);
     return ruleDirs(rule)?.length === 0;
   };
 
@@ -315,7 +332,18 @@ export function plan(opts: PlanOptions): Plan {
       gated.push({ id, needs: r.when!.deps.map((d) => `${d.name} ${d.version}`).join(", ") });
     }
 
-  const rulesSorted = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  // file roles (§15.4): each rule as apply renders it, its roles replaced by their effective patterns
+  const roles = opts.roles ?? defaultRoles();
+  const roleUse = new Map<string, string[]>();
+  const emptyRoles = new Map<string, string[]>();
+  const rulesSorted = [...byId.values()]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((r) => {
+      for (const name of rolesOfRule(r)) roleUse.set(name, [...(roleUse.get(name) ?? []), r.id]);
+      const { rule, empty } = applyRoles(r, roles);
+      if (empty.length) emptyRoles.set(r.id, empty);
+      return rule;
+    });
   const active: RuleStatus[] = [];
   const checks: ActiveCheck[] = [];
   const greps: ActiveGrep[] = [];
@@ -327,6 +355,13 @@ export function plan(opts: PlanOptions): Plan {
 
   for (const rule of rulesSorted) {
     const st: RuleStatus = { rule, enforced: [], notEnforced: [], audits: [] };
+    const empty = emptyRoles.get(rule.id);
+    if (empty) {
+      // never guessed: a rule whose files are a role with no pattern is reported, not run on other files
+      st.notEnforced.push(`not enforced here: file role ${empty.map((e) => `@${e}`).join(", ")} has no files (set them in forge.yaml: files: {${empty[0]}: {set: [...]}})`);
+      active.push(st);
+      continue;
+    }
     const toolTargets = rule.enforce.filter((t): t is ToolTarget => t.target === "tool");
     const astTargets = rule.enforce.filter((t): t is AstGrepTarget => t.target === "ast-grep");
     if (astTargets.length > 1) throw new Error(`${rule.file}: at most one ast-grep target per rule`);
@@ -418,7 +453,9 @@ export function plan(opts: PlanOptions): Plan {
         .join("|");
     // the types engines the active ast-grep rules use (§15.2)
     const types = [...new Set(astgrep.map((a) => typesLanguage(a.rule, a.target)).filter((l): l is TypesLanguage => !!l))].sort();
-    const fragment = renderChecks(checks, greps, types);
+    // forge_role knows the roles the active rules and the engine's helpers name
+    const rendered: Roles = new Map([...roles].filter(([name]) => roleUse.has(name) || ENGINE_ROLES.includes(name)));
+    const fragment = renderChecks(checks, greps, types, rendered);
     checksFragment = fragment;
     typesUsed = types;
     const root = ".claude/skills/forge-project";
@@ -440,7 +477,7 @@ export function plan(opts: PlanOptions): Plan {
       const ctx = opts.packs.get(p.id)!.context;
       if (ctx !== undefined) files.set(`.claude/rules/${contextFileName(p.id)}`, CONTEXT_INTRO + ctx);
     }
-    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps, types));
+    files.set(".forge/check.sh", renderCheckScript(checks, { forbid: ids("forbid"), noIncrease: ids("no-increase"), noDecrease: ids("no-decrease") }, greps, types, rendered));
     files.set(".forge/.gitignore", "state/\n");
     for (const [path, text] of helperFiles(checks, types)) files.set(path, text);
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
@@ -477,6 +514,9 @@ export function plan(opts: PlanOptions): Plan {
     toolDirs,
     checksFragment,
     types: typesUsed,
+    roles: level === "project"
+      ? [...roleUse.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([name, ids]) => ({ name, patterns: roles.get(name)!.patterns, notes: roles.get(name)!.notes, rules: ids }))
+      : [],
   };
 }
 

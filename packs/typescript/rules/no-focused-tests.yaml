@@ -1,6 +1,6 @@
 id: typescript/no-focused-tests
 description: No focused tests (.only). They silently turn every other test into a pass.
-scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "e2e/**"]}
+scope: {language: typescript, files: ["@ts-tests", "@e2e-tests"]}
 enforce:
   - target: tool
     tool: biome
