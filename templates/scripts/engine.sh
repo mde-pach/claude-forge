@@ -1700,9 +1700,27 @@ forge_tflint() {
   done >> "$FORGE_TMP/tflint.hcl"
   TFLINT_PLUGIN_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/forge/tflint-plugins
   export TFLINT_PLUGIN_DIR
-  if grep -q '^  source  = ' "$FORGE_TMP/tflint.hcl"; then
-    "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
-      || { printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
+  # a ruleset missing from the cache is installed in a directory of its own, then renamed
+  # into place: a concurrent run never loads a half-written plugin
+  _tl_missing=0
+  sed -n 's/^  source  = "github.com\/\(.*\)"$/\1/p' "$FORGE_TMP/tflint.hcl" > "$FORGE_TMP/tfl.sources"
+  while IFS= read -r _tl_s; do
+    _tl_v=$(grep -B1 "source  = \"github.com/$_tl_s\"" "$FORGE_TMP/tflint.hcl" | sed -n 's/^  version = "\(.*\)"$/\1/p')
+    [ -x "$TFLINT_PLUGIN_DIR/github.com/$_tl_s/$_tl_v/${_tl_s##*/}" ] || _tl_missing=1
+  done < "$FORGE_TMP/tfl.sources"
+  if [ "$_tl_missing" = 1 ]; then
+    mkdir -p "$TFLINT_PLUGIN_DIR"
+    _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
+    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+      || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
+    ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
+      [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
+      mkdir -p "$TFLINT_PLUGIN_DIR/${_tl_d%/*}"
+      mv "$_tl_new/$_tl_d" "$TFLINT_PLUGIN_DIR/$_tl_d" 2>/dev/null || true
+      # another run renamed its copy first: ours went inside it
+      rm -rf "$TFLINT_PLUGIN_DIR/$_tl_d/${_tl_d##*/}"
+    done
+    rm -rf "$_tl_new"
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
