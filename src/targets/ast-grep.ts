@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { astGrepRulePath, astGrepTestPath, renderAstGrepRule, renderAstGrepTest, renderSgConfig, typesLanguage } from "../render.js";
+import { astGrepRulePath, astGrepTestPath, renderAstGrepRule, renderAstGrepTest, renderSgConfig, typesLanguage } from "../render/index.js";
 import { astGrepCommand, typesExamples } from "../selftest/runners.js";
 import type { AstGrepTarget, ToolTarget } from "../types.js";
 import { TY_VERSION, run } from "../util.js";

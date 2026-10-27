@@ -1,6 +1,6 @@
 import { globToRegExp } from "../core/globs.js";
 import { commandExists, TY_COMMAND } from "../core/tools.js";
-import { renderLib } from "../render.js";
+import { renderLib } from "../render/index.js";
 import { kindOf, targetsByPhase } from "../targets/index.js";
 import type { AuditResult } from "../audit.js";
 import { roleGlobs } from "../roles.js";

@@ -5,7 +5,7 @@ import { examplePath } from "../audit.js";
 import { globMatch } from "../core/globs.js";
 import { checkTools, commandExists, PROJECT_TOOLS, PYTHON_TOOLS } from "../core/tools.js";
 import { codeExamples } from "../examples.js";
-import { astGrepRulePath, renderAstGrepRule, renderCheckScript, renderChecks, helperFiles, renderLib, renderSgConfig, typesLanguage, type TypesLanguage } from "../render.js";
+import { astGrepRulePath, renderAstGrepRule, renderCheckScript, renderChecks, helperFiles, renderLib, renderSgConfig, typesLanguage, type TypesLanguage } from "../render/index.js";
 import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, type Job, ownedHash, run, runParallel, sha256 } from "../util.js";
 import type { TestReport } from "../types.js";
 import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, Rule, WhereCondition } from "../types.js";

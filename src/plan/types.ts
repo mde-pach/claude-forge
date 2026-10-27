@@ -1,5 +1,5 @@
 import type { AuditedTool } from "../core/tools.js";
-import type { TypesLanguage } from "../render.js";
+import type { TypesLanguage } from "../render/index.js";
 import type { Roles, RolePattern } from "../roles.js";
 import type { DesiredEntry, Level, Pack, ProjectConfig, Rule, RuleStatus, SwitchedOff } from "../types.js";
 import type { ProjectFacts } from "../packs.js";

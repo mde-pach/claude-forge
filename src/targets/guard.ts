@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { guardExamples } from "../examples.js";
-import { renderGuardRules, template } from "../render.js";
+import { renderGuardRules, template } from "../render/index.js";
 import { availableShells, guardExampleDir, guardJob, guardOutcome } from "../selftest/runners.js";
 import type { GuardTarget } from "../types.js";
 import { type Job, runParallel } from "../util.js";

@@ -4,7 +4,7 @@
  * in ./index.ts; the schema, the plan, `forge status`, the self-test and the docs'
  * lifecycle pages follow from it.
  */
-import type { ActiveAstGrep, ActiveCheck, ActiveGrep, ActiveGuard } from "../render.js";
+import type { ActiveAstGrep, ActiveCheck, ActiveGrep, ActiveGuard } from "../render/index.js";
 import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Rule, RuleStatus, SwitchedOff, Target, TestReport, ToolName, ToolTarget } from "../types.js";
 import type { LifecycleEvent } from "./events.js";
 

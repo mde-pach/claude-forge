@@ -19,7 +19,7 @@ import {
   template,
   typesLanguage,
   type TypesLanguage,
-} from "../render.js";
+} from "../render/index.js";
 import type { Roles } from "../roles.js";
 import type { AstGrepTarget, DesiredEntry, Pack } from "../types.js";
 import type { PlanContext } from "../targets/kind.js";
