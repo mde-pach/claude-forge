@@ -28299,7 +28299,7 @@ forge_end "$fail"
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
-    ".forge/helpers/pm_policy.mjs": "ec38e06ac342f8bce5199c3656011781f9650cecf8df4ceb761c954086da7575",
+    ".forge/helpers/pm_policy.mjs": "cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -28779,9 +28779,9 @@ process.exit(bad ? 1 : 0);
 //   pnpm-overrides      pnpm-workspace.yaml overrides entries new since the base
 // Exit 0: nothing found; 1: findings printed ("path:line message", or "path: message" for a
 // requirement of the whole setup); 3: cannot run ("skipped: …" printed).
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const [tmp, mode, cooldownArg] = process.argv.slice(2);
 // npm-cooldown: Forge's one release cooldown, in seconds (FORGE_COOLDOWN_SECONDS), as days
@@ -30041,7 +30041,7 @@ ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-gre
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs
-ec38e06ac342f8bce5199c3656011781f9650cecf8df4ceb761c954086da7575  .forge/helpers/pm_policy.mjs
+cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc  .forge/helpers/pm_policy.mjs
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 
