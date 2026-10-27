@@ -1,0 +1,15 @@
+id: python/valid-pyproject
+description: "pyproject.toml is valid: its [project] fields have the types PEP 621 gives them (dependencies is a list of strings, readme a string or a table)."
+scope: {language: any, files: ["**/pyproject.toml"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: RUF200
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["RUF200"]
+examples:
+  match:
+    - "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\ndependencies = \"fastapi\"\n"
+  no_match:
+    - "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\ndependencies = [\"fastapi>=0.115\"]\n"

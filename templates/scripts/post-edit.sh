@@ -85,7 +85,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046

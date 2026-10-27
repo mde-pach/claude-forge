@@ -152,7 +152,7 @@ const target = {
         required: ["mode", "pattern"],
         properties: {
           target: true,
-          mode: { enum: ["forbid", "no-increase", "no-decrease"] },
+          mode: { enum: ["forbid", "no-increase", "no-decrease", "advise"] },
           pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
           ignore_case: { type: "boolean" },
         },
@@ -212,6 +212,8 @@ const target = {
           format_stdin: { type: "string", minLength: 1, pattern: "\\{file\\}" },
           rerun: { type: "string", minLength: 1, pattern: "\\{files\\}" },
           when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
+          // lint only: the tool's config files it also lints (ruff's RUF200 on pyproject.toml), in the check's scope
+          config_files: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
           requires_local_db: { type: "boolean" },
           // the check's warnings block like errors (the run fails on them: oxlint --deny-warnings)
           fail_on_warnings: { const: true },
@@ -221,6 +223,7 @@ const target = {
           // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
           { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
           { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
+          { if: { required: ["config_files"] }, then: { properties: { stage: { const: "lint" } } } },
         ],
       },
     },

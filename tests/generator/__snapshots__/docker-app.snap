@@ -1891,7 +1891,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -1901,13 +1901,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -5492,7 +5493,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
@@ -6302,7 +6303,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -6312,13 +6313,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -10733,7 +10735,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -10743,13 +10745,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -15184,7 +15187,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -15194,13 +15197,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -21077,7 +21081,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -21087,13 +21091,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -24871,7 +24876,7 @@ forge_end "$fail"
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
-    "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
+    "python/lint": "d0f67a49b3a5d4ccd7fc6830e7782d53a30d5659d377baed8cb2db0a6ecccf9f",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
@@ -24946,6 +24951,7 @@ forge_end "$fail"
     "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
     "python/typed-decorators": "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75",
     "python/typeis-over-typeguard": "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9",
+    "python/valid-pyproject": "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241",
     "python/weak-crypto": "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48",
     "python/with-suffix-dot": "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2",
     "secrets/gitleaks": "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5",
@@ -24970,14 +24976,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "f766fc06aa809fe9ae623ce39d4507c43d8c82dc8d038083b2cb23736dd06cdf",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "880e4344a7acebd5c2193aa51b8f74fd27aa900369995a87eccc021935929ca9",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b7afbb46741a704604caf0ab6c804b578deec0512275a1567784ced56b9ba894",
+    ".claude/skills/forge-project/scripts/session-start.sh": "932ca3ce33f4ec2d9ed36e8d05cf48d4b446c0d5495beb766f820ad6eaf0aa3d",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "1c2a48c6febf5b08f62dd4686e219fde808f8336f7171c6468bfa1125e79afa6",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "df72f32a0c3a777763c4d08ae1ffe9053361dee73c0ecf1e4df0ba8033f5125a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "f1b1665a45b131a80564acf025479282f008f66f70a301e1fd227b78c7c6f874",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "905cfda7adc6b4b02788b9bdf11fb49c103c9fb83edd726ef3d9c1a84fddabc4",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -25010,7 +25016,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c60b761d9799ac637513b4181b069602f3406c158f446b432c77055959c06639",
+    ".forge/check.sh": "2dfb567a28ac46b51fd0bd52310983faa09b76fde86ae1dab147431ce7322443",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -25940,14 +25946,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-f766fc06aa809fe9ae623ce39d4507c43d8c82dc8d038083b2cb23736dd06cdf  .claude/skills/forge-project/scripts/post-edit.sh
+880e4344a7acebd5c2193aa51b8f74fd27aa900369995a87eccc021935929ca9  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-b7afbb46741a704604caf0ab6c804b578deec0512275a1567784ced56b9ba894  .claude/skills/forge-project/scripts/session-start.sh
+932ca3ce33f4ec2d9ed36e8d05cf48d4b446c0d5495beb766f820ad6eaf0aa3d  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-1c2a48c6febf5b08f62dd4686e219fde808f8336f7171c6468bfa1125e79afa6  .claude/skills/forge-project/scripts/test-edit.sh
+df72f32a0c3a777763c4d08ae1ffe9053361dee73c0ecf1e4df0ba8033f5125a  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-f1b1665a45b131a80564acf025479282f008f66f70a301e1fd227b78c7c6f874  .claude/skills/forge-project/scripts/typecheck.sh
+905cfda7adc6b4b02788b9bdf11fb49c103c9fb83edd726ef3d9c1a84fddabc4  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -25980,7 +25986,7 @@ a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c60b761d9799ac637513b4181b069602f3406c158f446b432c77055959c06639  .forge/check.sh
+2dfb567a28ac46b51fd0bd52310983faa09b76fde86ae1dab147431ce7322443  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
 

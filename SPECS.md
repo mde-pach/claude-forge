@@ -175,7 +175,7 @@ A rule with `when` is active only where each listed dependency is declared in it
 
 Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
-Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
+Every rule blocks, except an `ast-grep` or `grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
 ### 6.2 Targets
 
@@ -186,16 +186,16 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1) | owned | `.forge/check.sh` (§10) |
-| `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
+| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1), `config_files` (optional, lint only, globs or roles: the tool's own config files it also lints, e.g. ruff's `RUF200` on `pyproject.toml`; a changed one is in the check's scope, so `{files}`, the edit-time run and the attribution of §10.1 include it) | owned | `.forge/check.sh` (§10) |
+| `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease \| advise`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
 - `forbid`: a match on an added line of a changed file fails (§10.1); with `--all`, any match.
 - `no-increase`: more matches than in the base in a changed file fails.
 - `no-decrease`: fewer matches than in the base in a changed file fails.
-- `advise` (ast-grep only): a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
+- `advise`: a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
 
-The schema rejects fields that would do nothing: `rerun` outside stage `test`, `format_stdin` outside `format` / `lint`, `check` on a guard with `decision: deny`, and `review` on a rule with neither a guard `ask` nor the test-edit check (`run: forge_test_edits`). A project tool whose name has a `-` (`vue-tsc`) has no wrapper function, so a check runs it as `forge_exec_tool <name>`; a rule running it directly is rejected when packs and local rules load.
+The schema rejects fields that would do nothing: `rerun` outside stage `test`, `format_stdin` outside `format` / `lint`, `config_files` outside `lint`, `check` on a guard with `decision: deny`, and `review` on a rule with neither a guard `ask` nor the test-edit check (`run: forge_test_edits`). A project tool whose name has a `-` (`vue-tsc`) has no wrapper function, so a check runs it as `forge_exec_tool <name>`; a rule running it directly is rejected when packs and local rules load.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 
@@ -545,7 +545,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | Rule | Targets |
 |---|---|
 | `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
-| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
+| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`) |
+| `python/valid-pyproject` | `tool` ruff `RUF200` (`[project]` fields typed as PEP 621 says; a changed `pyproject.toml` is linted by `python/lint`'s `config_files`) |
 | `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2) |
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
@@ -858,6 +859,7 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
 | `python/django/csrf-exempt` | `ast-grep` forbid: `@csrf_exempt`, `csrf_exempt(…)`, `csrf_exempt` passed as an argument (`@method_decorator(csrf_exempt, …)`); the user decides, and disables the rule for that file in a local rule |
 | `python/django/no-mark-safe` | `tool` ruff `S308` |
+| `python/django/no-template-unescape` | `grep` advise on `@django-templates`: a `\|safe` or `\|safeseq` filter, `{% autoescape off %}` |
 | `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
 | `python/django/migration-imports-models` | `ast-grep` forbid on `@django-migrations`: `from <x>.models import …`, `from <x> import models` (not `django.*`) |
