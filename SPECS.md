@@ -1174,7 +1174,7 @@ Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
 | `typescript/eslint/type-checked` | `tool` eslint: typescript-eslint's `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`, `return-await`, `unbound-method`, `no-misused-spread`, `no-array-delete`, `no-for-in-array`, `restrict-template-expressions`, `prefer-promise-reject-errors`, `use-unknown-in-catch-callback-variable`, `no-unnecessary-type-assertion`, `no-unnecessary-condition`, `consistent-type-assertions` (`objectLiteralTypeAssertions: never`); snippet: error; type-aware (`parserOptions.projectService`) |
 | `typescript/eslint/ts-version` | `check` lint (with `bun`): the `typescript` that `@typescript-eslint/typescript-estree` resolves (directly, or through `typescript-eslint` / `@typescript-eslint/parser`) exports `createProgram`; TypeScript 7 has no compiler API, typescript-eslint supports `<6.1.0`; `when_changed`: `package.json` files and lock files |
 
-context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older.
+context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older; warnings block; the type-aware rules are errors.
 
 ### typescript/oxlint
 
@@ -1265,7 +1265,7 @@ Detected by the `@testing-library/react` dependency.
 | `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
 | `typescript/testing-library/lint` | `tool` eslint (test files, `@ts-tests`): `testing-library/await-async-queries`, `no-wait-for-side-effects`, `prefer-find-by`, `prefer-screen-queries`, `no-unnecessary-act`, `no-node-access` (snippet: error; eslint-plugin-testing-library) |
 
-context.md: `renderHook` from `@testing-library/react`.
+context.md: `renderHook` from `@testing-library/react`; the testing-library ESLint rules' practices.
 
 ### typescript/msw
 
