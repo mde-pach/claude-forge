@@ -1,0 +1,30 @@
+id: typescript/no-deprecated
+description: "No use of a declaration marked @deprecated (the project's, a library's, @types/node's): a call, construction, property, type or import TypeScript reports as deprecated (for an overloaded function, the signature the call resolves to), or an object literal key whose property is deprecated. Use the replacement the deprecation names."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: identifier, pattern: $N}
+        - {kind: property_identifier, pattern: $N}
+        - {kind: type_identifier, pattern: $N}
+        - {kind: shorthand_property_identifier, pattern: $N}
+    where:
+      N: {deprecated: true}
+examples:
+  deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import * as url from \"node:url\";\n\nexport const home = url.parse(\"https://example.com/\");\n"
+    - "export const bytes = new Buffer(\"payload\");\n"
+    - "/** @deprecated use total() */\nfunction sum(a: number, b: number): number {\n  return a + b;\n}\n\nexport const s = sum(1, 2);\n"
+    - "interface ConnectOptions {\n  /** @deprecated use timeoutMs */\n  timeout?: number;\n  timeoutMs?: number;\n}\n\ndeclare function connect(options: ConnectOptions): void;\n\nconnect({ timeout: 5 });\n"
+    - "declare function format(value: string): string;\n/** @deprecated pass a string */\ndeclare function format(value: number): string;\n\nexport const f = format(1);\n"
+  no_match:
+    - "export const home = new URL(\"https://example.com/\");\n"
+    - "export const bytes = Buffer.from(\"payload\");\n"
+    # a deprecated declaration that is not used, and an interface member declaring a deprecated property
+    - "/** @deprecated use total() */\nexport function sum(a: number, b: number): number {\n  return a + b;\n}\n\nexport interface ConnectOptions {\n  /** @deprecated use timeoutMs */\n  timeout: number;\n  timeoutMs: number;\n}\n"
+    - "interface ConnectOptions {\n  /** @deprecated use timeoutMs */\n  timeout?: number;\n  timeoutMs?: number;\n}\n\ndeclare function connect(options: ConnectOptions): void;\n\nconnect({ timeoutMs: 5 });\nconst parser = { parse: (s: string) => s };\nexport const p = parser.parse(\"x\");\n"
+    # the overload that is not deprecated
+    - "declare function format(value: string): string;\n/** @deprecated pass a string */\ndeclare function format(value: number): string;\n\nexport const f = format(\"1\");\n"
