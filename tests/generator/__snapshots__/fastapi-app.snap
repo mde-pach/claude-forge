@@ -56,6 +56,9 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
       "Edit(**/ruff.toml)",
       "Edit(**/.ruff.toml)",
       "Edit(**/ty.toml)",
+      "Edit(**/mypy.ini)",
+      "Edit(**/.mypy.ini)",
+      "Edit(**/pyrightconfig.json)",
       "Write(**/setup.py)",
       "Write(**/setup.cfg)",
       "Write(**/requirements*.txt)",
@@ -1213,7 +1216,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=29
+FORGE_NCHECKS=30
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -1264,10 +1267,10 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_ratchet python ratchet.py
 }
@@ -1315,6 +1318,7 @@ forge_check_meta_7() {
   c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in pyproject.toml|*/pyproject.toml) return 0 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -1360,107 +1364,106 @@ forge_check_run_9() {
 forge_test_edits
 }
 
-# 10. python/pytest/run
+# 10. python/pytest/pydantic-deprecations-error
 forge_check_meta_10() {
+  c_id='python/pytest/pydantic-deprecations-error'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in pyproject.toml|*/pyproject.toml|pytest.ini|*/pytest.ini|.pytest.ini|*/.pytest.ini|tox.ini|*/tox.ini|setup.cfg|*/setup.cfg) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { case $1 in pyproject.toml|pytest.ini|.pytest.ini|tox.ini|setup.cfg) return 0 ;; esac; return 1; }
+forge_check_run_10() {
+forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic
+}
+
+# 11. python/pytest/run
+forge_check_meta_11() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-pytest -q
-}
-forge_check_changed_10() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_10() {
-pytest -q $FORGE_FILES
-}
-
-# 11. python/pytest/untested-change
-forge_check_meta_11() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_11() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_11() { return 1; }
 forge_check_run_11() {
+pytest -q
+}
+forge_check_changed_11() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_11() {
+pytest -q $FORGE_FILES
+}
+
+# 12. python/pytest/untested-change
+forge_check_meta_12() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_12() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_12() { return 1; }
+forge_check_run_12() {
 forge_advise forge_untested_change
 }
 
-# 12. python/ruff-config-current
-forge_check_meta_12() {
+# 13. python/ruff-config-current
+forge_check_meta_13() {
   c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
-# 13. python/sqlalchemy/alembic/applied-migrations
-forge_check_meta_13() {
+# 14. python/sqlalchemy/alembic/applied-migrations
+forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   return 0
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_applied_migrations @alembic-migrations
 }
 
-# 14. python/sqlalchemy/alembic/check
-forge_check_meta_14() {
+# 15. python/sqlalchemy/alembic/check
+forge_check_meta_15() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_14() {
+forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
+forge_when_15() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 alembic check
 }
 
-# 15. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_15() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_15() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 16. python/sqlalchemy/alembic/fk-index
+# 16. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_16() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -1471,86 +1474,102 @@ forge_scope_16() {
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 17. python/sqlalchemy/alembic/migration-lint
+# 17. python/sqlalchemy/alembic/fk-index
 forge_check_meta_17() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_17() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_17() { return 1; }
 forge_check_run_17() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_17() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 18. python/sqlalchemy/alembic/model-registered
+# 18. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_18() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_18() { return 1; }
-forge_check_run_18() {
-forge_models_registered
-}
-
-# 19. python/sqlalchemy/alembic/single-head
-forge_check_meta_19() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_19() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_19() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 20. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_20() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_20() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_20() { return 1; }
+forge_when_18() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_18() {
+forge_squawk_alembic $FORGE_FILES
+}
+
+# 19. python/sqlalchemy/alembic/model-registered
+forge_check_meta_19() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_models_registered
+}
+
+# 20. python/sqlalchemy/alembic/single-head
+forge_check_meta_20() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_20() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 21. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_21() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_21() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_21() { return 1; }
+forge_check_run_21() {
 forge_alembic_batch
 }
 
-# 21. python/sqlalchemy/asyncio-extra
-forge_check_meta_21() {
+# 22. python/sqlalchemy/asyncio-extra
+forge_check_meta_22() {
   c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_21() {
+forge_scope_22() {
   return 0
 }
-forge_when_21() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_21() {
+forge_when_22() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -1558,122 +1577,122 @@ return 1
 
 }
 
-# 22. python/sqlalchemy/fk-index
-forge_check_meta_22() {
+# 23. python/sqlalchemy/fk-index
+forge_check_meta_23() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_22() { return 1; }
-forge_check_run_22() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 23. python/stub-sync
-forge_check_meta_23() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_23() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 24. python/typecheck
+# 24. python/stub-sync
 forge_check_meta_24() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 25. python/uv/exclude-newer
+# 25. python/typecheck
 forge_check_meta_25() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_25() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_25() { return 1; }
 forge_check_run_25() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 26. python/uv/lock-sync
+# 26. python/uv/exclude-newer
 forge_check_meta_26() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   return 0
 }
-forge_when_26() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_26() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_26() {
-uv lock --check
+forge_uv_cooldown
 }
 
-# 27. secrets/gitleaks
+# 27. python/uv/lock-sync
 forge_check_meta_27() {
-  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
-forge_when_27() { return 1; }
+forge_when_27() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-forge_gitleaks
+uv lock --check
 }
 
-# 28. secrets/no-credential-files
+# 28. secrets/gitleaks
 forge_check_meta_28() {
-  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
 }
-forge_when_28() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_when_28() { return 1; }
 forge_check_run_28() {
+forge_gitleaks
+}
+
+# 29. secrets/no-credential-files
+forge_check_meta_29() {
+  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_29() {
+  return 0
+}
+forge_when_29() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_check_run_29() {
 forge_credential_files
 }
 
-# 29. supply-chain/vuln-audit
-forge_check_meta_29() {
+# 30. supply-chain/vuln-audit
+forge_check_meta_30() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_29() {
+forge_scope_30() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_29() { return 1; }
-forge_check_run_29() {
+forge_when_30() { return 1; }
+forge_check_run_30() {
 forge_osv
 }
 
@@ -1971,7 +1990,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -1981,13 +2000,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -2308,6 +2328,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -5572,7 +5628,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
@@ -5695,7 +5751,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=29
+FORGE_NCHECKS=30
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -5746,10 +5802,10 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_ratchet python ratchet.py
 }
@@ -5797,6 +5853,7 @@ forge_check_meta_7() {
   c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in pyproject.toml|*/pyproject.toml) return 0 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -5842,107 +5899,106 @@ forge_check_run_9() {
 forge_test_edits
 }
 
-# 10. python/pytest/run
+# 10. python/pytest/pydantic-deprecations-error
 forge_check_meta_10() {
+  c_id='python/pytest/pydantic-deprecations-error'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in pyproject.toml|*/pyproject.toml|pytest.ini|*/pytest.ini|.pytest.ini|*/.pytest.ini|tox.ini|*/tox.ini|setup.cfg|*/setup.cfg) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { case $1 in pyproject.toml|pytest.ini|.pytest.ini|tox.ini|setup.cfg) return 0 ;; esac; return 1; }
+forge_check_run_10() {
+forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic
+}
+
+# 11. python/pytest/run
+forge_check_meta_11() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-pytest -q
-}
-forge_check_changed_10() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_10() {
-pytest -q $FORGE_FILES
-}
-
-# 11. python/pytest/untested-change
-forge_check_meta_11() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_11() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_11() { return 1; }
 forge_check_run_11() {
+pytest -q
+}
+forge_check_changed_11() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_11() {
+pytest -q $FORGE_FILES
+}
+
+# 12. python/pytest/untested-change
+forge_check_meta_12() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_12() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_12() { return 1; }
+forge_check_run_12() {
 forge_advise forge_untested_change
 }
 
-# 12. python/ruff-config-current
-forge_check_meta_12() {
+# 13. python/ruff-config-current
+forge_check_meta_13() {
   c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
-# 13. python/sqlalchemy/alembic/applied-migrations
-forge_check_meta_13() {
+# 14. python/sqlalchemy/alembic/applied-migrations
+forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   return 0
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_applied_migrations @alembic-migrations
 }
 
-# 14. python/sqlalchemy/alembic/check
-forge_check_meta_14() {
+# 15. python/sqlalchemy/alembic/check
+forge_check_meta_15() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_14() {
+forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
+forge_when_15() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 alembic check
 }
 
-# 15. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_15() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_15() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 16. python/sqlalchemy/alembic/fk-index
+# 16. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_16() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -5953,86 +6009,102 @@ forge_scope_16() {
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 17. python/sqlalchemy/alembic/migration-lint
+# 17. python/sqlalchemy/alembic/fk-index
 forge_check_meta_17() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_17() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_17() { return 1; }
 forge_check_run_17() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_17() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 18. python/sqlalchemy/alembic/model-registered
+# 18. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_18() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_18() { return 1; }
-forge_check_run_18() {
-forge_models_registered
-}
-
-# 19. python/sqlalchemy/alembic/single-head
-forge_check_meta_19() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_19() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_19() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 20. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_20() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_20() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_20() { return 1; }
+forge_when_18() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_18() {
+forge_squawk_alembic $FORGE_FILES
+}
+
+# 19. python/sqlalchemy/alembic/model-registered
+forge_check_meta_19() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_models_registered
+}
+
+# 20. python/sqlalchemy/alembic/single-head
+forge_check_meta_20() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_20() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 21. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_21() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_21() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_21() { return 1; }
+forge_check_run_21() {
 forge_alembic_batch
 }
 
-# 21. python/sqlalchemy/asyncio-extra
-forge_check_meta_21() {
+# 22. python/sqlalchemy/asyncio-extra
+forge_check_meta_22() {
   c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_21() {
+forge_scope_22() {
   return 0
 }
-forge_when_21() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_21() {
+forge_when_22() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -6040,122 +6112,122 @@ return 1
 
 }
 
-# 22. python/sqlalchemy/fk-index
-forge_check_meta_22() {
+# 23. python/sqlalchemy/fk-index
+forge_check_meta_23() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_22() { return 1; }
-forge_check_run_22() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 23. python/stub-sync
-forge_check_meta_23() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_23() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 24. python/typecheck
+# 24. python/stub-sync
 forge_check_meta_24() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 25. python/uv/exclude-newer
+# 25. python/typecheck
 forge_check_meta_25() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_25() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_25() { return 1; }
 forge_check_run_25() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 26. python/uv/lock-sync
+# 26. python/uv/exclude-newer
 forge_check_meta_26() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   return 0
 }
-forge_when_26() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_26() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_26() {
-uv lock --check
+forge_uv_cooldown
 }
 
-# 27. secrets/gitleaks
+# 27. python/uv/lock-sync
 forge_check_meta_27() {
-  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
-forge_when_27() { return 1; }
+forge_when_27() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-forge_gitleaks
+uv lock --check
 }
 
-# 28. secrets/no-credential-files
+# 28. secrets/gitleaks
 forge_check_meta_28() {
-  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
 }
-forge_when_28() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_when_28() { return 1; }
 forge_check_run_28() {
+forge_gitleaks
+}
+
+# 29. secrets/no-credential-files
+forge_check_meta_29() {
+  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_29() {
+  return 0
+}
+forge_when_29() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_check_run_29() {
 forge_credential_files
 }
 
-# 29. supply-chain/vuln-audit
-forge_check_meta_29() {
+# 30. supply-chain/vuln-audit
+forge_check_meta_30() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_29() {
+forge_scope_30() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_29() { return 1; }
-forge_check_run_29() {
+forge_when_30() { return 1; }
+forge_check_run_30() {
 forge_osv
 }
 
@@ -6453,7 +6525,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -6463,13 +6535,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -6790,6 +6863,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -10197,7 +10306,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=29
+FORGE_NCHECKS=30
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -10248,10 +10357,10 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_ratchet python ratchet.py
 }
@@ -10299,6 +10408,7 @@ forge_check_meta_7() {
   c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in pyproject.toml|*/pyproject.toml) return 0 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -10344,107 +10454,106 @@ forge_check_run_9() {
 forge_test_edits
 }
 
-# 10. python/pytest/run
+# 10. python/pytest/pydantic-deprecations-error
 forge_check_meta_10() {
+  c_id='python/pytest/pydantic-deprecations-error'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in pyproject.toml|*/pyproject.toml|pytest.ini|*/pytest.ini|.pytest.ini|*/.pytest.ini|tox.ini|*/tox.ini|setup.cfg|*/setup.cfg) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { case $1 in pyproject.toml|pytest.ini|.pytest.ini|tox.ini|setup.cfg) return 0 ;; esac; return 1; }
+forge_check_run_10() {
+forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic
+}
+
+# 11. python/pytest/run
+forge_check_meta_11() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-pytest -q
-}
-forge_check_changed_10() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_10() {
-pytest -q $FORGE_FILES
-}
-
-# 11. python/pytest/untested-change
-forge_check_meta_11() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_11() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_11() { return 1; }
 forge_check_run_11() {
+pytest -q
+}
+forge_check_changed_11() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_11() {
+pytest -q $FORGE_FILES
+}
+
+# 12. python/pytest/untested-change
+forge_check_meta_12() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_12() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_12() { return 1; }
+forge_check_run_12() {
 forge_advise forge_untested_change
 }
 
-# 12. python/ruff-config-current
-forge_check_meta_12() {
+# 13. python/ruff-config-current
+forge_check_meta_13() {
   c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
-# 13. python/sqlalchemy/alembic/applied-migrations
-forge_check_meta_13() {
+# 14. python/sqlalchemy/alembic/applied-migrations
+forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   return 0
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_applied_migrations @alembic-migrations
 }
 
-# 14. python/sqlalchemy/alembic/check
-forge_check_meta_14() {
+# 15. python/sqlalchemy/alembic/check
+forge_check_meta_15() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_14() {
+forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
+forge_when_15() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 alembic check
 }
 
-# 15. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_15() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_15() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 16. python/sqlalchemy/alembic/fk-index
+# 16. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_16() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -10455,86 +10564,102 @@ forge_scope_16() {
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 17. python/sqlalchemy/alembic/migration-lint
+# 17. python/sqlalchemy/alembic/fk-index
 forge_check_meta_17() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_17() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_17() { return 1; }
 forge_check_run_17() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_17() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 18. python/sqlalchemy/alembic/model-registered
+# 18. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_18() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_18() { return 1; }
-forge_check_run_18() {
-forge_models_registered
-}
-
-# 19. python/sqlalchemy/alembic/single-head
-forge_check_meta_19() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_19() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_19() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 20. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_20() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_20() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_20() { return 1; }
+forge_when_18() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_18() {
+forge_squawk_alembic $FORGE_FILES
+}
+
+# 19. python/sqlalchemy/alembic/model-registered
+forge_check_meta_19() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_models_registered
+}
+
+# 20. python/sqlalchemy/alembic/single-head
+forge_check_meta_20() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_20() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 21. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_21() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_21() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_21() { return 1; }
+forge_check_run_21() {
 forge_alembic_batch
 }
 
-# 21. python/sqlalchemy/asyncio-extra
-forge_check_meta_21() {
+# 22. python/sqlalchemy/asyncio-extra
+forge_check_meta_22() {
   c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_21() {
+forge_scope_22() {
   return 0
 }
-forge_when_21() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_21() {
+forge_when_22() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -10542,122 +10667,122 @@ return 1
 
 }
 
-# 22. python/sqlalchemy/fk-index
-forge_check_meta_22() {
+# 23. python/sqlalchemy/fk-index
+forge_check_meta_23() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_22() { return 1; }
-forge_check_run_22() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 23. python/stub-sync
-forge_check_meta_23() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_23() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 24. python/typecheck
+# 24. python/stub-sync
 forge_check_meta_24() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 25. python/uv/exclude-newer
+# 25. python/typecheck
 forge_check_meta_25() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_25() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_25() { return 1; }
 forge_check_run_25() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 26. python/uv/lock-sync
+# 26. python/uv/exclude-newer
 forge_check_meta_26() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   return 0
 }
-forge_when_26() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_26() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_26() {
-uv lock --check
+forge_uv_cooldown
 }
 
-# 27. secrets/gitleaks
+# 27. python/uv/lock-sync
 forge_check_meta_27() {
-  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
-forge_when_27() { return 1; }
+forge_when_27() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-forge_gitleaks
+uv lock --check
 }
 
-# 28. secrets/no-credential-files
+# 28. secrets/gitleaks
 forge_check_meta_28() {
-  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
 }
-forge_when_28() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_when_28() { return 1; }
 forge_check_run_28() {
+forge_gitleaks
+}
+
+# 29. secrets/no-credential-files
+forge_check_meta_29() {
+  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_29() {
+  return 0
+}
+forge_when_29() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_check_run_29() {
 forge_credential_files
 }
 
-# 29. supply-chain/vuln-audit
-forge_check_meta_29() {
+# 30. supply-chain/vuln-audit
+forge_check_meta_30() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_29() {
+forge_scope_30() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_29() { return 1; }
-forge_check_run_29() {
+forge_when_30() { return 1; }
+forge_check_run_30() {
 forge_osv
 }
 
@@ -10955,7 +11080,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -10965,13 +11090,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -11292,6 +11418,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -14720,7 +14882,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=29
+FORGE_NCHECKS=30
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -14771,10 +14933,10 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_ratchet python ratchet.py
 }
@@ -14822,6 +14984,7 @@ forge_check_meta_7() {
   c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in pyproject.toml|*/pyproject.toml) return 0 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -14867,107 +15030,106 @@ forge_check_run_9() {
 forge_test_edits
 }
 
-# 10. python/pytest/run
+# 10. python/pytest/pydantic-deprecations-error
 forge_check_meta_10() {
+  c_id='python/pytest/pydantic-deprecations-error'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in pyproject.toml|*/pyproject.toml|pytest.ini|*/pytest.ini|.pytest.ini|*/.pytest.ini|tox.ini|*/tox.ini|setup.cfg|*/setup.cfg) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { case $1 in pyproject.toml|pytest.ini|.pytest.ini|tox.ini|setup.cfg) return 0 ;; esac; return 1; }
+forge_check_run_10() {
+forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic
+}
+
+# 11. python/pytest/run
+forge_check_meta_11() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-pytest -q
-}
-forge_check_changed_10() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_10() {
-pytest -q $FORGE_FILES
-}
-
-# 11. python/pytest/untested-change
-forge_check_meta_11() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_11() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_11() { return 1; }
 forge_check_run_11() {
+pytest -q
+}
+forge_check_changed_11() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_11() {
+pytest -q $FORGE_FILES
+}
+
+# 12. python/pytest/untested-change
+forge_check_meta_12() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_12() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_12() { return 1; }
+forge_check_run_12() {
 forge_advise forge_untested_change
 }
 
-# 12. python/ruff-config-current
-forge_check_meta_12() {
+# 13. python/ruff-config-current
+forge_check_meta_13() {
   c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
-# 13. python/sqlalchemy/alembic/applied-migrations
-forge_check_meta_13() {
+# 14. python/sqlalchemy/alembic/applied-migrations
+forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   return 0
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_applied_migrations @alembic-migrations
 }
 
-# 14. python/sqlalchemy/alembic/check
-forge_check_meta_14() {
+# 15. python/sqlalchemy/alembic/check
+forge_check_meta_15() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_14() {
+forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
+forge_when_15() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 alembic check
 }
 
-# 15. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_15() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_15() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 16. python/sqlalchemy/alembic/fk-index
+# 16. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_16() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -14978,86 +15140,102 @@ forge_scope_16() {
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 17. python/sqlalchemy/alembic/migration-lint
+# 17. python/sqlalchemy/alembic/fk-index
 forge_check_meta_17() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_17() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_17() { return 1; }
 forge_check_run_17() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_17() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 18. python/sqlalchemy/alembic/model-registered
+# 18. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_18() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_18() { return 1; }
-forge_check_run_18() {
-forge_models_registered
-}
-
-# 19. python/sqlalchemy/alembic/single-head
-forge_check_meta_19() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_19() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_19() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 20. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_20() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_20() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_20() { return 1; }
+forge_when_18() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_18() {
+forge_squawk_alembic $FORGE_FILES
+}
+
+# 19. python/sqlalchemy/alembic/model-registered
+forge_check_meta_19() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_models_registered
+}
+
+# 20. python/sqlalchemy/alembic/single-head
+forge_check_meta_20() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_20() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 21. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_21() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_21() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_21() { return 1; }
+forge_check_run_21() {
 forge_alembic_batch
 }
 
-# 21. python/sqlalchemy/asyncio-extra
-forge_check_meta_21() {
+# 22. python/sqlalchemy/asyncio-extra
+forge_check_meta_22() {
   c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_21() {
+forge_scope_22() {
   return 0
 }
-forge_when_21() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_21() {
+forge_when_22() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -15065,122 +15243,122 @@ return 1
 
 }
 
-# 22. python/sqlalchemy/fk-index
-forge_check_meta_22() {
+# 23. python/sqlalchemy/fk-index
+forge_check_meta_23() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_22() { return 1; }
-forge_check_run_22() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 23. python/stub-sync
-forge_check_meta_23() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_23() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 24. python/typecheck
+# 24. python/stub-sync
 forge_check_meta_24() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 25. python/uv/exclude-newer
+# 25. python/typecheck
 forge_check_meta_25() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_25() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_25() { return 1; }
 forge_check_run_25() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 26. python/uv/lock-sync
+# 26. python/uv/exclude-newer
 forge_check_meta_26() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   return 0
 }
-forge_when_26() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_26() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_26() {
-uv lock --check
+forge_uv_cooldown
 }
 
-# 27. secrets/gitleaks
+# 27. python/uv/lock-sync
 forge_check_meta_27() {
-  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
-forge_when_27() { return 1; }
+forge_when_27() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-forge_gitleaks
+uv lock --check
 }
 
-# 28. secrets/no-credential-files
+# 28. secrets/gitleaks
 forge_check_meta_28() {
-  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
 }
-forge_when_28() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_when_28() { return 1; }
 forge_check_run_28() {
+forge_gitleaks
+}
+
+# 29. secrets/no-credential-files
+forge_check_meta_29() {
+  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_29() {
+  return 0
+}
+forge_when_29() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_check_run_29() {
 forge_credential_files
 }
 
-# 29. supply-chain/vuln-audit
-forge_check_meta_29() {
+# 30. supply-chain/vuln-audit
+forge_check_meta_30() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_29() {
+forge_scope_30() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_29() { return 1; }
-forge_check_run_29() {
+forge_when_30() { return 1; }
+forge_check_run_30() {
 forge_osv
 }
 
@@ -15478,7 +15656,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -15488,13 +15666,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -15815,6 +15994,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -19488,29 +19703,59 @@ invalid:
 
 ===== .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 id: python/pydantic/v2-api
-valid:
-  - body = response.json()
-  - assert resp.json() == {}
-  - data = user.model_dump()
-  - u = User.model_validate(raw)
-  - |
-    @field_validator("name")
-    def check(cls, v):
-        return v
-  - |
-    class User(BaseModel):
-        model_config = ConfigDict(from_attributes=True)
+valid: []
 invalid:
-  - data = user.dict()
-  - u = User.parse_obj(raw)
   - |
-    @validator("name")
-    def check(cls, v):
-        return v
-  - |
+    from pydantic import BaseModel
+
+
     class User(BaseModel):
+        name: str
+
         class Config:
             orm_mode = True
+  - |
+    from pydantic_settings import BaseSettings
+
+
+    class Settings(BaseSettings):
+        debug: bool = False
+
+        class Config:
+            env_file = ".env"
+  - |
+    from datetime import datetime
+
+    from pydantic import BaseModel, ConfigDict
+
+
+    class Event(BaseModel):
+        model_config = ConfigDict(json_encoders={datetime: lambda d: d.isoformat()})
+
+        at: datetime
+  - |
+    from datetime import datetime
+
+    from pydantic import BaseModel
+
+
+    class Event(BaseModel):
+        model_config = {"json_encoders": {datetime: str}}
+
+        at: datetime
+  - |
+    import pydantic
+
+
+    class Item(pydantic.BaseModel):
+        code: str = pydantic.Field(regex="^[A-Z]+$")
+  - |
+    from pydantic import Field
+    from pydantic_settings import BaseSettings
+
+
+    class Settings(BaseSettings):
+        url: str = Field(env="DATABASE_URL")
 
 ===== .forge/ast-grep/rule-tests/python-pytest-no-exit-zero-test.yml
 id: python/pytest/no-exit-zero
@@ -20425,39 +20670,62 @@ metadata:
 id: python/pydantic/v2-api
 language: Python
 severity: error
-message: forge:python/pydantic/v2-api No Pydantic v1 APIs. Use model_dump, model_validate, field_validator and model_config.
+message: "forge:python/pydantic/v2-api No Pydantic v1 configuration that ty does not report: no class Config in a BaseModel or BaseSettings subclass (use model_config = ConfigDict(...) / SettingsConfigDict(...)), no json_encoders (use @field_serializer or PlainSerializer), no v1-only Field() arguments (env, regex, const, min_items, max_items, unique_items, allow_mutation, example)."
 rule:
   any:
-    - pattern: $M.dict()
-    - pattern: $M.json()
-    - pattern: $M.parse_obj($$$)
-    - pattern: $M.parse_raw($$$)
-    - kind: decorator
-      has:
-        pattern: validator($$$)
-    - kind: decorator
-      has:
-        pattern: root_validator($$$)
-    - kind: decorator
-      has:
-        kind: identifier
-        regex: ^root_validator$
     - kind: class_definition
       has:
-        field: name
-        regex: ^Config$
-      inside:
-        kind: block
-        inside:
-          kind: class_definition
-          has:
-            field: superclasses
+        field: superclasses
+        has:
+          pattern: $B
+      all:
+        - has:
+            field: body
             has:
-              regex: BaseModel
-constraints:
-  M:
-    not:
-      regex: ^(r|res|resp|response|[A-Za-z_]*_(response|resp))$|\.(response|resp)$
+              kind: class_definition
+              has:
+                field: name
+                regex: ^Config$
+    - kind: call
+      pattern: $C($$$)
+      has:
+        field: arguments
+        has:
+          kind: keyword_argument
+          regex: ^json_encoders\b
+    - kind: pair
+      has:
+        field: key
+        regex: ^["']json_encoders["']$
+      inside:
+        kind: assignment
+        stopBy: end
+        has:
+          field: left
+          regex: ^model_config$
+    - kind: call
+      pattern: $F($$$)
+      has:
+        field: arguments
+        has:
+          kind: keyword_argument
+          regex: ^(env|regex|const|min_items|max_items|unique_items|allow_mutation|example)\b
+metadata:
+  forge_where:
+    B:
+      type:
+        package: pydantic
+        name: BaseModel
+    C:
+      declared:
+        - package: pydantic
+          name: ConfigDict
+        - package: pydantic_settings
+          name: SettingsConfigDict
+    F:
+      declared:
+        package: pydantic
+        name: Field
 
 ===== .forge/ast-grep/rules/python/pytest/no-exit-zero.yml
 # Generated by forge from python/pytest/no-exit-zero (mode: forbid).
@@ -21514,7 +21782,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=29
+FORGE_NCHECKS=30
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -21565,10 +21833,10 @@ forge_check_meta_4() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_4() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_4() {
 forge_ratchet python ratchet.py
 }
@@ -21616,6 +21884,7 @@ forge_check_meta_7() {
   c_changed=1; c_files=1; c_fix=1; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
+  case $1 in pyproject.toml|*/pyproject.toml) return 0 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -21661,107 +21930,106 @@ forge_check_run_9() {
 forge_test_edits
 }
 
-# 10. python/pytest/run
+# 10. python/pytest/pydantic-deprecations-error
 forge_check_meta_10() {
+  c_id='python/pytest/pydantic-deprecations-error'; c_stage=lint; c_tools='python'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_10() {
+  case $1 in pyproject.toml|*/pyproject.toml|pytest.ini|*/pytest.ini|.pytest.ini|*/.pytest.ini|tox.ini|*/tox.ini|setup.cfg|*/setup.cfg) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_10() { case $1 in pyproject.toml|pytest.ini|.pytest.ini|tox.ini|setup.cfg) return 0 ;; esac; return 1; }
+forge_check_run_10() {
+forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic
+}
+
+# 11. python/pytest/run
+forge_check_meta_11() {
   c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
   c_when=0; c_localdb=0; c_timeout=300
   c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
-forge_scope_10() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-pytest -q
-}
-forge_check_changed_10() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_10() {
-pytest -q $FORGE_FILES
-}
-
-# 11. python/pytest/untested-change
-forge_check_meta_11() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_11() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_11() { return 1; }
 forge_check_run_11() {
+pytest -q
+}
+forge_check_changed_11() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_11() {
+pytest -q $FORGE_FILES
+}
+
+# 12. python/pytest/untested-change
+forge_check_meta_12() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_12() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/[0-9]*.py|*/migrations/[0-9]*.py|alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_12() { return 1; }
+forge_check_run_12() {
 forge_advise forge_untested_change
 }
 
-# 12. python/ruff-config-current
-forge_check_meta_12() {
+# 13. python/ruff-config-current
+forge_check_meta_13() {
   c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_12() {
+forge_scope_13() {
   case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_12() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
-forge_check_run_12() {
+forge_when_13() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_13() {
 ! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
-# 13. python/sqlalchemy/alembic/applied-migrations
-forge_check_meta_13() {
+# 14. python/sqlalchemy/alembic/applied-migrations
+forge_check_meta_14() {
   c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_13() {
+forge_scope_14() {
   return 0
 }
-forge_when_13() { return 1; }
-forge_check_run_13() {
+forge_when_14() { return 1; }
+forge_check_run_14() {
 forge_applied_migrations @alembic-migrations
 }
 
-# 14. python/sqlalchemy/alembic/check
-forge_check_meta_14() {
+# 15. python/sqlalchemy/alembic/check
+forge_check_meta_15() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_14() {
+forge_scope_15() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_14() {
+forge_when_15() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
 alembic check
 }
 
-# 15. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_15() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_15() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_15() { return 1; }
-forge_check_run_15() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 16. python/sqlalchemy/alembic/fk-index
+# 16. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_16() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -21772,86 +22040,102 @@ forge_scope_16() {
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 17. python/sqlalchemy/alembic/migration-lint
+# 17. python/sqlalchemy/alembic/fk-index
 forge_check_meta_17() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_17() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_17() { return 1; }
 forge_check_run_17() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_17() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 18. python/sqlalchemy/alembic/model-registered
+# 18. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_18() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_18() { return 1; }
-forge_check_run_18() {
-forge_models_registered
-}
-
-# 19. python/sqlalchemy/alembic/single-head
-forge_check_meta_19() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_19() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_19() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 20. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_20() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_20() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_20() { return 1; }
+forge_when_18() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_18() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_18() {
+forge_squawk_alembic $FORGE_FILES
+}
+
+# 19. python/sqlalchemy/alembic/model-registered
+forge_check_meta_19() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_models_registered
+}
+
+# 20. python/sqlalchemy/alembic/single-head
+forge_check_meta_20() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_20() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 21. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_21() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_21() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_21() { return 1; }
+forge_check_run_21() {
 forge_alembic_batch
 }
 
-# 21. python/sqlalchemy/asyncio-extra
-forge_check_meta_21() {
+# 22. python/sqlalchemy/asyncio-extra
+forge_check_meta_22() {
   c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_21() {
+forge_scope_22() {
   return 0
 }
-forge_when_21() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_21() {
+forge_when_22() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -21859,122 +22143,122 @@ return 1
 
 }
 
-# 22. python/sqlalchemy/fk-index
-forge_check_meta_22() {
+# 23. python/sqlalchemy/fk-index
+forge_check_meta_23() {
   c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_22() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_22() { return 1; }
-forge_check_run_22() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 23. python/stub-sync
-forge_check_meta_23() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
 forge_scope_23() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 24. python/typecheck
+# 24. python/stub-sync
 forge_check_meta_24() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_24() { return 1; }
 forge_check_run_24() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 25. python/uv/exclude-newer
+# 25. python/typecheck
 forge_check_meta_25() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_25() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_25() { return 1; }
 forge_check_run_25() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 26. python/uv/lock-sync
+# 26. python/uv/exclude-newer
 forge_check_meta_26() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   return 0
 }
-forge_when_26() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_26() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_26() {
-uv lock --check
+forge_uv_cooldown
 }
 
-# 27. secrets/gitleaks
+# 27. python/uv/lock-sync
 forge_check_meta_27() {
-  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
-forge_when_27() { return 1; }
+forge_when_27() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-forge_gitleaks
+uv lock --check
 }
 
-# 28. secrets/no-credential-files
+# 28. secrets/gitleaks
 forge_check_meta_28() {
-  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
 }
-forge_when_28() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_when_28() { return 1; }
 forge_check_run_28() {
+forge_gitleaks
+}
+
+# 29. secrets/no-credential-files
+forge_check_meta_29() {
+  c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_29() {
+  return 0
+}
+forge_when_29() { case $1 in *.p12|*/*.p12|*.pfx|*/*.pfx|*.jks|*/*.jks|*.keystore|*/*.keystore|*.key|*/*.key|id_rsa|*/id_rsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|.npmrc|*/.npmrc) return 0 ;; esac; return 1; }
+forge_check_run_29() {
 forge_credential_files
 }
 
-# 29. supply-chain/vuln-audit
-forge_check_meta_29() {
+# 30. supply-chain/vuln-audit
+forge_check_meta_30() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_29() {
+forge_scope_30() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_29() { return 1; }
-forge_check_run_29() {
+forge_when_30() { return 1; }
+forge_check_run_30() {
 forge_osv
 }
 
@@ -22272,7 +22556,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -22282,13 +22566,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -22609,6 +22894,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -26031,8 +26352,8 @@ forge_end "$fail"
     "git/no-conflict-markers": "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7",
     "python/annotations-api": "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a",
     "python/aware-datetime": "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b",
-    "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
-    "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
+    "python/config-files": "47fb25f5b890d22cfbebfdbaf84f73a27641a99e1fa78da0092c9906bcae7e49",
+    "python/config-ratchet": "fde5cb235c73ad800170c73f228bb004aa296f8ce1fb794c9ff2adfcb8cd7fbc",
     "python/contextmanager-finally": "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55",
     "python/decimal-from-str": "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262",
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
@@ -26051,7 +26372,7 @@ forge_end "$fail"
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
-    "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
+    "python/lint": "d0f67a49b3a5d4ccd7fc6830e7782d53a30d5659d377baed8cb2db0a6ecccf9f",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
@@ -26115,8 +26436,9 @@ forge_end "$fail"
     "python/open-with-context": "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056",
     "python/override-decorator": "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089",
     "python/project-table": "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327",
+    "python/pydantic/no-v1-namespace": "b32fea991e2b3e0169aa28db7f026f05a450994c0febe4ea063f6d3c5da506ac",
     "python/pydantic/typeadapter-module-level": "9055642fc8900ac8af6d9b0a553233a93f7ef38ad7a45a4c83f04f7f5312ea24",
-    "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
+    "python/pydantic/v2-api": "000368a123b392306f8202639341a488e70c03ba337e07b8763a9c5c52453b0d",
     "python/pytest/no-blind-raises": "f5f9ae20956c2759cf7a3b79015c991fda29794aa45079bc58f801ccf9eea6a7",
     "python/pytest/no-exit-zero": "15151cbf387fc79f5469733269f5bd03a9d9a1e2bfa9c91e5b88710b39e69a9b",
     "python/pytest/no-exitstatus": "6dbe844c86fa9f10a6aae8acece2e402aad68439fc0e6dc47f5b1d83d17e2bc8",
@@ -26127,6 +26449,7 @@ forge_end "$fail"
     "python/pytest/no-tautological-assert": "7aedc549f5af6a1f57bc4f92f28a346065f2b99bc3dc9fbea3248921879fe54d",
     "python/pytest/no-test-edits": "ca6c6a53b6cc515ee89af3feefc54b44a135654f9f9f8bf2a83fa8e0ce32ea0b",
     "python/pytest/no-test-env-branch": "75d3bff83be8da527b4ca5a2fbe727b192c62b7ea0ab1c082e420dcc6f6993a9",
+    "python/pytest/pydantic-deprecations-error": "94900a303cbed0c398bb2ec9516e0c99127bcbed015e85f3988c4fcba6b6217c",
     "python/pytest/run": "ef1248916825b76f9441dc0223f9ccb3601caef3751dd8e72fa8a9cc56a4141b",
     "python/pytest/untested-change": "2ac2a9e0f1e6af931ba702b7c5890f981e900d671ff825ae329b80dadf59cd3c",
     "python/raise-from": "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381",
@@ -26168,6 +26491,7 @@ forge_end "$fail"
     "python/uv/lock-sync": "bf3de58f036a46f0407262272fb55e128b2acd4b1c08c46025d3f417eb198e25",
     "python/uv/no-pip": "67264ba6e92a5fc863f81f816d05223a758c9eece0a4eae9dc85fe8c718803c1",
     "python/uv/no-requirements-txt": "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5",
+    "python/valid-pyproject": "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241",
     "python/weak-crypto": "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48",
     "python/with-suffix-dot": "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2",
     "secrets/gitleaks": "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5",
@@ -26194,14 +26518,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cdee3e58806edd86df3dc78d9c8260618a7133165ab26cf375848b9d4992feb2",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "1117de858d9a84532f670962ade7a56d723dbd2c22fa8fd31bdde4c1ab2e839f",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "ae6fd8f7cfb0d598a5f2eac8132eb6c78bc20c524d2f071f1b7f0e49441dddbf",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b98b2837068241dfb6f8f362139d13bd18c8f792f4dcb9d72587b6c2dd74f692",
+    ".claude/skills/forge-project/scripts/session-start.sh": "079ece85ecce02b24dfce9c91736a9bf0edd211beb9ccecf53827f2f111b2e66",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "318f2e38c8c5f550737f8b75a78ccee9748e2f3579e3647bb90c2727e3dbd045",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "ec1793692483c09c9b7f377bbc358a1746685ad2874a83ac5923296167504b4d",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "a2c658459d799116e21b84accc2a772d904482f875924be15b75d4da8d20dd98",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "a7eaf3fdff41de6613611baac0bb5fe6bab70614b542f188b21372e9abcf1252",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml": "c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15",
     ".forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml": "c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5",
@@ -26216,7 +26540,7 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
     ".forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml": "e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363",
     ".forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml": "20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3",
-    ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
+    ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "bf0b239688ac49f93fe264998dd2564eff58040cb1c55d2cef46d87819e5052b",
     ".forge/ast-grep/rule-tests/python-pytest-no-exit-zero-test.yml": "f0edd941908d2fffc5d0dc2fa97d9637709a20064b91bbd564d4d82aa6800f7f",
     ".forge/ast-grep/rule-tests/python-pytest-no-exitstatus-test.yml": "cb7c4dc403c91208e3da589493dd7ae166f1a82d0d9dd3cd9d879ea43568fb08",
     ".forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml": "09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443",
@@ -26251,7 +26575,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/no-stub.yml": "88f2268d645feae97e84401d665191fb09e01805a5f66f03210081bfcdf0b599",
     ".forge/ast-grep/rules/python/no-swallowed-cancel.yml": "a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa",
     ".forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml": "55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418",
-    ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
+    ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "aeb9fb30cb5d9da4a1e913f02b1e3b8e974a5e5cdf4bcadd46fd614726e7885f",
     ".forge/ast-grep/rules/python/pytest/no-exit-zero.yml": "9613cee25a4d2c8725757681a08af29f621fb877133d13b3f4e66b45e47313a7",
     ".forge/ast-grep/rules/python/pytest/no-exitstatus.yml": "49bd5d88fd004fe3388b7099747990542663afc423f08b05ea7e08ddde1685e7",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "f569f66e7125b0783cebbddf316df490ed21fc379b4c4230794e6c7ef49ac167",
@@ -26274,9 +26598,10 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "b2810bd258a79769fd15734818acd5dc840c300eb92b29c0449338e8dab200f1",
+    ".forge/check.sh": "420aabd5a48004990c52e435e3abaa7c312ccec4b265451ccfad097a2704d651",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
-    ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
+    ".forge/helpers/pytest_filterwarnings.py": "27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8",
+    ".forge/helpers/ratchet.py": "59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf",
     ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -26315,6 +26640,21 @@ forge_end "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(**/ty.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/mypy.ini)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.mypy.ini)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/pyrightconfig.json)"
     },
     {
       "file": ".claude/settings.json",
@@ -26527,12 +26867,88 @@ def main():
 if __name__ == "__main__":
     sys.exit(main())
 
+===== .forge/helpers/pytest_filterwarnings.py
+# Generated by forge. pytest's filterwarnings turns a framework's next-version
+# deprecations into errors (run by .forge/check.sh with the project's own Python,
+# 3.11+). Usage:
+#   python pytest_filterwarnings.py <forge-tmp> <entry> <dependency>
+# Reads the pytest configuration pytest itself uses (the first of pytest.ini,
+# .pytest.ini, pyproject.toml with [tool.pytest] or [tool.pytest.ini_options],
+# tox.ini with [pytest], setup.cfg with [tool:pytest]) and prints a finding when its
+# filterwarnings has neither <entry> nor a bare "error".
+# Exit 0: nothing found; 1: finding printed ("path:0 message"); 3: cannot run.
+import configparser
+import os
+import sys
+
+try:
+    import tomllib
+except ImportError:
+    print("skipped: tomllib needs Python 3.11+")
+    sys.exit(3)
+
+
+def ini(path, section):
+    p = configparser.ConfigParser(interpolation=None)
+    try:
+        p.read(path, encoding="utf-8")
+    except configparser.Error:
+        return None
+    if not p.has_section(section):
+        return None
+    return [l.strip() for l in p[section].get("filterwarnings", "").splitlines() if l.strip()]
+
+
+def toml(path):
+    try:
+        with open(path, "rb") as f:
+            tool = tomllib.load(f).get("tool") or {}
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    pytest = tool.get("pytest")
+    if not isinstance(pytest, dict):
+        return None
+    # pytest 9 reads [tool.pytest] itself, older versions [tool.pytest.ini_options]
+    opts = pytest if "ini_options" not in pytest else pytest["ini_options"]
+    v = opts.get("filterwarnings", [])
+    return [str(x).strip() for x in (v if isinstance(v, list) else str(v).splitlines()) if str(x).strip()]
+
+
+def config():
+    for path, read in (("pytest.ini", lambda p: ini(p, "pytest") or []), (".pytest.ini", lambda p: ini(p, "pytest") or []),
+                       ("pyproject.toml", toml), ("tox.ini", lambda p: ini(p, "pytest")), ("setup.cfg", lambda p: ini(p, "tool:pytest"))):
+        if os.path.isfile(path):
+            entries = read(path)
+            if entries is not None:
+                return path, entries
+    return "pyproject.toml", []
+
+
+def main():
+    entry, dep = sys.argv[2], sys.argv[3]
+    path, entries = config()
+    norm = {e.replace(" ", "") for e in entries}
+    if entry.replace(" ", "") in norm or "error" in norm:
+        return 0
+    print(f'{path}:0 pytest filterwarnings has no "{entry}": {dep} deprecations only warn, so tests pass on code the next {dep} release breaks; add it')
+    return 1
+
+
+try:
+    sys.exit(main())
+except SystemExit:
+    raise
+except Exception as e:  # never report a crash as a finding
+    print(f"skipped: pytest_filterwarnings.py could not run ({type(e).__name__}: {e})")
+    sys.exit(3)
+
 ===== .forge/helpers/ratchet.py
 # Generated by forge. Config ratchet for Python tool configs (run by .forge/check.sh
 # with the project's own Python, 3.11+): compares each changed file with its copy in
 # the base and prints one line per loosened setting. Usage:
 #   python ratchet.py <base-dir> <path>...
 # Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import configparser
 import json
 import re
 import sys
@@ -26690,9 +27106,83 @@ def coverage(path, b, a, prefix):
                 out(path, f"{prefix}{sect}.{key} adds {x}")
 
 
+# ---- mypy
+
+def truthy(v):
+    return v is True or (isinstance(v, str) and v.strip().lower() in ("true", "yes", "on", "1"))
+
+
+def mypy(path, b, a, prefix=""):
+    """b, a: {"global": {key: value}, "overrides": {module: {key: value}}}."""
+    gb, ga = b["global"], a["global"]
+    for key, vb in gb.items():
+        if (key == "strict" or key.startswith(("disallow_", "warn_", "strict_"))) and truthy(vb) and not truthy(ga.get(key)):
+            out(path, f"{prefix}{key} true -> {show(ga.get(key))}")
+    for key in ("ignore_missing_imports", "ignore_errors"):
+        if truthy(ga.get(key)) and not truthy(gb.get(key)):
+            out(path, f"{prefix}{key} {show(gb.get(key))} -> true")
+        for module, oa in a["overrides"].items():
+            if truthy(oa.get(key)) and not truthy(b["overrides"].get(module, {}).get(key)):
+                out(path, f"{prefix}overrides adds {key} for {module}")
+
+
+def mypy_toml(cfg):
+    overrides = {}
+    for o in as_list(cfg.get("overrides")):
+        if isinstance(o, dict):
+            for module in as_list(o.get("module")):
+                overrides.setdefault(str(module), {}).update({k: v for k, v in o.items() if k != "module"})
+    return {"global": {k: v for k, v in cfg.items() if k != "overrides"}, "overrides": overrides}
+
+
+def mypy_ini(text):
+    p = configparser.ConfigParser(interpolation=None)
+    p.read_string(text)
+
+    def values(sect):
+        return {k: {"true": True, "false": False}.get(v.strip().lower(), v) for k, v in p[sect].items()}
+
+    overrides = {}
+    for sect in p.sections():
+        if sect.startswith("mypy-"):
+            for module in sect[5:].split(","):
+                overrides.setdefault(module.strip(), {}).update(values(sect))
+    return {"global": values("mypy") if p.has_section("mypy") else {}, "overrides": overrides}
+
+
+# ---- pyright, basedpyright
+
+MODES = {"off": 0, "basic": 1, "standard": 2, "recommended": 3, "strict": 4, "all": 5}
+SEVERITY = {"none": 0, "information": 1, "warning": 2, "error": 3}
+
+
+def severity(v):
+    if v is False:
+        return 0
+    return SEVERITY.get(v) if isinstance(v, str) else None
+
+
+def pyright(path, b, a, prefix=""):
+    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
+    if mb in MODES and (ma is None or (ma in MODES and MODES[ma] < MODES[mb])):
+        out(path, f"{prefix}typeCheckingMode {show(mb)} -> {show(ma)}")
+    for key, vb in b.items():
+        if not key.startswith("report"):
+            continue
+        va = a.get(key)
+        sb, sa = severity(vb), severity(va)
+        on = vb is True or bool(sb)
+        if on and key not in a:
+            out(path, f"{prefix}{key} {show(vb)} -> unset")
+        elif on and sa == 0 or (sb is not None and sa is not None and sa < sb):
+            out(path, f"{prefix}{key} {show(vb)} -> {show(a.get(key))}")
+
+
 def load(text, path):
     if path.endswith(".json"):
         return json.loads(strip_jsonc(text))
+    if path.endswith(".ini"):
+        return mypy_ini(text)
     return tomllib.loads(text)
 
 
@@ -26700,19 +27190,19 @@ def main():
     base = sys.argv[1]
     for path in sys.argv[2:]:
         name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml", "mypy.ini", ".mypy.ini", "pyrightconfig.json"):
             continue
         try:
             with open(f"{base}/{path}", encoding="utf-8") as f:
                 before = load(f.read(), path)
         except FileNotFoundError:
             continue
-        except (ValueError, tomllib.TOMLDecodeError):
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error):
             continue
         try:
             with open(path, encoding="utf-8") as f:
                 after = load(f.read(), path)
-        except (ValueError, tomllib.TOMLDecodeError) as e:
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error) as e:
             out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
             continue
         if name == "pyproject.toml":
@@ -26721,6 +27211,13 @@ def main():
             ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
             pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
             coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
+            mypy(path, mypy_toml(tb.get("mypy") or {}), mypy_toml(ta.get("mypy") or {}), "tool.mypy.")
+            pyright(path, tb.get("pyright") or {}, ta.get("pyright") or {}, "tool.pyright.")
+            pyright(path, tb.get("basedpyright") or {}, ta.get("basedpyright") or {}, "tool.basedpyright.")
+        elif name in ("mypy.ini", ".mypy.ini"):
+            mypy(path, before, after)
+        elif name == "pyrightconfig.json":
+            pyright(path, before, after)
         elif name == "ty.toml":
             ty(path, before, after)
         else:
@@ -27379,14 +27876,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 cdee3e58806edd86df3dc78d9c8260618a7133165ab26cf375848b9d4992feb2  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-1117de858d9a84532f670962ade7a56d723dbd2c22fa8fd31bdde4c1ab2e839f  .claude/skills/forge-project/scripts/post-edit.sh
+ae6fd8f7cfb0d598a5f2eac8132eb6c78bc20c524d2f071f1b7f0e49441dddbf  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-b98b2837068241dfb6f8f362139d13bd18c8f792f4dcb9d72587b6c2dd74f692  .claude/skills/forge-project/scripts/session-start.sh
+079ece85ecce02b24dfce9c91736a9bf0edd211beb9ccecf53827f2f111b2e66  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-318f2e38c8c5f550737f8b75a78ccee9748e2f3579e3647bb90c2727e3dbd045  .claude/skills/forge-project/scripts/test-edit.sh
+ec1793692483c09c9b7f377bbc358a1746685ad2874a83ac5923296167504b4d  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-a2c658459d799116e21b84accc2a772d904482f875924be15b75d4da8d20dd98  .claude/skills/forge-project/scripts/typecheck.sh
+a7eaf3fdff41de6613611baac0bb5fe6bab70614b542f188b21372e9abcf1252  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15  .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
 c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5  .forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml
@@ -27401,7 +27898,7 @@ e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47  .forge/ast-gre
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
 e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363  .forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml
 20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3  .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
-190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
+bf0b239688ac49f93fe264998dd2564eff58040cb1c55d2cef46d87819e5052b  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 f0edd941908d2fffc5d0dc2fa97d9637709a20064b91bbd564d4d82aa6800f7f  .forge/ast-grep/rule-tests/python-pytest-no-exit-zero-test.yml
 cb7c4dc403c91208e3da589493dd7ae166f1a82d0d9dd3cd9d879ea43568fb08  .forge/ast-grep/rule-tests/python-pytest-no-exitstatus-test.yml
 09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
@@ -27436,7 +27933,7 @@ e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869  .forge/ast-gre
 88f2268d645feae97e84401d665191fb09e01805a5f66f03210081bfcdf0b599  .forge/ast-grep/rules/python/no-stub.yml
 a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-grep/rules/python/no-swallowed-cancel.yml
 55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418  .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
-0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
+aeb9fb30cb5d9da4a1e913f02b1e3b8e974a5e5cdf4bcadd46fd614726e7885f  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 9613cee25a4d2c8725757681a08af29f621fb877133d13b3f4e66b45e47313a7  .forge/ast-grep/rules/python/pytest/no-exit-zero.yml
 49bd5d88fd004fe3388b7099747990542663afc423f08b05ea7e08ddde1685e7  .forge/ast-grep/rules/python/pytest/no-exitstatus.yml
 f569f66e7125b0783cebbddf316df490ed21fc379b4c4230794e6c7ef49ac167  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
@@ -27459,9 +27956,10 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-b2810bd258a79769fd15734818acd5dc840c300eb92b29c0449338e8dab200f1  .forge/check.sh
+420aabd5a48004990c52e435e3abaa7c312ccec4b265451ccfad097a2704d651  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
-4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
+27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8  .forge/helpers/pytest_filterwarnings.py
+59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf  .forge/helpers/ratchet.py
 bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit

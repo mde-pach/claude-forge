@@ -53,6 +53,9 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
       "Edit(**/ruff.toml)",
       "Edit(**/.ruff.toml)",
       "Edit(**/ty.toml)",
+      "Edit(**/mypy.ini)",
+      "Edit(**/.mypy.ini)",
+      "Edit(**/pyrightconfig.json)",
       "Write(**/setup.py)",
       "Write(**/setup.cfg)"
     ]
@@ -1485,10 +1488,10 @@ forge_check_meta_19() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_19() {
 forge_ratchet python ratchet.py
 }
@@ -1891,7 +1894,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -1901,13 +1904,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -2228,6 +2232,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -5492,7 +5532,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
@@ -5896,10 +5936,10 @@ forge_check_meta_19() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_19() {
 forge_ratchet python ratchet.py
 }
@@ -6302,7 +6342,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -6312,13 +6352,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -6639,6 +6680,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -10327,10 +10404,10 @@ forge_check_meta_19() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_19() {
 forge_ratchet python ratchet.py
 }
@@ -10733,7 +10810,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -10743,13 +10820,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -11070,6 +11148,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -14778,10 +14892,10 @@ forge_check_meta_19() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_19() {
 forge_ratchet python ratchet.py
 }
@@ -15184,7 +15298,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -15194,13 +15308,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -15521,6 +15636,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -20671,10 +20822,10 @@ forge_check_meta_19() {
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
-  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) ;; *) return 1 ;; esac
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) ;; *) return 1 ;; esac
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml|ty.toml|*/ty.toml|mypy.ini|*/mypy.ini|.mypy.ini|*/.mypy.ini|pyrightconfig.json|*/pyrightconfig.json) return 0 ;; esac; return 1; }
 forge_check_run_19() {
 forge_ratchet python ratchet.py
 }
@@ -21077,7 +21228,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -21087,13 +21238,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -21414,6 +21566,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -24861,8 +25049,8 @@ forge_end "$fail"
     "github-actions/zizmor-advice": "7a7605e8752f8bc7f4846ccac20a52db9069fd8856f049b1f88885e8c5533b97",
     "python/annotations-api": "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a",
     "python/aware-datetime": "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b",
-    "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
-    "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
+    "python/config-files": "47fb25f5b890d22cfbebfdbaf84f73a27641a99e1fa78da0092c9906bcae7e49",
+    "python/config-ratchet": "fde5cb235c73ad800170c73f228bb004aa296f8ce1fb794c9ff2adfcb8cd7fbc",
     "python/contextmanager-finally": "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55",
     "python/decimal-from-str": "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262",
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
@@ -24871,7 +25059,7 @@ forge_end "$fail"
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
-    "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
+    "python/lint": "d0f67a49b3a5d4ccd7fc6830e7782d53a30d5659d377baed8cb2db0a6ecccf9f",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
@@ -24946,6 +25134,7 @@ forge_end "$fail"
     "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
     "python/typed-decorators": "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75",
     "python/typeis-over-typeguard": "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9",
+    "python/valid-pyproject": "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241",
     "python/weak-crypto": "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48",
     "python/with-suffix-dot": "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2",
     "secrets/gitleaks": "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5",
@@ -24970,14 +25159,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "f766fc06aa809fe9ae623ce39d4507c43d8c82dc8d038083b2cb23736dd06cdf",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "64808328f6686a52eb1f14ba2a4fa8e86fa7cf4b29efed01f9ce2fd761e387cb",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b7afbb46741a704604caf0ab6c804b578deec0512275a1567784ced56b9ba894",
+    ".claude/skills/forge-project/scripts/session-start.sh": "47a99b5c93746d52467bb81d5ac6e9a2e6154239be5211d3a7ef2e76d5e28669",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "1c2a48c6febf5b08f62dd4686e219fde808f8336f7171c6468bfa1125e79afa6",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "e730fd99fc14f3a0ed223326cdc00a70399a6642acee282f203b3049c8b523b0",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "f1b1665a45b131a80564acf025479282f008f66f70a301e1fd227b78c7c6f874",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "f327cd5714335f52eb2674ab5458b208ca5f4a798f739d59d881eeed19f9cb8a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -25010,8 +25199,8 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c60b761d9799ac637513b4181b069602f3406c158f446b432c77055959c06639",
-    ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
+    ".forge/check.sh": "ae9e296629e61e434e52d7499c9d4f5cc5ad4e3b80e0a3ccb4ab5aa54466e393",
+    ".forge/helpers/ratchet.py": "59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf",
     ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -25050,6 +25239,21 @@ forge_end "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(**/ty.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/mypy.ini)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/.mypy.ini)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/pyrightconfig.json)"
     },
     {
       "file": ".claude/settings.json",
@@ -25096,6 +25300,7 @@ forge_end "$fail"
 # the base and prints one line per loosened setting. Usage:
 #   python ratchet.py <base-dir> <path>...
 # Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import configparser
 import json
 import re
 import sys
@@ -25253,9 +25458,83 @@ def coverage(path, b, a, prefix):
                 out(path, f"{prefix}{sect}.{key} adds {x}")
 
 
+# ---- mypy
+
+def truthy(v):
+    return v is True or (isinstance(v, str) and v.strip().lower() in ("true", "yes", "on", "1"))
+
+
+def mypy(path, b, a, prefix=""):
+    """b, a: {"global": {key: value}, "overrides": {module: {key: value}}}."""
+    gb, ga = b["global"], a["global"]
+    for key, vb in gb.items():
+        if (key == "strict" or key.startswith(("disallow_", "warn_", "strict_"))) and truthy(vb) and not truthy(ga.get(key)):
+            out(path, f"{prefix}{key} true -> {show(ga.get(key))}")
+    for key in ("ignore_missing_imports", "ignore_errors"):
+        if truthy(ga.get(key)) and not truthy(gb.get(key)):
+            out(path, f"{prefix}{key} {show(gb.get(key))} -> true")
+        for module, oa in a["overrides"].items():
+            if truthy(oa.get(key)) and not truthy(b["overrides"].get(module, {}).get(key)):
+                out(path, f"{prefix}overrides adds {key} for {module}")
+
+
+def mypy_toml(cfg):
+    overrides = {}
+    for o in as_list(cfg.get("overrides")):
+        if isinstance(o, dict):
+            for module in as_list(o.get("module")):
+                overrides.setdefault(str(module), {}).update({k: v for k, v in o.items() if k != "module"})
+    return {"global": {k: v for k, v in cfg.items() if k != "overrides"}, "overrides": overrides}
+
+
+def mypy_ini(text):
+    p = configparser.ConfigParser(interpolation=None)
+    p.read_string(text)
+
+    def values(sect):
+        return {k: {"true": True, "false": False}.get(v.strip().lower(), v) for k, v in p[sect].items()}
+
+    overrides = {}
+    for sect in p.sections():
+        if sect.startswith("mypy-"):
+            for module in sect[5:].split(","):
+                overrides.setdefault(module.strip(), {}).update(values(sect))
+    return {"global": values("mypy") if p.has_section("mypy") else {}, "overrides": overrides}
+
+
+# ---- pyright, basedpyright
+
+MODES = {"off": 0, "basic": 1, "standard": 2, "recommended": 3, "strict": 4, "all": 5}
+SEVERITY = {"none": 0, "information": 1, "warning": 2, "error": 3}
+
+
+def severity(v):
+    if v is False:
+        return 0
+    return SEVERITY.get(v) if isinstance(v, str) else None
+
+
+def pyright(path, b, a, prefix=""):
+    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
+    if mb in MODES and (ma is None or (ma in MODES and MODES[ma] < MODES[mb])):
+        out(path, f"{prefix}typeCheckingMode {show(mb)} -> {show(ma)}")
+    for key, vb in b.items():
+        if not key.startswith("report"):
+            continue
+        va = a.get(key)
+        sb, sa = severity(vb), severity(va)
+        on = vb is True or bool(sb)
+        if on and key not in a:
+            out(path, f"{prefix}{key} {show(vb)} -> unset")
+        elif on and sa == 0 or (sb is not None and sa is not None and sa < sb):
+            out(path, f"{prefix}{key} {show(vb)} -> {show(a.get(key))}")
+
+
 def load(text, path):
     if path.endswith(".json"):
         return json.loads(strip_jsonc(text))
+    if path.endswith(".ini"):
+        return mypy_ini(text)
     return tomllib.loads(text)
 
 
@@ -25263,19 +25542,19 @@ def main():
     base = sys.argv[1]
     for path in sys.argv[2:]:
         name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml", "mypy.ini", ".mypy.ini", "pyrightconfig.json"):
             continue
         try:
             with open(f"{base}/{path}", encoding="utf-8") as f:
                 before = load(f.read(), path)
         except FileNotFoundError:
             continue
-        except (ValueError, tomllib.TOMLDecodeError):
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error):
             continue
         try:
             with open(path, encoding="utf-8") as f:
                 after = load(f.read(), path)
-        except (ValueError, tomllib.TOMLDecodeError) as e:
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error) as e:
             out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
             continue
         if name == "pyproject.toml":
@@ -25284,6 +25563,13 @@ def main():
             ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
             pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
             coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
+            mypy(path, mypy_toml(tb.get("mypy") or {}), mypy_toml(ta.get("mypy") or {}), "tool.mypy.")
+            pyright(path, tb.get("pyright") or {}, ta.get("pyright") or {}, "tool.pyright.")
+            pyright(path, tb.get("basedpyright") or {}, ta.get("basedpyright") or {}, "tool.basedpyright.")
+        elif name in ("mypy.ini", ".mypy.ini"):
+            mypy(path, before, after)
+        elif name == "pyrightconfig.json":
+            pyright(path, before, after)
         elif name == "ty.toml":
             ty(path, before, after)
         else:
@@ -25940,14 +26226,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-f766fc06aa809fe9ae623ce39d4507c43d8c82dc8d038083b2cb23736dd06cdf  .claude/skills/forge-project/scripts/post-edit.sh
+64808328f6686a52eb1f14ba2a4fa8e86fa7cf4b29efed01f9ce2fd761e387cb  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-b7afbb46741a704604caf0ab6c804b578deec0512275a1567784ced56b9ba894  .claude/skills/forge-project/scripts/session-start.sh
+47a99b5c93746d52467bb81d5ac6e9a2e6154239be5211d3a7ef2e76d5e28669  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-1c2a48c6febf5b08f62dd4686e219fde808f8336f7171c6468bfa1125e79afa6  .claude/skills/forge-project/scripts/test-edit.sh
+e730fd99fc14f3a0ed223326cdc00a70399a6642acee282f203b3049c8b523b0  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-f1b1665a45b131a80564acf025479282f008f66f70a301e1fd227b78c7c6f874  .claude/skills/forge-project/scripts/typecheck.sh
+f327cd5714335f52eb2674ab5458b208ca5f4a798f739d59d881eeed19f9cb8a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -25980,8 +26266,8 @@ a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c60b761d9799ac637513b4181b069602f3406c158f446b432c77055959c06639  .forge/check.sh
-4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
+ae9e296629e61e434e52d7499c9d4f5cc5ad4e3b80e0a3ccb4ab5aa54466e393  .forge/check.sh
+59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf  .forge/helpers/ratchet.py
 bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit

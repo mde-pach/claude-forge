@@ -3,6 +3,7 @@
 # the base and prints one line per loosened setting. Usage:
 #   python ratchet.py <base-dir> <path>...
 # Exit 0: nothing loosened; 1: findings printed; 3: cannot run ("skipped: …" printed).
+import configparser
 import json
 import re
 import sys
@@ -160,9 +161,83 @@ def coverage(path, b, a, prefix):
                 out(path, f"{prefix}{sect}.{key} adds {x}")
 
 
+# ---- mypy
+
+def truthy(v):
+    return v is True or (isinstance(v, str) and v.strip().lower() in ("true", "yes", "on", "1"))
+
+
+def mypy(path, b, a, prefix=""):
+    """b, a: {"global": {key: value}, "overrides": {module: {key: value}}}."""
+    gb, ga = b["global"], a["global"]
+    for key, vb in gb.items():
+        if (key == "strict" or key.startswith(("disallow_", "warn_", "strict_"))) and truthy(vb) and not truthy(ga.get(key)):
+            out(path, f"{prefix}{key} true -> {show(ga.get(key))}")
+    for key in ("ignore_missing_imports", "ignore_errors"):
+        if truthy(ga.get(key)) and not truthy(gb.get(key)):
+            out(path, f"{prefix}{key} {show(gb.get(key))} -> true")
+        for module, oa in a["overrides"].items():
+            if truthy(oa.get(key)) and not truthy(b["overrides"].get(module, {}).get(key)):
+                out(path, f"{prefix}overrides adds {key} for {module}")
+
+
+def mypy_toml(cfg):
+    overrides = {}
+    for o in as_list(cfg.get("overrides")):
+        if isinstance(o, dict):
+            for module in as_list(o.get("module")):
+                overrides.setdefault(str(module), {}).update({k: v for k, v in o.items() if k != "module"})
+    return {"global": {k: v for k, v in cfg.items() if k != "overrides"}, "overrides": overrides}
+
+
+def mypy_ini(text):
+    p = configparser.ConfigParser(interpolation=None)
+    p.read_string(text)
+
+    def values(sect):
+        return {k: {"true": True, "false": False}.get(v.strip().lower(), v) for k, v in p[sect].items()}
+
+    overrides = {}
+    for sect in p.sections():
+        if sect.startswith("mypy-"):
+            for module in sect[5:].split(","):
+                overrides.setdefault(module.strip(), {}).update(values(sect))
+    return {"global": values("mypy") if p.has_section("mypy") else {}, "overrides": overrides}
+
+
+# ---- pyright, basedpyright
+
+MODES = {"off": 0, "basic": 1, "standard": 2, "recommended": 3, "strict": 4, "all": 5}
+SEVERITY = {"none": 0, "information": 1, "warning": 2, "error": 3}
+
+
+def severity(v):
+    if v is False:
+        return 0
+    return SEVERITY.get(v) if isinstance(v, str) else None
+
+
+def pyright(path, b, a, prefix=""):
+    mb, ma = b.get("typeCheckingMode"), a.get("typeCheckingMode")
+    if mb in MODES and (ma is None or (ma in MODES and MODES[ma] < MODES[mb])):
+        out(path, f"{prefix}typeCheckingMode {show(mb)} -> {show(ma)}")
+    for key, vb in b.items():
+        if not key.startswith("report"):
+            continue
+        va = a.get(key)
+        sb, sa = severity(vb), severity(va)
+        on = vb is True or bool(sb)
+        if on and key not in a:
+            out(path, f"{prefix}{key} {show(vb)} -> unset")
+        elif on and sa == 0 or (sb is not None and sa is not None and sa < sb):
+            out(path, f"{prefix}{key} {show(vb)} -> {show(a.get(key))}")
+
+
 def load(text, path):
     if path.endswith(".json"):
         return json.loads(strip_jsonc(text))
+    if path.endswith(".ini"):
+        return mypy_ini(text)
     return tomllib.loads(text)
 
 
@@ -170,19 +245,19 @@ def main():
     base = sys.argv[1]
     for path in sys.argv[2:]:
         name = path.rsplit("/", 1)[-1]
-        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml"):
+        if name not in ("pyproject.toml", "ruff.toml", ".ruff.toml", "ty.toml", "mypy.ini", ".mypy.ini", "pyrightconfig.json"):
             continue
         try:
             with open(f"{base}/{path}", encoding="utf-8") as f:
                 before = load(f.read(), path)
         except FileNotFoundError:
             continue
-        except (ValueError, tomllib.TOMLDecodeError):
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error):
             continue
         try:
             with open(path, encoding="utf-8") as f:
                 after = load(f.read(), path)
-        except (ValueError, tomllib.TOMLDecodeError) as e:
+        except (ValueError, tomllib.TOMLDecodeError, configparser.Error) as e:
             out(path, f"cannot be parsed ({str(e).splitlines()[0]})")
             continue
         if name == "pyproject.toml":
@@ -191,6 +266,13 @@ def main():
             ty(path, tb.get("ty") or {}, ta.get("ty") or {}, "tool.ty.")
             pytest(path, (tb.get("pytest") or {}).get("ini_options") or {}, (ta.get("pytest") or {}).get("ini_options") or {}, "tool.pytest.ini_options.")
             coverage(path, tb.get("coverage") or {}, ta.get("coverage") or {}, "tool.coverage.")
+            mypy(path, mypy_toml(tb.get("mypy") or {}), mypy_toml(ta.get("mypy") or {}), "tool.mypy.")
+            pyright(path, tb.get("pyright") or {}, ta.get("pyright") or {}, "tool.pyright.")
+            pyright(path, tb.get("basedpyright") or {}, ta.get("basedpyright") or {}, "tool.basedpyright.")
+        elif name in ("mypy.ini", ".mypy.ini"):
+            mypy(path, before, after)
+        elif name == "pyrightconfig.json":
+            pyright(path, before, after)
         elif name == "ty.toml":
             ty(path, before, after)
         else:

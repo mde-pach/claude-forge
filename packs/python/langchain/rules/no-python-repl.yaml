@@ -1,0 +1,25 @@
+id: python/langchain/no-python-repl
+description: "No PythonREPLTool, PythonAstREPLTool or PythonREPL (langchain_experimental): they run model-written code in the app's process, with its permissions and secrets."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "langchain_experimental.tools.PythonREPLTool".msg = "runs model-written code in-process; run it in a sandbox"
+      "langchain_experimental.tools.PythonAstREPLTool".msg = "runs model-written code in-process; run it in a sandbox"
+      "langchain_experimental.tools.python.tool.PythonREPLTool".msg = "runs model-written code in-process; run it in a sandbox"
+      "langchain_experimental.tools.python.tool.PythonAstREPLTool".msg = "runs model-written code in-process; run it in a sandbox"
+      "langchain_experimental.utilities.PythonREPL".msg = "runs model-written code in-process; run it in a sandbox"
+      "langchain_experimental.utilities.python.PythonREPL".msg = "runs model-written code in-process; run it in a sandbox"
+examples:
+  match:
+    - "from langchain_experimental.tools import PythonREPLTool\n\ntools = [PythonREPLTool()]\n"
+    - "from langchain_experimental.tools.python.tool import PythonAstREPLTool\n\ntool = PythonAstREPLTool(locals={\"df\": df})\n"
+    - "from langchain_experimental.utilities import PythonREPL\n\nrepl = PythonREPL()\n"
+  no_match:
+    - "from langchain_experimental.text_splitter import SemanticChunker\n\nsplitter = SemanticChunker(embeddings)\n"

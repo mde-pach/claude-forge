@@ -670,6 +670,45 @@ describe("PostToolUse", () => {
     T,
   );
 
+  /**
+   * A `grep` target in `advise` mode is the same heuristic for text ast-grep does not
+   * parse (templates, config): its matches on added lines come back after the edit,
+   * and check.sh neither fails on them nor counts them.
+   */
+  test(
+    "a grep advise rule's match on an added line is returned after the edit, and check.sh does not fail on it",
+    () => {
+      put(repo, ".forge/rules/demo-grep-advise.yaml", [
+        "id: local/demo-grep-advise",
+        "description: Unescaped output gets advice.",
+        "scope: {language: any, files: ['**/*.html']}",
+        "enforce:",
+        "  - target: grep",
+        "    mode: advise",
+        "    pattern: '\\|[[:space:]]*safe'",
+        "examples:",
+        "  match: ['{{ body|safe }}']",
+        "  no_match: ['{{ body }}']",
+        "",
+      ].join("\n"));
+      try {
+        expect(forge(["apply", "--yes"], repo).status).toBe(0);
+        put(repo, "app/templates/page.html", "<p>{{ title }}</p>\n<div>{{ body|safe }}</div>\n");
+        const out = JSON.parse(hook("post-edit.sh", edit("app/templates/page.html")).stdout).hookSpecificOutput;
+        expect(out.additionalContext).toContain("forge:local/demo-grep-advise app/templates/page.html:2 Unescaped output gets advice.");
+        for (const mode of ["--changed", "--all"]) {
+          const r = sh("sh", [".forge/check.sh", mode], { cwd: repo });
+          expect(r.stdout + r.stderr).not.toContain("local/demo-grep-advise");
+        }
+      } finally {
+        rmSync(join(repo, ".forge/rules/demo-grep-advise.yaml"), { force: true });
+        expect(forge(["apply", "--yes"], repo).status).toBe(0);
+        reset();
+      }
+    },
+    T,
+  );
+
   test(
     "post-edit prints nothing when the file is clean",
     () => {

@@ -16,6 +16,9 @@ dev = ["pytest>=8.3", "ruff>=0.8"]
 [tool.ruff.lint]
 select = ["E", "F", "ANN401", "E722"]
 
+[tool.pytest.ini_options]
+filterwarnings = ["error::pydantic.warnings.PydanticDeprecationWarning"]
+
 
 [tool.uv]
 exclude-newer = "7 days"

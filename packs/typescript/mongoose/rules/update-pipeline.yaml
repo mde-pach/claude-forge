@@ -1,0 +1,28 @@
+id: typescript/mongoose/update-pipeline
+description: "Advice: Mongoose 9 rejects an update pipeline (an array) in updateOne, updateMany, findOneAndUpdate or findByIdAndUpdate unless the call passes { updatePipeline: true } or the app sets mongoose.set(\"updatePipeline\", true); pass the option, or check the global setting."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: "^(updateOne|updateMany|findOneAndUpdate|findByIdAndUpdate)$"}}]}
+        - has: {field: arguments, has: {nthChild: 2, kind: array}}
+        - not:
+            has:
+              field: arguments
+              has:
+                kind: object
+                has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?updatePipeline[\"']?$"}}, {has: {field: value, kind: "true"}}]}
+    where:
+      M: {type: {package: mongoose, name: [Model, Query]}}
+when:
+  deps: [{ecosystem: npm, name: mongoose, version: ">=9.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: mongoose, version: "9.11.4"}]
+  match:
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ first: String, last: String, full: String }));\n\nexport const fill = () => User.updateMany({}, [{ $set: { full: { $concat: [\"$first\", \" \", \"$last\"] } } }]);\n"
+  no_match:
+    - "import { model, Schema } from \"mongoose\";\n\nconst User = model(\"User\", new Schema({ first: String, last: String, full: String }));\n\nexport const fill = () => User.updateMany({}, [{ $set: { full: { $concat: [\"$first\", \" \", \"$last\"] } } }], { updatePipeline: true });\nexport const rename = () => User.updateOne({ first: \"a\" }, { $set: { first: \"b\" } });\n"
+    - "const store = { updateMany: (f: object, u: object[]) => u };\n\nexport const r = store.updateMany({}, [{ $set: { a: 1 } }]);\n"

@@ -20,6 +20,7 @@ import { ensureTools, ensureVueTools, forge, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, 
 import type { CheckTarget } from "../../src/types";
 import { renderChecks, renderLib } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
+import { loadModels, modelRuleFiles, renderRuleFile } from "../../scripts/models";
 
 const T = 300_000;
 const packs = loadPacks(join(ROOT, "packs"));
@@ -70,6 +71,22 @@ test("every check example ran: none was skipped, except for a system tool that i
   const absent = (tool: string) => sh("sh", ["-c", `command -v ${tool}`]).status !== 0;
   const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
   expect(skipped.filter((n) => !(/skipped: (docker) (not available|not installed)/.test(n) && absent("docker")))).toEqual([]);
+});
+
+/**
+ * The ai-models data file (packs/ai-models/models.tsv: each model id with its status,
+ * retirement date, replacement and the request features it rejects) is the one list of
+ * model ids: a rule line after a "# models.tsv: <kind>" comment holds its rendering
+ * (`bun scripts/models.ts` writes it), so the rules that name models never disagree.
+ */
+test("every rule that renders the ai-models data file is current with it", () => {
+  const rows = loadModels();
+  const files = modelRuleFiles(join(ROOT, "packs"));
+  expect(files.length).toBeGreaterThan(3);
+  for (const f of files) {
+    const text = readFileSync(f, "utf8");
+    expect({ file: f, text: renderRuleFile(text, rows) }).toEqual({ file: f, text });
+  }
 });
 
 describe("every pack", () => {

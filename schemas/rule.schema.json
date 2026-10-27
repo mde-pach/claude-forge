@@ -402,7 +402,8 @@
                   "enum": [
                     "forbid",
                     "no-increase",
-                    "no-decrease"
+                    "no-decrease",
+                    "advise"
                   ]
                 },
                 "pattern": {
@@ -572,6 +573,14 @@
                   },
                   "minItems": 1
                 },
+                "config_files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1
+                },
                 "requires_local_db": {
                   "type": "boolean"
                 },
@@ -612,6 +621,20 @@
                           "format",
                           "lint"
                         ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "config_files"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "stage": {
+                        "const": "lint"
                       }
                     }
                   }

@@ -2,4 +2,4 @@ id: python/redis
 description: redis-py clients.
 level: project
 detect:
-  deps_any: [{ecosystem: pypi, name: redis}]
+  deps_any: [{ecosystem: pypi, name: redis}, {ecosystem: pypi, name: aioredis}]

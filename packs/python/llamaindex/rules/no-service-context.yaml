@@ -1,0 +1,21 @@
+id: python/llamaindex/no-service-context
+description: "No ServiceContext or set_global_service_context: LlamaIndex removed them (constructing one raises). Configure llama_index.core.Settings, or pass llm= / embed_model= to the component."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "llama_index.core.ServiceContext".msg = "removed; use llama_index.core.Settings"
+      "llama_index.core.service_context.ServiceContext".msg = "removed; use llama_index.core.Settings"
+      "llama_index.core.set_global_service_context".msg = "removed; set llama_index.core.Settings.llm / .embed_model"
+examples:
+  match:
+    - "from llama_index.core import ServiceContext, set_global_service_context\n\nset_global_service_context(ServiceContext.from_defaults(llm=llm))\n"
+    - "from llama_index.core.service_context import ServiceContext\n\nctx = ServiceContext.from_defaults(chunk_size=512)\n"
+  no_match:
+    - "from llama_index.core import Settings\n\nSettings.llm = llm\nSettings.chunk_size = 512\n"

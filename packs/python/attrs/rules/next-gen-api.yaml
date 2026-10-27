@@ -1,0 +1,24 @@
+id: python/attrs/next-gen-api
+description: "Use attrs' current API (@attrs.define, @attrs.frozen, attrs.field), not the classic attr.s, attr.attrs, attr.ib, attr.attrib and attr.dataclass."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "attr.s".msg = "use @attrs.define (or @attrs.frozen)"
+      "attr.attrs".msg = "use @attrs.define (or @attrs.frozen)"
+      "attr.dataclass".msg = "use @attrs.define"
+      "attr.ib".msg = "use attrs.field()"
+      "attr.attrib".msg = "use attrs.field()"
+examples:
+  match:
+    - "import attr\n\n\n@attr.s\nclass Point:\n    x = attr.ib()\n"
+    - "from attr import attrib, attrs\n\n\n@attrs\nclass Point:\n    x = attrib(default=0)\n"
+  no_match:
+    - "import attrs\n\n\n@attrs.define\nclass Point:\n    x: int = attrs.field(default=0)\n"
+    - "from attr import Factory, define, field\n\n\n@define\nclass Bag:\n    items: list[int] = field(factory=list)\n    other: list[int] = Factory(list)\n"

@@ -127,12 +127,15 @@ export function scopeInDirs(files: string[], dirs?: string[]): string[] {
   return [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
 }
 
-function scopeFunction(name: string, rule: Rule, dirs?: string[]): string {
+/** forge_scope_<n> <path>: the rule's files; `config` (a lint check's config_files) are in scope too. */
+function scopeFunction(name: string, rule: Rule, dirs?: string[], config?: string[]): string {
   const files = scopeInDirs(rule.scope.files ?? [], dirs);
   const exclude = files.filter((g) => g.startsWith("!")).map((g) => g.slice(1));
   const include = files.filter((g) => !g.startsWith("!"));
   const lang = LANGUAGE_CASE[rule.scope.language];
   const lines = [`${name}() {`];
+  const cfg = config ? scopeInDirs(config, dirs) : [];
+  if (cfg.length) lines.push(`  case $1 in ${casePatterns(cfg)}) return 0 ;; esac`);
   if (exclude.length) lines.push(`  case $1 in ${casePatterns(exclude)}) return 1 ;; esac`);
   if (include.length) lines.push(`  case $1 in ${casePatterns(include)}) ;; *) return 1 ;; esac`);
   if (lang.length) lines.push(`  case $1 in ${lang.join("|")}) return 0 ;; esac`, "  return 1");
@@ -243,7 +246,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
       `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
-      scopeFunction(`forge_scope_${n}`, rule, dirs),
+      scopeFunction(`forge_scope_${n}`, rule, dirs, target.config_files),
       when
         ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }`
         : `forge_when_${n}() { return 1; }`,
@@ -334,7 +337,7 @@ export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python"]);
  * them. A project formatter may rewrite them: their integrity hash ignores formatting
  * (ownedHash).
  */
-const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py"];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "pytest_filterwarnings.py"];
 export const HELPERS_DIR = ".forge/helpers";
 
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */

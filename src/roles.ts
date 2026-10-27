@@ -409,7 +409,7 @@ export function roleGlobs(role: EffectiveRole): string[] {
 
 // ---------------------------------------------------------------- roles in rules
 
-/** The roles a rule names: in scope.files, when_changed, check commands and where modules. */
+/** The roles a rule names: in scope.files, when_changed, config_files, check commands and where modules. */
 export function rolesOfRule(rule: Pick<Rule, "scope" | "enforce">): string[] {
   const out = new Set<string>();
   const fromList = (l?: string[]) => l?.forEach((g) => REF.test(g) && out.add(REF.exec(g)![2]!));
@@ -417,6 +417,7 @@ export function rolesOfRule(rule: Pick<Rule, "scope" | "enforce">): string[] {
   for (const t of rule.enforce) {
     if (t.target === "check") {
       fromList(t.when_changed);
+      fromList(t.config_files);
       for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun]) for (const m of unquoted(cmd ?? "").matchAll(COMMAND_REF)) out.add(m[1]!);
     }
     if (t.target === "ast-grep") for (const c of Object.values(t.where ?? {})) for (const m of whereModules(c)) if (MODULE_REF.test(m)) out.add(MODULE_REF.exec(m)![1]!);
@@ -491,7 +492,7 @@ function mapWhere(c: WhereCondition, roles: Roles, python: boolean): WhereCondit
 }
 
 /**
- * The rule with its roles replaced by their effective patterns (scope.files, when_changed,
+ * The rule with its roles replaced by their effective patterns (scope.files, when_changed, config_files,
  * where modules), as apply renders it; `empty` lists what leaves it without files: a role
  * with no pattern that was the only file selection of the scope or of a when_changed.
  */
@@ -507,7 +508,8 @@ export function applyRoles(rule: Rule, roles: Roles): { rule: Rule; empty: strin
   const files = list(rule.scope.files);
   const python = rule.scope.language === "python";
   const enforce = rule.enforce.map((t) => {
-    if (t.target === "check" && t.when_changed) return { ...t, when_changed: list(t.when_changed)! };
+    if (t.target === "check" && (t.when_changed || t.config_files))
+      return { ...t, ...(t.when_changed ? { when_changed: list(t.when_changed)! } : {}), ...(t.config_files ? { config_files: expandGlobs(t.config_files, roles).globs } : {}) };
     if (t.target === "ast-grep" && t.where) return { ...t, where: Object.fromEntries(Object.entries(t.where).map(([k, c]) => [k, mapWhere(c, roles, python)])) };
     return t;
   });

@@ -1,0 +1,12 @@
+id: typescript/svelte/kit/no-app-stores
+description: "No imports of $app/stores (deprecated since SvelteKit 2.12, removed in 3): use page, navigating and updated from $app/state."
+scope: {language: any, files: ["**/*.svelte", "**/*.ts", "**/*.js", "**/*.mts", "**/*.mjs"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: '(from|import)[[:space:]]*\(?[[:space:]]*["'']\$app/stores["'']'
+when:
+  deps: [{ecosystem: npm, name: "@sveltejs/kit", version: ">=2.12.0"}]
+examples:
+  match: ["<script>\n  import { page } from '$app/stores';\n</script>\n\n<h1>{$page.url.pathname}</h1>\n", "const { navigating } = await import(\"$app/stores\");\n"]
+  no_match: ["<script>\n  import { page } from '$app/state';\n</script>\n\n<h1>{page.url.pathname}</h1>\n", "// was: import { page } from $app/stores\nexport const x = 1;\n"]

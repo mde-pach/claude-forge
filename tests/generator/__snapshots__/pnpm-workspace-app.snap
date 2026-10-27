@@ -11,6 +11,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 
 pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
 pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
+pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.
 
 ===== .claude/rules/forge-typescript-vitest.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -1824,7 +1825,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -1834,13 +1835,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -2161,6 +2163,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -5425,7 +5463,7 @@ forge_edit_checks() {
     forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
-  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" >> "$FORGE_TMP/report"
+  [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
@@ -6169,7 +6207,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -6179,13 +6217,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -6506,6 +6545,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -10534,7 +10609,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -10544,13 +10619,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -10871,6 +10947,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -14920,7 +15032,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -14930,13 +15042,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -15257,6 +15370,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -20944,7 +21093,7 @@ forge_grep_counts() {
   _gc_i=1
   while [ "$_gc_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gc_i"
-    if [ "$g_mode" != forbid ]; then
+    if [ "$g_mode" = no-increase ] || [ "$g_mode" = no-decrease ]; then
       while IFS= read -r _gc_f; do
         [ -f "$1/$_gc_f" ] && forge_grep_scope_"$_gc_i" "$_gc_f" || continue
         printf '%s\t%s\t%s\n' "$g_id" "$_gc_f" "$(grep -c "$g_flags" -- "$g_pattern" "$1/$_gc_f")"
@@ -20954,13 +21103,14 @@ forge_grep_counts() {
   done
 }
 
-# forge_grep_forbid <file-list>: "forge:<rule> path:line <description>" for each
-# match of a forbid grep rule; unless $mode is --all, only on lines of $FORGE_TMP/added.
+# forge_grep_forbid <file-list> [advise]: "forge:<rule> path:line <description>" for each
+# match of a forbid grep rule (and, with advise, of an advise one: after an edit only);
+# unless $mode is --all, only on lines of $FORGE_TMP/added.
 forge_grep_forbid() {
   _gf_i=1
   while [ "$_gf_i" -le "$FORGE_NGREPS" ]; do
     forge_grep_meta_"$_gf_i"
-    if [ "$g_mode" = forbid ]; then
+    if [ "$g_mode" = forbid ] || { [ "$g_mode" = advise ] && [ "${2:-}" = advise ]; }; then
       while IFS= read -r _gf_f; do
         [ -f "$_gf_f" ] && forge_grep_scope_"$_gf_i" "$_gf_f" || continue
         grep -n "$g_flags" -- "$g_pattern" "$_gf_f" 2>/dev/null | awk -F: -v f="$_gf_f" -v id="$g_id" -v d="$g_desc" -v all="$([ "$mode" = --all ] && printf 1)" '
@@ -21281,6 +21431,42 @@ forge_untested_change() {
   [ "$_fu_n" -gt 0 ] || return 0
   [ "$_fu_n" -gt 3 ] && _fu_list="$_fu_list and $((_fu_n - 3)) more"
   printf 'You changed behaviour in %s without adding or updating a test; add a test that fails without your change, or say why none is needed.\n' "$_fu_list"
+}
+
+# forge_model_ids <deprecated> <known>: for each quoted model id on an added line of an
+# in-scope file ($FORGE_FILES, $FORGE_TMP/added), optionally after pydantic-ai's
+# anthropic: / openai: or LiteLLM's anthropic/ / openai/ prefix: an id of <deprecated>
+# ("<id>|<retires>|<replacement>;…", rendered from packs/ai-models/models.tsv) prints
+# "<path>:<line> <id> retires <date>; use <replacement>"; a dated Claude id
+# (claude-<family>-<version>-20YYMMDD) not in <known> (the data file's Claude ids,
+# space-separated) prints that it is not a published model id. Run as advice (forge_advise).
+forge_model_ids() {
+  for _mi_f in $FORGE_FILES; do
+    [ -f "$_mi_f" ] || continue
+    awk -F '\t' -v f="$_mi_f" -v dep="$1" -v known="$2" -v q="'" '
+      BEGIN {
+        re = "[\"" q "`][A-Za-z0-9._:/@-]+[\"" q "`]"
+        n = split(dep, rows, ";")
+        for (i = 1; i <= n; i++) if (split(rows[i], c, "|") == 3) { ret[c[1]] = c[2]; rep[c[1]] = c[3] }
+        n = split(known, k, " "); for (i = 1; i <= n; i++) kn[k[i]] = 1
+      }
+      FILENAME == ARGV[1] { if ($1 == f) { if ($2 == "*") all = 1; else want[$2] = 1 } next }
+      all || (FNR in want) {
+        s = $0
+        while (match(s, re)) {
+          id = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+          sub(/^(anthropic|openai)[:\/]/, "", id)
+          if (id in ret) {
+            if (seen[FNR, id]++) continue
+            if (ret[id] == "-") printf "%s:%d %s is deprecated; use %s\n", f, FNR, id, rep[id]
+            else printf "%s:%d %s retires %s; use %s\n", f, FNR, id, ret[id], rep[id]
+          } else if (id ~ /^claude-(opus|sonnet|haiku|fable|mythos)-[0-9][0-9-]*-20[0-9][0-9][0-9][0-9][0-9][0-9]$/ && !(id in kn)) {
+            if (seen[FNR, id]++) continue
+            printf "%s:%d %s is not a published Claude model id; use its alias (e.g. claude-opus-5-5)\n", f, FNR, id
+          }
+        }
+      }' "$FORGE_TMP/added" "$_mi_f"
+  done
 }
 
 # forge_changed_ids: the public identifiers whose definition the change added,
@@ -24774,7 +24960,7 @@ forge_end "$fail"
   },
   "files": {
     ".claude/rules/forge-secrets.md": "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658",
-    ".claude/rules/forge-typescript-pnpm.md": "e07a43fa3b0f05a1249e49d69f3a7370243dfbfc18d670804658450ff2f1c9c2",
+    ".claude/rules/forge-typescript-pnpm.md": "03b8228be0ab61e70a5f4cff8db198625c470716a8585d376cbd93a4316b7f2f",
     ".claude/rules/forge-typescript-vitest.md": "0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606",
     ".claude/rules/forge-typescript.md": "4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
@@ -24783,14 +24969,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "531aa39cb391617cab38ed56992dc0a3e0c979f90c76a6d50fa05aa2e8873489",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "83130a43e9fb650a638a29417d2eb70055ae6485c6c58bffd3b97c89b17f4c5c",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "241bb8b80e8b030f910f182f47938afd9b83f4020d35f891efcf94c452d84ae4",
+    ".claude/skills/forge-project/scripts/session-start.sh": "3e95340f91aae19874a0539666d4cdba97f0093aca4687890859374ec12abb03",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "6a08ed68e1260683ef512c6825c6e8ff91eda48e76c6383ebdfd32907e721168",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "69b30ad9634c79a79059f05488bf60ba637aa18391d62aa6abdeed40bb3e675a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "4b5a4d7fb92feabc8e86b59dbb412ad561a4955061e72deae31b2dd5a13193e7",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "3bb5189136c99c7366471dc0bb83df5d7b91597a05b613f38d0257bec946be1d",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
@@ -24831,7 +25017,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "2fcf08f66b4376e34b0446caf475c98a7cc84dbd3f0869bed32ff8c8302b3504",
+    ".forge/check.sh": "8bd7fda9f8a80f8aae82b0443aa291524fcc58e99e4d6fd651625b085ad4fb3a",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -25917,7 +26103,7 @@ main().catch((e) => {
 
 ===== .forge/manifest.sha256
 f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/forge-secrets.md
-e07a43fa3b0f05a1249e49d69f3a7370243dfbfc18d670804658450ff2f1c9c2  .claude/rules/forge-typescript-pnpm.md
+03b8228be0ab61e70a5f4cff8db198625c470716a8585d376cbd93a4316b7f2f  .claude/rules/forge-typescript-pnpm.md
 0c60275a6586d66aa3d3ab871383af8cc874c5e849d10646d8940031768cd606  .claude/rules/forge-typescript-vitest.md
 4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
@@ -25926,14 +26112,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-531aa39cb391617cab38ed56992dc0a3e0c979f90c76a6d50fa05aa2e8873489  .claude/skills/forge-project/scripts/post-edit.sh
+83130a43e9fb650a638a29417d2eb70055ae6485c6c58bffd3b97c89b17f4c5c  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-241bb8b80e8b030f910f182f47938afd9b83f4020d35f891efcf94c452d84ae4  .claude/skills/forge-project/scripts/session-start.sh
+3e95340f91aae19874a0539666d4cdba97f0093aca4687890859374ec12abb03  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-6a08ed68e1260683ef512c6825c6e8ff91eda48e76c6383ebdfd32907e721168  .claude/skills/forge-project/scripts/test-edit.sh
+69b30ad9634c79a79059f05488bf60ba637aa18391d62aa6abdeed40bb3e675a  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-4b5a4d7fb92feabc8e86b59dbb412ad561a4955061e72deae31b2dd5a13193e7  .claude/skills/forge-project/scripts/typecheck.sh
+3bb5189136c99c7366471dc0bb83df5d7b91597a05b613f38d0257bec946be1d  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
@@ -25974,7 +26160,7 @@ a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12  .forge/ast-gre
 82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-2fcf08f66b4376e34b0446caf475c98a7cc84dbd3f0869bed32ff8c8302b3504  .forge/check.sh
+8bd7fda9f8a80f8aae82b0443aa291524fcc58e99e4d6fd651625b085ad4fb3a  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 

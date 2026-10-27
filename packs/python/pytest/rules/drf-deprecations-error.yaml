@@ -1,0 +1,16 @@
+id: python/pytest/drf-deprecations-error
+description: "When djangorestframework is a dependency, pytest's filterwarnings turns DRF's RemovedInNextDRFVersionWarning (what the next DRF release removes) into errors with \"error::rest_framework.deprecation.RemovedInNextDRFVersionWarning\" (or a bare \"error\"): as a warning it lets the tests pass on code the next release breaks."
+scope: {language: any, files: ["**/pyproject.toml", "**/pytest.ini", "**/.pytest.ini", "**/tox.ini", "**/setup.cfg"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper python pytest_filterwarnings.py error::rest_framework.deprecation.RemovedInNextDRFVersionWarning djangorestframework"
+    when_changed: ["pyproject.toml", "pytest.ini", ".pytest.ini", "tox.ini", "setup.cfg"]
+when:
+  deps: [{ecosystem: pypi, name: djangorestframework, version: "*"}]
+examples:
+  match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"djangorestframework\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n"}
+  no_match:
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"djangorestframework\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"error::rest_framework.deprecation.RemovedInNextDRFVersionWarning\",\n]\n"}
+    - files: {pyproject.toml: "[project]\nname = \"app\"\nversion = \"0.1.0\"\ndependencies = [\"djangorestframework\"]\n\n[tool.pytest.ini_options]\nfilterwarnings = [\n    \"ignore::DeprecationWarning:botocore.*\",\n]\n", pytest.ini: "[pytest]\nfilterwarnings =\n    error\n    ignore::DeprecationWarning:botocore.*\n"}

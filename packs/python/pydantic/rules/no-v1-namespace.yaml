@@ -1,0 +1,20 @@
+id: python/pydantic/no-v1-namespace
+description: "No pydantic.v1 imports: the v1 compatibility namespace keeps v1 behaviour; use the pydantic v2 API."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "pydantic.v1".msg = "Pydantic v1 API; use pydantic v2"
+examples:
+  match:
+    - "from pydantic.v1 import BaseModel\n\n\nclass User(BaseModel):\n    name: str\n"
+    - "from pydantic import v1\n\n\nclass User(v1.BaseModel):\n    name: str\n"
+    - "import pydantic.v1 as pv1\n\n\nclass User(pv1.BaseModel):\n    name: str\n"
+  no_match:
+    - "from pydantic import BaseModel\n\n\nclass User(BaseModel):\n    name: str\n"

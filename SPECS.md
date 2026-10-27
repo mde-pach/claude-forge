@@ -175,7 +175,7 @@ A rule with `when` is active only where each listed dependency is declared in it
 
 Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
-Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
+Every rule blocks, except an `ast-grep` or `grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
 ### 6.2 Targets
 
@@ -186,16 +186,16 @@ Every rule blocks, except an `ast-grep` target in `advise` mode (§6.2), for heu
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1) | owned | `.forge/check.sh` (§10) |
-| `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
+| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1), `config_files` (optional, lint only, globs or roles: the tool's own config files it also lints, e.g. ruff's `RUF200` on `pyproject.toml`; a changed one is in the check's scope, so `{files}`, the edit-time run and the attribution of §10.1 include it) | owned | `.forge/check.sh` (§10) |
+| `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease \| advise`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
 - `forbid`: a match on an added line of a changed file fails (§10.1); with `--all`, any match.
 - `no-increase`: more matches than in the base in a changed file fails.
 - `no-decrease`: fewer matches than in the base in a changed file fails.
-- `advise` (ast-grep only): a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
+- `advise`: a match on a line added during the turn is reported after the edit (PostToolUse feedback, like `forbid`); Stop, the pre-commit hook and CI do not run it.
 
-The schema rejects fields that would do nothing: `rerun` outside stage `test`, `format_stdin` outside `format` / `lint`, `check` on a guard with `decision: deny`, and `review` on a rule with neither a guard `ask` nor the test-edit check (`run: forge_test_edits`). A project tool whose name has a `-` (`vue-tsc`) has no wrapper function, so a check runs it as `forge_exec_tool <name>`; a rule running it directly is rejected when packs and local rules load.
+The schema rejects fields that would do nothing: `rerun` outside stage `test`, `format_stdin` outside `format` / `lint`, `config_files` outside `lint`, `check` on a guard with `decision: deny`, and `review` on a rule with neither a guard `ask` nor the test-edit check (`run: forge_test_edits`). A project tool whose name has a `-` (`vue-tsc`) has no wrapper function, so a check runs it as `forge_exec_tool <name>`; a rule running it directly is rejected when packs and local rules load.
 
 A `grep` target is for text that is not code ast-grep parses: comments, configuration, `.astro` files.
 
@@ -409,6 +409,8 @@ A check with a `timeout` (seconds) that runs past it is stopped with its process
 | `[tool.ty]`, `ty.toml` | a `rules` level lowered (`error` > `warn` > `ignore`) or removed; `terminal.error-on-warning` no longer true; `src.exclude` entries added; an `overrides` entry added |
 | `[tool.pytest.ini_options]` | `addopts` gains `--ignore`, `--ignore-glob`, `--deselect`, `-k`, `-m`, `--lf`, `--sw` or `--continue-on-collection-errors`; `testpaths` entries removed; `norecursedirs` entries added; `xfail_strict` no longer true |
 | `[tool.coverage]` | `report.fail_under` lowered or removed; `omit`, `exclude_lines` or `exclude_also` entries added |
+| `[tool.mypy]`, `mypy.ini`, `.mypy.ini` | `strict`, a `disallow_*`, `warn_*` or `strict_*` option no longer true; `ignore_missing_imports` or `ignore_errors` turned on globally or added for a module (`[[tool.mypy.overrides]]`, `[mypy-<module>]`) |
+| `[tool.pyright]`, `[tool.basedpyright]`, `pyrightconfig.json` | `typeCheckingMode` lowered (`all` > `strict` > `recommended` > `standard` > `basic` > `off`) or removed; a `report*` level lowered (`error` > `warning` > `information` > `none`; `true` to `false`) or removed |
 | `biome.json`, `biome.jsonc` | a rule's level lowered (`error` > `warn` > `info` > `off`) or removed; a group's level lowered; `recommended`, `linter.enabled` or `formatter.enabled` turned off; negated `files.includes` / `linter.includes` entries added; an `overrides` entry added or changed |
 | `tsconfig*.json` | a strict flag (`strict`, `noImplicitAny`, `strictNullChecks`, … `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnused*`, `checkJs`) no longer true; `skipLibCheck` or `ignoreDeprecations` added; `exclude` entries added; `include` entries removed; `extends` changed |
 | `package.json` `scripts` | a script named like `test`, `check`, `lint`, `type…`, `e2e`, `ci`, `verify` removed, or given `--passWithNoTests`, `\|\| true`, `--no-errors-on-unmatched`, an exclude/ignore/skip flag, `--max-warnings N`, `--silent` |
@@ -459,6 +461,7 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 | `forge_untested_change` | when the change has a code line (not blank, not only a comment) added or removed in an in-scope file and no existing file matching `FORGE_TEST_PATH_ERE` (pytest, Vitest and Playwright test paths) changed: "You changed behaviour in <files, up to 3> without adding or updating a test; add a test that fails without your change, or say why none is needed." |
 | `forge_stub_sync` | for each changed `*.py` module that gained public names (the entries of `__all__` when it has one, else top-level `def` / `class` names without `_`; compared with the base's names) and each `.pyi` in the repository with the same module path inside its top-level package (packages are directories with `__init__.py` or `__init__.pyi`: `logfire/experimental/query_client.py` ↔ `logfire-api/logfire_api/experimental/query_client.pyi`), the new names the stub does not mention: "The stub <pyi> does not have <names>, new in <py>; add it there too." |
 | `forge_docs_mentions` | when no documentation file changed (Markdown, MDX or reStructuredText under a `docs/` or `doc/` directory, and `README*`): the public names whose definition the change added, removed or edited on a removed or added line of an in-scope file (Python `def`, `class`, annotated names and parameters, module-level assignments; TypeScript and JavaScript `export` declarations, optional properties `name?:`, typed members `name: T;`, methods with a modifier; a line that only moved does not count; names starting with `_`, shorter than 4 characters or on a stop list of common words are dropped), then the documentation lines mentioning one (as a whole word; a name without `_` or an inner capital only in a code span or a fenced block): "These docs mention identifiers you changed; check they still describe the behaviour:" and up to 5 `path:line name` lines. |
+| `forge_model_ids <deprecated> <known>` | for each quoted id on an added line of an in-scope file (after an optional `anthropic:` / `openai:` / `anthropic/` / `openai/` prefix): an id of `<deprecated>` (`<id>\|<retires>\|<replacement>;…`) prints `<path>:<line> <id> retires <date>; use <replacement>`; a dated Claude id (`claude-<family>-<version>-20YYMMDD`) not in `<known>` prints `<path>:<line> <id> is not a published Claude model id; use its alias (e.g. claude-opus-5-5)` |
 
 ## 11. Audit of tool targets
 
@@ -542,7 +545,8 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | Rule | Targets |
 |---|---|
 | `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
-| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841) |
+| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`) |
+| `python/valid-pyproject` | `tool` ruff `RUF200` (`[project]` fields typed as PEP 621 says; a changed `pyproject.toml` is linted by `python/lint`'s `config_files`) |
 | `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2) |
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
@@ -571,7 +575,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
 | `python/aware-datetime` | `tool` ruff `DTZ005`, `DTZ001`, `DTZ002`, `DTZ006`, `DTZ011`, `DTZ012`, `DTZ901` (not `DTZ007`: it flags date-only `strptime(…).date()`) |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore`, `# pragma: no cover`, `# pragma: no branch` (suppression budget) |
-| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
+| `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)`, `Edit(**/mypy.ini)`, `Edit(**/.mypy.ini)`, `Edit(**/pyrightconfig.json)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
 | `python/no-blind-except` | `tool` ruff `BLE001` |
@@ -788,10 +792,27 @@ context.md: "Alembic with an async engine: `alembic/env.py` runs migrations thro
 
 | Rule | Targets |
 |---|---|
-| `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
+| `python/pydantic/v2-api` | `ast-grep` forbid: `class Config:` in a class whose superclass is typed `pydantic` `BaseModel` (§15.1; `BaseSettings` derives from it), `json_encoders=` in a call declared `pydantic` `ConfigDict` or `pydantic_settings` `SettingsConfigDict` (§15.6) or as a key of a `model_config = {…}` dict, and v1-only arguments (`env`, `regex`, `const`, `min_items`, `max_items`, `unique_items`, `allow_mutation`, `example`) of a call declared `pydantic` `Field`; `.dict()`, `.json()`, `parse_obj`, `@validator` are ty's `deprecated` (`python/no-deprecated`) |
+| `python/pydantic/no-v1-namespace` | `tool` ruff `TID251`, banned-api `pydantic.v1` |
 | `python/pydantic/typeadapter-module-level` | `ast-grep` advise: a call typed `pydantic` `TypeAdapter` inside a function not decorated with `cache`, `lru_cache` or `cached_property` |
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."
+
+### python/pydantic/settings
+
+Detected by `pydantic-settings` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pydantic/settings/no-load-dotenv` | `tool` ruff `TID251`, banned-api `dotenv.load_dotenv` |
+
+### python/attrs
+
+Detected by `attrs` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/attrs/next-gen-api` | `tool` ruff `TID251`, banned-api `attr.s`, `attr.attrs`, `attr.dataclass`, `attr.ib`, `attr.attrib` |
 
 ### python/pytest
 
@@ -809,6 +830,9 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/no-mock-increase` | `ast-grep` no-increase on test files: calls to `patch`, `patch.object`, `patch.dict`, `patch.multiple`, `Mock`, `MagicMock`, `AsyncMock`, `NonCallableMock`, `create_autospec` (bare, `mock.`, `unittest.mock.`, or through an alias: `from unittest.mock import patch as p`, `import unittest.mock as um`, `from unittest import mock as m`), and `mocker.patch*`, `mocker.spy`, `mocker.stub`, `mocker.Mock*`; `monkeypatch` is not counted (pytest's way to set configuration) |
 | `python/pytest/no-test-edits` | `check` lint: `forge_test_edits` on `**/test_*.py`, `**/*_test.py`, `**/conftest.py`; edits ask (§10.5); `review`: is the change required by the user's request, or does it weaken the tests |
 | `python/pytest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test `*.py` (not migrations) |
+| `python/pytest/django-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::django.utils.deprecation.RemovedInNextVersionWarning django` (§13.4), `when_changed`: the pytest config files; only with `django` (`when`) |
+| `python/pytest/drf-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::rest_framework.deprecation.RemovedInNextDRFVersionWarning djangorestframework` (§13.4), `when_changed`: the pytest config files; only with `djangorestframework` (`when`) |
+| `python/pytest/pydantic-deprecations-error` | `check` lint: `forge_helper python pytest_filterwarnings.py error::pydantic.warnings.PydanticDeprecationWarning pydantic` (§13.4), `when_changed`: the pytest config files; only with `pydantic >= 2.0.0` (`when`) |
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
@@ -835,6 +859,7 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/flake8-django` | `tool` ruff `DJ001`, `DJ003`, `DJ006`, `DJ007`, `DJ013` |
 | `python/django/csrf-exempt` | `ast-grep` forbid: `@csrf_exempt`, `csrf_exempt(…)`, `csrf_exempt` passed as an argument (`@method_decorator(csrf_exempt, …)`); the user decides, and disables the rule for that file in a local rule |
 | `python/django/no-mark-safe` | `tool` ruff `S308` |
+| `python/django/no-template-unescape` | `grep` advise on `@django-templates`: a `\|safe` or `\|safeseq` filter, `{% autoescape off %}` |
 | `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
 | `python/django/migration-imports-models` | `ast-grep` forbid on `@django-migrations`: `from <x>.models import …`, `from <x> import models` (not `django.*`) |
@@ -908,14 +933,23 @@ context.md: `%s` placeholders; pools opened explicitly in startup.
 
 ### python/redis
 
-Detected by `redis` (pypi).
+Detected by `redis` or `aioredis` (pypi).
 
 | Rule | Targets |
 |---|---|
 | `python/redis/no-keys` | `ast-grep` advise: `$R.keys(…)`, `$R` typed `redis` `Redis` / `StrictRedis` / `RedisCluster` (sync and `redis.asyncio`) |
 | `python/redis/aclose` | `ast-grep` forbid: `$R.close()`, `$R` typed `redis.asyncio` `Redis` |
+| `python/redis/no-aioredis` | `tool` ruff `TID251`, banned-api `aioredis` |
 
 context.md: `scan_iter()` instead of `KEYS`; `aclose()` on asyncio clients.
+
+### python/websockets
+
+Detected by `websockets` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/websockets/no-legacy-asyncio` | `tool` ruff `TID251`, banned-api `websockets.legacy` |
 
 ### python/strawberry
 
@@ -947,6 +981,14 @@ Detected by `polars` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/polars/no-python-row-functions` | `ast-grep` advise: `map_elements`, `map_rows`, `iter_rows` on a receiver typed `polars` `Expr` / `Series` / `DataFrame` |
+
+### python/pandera
+
+Detected by `pandera` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pandera/pandas-namespace` | `tool` ruff `TID251`, banned-api `pandera.` `DataFrameSchema`, `SeriesSchema`, `Column`, `Index`, `MultiIndex`, `DataFrameModel`, `infer_schema`, `check_types`, `check_input`, `check_output`, `check_io` (not `Check`, `Field`, `check`, `dataframe_check`, `parser`: pandera keeps them top-level) |
 
 ### python/numpy
 
@@ -994,6 +1036,7 @@ Detected by `anthropic >= 2.0.0` (pypi).
 |---|---|
 | `python/anthropic/no-version-header` | `ast-grep` advise: a call typed `anthropic` with `default_headers=` / `extra_headers=` holding an `"anthropic-version"` key |
 | `python/anthropic/stream-long-requests` | `ast-grep` advise: `create(…)` / `parse(…)` on a receiver typed `anthropic` `Messages` / `AsyncMessages` with an integer `max_tokens` above 21,333 and no `stream=True` |
+| `python/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.$M(…)` (`create`, `stream`, `parse`, `count_tokens`) on a receiver typed `anthropic` `Messages` / `AsyncMessages` with a `model=` string literal from the data file's `rejects budget_tokens` rows (`ai-models`; optionally `anthropic.`-prefixed) and a `thinking=` dict holding a `budget_tokens` key |
 
 ### python/langchain
 
@@ -1003,6 +1046,18 @@ Detected by `langchain-core` (pypi).
 |---|---|
 | `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
 | `python/langchain/safe-load` | `ast-grep` forbid: the keyword arguments `allowed_objects="all"`, `secrets_from_env=True` |
+| `python/langchain/partner-packages` | `tool` ruff `TID251`, banned-api: each `langchain_community` class deprecated with an `alternative_import` in a partner package (langchain-community 0.4.2: 84 classes, 164 entries), at its defining module and at its package's re-export (TID251 matches a path, not the object) |
+| `python/langchain/no-legacy-chains` | `tool` ruff `TID251`, banned-api `langchain_classic` |
+| `python/langchain/no-python-repl` | `tool` ruff `TID251`, banned-api `langchain_experimental` `PythonREPLTool`, `PythonAstREPLTool` (`tools`, `tools.python.tool`), `PythonREPL` (`utilities`, `utilities.python`) |
+
+### python/llamaindex
+
+Detected by `llama-index-core` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/llamaindex/no-service-context` | `tool` ruff `TID251`, banned-api `llama_index.core.ServiceContext`, `llama_index.core.service_context.ServiceContext`, `llama_index.core.set_global_service_context` |
+| `python/llamaindex/no-experimental` | `tool` ruff `TID251`, banned-api `llama_index.experimental` |
 
 ### python/mcp
 
@@ -1027,6 +1082,15 @@ Detected by `apache-airflow` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/airflow/dag-schedule` | `tool` ruff `AIR002` |
+| `python/airflow/airflow3` | `tool` ruff `AIR301`, `AIR302`, `AIR303`, `AIR311`, `AIR312` (stable; not the preview `AIR304`, `AIR321`); `tool` ruff `TID251`, banned-api `airflow.settings.Session`, `airflow.utils.session.provide_session`, `airflow.utils.session.create_session`; only with `apache-airflow >= 3.0.0` (`when`) |
+
+### python/prefect
+
+Detected by `prefect` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/prefect/no-removed-v2-api` | `tool` ruff `TID251`, banned-api: Prefect's own migration table (`prefect/_internal/compatibility/migration.py`, 3.9.0: `REMOVED_IN_V3` and `MOVED_IN_V3`, `a.b:C` as `a.b.C`), the message naming Prefect's replacement; only with `prefect >= 3.0.0` (`when`) |
 
 ### python/sentry
 
@@ -1035,6 +1099,7 @@ Detected by `sentry-sdk` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/sentry/span-attributes` | `ast-grep` forbid: a call with `data=` whose callee is declared (§15.6) by `sentry_sdk` as `update_current_span` |
+| `python/sentry/no-deprecated-scope-api` | `tool` ruff `TID251`, banned-api `sentry_sdk.configure_scope`, `push_scope`, `Hub`, `set_measurement` (each also at its defining module, `sentry_sdk.api` / `sentry_sdk.hub`); only with `sentry-sdk >= 2.0.0` (`when`) |
 
 ### python/temporal
 
@@ -1057,6 +1122,7 @@ Detected by `library_any: [pypi]` (§13.4).
 | `python/library/spdx-license` | `grep` forbid in `pyproject.toml`: `license = {…}` (a table), `"License ::` classifiers (PEP 639) |
 | `python/library/no-python-cap` | `grep` forbid in `pyproject.toml`: `requires-python` with `<`, `~=` or `==` |
 | `python/library/no-logging-config` | `ast-grep` forbid, not in tests or `__main__.py`: `logging.basicConfig(…)`, `logging.getLogger().addHandler(…)`, `logging.root.addHandler(…)` |
+| `python/library/py-typed` | `check` lint, `when_changed`: `pyproject.toml`, `**/py.typed`: `uv build --wheel` into the check's temporary directory, then each top-level package of the wheel (a directory with `.py` files, not `.dist-info` / `.data`) holds `py.typed` (PEP 561); a failed build prints `skipped` with its last line |
 
 context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version; SPDX `license` (and the backends that support it), no `requires-python` cap; no logging configuration in library code.
 
@@ -1178,8 +1244,9 @@ Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
 | `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
 | `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
 | `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
+| `typescript/pnpm/no-removed-settings` | `grep` forbid in `pnpm-workspace.yaml`, `when` `pnpm >= 11` (`packageManager`): the top-level keys `onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, `ignoreDepScripts`, `allowNonAppliedPatches`, and `ignoreCves` (under `auditConfig`) |
 
-context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`.
+context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`; pnpm 11's `allowBuilds`, `allowUnusedPatches`, `auditConfig.ignoreGhsas`.
 
 ### typescript/npm
 
@@ -1550,6 +1617,9 @@ context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@
 | Rule | Targets |
 |---|---|
 | `typescript/svelte/kit/no-csrf-off` | `ast-grep` forbid in `svelte.config.*`, under `csrf`: `checkOrigin: false`, a `"*"` in `trustedOrigins` |
+| `typescript/svelte/kit/no-app-stores` | `grep` forbid in `.svelte`, `.ts`, `.js`, `.mts`, `.mjs` files, `when` `@sveltejs/kit >= 2.12`: an import (static or dynamic) of `$app/stores` |
+| `typescript/svelte/kit/no-env-modules` | `grep` forbid in the same files, `when` `@sveltejs/kit >= 3`: an import of `$env/static\|dynamic/private\|public` |
+| `typescript/svelte/kit/external-redirect` | `ast-grep` forbid, `when` `@sveltejs/kit >= 3`: a call declared as `@sveltejs/kit`'s `redirect` (§15.6) whose second argument is a string or template starting with `http://` / `https://` and that has no third argument |
 
 ### typescript/angular
 
@@ -1607,8 +1677,9 @@ Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bi
 | `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
 | `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
 | `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
+| `typescript/nestjs/express-path-syntax` | `ast-grep` advise, `when` `@nestjs/platform-express >= 11`: a string argument (or one in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` in a decorator call declared as `@nestjs/common`'s `Get`, `Post`, `Put`, `Patch`, `Delete`, `Options`, `Head` or `All` (§15.6), or in `$C.forRoutes(…)` where `C` is a `MiddlewareConfigProxy` (Nest converts the old syntax with a warning) |
 
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
 
 ### typescript/kysely
 
@@ -1639,8 +1710,9 @@ context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.quer
 |---|---|
 | `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
 | `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
+| `typescript/mongoose/update-pipeline` | `ast-grep` advise, `when` `mongoose >= 9`: `$M.updateOne\|updateMany\|findOneAndUpdate\|findByIdAndUpdate(f, [<array>], …)` without an object argument holding `updatePipeline: true`, where `M` is a Mongoose `Model` or `Query` (advice: `mongoose.set("updatePipeline", true)` may be set elsewhere) |
 
-context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
+context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`; update pipelines pass `updatePipeline: true`.
 
 ### typescript/temporal
 
@@ -1831,8 +1903,13 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 |---|---|
 | `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
 | `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
+| `typescript/express/path-syntax-v5` | `ast-grep` forbid, `when` `express >= 5`: a first argument of `$R.get\|post\|put\|patch\|delete\|options\|head\|all\|use\|route(…)` (a string, or a string in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` (path-to-regexp 8 throws), where `R` is an Express `IRouter` (`express-serve-static-core`: applications and routers) |
+| `typescript/express/no-req-query-assign` | `ast-grep` forbid, `when` `express >= 5`: an assignment (or `+=`, …) to `$R.query`, `$R.query.<p>` or `$R.query[<k>]`, where `R` is an Express `Request` (a getter in Express 5) |
+| `typescript/express/no-async-errors` | `ast-grep` forbid, `when` `express >= 5`: an import or `require` of `express-async-errors` |
+| `typescript/express/no-async-handler` | `ast-grep` advise, `when` `express >= 5`: an import or `require` of `express-async-handler` or `express-promise-router` (redundant: Express 5 handles rejected promises) |
+| `typescript/express/no-v4-response-signatures` | `ast-grep` forbid, `when` `express >= 5`: `$R.send(<number>)` (one argument) and `$R.redirect("back")`, where `R` is an Express `Response` |
 
-context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
+context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`; Express 5 path syntax, `req.query` read-only, no async wrappers, no Express 4 `res.send(<number>)` / `res.redirect("back")`.
 
 ### typescript/bullmq
 
@@ -1862,6 +1939,15 @@ Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
 
 context.md: no public ACLs on uploads.
 
+### typescript/anthropic
+
+Detected by `@anthropic-ai/sdk` (npm).
+
+| Rule | Targets |
+|---|---|
+| `typescript/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.messages.$M({…})` / `$C.beta.messages.$M({…})` (`create`, `stream`, `parse`, `countTokens`), `$C` typed `@anthropic-ai/sdk` `Anthropic` / `BaseAnthropic`, whose options have a `model` string literal from the data file's `rejects budget_tokens` rows (`ai-models`) and a `thinking` object with a `budget_tokens` key |
+| `typescript/anthropic/no-forced-tool-choice` | `ast-grep` forbid: the same calls with a `model` literal from the `rejects forced_tool_choice` rows and `tool_choice: {type: 'any' \| 'tool'}` |
+
 ### typescript/langchain
 
 Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
@@ -1871,6 +1957,16 @@ Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
 | `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
 
 context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
+
+### typescript/ai
+
+Detected by `ai` (the Vercel AI SDK).
+
+| Rule | Targets |
+|---|---|
+| `typescript/ai/no-system-in-messages` | `ast-grep` forbid, `when` `ai >= 7`: a call declared as `ai`'s `generateText` or `streamText` (§15.6) whose options object has a `messages` or `prompt` array literal holding an object with `role: "system"`, and no `allowSystemInMessages: true` |
+
+context.md: system prompts go in `instructions`.
 
 ### typescript/opentelemetry
 
@@ -2018,7 +2114,10 @@ Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `la
 
 | Rule | Targets |
 |---|---|
-| `ai-models/model-ids` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/model-ids` | `grep` forbid, rendered from the data file's `retired` rows, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/deprecated-model-ids` | `check` lint, advisory (§10.7): `forge_advise forge_model_ids` with the data file's `deprecated` rows and Claude ids: a quoted deprecated id on an added line (`<path>:<line> <id> retires <date>; use <replacement>`), and a dated Claude id (`claude-<family>-<version>-20YYMMDD`) the data file does not list (`… is not a published Claude model id; use its alias`); advice, so that a model published after the data file only asks |
+
+**The data file** `packs/ai-models/models.tsv` is the one list of model ids (`id`, `provider`, `status` `active` / `deprecated` / `retired`, `retires`, `replacement`, `rejects`: the request features the API rejects with a 400 on that model, `budget_tokens` and `forced_tool_choice`), dated, from the providers' deprecation pages; an id ending in `*` also covers its suffixed variants. Rules render it: a rule line after a `# models.tsv: <kind>` comment (`retired`, `rejects <feature>`, `advise`) holds the rendering, which `bun scripts/models.ts` writes after an edit of the file; the pack test fails while a rule differs from it. It is regenerated with each Forge release.
 
 ### kubernetes/helm
 
@@ -2107,6 +2206,7 @@ Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `
 
 - `drf_permissions.py`: §13 `python/django/drf/permission-classes`.
 - `fk_index.py`: §13 `python/sqlalchemy/fk-index`: in each changed `.py` file outside `versions/`, the foreign key columns (a `ForeignKey(…)` argument of `mapped_column` / `Column`, a `ForeignKeyConstraint` in `__table_args__`; per class or `Table(…)`) not in the base copy that no index leads with: `index=True` / `unique=True`, the first `primary_key=True` column, or the first column of an `Index` (after its name), `UniqueConstraint` or `PrimaryKeyConstraint`. Reported at the column's line.
+- `pytest_filterwarnings.py <entry> <dependency>`: §13 `python/pytest/*-deprecations-error`: the pytest configuration pytest uses (the first of `pytest.ini`, `.pytest.ini`, `pyproject.toml` with `[tool.pytest]` or `[tool.pytest.ini_options]`, `tox.ini` with `[pytest]`, `setup.cfg` with `[tool:pytest]`) has `<entry>` or a bare `error` in `filterwarnings` (spaces ignored); otherwise a finding at line 0 of that file.
 - `public_api.py`: for each changed module whose base copy has a literal `__all__`, each name that left it, or every name of a deleted module, must still be defined with a deprecation, read from the syntax tree: a `def` of that name decorated with `@deprecated` (`typing_extensions`, `warnings`) or calling `warnings.warn(…, DeprecationWarning | FutureWarning | PendingDeprecationWarning)` (or a subclass defined in the project, or a category parameter defaulting to one); a `class` with that decorator or such a call in `__init__` / `__new__` / `__init_subclass__` / `__post_init__`; an alias `name = deprecated(…)(…)`; or a module `__getattr__` that warns that way and names it (or reads a module-level table naming it). A project function that warns that way counts when the shim calls it or decorates with it. The word in a docstring or a comment does not count. A major version bump does not allow a removal by itself (the agent could make it): an intended removal is accepted in `forge.yaml`, which asks.
 - `public_api.mjs removed`: the names the package's entry points (`exports`, `main`, `module`, `types`, with `dist/`, `lib/`, `build/`, … mapped to `src/` and `.js` / `.d.ts` to the source file; `export *` followed through relative modules) export in the base are still exported, a major version bump included (an intended removal is accepted in `forge.yaml`); reported at line 0 of the module that declared the name. A name that became an alias of another exported name (`export const old = renamed`, `export { renamed as old }`; it was not one in the base) needs a `/** … @deprecated … */` JSDoc block right before its export statement or specifier.
 

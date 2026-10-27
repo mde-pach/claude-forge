@@ -1,0 +1,30 @@
+id: python/pandera/pandas-namespace
+description: "pandas schemas come from pandera.pandas (import pandera.pandas as pa), not the top-level pandera namespace, which pandera deprecated for them: DataFrameSchema, SeriesSchema, Column, Index, MultiIndex, DataFrameModel, infer_schema, check_types, check_input, check_output, check_io. Check, Field, check, dataframe_check and parser stay top-level."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "pandera.DataFrameSchema".msg = "import it from pandera.pandas"
+      "pandera.SeriesSchema".msg = "import it from pandera.pandas"
+      "pandera.Column".msg = "import it from pandera.pandas"
+      "pandera.Index".msg = "import it from pandera.pandas"
+      "pandera.MultiIndex".msg = "import it from pandera.pandas"
+      "pandera.DataFrameModel".msg = "import it from pandera.pandas"
+      "pandera.infer_schema".msg = "import it from pandera.pandas"
+      "pandera.check_types".msg = "import it from pandera.pandas"
+      "pandera.check_input".msg = "import it from pandera.pandas"
+      "pandera.check_output".msg = "import it from pandera.pandas"
+      "pandera.check_io".msg = "import it from pandera.pandas"
+examples:
+  match:
+    - "import pandera as pa\n\nschema = pa.DataFrameSchema({\"price\": pa.Column(float, pa.Check.ge(0))})\n"
+    - "from pandera import DataFrameModel\n\n\nclass Prices(DataFrameModel):\n    price: float\n"
+  no_match:
+    - "import pandera.pandas as pa\n\nschema = pa.DataFrameSchema({\"price\": pa.Column(float, pa.Check.ge(0))})\n"
+    - "import pandera as pa\n\npositive = pa.Check.ge(0)\n"
