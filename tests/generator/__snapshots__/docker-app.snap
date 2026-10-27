@@ -5331,7 +5331,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -5439,7 +5439,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -5457,7 +5464,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-links|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/contextmanager-finally|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/taskgroup-except-star|python/typeis-over-typeguard'
+FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-links|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/archive-extract|python/contextmanager-finally|python/hmac-compare|python/lazy-log-args|python/llm-client-timeout|python/log-exception|python/no-ssl-verify-off|python/no-stub|python/no-swallowed-cancel|python/taskgroup-except-star|python/typeis-over-typeguard'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -9740,7 +9747,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -9848,7 +9855,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -14169,7 +14183,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -14277,7 +14291,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -18618,7 +18639,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -18726,7 +18747,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -19038,6 +19066,28 @@ invalid:
       api:
         image: ghcr.io/acme/api
 
+===== .forge/ast-grep/rule-tests/python-archive-extract-test.yml
+id: python/archive-extract
+valid: []
+invalid:
+  - |
+    import tarfile
+
+
+    def unpack(path: str) -> None:
+        with tarfile.open(path) as tar:
+            tar.extractall("out")
+  - |
+    import tarfile
+
+
+    def first(tar: tarfile.TarFile) -> None:
+        tar.extract(tar.getmembers()[0], path="out")
+  - |
+    import shutil as sh
+
+    sh.unpack_archive("upload.tar.gz", "out")
+
 ===== .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
 id: python/contextmanager-finally
 valid:
@@ -19092,6 +19142,55 @@ invalid:
         state = yield
         await app.stop()
 
+===== .forge/ast-grep/rule-tests/python-hmac-compare-test.yml
+id: python/hmac-compare
+valid: []
+invalid:
+  - |
+    import hashlib
+    import hmac
+
+
+    def valid(secret: bytes, body: bytes, sig: str) -> bool:
+        mac = hmac.new(secret, body, hashlib.sha256)
+        return mac.hexdigest() == sig
+  - |
+    import hmac
+
+
+    def invalid(secret: bytes, body: bytes, sig: bytes) -> bool:
+        return sig != hmac.digest(secret, body, "sha256")
+
+===== .forge/ast-grep/rule-tests/python-lazy-log-args-test.yml
+id: python/lazy-log-args
+valid: []
+invalid:
+  - |
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+
+    def login(uid: int) -> None:
+        logger.info(f"user {uid} logged in")
+  - |
+    import logging
+
+    audit = logging.LoggerAdapter(logging.getLogger("audit"), {"app": "shop"})
+
+
+    def login(uid: int, ip: str) -> None:
+        audit.warning("user {} from {}".format(uid, ip))
+        audit.error("user %s failed" % uid)
+  - |
+    import logging
+
+    log = logging.getLogger(__name__)
+
+
+    def login(uid: int) -> None:
+        log.log(logging.INFO, rf"user {uid}")
+
 ===== .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
 id: python/llm-client-timeout
 valid: []
@@ -19114,6 +19213,58 @@ invalid:
 
     client = Anthropic()
     reply = client.messages.create(model="claude-opus-5-5", max_tokens=1024, messages=[], timeout=None)
+
+===== .forge/ast-grep/rule-tests/python-log-exception-test.yml
+id: python/log-exception
+valid: []
+invalid:
+  - |
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+
+    def pay() -> None: ...
+
+
+    def charge() -> None:
+        try:
+            pay()
+        except ValueError:
+            logger.error("payment failed")
+  - |
+    import logging
+
+    billing = logging.LoggerAdapter(logging.getLogger("billing"), {"shop": 1})
+
+
+    def pay() -> None: ...
+
+
+    def charge() -> None:
+        try:
+            pay()
+        except (ValueError, KeyError) as err:
+            if err.args:
+                billing.error("payment failed: %s", err)
+
+===== .forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml
+id: python/no-ssl-verify-off
+valid: []
+invalid:
+  - |
+    import ssl
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+  - |
+    from ssl import CERT_NONE, SSLContext, PROTOCOL_TLS_CLIENT
+
+
+    def client() -> SSLContext:
+        context = SSLContext(PROTOCOL_TLS_CLIENT)
+        context.verify_mode = CERT_NONE
+        return context
 
 ===== .forge/ast-grep/rule-tests/python-no-stub-test.yml
 id: python/no-stub
@@ -19612,6 +19763,38 @@ rule:
               field: key
               regex: ^["']?(build)["']?$
 
+===== .forge/ast-grep/rules/python/archive-extract.yml
+# Generated by forge from python/archive-extract (mode: forbid).
+id: python/archive-extract
+language: Python
+severity: error
+message: 'forge:python/archive-extract TarFile.extractall() / extract() and shutil.unpack_archive() pass filter= (normally "data"): without it a crafted archive writes outside the target directory (absolute paths, .., links). zipfile sanitises its paths itself.'
+rule:
+  kind: call
+  any:
+    - pattern: $T.extractall($$$)
+    - pattern: $T.extract($$$)
+    - pattern: $U($$$)
+      has:
+        field: function
+        regex: unpack_archive$
+  not:
+    has:
+      field: arguments
+      has:
+        kind: keyword_argument
+        regex: ^filter[[:space:]]*=
+metadata:
+  forge_where:
+    T:
+      type:
+        module: tarfile
+        name: TarFile
+    U:
+      declared:
+        module: shutil
+        name: unpack_archive
+
 ===== .forge/ast-grep/rules/python/contextmanager-finally.yml
 # Generated by forge from python/contextmanager-finally (mode: forbid).
 id: python/contextmanager-finally
@@ -19645,6 +19828,88 @@ rule:
           kind: decorator
           regex: ^@(contextlib\.)?(async)?contextmanager$
 
+===== .forge/ast-grep/rules/python/hmac-compare.yml
+# Generated by forge from python/hmac-compare (mode: forbid).
+id: python/hmac-compare
+language: Python
+severity: error
+message: "forge:python/hmac-compare An HMAC digest is compared with hmac.compare_digest(), never == or !=: == stops at the first differing byte, so its timing lets an attacker forge a webhook signature byte by byte."
+rule:
+  kind: comparison_operator
+  has:
+    field: operators
+    regex: ^(==|!=)$
+  all:
+    - has:
+        any:
+          - pattern: $H.hexdigest()
+          - pattern: $H.digest()
+          - kind: call
+            pattern: $D($$$)
+            has:
+              field: function
+              regex: digest$
+metadata:
+  forge_where:
+    H:
+      type:
+        module: hmac
+        name: HMAC
+    D:
+      declared:
+        module: hmac
+        name: digest
+
+===== .forge/ast-grep/rules/python/lazy-log-args.yml
+# Generated by forge from python/lazy-log-args (mode: forbid).
+id: python/lazy-log-args
+language: Python
+severity: error
+message: "forge:python/lazy-log-args A logging Logger or LoggerAdapter call (debug, info, warning, error, exception, critical, and log's message) passes a constant format string and its arguments (log.info(\"user %s\", uid)), not an f-string, .format() or %-formatted string: the message would be built even when the level is off, and log tools could not group it."
+rule:
+  kind: call
+  any:
+    - all:
+        - pattern: $L.$M($$$)
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: eager
+    - all:
+        - pattern: $L.log($$$)
+        - has:
+            field: arguments
+            has:
+              nthChild: 2
+              matches: eager
+constraints:
+  M:
+    regex: ^(debug|info|warning|error|exception|critical)$
+utils:
+  eager:
+    any:
+      - kind: string
+        regex: ^[rRbBuU]?[fF]
+      - kind: call
+        has:
+          field: function
+          kind: attribute
+          regex: \.format$
+      - kind: binary_operator
+        regex: ^[\s\S]*%[\s\S]*$
+        has:
+          field: left
+          kind: string
+metadata:
+  forge_where:
+    L:
+      type:
+        module: logging
+        name:
+          - Logger
+          - LoggerAdapter
+
 ===== .forge/ast-grep/rules/python/llm-client-timeout.yml
 # Generated by forge from python/llm-client-timeout (mode: forbid).
 id: python/llm-client-timeout
@@ -19666,6 +19931,60 @@ metadata:
         package:
           - anthropic
           - openai
+
+===== .forge/ast-grep/rules/python/log-exception.yml
+# Generated by forge from python/log-exception (mode: forbid).
+id: python/log-exception
+language: Python
+severity: error
+message: "forge:python/log-exception Inside except, a logging Logger or LoggerAdapter logs the failure with .exception(…) (or passes exc_info=), not .error(…): .error drops the traceback."
+rule:
+  pattern: $L.error($$$)
+  not:
+    has:
+      field: arguments
+      has:
+        kind: keyword_argument
+        regex: ^exc_info[[:space:]]*=
+  inside:
+    kind: except_clause
+    stopBy:
+      any:
+        - kind: function_definition
+        - kind: lambda
+        - kind: class_definition
+metadata:
+  forge_where:
+    L:
+      type:
+        module: logging
+        name:
+          - Logger
+          - LoggerAdapter
+
+===== .forge/ast-grep/rules/python/no-ssl-verify-off.yml
+# Generated by forge from python/no-ssl-verify-off (mode: forbid).
+id: python/no-ssl-verify-off
+language: Python
+severity: error
+message: "forge:python/no-ssl-verify-off No check_hostname = False or verify_mode = CERT_NONE on an ssl SSLContext: it turns off certificate and hostname verification for every connection made with the context."
+rule:
+  any:
+    - pattern: $C.check_hostname = False
+    - pattern: $C.verify_mode = $V
+      has:
+        field: right
+        regex: CERT_NONE$
+metadata:
+  forge_where:
+    C:
+      type:
+        module: ssl
+        name: SSLContext
+    V:
+      declared:
+        module: ssl
+        name: CERT_NONE
 
 ===== .forge/ast-grep/rules/python/no-stub.yml
 # Generated by forge from python/no-stub (mode: forbid).
@@ -24509,7 +24828,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -24617,7 +24936,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -24638,7 +24964,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-links|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/contextmanager-finally|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/taskgroup-except-star'
+FORGE_FORBID='docker/compose/datastore-loopback|docker/compose/healthy-depends|docker/compose/no-docker-sock|docker/compose/no-host-root-mounts|docker/compose/no-inline-secrets|docker/compose/no-links|docker/compose/no-privileged|docker/compose/no-version-key|docker/compose/pinned-images|python/archive-extract|python/contextmanager-finally|python/hmac-compare|python/lazy-log-args|python/llm-client-timeout|python/log-exception|python/no-ssl-verify-off|python/no-stub|python/no-swallowed-cancel|python/taskgroup-except-star'
 FORGE_NO_INCREASE=''
 FORGE_NO_DECREASE=''
 
@@ -24850,6 +25176,7 @@ forge_end "$fail"
     "github-actions/zizmor": "152e740e0ec9b85f970fbea79835a9e78532541b357baaaea186aca86c09831a",
     "github-actions/zizmor-advice": "7a7605e8752f8bc7f4846ccac20a52db9069fd8856f049b1f88885e8c5533b97",
     "python/annotations-api": "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a",
+    "python/archive-extract": "87b2c77b092c7876717df443ca40d5ad933a9f96790aa4475bfe0e51556574da",
     "python/aware-datetime": "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b",
     "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
     "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
@@ -24859,11 +25186,13 @@ forge_end "$fail"
     "python/env-misuse": "5a5cc025a0ab1b58dc61ab934840895b9e91f856ca683b8d3b4bc7fcd23de339",
     "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
+    "python/hmac-compare": "73bd6611568c027294db648c172eb8f0fd7319e7fefc709748cc3131dddffaf4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
+    "python/lazy-log-args": "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221",
     "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
-    "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
+    "python/log-exception": "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
     "python/misplaced-bare-raise": "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c",
     "python/no-async-timeout": "4cb4ebed582e7c990d9205d07ea88d943bf3356edeb9f9162bb900fcfa352ffe",
@@ -24907,6 +25236,7 @@ forge_end "$fail"
     "python/no-shell-true": "e57da980e2cf90ab2998c0b12987735c970262277193bdea72397679c12200de",
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
+    "python/no-ssl-verify-off": "6c5003d2ba0db73b551ff147fe024749d9c8908811840c84a867521e90af04db",
     "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
     "python/no-stub": "b2b4943b8db051e5e64d410b2a3a6538c71c931c7bc8e474dfa2883dc6993a50",
     "python/no-swallowed-cancel": "86e42ec8b2f39f0b68b032cea2591268f0adf076b78571691c8ee012bed5cc67",
@@ -24960,14 +25290,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "629f139c9774aefc1283571b4d8db0731b9fd6306ec8fa2bf34ed4225c5f6ada",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "b48155c7495f743bcdde12a4f0651de3f0eedba21272a2c5b09de95984374516",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8c96c31cd7a90dd42184db23b84313f52037f0cf98eace48c9417fef94af29c7",
+    ".claude/skills/forge-project/scripts/session-start.sh": "5f2ef33459a28cf3d209c37e65e94925636da589b67c5c410be1e489a7ad67f5",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "049392520d8fa50ab3ba5415a2aff40d7011ef49a0ffb83b0b83d943c7739cfa",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "6031718868c6fcf79c7fb836944ea3ef69e92f568821acabf217f7d60bb28f44",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "70b3180aaba104ff09f4dd778a677089b9519a9283574498e4cf060781e1dc21",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "43f7109d9523772794cbc1265f838463ff2a928f305d43c47145a56ffe0d190f",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -24978,8 +25308,13 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/docker-compose-no-privileged-test.yml": "3157af2b09553758e5e140d700cd6af021e3a2920854e1a1b485a957d788f2c2",
     ".forge/ast-grep/rule-tests/docker-compose-no-version-key-test.yml": "38738a83519fff330da789bbf9e39ecc9b5dea0b7aa453cf9783bebfe1cf30ea",
     ".forge/ast-grep/rule-tests/docker-compose-pinned-images-test.yml": "4310a184f20efdaf1bcc48d930d61205a736f766500cd68b1e8a3c83adc7b270",
+    ".forge/ast-grep/rule-tests/python-archive-extract-test.yml": "7e505e12e5c9cc47f854beb7cbf8b78122694ef96141d4a86046785e6ad502ab",
     ".forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml": "c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15",
+    ".forge/ast-grep/rule-tests/python-hmac-compare-test.yml": "a7493ca9dc6d62227e9d3b3034d1978be3d3caeb2c237941939cf04982f2394d",
+    ".forge/ast-grep/rule-tests/python-lazy-log-args-test.yml": "b430644f48737672fae60a52a2e6e3f650fda308ddad2fcb974b37544c5a0145",
     ".forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml": "75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26",
+    ".forge/ast-grep/rule-tests/python-log-exception-test.yml": "6a28705635459b68de412a4d4585f42963e4d834f184b85e92e50414accc2f9b",
+    ".forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml": "29d243a5801d85781caa1fe9b160a0d341b10e850351b640e5b01ee819ddcc9d",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
     ".forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml": "e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363",
     ".forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml": "d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c",
@@ -24993,16 +25328,21 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/no-privileged.yml": "b4070f06a5d955838295c55274ede20ef90cd60b1bd39c52f7c81f9d2b9f1854",
     ".forge/ast-grep/rules/docker/compose/no-version-key.yml": "fb509328e86bda30b5e5d0c094f45ca28c61c4a1009a22c39a25f21bf11bb0c3",
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2",
+    ".forge/ast-grep/rules/python/archive-extract.yml": "42fe67b222b860a2f627f26d29ca73630e93e991b6b78104394da90516322a1d",
     ".forge/ast-grep/rules/python/contextmanager-finally.yml": "3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba",
+    ".forge/ast-grep/rules/python/hmac-compare.yml": "8d9af28aded4b3cf8ed694282fe4602a885994a720ba010dfbd7225be6968273",
+    ".forge/ast-grep/rules/python/lazy-log-args.yml": "2dd27431acedf13be75a1296b96997618f6b8f0e7e756c82a707afa06d87a45e",
     ".forge/ast-grep/rules/python/llm-client-timeout.yml": "e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869",
+    ".forge/ast-grep/rules/python/log-exception.yml": "7e6de214505ce976eda789e79ff50273824af13bcc4459e0e3b9bbcc517b986e",
+    ".forge/ast-grep/rules/python/no-ssl-verify-off.yml": "1e200875c38c1dd7cb6a73398f3da8a886ffa60e0aa5773263aff7b0327e1e15",
     ".forge/ast-grep/rules/python/no-stub.yml": "54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628",
     ".forge/ast-grep/rules/python/no-swallowed-cancel.yml": "a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa",
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c6216eb2c83120ff45686efae319a44b742c8d74185d20bef52ccdd3103f9b13",
+    ".forge/check.sh": "f3cfbf176e891a3e4ec986b9f2ed7f551b19e36c28009ffab6ab41d8cf8b47b8",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
-    ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
+    ".forge/helpers/types_python.py": "d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -25309,7 +25649,8 @@ except Exception as e:  # never report a crash as a loosened setting
 #                        metadata has forge_where (a type or a declared name per
 #                        metavariable, SPECS §15.1, §15.6); the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
-#                        lines, then "end"
+#                        lines, "unchecked<TAB><rule id><TAB><why>" for each match whose
+#                        metavariable's type cannot be asked, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
 # state directory or the repository is gone or another daemon took the state directory
 # over (checked every 10 seconds).
@@ -25584,6 +25925,42 @@ def in_import(path, text, pos):
     return any(a <= i < b for a, b in cached[1])
 
 
+def bind(text, ranges, which):
+    """The text with the expressions of ranges[n] (n in which) each bound to a fresh name
+    ((__forge_t<n> := (<expr>))), and {n: index inside that name}."""
+    # inserts: at each start the opening, at each end the closing; at the same offset,
+    # closings first (inner first), then openings (outer first)
+    events = []
+    for n in which:
+        s, e = ranges[n]
+        events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
+        events.append((e, 0, e - s, n, "))"))
+    events.sort()
+    out, last, anchors, size = [], 0, {}, 0
+    for off, kind, _, n, piece in events:
+        out.append(text[last:off])
+        size += off - last
+        last = off
+        if kind == 1:
+            anchors[n] = size + 1 + 2  # inside the name
+        out.append(piece)
+        size += len(piece)
+    out.append(text[last:])
+    return "".join(out), anchors
+
+
+def parses(text):
+    try:
+        ast.parse(text)
+        return True
+    except (SyntaxError, ValueError):
+        return False
+
+
+# a metavariable whose type cannot be asked: the match is reported, not checked
+UNCHECKED = (frozenset(), True, True)
+
+
 class Types:
     def __init__(self, server):
         self.server = server
@@ -25634,31 +26011,25 @@ class Types:
             if r not in ranges:
                 ranges.append(r)
             slot.append(ranges.index(r))
-        # inserts: at each start the opening, at each end the closing; at the same offset,
-        # closings first (inner first), then openings (outer first)
-        events = []
-        for n, (s, e) in enumerate(ranges):
-            events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
-            events.append((e, 0, e - s, n, "))"))
-        events.sort()
-        out, last, anchors = [], 0, {}
-        for off, kind, _, n, piece in events:
-            out.append(text[last:off])
-            last = off
-            if kind == 1:
-                anchors[n] = sum(len(x) for x in out) + 1 + 2  # inside the name
-            out.append(piece)
-        out.append(text[last:])
-        overlay = "".join(out)
+        # code that is not an expression (a parameter's name, a keyword argument's name)
+        # makes the binding unparsable: its type cannot be asked, and the match is not checked
+        unchecked = set()
+        overlay, anchors = bind(text, ranges, range(len(ranges)))
+        if not parses(overlay) and parses(text):
+            unchecked = {n for n in range(len(ranges)) if not parses(bind(text, ranges, [n])[0])}
+            overlay, anchors = bind(text, ranges, [n for n in range(len(ranges)) if n not in unchecked])
         self.server.show(path, overlay)
-        waits = [
-            self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
-            for n in range(len(ranges))
-        ]
-        results = [w() for w in waits]
+        waits = {
+            n: self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
+            for n in anchors
+        }
+        results = [waits[n]() if n in waits else None for n in range(len(ranges))]
         self.server.show(path, text)
         per_range = []
-        for r in results:
+        for n, r in enumerate(results):
+            if n in unchecked:
+                per_range.append(UNCHECKED)
+                continue
             decls = set()
             for l in (r if isinstance(r, list) else [r] if r else []):
                 u = l.get("targetUri") or l.get("uri")
@@ -25764,12 +26135,22 @@ def answer(types, matches):
     found = {}
     for f, kinds in by_file.items():
         found.update(types.check(os.path.join(ROOT, f), kinds["type"], kinds["declared"]))
-    keep = []
+    keep, unchecked = [], []
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
-        if all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
+        bad = [var for var in where if found.get((n, var)) is UNCHECKED]
+        if bad:
+            unchecked.append((n, bad[0]))
+        elif all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
             keep.append(n)
-    return keep
+    return keep, unchecked
+
+
+def unchecked_line(m, var):
+    """unchecked<TAB><rule id><TAB><why>: a match the engine cannot check."""
+    text = m["metaVariables"]["single"][var]["text"].split("\n")[0][:40]
+    return "unchecked\t%s\t%s:%d: $%s is bound to `%s`, which is not an expression: its type cannot be asked" % (
+        m.get("ruleId"), m["file"], m["range"]["start"]["line"] + 1, var, text)
 
 
 # ---------------------------------------------------------------- the FIFO loop
@@ -25852,7 +26233,9 @@ def question(types, d):
             out.append("error\tunreadable match: " + l[:80])
     t = time.time()
     try:
-        out.extend(raw[n] for n in answer(types, matches))
+        keep, unchecked = answer(types, matches)
+        out.extend(raw[n] for n in keep)
+        out.extend(unchecked_line(matches[n], var) for n, var in unchecked)
     except Exception as e:  # noqa: BLE001 - reported to the hook, which fails visibly
         log("error", repr(e))
         out.append("error\t%s: %s" % (type(e).__name__, e))
@@ -25930,14 +26313,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-629f139c9774aefc1283571b4d8db0731b9fd6306ec8fa2bf34ed4225c5f6ada  .claude/skills/forge-project/scripts/post-edit.sh
+b48155c7495f743bcdde12a4f0651de3f0eedba21272a2c5b09de95984374516  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-8c96c31cd7a90dd42184db23b84313f52037f0cf98eace48c9417fef94af29c7  .claude/skills/forge-project/scripts/session-start.sh
+5f2ef33459a28cf3d209c37e65e94925636da589b67c5c410be1e489a7ad67f5  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-049392520d8fa50ab3ba5415a2aff40d7011ef49a0ffb83b0b83d943c7739cfa  .claude/skills/forge-project/scripts/test-edit.sh
+6031718868c6fcf79c7fb836944ea3ef69e92f568821acabf217f7d60bb28f44  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-70b3180aaba104ff09f4dd778a677089b9519a9283574498e4cf060781e1dc21  .claude/skills/forge-project/scripts/typecheck.sh
+43f7109d9523772794cbc1265f838463ff2a928f305d43c47145a56ffe0d190f  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -25948,8 +26331,13 @@ b681c6636a4686ccfe5547336f5d9bf5abc92a1778f14ef96c385e2ecd973539  .forge/ast-gre
 3157af2b09553758e5e140d700cd6af021e3a2920854e1a1b485a957d788f2c2  .forge/ast-grep/rule-tests/docker-compose-no-privileged-test.yml
 38738a83519fff330da789bbf9e39ecc9b5dea0b7aa453cf9783bebfe1cf30ea  .forge/ast-grep/rule-tests/docker-compose-no-version-key-test.yml
 4310a184f20efdaf1bcc48d930d61205a736f766500cd68b1e8a3c83adc7b270  .forge/ast-grep/rule-tests/docker-compose-pinned-images-test.yml
+7e505e12e5c9cc47f854beb7cbf8b78122694ef96141d4a86046785e6ad502ab  .forge/ast-grep/rule-tests/python-archive-extract-test.yml
 c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15  .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
+a7493ca9dc6d62227e9d3b3034d1978be3d3caeb2c237941939cf04982f2394d  .forge/ast-grep/rule-tests/python-hmac-compare-test.yml
+b430644f48737672fae60a52a2e6e3f650fda308ddad2fcb974b37544c5a0145  .forge/ast-grep/rule-tests/python-lazy-log-args-test.yml
 75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26  .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
+6a28705635459b68de412a4d4585f42963e4d834f184b85e92e50414accc2f9b  .forge/ast-grep/rule-tests/python-log-exception-test.yml
+29d243a5801d85781caa1fe9b160a0d341b10e850351b640e5b01ee819ddcc9d  .forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
 e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363  .forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml
 d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c  .forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml
@@ -25963,16 +26351,21 @@ c429782050868700e55baa177a8050b633ddaa245be06e538efb42bc24eb0251  .forge/ast-gre
 b4070f06a5d955838295c55274ede20ef90cd60b1bd39c52f7c81f9d2b9f1854  .forge/ast-grep/rules/docker/compose/no-privileged.yml
 fb509328e86bda30b5e5d0c094f45ca28c61c4a1009a22c39a25f21bf11bb0c3  .forge/ast-grep/rules/docker/compose/no-version-key.yml
 8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2  .forge/ast-grep/rules/docker/compose/pinned-images.yml
+42fe67b222b860a2f627f26d29ca73630e93e991b6b78104394da90516322a1d  .forge/ast-grep/rules/python/archive-extract.yml
 3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba  .forge/ast-grep/rules/python/contextmanager-finally.yml
+8d9af28aded4b3cf8ed694282fe4602a885994a720ba010dfbd7225be6968273  .forge/ast-grep/rules/python/hmac-compare.yml
+2dd27431acedf13be75a1296b96997618f6b8f0e7e756c82a707afa06d87a45e  .forge/ast-grep/rules/python/lazy-log-args.yml
 e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869  .forge/ast-grep/rules/python/llm-client-timeout.yml
+7e6de214505ce976eda789e79ff50273824af13bcc4459e0e3b9bbcc517b986e  .forge/ast-grep/rules/python/log-exception.yml
+1e200875c38c1dd7cb6a73398f3da8a886ffa60e0aa5773263aff7b0327e1e15  .forge/ast-grep/rules/python/no-ssl-verify-off.yml
 54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628  .forge/ast-grep/rules/python/no-stub.yml
 a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-grep/rules/python/no-swallowed-cancel.yml
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c6216eb2c83120ff45686efae319a44b742c8d74185d20bef52ccdd3103f9b13  .forge/check.sh
+f3cfbf176e891a3e4ec986b9f2ed7f551b19e36c28009ffab6ab41d8cf8b47b8  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
-bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
+d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

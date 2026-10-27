@@ -5411,7 +5411,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -5519,7 +5519,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -5537,7 +5544,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-exit-zero|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/pytest/no-exitstatus|python/pytest/no-hook-tamper|python/sqlalchemy/session-context|python/typeis-over-typeguard'
+FORGE_FORBID='python/archive-extract|python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/hmac-compare|python/lazy-log-args|python/llm-client-timeout|python/log-exception|python/no-ssl-verify-off|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-exit-zero|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/pytest/no-exitstatus|python/pytest/no-hook-tamper|python/sqlalchemy/session-context|python/typeis-over-typeguard'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -9891,7 +9898,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -9999,7 +10006,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -10028,7 +10042,7 @@ if git rev-parse --verify -q HEAD >/dev/null; then
   printf 'forge: last commits\n'
   git log -5 --format='%h %s' 2>/dev/null | cut -c 1-72 | sed 's/^/  /'
 fi
-printf 'forge: packs git, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/sqlalchemy/alembic, python/uv, secrets, supply-chain\n'
+printf 'forge: packs git, python, python/asyncpg, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/sqlalchemy/alembic, python/uv, secrets, supply-chain\n'
 
 # the types engines the rules use start now, in the background, so the first edit
 # does not wait for them (§15.3); this session is registered with them
@@ -14391,7 +14405,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -14499,7 +14513,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -18912,7 +18933,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -19020,7 +19041,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -19077,6 +19105,28 @@ exit 2
 
 ===== .forge/.gitignore
 state/
+
+===== .forge/ast-grep/rule-tests/python-archive-extract-test.yml
+id: python/archive-extract
+valid: []
+invalid:
+  - |
+    import tarfile
+
+
+    def unpack(path: str) -> None:
+        with tarfile.open(path) as tar:
+            tar.extractall("out")
+  - |
+    import tarfile
+
+
+    def first(tar: tarfile.TarFile) -> None:
+        tar.extract(tar.getmembers()[0], path="out")
+  - |
+    import shutil as sh
+
+    sh.unpack_archive("upload.tar.gz", "out")
 
 ===== .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
 id: python/contextmanager-finally
@@ -19315,6 +19365,55 @@ invalid:
     def test_root() -> None:
         assert client.get("/").status_code == 404
 
+===== .forge/ast-grep/rule-tests/python-hmac-compare-test.yml
+id: python/hmac-compare
+valid: []
+invalid:
+  - |
+    import hashlib
+    import hmac
+
+
+    def valid(secret: bytes, body: bytes, sig: str) -> bool:
+        mac = hmac.new(secret, body, hashlib.sha256)
+        return mac.hexdigest() == sig
+  - |
+    import hmac
+
+
+    def invalid(secret: bytes, body: bytes, sig: bytes) -> bool:
+        return sig != hmac.digest(secret, body, "sha256")
+
+===== .forge/ast-grep/rule-tests/python-lazy-log-args-test.yml
+id: python/lazy-log-args
+valid: []
+invalid:
+  - |
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+
+    def login(uid: int) -> None:
+        logger.info(f"user {uid} logged in")
+  - |
+    import logging
+
+    audit = logging.LoggerAdapter(logging.getLogger("audit"), {"app": "shop"})
+
+
+    def login(uid: int, ip: str) -> None:
+        audit.warning("user {} from {}".format(uid, ip))
+        audit.error("user %s failed" % uid)
+  - |
+    import logging
+
+    log = logging.getLogger(__name__)
+
+
+    def login(uid: int) -> None:
+        log.log(logging.INFO, rf"user {uid}")
+
 ===== .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
 id: python/llm-client-timeout
 valid: []
@@ -19337,6 +19436,58 @@ invalid:
 
     client = Anthropic()
     reply = client.messages.create(model="claude-opus-5-5", max_tokens=1024, messages=[], timeout=None)
+
+===== .forge/ast-grep/rule-tests/python-log-exception-test.yml
+id: python/log-exception
+valid: []
+invalid:
+  - |
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+
+    def pay() -> None: ...
+
+
+    def charge() -> None:
+        try:
+            pay()
+        except ValueError:
+            logger.error("payment failed")
+  - |
+    import logging
+
+    billing = logging.LoggerAdapter(logging.getLogger("billing"), {"shop": 1})
+
+
+    def pay() -> None: ...
+
+
+    def charge() -> None:
+        try:
+            pay()
+        except (ValueError, KeyError) as err:
+            if err.args:
+                billing.error("payment failed: %s", err)
+
+===== .forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml
+id: python/no-ssl-verify-off
+valid: []
+invalid:
+  - |
+    import ssl
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+  - |
+    from ssl import CERT_NONE, SSLContext, PROTOCOL_TLS_CLIENT
+
+
+    def client() -> SSLContext:
+        context = SSLContext(PROTOCOL_TLS_CLIENT)
+        context.verify_mode = CERT_NONE
+        return context
 
 ===== .forge/ast-grep/rule-tests/python-no-stub-test.yml
 id: python/no-stub
@@ -20047,6 +20198,38 @@ invalid:
     def is_int(x: object) -> typing_extensions.TypeGuard[int]:
         return isinstance(x, int)
 
+===== .forge/ast-grep/rules/python/archive-extract.yml
+# Generated by forge from python/archive-extract (mode: forbid).
+id: python/archive-extract
+language: Python
+severity: error
+message: 'forge:python/archive-extract TarFile.extractall() / extract() and shutil.unpack_archive() pass filter= (normally "data"): without it a crafted archive writes outside the target directory (absolute paths, .., links). zipfile sanitises its paths itself.'
+rule:
+  kind: call
+  any:
+    - pattern: $T.extractall($$$)
+    - pattern: $T.extract($$$)
+    - pattern: $U($$$)
+      has:
+        field: function
+        regex: unpack_archive$
+  not:
+    has:
+      field: arguments
+      has:
+        kind: keyword_argument
+        regex: ^filter[[:space:]]*=
+metadata:
+  forge_where:
+    T:
+      type:
+        module: tarfile
+        name: TarFile
+    U:
+      declared:
+        module: shutil
+        name: unpack_archive
+
 ===== .forge/ast-grep/rules/python/contextmanager-finally.yml
 # Generated by forge from python/contextmanager-finally (mode: forbid).
 id: python/contextmanager-finally
@@ -20233,6 +20416,10 @@ id: python/fastapi/no-testclient-in-async-test
 language: Python
 severity: error
 message: 'forge:python/fastapi/no-testclient-in-async-test No TestClient inside an async def: it runs the app on another event loop in a thread, so async fixtures (database sessions, pools) cross loops and fail or hang. Use httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test").'
+files:
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
 rule:
   kind: call
   pattern: $C
@@ -20253,6 +20440,10 @@ id: python/fastapi/testclient-lifespan
 language: Python
 severity: warning
 message: "forge:python/fastapi/testclient-lifespan Advice: TestClient(app) is entered as a context manager (with TestClient(app) as client:, a fixture yielding inside the with): otherwise the app's lifespan never runs, and startup work such as opening the database pool is skipped."
+files:
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
 rule:
   kind: call
   pattern: $C
@@ -20266,6 +20457,88 @@ metadata:
       type:
         package: starlette
         name: TestClient
+
+===== .forge/ast-grep/rules/python/hmac-compare.yml
+# Generated by forge from python/hmac-compare (mode: forbid).
+id: python/hmac-compare
+language: Python
+severity: error
+message: "forge:python/hmac-compare An HMAC digest is compared with hmac.compare_digest(), never == or !=: == stops at the first differing byte, so its timing lets an attacker forge a webhook signature byte by byte."
+rule:
+  kind: comparison_operator
+  has:
+    field: operators
+    regex: ^(==|!=)$
+  all:
+    - has:
+        any:
+          - pattern: $H.hexdigest()
+          - pattern: $H.digest()
+          - kind: call
+            pattern: $D($$$)
+            has:
+              field: function
+              regex: digest$
+metadata:
+  forge_where:
+    H:
+      type:
+        module: hmac
+        name: HMAC
+    D:
+      declared:
+        module: hmac
+        name: digest
+
+===== .forge/ast-grep/rules/python/lazy-log-args.yml
+# Generated by forge from python/lazy-log-args (mode: forbid).
+id: python/lazy-log-args
+language: Python
+severity: error
+message: "forge:python/lazy-log-args A logging Logger or LoggerAdapter call (debug, info, warning, error, exception, critical, and log's message) passes a constant format string and its arguments (log.info(\"user %s\", uid)), not an f-string, .format() or %-formatted string: the message would be built even when the level is off, and log tools could not group it."
+rule:
+  kind: call
+  any:
+    - all:
+        - pattern: $L.$M($$$)
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              matches: eager
+    - all:
+        - pattern: $L.log($$$)
+        - has:
+            field: arguments
+            has:
+              nthChild: 2
+              matches: eager
+constraints:
+  M:
+    regex: ^(debug|info|warning|error|exception|critical)$
+utils:
+  eager:
+    any:
+      - kind: string
+        regex: ^[rRbBuU]?[fF]
+      - kind: call
+        has:
+          field: function
+          kind: attribute
+          regex: \.format$
+      - kind: binary_operator
+        regex: ^[\s\S]*%[\s\S]*$
+        has:
+          field: left
+          kind: string
+metadata:
+  forge_where:
+    L:
+      type:
+        module: logging
+        name:
+          - Logger
+          - LoggerAdapter
 
 ===== .forge/ast-grep/rules/python/llm-client-timeout.yml
 # Generated by forge from python/llm-client-timeout (mode: forbid).
@@ -20288,6 +20561,60 @@ metadata:
         package:
           - anthropic
           - openai
+
+===== .forge/ast-grep/rules/python/log-exception.yml
+# Generated by forge from python/log-exception (mode: forbid).
+id: python/log-exception
+language: Python
+severity: error
+message: "forge:python/log-exception Inside except, a logging Logger or LoggerAdapter logs the failure with .exception(…) (or passes exc_info=), not .error(…): .error drops the traceback."
+rule:
+  pattern: $L.error($$$)
+  not:
+    has:
+      field: arguments
+      has:
+        kind: keyword_argument
+        regex: ^exc_info[[:space:]]*=
+  inside:
+    kind: except_clause
+    stopBy:
+      any:
+        - kind: function_definition
+        - kind: lambda
+        - kind: class_definition
+metadata:
+  forge_where:
+    L:
+      type:
+        module: logging
+        name:
+          - Logger
+          - LoggerAdapter
+
+===== .forge/ast-grep/rules/python/no-ssl-verify-off.yml
+# Generated by forge from python/no-ssl-verify-off (mode: forbid).
+id: python/no-ssl-verify-off
+language: Python
+severity: error
+message: "forge:python/no-ssl-verify-off No check_hostname = False or verify_mode = CERT_NONE on an ssl SSLContext: it turns off certificate and hostname verification for every connection made with the context."
+rule:
+  any:
+    - pattern: $C.check_hostname = False
+    - pattern: $C.verify_mode = $V
+      has:
+        field: right
+        regex: CERT_NONE$
+metadata:
+  forge_where:
+    C:
+      type:
+        module: ssl
+        name: SSLContext
+    V:
+      declared:
+        module: ssl
+        name: CERT_NONE
 
 ===== .forge/ast-grep/rules/python/no-stub.yml
 # Generated by forge from python/no-stub (mode: forbid).
@@ -20474,13 +20801,18 @@ id: python/pytest/no-exitstatus
 language: Python
 severity: warning
 message: "forge:python/pytest/no-exitstatus Advice after the edit: an assignment to a pytest Session's exitstatus (decided by its type, pytest's Session) rewrites the suite's result; say what it is for."
+files:
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
 rule:
   pattern: $S.exitstatus = $V
 metadata:
   forge_where:
     S:
       type:
-        module: _pytest.main
+        module:
+          - _pytest.main
         name: Session
 
 ===== .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
@@ -25704,7 +26036,7 @@ FORGE_TYPES_LANGS='python'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -25812,7 +26144,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -25833,7 +26172,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-exit-zero|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star'
+FORGE_FORBID='python/archive-extract|python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/hmac-compare|python/lazy-log-args|python/llm-client-timeout|python/log-exception|python/no-ssl-verify-off|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-exit-zero|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -26020,6 +26359,8 @@ forge_end "$fail"
     "git/large-files": "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5",
     "git/no-conflict-markers": "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7",
     "python/annotations-api": "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a",
+    "python/archive-extract": "87b2c77b092c7876717df443ca40d5ad933a9f96790aa4475bfe0e51556574da",
+    "python/asyncpg/pool-acquire-ctx": "86d08e2c35b761f228b02a4ff22d55b485de27bc9abe825aea07862b37f48b40",
     "python/aware-datetime": "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b",
     "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
     "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
@@ -26034,16 +26375,18 @@ forge_end "$fail"
     "python/fastapi/no-debug-true": "c18e5a042914d571469d52a7667fc5085fc5881cbcd67a0082ab6d668638cb9f",
     "python/fastapi/no-on-event": "9964cd2fafef9ee91b7a1a635874b1ee1b201337443ce4d3c9662827c90332b2",
     "python/fastapi/no-raw-request-body": "8d8714dc1c4d63e697799fcdf0098613ac7c69948819a0942a8f65bf9c790f5e",
-    "python/fastapi/no-testclient-in-async-test": "20c2abe9d2838865b3268d75f2b014dce28d4e9df9e1fa5c69a6684b1fc86b78",
-    "python/fastapi/testclient-lifespan": "8c3089bd55b8ee8f99b314a7f88af28c89b4111dbd7d6dba1e1f9b52835a1731",
+    "python/fastapi/no-testclient-in-async-test": "8463a8f5fad9b78b84ab69b6e962bb5cca3d212218f6300138d30b301438c316",
+    "python/fastapi/testclient-lifespan": "bd931f1ad747c77549fbfcc1582cdcea85cb8ff6e74de911effc21cbe72d9820",
     "python/fastapi/unused-path-param": "82bb1ec3e4cf1b41d581e50cb522bc85bffc81f3f77a4a6c0d6b23ce63d9526f",
     "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
+    "python/hmac-compare": "73bd6611568c027294db648c172eb8f0fd7319e7fefc709748cc3131dddffaf4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
+    "python/lazy-log-args": "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221",
     "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
-    "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
+    "python/log-exception": "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
     "python/misplaced-bare-raise": "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c",
     "python/no-async-timeout": "4cb4ebed582e7c990d9205d07ea88d943bf3356edeb9f9162bb900fcfa352ffe",
@@ -26087,6 +26430,7 @@ forge_end "$fail"
     "python/no-shell-true": "e57da980e2cf90ab2998c0b12987735c970262277193bdea72397679c12200de",
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
+    "python/no-ssl-verify-off": "6c5003d2ba0db73b551ff147fe024749d9c8908811840c84a867521e90af04db",
     "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
     "python/no-stub": "b2b4943b8db051e5e64d410b2a3a6538c71c931c7bc8e474dfa2883dc6993a50",
     "python/no-swallowed-cancel": "86e42ec8b2f39f0b68b032cea2591268f0adf076b78571691c8ee012bed5cc67",
@@ -26109,7 +26453,7 @@ forge_end "$fail"
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "f5f9ae20956c2759cf7a3b79015c991fda29794aa45079bc58f801ccf9eea6a7",
     "python/pytest/no-exit-zero": "15151cbf387fc79f5469733269f5bd03a9d9a1e2bfa9c91e5b88710b39e69a9b",
-    "python/pytest/no-exitstatus": "6dbe844c86fa9f10a6aae8acece2e402aad68439fc0e6dc47f5b1d83d17e2bc8",
+    "python/pytest/no-exitstatus": "75100f92b4395d983cebb1f6a6572393d07df26191a2008dcb455fe4a36bce47",
     "python/pytest/no-fewer-asserts": "845f8454902c287e0f3dbb976ab63817130ad352ebd5b1f797cdab2c0cbb621b",
     "python/pytest/no-hook-tamper": "185fbafafa603f64de65f62544adfcdb6fb03bc640b9a42b56f0efcf18a62994",
     "python/pytest/no-mock-increase": "900451d90a480de003646dadd99e9052dcf407de02bf1fd97be3134fd2ce62c8",
@@ -26184,15 +26528,16 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cdee3e58806edd86df3dc78d9c8260618a7133165ab26cf375848b9d4992feb2",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "8b4a4dd57ec687cc9528215c3adaf317abf6e88e36587fc089b400b17952a9ff",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "c27d8a9599511536a9d6bae4b11d499ae56d0914d985db8bac7017353c025fd7",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "06cf39f135ce0847c2632e8b7e6963566c3ead4079a1bed012ea778b811baf66",
+    ".claude/skills/forge-project/scripts/session-start.sh": "af0e45676f0b6ffd2a723dadcee6c0a9aeb336cc3ef76479542e33a1335bbea8",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "121cfb6bdc50e5f68df885c1412c0ff91a56681433c568ad7c3a22a2d4810694",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "89bb7f95115215c21bbecc83b94c1aed734f3b298cda5ed8efa9ad38860acb16",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "cda03302e14e5902b4f3616f1bda3fc120e9a6404666615b259f9b1ad4fef1e3",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "bba69fc9220af286cd7d6b489de8bf5fed22b3235e54273271ad06788408d746",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
+    ".forge/ast-grep/rule-tests/python-archive-extract-test.yml": "7e505e12e5c9cc47f854beb7cbf8b78122694ef96141d4a86046785e6ad502ab",
     ".forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml": "c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15",
     ".forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml": "c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
@@ -26202,7 +26547,11 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml": "acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9",
     ".forge/ast-grep/rule-tests/python-fastapi-no-testclient-in-async-test-test.yml": "e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47",
     ".forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml": "83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7",
+    ".forge/ast-grep/rule-tests/python-hmac-compare-test.yml": "a7493ca9dc6d62227e9d3b3034d1978be3d3caeb2c237941939cf04982f2394d",
+    ".forge/ast-grep/rule-tests/python-lazy-log-args-test.yml": "b430644f48737672fae60a52a2e6e3f650fda308ddad2fcb974b37544c5a0145",
     ".forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml": "75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26",
+    ".forge/ast-grep/rule-tests/python-log-exception-test.yml": "6a28705635459b68de412a4d4585f42963e4d834f184b85e92e50414accc2f9b",
+    ".forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml": "29d243a5801d85781caa1fe9b160a0d341b10e850351b640e5b01ee819ddcc9d",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
     ".forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml": "e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363",
     ".forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml": "20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3",
@@ -26228,6 +26577,7 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml": "c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831",
     ".forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml": "d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c",
     ".forge/ast-grep/rule-tests/python-typeis-over-typeguard-test.yml": "d11d996fa649fbe56af564508c298af431eca98262f7dbb1102f34e2243fb52e",
+    ".forge/ast-grep/rules/python/archive-extract.yml": "42fe67b222b860a2f627f26d29ca73630e93e991b6b78104394da90516322a1d",
     ".forge/ast-grep/rules/python/contextmanager-finally.yml": "3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba",
     ".forge/ast-grep/rules/python/fastapi/basic-auth-compare-digest.yml": "490bdb2e13062df7a4012fc2f61ae47d4fc76035a171f0cb225d3e730492a9b0",
     ".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml": "166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd",
@@ -26235,15 +26585,19 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/fastapi/no-debug-true.yml": "dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b",
     ".forge/ast-grep/rules/python/fastapi/no-on-event.yml": "b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1",
     ".forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml": "0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f",
-    ".forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml": "b72f3428ab91e438f0a87abb050528198af17ada55fe41cfab020be5588d6ef3",
-    ".forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml": "f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab",
+    ".forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml": "2f69e1d4c5577e6066d1aa624d2d1a5b8304831dc60d8a674a3ef7578ef903dc",
+    ".forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml": "b7cdc8d8177ca239a235759c2fbb99b6641283ce185d958713a6d6976b7aa782",
+    ".forge/ast-grep/rules/python/hmac-compare.yml": "8d9af28aded4b3cf8ed694282fe4602a885994a720ba010dfbd7225be6968273",
+    ".forge/ast-grep/rules/python/lazy-log-args.yml": "2dd27431acedf13be75a1296b96997618f6b8f0e7e756c82a707afa06d87a45e",
     ".forge/ast-grep/rules/python/llm-client-timeout.yml": "e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869",
+    ".forge/ast-grep/rules/python/log-exception.yml": "7e6de214505ce976eda789e79ff50273824af13bcc4459e0e3b9bbcc517b986e",
+    ".forge/ast-grep/rules/python/no-ssl-verify-off.yml": "1e200875c38c1dd7cb6a73398f3da8a886ffa60e0aa5773263aff7b0327e1e15",
     ".forge/ast-grep/rules/python/no-stub.yml": "88f2268d645feae97e84401d665191fb09e01805a5f66f03210081bfcdf0b599",
     ".forge/ast-grep/rules/python/no-swallowed-cancel.yml": "a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa",
     ".forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml": "55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418",
     ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
     ".forge/ast-grep/rules/python/pytest/no-exit-zero.yml": "9613cee25a4d2c8725757681a08af29f621fb877133d13b3f4e66b45e47313a7",
-    ".forge/ast-grep/rules/python/pytest/no-exitstatus.yml": "49bd5d88fd004fe3388b7099747990542663afc423f08b05ea7e08ddde1685e7",
+    ".forge/ast-grep/rules/python/pytest/no-exitstatus.yml": "c1bf6f98584e4b89270caed2a845261ab1667c8afb6d1de1de21c7582fad1804",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "f569f66e7125b0783cebbddf316df490ed21fc379b4c4230794e6c7ef49ac167",
     ".forge/ast-grep/rules/python/pytest/no-hook-tamper.yml": "cf43e8fe7236e68d0734f3c8d2d22344cb56022ba4a71c6519d9352ca29d94fb",
     ".forge/ast-grep/rules/python/pytest/no-mock-increase.yml": "7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30",
@@ -26264,10 +26618,10 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "b848a6c844a313a70d5dbdb6893c131338db4066fdefd4755ed662318e4d5c6b",
+    ".forge/check.sh": "55a6934ed6c0a71ed46aadd163c21982cd592368043d1d4f38363c2f099317f6",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
-    ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
+    ".forge/helpers/types_python.py": "d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -26746,7 +27100,8 @@ except Exception as e:  # never report a crash as a loosened setting
 #                        metadata has forge_where (a type or a declared name per
 #                        metavariable, SPECS §15.1, §15.6); the answer goes to the FIFO <dir>/reply:
 #                        the matches whose forge_where holds (verbatim), "error<TAB>..."
-#                        lines, then "end"
+#                        lines, "unchecked<TAB><rule id><TAB><why>" for each match whose
+#                        metavariable's type cannot be asked, then "end"
 # The daemon exits after FORGE_TYPES_IDLE seconds (1800) without a line, and when its
 # state directory or the repository is gone or another daemon took the state directory
 # over (checked every 10 seconds).
@@ -27021,6 +27376,42 @@ def in_import(path, text, pos):
     return any(a <= i < b for a, b in cached[1])
 
 
+def bind(text, ranges, which):
+    """The text with the expressions of ranges[n] (n in which) each bound to a fresh name
+    ((__forge_t<n> := (<expr>))), and {n: index inside that name}."""
+    # inserts: at each start the opening, at each end the closing; at the same offset,
+    # closings first (inner first), then openings (outer first)
+    events = []
+    for n in which:
+        s, e = ranges[n]
+        events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
+        events.append((e, 0, e - s, n, "))"))
+    events.sort()
+    out, last, anchors, size = [], 0, {}, 0
+    for off, kind, _, n, piece in events:
+        out.append(text[last:off])
+        size += off - last
+        last = off
+        if kind == 1:
+            anchors[n] = size + 1 + 2  # inside the name
+        out.append(piece)
+        size += len(piece)
+    out.append(text[last:])
+    return "".join(out), anchors
+
+
+def parses(text):
+    try:
+        ast.parse(text)
+        return True
+    except (SyntaxError, ValueError):
+        return False
+
+
+# a metavariable whose type cannot be asked: the match is reported, not checked
+UNCHECKED = (frozenset(), True, True)
+
+
 class Types:
     def __init__(self, server):
         self.server = server
@@ -27071,31 +27462,25 @@ class Types:
             if r not in ranges:
                 ranges.append(r)
             slot.append(ranges.index(r))
-        # inserts: at each start the opening, at each end the closing; at the same offset,
-        # closings first (inner first), then openings (outer first)
-        events = []
-        for n, (s, e) in enumerate(ranges):
-            events.append((s, 1, -(e - s), n, "(__forge_t%d := (" % n))
-            events.append((e, 0, e - s, n, "))"))
-        events.sort()
-        out, last, anchors = [], 0, {}
-        for off, kind, _, n, piece in events:
-            out.append(text[last:off])
-            last = off
-            if kind == 1:
-                anchors[n] = sum(len(x) for x in out) + 1 + 2  # inside the name
-            out.append(piece)
-        out.append(text[last:])
-        overlay = "".join(out)
+        # code that is not an expression (a parameter's name, a keyword argument's name)
+        # makes the binding unparsable: its type cannot be asked, and the match is not checked
+        unchecked = set()
+        overlay, anchors = bind(text, ranges, range(len(ranges)))
+        if not parses(overlay) and parses(text):
+            unchecked = {n for n in range(len(ranges)) if not parses(bind(text, ranges, [n])[0])}
+            overlay, anchors = bind(text, ranges, [n for n in range(len(ranges)) if n not in unchecked])
         self.server.show(path, overlay)
-        waits = [
-            self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
-            for n in range(len(ranges))
-        ]
-        results = [w() for w in waits]
+        waits = {
+            n: self.server.request("textDocument/typeDefinition", {"textDocument": {"uri": uri(path)}, "position": position(overlay, anchors[n])})
+            for n in anchors
+        }
+        results = [waits[n]() if n in waits else None for n in range(len(ranges))]
         self.server.show(path, text)
         per_range = []
-        for r in results:
+        for n, r in enumerate(results):
+            if n in unchecked:
+                per_range.append(UNCHECKED)
+                continue
             decls = set()
             for l in (r if isinstance(r, list) else [r] if r else []):
                 u = l.get("targetUri") or l.get("uri")
@@ -27201,12 +27586,22 @@ def answer(types, matches):
     found = {}
     for f, kinds in by_file.items():
         found.update(types.check(os.path.join(ROOT, f), kinds["type"], kinds["declared"]))
-    keep = []
+    keep, unchecked = [], []
     for n, m in enumerate(matches):
         where = (m.get("metadata") or {}).get("forge_where") or {}
-        if all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
+        bad = [var for var in where if found.get((n, var)) is UNCHECKED]
+        if bad:
+            unchecked.append((n, bad[0]))
+        elif all((n, var) not in found or holds(found[(n, var)], cond) for var, cond in where.items()):
             keep.append(n)
-    return keep
+    return keep, unchecked
+
+
+def unchecked_line(m, var):
+    """unchecked<TAB><rule id><TAB><why>: a match the engine cannot check."""
+    text = m["metaVariables"]["single"][var]["text"].split("\n")[0][:40]
+    return "unchecked\t%s\t%s:%d: $%s is bound to `%s`, which is not an expression: its type cannot be asked" % (
+        m.get("ruleId"), m["file"], m["range"]["start"]["line"] + 1, var, text)
 
 
 # ---------------------------------------------------------------- the FIFO loop
@@ -27289,7 +27684,9 @@ def question(types, d):
             out.append("error\tunreadable match: " + l[:80])
     t = time.time()
     try:
-        out.extend(raw[n] for n in answer(types, matches))
+        keep, unchecked = answer(types, matches)
+        out.extend(raw[n] for n in keep)
+        out.extend(unchecked_line(matches[n], var) for n, var in unchecked)
     except Exception as e:  # noqa: BLE001 - reported to the hook, which fails visibly
         log("error", repr(e))
         out.append("error\t%s: %s" % (type(e).__name__, e))
@@ -27369,15 +27766,16 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 cdee3e58806edd86df3dc78d9c8260618a7133165ab26cf375848b9d4992feb2  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-8b4a4dd57ec687cc9528215c3adaf317abf6e88e36587fc089b400b17952a9ff  .claude/skills/forge-project/scripts/post-edit.sh
+c27d8a9599511536a9d6bae4b11d499ae56d0914d985db8bac7017353c025fd7  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-06cf39f135ce0847c2632e8b7e6963566c3ead4079a1bed012ea778b811baf66  .claude/skills/forge-project/scripts/session-start.sh
+af0e45676f0b6ffd2a723dadcee6c0a9aeb336cc3ef76479542e33a1335bbea8  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-121cfb6bdc50e5f68df885c1412c0ff91a56681433c568ad7c3a22a2d4810694  .claude/skills/forge-project/scripts/test-edit.sh
+89bb7f95115215c21bbecc83b94c1aed734f3b298cda5ed8efa9ad38860acb16  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-cda03302e14e5902b4f3616f1bda3fc120e9a6404666615b259f9b1ad4fef1e3  .claude/skills/forge-project/scripts/typecheck.sh
+bba69fc9220af286cd7d6b489de8bf5fed22b3235e54273271ad06788408d746  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+7e505e12e5c9cc47f854beb7cbf8b78122694ef96141d4a86046785e6ad502ab  .forge/ast-grep/rule-tests/python-archive-extract-test.yml
 c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15  .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
 c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5  .forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
@@ -27387,7 +27785,11 @@ cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1  .forge/ast-gre
 acc864f4e4e1588d654776d782963cb8eeed53bef9f1d4b689215bbf89e632f9  .forge/ast-grep/rule-tests/python-fastapi-no-raw-request-body-test.yml
 e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47  .forge/ast-grep/rule-tests/python-fastapi-no-testclient-in-async-test-test.yml
 83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7  .forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml
+a7493ca9dc6d62227e9d3b3034d1978be3d3caeb2c237941939cf04982f2394d  .forge/ast-grep/rule-tests/python-hmac-compare-test.yml
+b430644f48737672fae60a52a2e6e3f650fda308ddad2fcb974b37544c5a0145  .forge/ast-grep/rule-tests/python-lazy-log-args-test.yml
 75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26  .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
+6a28705635459b68de412a4d4585f42963e4d834f184b85e92e50414accc2f9b  .forge/ast-grep/rule-tests/python-log-exception-test.yml
+29d243a5801d85781caa1fe9b160a0d341b10e850351b640e5b01ee819ddcc9d  .forge/ast-grep/rule-tests/python-no-ssl-verify-off-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
 e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363  .forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml
 20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3  .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
@@ -27413,6 +27815,7 @@ b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-gre
 c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831  .forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml
 d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c  .forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml
 d11d996fa649fbe56af564508c298af431eca98262f7dbb1102f34e2243fb52e  .forge/ast-grep/rule-tests/python-typeis-over-typeguard-test.yml
+42fe67b222b860a2f627f26d29ca73630e93e991b6b78104394da90516322a1d  .forge/ast-grep/rules/python/archive-extract.yml
 3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba  .forge/ast-grep/rules/python/contextmanager-finally.yml
 490bdb2e13062df7a4012fc2f61ae47d4fc76035a171f0cb225d3e730492a9b0  .forge/ast-grep/rules/python/fastapi/basic-auth-compare-digest.yml
 166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd  .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
@@ -27420,15 +27823,19 @@ e9c9abce3eaf90e32efd589ca64a7fd4ac6ed080e6866748a8bad37c86a631f4  .forge/ast-gre
 dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b  .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
 b208d24856f9bc5c984e31170c7ededb09af5431663cdef83456209c5ad8c2e1  .forge/ast-grep/rules/python/fastapi/no-on-event.yml
 0afd1cdb84f5ab19adbec245990f34e140fbbf53cb3a2095894d65899857102f  .forge/ast-grep/rules/python/fastapi/no-raw-request-body.yml
-b72f3428ab91e438f0a87abb050528198af17ada55fe41cfab020be5588d6ef3  .forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml
-f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab  .forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml
+2f69e1d4c5577e6066d1aa624d2d1a5b8304831dc60d8a674a3ef7578ef903dc  .forge/ast-grep/rules/python/fastapi/no-testclient-in-async-test.yml
+b7cdc8d8177ca239a235759c2fbb99b6641283ce185d958713a6d6976b7aa782  .forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml
+8d9af28aded4b3cf8ed694282fe4602a885994a720ba010dfbd7225be6968273  .forge/ast-grep/rules/python/hmac-compare.yml
+2dd27431acedf13be75a1296b96997618f6b8f0e7e756c82a707afa06d87a45e  .forge/ast-grep/rules/python/lazy-log-args.yml
 e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869  .forge/ast-grep/rules/python/llm-client-timeout.yml
+7e6de214505ce976eda789e79ff50273824af13bcc4459e0e3b9bbcc517b986e  .forge/ast-grep/rules/python/log-exception.yml
+1e200875c38c1dd7cb6a73398f3da8a886ffa60e0aa5773263aff7b0327e1e15  .forge/ast-grep/rules/python/no-ssl-verify-off.yml
 88f2268d645feae97e84401d665191fb09e01805a5f66f03210081bfcdf0b599  .forge/ast-grep/rules/python/no-stub.yml
 a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-grep/rules/python/no-swallowed-cancel.yml
 55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418  .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
 0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 9613cee25a4d2c8725757681a08af29f621fb877133d13b3f4e66b45e47313a7  .forge/ast-grep/rules/python/pytest/no-exit-zero.yml
-49bd5d88fd004fe3388b7099747990542663afc423f08b05ea7e08ddde1685e7  .forge/ast-grep/rules/python/pytest/no-exitstatus.yml
+c1bf6f98584e4b89270caed2a845261ab1667c8afb6d1de1de21c7582fad1804  .forge/ast-grep/rules/python/pytest/no-exitstatus.yml
 f569f66e7125b0783cebbddf316df490ed21fc379b4c4230794e6c7ef49ac167  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
 cf43e8fe7236e68d0734f3c8d2d22344cb56022ba4a71c6519d9352ca29d94fb  .forge/ast-grep/rules/python/pytest/no-hook-tamper.yml
 7263cfd0177902c44c2e9cf3836d2447260580371e0d7b75b556888a62ab8c30  .forge/ast-grep/rules/python/pytest/no-mock-increase.yml
@@ -27449,10 +27856,10 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-b848a6c844a313a70d5dbdb6893c131338db4066fdefd4755ed662318e4d5c6b  .forge/check.sh
+55a6934ed6c0a71ed46aadd163c21982cd592368043d1d4f38363c2f099317f6  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
-bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py
+d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh
