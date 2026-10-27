@@ -6,6 +6,8 @@ enforce:
     stage: lint
     run: "ruff check ."
     changed_run: "ruff check --output-format concise {files}"
+    # ruff also lints pyproject.toml (RUF200, python/valid-pyproject): a changed one is linted too
+    config_files: ["**/pyproject.toml"]
     # after an edit: sorted imports and pyupgrade, when the project selects them; never F401/F841 (an import added now is used in the next edit)
     fix_run: "ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise {files}"
 examples:

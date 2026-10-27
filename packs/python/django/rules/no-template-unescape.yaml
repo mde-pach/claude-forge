@@ -1,0 +1,16 @@
+id: python/django/no-template-unescape
+description: "Advice: no |safe or |safeseq filter and no {% autoescape off %} in a Django template: the value is printed unescaped, so user input in it is cross-site scripting. Build the HTML in Python with format_html(), or keep autoescaping."
+scope: {language: any, files: ["@django-templates"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: '\|[[:space:]]*safe(seq)?([^A-Za-z_]|$)|\{%-?[[:space:]]*autoescape[[:space:]]+off'
+examples:
+  match:
+    - "<div class=\"bio\">{{ profile.bio|safe }}</div>\n"
+    - "<ul>{{ items|safeseq|join:\", \" }}</ul>\n"
+    - "{% autoescape off %}\n{{ body }}\n{% endautoescape %}\n"
+  no_match:
+    - "<div class=\"bio\">{{ profile.bio }}</div>\n"
+    - "{% autoescape on %}\n{{ body }}\n{% endautoescape %}\n"
+    - "<p>{{ total|floatformat:2 }} {{ name|safe_label }}</p>\n"
