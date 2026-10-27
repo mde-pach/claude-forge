@@ -2008,6 +2008,48 @@ forge_changed_ids() {
     }' | sort
 }
 
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
+}
+
 # forge_doc_files: documentation in the repository (tracked or not ignored):
 # Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
@@ -3359,6 +3401,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -5431,6 +5508,48 @@ forge_changed_ids() {
     }' | sort
 }
 
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
+}
+
 # forge_doc_files: documentation in the repository (tracked or not ignored):
 # Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
@@ -6782,6 +6901,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -8885,6 +9039,48 @@ forge_changed_ids() {
     }' | sort
 }
 
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
+}
+
 # forge_doc_files: documentation in the repository (tracked or not ignored):
 # Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
@@ -10236,6 +10432,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -12359,6 +12590,48 @@ forge_changed_ids() {
     }' | sort
 }
 
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
+}
+
 # forge_doc_files: documentation in the repository (tracked or not ignored):
 # Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
@@ -13710,6 +13983,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -16731,6 +17039,48 @@ forge_changed_ids() {
     }' | sort
 }
 
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
+}
+
 # forge_doc_files: documentation in the repository (tracked or not ignored):
 # Markdown, MDX and reStructuredText under a docs/ or doc/ directory, and README files.
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
@@ -18084,6 +18434,41 @@ forge_applied_migrations() {
   return "$_am_rc"
 }
 
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
+}
+
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
 # the base are not modified or deleted; a change goes in a new migration.
 forge_drizzle_applied() {
@@ -19260,17 +19645,6 @@ forge_integrity() {
   if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
-# 2. Applied migrations (in the base) are never modified or deleted.
-forge_applied_migrations() {
-  while read -r f; do
-    case $f in
-      prisma/migrations/migration_lock.toml) ;;
-      alembic/versions/*|prisma/migrations/*)
-        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
-    esac
-  done < "$FORGE_TMP/inbase"
-}
-
 # forge_base_name: what the change is compared with, for messages.
 forge_base_name() {
   case $mode in
@@ -19280,7 +19654,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
+# 2. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -19334,7 +19708,7 @@ forge_counts() {
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
+# 3. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
   [ -s "$FORGE_TMP/scope" ] || return
   forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
@@ -19362,7 +19736,6 @@ forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; e
 forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
-forge_step forge_applied_migrations
 forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
@@ -19441,13 +19814,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ee6c734aa43a89e82df5c270ab66abd38165df6a96988539321d8308564d3b4a",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "fb729b7207a0d772d1056b427c6123e445d16ceeb7ee3d268c40a79346b13796",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "3dc8705f86c6c85c99fefbf6dc6389fa4a82035ee2d532680f25f83b1d016aa5",
+    ".claude/skills/forge-project/scripts/session-start.sh": "fb7f811c99bd1ae83ac29de1f9fd428f78f4cc7af28f62e01e13435f042f78b0",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "ab570e82d39463b74ff433c5a01cac272af1cb19fa922b0bfe25581bd0f44004",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "4b96c5cb79215664ca1a35daedbf5df695e84b689f9c4955bc01e16f66d91958",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "2f17286922502f29dbbea8e85d323123ac11b0fdaa026efadac62d260d2c8e56",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "7199ad3d9fec9b3797c5dfc98c3436f652f5e8d3a6ba1a70a063fe67e4ccbfcc",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -19470,7 +19843,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/react/use-action-state.yml": "17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8add131f15bc0ad29e8b72184df90bdf8f2244328cb39e3925f3f48565455236",
+    ".forge/check.sh": "6bb17f125b7676e1028332232855fd93567d96e1a988c72bc420cf2f76b4acff",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19677,13 +20050,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 cc4a889eb0483cbc1ccca0dfff9bdb83a1707a5d5f3739d4c5e725ab5bcc1648  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-ee6c734aa43a89e82df5c270ab66abd38165df6a96988539321d8308564d3b4a  .claude/skills/forge-project/scripts/post-edit.sh
+fb729b7207a0d772d1056b427c6123e445d16ceeb7ee3d268c40a79346b13796  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-3dc8705f86c6c85c99fefbf6dc6389fa4a82035ee2d532680f25f83b1d016aa5  .claude/skills/forge-project/scripts/session-start.sh
+fb7f811c99bd1ae83ac29de1f9fd428f78f4cc7af28f62e01e13435f042f78b0  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-ab570e82d39463b74ff433c5a01cac272af1cb19fa922b0bfe25581bd0f44004  .claude/skills/forge-project/scripts/test-edit.sh
+4b96c5cb79215664ca1a35daedbf5df695e84b689f9c4955bc01e16f66d91958  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-2f17286922502f29dbbea8e85d323123ac11b0fdaa026efadac62d260d2c8e56  .claude/skills/forge-project/scripts/typecheck.sh
+7199ad3d9fec9b3797c5dfc98c3436f652f5e8d3a6ba1a70a063fe67e4ccbfcc  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -19706,7 +20079,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 17b6fc5e510df3154be12c72a584d8bfb31034b577774718a8c50516b2b15a81  .forge/ast-grep/rules/typescript/react/use-action-state.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8add131f15bc0ad29e8b72184df90bdf8f2244328cb39e3925f3f48565455236  .forge/check.sh
+6bb17f125b7676e1028332232855fd93567d96e1a988c72bc420cf2f76b4acff  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 
 ===== .git/hooks/pre-commit

@@ -1426,28 +1426,40 @@ forge_check_run_16() {
 ty check --output-format concise
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -1459,6 +1471,7 @@ forge_role() {
     compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
   esac
   return 1
 }
@@ -2035,6 +2048,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -3388,6 +3443,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -4881,28 +4971,40 @@ forge_check_run_16() {
 ty check --output-format concise
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -4914,6 +5016,7 @@ forge_role() {
     compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
   esac
   return 1
 }
@@ -5490,6 +5593,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -6843,6 +6988,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -8367,28 +8547,40 @@ forge_check_run_16() {
 ty check --output-format concise
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -8400,6 +8592,7 @@ forge_role() {
     compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
   esac
   return 1
 }
@@ -8976,6 +9169,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -10329,6 +10564,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -11873,28 +12143,40 @@ forge_check_run_16() {
 ty check --output-format concise
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -11906,6 +12188,7 @@ forge_role() {
     compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
   esac
   return 1
 }
@@ -12482,6 +12765,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -13835,6 +14160,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -16379,28 +16739,40 @@ forge_check_run_16() {
 ty check --output-format concise
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -16412,6 +16784,7 @@ forge_role() {
     compose) case $2 in compose*.yaml|*/compose*.yaml|compose*.yml|*/compose*.yml|docker-compose*.yaml|*/docker-compose*.yaml|docker-compose*.yml|*/docker-compose*.yml) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
   esac
   return 1
 }
@@ -16988,6 +17361,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -18343,6 +18758,41 @@ forge_applied_migrations() {
   return "$_am_rc"
 }
 
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
+}
+
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
 # the base are not modified or deleted; a change goes in a new migration.
 forge_drizzle_applied() {
@@ -19519,17 +19969,6 @@ forge_integrity() {
   if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
-# 2. Applied migrations (in the base) are never modified or deleted.
-forge_applied_migrations() {
-  while read -r f; do
-    case $f in
-      prisma/migrations/migration_lock.toml) ;;
-      alembic/versions/*|prisma/migrations/*)
-        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
-    esac
-  done < "$FORGE_TMP/inbase"
-}
-
 # forge_base_name: what the change is compared with, for messages.
 forge_base_name() {
   case $mode in
@@ -19539,7 +19978,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
+# 2. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -19593,7 +20032,7 @@ forge_counts() {
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
+# 3. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
   [ -s "$FORGE_TMP/scope" ] || return
   forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
@@ -19621,7 +20060,6 @@ forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; e
 forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
-forge_step forge_applied_migrations
 forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
@@ -19674,6 +20112,7 @@ forge_end "$fail"
     "python/no-commented-out-code": "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101",
     "python/no-dangling-task": "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901",
     "python/no-deprecated": "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd",
+    "python/no-dev-server-in-image": "bf54df0f55252d6cb4c2f445aaea0cc23fc99bc947f7b7e98125cee996e48141",
     "python/no-explicit-any": "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b",
     "python/no-hardcoded-password": "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e",
     "python/no-new-suppressions": "ca503a681a10fd3e7a96e807f6750247db8168ced4b532412e4173f8dda00abd",
@@ -19706,13 +20145,13 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "7dc04c630f82ef65c5d8a079bfd2418501b52ae2e8d8041d599cf6200f09359c",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "c64ccd6b9da1f5ae75542be479958d164fed6594ce56190bc7497d11d491763c",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-start.sh": "1004b3f06bef85b95cfb502d877cf73b104bf11e2322f1336653ae903956e402",
+    ".claude/skills/forge-project/scripts/session-start.sh": "1d9e5efbe3c801398ea982438027ea5f92851bd474c586554edad17463b80f07",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "7f7ff5eb365d78ba44ac6781a983588d3edd7594ad5097832ffa79aff7dec1d3",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "87a593036c97da1c516963b49ce890c6650d4af10572e47a74f81049b854f085",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "b75f8b050e9d1bb623907cdc0e78fca00cc4f111f746fde9e2f59c841301d7c4",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "63011b40ba7bcb866d26d0f5f3645764b65f5410cafec5af5430fe2345b8cabf",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml": "75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9",
     ".forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml": "bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8",
@@ -19733,7 +20172,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/docker/compose/pinned-images.yml": "8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2",
     ".forge/ast-grep/rules/python/no-stub.yml": "54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "8b8576281b5765a2bbbb305032c0c785df0559821f91f2776ebbe81aa8b1927b",
+    ".forge/check.sh": "a02e9da2a5cc1cea2a5b6a354f0da7a37ea4baa906e7aed1923da7eab4aca3fd",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
@@ -19794,6 +20233,10 @@ forge_end "$fail"
       "**/*.Dockerfile",
       "**/Containerfile",
       "!**/*.dockerignore"
+    ],
+    "procfile": [
+      "Procfile",
+      "Procfile.*"
     ]
   }
 }
@@ -20020,13 +20463,13 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 ff61a19974ccfc38fe6771978c9f9fe21253d4132eff8af9f06b112607965a00  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-7dc04c630f82ef65c5d8a079bfd2418501b52ae2e8d8041d599cf6200f09359c  .claude/skills/forge-project/scripts/post-edit.sh
+c64ccd6b9da1f5ae75542be479958d164fed6594ce56190bc7497d11d491763c  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-1004b3f06bef85b95cfb502d877cf73b104bf11e2322f1336653ae903956e402  .claude/skills/forge-project/scripts/session-start.sh
+1d9e5efbe3c801398ea982438027ea5f92851bd474c586554edad17463b80f07  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-7f7ff5eb365d78ba44ac6781a983588d3edd7594ad5097832ffa79aff7dec1d3  .claude/skills/forge-project/scripts/test-edit.sh
+87a593036c97da1c516963b49ce890c6650d4af10572e47a74f81049b854f085  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-b75f8b050e9d1bb623907cdc0e78fca00cc4f111f746fde9e2f59c841301d7c4  .claude/skills/forge-project/scripts/typecheck.sh
+63011b40ba7bcb866d26d0f5f3645764b65f5410cafec5af5430fe2345b8cabf  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 75507971edac1d4a2eca04e6bceb8a942429c0987372010b39ad0b7f126b55e9  .forge/ast-grep/rule-tests/docker-compose-datastore-loopback-test.yml
 bcd21e7f9112e5f0d44c9f5c9779824661b2f1dc40448323100787f342c4b7a8  .forge/ast-grep/rule-tests/docker-compose-healthy-depends-test.yml
@@ -20047,7 +20490,7 @@ fb509328e86bda30b5e5d0c094f45ca28c61c4a1009a22c39a25f21bf11bb0c3  .forge/ast-gre
 8db2a6c914287677a9a2f33b8c90ecf5502cc36a4a31faf75c0a55b77ce052d2  .forge/ast-grep/rules/docker/compose/pinned-images.yml
 54a1d2a3cf63ed4bac8a9fe67d53119564d1e0b41752c2ed85a693f926557628  .forge/ast-grep/rules/python/no-stub.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-8b8576281b5765a2bbbb305032c0c785df0559821f91f2776ebbe81aa8b1927b  .forge/check.sh
+a02e9da2a5cc1cea2a5b6a354f0da7a37ea4baa906e7aed1923da7eab4aca3fd  .forge/check.sh
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 
 ===== .git/hooks/pre-commit

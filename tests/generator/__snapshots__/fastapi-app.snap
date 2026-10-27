@@ -1192,7 +1192,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -1320,40 +1320,38 @@ forge_check_run_7() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
+# 8. python/sqlalchemy/alembic/applied-migrations
 forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_8() {
+  return 0
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
+forge_applied_migrations @alembic-migrations
+}
+
+# 9. python/sqlalchemy/alembic/check
+forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
+# 10. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -1364,173 +1362,201 @@ forge_scope_10() {
 }
 forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 11. python/sqlalchemy/alembic/migration-lint
+# 11. python/sqlalchemy/alembic/fk-index
 forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-forge_models_registered
-}
-
-# 13. python/sqlalchemy/alembic/single-head
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_13() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 14. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { return 1; }
-forge_check_run_14() {
-forge_alembic_batch
+forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_12() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_12() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 15. python/sqlalchemy/fk-index
+# 13. python/sqlalchemy/alembic/model-registered
+forge_check_meta_13() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_13() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_13() { return 1; }
+forge_check_run_13() {
+forge_models_registered
+}
+
+# 14. python/sqlalchemy/alembic/single-head
+forge_check_meta_14() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_14() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_14() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 15. python/sqlalchemy/alembic/sqlite-batch
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
+forge_alembic_batch
 }
 
-# 16. python/stub-sync
+# 16. python/sqlalchemy/fk-index
 forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -1541,6 +1567,7 @@ forge_role() {
     alembic-migrations) case $2 in alembic/versions/*) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
     python-tests) case $2 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) return 0 ;; esac ;;
   esac
   return 1
@@ -2118,6 +2145,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -3471,6 +3540,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -4727,7 +4831,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -4855,40 +4959,38 @@ forge_check_run_7() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
+# 8. python/sqlalchemy/alembic/applied-migrations
 forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_8() {
+  return 0
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
+forge_applied_migrations @alembic-migrations
+}
+
+# 9. python/sqlalchemy/alembic/check
+forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
+# 10. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -4899,173 +5001,201 @@ forge_scope_10() {
 }
 forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 11. python/sqlalchemy/alembic/migration-lint
+# 11. python/sqlalchemy/alembic/fk-index
 forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-forge_models_registered
-}
-
-# 13. python/sqlalchemy/alembic/single-head
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_13() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 14. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { return 1; }
-forge_check_run_14() {
-forge_alembic_batch
+forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_12() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_12() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 15. python/sqlalchemy/fk-index
+# 13. python/sqlalchemy/alembic/model-registered
+forge_check_meta_13() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_13() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_13() { return 1; }
+forge_check_run_13() {
+forge_models_registered
+}
+
+# 14. python/sqlalchemy/alembic/single-head
+forge_check_meta_14() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_14() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_14() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 15. python/sqlalchemy/alembic/sqlite-batch
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
+forge_alembic_batch
 }
 
-# 16. python/stub-sync
+# 16. python/sqlalchemy/fk-index
 forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -5076,6 +5206,7 @@ forge_role() {
     alembic-migrations) case $2 in alembic/versions/*) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
     python-tests) case $2 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) return 0 ;; esac ;;
   esac
   return 1
@@ -5653,6 +5784,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -7006,6 +7179,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -8282,7 +8490,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -8410,40 +8618,38 @@ forge_check_run_7() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
+# 8. python/sqlalchemy/alembic/applied-migrations
 forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_8() {
+  return 0
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
+forge_applied_migrations @alembic-migrations
+}
+
+# 9. python/sqlalchemy/alembic/check
+forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
+# 10. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -8454,173 +8660,201 @@ forge_scope_10() {
 }
 forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 11. python/sqlalchemy/alembic/migration-lint
+# 11. python/sqlalchemy/alembic/fk-index
 forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-forge_models_registered
-}
-
-# 13. python/sqlalchemy/alembic/single-head
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_13() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 14. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { return 1; }
-forge_check_run_14() {
-forge_alembic_batch
+forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_12() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_12() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 15. python/sqlalchemy/fk-index
+# 13. python/sqlalchemy/alembic/model-registered
+forge_check_meta_13() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_13() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_13() { return 1; }
+forge_check_run_13() {
+forge_models_registered
+}
+
+# 14. python/sqlalchemy/alembic/single-head
+forge_check_meta_14() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_14() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_14() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 15. python/sqlalchemy/alembic/sqlite-batch
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
+forge_alembic_batch
 }
 
-# 16. python/stub-sync
+# 16. python/sqlalchemy/fk-index
 forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -8631,6 +8865,7 @@ forge_role() {
     alembic-migrations) case $2 in alembic/versions/*) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
     python-tests) case $2 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) return 0 ;; esac ;;
   esac
   return 1
@@ -9208,6 +9443,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -10561,6 +10838,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -11858,7 +12170,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -11986,40 +12298,38 @@ forge_check_run_7() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
+# 8. python/sqlalchemy/alembic/applied-migrations
 forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_8() {
+  return 0
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
+forge_applied_migrations @alembic-migrations
+}
+
+# 9. python/sqlalchemy/alembic/check
+forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
+# 10. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -12030,173 +12340,201 @@ forge_scope_10() {
 }
 forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 11. python/sqlalchemy/alembic/migration-lint
+# 11. python/sqlalchemy/alembic/fk-index
 forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-forge_models_registered
-}
-
-# 13. python/sqlalchemy/alembic/single-head
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_13() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 14. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { return 1; }
-forge_check_run_14() {
-forge_alembic_batch
+forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_12() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_12() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 15. python/sqlalchemy/fk-index
+# 13. python/sqlalchemy/alembic/model-registered
+forge_check_meta_13() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_13() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_13() { return 1; }
+forge_check_run_13() {
+forge_models_registered
+}
+
+# 14. python/sqlalchemy/alembic/single-head
+forge_check_meta_14() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_14() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_14() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 15. python/sqlalchemy/alembic/sqlite-batch
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
+forge_alembic_batch
 }
 
-# 16. python/stub-sync
+# 16. python/sqlalchemy/fk-index
 forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -12207,6 +12545,7 @@ forge_role() {
     alembic-migrations) case $2 in alembic/versions/*) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
     python-tests) case $2 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) return 0 ;; esac ;;
   esac
   return 1
@@ -12784,6 +13123,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -14137,6 +14518,41 @@ forge_applied_migrations() {
     done
   done < "$FORGE_TMP/inbase"
   return "$_am_rc"
+}
+
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
 }
 
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
@@ -16655,7 +17071,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=19
+FORGE_NCHECKS=20
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -16783,40 +17199,38 @@ forge_check_run_7() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
+# 8. python/sqlalchemy/alembic/applied-migrations
 forge_check_meta_8() {
+  c_id='python/sqlalchemy/alembic/applied-migrations'; c_stage=migration; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_8() {
+  return 0
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
+forge_applied_migrations @alembic-migrations
+}
+
+# 9. python/sqlalchemy/alembic/check
+forge_check_meta_9() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_9() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_9() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_9() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
-  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
+# 10. python/sqlalchemy/alembic/data-migration-downgrade
 forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
@@ -16827,173 +17241,201 @@ forge_scope_10() {
 }
 forge_when_10() { return 1; }
 forge_check_run_10() {
-forge_advise forge_alembic_fk_index
+forge_advise forge_alembic_data_downgrade
 }
 
-# 11. python/sqlalchemy/alembic/migration-lint
+# 11. python/sqlalchemy/alembic/fk-index
 forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_fk_index
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_12() { return 1; }
-forge_check_run_12() {
-forge_models_registered
-}
-
-# 13. python/sqlalchemy/alembic/single-head
-forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_13() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
-}
-
-# 14. python/sqlalchemy/alembic/sqlite-batch
-forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
-}
-forge_scope_14() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_14() { return 1; }
-forge_check_run_14() {
-forge_alembic_batch
+forge_when_12() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_12() {
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_12() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 15. python/sqlalchemy/fk-index
+# 13. python/sqlalchemy/alembic/model-registered
+forge_check_meta_13() {
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_13() {
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_13() { return 1; }
+forge_check_run_13() {
+forge_models_registered
+}
+
+# 14. python/sqlalchemy/alembic/single-head
+forge_check_meta_14() {
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_14() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_14() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_14() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 15. python/sqlalchemy/alembic/sqlite-batch
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_15() { return 1; }
 forge_check_run_15() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
+forge_alembic_batch
 }
 
-# 16. python/stub-sync
+# 16. python/sqlalchemy/fk-index
 forge_check_meta_16() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_16() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_16() { return 1; }
 forge_check_run_16() {
-forge_advise forge_stub_sync
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
 }
 
-# 17. python/typecheck
+# 17. python/stub-sync
 forge_check_meta_17() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_17() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_17() { return 1; }
 forge_check_run_17() {
-ty check --output-format concise
+forge_advise forge_stub_sync
 }
 
-# 18. python/uv/exclude-newer
+# 18. python/typecheck
 forge_check_meta_18() {
-  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
-  c_when=1; c_localdb=0; c_timeout=''
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_18() {
-  return 0
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
 }
-forge_when_18() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_when_18() { return 1; }
 forge_check_run_18() {
-forge_uv_cooldown
+ty check --output-format concise
 }
 
-# 19. python/uv/lock-sync
+# 19. python/uv/exclude-newer
 forge_check_meta_19() {
-  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
 }
 forge_scope_19() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
 forge_check_run_19() {
+forge_uv_cooldown
+}
+
+# 20. python/uv/lock-sync
+forge_check_meta_20() {
+  c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_dirs=''
+}
+forge_scope_20() {
+  return 0
+}
+forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_20() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=3
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
-# grep 1. python/no-new-suppressions
+# grep 1. python/no-dev-server-in-image
 forge_grep_meta_1() {
+  g_id='python/no-dev-server-in-image'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*(CMD|ENTRYPOINT|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]|$)|fastapi["'\'',[:space:]]+dev([^A-Za-z]|$)|flask["'\'',[:space:]]+(.*["'\'',[:space:]])?--debug)'
+  g_desc='Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask'\''s debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn.'
+}
+forge_grep_scope_1() {
+  case $1 in *.dockerignore|*/*.dockerignore) return 1 ;; esac
+  case $1 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile|Procfile|Procfile.*) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 2. python/no-new-suppressions
+forge_grep_meta_2() {
   g_id='python/no-new-suppressions'; g_mode=no-increase; g_flags=-E
   g_pattern='#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore)'
   g_desc='No new suppression comments (# noqa,'
 }
-forge_grep_scope_1() {
+forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 
-# grep 2. python/no-placeholder-comment
-forge_grep_meta_2() {
+# grep 3. python/no-placeholder-comment
+forge_grep_meta_3() {
   g_id='python/no-placeholder-comment'; g_mode=forbid; g_flags=-iE
   g_pattern='#.*(todo:?[[:space:]]*implement|in a real (implementation|app|application|system|project|world)|in production,? (you|we) would|placeholder (implementation|logic|code|value|for now)|stub(bed)? (implementation|for now)|implement (this|me) (later|properly))'
   g_desc='No placeholder comments on added lines ("TODO implement", "in a real implementation", "placeholder logic"); write the code or say what is missing.'
 }
-forge_grep_scope_2() {
+forge_grep_scope_3() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
@@ -17004,6 +17446,7 @@ forge_role() {
     alembic-migrations) case $2 in alembic/versions/*) return 0 ;; esac ;;
     django-migrations) case $2 in migrations/[0-9]*.py|*/migrations/[0-9]*.py) return 0 ;; esac ;;
     dockerfile) case $2 in *.dockerignore|*/*.dockerignore) return 1 ;; esac; case $2 in Dockerfile|*/Dockerfile|Dockerfile.*|*/Dockerfile.*|*.Dockerfile|*/*.Dockerfile|Containerfile|*/Containerfile) return 0 ;; esac ;;
+    procfile) case $2 in Procfile|Procfile.*) return 0 ;; esac ;;
     python-tests) case $2 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) return 0 ;; esac ;;
   esac
   return 1
@@ -17581,6 +18024,48 @@ forge_changed_ids() {
       for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
       for (id in out) print id
     }' | sort
+}
+
+# forge_adr_accepted <file>: the ADR's status is accepted: MADR front matter
+# `status: accepted`, or a Status heading whose first non-empty line starts with Accepted.
+forge_adr_accepted() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; next }
+    fm && /^---[ \t]*$/ { fm = 0; next }
+    fm { if (tolower($0) ~ /^status:[ \t]*["\047]?accepted["\047]?[ \t]*$/) ok = 1; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; next }
+    st && /^#/ { st = 0 }
+    st && NF { w = tolower($1); gsub(/[^a-z]/, "", w); if (w == "accepted") ok = 1; st = 0 }
+    END { exit !ok }' "$1"
+}
+
+# forge_adr_body <file>: the ADR without its status (the front matter status line, the
+# content of the Status section).
+forge_adr_body() {
+  awk '
+    NR == 1 && /^---[ \t]*$/ { fm = 1; print; next }
+    fm && /^---[ \t]*$/ { fm = 0; print; next }
+    fm && tolower($0) ~ /^status:/ { next }
+    fm { print; next }
+    /^#+[ \t]+[Ss][Tt][Aa][Tt][Uu][Ss][ \t]*$/ { st = 1; print; next }
+    st && /^#/ { st = 0 }
+    st { next }
+    { print }' "$1"
+}
+
+# forge_adr_edits: the changed ADRs ($FORGE_FILES: file role @adr) that were accepted in
+# the base and whose change touches more than their status; one line each.
+forge_adr_edits() {
+  for _ae_f in $FORGE_FILES; do
+    case $_ae_f in *.md|*.mdx|*.markdown|*.rst) ;; *) continue ;; esac
+    [ -f "$FORGE_TMP/base/$_ae_f" ] && [ -f "$_ae_f" ] || continue
+    forge_adr_accepted "$FORGE_TMP/base/$_ae_f" || continue
+    forge_adr_body "$FORGE_TMP/base/$_ae_f" > "$FORGE_TMP/adr.base"
+    forge_adr_body "$_ae_f" > "$FORGE_TMP/adr.now"
+    cmp -s "$FORGE_TMP/adr.base" "$FORGE_TMP/adr.now" && continue
+    printf '%s: an accepted ADR was rewritten; an ADR is a record of a decision: only its status may change (superseded, deprecated), and the new decision goes in a new ADR that supersedes it\n' "$_ae_f"
+  done
+  return 0
 }
 
 # forge_doc_files: documentation in the repository (tracked or not ignored):
@@ -18936,6 +19421,41 @@ forge_applied_migrations() {
   return "$_am_rc"
 }
 
+# forge_typeorm_pending <@datasource-role> <@esm-role>: TypeORM finds no schema change
+# the migrations lack. The data source is the first file of <@datasource-role>
+# (@typeorm-datasource: no default, a code config names it); its migrations run on the
+# local database, then `migration:generate --check` compares the entities with it. A
+# TypeScript data source runs through the project's typeorm-ts-node-esm (a file of
+# <@esm-role>, @esm-modules) or typeorm-ts-node-commonjs.
+forge_typeorm_pending() {
+  _tp_ds=$(forge_role_files "$1" | head -n 1)
+  if [ -z "$_tp_ds" ]; then
+    printf 'forge:%s skipped: file role @typeorm-datasource names no file; set the data source in forge.yaml (files: {typeorm-datasource: {set: [src/data-source.ts]}})\n' "$c_id"
+    return 0
+  fi
+  case $_tp_ds in
+    *.ts|*.mts|*.cts) if forge_role "$2" "$_tp_ds"; then _tp_bin=typeorm-ts-node-esm; else _tp_bin=typeorm-ts-node-commonjs; fi ;;
+    *) _tp_bin=typeorm ;;
+  esac
+  if [ -z "$(tool "$_tp_bin")" ]; then
+    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    return 0
+  fi
+  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+    printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+    return 0
+  fi
+  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
+    printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
+    cat "$FORGE_TMP/typeorm.out"
+    return 1
+  fi
+  grep -q 'No changes in database schema were found' "$FORGE_TMP/typeorm.out" && return 0
+  printf 'forge:%s skipped: %s migration:generate --check failed: %s\n' "$c_id" "$_tp_bin" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
+  return 0
+}
+
 # forge_drizzle_applied: migrations (SQL and snapshots in the out folder) that exist in
 # the base are not modified or deleted; a change goes in a new migration.
 forge_drizzle_applied() {
@@ -20112,17 +20632,6 @@ forge_integrity() {
   if [ -s "$FORGE_TMP/integrity" ]; then cat "$FORGE_TMP/integrity"; fail=1; fi
 }
 
-# 2. Applied migrations (in the base) are never modified or deleted.
-forge_applied_migrations() {
-  while read -r f; do
-    case $f in
-      prisma/migrations/migration_lock.toml) ;;
-      alembic/versions/*|prisma/migrations/*)
-        report forge/applied-migration "$f exists at $(forge_base_name) and was modified or deleted; write a new migration instead" ;;
-    esac
-  done < "$FORGE_TMP/inbase"
-}
-
 # forge_base_name: what the change is compared with, for messages.
 forge_base_name() {
   case $mode in
@@ -20132,7 +20641,7 @@ forge_base_name() {
   esac
 }
 
-# 3. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
+# 2. Tests and counts: no deleted test files; ast-grep and grep counts compared with the base.
 forge_tests_integrity() {
   while read -r f; do
     case $f in
@@ -20186,7 +20695,7 @@ forge_counts() {
     | awk -F '"' '$2 == "file" { f = $4 } $2 == "ruleId" { c[$4 "\t" f]++ } END { for (k in c) print k "\t" c[k] }'
 }
 
-# 4. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
+# 3. Forbid rules (ast-grep and grep): outside --all, only matches on added lines.
 forge_forbid() {
   [ -s "$FORGE_TMP/scope" ] || return
   forge_grep_forbid "$FORGE_TMP/scope" > "$FORGE_TMP/forbid.out"
@@ -20214,7 +20723,6 @@ forge_end() { [ ! -s "$FORGE_TMP/advice.out" ] || cat "$FORGE_TMP/advice.out"; e
 forge_step() { [ "$fail" -eq 0 ] || forge_end "$fail"; "$@"; }
 
 forge_step forge_integrity
-forge_step forge_applied_migrations
 forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
@@ -20250,6 +20758,7 @@ forge_end "$fail"
     "python/no-commented-out-code": "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101",
     "python/no-dangling-task": "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901",
     "python/no-deprecated": "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd",
+    "python/no-dev-server-in-image": "bf54df0f55252d6cb4c2f445aaea0cc23fc99bc947f7b7e98125cee996e48141",
     "python/no-explicit-any": "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b",
     "python/no-hardcoded-password": "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e",
     "python/no-new-suppressions": "ca503a681a10fd3e7a96e807f6750247db8168ced4b532412e4173f8dda00abd",
@@ -20278,6 +20787,7 @@ forge_end "$fail"
     "python/pytest/no-test-env-branch": "75d3bff83be8da527b4ca5a2fbe727b192c62b7ea0ab1c082e420dcc6f6993a9",
     "python/pytest/run": "ef1248916825b76f9441dc0223f9ccb3601caef3751dd8e72fa8a9cc56a4141b",
     "python/pytest/untested-change": "2ac2a9e0f1e6af931ba702b7c5890f981e900d671ff825ae329b80dadf59cd3c",
+    "python/sqlalchemy/alembic/applied-migrations": "aed7425e1c5079bfbc5d364d830dd600bd64d3d07b4eb6ff4e11e76a947943a4",
     "python/sqlalchemy/alembic/check": "e1329cc8315f0bb8369352a639de7ef260e0f676930b743e8ca378de8a82192d",
     "python/sqlalchemy/alembic/data-migration-downgrade": "532462028b399611dded62b7ca935ccadc8139fbb368578e79c6e1d5a944b3bd",
     "python/sqlalchemy/alembic/downgrade": "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a",
@@ -20314,14 +20824,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "1514f996f31bc1d5bf6cd7f9ec12bab956e0ac21ddcf16c5c3d6a896e0f8c933",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "2bf3ac3414a11a16bc6fa7ebaf7e023e949b8825ddcea90068ec8a816caa4b3f",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "0f3c5f492f6b51b5d17cfc8470356cb05479b40a11cb2becdbc34c3ff13590f8",
+    ".claude/skills/forge-project/scripts/session-start.sh": "c077d6a001f52f8778f4a3d55d63ac010e457893f6130411970917b08b99c1a2",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "308eaadc9a3dbea2c697183581db537660e4979ee8230eae4c5950df50bf4932",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "e4d6a158fdb62d36b7e8e1ea3880e2e4074c155e725b5274d88f73cd2f20e6d8",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "ca48af18f978e131b7654978b431e3fcd3e3d85a7fb4bb4a03b827f07da533a2",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "d6444f090b140bf97494ee025ed92019df952138b4799f84b7413b5fe5abea6a",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml": "1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49",
@@ -20356,7 +20866,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "3562f96261ffc49fb0833cc1f9ba65fc95d8b4f9cf123206f7844bc7212e8373",
+    ".forge/check.sh": "1ebc05f8e5b278d944f11330a0b99fa9fed11f9e85f473df461eedfe3affbd57",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639",
@@ -20405,6 +20915,17 @@ forge_end "$fail"
     ],
     "django-migrations": [
       "**/migrations/[0-9]*.py"
+    ],
+    "dockerfile": [
+      "**/Dockerfile",
+      "**/Dockerfile.*",
+      "**/*.Dockerfile",
+      "**/Containerfile",
+      "!**/*.dockerignore"
+    ],
+    "procfile": [
+      "Procfile",
+      "Procfile.*"
     ],
     "python-tests": [
       "**/test_*.py",
@@ -21340,14 +21861,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-1514f996f31bc1d5bf6cd7f9ec12bab956e0ac21ddcf16c5c3d6a896e0f8c933  .claude/skills/forge-project/scripts/post-edit.sh
+2bf3ac3414a11a16bc6fa7ebaf7e023e949b8825ddcea90068ec8a816caa4b3f  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-0f3c5f492f6b51b5d17cfc8470356cb05479b40a11cb2becdbc34c3ff13590f8  .claude/skills/forge-project/scripts/session-start.sh
+c077d6a001f52f8778f4a3d55d63ac010e457893f6130411970917b08b99c1a2  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-308eaadc9a3dbea2c697183581db537660e4979ee8230eae4c5950df50bf4932  .claude/skills/forge-project/scripts/test-edit.sh
+e4d6a158fdb62d36b7e8e1ea3880e2e4074c155e725b5274d88f73cd2f20e6d8  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-ca48af18f978e131b7654978b431e3fcd3e3d85a7fb4bb4a03b827f07da533a2  .claude/skills/forge-project/scripts/typecheck.sh
+d6444f090b140bf97494ee025ed92019df952138b4799f84b7413b5fe5abea6a  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 1589382e5e0b5cae841a8f47dae9f2b3a8583a4bb1074ceb858d882e648e9b49  .forge/ast-grep/rule-tests/python-fastapi-no-on-event-test.yml
@@ -21382,7 +21903,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-3562f96261ffc49fb0833cc1f9ba65fc95d8b4f9cf123206f7844bc7212e8373  .forge/check.sh
+1ebc05f8e5b278d944f11330a0b99fa9fed11f9e85f473df461eedfe3affbd57  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 24c9504a4feb098f10dedadbc39f0a0c34eae5b4562f01c4e90e0d0beb0c3639  .forge/helpers/types_python.py
