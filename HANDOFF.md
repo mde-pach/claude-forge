@@ -1,6 +1,6 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-21 (fifth session). Read the spec first, then this file.
+Build state of Forge against the specification (`SPECS.md`, the index of `spec/`, v0.5), as of 2026-10-21 (fifth session); the source layout below as of the 2026-10-28 refactor. Read the spec first, then this file. How to add a rule, pack, target kind, engine helper, guard check or file role: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Toolchain
 
@@ -19,10 +19,15 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 
 | Area | Files |
 |---|---|
-| Types, strict YAML, JSON Schemas, **pack tree loader** (`loadPacks` walks nested directories; ids are paths; `lineage()`), detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts` |
-| Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
-| Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
-| Hook runtime and check engine | `templates/scripts/*.sh` |
+| Shared foundations: files, globs and shell case patterns, versions, owned paths, tool lists, the vocabulary the types and schemas derive from | `src/core/{fs,globs,versions,paths,tools,vocabulary}.ts` |
+| Types, strict YAML, JSON Schemas (enums from the vocabulary, checked against the types at compile time), **pack tree loader** (`loadPacks` walks nested directories; ids are paths; `lineage()`), detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts`, `src/examples.ts` |
+| **Target kinds**: one module per kind (schema fragment, validation, plan contribution, status wording, docs lifecycle, self-test); `TARGETS` lists them | `src/targets/{tool,ast-grep,permission,guard,sandbox,check,grep}.ts`, `src/targets/index.ts` |
+| Generator, in phases: active packs (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), placement (workspaces, version gates, where checks run), rule selection (local overrides, disable, roles), targets, files | `src/plan/{active-packs,placement,rules,files,index}.ts` |
+| Renderers: checks fragment and check.sh, engine assembly, guard.rules, ast-grep, helpers, roles, plugin | `src/render/*.ts` |
+| Settings (JSONC), lock, audit, self-test (`forge test`, `bun run test:packs`) | `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest/{index,runners}.ts` |
+| CLI: one module per command, shared I/O, changes, reports (`USAGE` in `src/usage.ts`) | `src/cli.ts` (entry), `src/cli/**` |
+| Hook runtime | `templates/scripts/*.sh` |
+| Check engine: one module per concern, each project gets the ones its checks call (§8.1) | `templates/engine/*.sh` |
 | Packs: 22 packs, 186 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,react,nextjs/react,astro/react,prisma,zod,vitest,playwright}`; `github-actions`; `docker/compose`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
 | **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
@@ -129,7 +134,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 - Results are matched by file and **title line** (the line bun's JUnit reporter gives).
 - A test that needs a tool which may be missing uses `test.if(...)`, so the site shows it as skipped rather than passed. Where the tool's own output is not what is tested, a stand-in in the sample's `.venv` (or on PATH) is better: it runs everywhere and can log its arguments for the test to assert.
 - Tests sharing a sample repository must not depend on each other: in `08-project-hooks` `reset()` runs after every test (also removing ignored files such as `.forge/state/`), tools put into `.venv` are removed in a `finally` (`withStub`, `withRealBasedpyright`), and each test uses its own session ids. `bun test --randomize` should pass.
-- A rule's lifecycle on the site is derived from its targets in `docs/src/lib/lifecycle.ts`, mirroring `src/plan.ts` and the hook scripts; change both together.
+- A rule's lifecycle on the site comes from its targets' kinds (`lifecycle` in `src/targets/<kind>.ts`, next to the kind's `plan`): `docs/src/lib/lifecycle.ts` only re-exports it.
 
 ## How the generated checks work
 

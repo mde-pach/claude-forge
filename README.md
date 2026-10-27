@@ -35,4 +35,10 @@ bun run test:report   # same, writing JUnit results to test-results/ for the doc
 bun run docs:dev      # Astro + Starlight + React site, live on packs/ and tests/spec/
 ```
 
-The specification is [`SPECS.md`](SPECS.md); the build state and deliberate departures are in [`HANDOFF.md`](HANDOFF.md).
+The specification is [`SPECS.md`](SPECS.md), an index of [`spec/`](spec/) (one file per section, numbered like `tests/spec/`); the build state and deliberate departures are in [`HANDOFF.md`](HANDOFF.md); how to add a rule, pack, target kind or engine helper is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+```sh
+bun run typecheck     # src, tests
+bun run lint          # Biome (format and lint) and shellcheck on the script templates
+bun run format        # Biome's formatting, written
+```

@@ -1,0 +1,10 @@
+### ai-models
+
+Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `langchain-anthropic`, `langchain-openai` (PyPI) or `@anthropic-ai/sdk`, `openai`, `ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`, `@langchain/anthropic`, `@langchain/openai` (npm).
+
+| Rule | Targets |
+|---|---|
+| `ai-models/model-ids` | `grep` forbid, rendered from the data file's `retired` rows, any file: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+| `ai-models/deprecated-model-ids` | `check` lint, advisory (§10.7): `forge_advise forge_model_ids` with the data file's `deprecated` rows and Claude ids: a quoted deprecated id on an added line (`<path>:<line> <id> retires <date>; use <replacement>`), and a dated Claude id (`claude-<family>-<version>-20YYMMDD`) the data file does not list (`… is not a published Claude model id; use its alias`); advice, so that a model published after the data file only asks |
+
+**The data file** `packs/ai-models/models.tsv` is the one list of model ids (`id`, `provider`, `status` `active` / `deprecated` / `retired`, `retires`, `replacement`, `rejects`: the request features the API rejects with a 400 on that model, `budget_tokens` and `forced_tool_choice`), dated, from the providers' deprecation pages; an id ending in `*` also covers its suffixed variants. Rules render it: a rule line after a `# models.tsv: <kind>` comment (`retired`, `rejects <feature>`, `advise`) holds the rendering, which `bun scripts/models.ts` writes after an edit of the file; the pack test fails while a rule differs from it. It is regenerated with each Forge release.

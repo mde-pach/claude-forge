@@ -1,5 +1,5 @@
 // The development self-test of the bundled packs (bun run test:packs [packs-dir]): every
-// pack and rule validated against the schemas and every example run (SPECS §14.1).
+// pack and rule validated against the schemas and every example run (SPECS.md §14.1, spec/14-acceptance-tests.md).
 // Not part of the published CLI: `forge test` checks a project's local rules only.
 import { join } from "node:path";
 import { selfTest, testSummary } from "../src/selftest/index.ts";
