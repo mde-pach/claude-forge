@@ -3,7 +3,7 @@ import { checkTools, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
 import { defaultRoles, type Roles } from "../roles.js";
 import { shQuote } from "../util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, Language, Rule } from "../types.js";
-import { type TypesLanguage, renderEngine } from "./engine.js";
+import { renderEngine, resolveEngine, type TypesLanguage } from "./engine.js";
 import { renderRoles } from "./roles.js";
 import { fill, renderLib, template } from "./template.js";
 
@@ -78,7 +78,14 @@ export function renderGreps(greps: ActiveGrep[]): string[] {
 }
 
 /** The generated checks fragment (wrappers, per-check functions, grep rules, file roles, engine). */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], roles: Roles = defaultRoles()): string {
+/** The scripts that run the generated checks (and lib.sh, which they source): the engine modules they call are shipped (§8.1, §10.1). */
+export const ENGINE_SCRIPTS = ["check.sh", "post-edit.sh", "typecheck.sh", "test-edit.sh", "session-start.sh", "lib.sh"];
+
+/**
+ * The generated checks fragment (wrappers, per-check functions, grep rules, file roles), then
+ * the engine: the modules it and the scripts running it use ("used"), or every module ("all").
+ */
+export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], roles: Roles = defaultRoles(), engine: "used" | "all" = "used"): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -119,7 +126,9 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
   out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
-  out.push("# ---- end of generated checks", "", renderEngine(types));
+  out.push("# ---- end of generated checks");
+  const modules = engine === "all" ? undefined : resolveEngine([out.join("\n"), ...ENGINE_SCRIPTS.map(template)]);
+  out.push("", renderEngine(types, modules));
   return out.join("\n");
 }
 

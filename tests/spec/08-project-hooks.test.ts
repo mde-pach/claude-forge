@@ -988,7 +988,7 @@ describe("test edits", () => {
       call("s-te5", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-rev");
       expect(readFileSync(join(stateDir(repo), "s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
       const engine = join(mkdtempSync(join(tmpdir(), "forge-engine-")), "engine.sh");
-      writeFileSync(engine, renderChecks([]));
+      writeFileSync(engine, renderChecks([], [], [], undefined, "all"));
       const related = (mode: string) =>
         sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=$3; forge_related_py_tests app/main.py`, "x", engine, mode, join(stateDir(repo), "s-te5.turn")], { cwd: repo }).stdout;
       expect(related("--turn")).toContain("tests/test_cart.py\n");

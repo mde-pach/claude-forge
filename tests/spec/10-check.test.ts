@@ -13,24 +13,25 @@ import { chmodSync, existsSync, readdirSync, mkdirSync, mkdtempSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  ROOT,
+  TOOLS_CACHE,
+  TOOL_VERSIONS,
+  TY_FINDS_NOTHING,
   applied,
   commitAll,
   copyRepo,
   ensureTools,
   fixture,
   forge,
+  fullEngine,
   git,
   hasBun,
   hasUv,
   linkTools,
   linkTs5,
   put,
-  ROOT,
   sampleRepo,
   sh,
-  TOOL_VERSIONS,
-  TOOLS_CACHE,
-  TY_FINDS_NOTHING,
   shScript,
 } from "../helpers";
 import { loadPacks } from "../../src/packs";
@@ -1664,7 +1665,7 @@ describe("project tools whose name is not a shell function name", () => {
  * kubectl) are found on PATH like the runtimes. Whatever cannot run is reported, never passed.
  */
 describe("pinned release binaries and system tools", () => {
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   function run(body: string, cwd: string, env: Record<string, string> = {}) {
     const script = join(cwd, "..", `t-${Math.random().toString(36).slice(2)}.sh`);
     writeFileSync(script, `${engine}\nc_id=demo/rule\nFORGE_TMP=$(mktemp -d)\n${body}\n`);
@@ -2044,7 +2045,7 @@ test("a failing codegen check stops check.sh before the typecheck; a passing one
  */
 test("prettier --check output is attributed by the files it names: a changed file counts, an unchanged one and the summary do not", () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   const out = [
     "Checking formatting...",
     "[warn] src/cart.ts",
@@ -2072,7 +2073,7 @@ test("prettier --check output is attributed by the files it names: a changed fil
  */
 test("ESLint's stylish output is attributed by file and line: an error on an added line counts, one on another line does not, and warnings count only with fail_on_warnings", () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   const out = [
     `${dir}/src/a.ts`,
     "  4:9  error  'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",

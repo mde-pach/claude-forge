@@ -3,7 +3,7 @@ import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnCaptured } from "../src/util";
-import { engineModules, renderEngineModule, renderLib, type TypesLanguage } from "../src/render";
+import { engineModules, renderChecks, renderEngineModule, renderLib, type TypesLanguage } from "../src/render";
 import { selfTest, type TestReport } from "../src/selftest";
 
 export const ROOT = join(import.meta.dir, "..");
@@ -590,4 +590,9 @@ export function packsSelfTest(): TestReport {
     writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins })));
   });
   return JSON.parse(readFileSync(join(dir, "report.json"), "utf8")) as TestReport;
+}
+
+/** lib.sh, then the generated checks of no check with every engine module: for running any engine helper directly. */
+export function fullEngine(): string {
+  return [renderLib(), "IFS='\n'", renderChecks([], [], [], undefined, "all")].join("\n");
 }

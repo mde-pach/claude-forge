@@ -91,12 +91,14 @@ export function projectFiles(
     [`${root}/scripts/guard.sh`, template("guard.sh")],
     [`${root}/scripts/guard.rules`, renderGuardRules(guards, base)],
     [`${root}/scripts/review.sh`, template("review.sh")],
-    [`${root}/scripts/session-start.sh`, fill(template("session-start.sh"), { CHECKS: fragment, PACKS: packs.active.map((p) => p.id).join(", ") || "none" })],
+    // the generated checks the hook scripts source (check.sh holds its own copy: its integrity check runs it)
+    [`${root}/scripts/checks.sh`, `${fragment}\n`],
+    [`${root}/scripts/session-start.sh`, fill(template("session-start.sh"), { PACKS: packs.active.map((p) => p.id).join(", ") || "none" })],
     [`${root}/scripts/bash-snapshot.sh`, template("bash-snapshot.sh")],
-    [`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { CHECKS: fragment, FORBID: [ids("forbid"), ids("advise")].filter(Boolean).join("|") })],
-    [`${root}/scripts/typecheck.sh`, fill(template("typecheck.sh"), { CHECKS: fragment })],
+    [`${root}/scripts/post-edit.sh`, fill(template("post-edit.sh"), { FORBID: [ids("forbid"), ids("advise")].filter(Boolean).join("|") })],
+    [`${root}/scripts/typecheck.sh`, template("typecheck.sh")],
     [`${root}/scripts/stop.sh`, template("stop.sh")],
-    [`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { CHECKS: fragment, TEST_RULES: renderTestRules(checks) })],
+    [`${root}/scripts/test-edit.sh`, fill(template("test-edit.sh"), { TEST_RULES: renderTestRules(checks) })],
     [`${root}/scripts/turn-start.sh`, template("turn-start.sh")],
   ]);
   if (types.length) files.set(`${root}/scripts/session-end.sh`, template("session-end.sh"));

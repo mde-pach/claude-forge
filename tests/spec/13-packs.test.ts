@@ -16,10 +16,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ANGULAR_TOOLS, ensureNodeTools, packsSelfTest, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, shScript } from "../helpers";
+import { ANGULAR_TOOLS, ROOT, SYSTEM_TOOLS_BIN, ensureNodeTools, fullEngine, hasBun, hasUv, packsSelfTest, sh, shScript } from "../helpers";
 import type { CheckTarget } from "../../src/types";
-import { SYSTEM_TOOLS } from "../../src/core/tools";
-import { renderChecks, renderLib } from "../../src/render";
+import { commandsOf, SYSTEM_TOOLS } from "../../src/core/tools";
+import { renderCheckScript } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
 import { loadModels, modelRuleFiles, renderRuleFile } from "../../scripts/models";
 
@@ -42,6 +42,32 @@ describe("every rule", () => {
   });
 });
 
+/**
+ * A project gets only the engine modules its checks and hook scripts use (§10.1): a check run
+ * on its own must still find every engine function its commands call, and its check.sh must
+ * parse.
+ */
+test("every check target, rendered on its own, has every engine function it calls, and its check.sh parses", () => {
+  const dir = mkdtempSync(join(tmpdir(), "forge-engine-of-"));
+  const problems: string[] = [];
+  try {
+    for (const rule of rules)
+      for (const target of rule.enforce.filter((t): t is CheckTarget => t.target === "check")) {
+        const script = renderCheckScript([{ rule, target }], { forbid: "", noIncrease: "", noDecrease: "" });
+        for (const name of commandsOf(target)
+          .join("\n")
+          .match(/\bforge_[a-z0-9_]+\b/g) ?? [])
+          if (!new RegExp(`^${name}\\(\\)`, "m").test(script)) problems.push(`${rule.id}: ${name} is not defined in its check.sh`);
+        writeFileSync(join(dir, "check.sh"), script);
+        const parsed = sh("sh", ["-n", join(dir, "check.sh")]);
+        if (parsed.status !== 0) problems.push(`${rule.id}: sh -n: ${parsed.stderr.trim()}`);
+      }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  expect(problems).toEqual([]);
+});
+
 test("every check target has examples, except test and migration runs, astro check, ngc and the lock-file checks", () => {
   const missing = rules.filter((r) => r.enforce.some((t) => t.target === "check" && !checkExamplesOptional(t as CheckTarget)) && !(r.examples?.match?.length && r.examples?.no_match?.length));
   expect(missing.map((r) => r.id)).toEqual([]);
@@ -61,7 +87,7 @@ test(
  * (into ~/.cache/forge/bin, once per machine) and matches the sha256 Forge embeds.
  */
 test("every pinned release binary for this platform downloads and matches its embedded sha256", () => {
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   const names = Object.keys(RELEASE_BINARIES);
   const r = shScript(`${engine}\nfor n in ${names.join(" ")}; do b=$(forge_release_bin "$n") && [ -x "$b" ] && echo "$n ok" || echo "$n: $b"; done`);
   expect(r.stdout).toBe(names.map((n) => `${n} ok\n`).join(""));
@@ -73,7 +99,7 @@ test("every pinned release binary for this platform downloads and matches its em
  * check.sh does (forge_has_tool: Yarn 1 is not the yarn a .yarnrc.yml project needs).
  */
 test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   const absent = (tool: string) => shScript(`${engine}\nPATH=${SYSTEM_TOOLS_BIN}:$PATH forge_has_tool ${tool}`).status !== 0;
   const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
   const system = (n: string) => SYSTEM_TOOLS.find((t) => new RegExp(`skipped: ${t}( 2 or later)? (not available|not installed)`).test(n));
