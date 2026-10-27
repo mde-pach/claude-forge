@@ -1,0 +1,18 @@
+id: typescript/vite/no-open-dev-host
+description: "No server.allowedHosts: true or preview.allowedHosts: true in vite.config.*; it lets any site reach the dev server through DNS rebinding. List the hosts."
+scope: {language: typescript, files: ["**/vite.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?allowedHosts[\"']?$"}
+        - has: {field: value, kind: "true"}
+      inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?(server|preview)[\"']?$"}}}
+examples:
+  match:
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  server: { allowedHosts: true },\n});\n"
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  preview: { host: true, allowedHosts: true },\n});\n"
+  no_match:
+    - "import { defineConfig } from \"vite\";\n\nexport default defineConfig({\n  server: { host: true, allowedHosts: [\".example.com\"] },\n});\n"

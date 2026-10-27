@@ -869,6 +869,19 @@ Detected by the `storybook` dependency at 9 or later.
 
 context.md: the `storybook/*` entry points that replace them.
 
+### typescript/vite
+
+Detected by the `vite` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/vite/no-public-secret-env` | `ast-grep` forbid: `import.meta.env.VITE_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` (the `typescript/nextjs/no-public-secret-env` list) |
+| `typescript/vite/no-public-secret-env-file` | `grep` forbid in `.env` and `.env.*` files: such `VITE_` variables |
+| `typescript/vite/no-define-process-env` | `ast-grep` forbid in `vite.config.*`: a `"process.env"` key of `define` set to `process.env` or `JSON.stringify(process.env)` |
+| `typescript/vite/no-open-dev-host` | `ast-grep` forbid in `vite.config.*`: `allowedHosts: true` under `server` or `preview` |
+
+context.md: no secrets in `VITE_` variables, `define` never inlines `process.env`, `allowedHosts` lists hosts.
+
 ### typescript/nextjs
 
 | Rule | Targets |
