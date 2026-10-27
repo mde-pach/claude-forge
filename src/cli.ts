@@ -12,7 +12,7 @@ import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPackBundle } from "./packs.js";
 import { roleGlobs } from "./roles.js";
-import { plan, readProjectInputs, type Plan } from "./plan.js";
+import { plan, readProjectInputs, type Plan } from "./plan/index.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest/index.js";
 import { mergeTomlSnippets } from "./snippets.js";
