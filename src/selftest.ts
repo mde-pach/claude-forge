@@ -622,10 +622,12 @@ function typesExamples(rules: Rule[], report: TestReport): void {
       for (const r of group) {
         const t = r.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
         mkdirSync(dirname(join(sg, astGrepRulePath(r.id))), { recursive: true });
-        writeFileSync(join(sg, astGrepRulePath(r.id)), renderAstGrepRule(r, t));
+        // the examples sit in the rule's scope under ex-*/, and the rule's files are scoped to that directory
+        writeFileSync(join(sg, astGrepRulePath(r.id)), renderAstGrepRule(r, t, [rel]));
         for (const kind of ["match", "no_match"] as const)
           codeExamples(r, kind).forEach((code, i) => {
-            const name = `${rel}/${r.id.replaceAll("/", "_")}_${kind}_${i + 1}.${lang === "python" ? "py" : "ts"}`;
+            const name = `${rel}/${examplePath(r, `${r.id.replaceAll("/", "_")}_${kind}_${i + 1}`)}`;
+            mkdirSync(dirname(join(project.dir!, name)), { recursive: true });
             writeFileSync(join(project.dir!, name), code);
             expected.set(name, { rule: r, kind, i });
           });

@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
+import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE, hasUv } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
 const T = 300_000;
@@ -164,6 +164,31 @@ describe("forge test catches broken packs", () => {
     const dir = packsWith({ "demo/rules/x.yaml": `id: demo/x\ndescription: X.\nscope: {language: any}\n${body}\n` });
     expect(() => loadPacks(dir)).toThrow(message);
   });
+
+  /** A typed rule's examples are written inside its scope, so a rule about test files is checked like any other. */
+  test.if(hasUv)(
+    "a rule with types and a scope of test files passes on its examples",
+    () => {
+      const rule = [
+        "id: demo/q",
+        "description: No Session.query in tests.",
+        'scope: {language: python, files: ["**/tests/**"]}',
+        "enforce:",
+        "  - target: ast-grep",
+        "    mode: forbid",
+        '    rule: {pattern: "$S.query($$$)"}',
+        "    where:",
+        "      S: {type: {package: sqlalchemy, name: Session}}",
+        "examples:",
+        '  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]',
+        `  match: [${JSON.stringify("from sqlalchemy.orm import Session\n\n\ndef f(db: Session) -> None:\n    db.query(int)\n")}]`,
+        `  no_match: [${JSON.stringify("class Session:\n    def query(self, q: int) -> None: ...\n\n\ndef f(db: Session) -> None:\n    db.query(1)\n")}]`,
+        "",
+      ].join("\n");
+      expect(selfTest(packsWith({ "demo/rules/q.yaml": rule })).failures).toEqual([]);
+    },
+    T,
+  );
 
   test("a correct pack passes", () => {
     expect(selfTest(packsWith({ "demo/rules/g.yaml": guardRule("rm -rf x", "rm x") })).failures).toEqual([]);
