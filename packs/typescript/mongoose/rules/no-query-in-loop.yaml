@@ -1,0 +1,26 @@
+id: typescript/mongoose/no-query-in-loop
+description: "A Mongoose query or aggregation (Model.find, findOne, findById, countDocuments, updateOne, aggregate, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the documents in one query ($in, populate, $lookup) or use bulkWrite."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "await $Q"
+      any:
+        - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: for_in_statement}, {kind: while_statement}, {kind: do_statement}]}
+        - inside:
+            stopBy: end
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(map|forEach|flatMap)$"}}}}
+    # the awaited value is a Mongoose Query or Aggregate, by its type (§15.1): find()'s
+    # QueryWithHelpers is an alias of an intersection with Query
+    where:
+      Q: {type: {package: mongoose, name: [Query, Aggregate]}}
+examples:
+  deps: [{ecosystem: npm, name: mongoose, version: "9.11.1"}]
+  match:
+    - "import { Schema, model } from \"mongoose\";\n\nconst Post = model(\"Post\", new Schema({ authorId: String, title: String }));\n\nexport async function postsOf(authorIds: string[]): Promise<number> {\n  let n = 0;\n  for (const authorId of authorIds) {\n    const posts = await Post.find({ authorId });\n    n += posts.length;\n  }\n  return n;\n}\n"
+    - "import { Schema, model } from \"mongoose\";\n\nconst Post = model(\"Post\", new Schema({ authorId: String }));\n\nexport function counts(authorIds: string[]) {\n  return Promise.all(authorIds.map(async (authorId) => await Post.aggregate([{ $match: { authorId } }, { $count: \"n\" }])));\n}\n"
+  no_match:
+    - "import { Schema, model } from \"mongoose\";\n\nconst Post = model(\"Post\", new Schema({ authorId: String, title: String }));\n\nexport async function postsOf(authorIds: string[]): Promise<number> {\n  const posts = await Post.find({ authorId: { $in: authorIds } });\n  return posts.length;\n}\n"
+    - "export async function fetchAll(urls: string[]): Promise<number> {\n  let n = 0;\n  for (const url of urls) {\n    const res = await fetch(url);\n    n += res.status;\n  }\n  return n;\n}\n"

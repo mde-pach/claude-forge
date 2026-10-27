@@ -1481,6 +1481,7 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 | `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
 | `typescript/drizzle/no-push-force` | `guard` deny: `drizzle-kit push … --force` (auto-approves data-loss statements) |
 | `typescript/drizzle/write-with-where` | `ast-grep` forbid: `$DB.delete(…)` / `$DB.update(…)` with no `.where` further along its method chain, where `DB` is a Drizzle database (`PgDatabase`, `MySqlDatabase`, `BaseSQLiteDatabase`, `SingleStoreDatabase`, `GelDatabase`; transactions extend them; `drizzle()`'s intersection `NodePgDatabase & { $client }` by its member, §15.1) |
+| `typescript/drizzle/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is `drizzle-orm`'s `QueryPromise` (§15.1) |
 | `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
 
 context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation, `push --force` is refused; deletes and updates have a `where`; the `sql` tag binds values.
@@ -1640,6 +1641,7 @@ context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO cl
 |---|---|
 | `typescript/kysely/no-sql-raw` | `ast-grep` forbid: a call `$CALL` of `<x>.raw(…)` / `<x>.lit(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is Kysely's `RawBuilder` |
 | `typescript/kysely/write-with-where` | `ast-grep` advise: `$DB.deleteFrom(…)` / `$DB.updateTable(…)` whose method chain reaches `execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` with no `where…` on the way, where `DB` is Kysely's `Kysely` or `Transaction` |
+| `typescript/kysely/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$B.execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` where `B` is typed `kysely` (§15.1) |
 
 context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
 
@@ -1651,6 +1653,7 @@ context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `
 | `typescript/typeorm/synchronize-expression` | `ast-grep` advise: the same keys set from an expression (not `true` / `false`) |
 | `typescript/typeorm/no-raw-query-interpolation` | `ast-grep` forbid: `$R.query(…)` whose first argument is a template with `${}`, a `+` concatenation or a variable declared from one, where `R` is `DataSource`, `EntityManager`, `QueryRunner` or `Repository` |
 | `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
+| `typescript/typeorm/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$R.$M(…)` where `R` is TypeORM's `Repository` or `EntityManager` (§15.1) |
 | `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
 | `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
 | `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
@@ -1663,6 +1666,7 @@ context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.quer
 |---|---|
 | `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
 | `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
+| `typescript/mongoose/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is Mongoose's `Query` or `Aggregate` (§15.1: `find()`'s `QueryWithHelpers` is an alias of an intersection with `Query`) |
 
 context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`.
 
