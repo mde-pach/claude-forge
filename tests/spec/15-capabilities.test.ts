@@ -23,8 +23,14 @@ import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, ot
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
-/** Per edit, once the engine runs: the hook's type question (client, FIFO and engine), in ms. */
-const WARM_BUDGET_MS = 150;
+/**
+ * Per edit, once the engine runs: the hook's type question (client, FIFO and engine), in
+ * ms, for the <n> matches it asks about. The question costs a fixed part (the client
+ * script, the FIFO) and a part per match, so the budget grows with the matches: an edit of
+ * one line asks about one or two (post-edit.sh asks only about the added lines, §15.1), a
+ * large edit about dozens.
+ */
+const warmBudget = (n: number) => 140 + 5 * n;
 /** The first question of a session, the engine started on demand, in ms. */
 const COLD_BUDGET_MS = 5_000;
 // a daemon a failed test leaves behind goes away on its own
@@ -92,12 +98,14 @@ function project(key: string, sample: string | undefined, setup: (dir: string) =
 /**
  * The type question an edit asks, on its own: the generated forge_types_filter on
  * ast-grep matches (with their metadata) of <file>, against the repository's running
- * engine. Returns the matches kept and the wall time in ms.
+ * engine; with <limit>, only the first <limit> matches with a type condition, as an edit
+ * of a few lines asks about. Returns the matches asked about, those kept and the wall time in ms.
  */
-function typeQuestion(repo: string, lang: "python" | "typescript", file: string): { kept: number; ms: number } {
+function typeQuestion(repo: string, lang: "python" | "typescript", file: string, limit = Infinity): { asked: number; kept: number; ms: number } {
   const tmp = mkdtempSync(join(tmpdir(), "forge-tq-"));
   const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; astgrep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
-  writeFileSync(join(tmp, "matches"), scan.stdout);
+  const typed = scan.stdout.split("\n").filter((l) => l.includes('"forge_where"')).slice(0, limit);
+  writeFileSync(join(tmp, "matches"), typed.map((l) => `${l}\n`).join(""));
   const script = join(tmp, "q.sh");
   writeFileSync(script, [renderLib(), "IFS='\n'", renderChecks([], [], [lang]), `FORGE_STATE='${stateDir(repo)}'`, 'forge_types_filter "$1"'].join("\n"));
   const t = performance.now();
@@ -106,7 +114,25 @@ function typeQuestion(repo: string, lang: "python" | "typescript", file: string)
   expect(r.status).toBe(0);
   const kept = readFileSync(join(tmp, "matches"), "utf8").split("\n").filter(Boolean).length;
   rmSync(tmp, { recursive: true, force: true });
-  return { kept, ms };
+  return { asked: typed.length, kept, ms };
+}
+
+/**
+ * Nine edits of <file> (<edit>(i) its content), each followed by the type question on the
+ * first <limit> typed matches: the median wall time is within the budget for the matches
+ * asked. Returns the matches kept by the last question.
+ */
+function warmQuestions(repo: string, lang: "python" | "typescript", file: string, edit: (i: number) => string, limit = Infinity): number {
+  const times: number[] = [];
+  let last = { asked: 0, kept: 0, ms: 0 };
+  for (let i = 0; i < 9; i++) {
+    put(repo, file, edit(i));
+    last = typeQuestion(repo, lang, file, limit);
+    times.push(last.ms);
+  }
+  const m = Math.round(median(times));
+  expect({ matches: last.asked, medianMs: m, budgetMs: warmBudget(last.asked), within: m < warmBudget(last.asked) }).toMatchObject({ within: true });
+  return last.kept;
 }
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
 
@@ -337,20 +363,16 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "app/db.py", DB);
       afterEdit(repo, "app/db.py");
       put(repo, "app/repo.py", REPO);
       afterEdit(repo, "app/repo.py");
-      const times: number[] = [];
-      for (let i = 0; i < 9; i++) {
-        put(repo, "app/repo.py", `${REPO}\n# edit ${i}\n`);
-        const q = typeQuestion(repo, "python", "app/repo.py");
-        expect(q.kept).toBe(4);
-        times.push(q.ms);
-      }
-      expect(median(times)).toBeLessThan(WARM_BUDGET_MS);
+      const edit = (i: number) => `${REPO}\n# edit ${i}\n`;
+      warmQuestions(repo, "python", "app/repo.py", edit, 1);
+      warmQuestions(repo, "python", "app/repo.py", edit, 10);
+      expect(warmQuestions(repo, "python", "app/repo.py", edit)).toBe(4);
     },
     T,
   );
@@ -813,19 +835,15 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    `once the engine runs, an edit's type question (client, FIFO and engine) takes under ${WARM_BUDGET_MS} ms`,
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "src/schemas.ts", SCHEMAS);
       afterEdit(repo, "src/schemas.ts");
-      const times: number[] = [];
-      for (let i = 0; i < 9; i++) {
-        put(repo, "src/schemas.ts", `${SCHEMAS}// edit ${i}\n`);
-        const q = typeQuestion(repo, "typescript", "src/schemas.ts");
-        // Zod 4's .email(), .url() and .uuid(): the zod rule and typescript/no-deprecated (§15.7)
-        expect(q.kept).toBe(6);
-        times.push(q.ms);
-      }
-      expect(median(times)).toBeLessThan(WARM_BUDGET_MS);
+      const edit = (i: number) => `${SCHEMAS}// edit ${i}\n`;
+      warmQuestions(repo, "typescript", "src/schemas.ts", edit, 1);
+      warmQuestions(repo, "typescript", "src/schemas.ts", edit, 10);
+      // Zod 4's .email(), .url() and .uuid(): the zod rule and typescript/no-deprecated (§15.7)
+      expect(warmQuestions(repo, "typescript", "src/schemas.ts", edit)).toBe(6);
     },
     T,
   );
