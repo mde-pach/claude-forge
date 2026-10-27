@@ -1,0 +1,15 @@
+id: python/uvicorn/no-legacy-ws-impl
+description: "Uvicorn's WebSocket implementation is not the deprecated legacy one (--ws websockets, ws=\"websockets\", UVICORN_WS=websockets); keep the default or use websockets-sansio."
+scope: {language: any, files: ["@dockerfile", "@procfile", "@compose", "**/*.py"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "--ws(=|[\"',[:space:]]+)[\"']?websockets([\"'[:space:]]|$)|(^|[^A-Za-z0-9_])ws[[:space:]]*=[[:space:]]*[\"']websockets[\"']|UVICORN_WS[[:space:]]*[=:][[:space:]]*[\"']?websockets([\"'[:space:]]|$)"}
+examples:
+  match:
+    - "FROM python:3.13-slim\nCMD [\"uvicorn\", \"app.main:app\", \"--ws\", \"websockets\"]\n"
+    - "web: uvicorn app.main:app --ws=websockets\n"
+    - "uvicorn.run(app, host=\"0.0.0.0\", ws=\"websockets\")\n"
+    - "services:\n  api:\n    environment:\n      UVICORN_WS: websockets\n"
+  no_match:
+    - "FROM python:3.13-slim\nCMD [\"uvicorn\", \"app.main:app\", \"--ws\", \"websockets-sansio\"]\n"
+    - "web: uvicorn app.main:app --ws wsproto --ws-max-size 1048576\n"
+    - "news = \"websockets\"\n"
