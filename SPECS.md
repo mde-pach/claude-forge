@@ -826,6 +826,16 @@ Detected by `structlog` (pypi).
 
 context.md: constant events with key/value data; annotate loggers from `structlog.get_logger()`.
 
+### python/msgspec
+
+Detected by `msgspec` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/msgspec/typed-decode` | `ast-grep` forbid: `msgspec.json` / `msgpack` / `yaml` / `toml` `.decode(…)` without `type=` (a `from msgspec import json` alias is not matched) |
+
+context.md: decode with `type=` or a typed `Decoder`.
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
