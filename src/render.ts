@@ -268,7 +268,13 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     if (target.rerun) out.push(...body(`forge_check_rerun_${n}`, target.rerun.replaceAll("{files}", "$FORGE_FILES"), "files"));
   });
   out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
-  out.push("# ---- end of generated checks", "", fill(template("engine.sh"), {
+  out.push("# ---- end of generated checks", "", renderEngine(types));
+  return out.join("\n");
+}
+
+/** engine.sh with Forge's pins filled in; it depends on the plan only through the types engines it starts. */
+export function renderEngine(types: TypesLanguage[] = []): string {
+  return fill(template("engine.sh"), {
       SQUAWK_VERSION,
       REDOCLY_VERSION,
       SPECTRAL_VERSION,
@@ -283,8 +289,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       TY_VERSION,
       ENGINE_PYTHON,
       TYPES_REV: types.length ? typesRevision() : "",
-    }).trimEnd());
-  return out.join("\n");
+    }).trimEnd();
 }
 
 /**

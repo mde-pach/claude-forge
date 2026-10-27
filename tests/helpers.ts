@@ -3,6 +3,7 @@ import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnCaptured } from "../src/util";
+import { renderEngine, renderLib, type TypesLanguage } from "../src/render";
 import { selfTest, type TestReport } from "../src/selftest";
 
 export const ROOT = join(import.meta.dir, "..");
@@ -246,15 +247,45 @@ function walk(dir: string, base: string, out: string[]): void {
 }
 
 /** Every file forge writes in a project (owned, settings, pre-commit), as one text. */
+/**
+ * Text Forge copies from its templates as it is, whatever the plan: engine.sh (its pins
+ * filled in; per set of types engines), lib.sh, the hook scripts and helpers written
+ * unchanged. A snapshot shows each as one marker line, so it holds what the plan decides
+ * (generated checks, rules, settings, context) and a template edit does not rewrite it.
+ */
+function verbatimBlocks(): [string, string][] {
+  const out: [string, string][] = [];
+  for (const types of [[], ["python"], ["typescript"], ["python", "typescript"], ["typescript", "python"]] as TypesLanguage[][])
+    out.push([renderEngine(types), `@@ templates/scripts/engine.sh${types.length ? ` (types: ${types.join(" ")})` : ""} @@`]);
+  out.push([renderLib().trimEnd(), "@@ templates/scripts/lib.sh @@"]);
+  for (const dir of ["scripts", "helpers"])
+    for (const f of readdirSync(join(ROOT, "templates", dir))) {
+      const text = readFileSync(join(ROOT, "templates", dir, f), "utf8");
+      if (!text.includes("@@")) out.push([text, `@@ templates/${dir}/${f} @@\n`]);
+    }
+  // the longest first: a block may contain a shorter one
+  return out.sort((a, b) => b[0].length - a[0].length);
+}
+
 export function snapshotOf(repo: string): string {
   const files: string[] = [];
   walk(join(repo, ".forge"), repo, files);
   walk(join(repo, ".claude"), repo, files);
   if (existsSync(join(repo, ".git", "hooks", "pre-commit"))) files.push(".git/hooks/pre-commit");
+  const blocks = verbatimBlocks();
+  // the generated checks are rendered into check.sh and several hook scripts: shown once,
+  // in check.sh, and each other copy that is the same says so
+  const fragment = (text: string) => /# ---- generated checks\n[\s\S]*?# ---- end of generated checks/.exec(text)?.[0];
+  const checkSh = join(repo, ".forge", "check.sh");
+  const shown = existsSync(checkSh) ? fragment(readFileSync(checkSh, "utf8")) : undefined;
   return files
     .filter((f) => !f.startsWith(".forge/state/"))
     .sort()
-    .map((f) => `===== ${f}\n${readFileSync(join(repo, f), "utf8")}`)
+    .map((f) => {
+      let text = blocks.reduce((t, [block, marker]) => t.replaceAll(block, marker), readFileSync(join(repo, f), "utf8"));
+      if (f !== ".forge/check.sh" && shown && fragment(text) === shown) text = text.replace(shown, "@@ the generated checks of .forge/check.sh @@");
+      return `===== ${f}\n${text}`;
+    })
     .join("\n");
 }
 

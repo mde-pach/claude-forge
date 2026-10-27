@@ -7,7 +7,9 @@
  * TypeScript with Next.js + React + Prisma + Vitest + Playwright on Bun, Astro
  * with React islands, a repository that uses ESLint instead of Biome, a
  * Docker repository (Dockerfile, Compose, a GitHub Actions workflow), and a pnpm
- * workspace whose TypeScript config lives in a package.
+ * workspace whose TypeScript config lives in a package. A snapshot holds what the plan
+ * decides: text Forge copies from its templates unchanged (engine.sh, lib.sh, hook scripts,
+ * helpers) is one marker line, and the generated checks are shown once, in check.sh.
  */
 import { describe, expect, test } from "bun:test";
 import { expectSnapshot, forge, sampleRepo, snapshotOf } from "../helpers";
