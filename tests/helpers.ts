@@ -72,11 +72,11 @@ if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
       "#!/bin/sh",
       "stand_in() {",
       '  while [ "$#" -gt 0 ]; do',
-      '    a=$1; shift',
+      "    a=$1; shift",
       '    case $a in ty==*) [ "${1:-}" = ty ] && { shift; exec "$stand" "$@"; } ;; esac',
       "  done",
       "}",
-      'stand=${FORGE_TEST_TY_STAND_IN:-.venv/bin/ty-stand-in}',
+      "stand=${FORGE_TEST_TY_STAND_IN:-.venv/bin/ty-stand-in}",
       '[ -x "$stand" ] && stand_in "$@"',
       `exec "${REAL_UVX}" "$@"`,
       "",
@@ -393,7 +393,12 @@ function ensureSystemTools(): void {
   const t = SYSTEM_TOOL_VERSIONS.terraform;
   const h = SYSTEM_TOOL_VERSIONS.helm;
   const fetch = [
-    ["terraform", `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`, `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`, "unzip -o -q asset terraform"],
+    [
+      "terraform",
+      `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`,
+      `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`,
+      "unzip -o -q asset terraform",
+    ],
     ["helm", `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz`, `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz.sha256sum`, `tar -xzf asset && mv ${os}-${arch}/helm helm`],
     [
       "yarn",
@@ -462,7 +467,13 @@ export function ensureNodeTools(name: string, pkgs: string[]): string {
 }
 
 /** The Angular compiler with the framework packages a component imports (typescript/angular/typecheck). */
-export const ANGULAR_TOOLS = [`@angular/compiler-cli@${TOOL_VERSIONS.angular}`, `@angular/compiler@${TOOL_VERSIONS.angular}`, `@angular/core@${TOOL_VERSIONS.angular}`, `typescript@${TOOL_VERSIONS.typescriptForAngular}`, "rxjs@7.8.2"];
+export const ANGULAR_TOOLS = [
+  `@angular/compiler-cli@${TOOL_VERSIONS.angular}`,
+  `@angular/compiler@${TOOL_VERSIONS.angular}`,
+  `@angular/core@${TOOL_VERSIONS.angular}`,
+  `typescript@${TOOL_VERSIONS.typescriptForAngular}`,
+  "rxjs@7.8.2",
+];
 
 /**
  * The project tools of pack check examples beyond Biome and tsc, each set in a directory of
@@ -561,7 +572,15 @@ export function processesNaming(text: string): string[] {
 export function packsSelfTest(): TestReport {
   ensureTools();
   ensureVueTools();
-  const toolBins = [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+  const toolBins = [
+    join(TOOLS_CACHE, "node_modules/.bin"),
+    join(TOOLS_CACHE, ".venv/bin"),
+    join(TOOLS_CACHE, ".venv-sqlfluff/bin"),
+    join(TOOLS_CACHE, "vue/node_modules/.bin"),
+    ...ensureExampleTools(),
+    SYSTEM_TOOLS_BIN,
+    ...(process.env.PATH ?? "").split(":"),
+  ];
   const dir = fixture("packs-selftest", (d) => {
     writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins })));
   });

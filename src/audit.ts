@@ -125,7 +125,14 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Examp
   if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel]));
   const cfg = `tsconfig.${stem}.json`;
   const tsconfig = JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { noEmit: true, incremental: false, composite: false }, include: [], files: [rel] });
-  return withFiles(repo, [[rel, code], [cfg, tsconfig]], () => run(bin, ["--noEmit", "-p", cfg, "--pretty", "false"], { cwd: repo }));
+  return withFiles(
+    repo,
+    [
+      [rel, code],
+      [cfg, tsconfig],
+    ],
+    () => run(bin, ["--noEmit", "-p", cfg, "--pretty", "false"], { cwd: repo }),
+  );
 }
 
 function parseJson(text: string): unknown {
@@ -222,7 +229,13 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, exa
     const r = withFiles(
       repo,
       b.map((n) => [rels[n]!, codes[n]!]),
-      () => runOnFiles(repo, t, bin, b.map((n) => rels[n]!)),
+      () =>
+        runOnFiles(
+          repo,
+          t,
+          bin,
+          b.map((n) => rels[n]!),
+        ),
     );
     let d: ReturnType<typeof diagnostics>;
     try {
@@ -232,7 +245,11 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, exa
     }
     const mine = new Set(b.map((n) => rels[n]!));
     if (!d.complete || d.list.some((x) => !mine.has(x.file))) continue;
-    for (const n of b) out[n] = judge(t.expects, d.list.filter((x) => x.file === rels[n]));
+    for (const n of b)
+      out[n] = judge(
+        t.expects,
+        d.list.filter((x) => x.file === rels[n]),
+      );
   }
   return out;
 }
@@ -251,7 +268,12 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   // in a workspace package, the tool may be installed at the root (hoisted)
   // ty is Forge's own (through uvx); the others are the project's
   const bin = t.tool === "ty" ? (hasUvx() ? "uvx" : undefined) : (projectBinary(repo, t.tool) ?? projectBinary(root, t.tool));
-  if (!bin) return { ...base, status: "skipped", detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)` };
+  if (!bin)
+    return {
+      ...base,
+      status: "skipped",
+      detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)`,
+    };
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
@@ -263,7 +285,12 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
     try {
       return verdict(t.tool, t.expects, r);
     } catch (e) {
-      const said = /^eslint could not parse/.test((e as Error).message) ? (e as Error).message : (r.stdout + r.stderr).split("\n").map((l) => l.trim()).find((l) => l && !/^[━─-]+$/.test(l));
+      const said = /^eslint could not parse/.test((e as Error).message)
+        ? (e as Error).message
+        : (r.stdout + r.stderr)
+            .split("\n")
+            .map((l) => l.trim())
+            .find((l) => l && !/^[━─-]+$/.test(l));
       return { ...base, status: "skipped", detail: `could not read ${t.tool}'s output${said ? `: ${firstLine(said)}` : ""}` };
     }
   };

@@ -40,7 +40,14 @@ describe("the pack tree", () => {
   });
 
   test("rule ids are the pack id plus the rule file name", () => {
-    for (const p of PACKS.values()) for (const r of p.rules) expect(r.id).toBe(`${p.id}/${r.file.split("/").pop()!.replace(/\.yaml$/, "")}`);
+    for (const p of PACKS.values())
+      for (const r of p.rules)
+        expect(r.id).toBe(
+          `${p.id}/${r.file
+            .split("/")
+            .pop()!
+            .replace(/\.yaml$/, "")}`,
+        );
   });
 
   /** @pack typescript/nextjs/react typescript/astro/react typescript/react */
@@ -96,9 +103,7 @@ describe("the pack tree", () => {
 
 describe("forge.yaml", () => {
   test("packs.add activates a pack and its ancestors", () => {
-    expect(activePacks("fastapi-app", 'forge: "0.5"\npacks: {add: [typescript/astro/react]}\n')).toEqual(
-      expect.arrayContaining(["typescript", "typescript/astro", "typescript/astro/react"]),
-    );
+    expect(activePacks("fastapi-app", 'forge: "0.5"\npacks: {add: [typescript/astro/react]}\n')).toEqual(expect.arrayContaining(["typescript", "typescript/astro", "typescript/astro/react"]));
   });
 
   test("packs.remove deactivates a pack and its whole subtree", () => {
@@ -345,7 +350,13 @@ describe("workspaces", () => {
 
   test("lerna.json declares packages (packages/* by default); without any declaration the repository has no workspace packages", () => {
     expect(planOf({ "lerna.json": "{}\n", ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/vitest"]);
-    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "secrets", "supply-chain", "typescript", "typescript/vitest"]);
+    expect(planOf({ "lerna.json": '{"packages": ["modules/*"]}\n', ...inDir("modules/lib", TS) }).packs.map((x) => x.id)).toEqual([
+      "git",
+      "secrets",
+      "supply-chain",
+      "typescript",
+      "typescript/vitest",
+    ]);
     expect(planOf({ "pyproject.toml": '[project]\nname = "app"\n', ...inDir("packages/lib", TS) }).packs.map((x) => x.id)).toEqual(["git", "python", "secrets", "supply-chain"]);
   });
 
@@ -391,7 +402,7 @@ describe("workspaces", () => {
    * @rule typescript/format-lint
    */
   test("a format_stdin filter runs in the package that configures the formatter, on the path relative to it", () => {
-    const biome = "#!/bin/sh\ncat\nprintf '// in %s as %s\\n' \"$(basename \"$PWD\")\" \"$2\"\n";
+    const biome = '#!/bin/sh\ncat\nprintf \'// in %s as %s\\n\' "$(basename "$PWD")" "$2"\n';
     const ws = planOf({
       "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
       ...inDir("packages/a", { "package.json": '{"name": "a", "devDependencies": {"@biomejs/biome": "2.5.15"}}\n', "biome.json": "{}\n", "tsconfig.json": "{}\n" }),

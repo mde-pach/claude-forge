@@ -15,7 +15,11 @@ chmodSync(out, 0o755);
 const { packSchema, ruleSchema, projectConfigSchema } = await import(join(root, "src", "schemas.ts")).catch(() => ({}));
 if (packSchema) {
   mkdirSync(join(root, "schemas"), { recursive: true });
-  for (const [name, schema] of [["pack", packSchema], ["rule", ruleSchema], ["forge", projectConfigSchema]])
+  for (const [name, schema] of [
+    ["pack", packSchema],
+    ["rule", ruleSchema],
+    ["forge", projectConfigSchema],
+  ])
     writeFileSync(join(root, "schemas", `${name}.schema.json`), JSON.stringify(schema, null, 2) + "\n");
 }
 

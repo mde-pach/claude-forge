@@ -47,9 +47,13 @@ test("every check target has examples, except test and migration runs, astro che
 });
 
 /** @pack docker */
-test("the hadolint-bin wheel ships the upstream hadolint release binary (its sha256 matches the release's)", () => {
-  expect(hadolintIntegrity().status).toBe("ok");
-}, T);
+test(
+  "the hadolint-bin wheel ships the upstream hadolint release binary (its sha256 matches the release's)",
+  () => {
+    expect(hadolintIntegrity().status).toBe("ok");
+  },
+  T,
+);
 
 /**
  * Each pinned release binary (§13.5) for this platform is fetched as check.sh fetches it
@@ -117,7 +121,10 @@ test(
     const pack = (rule: string) => {
       mkdirSync(join(dir, "demo/rules"), { recursive: true });
       writeFileSync(join(dir, "demo/pack.yaml"), "id: demo\ndescription: Demo.\nlevel: project\n");
-      writeFileSync(join(dir, "demo/rules/g.yaml"), `id: demo/g\ndescription: G.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "rm[[:space:]]+-rf"}]\nexamples: {match: [${JSON.stringify(rule)}], no_match: ["rm x"]}\n`);
+      writeFileSync(
+        join(dir, "demo/rules/g.yaml"),
+        `id: demo/g\ndescription: G.\nscope: {language: any}\nenforce: [{target: guard, decision: deny, pattern: "rm[[:space:]]+-rf"}]\nexamples: {match: [${JSON.stringify(rule)}], no_match: ["rm x"]}\n`,
+      );
     };
     pack("rm -rf x");
     const ok = sh("bun", ["run", "test:packs", dir], { cwd: ROOT });
@@ -153,7 +160,13 @@ test("prisma migration-present passes in a db push workflow and still runs migra
     const env = { ".env": "DATABASE_URL=postgresql://app@localhost:5432/app\n" };
     const push = { head: { ...schema, ...env, "package.json": '{"scripts": {"db:push": "prisma db push"}}\n' }, ...changed };
     const migrate = {
-      head: { ...schema, ...env, "package.json": '{"scripts": {"migrate": "prisma migrate dev"}}\n', "prisma.config.ts": "export default { datasource: { shadowDatabaseUrl: env('SHADOW_DATABASE_URL') } };\n", "prisma/migrations/20261020000000_init/migration.sql": "CREATE TABLE \"User\" (\"id\" INTEGER NOT NULL);\n" },
+      head: {
+        ...schema,
+        ...env,
+        "package.json": '{"scripts": {"migrate": "prisma migrate dev"}}\n',
+        "prisma.config.ts": "export default { datasource: { shadowDatabaseUrl: env('SHADOW_DATABASE_URL') } };\n",
+        "prisma/migrations/20261020000000_init/migration.sql": 'CREATE TABLE "User" ("id" INTEGER NOT NULL);\n',
+      },
       ...changed,
     };
     // both examples in one call: they run in parallel
@@ -188,7 +201,11 @@ describe("forge test catches broken packs", () => {
   /** Fields that only mean something with certain others are rejected elsewhere, rather than silently doing nothing. */
   test.each([
     ["rerun outside a test check", "enforce: [{target: check, stage: lint, run: 'ruff check .', rerun: 'pytest {files}'}]", "/enforce/0/stage must be equal to constant"],
-    ["format_stdin outside a format or lint check", "enforce: [{target: check, stage: typecheck, run: 'tsc', format_stdin: 'biome format --stdin-file-path={file}'}]", "/enforce/0/stage must be equal to one of the allowed values"],
+    [
+      "format_stdin outside a format or lint check",
+      "enforce: [{target: check, stage: typecheck, run: 'tsc', format_stdin: 'biome format --stdin-file-path={file}'}]",
+      "/enforce/0/stage must be equal to one of the allowed values",
+    ],
     ["review without a guard ask or the test-edit check", "enforce: [{target: guard, decision: deny, pattern: x}]\nreview: Is this fine?", "/enforce must contain at least 1 valid item"],
     ["the ephemeral-exec guard check with decision deny", "enforce: [{target: guard, decision: deny, pattern: npx, check: ephemeral-exec}]", "/enforce/0/decision must be equal to constant"],
     ["a project tool with a '-' run directly, not through forge_exec_tool", "enforce: [{target: check, stage: typecheck, run: 'vue-tsc --noEmit'}]", 'run vue-tsc as "forge_exec_tool vue-tsc"'],
@@ -233,13 +250,15 @@ describe("forge test catches broken packs", () => {
     expect(selfTest(packsWith({ "demo/rules/g.yaml": guardRule("rm -rf x", "rm -rf y") })).failures.some((x) => x.includes('expected nothing for "rm -rf y"'))).toBe(true);
   });
   test("a permission example that no permission string matches fails", () => {
-    const rule = 'id: demo/p\ndescription: P.\nscope: {language: any}\nenforce: [{target: permission, decision: deny, rule: "Bash(git clean:*)"}]\nexamples: {match: ["Bash(git cleanup)"], no_match: ["Bash(ls)"]}\n';
+    const rule =
+      'id: demo/p\ndescription: P.\nscope: {language: any}\nenforce: [{target: permission, decision: deny, rule: "Bash(git clean:*)"}]\nexamples: {match: ["Bash(git cleanup)"], no_match: ["Bash(ls)"]}\n';
     expect(selfTest(packsWith({ "demo/rules/p.yaml": rule })).failures).toContain("demo/p: no permission rule matches Bash(git cleanup)");
   });
   test(
     "an ast-grep rule whose examples fail fails",
     () => {
-      const rule = 'id: demo/a\ndescription: A.\nscope: {language: python}\nenforce: [{target: ast-grep, mode: forbid, rule: {pattern: "eval($$$)"}}]\nexamples: {match: ["exec(x)"], no_match: ["print(x)"]}\n';
+      const rule =
+        'id: demo/a\ndescription: A.\nscope: {language: python}\nenforce: [{target: ast-grep, mode: forbid, rule: {pattern: "eval($$$)"}}]\nexamples: {match: ["exec(x)"], no_match: ["print(x)"]}\n';
       expect(selfTest(packsWith({ "demo/rules/a.yaml": rule })).failures.some((x) => x.startsWith("ast-grep test failed") && x.includes("demo/a"))).toBe(true);
     },
     T,
@@ -275,7 +294,8 @@ describe("forge test catches broken packs", () => {
   test(
     "a check example whose tool is not available is reported skipped, never passed",
     () => {
-      const rule = "id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: \"ruff check .\"}]\nexamples: {match: [\"import os\\n\"], no_match: [\"X = 1\\n\"]}\n";
+      const rule =
+        'id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: "ruff check ."}]\nexamples: {match: ["import os\\n"], no_match: ["X = 1\\n"]}\n';
       const r = selfTest(packsWith({ "demo/rules/r.yaml": rule }), undefined, { toolBins: [] });
       expect(r.failures).toEqual([]);
       expect(r.notes).toContain("demo/r: match example 1 skipped: ruff not available");
@@ -283,7 +303,8 @@ describe("forge test catches broken packs", () => {
     T,
   );
   test("a grep pattern that misses a match example, or matches a no_match example, fails", () => {
-    const rule = 'id: demo/g2\ndescription: G.\nscope: {language: python}\nenforce: [{target: grep, mode: no-increase, pattern: "#[[:space:]]*noqa"}]\nexamples: {match: ["x  # type: ignore"], no_match: ["y  # noqa"]}\n';
+    const rule =
+      'id: demo/g2\ndescription: G.\nscope: {language: python}\nenforce: [{target: grep, mode: no-increase, pattern: "#[[:space:]]*noqa"}]\nexamples: {match: ["x  # type: ignore"], no_match: ["y  # noqa"]}\n';
     const f = selfTest(packsWith({ "demo/rules/g2.yaml": rule })).failures;
     expect(f).toContain('demo/g2: grep pattern does not match match example 1: "x  # type: ignore"');
     expect(f).toContain('demo/g2: grep pattern matches no_match example 1: "y  # noqa"');
@@ -292,7 +313,8 @@ describe("forge test catches broken packs", () => {
     const failure = "demo/f: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets";
     const rule = 'id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\nexamples: {match: [{files: {a: x}}], no_match: ["y"]}\n';
     expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain(failure);
-    const tool = (ex: string) => `id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: tool, tool: biome, expects: lint/a11y/useAltText, snippet: x}]\nexamples: {match: [${ex}], no_match: ["y"]}\n`;
+    const tool = (ex: string) =>
+      `id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: tool, tool: biome, expects: lint/a11y/useAltText, snippet: x}]\nexamples: {match: [${ex}], no_match: ["y"]}\n`;
     expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {src/Card.vue: x}}") })).failures).toEqual([]);
     expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {a.vue: x, b.vue: y}}") })).failures).toContain(failure);
     expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{head: {a.vue: x}, files: {b.vue: y}}") })).failures).toContain(failure);
@@ -330,10 +352,14 @@ test.if(hasBun)(
     const rule = rules.find((r) => r.id === "typescript/angular/typecheck")!;
     const target = rule.enforce[0] as CheckTarget;
     const head = {
-      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "preserve", moduleResolution: "bundler", skipLibCheck: true, paths: { "@angular/*": [join(ng, "node_modules/@angular/*")] } }, angularCompilerOptions: { strictTemplates: true } }),
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, target: "ES2022", module: "preserve", moduleResolution: "bundler", skipLibCheck: true, paths: { "@angular/*": [join(ng, "node_modules/@angular/*")] } },
+        angularCompilerOptions: { strictTemplates: true },
+      }),
       "tsconfig.app.json": '{"extends": "./tsconfig.json", "files": ["src/main.ts"]}\n',
     };
-    const component = (field: string) => `import { Component } from "@angular/core";\n\n@Component({\n  selector: "app-root",\n  template: "<p>{{ user.${field} }}</p>",\n})\nexport class App {\n  user = { name: "Ada" };\n}\n`;
+    const component = (field: string) =>
+      `import { Component } from "@angular/core";\n\n@Component({\n  selector: "app-root",\n  template: "<p>{{ user.${field} }}</p>",\n})\nexport class App {\n  user = { name: "Ada" };\n}\n`;
     const bins = [join(ng, "node_modules/.bin")];
     expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("nme") } }, "match", bins)).toEqual({ outcome: "pass", detail: "" });
     expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("name") } }, "no_match", bins)).toEqual({ outcome: "pass", detail: "" });
@@ -358,7 +384,8 @@ test("typescript/better-auth/schema-check: a schema mismatch fails, a check the 
     writeFileSync(join(bin, "better-auth"), `#!/bin/sh\n[ "$1 $2 $3" = "check schema --config" ] || exit 9\nprintf '%s\\n' '${say}' >&2\nexit ${code}\n`);
     chmodSync(join(bin, "better-auth"), 0o755);
   };
-  const prisma = 'import { betterAuth } from "better-auth";\nimport { prismaAdapter } from "better-auth/adapters/prisma";\nimport { organization } from "better-auth/plugins";\nimport { prisma } from "./db";\n\nexport const auth = betterAuth({ database: prismaAdapter(prisma, { provider: "postgresql" }), plugins: [organization()] });\n';
+  const prisma =
+    'import { betterAuth } from "better-auth";\nimport { prismaAdapter } from "better-auth/adapters/prisma";\nimport { organization } from "better-auth/plugins";\nimport { prisma } from "./db";\n\nexport const auth = betterAuth({ database: prismaAdapter(prisma, { provider: "postgresql" }), plugins: [organization()] });\n';
   const pool = 'import { betterAuth } from "better-auth";\nimport { Pool } from "pg";\n\nexport const auth = betterAuth({ database: new Pool({ connectionString: process.env.DATABASE_URL }) });\n';
   const change = (config: string, env = "") => ({ head: { "src/lib/auth.ts": "export {};\n", ...(env ? { ".env": env } : {}) }, files: { "src/lib/auth.ts": config } });
   auth(1, 'Schema mismatch against the generated Prisma client model: missing table "organization"');

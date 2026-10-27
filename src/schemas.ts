@@ -93,8 +93,18 @@ const typeSpec = {
   // where the type is declared: a package or a module, never only a name
   anyOf: [{ required: ["package"] }, { required: ["module"] }],
   properties: {
-    package: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
-    module: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
+    package: {
+      oneOf: [
+        { type: "string", minLength: 1 },
+        { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+      ],
+    },
+    module: {
+      oneOf: [
+        { type: "string", minLength: 1 },
+        { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+      ],
+    },
     name: {
       oneOf: [
         { type: "string", pattern: "^[A-Za-z_$][A-Za-z0-9_$]*$" },

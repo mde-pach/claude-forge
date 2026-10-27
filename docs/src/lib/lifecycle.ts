@@ -54,7 +54,11 @@ function cmd(command: string, which: "--all" | "--changed"): string {
 function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
   if (/\bforge_test_edits\b/.test(t.run))
     return [
-      { step: "tool", effect: "asks", text: "An Edit or Write that changes what a test that existed at the start of the turn asserts, or removes it, asks first (nobody being there, an independent reviewer answers, given the turn's request); new tests and setup-only changes are fine." },
+      {
+        step: "tool",
+        effect: "asks",
+        text: "An Edit or Write that changes what a test that existed at the start of the turn asserts, or removes it, asks first (nobody being there, an independent reviewer answers, given the turn's request); new tests and setup-only changes are fine.",
+      },
       { step: "stop", effect: "blocks", text: "Such a change nobody approved (made through Bash, for instance) blocks Stop; an approved edit does not. Changed test support code is reported once." },
       { step: "commit", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
       { step: "ci", effect: "inactive", text: "Not checked: a human edits tests on purpose." },
@@ -79,8 +83,7 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
   const db = t.requires_local_db ? "; skipped with a message unless the database is local" : "";
   const timeout = t.timeout ? ` (timeout ${t.timeout} s)` : "";
   const out: LifecycleEvent[] = [];
-  const changed = (effect: Effect, verb: string): LifecycleEvent[] =>
-    (["stop", "commit"] as const).map((step) => ({ step, effect, text: `${verb} ${changedCmd} ${trigger}${db}${timeout}.` }));
+  const changed = (effect: Effect, verb: string): LifecycleEvent[] => (["stop", "commit"] as const).map((step) => ({ step, effect, text: `${verb} ${changedCmd} ${trigger}${db}${timeout}.` }));
   switch (t.stage) {
     case "format":
       if (files) out.push({ step: "edit", effect: "fixes", text: `Formats the edited file silently with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}.` });
@@ -90,13 +93,18 @@ function checkEvents(rule: Rule, t: CheckTarget): LifecycleEvent[] {
     case "lint":
       if (files) out.push({ step: "edit", effect: "feedback", text: `Lints the edited file with ${cmd(t.changed_run!.replace("{files}", "<file>"), "--changed")}; findings go back to Claude.` });
       if (t.fix_run) out.push({ step: "edit", effect: "fixes", text: "First applies the safe fixes below to the edited file, and tells Claude when the file changed." });
-      else if (files && /--write|--fix/.test(t.changed_run!)) out.push({ step: "edit", effect: "fixes", text: "The same run applies the tool's safe fixes, and tells Claude when they changed the file beyond formatting." });
+      else if (files && /--write|--fix/.test(t.changed_run!))
+        out.push({ step: "edit", effect: "fixes", text: "The same run applies the tool's safe fixes, and tells Claude when they changed the file beyond formatting." });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only findings on added lines count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}: with \`--since\`, findings on the lines the branch added count; with \`--all\`, any finding.` });
       break;
     case "typecheck":
-      out.push({ step: "edit", effect: "wakes", text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent. Under \`claude -p\` with a prompt, where Claude Code would wait for it, Stop runs it instead.` });
+      out.push({
+        step: "edit",
+        effect: "wakes",
+        text: `Runs ${cmd(t.run, "--all")} in the background after an edit to a ${scopeNoun(rule)}; errors in changed files wake Claude, errors only in other files stay silent. Under \`claude -p\` with a prompt, where Claude Code would wait for it, Stop runs it instead.`,
+      });
       out.push(...changed("blocks", "Runs"));
       for (const e of out) if (e.step === "stop" || e.step === "commit") e.text += " Only errors in changed files count.";
       out.push({ step: "ci", effect: "blocks", text: `Runs ${cmd(t.run, "--all")}; any error fails.` });
@@ -122,7 +130,11 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
     case "tool": {
       const s = TOOL_STAGE[t.tool];
       const out: LifecycleEvent[] = [
-        { step: "apply", effect: "audits", text: `Checks that your own ${t.tool} config reports ${code(t.expects)} as an error that fails ${t.tool} on the examples below (a warning is not enough); if not, prints the config snippet to add.` },
+        {
+          step: "apply",
+          effect: "audits",
+          text: `Checks that your own ${t.tool} config reports ${code(t.expects)} as an error that fails ${t.tool} on the examples below (a warning is not enough); if not, prints the config snippet to add.`,
+        },
       ];
       if (s.stage === "lint") out.push({ step: "edit", effect: "feedback", text: `Your ${t.tool}, run on the edited file by ${code(s.check)}, reports ${code(t.expects)} to Claude.` });
       else out.push({ step: "edit", effect: "wakes", text: `Your ${t.tool}, run in the background by ${code(s.check)}, reports ${code(t.expects)} and wakes Claude.` });
@@ -134,7 +146,14 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       const condition = t.target === "ast-grep" && toolTargets.length ? `without ${toolTargets.map((x) => x.tool).join(" or ")}` : undefined;
       const scope = `a changed ${scopeNoun(rule)}`;
       if (t.mode === "advise")
-        return [{ step: "edit" as const, effect: "feedback" as const, text: `Matches on lines added during the turn go back to Claude with ${t.target === "grep" ? "file:line" : "file:line:column"}, as advice: Stop, commits and CI do not fail on them.`, condition }];
+        return [
+          {
+            step: "edit" as const,
+            effect: "feedback" as const,
+            text: `Matches on lines added during the turn go back to Claude with ${t.target === "grep" ? "file:line" : "file:line:column"}, as advice: Stop, commits and CI do not fail on them.`,
+            condition,
+          },
+        ];
       if (t.mode === "forbid")
         return [
           { step: "edit", effect: "feedback", text: "Matches on lines added during the turn go back to Claude with file:line:column." },
@@ -146,7 +165,12 @@ function targetEvents(rule: Rule, t: Target): LifecycleEvent[] {
       return [
         { step: "stop" as const, effect: "blocks" as const, text: `${scope.replace(/^a /, "A ")} with ${more} matches than at the start of the turn blocks Stop.`, condition },
         { step: "commit" as const, effect: "blocks" as const, text: `${scope.replace(/^a /, "A ")} with ${more} matches than at \`HEAD\` fails the commit.`, condition },
-        { step: "ci" as const, effect: "blocks" as const, text: `With \`--since\`, ${scope.replace(/^a /, "")} with ${more} matches than at the merge base fails CI (\`--all\` has nothing to compare).`, condition },
+        {
+          step: "ci" as const,
+          effect: "blocks" as const,
+          text: `With \`--since\`, ${scope.replace(/^a /, "")} with ${more} matches than at the merge base fails CI (\`--all\` has nothing to compare).`,
+          condition,
+        },
       ];
     }
     case "permission":
@@ -207,7 +231,16 @@ export function packLifecycle(pack: Pack): { step: StepId; context: boolean; rul
     step: id,
     context: id === "session" && pack.context !== undefined,
     rules: pack.rules
-      .map((r) => ({ id: r.id, effects: [...new Set(ruleLifecycle(r).filter((e) => e.step === id && e.effect !== "inactive").map((e) => e.effect))] }))
+      .map((r) => ({
+        id: r.id,
+        effects: [
+          ...new Set(
+            ruleLifecycle(r)
+              .filter((e) => e.step === id && e.effect !== "inactive")
+              .map((e) => e.effect),
+          ),
+        ],
+      }))
       .filter((r) => r.effects.length > 0),
   }));
 }

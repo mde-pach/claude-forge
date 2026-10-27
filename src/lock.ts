@@ -66,14 +66,11 @@ export function resolvesInside(base: string, p: string): boolean {
 function lockPathProblems(base: string, level: Level, lock: Omit<Lock, "blocks"> & { blocks?: LockBlock[] }): string[] {
   const out: string[] = [];
   // user level: ~/.claude may itself be a link (to a dotfiles repository); paths stay inside it
-  const inside = (p: string) =>
-    plainRelative(p) && (level === "project" ? resolvesInside(base, p) : p.startsWith(".claude/") && resolvesInside(join(base, ".claude"), p.slice(".claude/".length)));
+  const inside = (p: string) => plainRelative(p) && (level === "project" ? resolvesInside(base, p) : p.startsWith(".claude/") && resolvesInside(join(base, ".claude"), p.slice(".claude/".length)));
   // the hook Forge creates without a hook manager is git's own (in a worktree, outside the checkout)
   const hook = level === "project" ? preCommitPath(base) : undefined;
-  for (const p of Object.keys(lock.files))
-    if (p !== hook && !(OWNED[level].some((re) => re.test(p)) && inside(p))) out.push(`files: ${JSON.stringify(p)} is not a path forge owns`);
-  for (const s of lock.settings)
-    if (!SETTINGS[level].includes(s.file) || !inside(s.file)) out.push(`settings: ${JSON.stringify(s.file)} is not a settings file forge appends to`);
+  for (const p of Object.keys(lock.files)) if (p !== hook && !(OWNED[level].some((re) => re.test(p)) && inside(p))) out.push(`files: ${JSON.stringify(p)} is not a path forge owns`);
+  for (const s of lock.settings) if (!SETTINGS[level].includes(s.file) || !inside(s.file)) out.push(`settings: ${JSON.stringify(s.file)} is not a settings file forge appends to`);
   for (const b of lock.blocks ?? []) {
     const allowed = level === "project" && (b.kind === "hooks" ? hookManager(base)?.kind === "hooks" && hookManager(base)?.file === b.file : BLOCK_FILES[b.kind].includes(b.file));
     if (!allowed || !inside(b.file)) out.push(`blocks: ${JSON.stringify(b.file)} is not a ${b.kind} hook file forge adds its block to`);

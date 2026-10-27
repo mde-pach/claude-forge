@@ -43,7 +43,8 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   for (const t of rule.enforce)
     if (t.target === "check")
       for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
-        for (const tool of directDashedTools(cmd ?? "")) throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
+        for (const tool of directDashedTools(cmd ?? ""))
+          throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
   // deprecated uses are answered by the TypeScript engine (§15.7)
   if (rule.scope.language === "python" && rule.enforce.some((t) => t.target === "ast-grep" && JSON.stringify(t.where ?? {}).includes('"deprecated"')))
     throw new Error(`${file}: invalid rule: where deprecated is answered for TypeScript only (§15.7); Python's deprecations are ty's deprecated rule`);
@@ -110,8 +111,7 @@ export function loadPacks(packsDir: string): Map<string, Pack> {
     const dir = join(packsDir, name);
     if (statSync(dir).isDirectory()) walk(dir, name);
   }
-  for (const pack of packs.values())
-    for (const req of pack.requires) if (!packs.has(req)) throw new Error(`pack ${pack.id}: requires unknown pack ${req}`);
+  for (const pack of packs.values()) for (const req of pack.requires) if (!packs.has(req)) throw new Error(`pack ${pack.id}: requires unknown pack ${req}`);
   return packs;
 }
 
@@ -279,8 +279,7 @@ function readDeps(dir: string, strict: boolean, hasManagePy = false, published =
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
   const library = new Set<"pypi" | "npm">();
-  const read = <T>(file: string, parse: (f: string) => T | undefined, raw: (t: string) => T) =>
-    !existsSync(file) ? undefined : strict ? raw(readFileSync(file, "utf8")) : parse(file);
+  const read = <T>(file: string, parse: (f: string) => T | undefined, raw: (t: string) => T) => (!existsSync(file) ? undefined : strict ? raw(readFileSync(file, "utf8")) : parse(file));
   const pkg = read(join(dir, "package.json"), readJson, (t) => JSON.parse(t) as Record<string, any>);
   for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])
     for (const [name, range] of Object.entries<unknown>(pkg?.[key] ?? {})) if (typeof range === "string") npm.set(name, versionFromRange(range));
@@ -321,8 +320,7 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
   const exclude: string[] = [];
   const add = (globs: unknown) => {
     if (!Array.isArray(globs)) return;
-    for (const g of globs)
-      if (typeof g === "string") (g.startsWith("!") ? exclude : include).push(g.replace(/^!/, "").replace(/^\.\//, "").replace(/\/+$/, ""));
+    for (const g of globs) if (typeof g === "string") (g.startsWith("!") ? exclude : include).push(g.replace(/^!/, "").replace(/^\.\//, "").replace(/\/+$/, ""));
   };
   const pnpm = join(repo, "pnpm-workspace.yaml");
   if (existsSync(pnpm)) {

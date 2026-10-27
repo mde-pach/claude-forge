@@ -211,9 +211,7 @@ function activePacks(opts: PlanOptions, warnings: string[]): { packs: PackStatus
       if (p.level !== "project" || why.has(p.id)) continue;
       if ((p.parent === undefined || why.has(p.parent)) && opts.facts && detectAnywhere(p, opts.facts)) changed = activate(p.id, "detected") || changed;
     }
-    for (const id of [...why.keys()])
-      for (const req of opts.packs.get(id)!.requires)
-        for (const a of lineage(opts.packs, req)) changed = activate(a, `required by ${id}`) || changed;
+    for (const id of [...why.keys()]) for (const req of opts.packs.get(id)!.requires) for (const a of lineage(opts.packs, req)) changed = activate(a, `required by ${id}`) || changed;
   }
   // removal: the pack, its subtree, and every pack requiring a removed one
   const removed = new Map<string, string>();
@@ -302,9 +300,7 @@ export function plan(opts: PlanOptions): Plan {
     if (absent.length || !places || !opts.facts || !workspaces.length || !perPackage(t)) return { absent };
     const where = ruleDirs(rule);
     if (!where && audited.every((x) => places[x].includes(""))) return { absent: [] };
-    const dirs = workspaces
-      .filter((w) => (!where || where.includes(w.dir)) && audited.every((x) => places[x].includes(w.dir)))
-      .map((w) => w.dir);
+    const dirs = workspaces.filter((w) => (!where || where.includes(w.dir)) && audited.every((x) => places[x].includes(w.dir))).map((w) => w.dir);
     return dirs.length ? { dirs, absent: [] } : { absent: audited };
   };
 
@@ -499,13 +495,15 @@ export function plan(opts: PlanOptions): Plan {
     files.set(".forge/ast-grep/sgconfig.yml", renderSgConfig());
     for (const { rule, target, dirs } of astgrep) {
       files.set(`.forge/ast-grep/${astGrepRulePath(rule.id)}`, renderAstGrepRule(rule, target, dirs));
-      if (rule.examples?.match?.length || rule.examples?.no_match?.length)
-        files.set(`.forge/ast-grep/${astGrepTestPath(rule.id)}`, renderAstGrepTest(rule));
+      if (rule.examples?.match?.length || rule.examples?.no_match?.length) files.set(`.forge/ast-grep/${astGrepTestPath(rule.id)}`, renderAstGrepTest(rule));
     }
     settings.unshift(
-      ...["Edit(.forge/**)", "Edit(forge.yaml)", "Edit(.claude/skills/forge-project/**)", "Edit(.claude/rules/forge-*.md)"].map(
-        (value) => ({ file: settingsFile, path: "permissions.ask", value, append: true }),
-      ),
+      ...["Edit(.forge/**)", "Edit(forge.yaml)", "Edit(.claude/skills/forge-project/**)", "Edit(.claude/rules/forge-*.md)"].map((value) => ({
+        file: settingsFile,
+        path: "permissions.ask",
+        value,
+        append: true,
+      })),
     );
   }
 
@@ -531,9 +529,10 @@ export function plan(opts: PlanOptions): Plan {
     toolDirs,
     checksFragment,
     types: typesUsed,
-    roles: level === "project"
-      ? [...roleUse.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([name, ids]) => ({ name, patterns: roles.get(name)!.patterns, notes: roles.get(name)!.notes, rules: ids }))
-      : [],
+    roles:
+      level === "project"
+        ? [...roleUse.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([name, ids]) => ({ name, patterns: roles.get(name)!.patterns, notes: roles.get(name)!.notes, rules: ids }))
+        : [],
   };
 }
 

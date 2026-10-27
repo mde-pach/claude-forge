@@ -139,10 +139,7 @@ export function placedStatus(results: Results, tests: PlacedTest[]): Status | "n
 /** The rule's per-rule tests (its own case), then every test tagged @rule <id>. */
 export function ruleTests(sections: SpecSection[], rule: Rule): PlacedTest[] {
   const perRule = rule.enforce.some((t) => t.target === "tool") ? PER_RULE : PER_RULE.slice(0, 1);
-  return [
-    ...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })),
-    ...findTests(sections, (t) => t.rules.includes(rule.id)),
-  ];
+  return [...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })), ...findTests(sections, (t) => t.rules.includes(rule.id))];
 }
 
 /** The pack's context test (its own case), then every test tagged @pack <id>. */

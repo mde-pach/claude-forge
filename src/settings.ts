@@ -6,7 +6,10 @@ const DEFAULT_FORMAT: FormattingOptions = { tabSize: 2, insertSpaces: true, eol:
 
 /** The indentation an existing file uses (tabs or N spaces), so appended entries match it. */
 export function detectFormatting(text: string): FormattingOptions {
-  const indents = text.split("\n").map((l) => /^([ \t]+)\S/.exec(l)?.[1]).filter((x): x is string => !!x);
+  const indents = text
+    .split("\n")
+    .map((l) => /^([ \t]+)\S/.exec(l)?.[1])
+    .filter((x): x is string => !!x);
   if (!indents.length) return DEFAULT_FORMAT;
   if (indents.filter((i) => i.startsWith("\t")).length > indents.length / 2) return { tabSize: 1, insertSpaces: false, eol: "\n" };
   const widths = indents.filter((i) => !i.includes("\t")).map((i) => i.length);

@@ -47,8 +47,7 @@ function audit(dir: string): string {
   return r.stdout;
 }
 
-const BIOME = (rules: object) =>
-  JSON.stringify({ vcs: { enabled: true, clientKind: "git", useIgnoreFile: true }, linter: { enabled: true, rules: { recommended: false, ...rules } } });
+const BIOME = (rules: object) => JSON.stringify({ vcs: { enabled: true, clientKind: "git", useIgnoreFile: true }, linter: { enabled: true, rules: { recommended: false, ...rules } } });
 const TSCONFIG = (strict: boolean) => JSON.stringify({ compilerOptions: { strict, noEmit: true, skipLibCheck: true }, include: ["src"] });
 
 describe.if(hasBun)("Biome and tsc", () => {
@@ -197,9 +196,7 @@ describe.if(hasUv)("ruff and ty", () => {
 test(
   "a tool that is configured but not installed is skipped, never reported satisfied",
   () => {
-    expect(forge(["status"], sampleRepo("nextjs-prisma-app")).stdout).toContain(
-      "biome lint/suspicious/noExplicitAny: skipped (biome is configured but not installed",
-    );
+    expect(forge(["status"], sampleRepo("nextjs-prisma-app")).stdout).toContain("biome lint/suspicious/noExplicitAny: skipped (biome is configured but not installed");
   },
   T,
 );
@@ -230,7 +227,13 @@ function projectFor(t: ToolTarget, on: boolean): string {
     // on: the rule's own snippet (its level and options), off: "off"
     symlinkSync(join(ensureNodeTools("lint", EXAMPLE_NODE_TOOLS.lint!), "node_modules"), join(dir, "node_modules"));
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, type: "module" }));
-    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, module: "esnext", moduleResolution: "bundler", target: "es2022", lib: ["es2023", "dom"], jsx: "react-jsx" }, include: ["**/*.ts", "**/*.tsx"] }));
+    writeFileSync(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, module: "esnext", moduleResolution: "bundler", target: "es2022", lib: ["es2023", "dom"], jsx: "react-jsx" },
+        include: ["**/*.ts", "**/*.tsx"],
+      }),
+    );
     const rules = on ? (JSON.parse(`{${t.snippet}}`) as { rules: object }).rules : { [t.expects]: "off" };
     writeFileSync(
       join(dir, "eslint.config.mjs"),
@@ -243,8 +246,7 @@ function projectFor(t: ToolTarget, on: boolean): string {
     writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, noEmit: true, skipLibCheck: true } }));
   } else {
     // on: the code selected, with the rule's snippet's tables (a banned-api table for TID251)
-    const ruff =
-      t.tool === "ruff" && on ? `${mergeTomlSnippets([`[tool.ruff.lint] select = ["${t.expects}"]`, t.snippet])}\n` : `[tool.ruff.lint]\nselect = ["F"]\n`;
+    const ruff = t.tool === "ruff" && on ? `${mergeTomlSnippets([`[tool.ruff.lint] select = ["${t.expects}"]`, t.snippet])}\n` : `[tool.ruff.lint]\nselect = ["F"]\n`;
     const ty = `[tool.ty.rules]\n${t.tool === "ty" ? `${t.expects} = "${on ? "error" : "ignore"}"\n` : ""}`;
     writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "audit"\nversion = "0.1.0"\nrequires-python = ">=3.12"\n\n${ruff}\n${ty}`);
   }
@@ -258,18 +260,22 @@ function projectFor(t: ToolTarget, on: boolean): string {
  * file) proves nothing either way: the audit is skipped with ESLint's message.
  * @rule typescript/eslint/type-checked
  */
-test.if(hasBun)("an ESLint audit is satisfied at error, unsatisfied as a warning, and skipped when ESLint cannot parse the example", () => {
-  const rule = toolRules.find((r) => r.id === "typescript/eslint/type-checked")!;
-  const t = rule.enforce.find((x): x is ToolTarget => x.target === "tool" && x.expects === "@typescript-eslint/no-unsafe-assignment")!;
-  const dir = projectFor(t, true);
-  expect(auditTarget(dir, rule, t).status).toBe("satisfied");
-  writeFileSync(join(dir, "eslint.config.mjs"), readFileSync(join(dir, "eslint.config.mjs"), "utf8").replace('"error"', '"warn"'));
-  expect(auditTarget(dir, rule, t).detail).toContain("is only a warning in your eslint config");
-  writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }));
-  const r = auditTarget(dir, rule, t);
-  expect(r.status).toBe("skipped");
-  expect(r.detail).toContain("could not read eslint's output: eslint could not parse the example");
-}, T);
+test.if(hasBun)(
+  "an ESLint audit is satisfied at error, unsatisfied as a warning, and skipped when ESLint cannot parse the example",
+  () => {
+    const rule = toolRules.find((r) => r.id === "typescript/eslint/type-checked")!;
+    const t = rule.enforce.find((x): x is ToolTarget => x.target === "tool" && x.expects === "@typescript-eslint/no-unsafe-assignment")!;
+    const dir = projectFor(t, true);
+    expect(auditTarget(dir, rule, t).status).toBe("satisfied");
+    writeFileSync(join(dir, "eslint.config.mjs"), readFileSync(join(dir, "eslint.config.mjs"), "utf8").replace('"error"', '"warn"'));
+    expect(auditTarget(dir, rule, t).detail).toContain("is only a warning in your eslint config");
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }));
+    const r = auditTarget(dir, rule, t);
+    expect(r.status).toBe("skipped");
+    expect(r.detail).toContain("could not read eslint's output: eslint could not parse the example");
+  },
+  T,
+);
 
 const toolRules = [...loadPacks(join(ROOT, "packs")).values()].flatMap((p) => p.rules).filter((r) => r.enforce.some((t) => t.target === "tool"));
 
@@ -281,7 +287,9 @@ describe.if(hasBun && hasUv)("every tool target", () => {
       for (const t of rule.enforce.filter((x): x is ToolTarget => x.target === "tool"))
         for (const on of [true, false]) {
           const r = auditTarget(projectFor(t, on), rule, t);
-          expect(`${t.tool} ${t.expects} ${on ? "on" : "off"}: ${r.status}${r.detail ? ` (${r.detail})` : ""}`).toBe(`${t.tool} ${t.expects} ${on ? "on" : "off"}: ${on ? "satisfied" : "unsatisfied"}${r.detail && !on ? ` (${r.detail})` : ""}`);
+          expect(`${t.tool} ${t.expects} ${on ? "on" : "off"}: ${r.status}${r.detail ? ` (${r.detail})` : ""}`).toBe(
+            `${t.tool} ${t.expects} ${on ? "on" : "off"}: ${on ? "satisfied" : "unsatisfied"}${r.detail && !on ? ` (${r.detail})` : ""}`,
+          );
         }
     },
     T,

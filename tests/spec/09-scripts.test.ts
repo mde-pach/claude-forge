@@ -41,7 +41,9 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
   });
 
   test("json_escape makes any text safe to embed in a JSON string: quotes, backslashes, tabs, newlines and every other control character (carriage returns dropped)", () => {
-    const controls = Array.from({ length: 31 }, (_, i) => String.fromCharCode(i + 1)).filter((c) => c !== "\n" && c !== "\r").join("");
+    const controls = Array.from({ length: 31 }, (_, i) => String.fromCharCode(i + 1))
+      .filter((c) => c !== "\n" && c !== "\r")
+      .join("");
     const text = `say "hi"\\\n\tnext\u001b[0m bell\u0007 back\b ${controls} end\r\nlast`;
     const out = libRun([...argv], text, 'printf "%s" "$FORGE_INPUT" | json_escape');
     expect(JSON.parse(`"${out}"`)).toBe(text.replaceAll("\r", ""));
@@ -84,30 +86,27 @@ describe("guard.sh", () => {
     });
   });
 
-  test.each(shells.map((s) => [s.name, s.argv] as const))(
-    "on %s, a rule with a check is a candidate when its pattern matches; the check decides, and a later rule can still answer",
-    (_n, argv) => {
-      const d = mkdtempSync(join(tmpdir(), "forge-guard-check-"));
-      writeFileSync(join(d, "guard.sh"), template("guard.sh"));
-      writeFileSync(
-        join(d, "guard.rules"),
-        renderGuardRules(
-          [
-            { rule: rule("t/fetch", "Fetched packages need a look."), target: { target: "guard", decision: "ask", pattern: "npx", check: "ephemeral-exec" } },
-            { rule: rule("t/any-npx", "Any npx."), target: { target: "guard", decision: "ask", pattern: "npx[[:space:]]+cowsay" } },
-          ],
-          "/",
-        ),
-      );
-      const cwd = guardExampleDir({ "node_modules/.bin/tsc": "" });
-      expect(guardDecision([...argv], d, "npx tsc --noEmit", cwd)).toBe("");
-      expect(guardDecision([...argv], d, "npx cowsay", cwd)).toBe("ask");
-      const r = sh(argv[0]!, [...argv.slice(1), join(d, "guard.sh")], { input: hookInput("npx some-typo", cwd), env: { FORGE_ASK_REVIEW: "never" } });
-      expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason).toBe(
-        `forge:t/fetch Fetched packages need a look. Here: some-typo is not installed where the command runs: no node_modules/.bin/some-typo from ${cwd} up to the repository root, so npx would fetch it from a registry and run it.`,
-      );
-    },
-  );
+  test.each(shells.map((s) => [s.name, s.argv] as const))("on %s, a rule with a check is a candidate when its pattern matches; the check decides, and a later rule can still answer", (_n, argv) => {
+    const d = mkdtempSync(join(tmpdir(), "forge-guard-check-"));
+    writeFileSync(join(d, "guard.sh"), template("guard.sh"));
+    writeFileSync(
+      join(d, "guard.rules"),
+      renderGuardRules(
+        [
+          { rule: rule("t/fetch", "Fetched packages need a look."), target: { target: "guard", decision: "ask", pattern: "npx", check: "ephemeral-exec" } },
+          { rule: rule("t/any-npx", "Any npx."), target: { target: "guard", decision: "ask", pattern: "npx[[:space:]]+cowsay" } },
+        ],
+        "/",
+      ),
+    );
+    const cwd = guardExampleDir({ "node_modules/.bin/tsc": "" });
+    expect(guardDecision([...argv], d, "npx tsc --noEmit", cwd)).toBe("");
+    expect(guardDecision([...argv], d, "npx cowsay", cwd)).toBe("ask");
+    const r = sh(argv[0]!, [...argv.slice(1), join(d, "guard.sh")], { input: hookInput("npx some-typo", cwd), env: { FORGE_ASK_REVIEW: "never" } });
+    expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason).toBe(
+      `forge:t/fetch Fetched packages need a look. Here: some-typo is not installed where the command runs: no node_modules/.bin/some-typo from ${cwd} up to the repository root, so npx would fetch it from a registry and run it.`,
+    );
+  });
 
   test("a missing guard.sh makes the hook command fail, which onFailure: block turns into a blocked call", () => {
     expect(sh("sh", [join(dir, "missing.sh")], { input: hookInput("ls") }).status).not.toBe(0);

@@ -74,7 +74,12 @@ export function blockHash(text: string): string | undefined {
   const start = lines.findIndex((l) => isMarker(l, BEGIN));
   if (start < 0) return undefined;
   const end = lines.findIndex((l, i) => i > start && isMarker(l, END));
-  return sha256(lines.slice(start, end < 0 ? undefined : end + 1).map((l) => l.trim()).join("\n"));
+  return sha256(
+    lines
+      .slice(start, end < 0 ? undefined : end + 1)
+      .map((l) => l.trim())
+      .join("\n"),
+  );
 }
 
 /** The text with LF line ends, and a function giving a result back the file's own line ends (CRLF when it uses them). */

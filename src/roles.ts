@@ -117,7 +117,10 @@ export function parseIni(text: string): Map<string, Map<string, string>> {
 
 /** A path from a config file, relative to the repository: "./x/", "%(here)s/x" -> "x". */
 function cleanPath(p: string, base = ""): string | undefined {
-  const s = p.trim().replace(/^%\(here\)s[\\/]?/, "").replace(/\\/g, "/");
+  const s = p
+    .trim()
+    .replace(/^%\(here\)s[\\/]?/, "")
+    .replace(/\\/g, "/");
   if (!s || s.startsWith("/") || /^[A-Za-z]:/.test(s) || s.includes("%(")) return undefined;
   const joined = posix.normalize(posix.join(base, s)).replace(/\/+$/, "");
   return joined === "." ? "" : joined.startsWith("../") || joined === ".." ? undefined : joined;
@@ -135,7 +138,10 @@ function pytestOptions(inputs: RoleInputs): { options: Record<string, unknown>; 
     const native = Object.fromEntries(Object.entries(py).filter(([k]) => k !== "ini_options"));
     return { options: { ...(py.ini_options ?? {}), ...native }, source: "pyproject.toml" };
   }
-  for (const [file, section] of [["tox.ini", "pytest"], ["setup.cfg", "tool:pytest"]] as const) {
+  for (const [file, section] of [
+    ["tox.ini", "pytest"],
+    ["setup.cfg", "tool:pytest"],
+  ] as const) {
     const s = parseIni(readText(inputs, file) ?? "").get(section);
     if (s) return { options: Object.fromEntries(s), source: file };
   }
@@ -145,7 +151,9 @@ function pytestOptions(inputs: RoleInputs): { options: Record<string, unknown>; 
 function pythonTests(inputs: RoleInputs): Part[] | undefined {
   const cfg = pytestOptions(inputs);
   if (!cfg) return undefined;
-  const testpaths = list(cfg.options.testpaths).map((p) => cleanPath(p)).filter((p): p is string => p !== undefined);
+  const testpaths = list(cfg.options.testpaths)
+    .map((p) => cleanPath(p))
+    .filter((p): p is string => p !== undefined);
   const pyFiles = list(cfg.options.python_files);
   if (!testpaths.length && !pyFiles.length) return undefined;
   const names = pyFiles.length ? pyFiles : ["test_*.py", "*_test.py"];
@@ -163,7 +171,9 @@ function alembicMigrations(inputs: RoleInputs, notes: string[]): Part[] | undefi
   const versions = cfg.get("version_locations");
   if (versions) {
     const sep = cfg.source === "alembic.ini" ? (fromIni!.get("path_separator") ?? fromIni!.get("version_path_separator") ?? "space") : "space";
-    const parts = Array.isArray(versions) ? versions : String(versions).split(sep === "space" || sep === "os" ? /\s+/ : sep === "colon" ? ":" : sep === "semicolon" ? ";" : sep === "newline" ? "\n" : ",");
+    const parts = Array.isArray(versions)
+      ? versions
+      : String(versions).split(sep === "space" || sep === "os" ? /\s+/ : sep === "colon" ? ":" : sep === "semicolon" ? ";" : sep === "newline" ? "\n" : ",");
     const dirs = parts.map((p: string) => cleanPath(p));
     if (dirs.every((d: string | undefined) => d !== undefined)) return [{ patterns: dirs.map((d: string | undefined) => under(d!, "**")), source: cfg.source }];
     notes.push(`${cfg.source}: version_locations ${JSON.stringify(versions)} is not a path in the repository`);
@@ -251,7 +261,12 @@ function sqlMigrations(inputs: RoleInputs, notes: string[]): Part[] {
   parts.push(flyway ?? { patterns: ["db/migration/**/*.sql"], source: FORGE_DEFAULT });
   parts.push({ patterns: ["supabase/migrations/*.sql", "db/migrations/*.sql"], source: FORGE_DEFAULT });
   if (existsSync(join(inputs.repo, "sqitch.plan"))) {
-    const top = cleanPath(parseIni(readText(inputs, "sqitch.conf") ?? "").get("core")?.get("top_dir") ?? "") ?? "";
+    const top =
+      cleanPath(
+        parseIni(readText(inputs, "sqitch.conf") ?? "")
+          .get("core")
+          ?.get("top_dir") ?? "",
+      ) ?? "";
     parts.push({ patterns: [under(top, "deploy/**/*.sql")], source: "sqitch.plan" });
   }
   const atlas = readText(inputs, "atlas.hcl");
@@ -360,8 +375,7 @@ export function isRole(name: string): boolean {
  * Without inputs (the self-test), Forge's defaults only.
  */
 export function resolveRoles(inputs?: RoleInputs, config?: ProjectConfig["files"]): Roles {
-  for (const name of Object.keys(config ?? {}))
-    if (!isRole(name)) throw new Error(`forge.yaml: files: unknown file role "${name}" (known: ${Object.keys(ROLES).join(", ")})`);
+  for (const name of Object.keys(config ?? {})) if (!isRole(name)) throw new Error(`forge.yaml: files: unknown file role "${name}" (known: ${Object.keys(ROLES).join(", ")})`);
   const raw = new Map<string, { glob: string; source: string }[]>();
   const notes = new Map<string, string[]>();
   for (const [name, def] of Object.entries(ROLES)) {
@@ -371,7 +385,10 @@ export function resolveRoles(inputs?: RoleInputs, config?: ProjectConfig["files"
     if (cfg?.set) parts = [{ patterns: cfg.set, source: FORGE_YAML }];
     else parts = (inputs && def.config?.(inputs, n)) || [{ patterns: def.defaults, source: FORGE_DEFAULT }];
     if (cfg?.add) parts.push({ patterns: cfg.add, source: FORGE_YAML });
-    raw.set(name, parts.flatMap((p) => p.patterns.map((glob) => ({ glob, source: p.source }))));
+    raw.set(
+      name,
+      parts.flatMap((p) => p.patterns.map((glob) => ({ glob, source: p.source }))),
+    );
     notes.set(name, n);
   }
   const done: Roles = new Map();
@@ -495,7 +512,13 @@ function roleModules(name: string, roles: Roles, python: boolean): string[] {
     .filter((p) => !p.exclude)
     .map((p) => {
       if (/[*?[{]/.test(p.glob)) throw new Error(`file role @${name} is a where module: its patterns must be files, not globs (${p.glob})`);
-      return python ? p.glob.replace(/\.pyi?$/, "").replace(/\/__init__$/, "").replace(/^src\//, "").replaceAll("/", ".") : p.glob.replace(/(\.d)?\.[cm]?[jt]sx?$/, "");
+      return python
+        ? p.glob
+            .replace(/\.pyi?$/, "")
+            .replace(/\/__init__$/, "")
+            .replace(/^src\//, "")
+            .replaceAll("/", ".")
+        : p.glob.replace(/(\.d)?\.[cm]?[jt]sx?$/, "");
     });
 }
 

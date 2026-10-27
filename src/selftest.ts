@@ -220,7 +220,9 @@ const SNAP = ".forge/state/example.turn";
  * write: that head, a clean tree), writes the fixture's files (staged in $1) and stages
  * them, then runs check.sh (its mode in $2…).
  */
-const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV).map(([k, v]) => `${k}=${v}`).join(" ")}; exec git -c maintenance.auto=false "$@" )
+const EXAMPLE_RUN = `g() ( export ${Object.entries(GIT_ENV)
+  .map(([k, v]) => `${k}=${v}`)
+  .join(" ")}; exec git -c maintenance.auto=false "$@" )
 g init -q -b main
 g add -A
 g commit -qm head --allow-empty
@@ -254,7 +256,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
         ".forge/ast-grep/sgconfig.yml": renderSgConfig(),
         ...Object.fromEntries(helperFiles([{ rule, target: t }])),
       };
-      const manifest = Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n";
+      const manifest =
+        Object.entries(owned)
+          .map(([p, text]) => `${ownedHash(p, text)}  ${p}`)
+          .join("\n") + "\n";
       mkdirSync(repo);
       mkdirSync(stage);
       writeFiles(repo, { ".gitignore": "node_modules/\n.venv/\n", ...owned, ".forge/manifest.sha256": manifest, ...(fixture.head ?? {}) });
@@ -264,9 +269,9 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
         if ((PROJECT_TOOLS as readonly string[]).includes(tool) || PYTHON_TOOLS.has(tool)) {
           const bin = toolBins.map((b) => join(b, tool)).find((p) => existsSync(p));
           if (!bin) {
-          results[i] = { outcome: "skip", detail: `${tool} not available` };
-          return;
-        }
+            results[i] = { outcome: "skip", detail: `${tool} not available` };
+            return;
+          }
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
           if (!existsSync(to)) symlinkSync(bin, to);
@@ -279,9 +284,9 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           const dir = toolBins.find((b) => existsSync(join(b, want)));
           if (dir) path.add(dir);
           else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) {
-          results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
-          return;
-        }
+            results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
+            return;
+          }
         }
       }
       const mode = checkExampleMode(t);
@@ -299,9 +304,9 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
       const out = (r.stdout + r.stderr).trim();
       const skipped = new RegExp(`^forge:${rule.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} skipped: (.*)$`, "m").exec(out);
       if (skipped) {
-          results[i] = { outcome: "skip", detail: skipped[1]! };
-          return;
-        }
+        results[i] = { outcome: "skip", detail: skipped[1]! };
+        return;
+      }
       const failed = r.status !== 0 && out.includes(`forge:${rule.id} failed`);
       const brief = out.split("\n").slice(0, 6).join(" | ") || "(no output)";
       if (kind === "match") results[i] = failed ? { outcome: "pass", detail: "" } : { outcome: "fail", detail: `did not fail the check: ${brief}` };
@@ -398,19 +403,15 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
     const ast = r.enforce.filter((t) => t.target === "ast-grep");
     if (ast.length > 1) failures.push(`${r.id}: at most one ast-grep target`);
     if (ast.length && r.scope.language === "any") failures.push(`${r.id}: ast-grep targets need a concrete scope.language`);
-    const needsExamples = r.enforce.some(
-      (t) => ["ast-grep", "guard", "permission", "tool", "grep"].includes(t.target) || (t.target === "check" && !checkExamplesOptional(t)),
-    );
-    if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length))
-      failures.push(`${r.id}: needs match and no_match examples`);
+    const needsExamples = r.enforce.some((t) => ["ast-grep", "guard", "permission", "tool", "grep"].includes(t.target) || (t.target === "check" && !checkExamplesOptional(t)));
+    if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length)) failures.push(`${r.id}: needs match and no_match examples`);
     const all = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])];
     // fixtures (files): check rules; a rule of tool targets only may give one file without head (its path picks the file type)
     const fixtures = all.filter((e): e is ExampleFixture => typeof e !== "string" && !("command" in e));
     const toolOnly = r.enforce.every((t) => t.target === "tool");
     if (fixtures.length && !r.enforce.every((t) => t.target === "check") && !(toolOnly && fixtures.every((f) => !f.head && Object.keys(f.files).length === 1)))
       failures.push(`${r.id}: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets`);
-    if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard"))
-      failures.push(`${r.id}: command examples are for guard rules only`);
+    if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard")) failures.push(`${r.id}: command examples are for guard rules only`);
     // engine capabilities (§15.1): metavariables of the rule, a parsed language, examples with their packages
     const typed = ast.find((t): t is AstGrepTarget => t.target === "ast-grep" && !!(t as AstGrepTarget).where);
     if (typed) {
@@ -420,7 +421,8 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
       const eco = typesLanguage(r, typed) === "python" ? "pypi" : "npm";
       // without examples.deps, the examples are type-checked against the standard library (Python) or TypeScript's own lib only
       if (r.examples?.deps?.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
-      for (const n of typed.needs ?? []) if (!r.examples?.deps?.some((d) => d.ecosystem === n.ecosystem && d.name === n.name)) failures.push(`${r.id}: needs ${n.name}, so examples.deps must install it`);
+      for (const n of typed.needs ?? [])
+        if (!r.examples?.deps?.some((d) => d.ecosystem === n.ecosystem && d.name === n.name)) failures.push(`${r.id}: needs ${n.name}, so examples.deps must install it`);
     } else if (r.examples?.deps) failures.push(`${r.id}: examples.deps is for rules with a where`);
   }
 
@@ -473,8 +475,7 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
   counts.guard = guardRules.length;
   if (guardRules.length) {
     const shells = availableShells();
-    for (const s of ["sh", "dash", "bash --posix", "busybox sh"])
-      if (!shells.some((x) => x.name === s)) notes.push(`guard: ${s} not available, skipped`);
+    for (const s of ["sh", "dash", "bash --posix", "busybox sh"]) if (!shells.some((x) => x.name === s)) notes.push(`guard: ${s} not available, skipped`);
     // each rule in its own directory, every example on every shell, several at a time
     const dirs: string[] = [];
     const runs: { job: Job; report: (got: string) => void }[] = [];
@@ -484,7 +485,13 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
         dirs.push(dir);
         writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
         const targets = r.enforce.filter((t): t is GuardTarget => t.target === "guard");
-        writeFileSync(join(dir, "guard.rules"), renderGuardRules(targets.map((target) => ({ rule: r, target })), "/"));
+        writeFileSync(
+          join(dir, "guard.rules"),
+          renderGuardRules(
+            targets.map((target) => ({ rule: r, target })),
+            "/",
+          ),
+        );
         const decision = targets.some((t) => t.decision === "deny") ? "deny" : "ask";
         for (const kind of ["match", "no_match"] as const)
           for (const ex of guardExamples(r, kind)) {
@@ -496,7 +503,9 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
                 job: guardJob(sh.argv, dir, ex.command, cwd),
                 report: (got) => {
                   if (got !== want)
-                    failures.push(`${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`);
+                    failures.push(
+                      `${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`,
+                    );
                 },
               });
             }
@@ -515,8 +524,7 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
   counts.permission = permRules.length;
   for (const r of permRules) {
     const specs = r.enforce.filter((t): t is PermissionTarget => t.target === "permission").map((t) => t.rule);
-    for (const ex of codeExamples(r, "match"))
-      if (!specs.some((s) => permissionMatches(s, ex))) failures.push(`${r.id}: no permission rule matches ${ex}`);
+    for (const ex of codeExamples(r, "match")) if (!specs.some((s) => permissionMatches(s, ex))) failures.push(`${r.id}: no permission rule matches ${ex}`);
     for (const ex of codeExamples(r, "no_match")) {
       const hit = specs.find((s) => permissionMatches(s, ex));
       if (hit) failures.push(`${r.id}: ${hit} matches no_match example ${ex}`);
@@ -550,7 +558,8 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
   const runs: (CheckExampleRun & { n: number })[] = [];
   for (const r of checkRules)
     for (const t of r.enforce.filter((x): x is CheckTarget => x.target === "check"))
-      for (const kind of ["match", "no_match"] as const) (r.examples?.[kind] ?? []).forEach((ex, i) => {
+      for (const kind of ["match", "no_match"] as const)
+        (r.examples?.[kind] ?? []).forEach((ex, i) => {
           runs.push({ rule: r, target: t, example: ex, kind, n: i + 1 });
         });
   runCheckExamples(runs, toolBins).forEach((res, j) => {
@@ -566,7 +575,6 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
     else if (h.status === "skipped") notes.push(`hadolint: ${h.detail}`);
   }
 }
-
 
 // ---------------------------------------------------------------- types (§15.1)
 
@@ -626,15 +634,7 @@ export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: s
  * the daemon it starts is stopped at the end. Returns the matches kept and the output.
  */
 export function runTypesFilter(project: string, lang: TypesLanguage, matches: string, state: string): { kept: string[]; output: string; status: number } {
-  const script = [
-    renderLib(),
-    "IFS='\n'",
-    renderChecks([], [], [lang]),
-    `FORGE_STATE=${JSON.stringify(state)}`,
-    'forge_types_filter "$1"; rc=$?',
-    "forge_types_down",
-    'exit "$rc"',
-  ].join("\n");
+  const script = [renderLib(), "IFS='\n'", renderChecks([], [], [lang]), `FORGE_STATE=${JSON.stringify(state)}`, 'forge_types_filter "$1"; rc=$?', "forge_types_down", 'exit "$rc"'].join("\n");
   const file = join(state, "filter.sh");
   mkdirSync(state, { recursive: true, mode: 0o700 });
   // the engine's adapter, where the generated scripts start it from
@@ -727,5 +727,7 @@ function describeWhere(rule: Rule): string {
   const t = rule.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
   const show = (c: WhereCondition): string =>
     "not" in c ? `not ${show(c.not)}` : "deprecated" in c ? "deprecated" : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type);
-  return Object.entries(t.where ?? {}).map(([v, c]) => `$${v}: ${show(c)}`).join(", ");
+  return Object.entries(t.where ?? {})
+    .map(([v, c]) => `$${v}: ${show(c)}`)
+    .join(", ");
 }

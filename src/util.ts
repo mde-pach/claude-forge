@@ -53,7 +53,7 @@ export interface ReleaseBinary {
   assets: Record<string, [asset: string, sha256: string]>;
 }
 export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
-  "actionlint": {
+  actionlint: {
     version: "1.7.12",
     base: "https://github.com/rhysd/actionlint/releases/download/v1.7.12/",
     assets: {
@@ -64,7 +64,7 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["actionlint_1.7.12_darwin_amd64.tar.gz", "5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644"],
     },
   },
-  "gitleaks": {
+  gitleaks: {
     version: "8.30.1",
     base: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/",
     assets: {
@@ -75,7 +75,7 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["gitleaks_8.30.1_darwin_x64.tar.gz", "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709"],
     },
   },
-  "kubeconform": {
+  kubeconform: {
     version: "0.8.0",
     base: "https://github.com/yannh/kubeconform/releases/download/v0.8.0/",
     assets: {
@@ -97,7 +97,7 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["kube-linter-darwin.tar.gz", "c62e8af3c9df2557c7a3922119ea1b35597794737d1ccad493f63a0d66e7b8fc"],
     },
   },
-  "tflint": {
+  tflint: {
     version: "0.64.0",
     base: "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/",
     assets: {
@@ -144,7 +144,7 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["tflint-ruleset-azurerm_darwin_amd64.zip", "f956b4c80eee7d2ae1b40ffb9748d8ef2248cc91417500231e17c85ff0a7e849"],
     },
   },
-  "trivy": {
+  trivy: {
     version: "0.75.0",
     base: "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/",
     assets: {
@@ -166,7 +166,7 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["osv-scanner_darwin_amd64", "e82c5df7ab0a42dff29a1cd0660711447b56b4c0483ff66ad8634df10fd81a45"],
     },
   },
-  "oasdiff": {
+  oasdiff: {
     version: "1.33.0",
     base: "https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/",
     assets: {
@@ -344,8 +344,7 @@ export function lineDiff(before: string, after: string, label: string): string {
     return out.join("\n") + "\n";
   }
   const dp: Uint32Array[] = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
-  for (let i = n - 1; i >= 0; i--)
-    for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
   const ops: string[] = [];
   let i = 0;
   let j = 0;

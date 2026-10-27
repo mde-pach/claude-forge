@@ -31,7 +31,7 @@ const SCENARIOS: Scenario[] = [
     repo: "fastapi-app",
     prompts: [
       "Add a nullable `phone: Mapped[str | None]` column to the User model in app/models/__init__.py. Do not create a migration. Then stop.",
-      "Now create the Alembic revision for it with `uv run alembic revision --autogenerate -m \"add phone\"` and stop.",
+      'Now create the Alembic revision for it with `uv run alembic revision --autogenerate -m "add phone"` and stop.',
     ],
     expect: [/"decision":"block"[^\n]*forge:python\/sqlalchemy\/alembic\/check/, /alembic\/versions\/[^\s"]*add_phone/],
     verify: "sh .forge/check.sh --changed",
@@ -72,7 +72,7 @@ const SCENARIOS: Scenario[] = [
   {
     name: "nextjs: `as any` gets PostToolUse feedback",
     repo: "nextjs-prisma-app",
-    prompts: ["Create src/cast.ts exporting `export const n = (JSON.parse(\"1\") as any) as number;`. Write exactly that, then stop."],
+    prompts: ['Create src/cast.ts exporting `export const n = (JSON.parse("1") as any) as number;`. Write exactly that, then stop.'],
     expect: [/noExplicitAny|forge:typescript\/no-explicit-any/],
   },
   {
@@ -84,7 +84,7 @@ const SCENARIOS: Scenario[] = [
   {
     name: "nextjs: only changed-related Vitest tests run",
     repo: "nextjs-prisma-app",
-    setup: "printf 'import { expect, it } from \"vitest\";\\nit(\"other\", () => { expect(1).toBe(1); });\\n' > src/other.test.ts && git add -A && git commit -qm other",
+    setup: 'printf \'import { expect, it } from "vitest";\\nit("other", () => { expect(1).toBe(1); });\\n\' > src/other.test.ts && git add -A && git commit -qm other',
     prompts: ["In src/sum.ts, rename the parameters of sum to x and y (keep behaviour). Then stop."],
     expect: [/sum\.test\.ts/],
     forbid: [/other\.test\.ts/],
@@ -141,7 +141,10 @@ function sh(cmd: string, cwd: string, env: Record<string, string> = {}) {
 function runScenario(s: Scenario, i: number): { ok: boolean; why: string[] } {
   const repo = join(WORK, s.repo);
   // the hooks' state lives outside the repository (lib.sh forge_state_of)
-  sh('git reset -q --hard && git clean -qfdx -e .venv -e node_modules -e .env && rm -rf .forge/state "${FORGE_STATE_HOME:-$HOME/.claude/forge-state}/$(printf %s "$(pwd -P)" | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c 1-16)"', repo);
+  sh(
+    'git reset -q --hard && git clean -qfdx -e .venv -e node_modules -e .env && rm -rf .forge/state "${FORGE_STATE_HOME:-$HOME/.claude/forge-state}/$(printf %s "$(pwd -P)" | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c 1-16)"',
+    repo,
+  );
   if (s.setup) {
     const r = sh(s.setup, repo, { GIT_AUTHOR_NAME: "e2e", GIT_AUTHOR_EMAIL: "e2e@example.com", GIT_COMMITTER_NAME: "e2e", GIT_COMMITTER_EMAIL: "e2e@example.com" });
     if (r.status !== 0) return { ok: false, why: [`setup failed: ${r.stderr}`] };

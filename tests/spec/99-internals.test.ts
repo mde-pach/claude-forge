@@ -88,7 +88,12 @@ describe("the documentation is the test suite", () => {
 
   test("every spec file has an @spec header, and the docs extractor finds its tests at the lines bun reports", () => {
     const sections = readSpec(ROOT);
-    expect(sections.map((s) => s.file).sort()).toEqual(readdirSync(join(ROOT, "tests/spec")).filter((f) => f.endsWith(".test.ts")).map((f) => `tests/spec/${f}`).sort());
+    expect(sections.map((s) => s.file).sort()).toEqual(
+      readdirSync(join(ROOT, "tests/spec"))
+        .filter((f) => f.endsWith(".test.ts"))
+        .map((f) => `tests/spec/${f}`)
+        .sort(),
+    );
     for (const s of sections) {
       expect(s.title.length).toBeGreaterThan(0);
       expect(countTests(s.children)).toBeGreaterThan(0);

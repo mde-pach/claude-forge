@@ -3,7 +3,24 @@ import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { defaultRoles, type Roles } from "./roles.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, LOCKFILE_LINT_VERSION, packageRoot, REDOCLY_VERSION, releaseTable, sha256, shQuote, SPECTRAL_VERSION, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
+import {
+  AST_GREP_VERSION,
+  ENGINE_PYTHON,
+  FORGE_VERSION,
+  HADOLINT_SHA256,
+  HADOLINT_VERSION,
+  LOCKFILE_LINT_VERSION,
+  packageRoot,
+  REDOCLY_VERSION,
+  releaseTable,
+  sha256,
+  shQuote,
+  SPECTRAL_VERSION,
+  SQUAWK_VERSION,
+  TFLINT_RULESETS,
+  TY_VERSION,
+  ZIZMOR_VERSION,
+} from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -23,7 +40,28 @@ export function renderLib(): string {
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
 export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc", "eslint"] as const;
-export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "sqlfluff", "vue-tsc", "ngc", "mikro-orm", "graphql-codegen", "wrangler", "better-auth", "prettier", "eslint", "oxlint"] as const;
+export const PROJECT_TOOLS = [
+  "biome",
+  "ruff",
+  "tsc",
+  "alembic",
+  "pytest",
+  "prisma",
+  "vitest",
+  "playwright",
+  "astro",
+  "python",
+  "sqlfluff",
+  "vue-tsc",
+  "ngc",
+  "mikro-orm",
+  "graphql-codegen",
+  "wrangler",
+  "better-auth",
+  "prettier",
+  "eslint",
+  "oxlint",
+] as const;
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
 /**
@@ -105,9 +143,7 @@ function caseEscape(s: string): string {
 export function globToCase(glob: string): string[] {
   const brace = /\{([^{}]*)\}/.exec(glob);
   if (brace) {
-    return brace[1]!
-      .split(",")
-      .flatMap((alt) => globToCase(glob.slice(0, brace.index) + alt + glob.slice(brace.index + brace[0].length)));
+    return brace[1]!.split(",").flatMap((alt) => globToCase(glob.slice(0, brace.index) + alt + glob.slice(brace.index + brace[0].length)));
   }
   const out = new Set<string>();
   const variants = (g: string): string[] => {
@@ -171,7 +207,11 @@ export interface ActiveGrep {
 
 /** The grep rules: forge_grep_meta_<n> (g_id g_mode g_pattern g_desc) and forge_grep_scope_<n>. */
 function renderGreps(greps: ActiveGrep[]): string[] {
-  const ids = (mode: GrepTarget["mode"]) => greps.filter((g) => g.target.mode === mode).map((g) => g.rule.id).join("|");
+  const ids = (mode: GrepTarget["mode"]) =>
+    greps
+      .filter((g) => g.target.mode === mode)
+      .map((g) => g.rule.id)
+      .join("|");
   const out = [`FORGE_NGREPS=${greps.length}`, `FORGE_GREP_NO_INCREASE='${ids("no-increase")}'`, `FORGE_GREP_NO_DECREASE='${ids("no-decrease")}'`];
   greps.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
@@ -245,8 +285,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     const tools = checkTools(target);
     const changed = target.changed_run !== undefined;
     // in workspace packages: each command runs in every package through forge_in_dirs
-    const body = (fn: string, cmd: string, form: "files" | "all") =>
-      dirs ? [`${fn}() { forge_in_dirs ${fn}_dir ${form}; }`, `${fn}_dir() {`, cmd, "}"] : [`${fn}() {`, cmd, "}"];
+    const body = (fn: string, cmd: string, form: "files" | "all") => (dirs ? [`${fn}() { forge_in_dirs ${fn}_dir ${form}; }`, `${fn}_dir() {`, cmd, "}"] : [`${fn}() {`, cmd, "}"]);
     const when = dirs ? target.when_changed?.flatMap((g) => dirs.map((d) => `${d}/${g}`)) : target.when_changed;
     out.push(
       "",
@@ -257,9 +296,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
       scopeFunction(`forge_scope_${n}`, rule, dirs, target.config_files),
-      when
-        ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }`
-        : `forge_when_${n}() { return 1; }`,
+      when ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }` : `forge_when_${n}() { return 1; }`,
       ...body(`forge_check_run_${n}`, target.run, "all"),
     );
     if (changed) out.push(...body(`forge_check_changed_${n}`, target.changed_run!.replaceAll("{files}", "$FORGE_FILES"), target.changed_run!.includes("{files}") ? "files" : "all"));
@@ -275,21 +312,25 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
 /** engine.sh with Forge's pins filled in; it depends on the plan only through the types engines it starts. */
 export function renderEngine(types: TypesLanguage[] = []): string {
   return fill(template("engine.sh"), {
-      SQUAWK_VERSION,
-      REDOCLY_VERSION,
-      SPECTRAL_VERSION,
-      LOCKFILE_LINT_VERSION,
-      ZIZMOR_VERSION,
-      HADOLINT_VERSION,
-      HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
-      RELEASES: releaseTable(),
-      TFLINT_RULESETS: Object.entries(TFLINT_RULESETS).map(([p, v]) => `${p} ${v}`).join("\n"),
-      // newline-separated: IFS is a newline in the generated scripts
-      TYPES_LANGS: types.join("\n"),
-      TY_VERSION,
-      ENGINE_PYTHON,
-      TYPES_REV: types.length ? typesRevision() : "",
-    }).trimEnd();
+    SQUAWK_VERSION,
+    REDOCLY_VERSION,
+    SPECTRAL_VERSION,
+    LOCKFILE_LINT_VERSION,
+    ZIZMOR_VERSION,
+    HADOLINT_VERSION,
+    HADOLINT_SHAS: Object.entries(HADOLINT_SHA256)
+      .map(([p, h]) => `${p} ${h}`)
+      .join("\n"),
+    RELEASES: releaseTable(),
+    TFLINT_RULESETS: Object.entries(TFLINT_RULESETS)
+      .map(([p, v]) => `${p} ${v}`)
+      .join("\n"),
+    // newline-separated: IFS is a newline in the generated scripts
+    TYPES_LANGS: types.join("\n"),
+    TY_VERSION,
+    ENGINE_PYTHON,
+    TYPES_REV: types.length ? typesRevision() : "",
+  }).trimEnd();
 }
 
 /**
@@ -355,7 +396,19 @@ export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sql
  * them. A project formatter may rewrite them: their integrity hash ignores formatting
  * (ownedHash).
  */
-const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "pytest_filterwarnings.py", "node_version.mjs", "pm_policy.mjs", "new_deps.mjs", "new_deps.py"];
+const HELPER_SCRIPTS = [
+  "ratchet.py",
+  "ratchet.mjs",
+  "drf_permissions.py",
+  "public_api.py",
+  "public_api.mjs",
+  "fk_index.py",
+  "pytest_filterwarnings.py",
+  "node_version.mjs",
+  "pm_policy.mjs",
+  "new_deps.mjs",
+  "new_deps.py",
+];
 export const HELPERS_DIR = ".forge/helpers";
 
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */
@@ -548,15 +601,7 @@ export function renderAstGrepTest(rule: Rule): string {
 }
 
 export function renderSgConfig(): string {
-  return [
-    "# Generated by forge.",
-    "ruleDirs: [rules]",
-    "testConfigs:",
-    "  - testDir: rule-tests",
-    "languageGlobs:",
-    '  tsx: ["*.ts", "*.mts", "*.cts"]',
-    "",
-  ].join("\n");
+  return ["# Generated by forge.", "ruleDirs: [rules]", "testConfigs:", "  - testDir: rule-tests", "languageGlobs:", '  tsx: ["*.ts", "*.mts", "*.cts"]', ""].join("\n");
 }
 
 // ---------------------------------------------------------------- plugin
@@ -596,11 +641,5 @@ export function renderHooks(level: Level, opts: { types?: boolean } = {}): strin
 
 export function renderPlugin(level: Level): string {
   const name = level === "user" ? "forge-user" : "forge-project";
-  return (
-    JSON.stringify(
-      { name, version: FORGE_VERSION, description: "Generated by forge. Do not edit; run forge apply to regenerate." },
-      null,
-      2,
-    ) + "\n"
-  );
+  return JSON.stringify({ name, version: FORGE_VERSION, description: "Generated by forge. Do not edit; run forge apply to regenerate." }, null, 2) + "\n";
 }

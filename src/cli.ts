@@ -36,8 +36,6 @@ interface Flags {
   preCommit: boolean;
 }
 
-
-
 const out = (s = "") => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");
 
@@ -84,8 +82,7 @@ function claudeGate(): void {
   const r = run("claude", ["--version"]);
   if (r.status !== 0) throw new ForgeError(`forge: Claude Code not found; forge needs claude >= ${CLAUDE_CODE_MIN}`);
   const v = /(\d+\.\d+\.\d+)/.exec(r.stdout)?.[1];
-  if (!v || compareVersions(v, CLAUDE_CODE_MIN) < 0)
-    throw new ForgeError(`forge: Claude Code ${v ?? "(unknown version)"} is too old; forge needs claude >= ${CLAUDE_CODE_MIN}`);
+  if (!v || compareVersions(v, CLAUDE_CODE_MIN) < 0) throw new ForgeError(`forge: Claude Code ${v ?? "(unknown version)"} is too old; forge needs claude >= ${CLAUDE_CODE_MIN}`);
 }
 
 // ---------------------------------------------------------------- context
@@ -216,7 +213,8 @@ function preCommitState(ctx: Ctx): PreCommitState {
 
 /** The line apply and status print when commits are not checked. */
 function notChecked(ctx: Ctx, st: PreCommitState): string {
-  if (st.activate) return `${st.file} runs the check${st.forge ? " (forge)" : ""}, but ${hookManager(ctx.base)!.name} is not installed in this clone, so commits are not checked. To activate: ${st.activate}`;
+  if (st.activate)
+    return `${st.file} runs the check${st.forge ? " (forge)" : ""}, but ${hookManager(ctx.base)!.name} is not installed in this clone, so commits are not checked. To activate: ${st.activate}`;
   return `NOT INSTALLED, so commits are not checked. To install: ${preCommitHint(ctx.base)}`;
 }
 
@@ -246,7 +244,21 @@ interface Changes {
 
 function computeChanges(ctx: Ctx): Changes {
   const { base, plan: p, lock } = ctx;
-  const ch: Changes = { writes: [], deletes: [], drift: [], conflicts: [], settings: [], blocks: [], blockDrift: [], lockSettings: [], missingEntries: [], rulesChanged: [], rolesChanged: [], overridden: [], lockText: "" };
+  const ch: Changes = {
+    writes: [],
+    deletes: [],
+    drift: [],
+    conflicts: [],
+    settings: [],
+    blocks: [],
+    blockDrift: [],
+    lockSettings: [],
+    missingEntries: [],
+    rulesChanged: [],
+    rolesChanged: [],
+    overridden: [],
+    lockText: "",
+  };
   const owned = lock?.files ?? {};
   for (const [path, after] of p.files) {
     const before = readText(join(base, path));
@@ -282,12 +294,12 @@ function computeChanges(ctx: Ctx): Changes {
     const drop = old.filter((e) => e.file === file && !desired.has(entryKey(e)));
     if (drop.length && text) text = removeEntries(text, drop);
     const want = p.settings.filter((e) => e.file === file);
-    for (const c of conflictingScalars(before, want))
-      ch.overridden.push(`${file}: ${c.entry.path} is ${JSON.stringify(c.current)}; forge wants ${JSON.stringify(c.entry.value)} (left unchanged)`);
-    for (const e of old) if (e.file === file && desired.has(entryKey(e))) {
-      if (!hasEntry(before, e)) ch.missingEntries.push(e);
-      kept.push(e);
-    }
+    for (const c of conflictingScalars(before, want)) ch.overridden.push(`${file}: ${c.entry.path} is ${JSON.stringify(c.current)}; forge wants ${JSON.stringify(c.entry.value)} (left unchanged)`);
+    for (const e of old)
+      if (e.file === file && desired.has(entryKey(e))) {
+        if (!hasEntry(before, e)) ch.missingEntries.push(e);
+        kept.push(e);
+      }
     let added: SettingsEntry[] = [];
     if (want.length) {
       const r = addEntries(text ?? "", want);
@@ -455,7 +467,9 @@ function provisionEngines(langs: string[]): string[] {
   if (!langs.includes("python")) return [];
   const r = run("uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty", "--version"]);
   if (r.status === 0) return [];
-  return [`forge: the python types engine (ty ${TY_VERSION}) could not be provisioned with uvx: ${(r.stderr || r.stdout).trim().split("\n").slice(-1)[0] || `exit ${r.status}`}; rules with type constraints are reported unchecked until it is`];
+  return [
+    `forge: the python types engine (ty ${TY_VERSION}) could not be provisioned with uvx: ${(r.stderr || r.stdout).trim().split("\n").slice(-1)[0] || `exit ${r.status}`}; rules with type constraints are reported unchecked until it is`,
+  ];
 }
 
 /**
@@ -472,8 +486,7 @@ function sandboxProblem(ctx: Ctx): string | undefined {
   const off = 'or turn the sandbox off knowingly: set "sandbox": {"enabled": false} in ~/.claude/settings.json (forge keeps a value you set)';
   const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
   const tools = ["bwrap", "socat"].filter((c) => !has(c));
-  if (tools.length)
-    return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
+  if (tools.length) return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
   const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-all", "--die-with-parent", "true"]);
   if (r.status === 0) return undefined;
   const why = (r.stderr || r.stdout).trim().split("\n")[0] || `exit ${r.status}`;
@@ -510,7 +523,10 @@ function mergedSnippets(audits: AuditResult[]): Record<string, string> {
 }
 
 function formatMerged(audits: AuditResult[]): string[] {
-  return Object.entries(mergedSnippets(audits)).flatMap(([k, block]) => [`forge: to satisfy every unsatisfied ${k} audit, add to the ${k.split(" ")[0]} config:`, ...block.split("\n").map((l) => `  ${l}`)]);
+  return Object.entries(mergedSnippets(audits)).flatMap(([k, block]) => [
+    `forge: to satisfy every unsatisfied ${k} audit, add to the ${k.split(" ")[0]} config:`,
+    ...block.split("\n").map((l) => `  ${l}`),
+  ]);
 }
 
 function formatAudit(a: AuditResult): string {
@@ -607,7 +623,10 @@ function enforcementSummary(rules: Enforcement[]): string {
     const why = r.not_enforced[0] ?? "nothing applies here";
     reasons.set(why, (reasons.get(why) ?? 0) + 1);
   }
-  const detail = [...reasons.entries()].sort((a, b) => b[1] - a[1]).map(([w, n]) => `${n} ${w}`).join(", ");
+  const detail = [...reasons.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([w, n]) => `${n} ${w}`)
+    .join(", ");
   return `${rules.length} active, ${rules.length - off.length} enforced, ${off.length} not enforced${off.length ? ` (${detail})` : ""}`;
 }
 
@@ -795,7 +814,13 @@ function cmdRemove(flags: Flags): number {
   for (const file of [...new Set(lock.settings.map((e) => e.file))]) {
     const before = readText(join(base, file));
     if (before === undefined) continue;
-    settings.set(file, { before, after: removeEntries(before, lock.settings.filter((e) => e.file === file)) });
+    settings.set(file, {
+      before,
+      after: removeEntries(
+        before,
+        lock.settings.filter((e) => e.file === file),
+      ),
+    });
   }
   const files = Object.keys(lock.files).filter((f) => existsSync(join(base, f)));
   // Forge's blocks in hook managers' files: removed; a file Forge created goes when nothing else is left
@@ -809,7 +834,10 @@ function cmdRemove(flags: Flags): number {
     else blocks.push({ block: b, before, after: b.created && onlyForge(after) ? undefined : after });
   }
   // a block whose markers were edited, or whose removal would change the rest of the config, is left to the user
-  for (const f of stuck) err(`forge: ${f}: forge's pre-commit block cannot be removed safely (its begin/end markers were changed, or entries were added inside it); remove the lines between "# forge: begin" and "# forge: end" yourself`);
+  for (const f of stuck)
+    err(
+      `forge: ${f}: forge's pre-commit block cannot be removed safely (its begin/end markers were changed, or entries were added inside it); remove the lines between "# forge: begin" and "# forge: end" yourself`,
+    );
   if (flags.dryRun) {
     for (const f of [...files, lockPath, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
     for (const [file, s] of settings) process.stdout.write(lineDiff(s.before, s.after ?? "", s.after === undefined ? `${file} (deleted)` : file));

@@ -149,7 +149,10 @@ test.skipIf(othersRunning(import.meta.path))("guard.sh answers within 20 ms at t
     const guard: number[] = [];
     const empty: number[] = [];
     for (let i = 0; i < 400; i++)
-      for (const [series, script] of [[guard, "guard.sh"], [empty, "empty.sh"]] as const) {
+      for (const [series, script] of [
+        [guard, "guard.sh"],
+        [empty, "empty.sh"],
+      ] as const) {
         const t0 = performance.now();
         spawnSync("sh", [join(d, script)], { input });
         series.push(performance.now() - t0);
