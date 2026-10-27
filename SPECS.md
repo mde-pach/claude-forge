@@ -788,7 +788,8 @@ context.md: "Alembic with an async engine: `alembic/env.py` runs migrations thro
 
 | Rule | Targets |
 |---|---|
-| `python/pydantic/v2-api` | `ast-grep` forbid: `$M.dict()`, `$M.json()`, `$M.parse_obj($$$)`, `$M.parse_raw($$$)`, `@validator($$$)`, `@root_validator($$$)`, `class Config:` inside a `BaseModel` subclass |
+| `python/pydantic/v2-api` | `ast-grep` forbid: `class Config:` in a class whose superclass is typed `pydantic` `BaseModel` (§15.1; `BaseSettings` derives from it), `json_encoders=` in a call declared `pydantic` `ConfigDict` or `pydantic_settings` `SettingsConfigDict` (§15.6) or as a key of a `model_config = {…}` dict, and v1-only arguments (`env`, `regex`, `const`, `min_items`, `max_items`, `unique_items`, `allow_mutation`, `example`) of a call declared `pydantic` `Field`; `.dict()`, `.json()`, `parse_obj`, `@validator` are ty's `deprecated` (`python/no-deprecated`) |
+| `python/pydantic/no-v1-namespace` | `tool` ruff `TID251`, banned-api `pydantic.v1` |
 | `python/pydantic/typeadapter-module-level` | `ast-grep` advise: a call typed `pydantic` `TypeAdapter` inside a function not decorated with `cache`, `lru_cache` or `cached_property` |
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."

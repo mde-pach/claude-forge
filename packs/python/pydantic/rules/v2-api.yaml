@@ -1,25 +1,47 @@
 id: python/pydantic/v2-api
-description: No Pydantic v1 APIs. Use model_dump, model_validate, field_validator and model_config.
+description: "No Pydantic v1 configuration that ty does not report: no class Config in a BaseModel or BaseSettings subclass (use model_config = ConfigDict(...) / SettingsConfigDict(...)), no json_encoders (use @field_serializer or PlainSerializer), no v1-only Field() arguments (env, regex, const, min_items, max_items, unique_items, allow_mutation, example)."
 scope: {language: python}
 enforce:
   - target: ast-grep
     mode: forbid
     rule:
       any:
-        - {pattern: "$M.dict()"}
-        - {pattern: "$M.json()"}
-        - {pattern: "$M.parse_obj($$$)"}
-        - {pattern: "$M.parse_raw($$$)"}
-        - {kind: decorator, has: {pattern: "validator($$$)"}}
-        - {kind: decorator, has: {pattern: "root_validator($$$)"}}
-        - {kind: decorator, has: {kind: identifier, regex: "^root_validator$"}}
+        # class Config inside a model class (BaseSettings derives from BaseModel)
         - kind: class_definition
-          has: {field: name, regex: "^Config$"}
-          inside:
-            kind: block
-            inside: {kind: class_definition, has: {field: superclasses, has: {regex: "BaseModel"}}}
-    # HTTP responses (httpx, requests, TestClient) also have .json(): not Pydantic.
-    constraints: {M: {not: {regex: "^(r|res|resp|response|[A-Za-z_]*_(response|resp))$|\\.(response|resp)$"}}}
+          has: {field: superclasses, has: {pattern: $B}}
+          all:
+            - has: {field: body, has: {kind: class_definition, has: {field: name, regex: "^Config$"}}}
+        # ConfigDict(json_encoders=...) / SettingsConfigDict(json_encoders=...)
+        - kind: call
+          pattern: "$C($$$)"
+          has: {field: arguments, has: {kind: keyword_argument, regex: "^json_encoders\\b"}}
+        # model_config = {"json_encoders": ...}: model_config is Pydantic's own attribute name
+        - kind: pair
+          has: {field: key, regex: "^[\"']json_encoders[\"']$"}
+          inside: {kind: assignment, stopBy: end, has: {field: left, regex: "^model_config$"}}
+        # Field() arguments v2 dropped or renamed (pattern=, min_length=, frozen=, examples=, validation_alias=)
+        - kind: call
+          pattern: "$F($$$)"
+          has: {field: arguments, has: {kind: keyword_argument, regex: "^(env|regex|const|min_items|max_items|unique_items|allow_mutation|example)\\b"}}
+    # .dict(), .json(), parse_obj, @validator: ty reports them as deprecated (python/no-deprecated)
+    where:
+      B: {type: {package: pydantic, name: BaseModel}}
+      C: {declared: [{package: pydantic, name: ConfigDict}, {package: pydantic_settings, name: SettingsConfigDict}]}
+      F: {declared: {package: pydantic, name: Field}}
 examples:
-  match: ["data = user.dict()", "u = User.parse_obj(raw)", "@validator(\"name\")\ndef check(cls, v):\n    return v\n", "class User(BaseModel):\n    class Config:\n        orm_mode = True\n"]
-  no_match: ["body = response.json()", "assert resp.json() == {}", "data = user.model_dump()", "u = User.model_validate(raw)", "@field_validator(\"name\")\ndef check(cls, v):\n    return v\n", "class User(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n"]
+  deps: [{ecosystem: pypi, name: pydantic, version: "2.14.1"}, {ecosystem: pypi, name: pydantic-settings, version: "2.16.1"}]
+  match:
+    - "from pydantic import BaseModel\n\n\nclass User(BaseModel):\n    name: str\n\n    class Config:\n        orm_mode = True\n"
+    - "from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    debug: bool = False\n\n    class Config:\n        env_file = \".env\"\n"
+    - "from datetime import datetime\n\nfrom pydantic import BaseModel, ConfigDict\n\n\nclass Event(BaseModel):\n    model_config = ConfigDict(json_encoders={datetime: lambda d: d.isoformat()})\n\n    at: datetime\n"
+    - "from datetime import datetime\n\nfrom pydantic import BaseModel\n\n\nclass Event(BaseModel):\n    model_config = {\"json_encoders\": {datetime: str}}\n\n    at: datetime\n"
+    - "import pydantic\n\n\nclass Item(pydantic.BaseModel):\n    code: str = pydantic.Field(regex=\"^[A-Z]+$\")\n"
+    - "from pydantic import Field\nfrom pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n    url: str = Field(env=\"DATABASE_URL\")\n"
+  no_match:
+    - "from pydantic import BaseModel, ConfigDict\n\n\nclass User(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n\n    name: str\n"
+    - "class Settings:\n    class Config:\n        debug = True\n"
+    - "from pydantic import BaseModel, Field\n\n\nclass Item(BaseModel):\n    code: str = Field(pattern=\"^[A-Z]+$\", examples=[\"AB\"])\n"
+    - "from pydantic_settings import BaseSettings, SettingsConfigDict\n\n\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(env_file=\".env\")\n"
+    - "def make(env: str, regex: str) -> dict[str, str]:\n    return {\"env\": env, \"regex\": regex}\n\n\nx = make(env=\"a\", regex=\"b\")\n"
+    - "def Field(**kwargs: object) -> object:\n    return kwargs\n\n\nf = Field(env=\"X\")\n"
+    - "import json\n\nsettings = {\"json_encoders\": json.dumps}\n"
