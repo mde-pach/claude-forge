@@ -584,7 +584,11 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-commented-out-code` | `tool` ruff `ERA001` |
 | `python/no-print` | `tool` ruff `T201` (snippet: per-file-ignores for `scripts/**` and CLIs) |
 | `python/no-dangling-task` | `tool` ruff `RUF006` |
-| `python/log-exception` | `tool` ruff `TRY400` |
+| `python/log-exception` | `ast-grep` forbid: `$L.error(…)` without `exc_info=` inside an `except` handler (not in a function, lambda or class defined there), where `L` is the standard library's `logging.Logger` or `LoggerAdapter` (§15.1, no `examples.deps`); replaces ruff `TRY400`, which picks loggers by their names |
+| `python/lazy-log-args` | `ast-grep` forbid: `$L.debug/info/warning/error/exception/critical(…)` whose first argument (`$L.log(…)`'s second) is an f-string, a `.format()` call or a `%`-formatted string, where `L` is `logging.Logger` / `LoggerAdapter` (§15.1); not ruff `G001`–`G004`, which pick loggers by their names |
+| `python/archive-extract` | `ast-grep` forbid: `$T.extractall(…)` / `$T.extract(…)` where `T` is `tarfile.TarFile` (§15.1), and `…unpack_archive(…)` declared by `shutil` (§15.6), without `filter=`; not ruff `S202`, which flags any `.extractall` and `zipfile` |
+| `python/hmac-compare` | `ast-grep` forbid: a `==` / `!=` comparison with `$H.hexdigest()` / `$H.digest()` where `H` is `hmac.HMAC` (§15.1), or a call declared as `hmac.digest` (§15.6) |
+| `python/no-ssl-verify-off` | `ast-grep` forbid: `$C.check_hostname = False`, or `$C.verify_mode = …CERT_NONE` declared by `ssl` (§15.6), where `C` is `ssl.SSLContext` (§15.1) |
 | `python/no-hardcoded-password` | `tool` ruff `S105`, `S106` (snippet: off under `tests/**`) |
 | `python/no-sql-format` | `tool` ruff `S608` |
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
@@ -710,8 +714,8 @@ context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never sil
 | `python/fastapi/unused-path-param` | `tool` ruff `FAST003` |
 | `python/fastapi/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `starlette` `Starlette` (`FastAPI` included) with `debug=True` |
 | `python/fastapi/no-raw-request-body` | `ast-grep` advise: `await $REQ.json()`, `await $REQ.form(…)`, `await $REQ.body()`, `$REQ.stream()` on a `starlette` `Request` |
-| `python/fastapi/testclient-lifespan` | `ast-grep` advise: a call typed `starlette` `TestClient` outside a `with` item |
-| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid: a call typed `starlette` `TestClient` inside an `async def` |
+| `python/fastapi/testclient-lifespan` | `ast-grep` advise, in `@python-tests`: a call typed `starlette` `TestClient` outside a `with` item |
+| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid, in `@python-tests`: a call typed `starlette` `TestClient` inside an `async def` |
 | `python/fastapi/deprecated-params` | `ast-grep` forbid: a call with `regex=` or `example=` whose callee is declared (§15.6) by `fastapi` as `Query`, `Path`, `Header`, `Cookie`, `Body`, `Form` or `File` (they return `Any`: the call's type says nothing); a call with `root_path=` whose type is `fastapi`'s `FastAPI` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." No debug mode outside tests; `with TestClient(app)` so the lifespan runs, `httpx.AsyncClient` with `ASGITransport` in async tests.
@@ -822,7 +826,7 @@ Detected by `attrs` (pypi).
 | `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module and, at Stop, the test files edited during the turn (`<snapshot>/touched`, §10.5) even when the edit was reverted; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
 | `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)`, `pytest.importorskip($$$)` |
 | `python/pytest/no-hook-tamper` | `ast-grep` advise on test files and `conftest.py`: a `def` of a result-rewriting hook (`pytest_runtest_makereport`, `pytest_report_teststatus`, `pytest_runtest_call`, `pytest_pyfunc_call`, `pytest_runtest_protocol`, `pytest_terminal_summary`, `pytest_collection_modifyitems`) |
-| `python/pytest/no-exitstatus` | `ast-grep` advise: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
+| `python/pytest/no-exitstatus` | `ast-grep` advise, in `@python-tests`: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
 | `python/pytest/no-exit-zero` | `ast-grep` forbid on test files and `conftest.py`: `sys.exit(0)`, `os._exit(0)`, `pytest.exit(…, returncode=0)` |
 | `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
@@ -863,6 +867,13 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/no-template-unescape` | `grep` advise on `@django-templates`: a `\|safe` or `\|safeseq` filter, `{% autoescape off %}` |
 | `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
+| `python/django/async-orm` | `ast-grep` forbid, `needs` `django-stubs`: inside an `async def` (the innermost function; not a lambda or sync def in it), `$R.save/delete/refresh_from_db/full_clean/get/first/last/count/exists/create/get_or_create/update_or_create/update/aggregate/in_bulk/bulk_create/bulk_update/earliest/latest/contains/iterator(…)` and a sync `for … in $R`, where `R` is typed `django` `Model`, `QuerySet` or `BaseManager` (§15.1) |
+| `python/django/queryset-len` | `ast-grep` advise, `needs` `django-stubs`: `len($Q)` where `Q` is a `QuerySet` (§15.1) |
+| `python/django/no-atomic-in-async` | `ast-grep` forbid, `needs` `django-stubs`: a call typed `django.db.transaction` `Atomic` (§15.1) in a `with` item of an `async def`, or a decorator on an `async def` declared (§15.6) as `django.db.transaction`'s `atomic` (called or not) |
+| `python/django/no-index-together` | `ast-grep` forbid, `needs` `django-stubs`: `index_together = …` in a `class Meta` of a class whose last base is typed `django` `Model` (§15.1); split from the candidate `no-deprecated-api` (another target) |
+| `python/django/storages-setting` | `ast-grep` forbid in `@django-settings`, `when` `django >= 4.2`: top-level `DEFAULT_FILE_STORAGE = …` / `STATICFILES_STORAGE = …` (removed in 5.1, ignored); split from `no-deprecated-api` |
+| `python/django/mailers-setting` | `ast-grep` forbid in `@django-settings`, `when` `django >= 6.1`: top-level `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `EMAIL_TIMEOUT`, `EMAIL_FILE_PATH`, `EMAIL_SSL_CERTFILE`, `EMAIL_SSL_KEYFILE` assignments (`MAILERS` replaces them); split from `no-deprecated-api` |
+| `python/django/no-deprecated-api` | `ast-grep` forbid, `needs` `django-stubs`, `when` `django >= 6.1`: `$Q.select_related()` with no argument and `$Q.values_list(flat=True)` with no field, where `Q` is a `QuerySet` or `BaseManager` (§15.1); `CheckConstraint(check=)`, positional `save()`, `savepoint()` and `format_html()` without arguments are left to ty (`python/typecheck`, `python/no-deprecated`) |
 | `python/django/migration-imports-models` | `ast-grep` forbid on `@django-migrations`: `from <x>.models import …`, `from <x> import models` (not `django.*`) |
 | `python/django/migration-reversible` | `ast-grep` forbid on `@django-migrations`: `migrations.RunPython(…)` without a second positional argument or `reverse_code=`, `migrations.RunSQL(…)` without one or `reverse_sql=` |
 | `python/django/applied-migrations` | `check` migration: `forge_applied_migrations @django-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
@@ -901,6 +912,9 @@ Detected by `celery` (pypi).
 | `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
 | `python/celery/no-pickle` | `grep` forbid (case-insensitive): `task_serializer`, `result_serializer`, `event_serializer` or `serializer` set to `"pickle"` (`=` or `:`); `accept_content` naming `pickle` or `application/x-python-serialize` |
 | `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+| `python/celery/enqueue-on-commit` | `ast-grep` forbid, `needs` `celery-types` and `django-stubs`, `when` `django >= 4.2`: `$T.delay(…)` / `$T.apply_async(…)` (not in a `lambda`) inside a `with` whose item is typed `django.db.transaction` `Atomic` (§15.1), or in a function whose decorator is declared as its `atomic` (§15.6), where `T` is a Celery `Task` |
+| `python/celery/no-model-args` | `ast-grep` forbid, `needs` `celery-types` and `django-stubs`, `when` `django >= 4.2`: an argument (positional or keyword) of `$T.delay/s/si(…)`, or an item of `$T.apply_async(args=[…], kwargs={…})`, typed `django` `Model` (§15.1), where `T` is a Celery `Task` |
+| `python/celery/no-sqlalchemy-model-args` | the same, `needs` `celery-types`, `when` `sqlalchemy >= 2.0`, for an argument typed `sqlalchemy` `DeclarativeBase`; split from `no-model-args` (each needs its own stubs and version gate) |
 
 context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks, the json serializer.
 
@@ -920,6 +934,14 @@ Detected by `piccolo` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/piccolo/no-run-sync-in-async` | `ast-grep` forbid: `$Q.run_sync(…)` inside an `async def`, `$Q` typed `piccolo` |
+
+### python/asyncpg
+
+Detected by `asyncpg` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/asyncpg/pool-acquire-ctx` | `ast-grep` advise, `needs` `asyncpg-stubs`: `await $P.acquire(…)` where `P` is an asyncpg `Pool` (§15.1) |
 
 ### python/psycopg
 
@@ -1191,6 +1213,7 @@ Detected by `@types/node` (npm).
 | `typescript/node/no-ecb-cipher` | `ast-grep` forbid: a call declared (§15.6) in `node/crypto` as `createCipheriv` / `createDecipheriv` whose first argument is a string ending in `-ecb` (any case) |
 | `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
 | `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
+| `typescript/node/esm-globals` | `ast-grep` forbid in `@esm-modules`: `__dirname`, `__filename`, `require(…)`, `module.exports`, `exports.x = …`, where the name is declared (§15.6) by `node` (`@types/node`'s globals; a module's own `const __dirname` or `createRequire` result is not); not Biome `noGlobalDirnameFilename` / `noCommonJs`, which ignore the module type |
 
 context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
 
@@ -1313,6 +1336,7 @@ Detected by the `@testing-library/react` dependency.
 | Rule | Targets |
 |---|---|
 | `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
+| `typescript/testing-library/no-container-queries` | `ast-grep` advise in `@ts-tests`: `$R.container.querySelector(…)` / `querySelectorAll(…)` and `const { container } = $R`, where `R` is `@testing-library/react`'s `RenderResult` (§15.1: an alias of an intersection) |
 
 context.md: `renderHook` from `@testing-library/react`.
 
@@ -1430,6 +1454,24 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 
 context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps` (object defaults hoisted), `createRoot` instead of `ReactDOM.render`, React Compiler's checks, props never assigned to.
 
+### typescript/react/zustand
+
+Detected by `zustand >= 5` (npm), under `typescript/react`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/react/zustand/stable-selector` | `ast-grep` forbid: a call whose first argument is an arrow returning an object or array literal (`(s) => ({ … })`, `(s) => [ … ]`, or a block returning one), where the callee is `zustand`'s `UseBoundStore` (§15.1: an alias of an intersection); a selector wrapped in `useShallow(…)` is not an arrow argument |
+
+context.md: zustand 5 compares selector results with `Object.is`: one value per selector, or `useShallow`.
+
+### typescript/react/react-hook-form
+
+Detected by `react-hook-form >= 7` (npm), under `typescript/react`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/react/react-hook-form/watch-all` | `ast-grep` advise: `$W()` with no argument where `W` is `react-hook-form`'s `UseFormWatch` (§15.1: an alias of an object type literal), however `watch` is destructured or renamed |
+
 ### typescript/astro
 
 | Rule | Targets |
@@ -1460,7 +1502,7 @@ context.md: "React components in Astro render to static HTML; they become intera
 | `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
 | `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
 | `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
-| `typescript/prisma/no-query-in-loop` | `ast-grep` advise: `await $Q` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap`, where `Q` is `@prisma/client`'s `PrismaPromise` (§15.1): `findMany`, `count`, `aggregate`, `groupBy`, `*Many`; the `Prisma__<Model>Client` of `findUnique`, `findFirst`, `create`, `update`, `upsert`, `delete` extends a type alias of it, which the supertype walk does not follow yet |
+| `typescript/prisma/no-query-in-loop` | `ast-grep` advise: `await $Q` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap`, where `Q` is `@prisma/client`'s `PrismaPromise` (§15.1): `findMany`, `count`, `aggregate`, `groupBy`, `*Many`, and the `Prisma__<Model>Client` of `findUnique`, `findFirst`, `create`, `update`, `upsert`, `delete`, which extends the generated client's type alias of it |
 | `typescript/prisma/applied-migrations` | `check` migration: `forge_applied_migrations @prisma-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
 
 context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only (no `Prisma.raw()` from a template); no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
@@ -1474,7 +1516,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
 | `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
-| `typescript/vitest/no-matcher-override` | `ast-grep` forbid: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
+| `typescript/vitest/no-matcher-override` | `ast-grep` forbid, in `@ts-tests`, `vitest.setup.*` and `__mocks__/`: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
 | `typescript/vitest/no-exit-zero` | `ast-grep` forbid on test, setup and mock files: `process.exit(0)` |
 | `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
 | `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
@@ -1534,7 +1576,8 @@ Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. 
 | `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
 | `typescript/drizzle/no-push-force` | `guard` deny: `drizzle-kit push … --force` (auto-approves data-loss statements) |
-| `typescript/drizzle/write-with-where` | `ast-grep` forbid: `$DB.delete(…)` / `$DB.update(…)` with no `.where` further along its method chain, where `DB` is a Drizzle database (`PgDatabase`, `MySqlDatabase`, `BaseSQLiteDatabase`, `SingleStoreDatabase`, `GelDatabase`; transactions extend them) |
+| `typescript/drizzle/write-with-where` | `ast-grep` forbid: `$DB.delete(…)` / `$DB.update(…)` with no `.where` further along its method chain, where `DB` is a Drizzle database (`PgDatabase`, `MySqlDatabase`, `BaseSQLiteDatabase`, `SingleStoreDatabase`, `GelDatabase`; transactions extend them; `drizzle()`'s intersection `NodePgDatabase & { $client }` by its member, §15.1) |
+| `typescript/drizzle/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is `drizzle-orm`'s `QueryPromise` (§15.1) |
 | `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
 
 context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation, `push --force` is refused; deletes and updates have a `where`; the `sql` tag binds values.
@@ -1698,6 +1741,7 @@ context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO cl
 |---|---|
 | `typescript/kysely/no-sql-raw` | `ast-grep` forbid: a call `$CALL` of `<x>.raw(…)` / `<x>.lit(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is Kysely's `RawBuilder` |
 | `typescript/kysely/write-with-where` | `ast-grep` advise: `$DB.deleteFrom(…)` / `$DB.updateTable(…)` whose method chain reaches `execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` with no `where…` on the way, where `DB` is Kysely's `Kysely` or `Transaction` |
+| `typescript/kysely/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$B.execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` where `B` is typed `kysely` (§15.1) |
 
 context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
 
@@ -1709,6 +1753,7 @@ context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `
 | `typescript/typeorm/synchronize-expression` | `ast-grep` advise: the same keys set from an expression (not `true` / `false`) |
 | `typescript/typeorm/no-raw-query-interpolation` | `ast-grep` forbid: `$R.query(…)` whose first argument is a template with `${}`, a `+` concatenation or a variable declared from one, where `R` is `DataSource`, `EntityManager`, `QueryRunner` or `Repository` |
 | `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
+| `typescript/typeorm/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$R.$M(…)` where `R` is TypeORM's `Repository` or `EntityManager` (§15.1) |
 | `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
 | `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
 | `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
@@ -1722,6 +1767,7 @@ context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.quer
 | `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
 | `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
 | `typescript/mongoose/update-pipeline` | `ast-grep` advise, `when` `mongoose >= 9`: `$M.updateOne\|updateMany\|findOneAndUpdate\|findByIdAndUpdate(f, [<array>], …)` without an object argument holding `updatePipeline: true`, where `M` is a Mongoose `Model` or `Query` (advice: `mongoose.set("updatePipeline", true)` may be set elsewhere) |
+| `typescript/mongoose/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is Mongoose's `Query` or `Aggregate` (§15.1: `find()`'s `QueryWithHelpers` is an alias of an intersection with `Query`) |
 
 context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`; update pipelines pass `updatePipeline: true`.
 
@@ -1780,7 +1826,7 @@ context.md: `limit()` never throws; check `success`.
 
 ### typescript/fastify
 
-Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstance & SafePromiseLike<…>`), which the TypeScript engine does not resolve (§15.1): calls on it are not checked; calls on a `FastifyInstance` (plugin parameters, annotated instances) are.
+Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstance & SafePromiseLike<…>`), whose `FastifyInstance` member counts (§15.1), like plugin parameters and annotated instances.
 
 | Rule | Targets |
 |---|---|
@@ -1844,7 +1890,7 @@ Detected by `ioredis`, `redis` or `@redis/client`.
 
 | Rule | Targets |
 |---|---|
-| `typescript/redis/no-keys` | `ast-grep` forbid: `$C.keys(…)` / `$C.KEYS(…)`, where `C` is ioredis's `Redis` or `Cluster`, or node-redis's `RedisClient` or `RedisCluster` (`createClient()`'s result is an intersection the TypeScript engine does not resolve yet, §15.1) |
+| `typescript/redis/no-keys` | `ast-grep` forbid: `$C.keys(…)` / `$C.KEYS(…)`, where `C` is ioredis's `Redis` or `Cluster`, or node-redis's `RedisClient` or `RedisCluster` (`createClient()`'s `RedisClientType`, an alias of an intersection with `RedisClient`, §15.1) |
 
 context.md: `SCAN` iterators instead of `KEYS`.
 
@@ -1893,6 +1939,7 @@ context.md: `{ data, error }` results are handled.
 | Rule | Targets |
 |---|---|
 | `typescript/pulumi/protect-ratchet` | `grep` no-decrease: `protect: true` (whole words) |
+| `typescript/pulumi/no-output-in-string` | `ast-grep` forbid: an expression in a `${…}` of an untagged template literal, or an operand of `+` with a string or template operand, whose type is `@pulumi/pulumi`'s `Output` / `OutputInstance` (§15.1: `Output<T>` is an alias of an intersection) |
 
 context.md: protected resources stay protected.
 
@@ -2336,20 +2383,21 @@ examples:
 
 **Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
 
-1. **The expression's type** is what the language's type checker infers for exactly that expression, in the file as it is on disk: the engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `({__forge_tN: (<expr>)}).__forge_tN`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works (a name, an attribute, a call such as `sessionmaker(e)()`, a subscript). Nothing is written to the project.
-2. **Declarations.** Each location returned is the declaration of the type, or of one member: a union or intersection gives one per member (`Session | None`: `Session` and `NoneType`). Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`). An anonymous type (an object type literal, a function or tuple type) is named by the type alias that declares it (`type UseFormWatch<T> = { … }` is `UseFormWatch`, never a word of the literal or its comments); one written inline has no name. An intersection (`type UseBoundStore<S> = { … } & S`) has no declaration of its own: the servers return none for it, so its type is unknown (rule 7).
-3. **Subtypes.** Each declaration counts with its supertypes, transitively, at most 64 (Python: the server's type hierarchy; TypeScript: the classes and interfaces in its `extends` and `implements` clauses, resolved with `textDocument/definition`). A project class deriving from `Session` is a `Session`. Assignability is nominal: a structurally compatible type that does not derive from the declaration does not count.
+1. **The expression's type** is what the language's type checker infers for exactly that expression, in the file as it is on disk: the engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `((__forge_tN = (<expr>)) => __forge_tN)()`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works (a name, an attribute, a call such as `sessionmaker(e)()`, a subscript). Nothing is written to the project.
+2. **Declarations.** Each location returned is the declaration of the type, or of one member: a union or intersection gives one per member (`Session | None`: `Session` and `NoneType`). Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`). An anonymous type (an object type literal, a function or tuple type) is named by the type alias that declares it (`type UseFormWatch<T> = { … }` is `UseFormWatch`, never a word of the literal or its comments); one written inline has no name. An intersection has no declaration of its own, and TypeScript's servers give none for it or for an alias of one: then the engine reads the inlay hint of the bound name's type, which is the type as the checker prints it (an alias by its name), each name in it linked to the declaration it refers to. The names at its top level give the declarations: the type it names, or each member of a union or intersection, through grouping parentheses; never a type argument, an object or function type, a `typeof` or `keyof` operand, an indexed access or an array. `drizzle()`'s `NodePgDatabase<…> & { $client: Pool }` is `NodePgDatabase` (the literal member has no name), zustand's `create()()` is `UseBoundStore` (`type UseBoundStore<S> = { … } & S`), node-redis's `createClient()` is `RedisClientType`, Fastify's `Fastify()` is `FastifyInstance` and `PromiseLike`, Pulumi's `Output<T>` is `Output`. No name of the project's choosing is read: the printed type and its links are the checker's.
+3. **Subtypes.** Each declaration counts with its supertypes, transitively, at most 64 (Python: the server's type hierarchy; TypeScript: the classes and interfaces in its `extends` and `implements` clauses, resolved with `textDocument/definition`, and for a type alias the types its body is made of, read as in rule 2: the type it renames, the members of its union or intersection; a conditional type's branches depend on its arguments and are not followed). `RedisClientType = (RedisClient<…> & RedisClientExtensions<…>)` is a `RedisClient`; Prisma's generated `Prisma__UserClient<T> extends Prisma.PrismaPromise<T>`, where `PrismaPromise<T>` is an alias of the runtime's `PrismaPromise<T>`, is a `PrismaPromise`. A project class deriving from `Session` is a `Session`. Assignability is nominal: a structurally compatible type that does not derive from the declaration does not count.
 4. **Generics.** Type arguments are ignored: `list[Session]` is `list`, `scoped_session[Session]` is `scoped_session`.
 5. **Where a declaration is.** Its file decides. Python: under `site-packages` / `dist-packages`, the package is the first path segment (`<pkg>-stubs` counts as `<pkg>`) and the module the dotted path (`sqlalchemy.orm.session`, `__init__` dropped); typeshed's `stdlib/` and `stubs/<dist>/` likewise, and the standard library's own sources (`lib/python3.X/`, where ty's definitions of stdlib functions go: `random.choice` is `random`). TypeScript: under the innermost `node_modules/`, the package is `<name>` or `@scope/name` (`@types/x` counts as `x`, `@types/a__b` as `@a/b`) and the module `<package>/<path in it without extension>` (`zod/v4/classic/schemas`); TypeScript's own `lib.*.d.ts` are package `typescript`. A declaration in the project has no package; its module is its path (Python: dotted, without a leading `src.`). The package is the one that **declares** the type, which may be a library's internal package (Vitest's `expect` is declared in `@vitest/expect`).
 6. **A spec holds** when one declaration or supertype has the package (one of the list), the module (equal, or a prefix by whole segments: `.` in Python, `/` in TypeScript) and the name (one of the list) that the spec gives. With a union, one member is enough: the expression may hold such a value at run time. A condition may give a list of specs (`type: [{package: datetime, name: now}, {package: time, name: time}]`): it holds when one of them does.
 7. **Unknown types.** When the checker does not know the type (Python `Any` and `Unknown`: an unannotated parameter, an unresolved import; TypeScript `any`, `unknown`, an error: no declaration), a spec does not hold, unless it says `unknown: match`. Type constraints therefore rely on typed code, which the type-checking rules enforce: `python/no-unknown` (ruff `ANN001`–`ANN003`, `ANN201`, `ANN202`: annotated parameters and returns) and `python/no-explicit-any` (`ANN401`); `typescript/no-implicit-any` (`noImplicitAny`) and `typescript/no-explicit-any`. Removing an annotation to escape a rule is then itself a finding.
 8. `not` inverts its condition. A metavariable the match did not bind (an `any:` branch without it) is not evaluated.
+9. **Code that is not an expression.** A metavariable bound to code that cannot be bound as an expression (a parameter's or a keyword argument's name, a type) makes the file unparsable once bound: Python, the file with that binding does not parse (Python's `ast`) while the file itself does; TypeScript, the server reports a syntax error (TypeScript's diagnostics 1000–1999) in the code the binding inserts, when the type has no declaration. Its type cannot be asked: the match is reported `forge:forge/types <rule-id> was not checked: <file>:<line>: $<VAR> is bound to `<code>`, which is not an expression: its type cannot be asked` (feedback after an edit, a failure in check.sh), never passed; the file's other expressions are asked without that binding.
 
 **Stubs.** A library whose types the checker sees only through a stub package (`django-stubs`, `celery-types`, `asyncpg-stubs`) is named in the target's `needs: [{ecosystem, name}]`: where the rule applies (§5.1) and the project does not declare that package, the target is not rendered and `forge status` reports `not enforced here: the types engine needs <package> installed …`. Its `examples.deps` must install it.
 
 **Where it runs.** A rule's `where` is rendered into its ast-grep rule file as `metadata: {forge_where: …}`, so each match carries it (`ast-grep scan --include-metadata`). post-edit.sh (§8.1) and check.sh step 3 (§10.1) keep the matches on added lines, then pass those with `forge_where` to `forge_types_filter` (engine.sh), which asks the language's engine and keeps the matches it confirms; other matches are untouched. An engine that cannot start or answer prints `forge:forge/types <rule-id> was not checked: <reason>`: after an edit as feedback, in check.sh as a failure.
 
-**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule MUST have `examples.deps` (packages of its language's ecosystem, exact versions), and its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (a uv environment on the engine's Python, or a `bun install`ed `package.json` whose `tsconfig.json` lists the `@types/*` packages among them in `types`, as a project using their globals does: TypeScript 6 and later include none by default; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
+**Schema and `forge test`.** `where` is allowed on `forbid` and `advise` targets (counted modes would need the base copy's types: not yet), with `scope.language` `python`, `typescript` or `tsx`, on metavariables that occur in the rule. Such a rule's `examples.deps` lists the packages its examples are type-checked against (its language's ecosystem, exact versions); a rule whose types come only from the standard library (Python's, which ty ships) or TypeScript's own `lib.*.d.ts` lists none. Its examples are whole files (imports included). Its ast-grep test proves the `match` examples structurally; then every example is scanned and filtered by the generated `forge_types_filter` in a project holding those packages (none: the standard library or TypeScript alone; a uv environment on the engine's Python, or a `bun install`ed `package.json` whose `tsconfig.json` lists the `@types/*` packages among them in `types`, as a project using their globals does: TypeScript 6 and later include none by default; kept in `$FORGE_EXAMPLES_CACHE`, default `~/.cache/forge/examples/`): a `match` example must keep a match, a `no_match` example none.
 
 ### 15.2 Engines
 
@@ -2362,7 +2410,7 @@ examples:
 - ty's pin follows Forge's rule for its own tools (the newest release older than 14 days; ast-grep, Squawk, zizmor, hadolint) and is embedded in the generated scripts with a revision of the adapters.
 - `uvx` (Python) and `bun` (TypeScript) are required tools of the capability: missing, they are listed by `forge_missing_tools` (SessionStart, `forge status`). `forge apply` provisions the pinned ty (fills the uvx cache), so the hooks run offline afterwards. TypeScript's engine is the project's: the version that type-checks the project answers its type questions, and a project without `node_modules/typescript` gets `forge:forge/types <rule> was not checked: the project has no typescript package …`. The same semantics and the same spec tests hold for TypeScript 5, 6 and 7 (one version of each is pinned in the test tools).
 - The engine answers with the project's own environment: ty finds `.venv` (or `VIRTUAL_ENV`) and the project's `[tool.ty]`; TypeScript reads the project's `tsconfig.json` files and `node_modules`, workspace packages included.
-- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's servers have none). The TypeScript binding `({__forge_tN: (<expr>)}).__forge_tN` declares no name, so the server keeps that version of the file until it changes: one program update per question. To tsserver only the span that differs is sent.
+- Both adapters implement one protocol (§15.3) and the semantics of §15.1; only the way supertypes are found differs (ty has a type hierarchy; TypeScript's servers have none), and TypeScript's servers name an intersection through the inlay hint of the binding's parameter (tsserver `provideInlayHints` with `interactiveInlayHints`, `tsc --lsp` `textDocument/inlayHint` with `inlayHints.parameterTypes`), asked only when `typeDefinition` gives nothing. The TypeScript binding `((__forge_tN = (<expr>)) => __forge_tN)()` declares no name outside the arrow (an arrow keeps `this`; an `await` in the expression is still typed), so the server keeps that version of the file until it changes: one program update per question, and one more for each binding the parser rejects (§15.1 rule 9). To tsserver only the span that differs is sent.
 - **Loading.** The TypeScript adapter loads the project's tsconfig projects (one tracked source file of each `tsconfig.json`) in the background once ready, questions first; while it does, `<state>/types/typescript/loading` exists. After an edit, a question to an engine still loading waits at most `FORGE_TYPES_LOADING_WAIT` seconds (5) and then prints `forge:forge/types <rule-id> was not checked after this edit: the typescript engine (<server>) is still loading the project; the Stop check runs it`; the Stop check and CI wait for the answer. SessionStart starts the engines, so the load usually ends before the first edit.
 
 **Evidence** (Apple M2, 2026-10-26; `typeDefinition` on a receiver; cold = spawn to `initialize` reply; first = `didOpen` + first answer; warm = `didChange` + answer, median of 20; RSS after warm-up):
@@ -2390,7 +2438,7 @@ Through the adapters and the FIFO: a question from a POSIX `sh` client costs 5.6
 
 - **One daemon per language and repository**, in `<state>/types/<lang>/` (the hook state outside the repository, §8): `in` (the request FIFO), `started` (FIFO, start reports), `pid`, `ready` (the server's name and version), `want` (engine pin and adapter revision), `log`, `sessions/`. The adapters are `.forge/helpers/types_python.py` and `.forge/helpers/types_typescript.mjs`.
 - **Start** (`forge_types_up <lang>`): SessionStart starts the engines the active rules use, in the background; any hook that needs an answer starts its engine when it is not running (the same function: there is no other path). A lock directory holding the starter's pid serialises starters; the adapter detaches into its own session (the hook that started it may end) and writes `ready …` or `failed …` to `started`; a launcher failing before it (a first download without network) gives `exited <code>`. A daemon whose `want` differs from the scripts' (another pin, another Forge) is stopped and started again. Starting takes at most `FORGE_TYPES_START_TIMEOUT` seconds (60).
-- **Protocol.** Lines written to `in` are shorter than `PIPE_BUF`, so concurrent writers never interleave, and `in` is opened read-write, so a writer never blocks: `changed<TAB><path>`, `stop`, `restart`, or the absolute path of a question directory, whose `req` holds ast-grep match lines. The client opens the question's `reply` FIFO read-write before asking (the daemon's non-blocking open always finds a reader), reads up to `end` and gives up after `FORGE_TYPES_TIMEOUT` seconds (20). Questions are answered one at a time, in order; parallel hooks queue.
+- **Protocol.** Lines written to `in` are shorter than `PIPE_BUF`, so concurrent writers never interleave, and `in` is opened read-write, so a writer never blocks: `changed<TAB><path>`, `stop`, `restart`, or the absolute path of a question directory, whose `req` holds ast-grep match lines; the `reply` holds the matches whose `forge_where` holds, `error<TAB><why>` (the question failed: its rules are not checked), `unchecked<TAB><rule-id><TAB><why>` per match the engine cannot check (§15.1 rule 9), then `end`. The client opens the question's `reply` FIFO read-write before asking (the daemon's non-blocking open always finds a reader), reads up to `end` and gives up after `FORGE_TYPES_TIMEOUT` seconds (20). Questions are answered one at a time, in order; parallel hooks queue.
 - **What the server sees.** The asked file is read from disk at each question and sent (`didOpen`, then `didChange` with the full text) when it differs from what the server has. Other files reach the server through `changed` lines: post-edit.sh sends every file of the edit (Edit, Write, the files a Bash command changed), turn-start.sh the uncommitted files and those a commit, checkout or pull changed since the previous turn, check.sh its change set. A change to a lock file, `pyproject.toml`, `ty.toml`, `package.json` or `tsconfig*.json` restarts the daemon instead (`restart`): the next question starts it on the new environment. Nothing is written in the repository.
 - **End.** Sessions register when they start the engine or find it running; SessionEnd (`session-end.sh`) unregisters, and the last session to end stops it. A stop is synchronous (`stop<TAB><dir>`: the daemon answers once its language server has exited), so check.sh outside a session (pre-commit, CI), which stops the engines it started, leaves nothing running when it exits. A daemon also exits after `FORGE_TYPES_IDLE` seconds (1800) without a line, and within 10 seconds of its state directory or the repository disappearing, or of another daemon taking its state directory over (its `pid` file names the other one: a start whose starter was killed can race with the next one), whether lines keep coming or not. The start lock holds the starting shell's own pid (not `$$`, which a background subshell outlives), and a starter that gets the lock checks again whether the engine started meanwhile, so concurrent hooks start one engine.
 
@@ -2466,6 +2514,6 @@ enforce:
 2. **The declaration** is what the language's checker answers to `textDocument/definition` at that name, in the file as it is on disk (TypeScript: in the version of §15.1 the server has, the position moved past the bindings). The checker resolves import aliases, namespace imports and re-exports, the project's included (`from numpy import load as read`, `import * as cp from "node:child_process"`, `export { useForm as useAppForm } from "react-hook-form"`): a declaration has the name it is declared with. Overloads and merged declarations each give one. No supertypes are added: a class's subclass is not that class.
 3. **Where it is** decides as in §15.1 rule 5: the package and module of its file, the name it is declared with. A module (`import numpy as np` then `$F` bound to `np`) is declared by its file, with its module's last segment as name (Python).
 4. **Unknown.** A name the checker gives no definition for (an attribute of `Any`, an unresolved name), one whose definition is an import the checker could not resolve (the definition stops at the project's import statement), and an expression that does not end with a name are unknown: the spec does not hold unless it says `unknown: match`.
-5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value.
+5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value. TypeScript's servers answer a called variable with its declarations and then the declaration of the signature it is called with (`useForm`'s for `const make = rhf.useForm; make()`, `NodeJS.Require`'s call signature for a module's own `const require = createRequire(…)`): that last one is what the value is, not what the name refers to, and is left out.
 
 Same engines, daemons, protocol and `forge test` as §15.1: a rule may mix `type` and `declared` conditions on different metavariables. Through the adapters, ty, tsserver (TypeScript 5, 6) and `tsc --lsp` (7) answer `definition` on a name through aliases, namespaces and re-exports; an unresolved import gives the import itself or nothing, and an attribute of `any` / `Any` nothing.

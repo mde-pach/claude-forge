@@ -1,0 +1,27 @@
+id: python/archive-extract
+description: "TarFile.extractall() / extract() and shutil.unpack_archive() pass filter= (normally \"data\"): without it a crafted archive writes outside the target directory (absolute paths, .., links). zipfile sanitises its paths itself."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      any:
+        - pattern: "$T.extractall($$$)"
+        - pattern: "$T.extract($$$)"
+        - {pattern: "$U($$$)", has: {field: function, regex: "unpack_archive$"}}
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^filter[[:space:]]*="}}}
+    # the archive is a tarfile TarFile by its type (§15.1), not any object with extractall() (ruff
+    # S202's way); the function is shutil's unpack_archive (§15.6)
+    where:
+      T: {type: {module: tarfile, name: TarFile}}
+      U: {declared: {module: shutil, name: unpack_archive}}
+examples:
+  match:
+    - "import tarfile\n\n\ndef unpack(path: str) -> None:\n    with tarfile.open(path) as tar:\n        tar.extractall(\"out\")\n"
+    - "import tarfile\n\n\ndef first(tar: tarfile.TarFile) -> None:\n    tar.extract(tar.getmembers()[0], path=\"out\")\n"
+    - "import shutil as sh\n\nsh.unpack_archive(\"upload.tar.gz\", \"out\")\n"
+  no_match:
+    - "import shutil\nimport tarfile\n\n\ndef unpack(path: str) -> None:\n    with tarfile.open(path) as tar:\n        tar.extractall(\"out\", filter=\"data\")\n    shutil.unpack_archive(path, \"out\", filter=\"data\")\n"
+    - "import zipfile\n\n\ndef unpack(path: str) -> None:\n    with zipfile.ZipFile(path) as z:\n        z.extractall(\"out\")\n"
+    - "class Archive:\n    def extractall(self, to: str) -> None:\n        print(to)\n\n\ndef unpack_archive(path: str) -> None:\n    print(path)\n\n\nArchive().extractall(\"out\")\nunpack_archive(\"a.tar\")\n"

@@ -1,6 +1,6 @@
 id: python/pytest/no-exitstatus
 description: "Advice after the edit: an assignment to a pytest Session's exitstatus (decided by its type, pytest's Session) rewrites the suite's result; say what it is for."
-scope: {language: python}
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: advise

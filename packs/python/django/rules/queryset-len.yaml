@@ -1,0 +1,17 @@
+id: python/django/queryset-len
+description: "Advice: len(queryset) loads every row to count them; when the rows are not used afterwards, queryset.count() asks the database for the number (a SELECT COUNT(*))."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {kind: call, pattern: "len($Q)"}
+    # the argument is a Django QuerySet by its type (§15.1), which ty sees through django-stubs
+    where:
+      Q: {type: {package: django, name: QuerySet}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef how_many(title: str) -> int:\n    return len(Article.objects.filter(title=title))\n"
+  no_match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef how_many(title: str) -> int:\n    titles = [a.title for a in Article.objects.filter(title=title)]\n    return Article.objects.filter(title=title).count() + len(titles)\n"

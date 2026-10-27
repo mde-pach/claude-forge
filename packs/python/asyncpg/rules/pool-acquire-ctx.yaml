@@ -1,0 +1,18 @@
+id: python/asyncpg/pool-acquire-ctx
+description: "Advice: a connection is taken from an asyncpg pool with async with pool.acquire() as conn:, not conn = await pool.acquire(): a bare acquire leaks the connection unless every path releases it in finally, and the pool runs dry."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {kind: await, pattern: "await $P.acquire($$$)"}
+    # the receiver is an asyncpg Pool by its type (§15.1), which ty sees through asyncpg-stubs
+    where:
+      P: {type: {package: asyncpg, name: Pool}}
+    needs: [{ecosystem: pypi, name: asyncpg-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: asyncpg, version: "0.32.0"}, {ecosystem: pypi, name: asyncpg-stubs, version: "0.32.0"}]
+  match:
+    - "import asyncpg\n\n\nasync def count(dsn: str) -> int:\n    pool = await asyncpg.create_pool(dsn)\n    conn = await pool.acquire()\n    return await conn.fetchval(\"select count(*) from users\")\n"
+  no_match:
+    - "import asyncpg\n\n\nasync def count(dsn: str) -> int:\n    pool = await asyncpg.create_pool(dsn)\n    async with pool.acquire() as conn:\n        return await conn.fetchval(\"select count(*) from users\")\n"
+    - "import asyncio\n\n\nasync def guarded(lock: asyncio.Lock) -> None:\n    await lock.acquire()\n    lock.release()\n"

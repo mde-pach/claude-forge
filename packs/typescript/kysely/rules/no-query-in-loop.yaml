@@ -1,0 +1,27 @@
+id: typescript/kysely/no-query-in-loop
+description: "A Kysely query's execute() / executeTakeFirst() / executeTakeFirstOrThrow() is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (where … in, a join) or insert an array of values."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: "await $B.$E()"
+      any:
+        - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: for_in_statement}, {kind: while_statement}, {kind: do_statement}]}
+        - inside:
+            stopBy: end
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(map|forEach|flatMap)$"}}}}
+    constraints:
+      E: {regex: "^(execute|executeTakeFirst|executeTakeFirstOrThrow)$"}
+    # the query builder is Kysely's, by its type (§15.1)
+    where:
+      B: {type: {package: kysely}}
+examples:
+  deps: [{ecosystem: npm, name: kysely, version: "0.29.6"}]
+  match:
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  post: { id: number; author_id: number };\n}\n\nexport async function postsOf(db: Kysely<DB>, authorIds: number[]): Promise<number> {\n  let n = 0;\n  for (const authorId of authorIds) {\n    const rows = await db.selectFrom(\"post\").selectAll().where(\"author_id\", \"=\", authorId).execute();\n    n += rows.length;\n  }\n  return n;\n}\n"
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  post: { id: number; author_id: number };\n}\n\nexport function firsts(db: Kysely<DB>, authorIds: number[]) {\n  return Promise.all(authorIds.map(async (id) => await db.selectFrom(\"post\").selectAll().where(\"author_id\", \"=\", id).executeTakeFirst()));\n}\n"
+  no_match:
+    - "import type { Kysely } from \"kysely\";\n\ninterface DB {\n  post: { id: number; author_id: number };\n}\n\nexport async function postsOf(db: Kysely<DB>, authorIds: number[]): Promise<number> {\n  const rows = await db.selectFrom(\"post\").selectAll().where(\"author_id\", \"in\", authorIds).execute();\n  return rows.length;\n}\n"
+    - "class Job {\n  async execute(): Promise<number> {\n    return 1;\n  }\n}\n\nexport async function runAll(jobs: Job[]): Promise<number> {\n  let n = 0;\n  for (const job of jobs) n += await job.execute();\n  return n;\n}\n"

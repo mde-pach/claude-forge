@@ -5997,7 +5997,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -6105,7 +6105,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -11072,7 +11079,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -11180,7 +11187,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -16167,7 +16181,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -16275,7 +16289,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -21283,7 +21304,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -21391,7 +21412,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -22510,7 +22538,10 @@ language: Tsx
 severity: error
 message: "forge:typescript/vitest/no-matcher-override expect.extend does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name. The receiver is Vitest's expect by its type, whatever it is called."
 files:
-  - packages/core/**
+  - packages/core/**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}
+  - packages/core/**/__tests__/**
+  - packages/core/**/vitest.setup.*
+  - packages/core/**/__mocks__/**
 rule:
   kind: call_expression
   all:
@@ -28037,7 +28068,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='b72cd7f2aea6'
+FORGE_TYPES_REV='869071acfeae'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -28145,7 +28176,14 @@ forge_types_filter() {
     # not in a subshell: forge_types_up records what it started (FORGE_TYPES_STARTED)
     if forge_types_up "$_tf_lang" > "$_tf_q/why" && FORGE_TYPES_TIMEOUT=$_tf_t forge_types_ask "$_tf_lang" "$_tf_q" > "$_tf_q/answer" \
       && ! grep -q '^error	' "$_tf_q/answer"; then
-      cat "$_tf_q/answer" >> "$1.kept"
+      grep -v '^unchecked	' "$_tf_q/answer" >> "$1.kept"
+      # a match whose metavariable is bound to code that is not an expression: not checked, never passed
+      if grep -q '^unchecked	' "$_tf_q/answer"; then
+        grep '^unchecked	' "$_tf_q/answer" | while IFS='	' read -r _ _tf_id _tf_why; do
+          printf 'forge:forge/types %s was not checked: %s\n' "$_tf_id" "$_tf_why"
+        done
+        _tf_rc=1
+      fi
     elif [ "${FORGE_TYPES_EDIT:-}" = 1 ] && [ -f "$FORGE_STATE/types/$_tf_lang/loading" ]; then
       grep -o '"ruleId":"[^"]*"' "$_tf_q/req" | sort -u | sed 's/^"ruleId":"//; s/"$//' | while IFS= read -r _tf_id; do
         printf 'forge:forge/types %s was not checked after this edit: the %s engine (%s) is still loading the project; the Stop check runs it\n' "$_tf_id" "$_tf_lang" "$(cat "$FORGE_STATE/types/$_tf_lang/ready" 2>/dev/null)"
@@ -28419,7 +28457,7 @@ forge_end "$fail"
     "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
     "typescript/vitest/no-exit-zero": "72f80ed3f8f01917969112ce7dc7ad9f2d1217cbdd4decc6aaf6d3945fbdaa80",
     "typescript/vitest/no-fewer-expects": "024fda235e5a51a89a17228a7c50b20252b0d5754775f6c72c4c336ef06e03c9",
-    "typescript/vitest/no-matcher-override": "ab5e49345b97db351887751b21576ee7c215ca53f1c84c5246b8ff810a9ee4fd",
+    "typescript/vitest/no-matcher-override": "75a66954dbd8322e3c5a264b303a6bbd8546ccc3324a37a651fb6e9457364e48",
     "typescript/vitest/no-mock-increase": "ba0ee04f03ef25ace93d3f4f3d871d14d73fa3a70fb42d5ea5efbef38d8a164a",
     "typescript/vitest/no-new-skip": "a11e5b84ac571a56a3e001501a3940c6304b239f50cb1655c49e1f6fe1ef61eb",
     "typescript/vitest/no-pass-with-no-tests": "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3",
@@ -28443,14 +28481,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "01027b59f72ae4e3ff639e877dc640a05198c4c085d84f1ae77d6aec59a70c83",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "4505668bced70b827df58ea8f056d53708aac954329b5d962e1ecf42ead37b56",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "8f90833d8c2fd73e5a242f7852f00a581ee52339d87c1031e792c42a856d3861",
+    ".claude/skills/forge-project/scripts/session-start.sh": "3ce2e07955dd9ffd5a792267cc7086d7ba8721a3eddf899a8712546860f3bee6",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "3824cf7feac098ab3aa73555083d170961bddf485da09956b95355a11321a9fe",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "4dda60710499f45daa47b3e5cb949313695f294a711be2d06c505dd3f4ff13db",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "5eed9fbf3055710520034e4a29d15c85b231c8851132860557fa1c859f976e70",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "bc08603f941ca650339a5a252f066a2dbdf54cfa3b6cdc6f37e123edc4769b04",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
@@ -28485,19 +28523,19 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3",
     ".forge/ast-grep/rules/typescript/vitest/no-exit-zero.yml": "84a658b0710d3f94465f30281fe8a151d1fe102d0c4356287f2c7a0db35d5064",
     ".forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml": "ce09707b3825dbe24015fa0d1a91ecf52911f0b70e9e50a3efe1b372948eed8f",
-    ".forge/ast-grep/rules/typescript/vitest/no-matcher-override.yml": "440fc825ec7d4c03c1ae14efca7ea8e4ac6e598c09fa7a978fd8ec1fcdf4fb06",
+    ".forge/ast-grep/rules/typescript/vitest/no-matcher-override.yml": "cdd4ea5329ff9b3941a87a47142580f4027fc0d266cbcdaf97bdeff29f8b2752",
     ".forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml": "a4f2ea4b8ee98221b203601023691970c02a6684d7f473bf870b4138c050af8c",
     ".forge/ast-grep/rules/typescript/vitest/no-new-skip.yml": "a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12",
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "3f928d0eec6ef180e18285a4cbd7a39a00e44142d40e538fb74b43a0b1e455ba",
+    ".forge/check.sh": "dcc3e2c03e87639f3dfe276137aced6d301f67eb5bc946a7cdcf85cfebddff2a",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
     ".forge/helpers/pm_policy.mjs": "cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
-    ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
+    ".forge/helpers/types_typescript.mjs": "66909f35854098f88cc6a2f321fd9124f9efb71d2a6cc28f10ce6b7da7940a58",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -29357,7 +29395,9 @@ process.exit(findings.length ? 1 : 0);
 // tsconfig projects in the background (questions go first). The protocol on
 // <state-dir>/in is the Python engine's (types_python.py): "changed<TAB><path>",
 // "stop", "restart", or the absolute path of a question directory (req: ast-grep
-// matches; reply: the matches whose forge_where holds, "error<TAB>..." lines, "end").
+// matches; reply: the matches whose forge_where holds, "error<TAB>..." lines,
+// "unchecked<TAB><rule id><TAB><why>" for a match whose metavariable's type cannot be
+// asked, "end").
 // A forge_where asks a metavariable's type or the declaration its name refers to
 // (SPECS §15.1, §15.6).
 // Node-compatible: no Bun-only API.
@@ -29450,9 +29490,11 @@ class Lsp extends Base {
       const msg = JSON.parse(this.buf.subarray(sep + 4, sep + 4 + len).toString());
       this.buf = this.buf.subarray(sep + 4 + len);
       if (msg.method && msg.id !== undefined) {
-        // a request from the server (configuration, registrations): answer with defaults
+        // a request from the server (configuration, registrations): defaults, but for the
+        // inlay hints of parameter types (typeOfIntersection below)
         const items = msg.params?.items;
-        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(() => null) : null });
+        const config = (item) => (item.section === "js/ts" || item.section === "typescript" ? { inlayHints: { parameterTypes: { enabled: true } } } : null);
+        this.send({ jsonrpc: "2.0", id: msg.id, result: items ? items.map(config) : null });
       } else if (msg.id !== undefined) {
         this.waiting.get(msg.id)?.(msg.result);
         this.waiting.delete(msg.id);
@@ -29480,7 +29522,7 @@ class Lsp extends Base {
       workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
       capabilities: {
         general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true } },
+        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true }, inlayHint: {}, diagnostic: {} },
         workspace: { configuration: true, workspaceFolders: true },
       },
     });
@@ -29510,6 +29552,19 @@ class Lsp extends Base {
   }
   definition(file, pos) {
     return this.locations("definition", file, pos);
+  }
+  /** The positions of the file's syntax errors (TypeScript's diagnostics 1000-1999: the parser's and grammar errors). */
+  async syntaxErrors(file) {
+    const r = await this.request("textDocument/diagnostic", { textDocument: { uri: uri(file) } });
+    return (r?.items ?? []).filter((d) => d.code >= 1000 && d.code < 2000).map((d) => d.range.start);
+  }
+  /** The inlay hints from <start> to <end>: [{pos, parts: [{text, uri, pos}]}] (uri and pos when the part names a declaration). */
+  async inlayHints(file, start, end) {
+    const r = await this.request("textDocument/inlayHint", { textDocument: { uri: uri(file) }, range: { start, end } });
+    return asArray(r).map((h) => ({
+      pos: h.position,
+      parts: (Array.isArray(h.label) ? h.label : [{ value: h.label }]).map((p) => ({ text: p.value, uri: p.location?.uri, pos: p.location?.range.start })),
+    }));
   }
 }
 
@@ -29553,7 +29608,8 @@ class TsServer extends Base {
     return new Promise((resolve) => this.waiting.set(seq, resolve));
   }
   async start() {
-    await this.command("configure", { preferences: {}, hostInfo: "forge" });
+    // inlay hints of parameter types, with the declarations they name (typeOfIntersection below)
+    await this.command("configure", { preferences: { includeInlayFunctionParameterTypeHints: true, interactiveInlayHints: true }, hostInfo: "forge" });
     return `tsserver ${this.version}`;
   }
   show(file, text) {
@@ -29596,6 +29652,20 @@ class TsServer extends Base {
   }
   definition(file, pos) {
     return this.locations("definition", file, pos);
+  }
+  async syntaxErrors(file) {
+    const body = await this.command("syntacticDiagnosticsSync", { file });
+    return asArray(body).map((d) => ({ line: d.start.line - 1, character: d.start.offset - 1 }));
+  }
+  async inlayHints(file, start, end) {
+    const text = this.shown.get(file);
+    const offset = (p) => indexOf(text, p);
+    const body = await this.command("provideInlayHints", { file, start: offset(start), length: offset(end) - offset(start) });
+    const lsp = (p) => ({ line: p.line - 1, character: p.offset - 1 });
+    return asArray(body).map((h) => ({
+      pos: lsp(h.position),
+      parts: (h.displayParts ?? [{ text: h.text }]).map((p) => ({ text: p.text, uri: p.span ? pathToFileURL(p.span.file).href : undefined, pos: p.span ? lsp(p.span.start) : undefined })),
+    }));
   }
 }
 
@@ -29714,11 +29784,13 @@ function enclosingAlias(text, index) {
 }
 
 /**
- * The declared name at <index> (keywords and comments skipped): { name, end }, with end
- * where a class or interface header's heritage clauses start; an anonymous type gets the
- * name of the alias declaring it, and no heritage (end undefined).
+ * The declared name at <index> (keywords and comments skipped): { name, end, alias }, with
+ * end where a class or interface header's heritage clauses start (or a type alias's type
+ * parameters), alias true for a type alias; an anonymous type gets the name of the alias
+ * declaring it, and no heritage (end undefined).
  */
 function nameAt(text, index) {
+  let alias = false;
   for (let i = skipTrivia(text, index); i < text.length; i = skipTrivia(text, i)) {
     WORD.lastIndex = i;
     const m = WORD.exec(text);
@@ -29726,10 +29798,163 @@ function nameAt(text, index) {
       const name = enclosingAlias(text, i);
       return name ? { name, end: undefined } : undefined;
     }
-    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length };
+    // a type alias: `type` before its name (the server points at the name, or at the statement)
+    if (!KEYWORDS.has(m[0])) return { name: m[0], end: i + m[0].length, alias: alias || /\btype\s+$/.test(text.slice(Math.max(0, i - 64), i)) };
+    alias = m[0] === "type";
     i += m[0].length;
   }
   return undefined;
+}
+
+// words of a type that name no declaration
+const TYPE_WORDS = new Set([
+  "string", "number", "boolean", "bigint", "symbol", "object", "unknown", "any", "never", "void", "null", "undefined", "true", "false",
+  "this", "readonly", "unique", "asserts", "is", "infer", "new", "abstract",
+]);
+
+/** The index just past the group (<>, (), [], {}) opening at <i>; => is not a closing >. */
+function skipGroup(text, i, to = text.length) {
+  let depth = 0;
+  for (let j = i; j < to; ) {
+    const k = skipTrivia(text, j);
+    if (k !== j) {
+      j = k;
+      continue;
+    }
+    const c = text[j];
+    if (c === '"' || c === "'" || c === "`") {
+      j = skipString(text, j);
+      continue;
+    }
+    if (c === "=" && text[j + 1] === ">") {
+      j += 2;
+      continue;
+    }
+    if ("<([{".includes(c)) depth++;
+    else if (">)]}".includes(c) && --depth === 0) return j + 1;
+    j++;
+  }
+  return to;
+}
+
+/**
+ * The positions of the names a type expression (text from <from> to <to>) is made of at
+ * its top level: the type it names, or each member of a union or intersection, through
+ * grouping parentheses (the last segment of a qualified name). Type arguments, object
+ * and tuple literals, function types, indexed accesses and arrays (`T[]`), `typeof` and
+ * `keyof` operands and <skip> (type parameters) name none; a conditional type names none
+ * (it is one of its branches, decided by its arguments).
+ */
+function topLevelNames(text, from, to, skip = new Set()) {
+  const out = [];
+  let i = from;
+  let operand = false; // the next name is an operand of typeof / keyof
+  while (i < to) {
+    i = skipTrivia(text, i);
+    if (i >= to) break;
+    const c = text[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = skipString(text, i);
+      continue;
+    }
+    if (c === "?") return []; // a conditional type
+    if (c === "=" && text[i + 1] === ">") break; // a function type's result
+    if (c === "(") {
+      const end = skipGroup(text, i, to);
+      if (text.startsWith("=>", skipTrivia(text, end))) break; // a function type
+      i++; // grouping: transparent
+      continue;
+    }
+    if (c === ")") {
+      i++;
+      continue;
+    }
+    if ("<[{".includes(c)) {
+      i = skipGroup(text, i, to);
+      continue;
+    }
+    WORD.lastIndex = i;
+    const m = WORD.exec(text);
+    if (!m) {
+      i++;
+      continue;
+    }
+    if (m[0] === "extends") return []; // a conditional type
+    // a qualified name: its last segment (import("m").X: X)
+    let last = i;
+    let j = i + m[0].length;
+    if (m[0] === "import" && text[skipTrivia(text, j)] === "(") {
+      j = skipGroup(text, skipTrivia(text, j), to);
+      last = -1;
+    }
+    while (text[skipTrivia(text, j)] === "." && /[A-Za-z_$]/.test(text[skipTrivia(text, skipTrivia(text, j) + 1)] ?? "")) {
+      const k = skipTrivia(text, skipTrivia(text, j) + 1);
+      WORD.lastIndex = k;
+      const n = WORD.exec(text);
+      last = k;
+      j = k + n[0].length;
+    }
+    if (m[0] === "typeof" || m[0] === "keyof") {
+      operand = true;
+      i = j;
+      continue;
+    }
+    let after = skipTrivia(text, j);
+    if (text[after] === "<") after = skipTrivia(text, skipGroup(text, after, to));
+    const indexed = text[after] === "[";
+    const qualified = last !== i;
+    if (last >= 0 && !operand && !indexed && (qualified || (!TYPE_WORDS.has(m[0]) && !skip.has(m[0])))) out.push(last);
+    operand = false;
+    i = after;
+  }
+  return out;
+}
+
+/**
+ * The positions of the names a type alias's body is made of at its top level
+ * (topLevelNames): from the end of its name, past its type parameters, to the end of its
+ * statement (a ; or a line that does not go on with & or |).
+ */
+function aliasMembers(text, from) {
+  let i = skipTrivia(text, from);
+  const params = new Set();
+  if (text[i] === "<") {
+    const end = skipGroup(text, i);
+    // each type parameter's name: the first word of each item of the list
+    for (let j = skipTrivia(text, i + 1); j < end - 1; ) {
+      WORD.lastIndex = j;
+      const m = WORD.exec(text);
+      if (m) params.add(m[0]);
+      // on to the next item: past groups, to the next , of the list
+      while (j < end - 1 && text[j] !== ",") j = "<([{".includes(text[j]) ? skipGroup(text, j, end) : text[j] === '"' || text[j] === "'" ? skipString(text, j) : j + 1;
+      j = skipTrivia(text, j + 1);
+    }
+    i = skipTrivia(text, end);
+  }
+  if (text[i] !== "=" || text[i + 1] === ">") return [];
+  // the end of the statement
+  let to = text.length;
+  for (let j = i + 1; j < text.length; ) {
+    const k = skipTrivia(text, j);
+    if (k !== j) {
+      const gap = text.slice(j, k);
+      const before = text.slice(i + 1, j).trimEnd();
+      if (gap.includes("\n") && before && !/[&|=,<(]$/.test(before) && !/^[&|]/.test(text.slice(k))) {
+        to = j;
+        break;
+      }
+      j = k;
+      continue;
+    }
+    const c = text[j];
+    if (c === '"' || c === "'" || c === "`") j = skipString(text, j);
+    else if ("<([{".includes(c)) j = skipGroup(text, j);
+    else if (c === ";" || ")]}".includes(c)) {
+      to = j;
+      break;
+    } else j++;
+  }
+  return topLevelNames(text, i + 1, to, params);
 }
 
 /**
@@ -29807,12 +30032,48 @@ function inImport(text, index) {
   return false;
 }
 
+/**
+ * The text with the expressions of <ranges> (string indices) for which <active>(n) holds
+ * each bound to a fresh parameter, ((__forge_t<n> = (<expr>)) => __forge_t<n>)():
+ * {overlay, events (the inserts: [offset, kind, size, n, text]), anchors (n -> [start,
+ * end] of the parameter's name), refs (n -> where the arrow uses it)}.
+ */
+function bindings(text, ranges, active) {
+  // inserts: at each start the opening, at each end the closing; at the same offset,
+  // closings first (inner first), then openings (outer first)
+  const events = [];
+  ranges.forEach(([s, e], n) => {
+    if (!active(n)) return;
+    events.push([s, 1, -(e - s), n, `((__forge_t${n} = (`]);
+    events.push([e, 0, e - s, n, `)) => __forge_t${n})()`]);
+  });
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+  let overlay = "";
+  let last = 0;
+  const anchors = [];
+  const refs = [];
+  for (const [off, kind, , n, piece] of events) {
+    overlay += text.slice(last, off);
+    last = off;
+    if (kind === 1) anchors[n] = [overlay.length + 2, overlay.length + 2 + `__forge_t${n}`.length]; // the parameter's name
+    else refs[n] = overlay.length + 6; // the arrow's use of it
+    overlay += piece;
+  }
+  overlay += text.slice(last);
+  return { overlay, events, anchors, refs };
+}
+
 class Types {
   constructor(server) {
     this.server = server;
     this.cache = new Map();
   }
-  /** The declarations [package, module, name] of the type declared at loc and of the classes and interfaces it extends or implements, transitively. */
+  /**
+   * The declarations [package, module, name] of the type declared at loc and of its
+   * supertypes, transitively: the classes and interfaces it extends or implements and,
+   * for a type alias, the types its body is made of (the one it renames, or the members
+   * of its union or intersection).
+   */
   async hierarchy(loc) {
     const key = `${loc.uri}:${loc.pos.line}:${loc.pos.character}`;
     if (this.cache.has(key)) return this.cache.get(key);
@@ -29831,7 +30092,7 @@ class Types {
       const at = nameAt(text, indexOf(text, l.pos));
       if (!at) continue;
       out.set(`${pkg}\0${mod}\0${at.name}`, [pkg, mod, at.name]);
-      const bases = at.end === undefined ? [] : heritage(text, at.end);
+      const bases = at.end === undefined ? [] : at.alias ? aliasMembers(text, at.end) : heritage(text, at.end);
       const defs = await Promise.all(
         bases.map((b) => this.server.definition(file, position(text, b))),
       );
@@ -29845,9 +30106,12 @@ class Types {
    * wanted: [[match index, variable, start byte, end byte]]. Returns a Map
    * "index\0variable" -> declarations, from the type the server infers for each
    * expression: the file is shown to the server with each expression wrapped as
-   * ({__forge_t<i>: (<expr>)}).__forge_t<i>, in memory only, and the type definition of
-   * that property is asked. named: the same for the declarations names refer to
-   * (declared below), asked on that same version of the file.
+   * ((__forge_t<i> = (<expr>)) => __forge_t<i>)(), in memory only, and the type
+   * definition of that parameter is asked. A type without a declaration of its own (an
+   * intersection, an alias of one) gets none: then the parameter's inlay hint, the type
+   * as the checker prints it with the declaration each name refers to, gives the
+   * declarations of its top-level members (typeOfIntersection). named: the same for the
+   * declarations names refer to (declared below), asked on that same version of the file.
    */
   async check(file, wanted, named = []) {
     const text = fs.readFileSync(file, "utf8");
@@ -29863,39 +30127,70 @@ class Types {
       if (i < 0) i = ranges.push(r) - 1;
       return i;
     });
-    // inserts: at each start the opening, at each end the closing; at the same offset,
-    // closings first (inner first), then openings (outer first)
-    const events = [];
-    ranges.forEach(([s, e], n) => {
-      events.push([s, 1, -(e - s), n, `({__forge_t${n}: (`]);
-      events.push([e, 0, e - s, n, `)}).__forge_t${n}`]);
-    });
-    events.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
-    let overlay = "";
-    let last = 0;
-    const anchors = [];
-    for (const [off, kind, , n, piece] of events) {
-      overlay += text.slice(last, off);
-      last = off;
-      if (kind === 0) anchors[n] = overlay.length + piece.length - 2; // inside the property name
-      overlay += piece;
+    // code that is not an expression (a parameter's or a property's name) makes the file
+    // unparsable once bound: such a binding is dropped and the others asked again, so the
+    // rest of the file is still answered; its matches are not checked
+    const unchecked = new Set();
+    let shown;
+    let results;
+    for (;;) {
+      shown = bindings(text, ranges, (n) => !unchecked.has(n));
+      // the server keeps this version until the file changes: the wrapping binds no name, so
+      // what other files see of this one is unchanged (one program update per question)
+      this.server.show(file, shown.overlay);
+      this.server.texts.set(file, shown.overlay);
+      const { overlay, anchors, refs } = shown;
+      results = await Promise.all(ranges.map((_, n) => (unchecked.has(n) ? [] : this.server.typeDefinition(file, position(overlay, anchors[n][0] + 1)))));
+      const unknown = [];
+      for (const [n, r] of results.entries()) {
+        if (r.length || unchecked.has(n)) continue;
+        results[n] = await this.typeOfIntersection(file, overlay, anchors[n]);
+        if (!results[n].length) unknown.push(n);
+      }
+      // a binding the parser rejects: a syntax error in the code it inserts
+      const errors = unknown.length ? (await this.server.syntaxErrors(file)).map((p) => indexOf(overlay, p)) : [];
+      const inserted = (n) => [
+        [anchors[n][0] - 2, anchors[n][1] + 4], // ((__forge_t<n> = (
+        [refs[n] - 6, refs[n] + `__forge_t${n})()`.length], // )) => __forge_t<n>)()
+      ];
+      const unbound = unknown.filter((n) => errors.some((i) => inserted(n).some(([a, b]) => a <= i && i < b)));
+      if (!unbound.length) break;
+      // the first one: those after it may only be broken by it
+      unchecked.add(unbound.reduce((a, b) => (ranges[b][0] < ranges[a][0] ? b : a)));
     }
-    overlay += text.slice(last);
-    // the server keeps this version until the file changes: the wrapping binds no name, so
-    // what other files see of this one is unchanged (one program update per question)
-    this.server.show(file, overlay);
-    this.server.texts.set(file, overlay);
-    const results = await Promise.all(ranges.map((_, n) => this.server.typeDefinition(file, position(overlay, anchors[n]))));
     const perRange = [];
-    for (const r of results) {
+    for (const [n, r] of results.entries()) {
       const decls = [];
       for (const l of r) decls.push(...(await this.hierarchy(l)));
       // any and unknown have no declaration: the checker does not know the type
-      perRange.push({ decls, unknown: decls.length === 0 });
+      perRange.push({ decls, unknown: decls.length === 0, unchecked: unchecked.has(n) });
     }
-    const found = await this.declared(file, text, raw, named, overlay, events);
+    const found = await this.declared(file, text, raw, named, shown.overlay, shown.events);
     for (const [n, w] of wanted.entries()) found.set(`${w[0]}\0${w[1]}`, perRange[slot[n]]);
     return found;
+  }
+  /**
+   * The declarations of the top-level members of the type of the parameter whose name is
+   * at [start, end) in <overlay>: its inlay hint is the type as the checker prints it
+   * (an alias's name when it has one), each name in it with the declaration it refers to;
+   * the names at the top level of that text (topLevelNames) give the locations. None when
+   * the server gives no hint (any, unknown, an error type print nothing that names a
+   * declaration).
+   */
+  async typeOfIntersection(file, overlay, [start, end]) {
+    const at = position(overlay, end);
+    const hints = await this.server.inlayHints(file, position(overlay, start), at);
+    const hint = hints.find((h) => h.pos.line === at.line && h.pos.character === at.character);
+    if (!hint) return [];
+    // the printed type as one text, with where each part naming a declaration starts
+    let text = "";
+    const named = new Map();
+    for (const p of hint.parts) {
+      if (p.uri && p.pos) named.set(text.length, { uri: p.uri, pos: p.pos });
+      text += p.text;
+    }
+    const from = text.indexOf(":") + 1; // the hint is ": <type>"
+    return topLevelNames(text, from, text.length).flatMap((i) => (named.has(i) ? [named.get(i)] : []));
   }
   /**
    * Map "index\0variable" -> {decls, unknown} of the names in named: the declarations
@@ -29918,7 +30213,14 @@ class Types {
       const at = raw.subarray(0, s).toString("utf8").length + m.index;
       // where the name is in the version shown: past every insert at or before it
       const shift = events.reduce((sum, [off, , , , piece]) => sum + (off <= at ? piece.length : 0), 0);
-      if (!asked.has(at)) asked.set(at, this.server.definition(file, position(shown, at + shift)));
+      if (!asked.has(at)) {
+        // a called name (f(…), f<T>(…), f`…`): the servers add the declaration of the signature
+        // it is called with after the name's own declarations, when that is another one (a
+        // variable holding a function): what it is called with, not what the name refers to
+        const after = skipTrivia(shown, at + shift + m[0].length);
+        const called = "(<`".includes(shown[after] ?? "");
+        asked.set(at, this.server.definition(file, position(shown, at + shift)).then((ls) => (called && ls.length > 1 ? ls.slice(0, -1) : ls)));
+      }
       found.set(`${n}\0${v}`, at);
     }
     const answers = new Map();
@@ -29981,12 +30283,22 @@ async function answer(types, matches) {
   });
   const found = new Map();
   for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
-  return matches.flatMap((m, n) =>
-    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond)) ? [n] : [],
+  // a match with a metavariable whose type cannot be asked is not checked (never passed)
+  const unchecked = matches.flatMap((m, n) => Object.keys(m.metadata?.forge_where ?? {}).filter((v) => found.get(`${n}\0${v}`)?.unchecked).map((v) => [n, v]));
+  const keep = matches.flatMap((m, n) =>
+    !unchecked.some(([u]) => u === n) &&
+    Object.entries(m.metadata?.forge_where ?? {}).every(([v, cond]) => !found.has(`${n}\0${v}`) || holds(found.get(`${n}\0${v}`), cond))
+      ? [n]
+      : [],
   );
+  return { keep, unchecked };
 }
 
 // ---------------------------------------------------------------- the FIFO loop
+
+/** "unchecked<TAB><rule id><TAB><why>": a match the engine cannot check. */
+const uncheckedLine = (m, v) =>
+  `unchecked\t${m.ruleId}\t${m.file}:${m.range.start.line + 1}: $${v} is bound to \`${m.metaVariables.single[v].text.split("\n")[0].slice(0, 40)}\`, which is not an expression: its type cannot be asked`;
 
 function reply(dir, lines) {
   let fd;
@@ -30158,7 +30470,9 @@ async function question(types, dir) {
   }
   const t = performance.now();
   try {
-    for (const n of await answer(types, matches)) out.push(raw[n]);
+    const { keep, unchecked } = await answer(types, matches);
+    for (const n of keep) out.push(raw[n]);
+    for (const [n, v] of unchecked) out.push(uncheckedLine(matches[n], v));
   } catch (e) {
     log("error", e.stack ?? e);
     out.push(`error\t${e.message ?? e}`);
@@ -30185,14 +30499,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-01027b59f72ae4e3ff639e877dc640a05198c4c085d84f1ae77d6aec59a70c83  .claude/skills/forge-project/scripts/post-edit.sh
+4505668bced70b827df58ea8f056d53708aac954329b5d962e1ecf42ead37b56  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-8f90833d8c2fd73e5a242f7852f00a581ee52339d87c1031e792c42a856d3861  .claude/skills/forge-project/scripts/session-start.sh
+3ce2e07955dd9ffd5a792267cc7086d7ba8721a3eddf899a8712546860f3bee6  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-3824cf7feac098ab3aa73555083d170961bddf485da09956b95355a11321a9fe  .claude/skills/forge-project/scripts/test-edit.sh
+4dda60710499f45daa47b3e5cb949313695f294a711be2d06c505dd3f4ff13db  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-5eed9fbf3055710520034e4a29d15c85b231c8851132860557fa1c859f976e70  .claude/skills/forge-project/scripts/typecheck.sh
+bc08603f941ca650339a5a252f066a2dbdf54cfa3b6cdc6f37e123edc4769b04  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
@@ -30227,19 +30541,19 @@ d2b0db54e2b1bb003bf0ff65fab7ee2ffb954b5e276c50ace0d53a821b446abd  .forge/ast-gre
 db9df1c23a73e64e692caa2aa1014e5987a298613dddc37c9113fcfaf28796c3  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 84a658b0710d3f94465f30281fe8a151d1fe102d0c4356287f2c7a0db35d5064  .forge/ast-grep/rules/typescript/vitest/no-exit-zero.yml
 ce09707b3825dbe24015fa0d1a91ecf52911f0b70e9e50a3efe1b372948eed8f  .forge/ast-grep/rules/typescript/vitest/no-fewer-expects.yml
-440fc825ec7d4c03c1ae14efca7ea8e4ac6e598c09fa7a978fd8ec1fcdf4fb06  .forge/ast-grep/rules/typescript/vitest/no-matcher-override.yml
+cdd4ea5329ff9b3941a87a47142580f4027fc0d266cbcdaf97bdeff29f8b2752  .forge/ast-grep/rules/typescript/vitest/no-matcher-override.yml
 a4f2ea4b8ee98221b203601023691970c02a6684d7f473bf870b4138c050af8c  .forge/ast-grep/rules/typescript/vitest/no-mock-increase.yml
 a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12  .forge/ast-grep/rules/typescript/vitest/no-new-skip.yml
 82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-3f928d0eec6ef180e18285a4cbd7a39a00e44142d40e538fb74b43a0b1e455ba  .forge/check.sh
+dcc3e2c03e87639f3dfe276137aced6d301f67eb5bc946a7cdcf85cfebddff2a  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs
 cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc  .forge/helpers/pm_policy.mjs
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
-3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
+66909f35854098f88cc6a2f321fd9124f9efb71d2a6cc28f10ce6b7da7940a58  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

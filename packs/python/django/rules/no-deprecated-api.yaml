@@ -1,0 +1,31 @@
+id: python/django/no-deprecated-api
+description: "From Django 6.1, select_related() names the relations it follows, and values_list(flat=True) names its one field: both forms without arguments are deprecated (and select_related() with none follows every non-null foreign key)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      any:
+        - pattern: "$Q.select_related()"
+        - all:
+            - pattern: "$Q.values_list($$$)"
+            - has:
+                field: arguments
+                all:
+                  - has: {kind: keyword_argument, regex: "^flat[[:space:]]*=[[:space:]]*True$"}
+                  - not: {has: {nthChild: 1, not: {kind: keyword_argument}}}
+    # the receiver is a Django QuerySet or manager by its type (§15.1), which ty sees through
+    # django-stubs
+    where:
+      Q: {type: {package: django, name: [QuerySet, BaseManager]}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+when:
+  deps: [{ecosystem: pypi, name: django, version: ">=6.1"}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef everything() -> list[Article]:\n    return list(Article.objects.select_related())\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef ids() -> list[int]:\n    return list(Article.objects.filter(title=\"a\").values_list(flat=True))\n"
+  no_match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef everything() -> list[Article]:\n    return list(Article.objects.select_related(\"author\"))\n\n\ndef titles() -> list[str]:\n    return list(Article.objects.values_list(\"title\", flat=True))\n"

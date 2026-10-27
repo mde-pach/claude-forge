@@ -16,9 +16,8 @@ enforce:
           has: {field: property, regex: "^where$"}
           stopBy:
             not: {any: [{kind: member_expression}, {kind: call_expression}]}
-    # the receiver is a Drizzle database (a transaction extends it), not any object with delete().
-    # drizzle()'s result is an intersection (NodePgDatabase & { $client }), which the types
-    # engine does not resolve yet: such a db is not checked until it does.
+    # the receiver is a Drizzle database (a transaction extends it), not any object with delete();
+    # drizzle()'s result is an intersection (NodePgDatabase & { $client }): its member counts (§15.1)
     where:
       DB: {type: {package: drizzle-orm, name: [PgDatabase, MySqlDatabase, BaseSQLiteDatabase, SingleStoreDatabase, GelDatabase]}}
 examples:
@@ -26,6 +25,7 @@ examples:
   match:
     - "import type { NodePgDatabase } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\n\nexport async function wipe(db: NodePgDatabase) {\n  await db.delete(users);\n}\n"
     - "import { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function rename(name: string) {\n  await db.transaction(async (tx) => {\n    await tx.update(users).set({ name }).returning();\n  });\n}\n"
+    - "import { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function wipe() {\n  await db.delete(users);\n}\n"
   no_match:
     - "import { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), name: text(\"name\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function remove(id: number, name: string) {\n  await db.delete(users).where(eq(users.id, id));\n  await db.update(users).set({ name }).where(eq(users.id, id)).returning();\n}\n"
     - "const cache = new Map<string, number>();\n\nexport function drop(key: string) {\n  cache.delete(key);\n}\n"

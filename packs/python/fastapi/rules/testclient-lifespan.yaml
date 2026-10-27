@@ -1,6 +1,6 @@
 id: python/fastapi/testclient-lifespan
 description: "Advice: TestClient(app) is entered as a context manager (with TestClient(app) as client:, a fixture yielding inside the with): otherwise the app's lifespan never runs, and startup work such as opening the database pool is skipped."
-scope: {language: python}
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: advise

@@ -57,6 +57,7 @@ describe("the pack tree", () => {
     expect(activePacks("fastapi-app")).toEqual([
       "git",
       "python",
+      "python/asyncpg",
       "python/fastapi",
       "python/pydantic",
       "python/pytest",

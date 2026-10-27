@@ -399,8 +399,8 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
       for (const v of Object.keys(typed.where!)) if (!text.includes(`$${v}`)) failures.push(`${r.id}: where: $${v} is not a metavariable of the rule`);
       if (!["python", "typescript", "tsx"].includes(r.scope.language)) failures.push(`${r.id}: where needs scope.language python, typescript or tsx`);
       const eco = typesLanguage(r, typed) === "python" ? "pypi" : "npm";
-      if (!r.examples?.deps?.length) failures.push(`${r.id}: where needs examples.deps (the packages its examples are type-checked against)`);
-      else if (r.examples.deps.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
+      // without examples.deps, the examples are type-checked against the standard library (Python) or TypeScript's own lib only
+      if (r.examples?.deps?.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
       for (const n of typed.needs ?? []) if (!r.examples?.deps?.some((d) => d.ecosystem === n.ecosystem && d.name === n.name)) failures.push(`${r.id}: needs ${n.name}, so examples.deps must install it`);
     } else if (r.examples?.deps) failures.push(`${r.id}: examples.deps is for rules with a where`);
   }
@@ -445,7 +445,7 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
   }
 
   // examples of rules with type constraints, through the types engine (§15.1)
-  const typedRules = astRules.filter((r) => r.enforce.some((t) => t.target === "ast-grep" && t.where) && r.examples?.deps?.length);
+  const typedRules = astRules.filter((r) => r.enforce.some((t) => t.target === "ast-grep" && t.where));
   counts.types = typedRules.length;
   if (typedRules.length) typesExamples(typedRules, { failures, notes, counts });
 
@@ -583,7 +583,7 @@ export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: s
   if (lang === "python") {
     writeFileSync(join(dir, "pyproject.toml"), `[project]\nname = "forge-examples"\nversion = "0"\nrequires-python = ">=${ENGINE_PYTHON}"\n`);
     let r = run("uv", ["venv", "-q", "--python", ENGINE_PYTHON, join(dir, ".venv")]);
-    if (r.status === 0) r = run("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), ...deps.map((d) => `${d.name}==${d.version}`)]);
+    if (r.status === 0 && deps.length) r = run("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), ...deps.map((d) => `${d.name}==${d.version}`)]);
     if (r.status !== 0) return { error: `uv: ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}` };
   } else {
     // the types engine is the project's TypeScript (§15.2): the examples get one unless deps name it
@@ -632,14 +632,15 @@ function typesExamples(rules: Rule[], report: TestReport): void {
   for (const r of rules) {
     const t = r.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep" && !!x.where)!;
     const lang = typesLanguage(r, t)!;
-    const key = JSON.stringify([lang, r.examples!.deps]);
-    if (!groups.has(key)) groups.set(key, { lang, deps: r.examples!.deps!, rules: [] });
+    const deps = r.examples?.deps ?? [];
+    const key = JSON.stringify([lang, deps]);
+    if (!groups.has(key)) groups.set(key, { lang, deps, rules: [] });
     groups.get(key)!.rules.push(r);
   }
   for (const { lang, deps, rules: group } of groups.values()) {
     const project = examplesProject(lang, deps);
     if (!project.dir) {
-      failures.push(`types examples (${deps.map((d) => `${d.name}@${d.version}`).join(", ")}): ${project.error}`);
+      failures.push(`types examples (${describeDeps(lang, deps)}): ${project.error}`);
       continue;
     }
     const sg = mkdtempSync(join(tmpdir(), "forge-types-sg-"));
@@ -686,13 +687,17 @@ function typesExamples(rules: Rule[], report: TestReport): void {
         if (kind === "match" && !got) failures.push(`${rule.id}: match example ${i + 1} is not matched with types (${describeWhere(rule)})`);
         if (kind === "no_match" && got) failures.push(`${rule.id}: no_match example ${i + 1} is matched with types (${describeWhere(rule)})`);
       }
-      notes.push(`types (${lang}): ${expected.size} examples of ${group.length} rule(s) checked with ${deps.map((d) => `${d.name}@${d.version}`).join(", ")}`);
+      notes.push(`types (${lang}): ${expected.size} examples of ${group.length} rule(s) checked with ${describeDeps(lang, deps)}`);
     } finally {
       rmSync(sg, { recursive: true, force: true });
       rmSync(state, { recursive: true, force: true });
       rmSync(ex, { recursive: true, force: true });
     }
   }
+}
+
+function describeDeps(lang: TypesLanguage, deps: DepSpec[]): string {
+  return deps.length ? deps.map((d) => `${d.name}@${d.version}`).join(", ") : lang === "python" ? "the standard library" : `TypeScript ${EXAMPLES_TYPESCRIPT}'s lib`;
 }
 
 function describeWhere(rule: Rule): string {

@@ -1,13 +1,25 @@
 id: python/log-exception
-description: Inside except, log with logger.exception (keeps the traceback), not logger.error.
-scope: {language: "python"}
+description: "Inside except, a logging Logger or LoggerAdapter logs the failure with .exception(…) (or passes exc_info=), not .error(…): .error drops the traceback."
+scope: {language: python}
 enforce:
-  - target: tool
-    tool: ruff
-    expects: "TRY400"
-    snippet: "[tool.ruff.lint] extend-select = [\"TRY400\"]"
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "$L.error($$$)"
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^exc_info[[:space:]]*="}}}
+      inside:
+        kind: except_clause
+        # a function or class defined in the handler logs on its own
+        stopBy: {any: [{kind: function_definition}, {kind: lambda}, {kind: class_definition}]}
+    # the receiver is a logging Logger by its type (§15.1), whatever it is called; the root
+    # logger's logging.error(…) is python/no-root-logger's
+    where:
+      L: {type: {module: logging, name: [Logger, LoggerAdapter]}}
 examples:
   match:
-    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.error(\"payment failed\")\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef pay() -> None: ...\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.error(\"payment failed\")\n"
+    - "import logging\n\nbilling = logging.LoggerAdapter(logging.getLogger(\"billing\"), {\"shop\": 1})\n\n\ndef pay() -> None: ...\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except (ValueError, KeyError) as err:\n        if err.args:\n            billing.error(\"payment failed: %s\", err)\n"
   no_match:
-    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.exception(\"payment failed\")\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef pay() -> None: ...\n\n\ndef charge() -> None:\n    try:\n        pay()\n    except ValueError:\n        logger.exception(\"payment failed\")\n    except KeyError:\n        logger.error(\"no such account\", exc_info=True)\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef charge(amount: int) -> None:\n    if amount < 0:\n        logger.error(\"negative amount\")\n"
+    - "class Console:\n    def error(self, text: str) -> None:\n        print(text)\n\n\nlog = Console()\n\n\ndef parse(text: str) -> int:\n    try:\n        return int(text)\n    except ValueError:\n        log.error(\"not a number\")\n        return 0\n"

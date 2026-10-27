@@ -1,0 +1,21 @@
+id: python/no-ssl-verify-off
+description: "No check_hostname = False or verify_mode = CERT_NONE on an ssl SSLContext: it turns off certificate and hostname verification for every connection made with the context."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - pattern: "$C.check_hostname = False"
+        - {pattern: "$C.verify_mode = $V", has: {field: right, regex: "CERT_NONE$"}}
+    # the context is an ssl SSLContext by its type (§15.1); CERT_NONE is ssl's (§15.6)
+    where:
+      C: {type: {module: ssl, name: SSLContext}}
+      V: {declared: {module: ssl, name: CERT_NONE}}
+examples:
+  match:
+    - "import ssl\n\nctx = ssl.create_default_context()\nctx.check_hostname = False\n"
+    - "from ssl import CERT_NONE, SSLContext, PROTOCOL_TLS_CLIENT\n\n\ndef client() -> SSLContext:\n    context = SSLContext(PROTOCOL_TLS_CLIENT)\n    context.verify_mode = CERT_NONE\n    return context\n"
+  no_match:
+    - "import ssl\n\nctx = ssl.create_default_context()\nctx.verify_mode = ssl.CERT_REQUIRED\nctx.check_hostname = True\n"
+    - "class Settings:\n    check_hostname = True\n\n\nsettings = Settings()\nsettings.check_hostname = False\n"

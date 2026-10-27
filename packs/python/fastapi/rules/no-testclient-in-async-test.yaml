@@ -1,6 +1,6 @@
 id: python/fastapi/no-testclient-in-async-test
 description: "No TestClient inside an async def: it runs the app on another event loop in a thread, so async fixtures (database sessions, pools) cross loops and fail or hang. Use httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=\"http://test\")."
-scope: {language: python}
+scope: {language: python, files: ["@python-tests"]}
 enforce:
   - target: ast-grep
     mode: forbid

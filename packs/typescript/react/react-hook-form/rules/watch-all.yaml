@@ -1,0 +1,19 @@
+id: typescript/react/react-hook-form/watch-all
+description: "Advice: watch named fields (useWatch({ control, name: \"email\" }) or watch(\"email\")), not watch() with no argument: it subscribes to the whole form, so every keystroke re-renders the component, and it defeats React Compiler's memoization."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {kind: call_expression, pattern: "$W()"}
+    # the function is useForm()'s watch, by its type (§15.1): UseFormWatch, an alias of an
+    # object type literal, however it is destructured or renamed
+    where:
+      W: {type: {package: react-hook-form, name: UseFormWatch}}
+examples:
+  deps: [{ecosystem: npm, name: react-hook-form, version: "7.66.0"}, {ecosystem: npm, name: react, version: "19.2.0"}, {ecosystem: npm, name: "@types/react", version: "19.2.2"}]
+  match:
+    - "import { useForm } from \"react-hook-form\";\n\nexport function useSignup() {\n  const { watch } = useForm<{ email: string; name: string }>();\n  const values = watch();\n  return values.email;\n}\n"
+    - "import { useForm } from \"react-hook-form\";\n\nexport function useSignup() {\n  const form = useForm<{ email: string }>();\n  return form.watch();\n}\n"
+  no_match:
+    - "import { useForm, useWatch } from \"react-hook-form\";\n\nexport function useSignup() {\n  const { watch, control } = useForm<{ email: string; name: string }>();\n  const email = watch(\"email\");\n  const name = useWatch({ control, name: \"name\" });\n  return email + name;\n}\n"
+    - "const watch = (): number => 1;\n\nexport const v = watch();\n"

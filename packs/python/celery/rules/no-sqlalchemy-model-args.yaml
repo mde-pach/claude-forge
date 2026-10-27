@@ -1,0 +1,50 @@
+id: python/celery/no-sqlalchemy-model-args
+description: "A task's arguments (.delay(…), .s(…), .si(…), apply_async(args=…, kwargs=…)) are not SQLAlchemy mapped instances: they are serialized at send time, detached from their session and stale when the worker runs. Pass the primary key and load the row in the task."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        - any: [{kind: identifier}, {kind: attribute}, {kind: call}, {kind: subscript}]
+        - pattern: $A
+        # not a keyword argument's name
+        - not: {inside: {kind: keyword_argument, field: name, stopBy: neighbor}}
+      any:
+        # .delay(a), .s(a), .si(a), keyword arguments included
+        - inside:
+            kind: argument_list
+            stopBy: neighbor
+            inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^(delay|s|si)$"}}]}}
+        - inside:
+            kind: keyword_argument
+            stopBy: neighbor
+            inside:
+              kind: argument_list
+              stopBy: neighbor
+              inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^(delay|s|si)$"}}]}}
+        # .apply_async(args=[a], kwargs={"k": a})
+        - inside:
+            any: [{kind: list}, {kind: tuple}, {kind: pair}]
+            stopBy: neighbor
+            inside:
+              stopBy: end
+              kind: keyword_argument
+              regex: "^(args|kwargs)[[:space:]]*="
+              inside:
+                kind: argument_list
+                stopBy: neighbor
+                inside: {kind: call, stopBy: neighbor, has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $T}}, {has: {field: attribute, regex: "^apply_async$"}}]}}
+    # a Celery task (§15.1, through celery-types) given an instance of a DeclarativeBase model
+    where:
+      T: {type: {package: celery, name: Task}}
+      A: {type: {package: sqlalchemy, name: DeclarativeBase}}
+    needs: [{ecosystem: pypi, name: celery-types}]
+when:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: ">=2.0"}]
+examples:
+  deps: [{ecosystem: pypi, name: celery, version: "5.6.3"}, {ecosystem: pypi, name: celery-types, version: "0.26.0"}, {ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - "from celery import shared_task\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n\n\n@shared_task\ndef welcome(user: User) -> None:\n    print(user.id)\n\n\ndef signup(db: Session, pk: int) -> None:\n    user = db.get_one(User, pk)\n    welcome.delay(user)\n"
+  no_match:
+    - "from celery import shared_task\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass User(Base):\n    __tablename__ = \"users\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n\n\n@shared_task\ndef welcome(user_id: int) -> None:\n    print(user_id)\n\n\ndef signup(db: Session, pk: int) -> None:\n    user = db.get_one(User, pk)\n    welcome.delay(user.id)\n    welcome.delay(user_id=user.id)\n    user_id = user.id\n    welcome.delay(user_id=user_id)\n"

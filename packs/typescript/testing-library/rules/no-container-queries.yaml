@@ -1,0 +1,38 @@
+id: typescript/testing-library/no-container-queries
+description: "Advice: a test queries what the user sees through screen (getByRole, getByLabelText, getByText), not render()'s container with querySelector / querySelectorAll: a CSS selector ties the test to the markup and passes for elements no user can reach."
+scope: {language: typescript, files: ["@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        # render(…).container.querySelector(…)
+        - kind: call_expression
+          has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^querySelector(All)?$"}
+              - has: {field: object, kind: member_expression, all: [{has: {field: property, regex: "^container$"}}, {has: {field: object, pattern: $R}}]}
+        # const { container } = render(…)
+        - kind: variable_declarator
+          all:
+            - has: {field: name, kind: object_pattern, has: {kind: shorthand_property_identifier_pattern, regex: "^container$"}}
+            - has: {field: value, pattern: $R}
+    # the object is @testing-library/react's RenderResult (§15.1: an alias of an intersection)
+    where:
+      R: {type: {package: "@testing-library/react", name: RenderResult}}
+examples:
+  deps:
+    - {ecosystem: npm, name: "@testing-library/react", version: "16.3.0"}
+    - {ecosystem: npm, name: "@testing-library/dom", version: "10.4.1"}
+    - {ecosystem: npm, name: react, version: "19.2.0"}
+    - {ecosystem: npm, name: react-dom, version: "19.2.0"}
+    - {ecosystem: npm, name: "@types/react", version: "19.2.2"}
+    - {ecosystem: npm, name: "@types/react-dom", version: "19.2.2"}
+  match:
+    - "import { render } from \"@testing-library/react\";\nimport { createElement } from \"react\";\n\nexport function title() {\n  const view = render(createElement(\"h1\", null, \"Hi\"));\n  return view.container.querySelector(\"h1\");\n}\n"
+    - "import { render } from \"@testing-library/react\";\nimport { createElement } from \"react\";\n\nexport function items() {\n  const { container } = render(createElement(\"ul\"));\n  return container.childElementCount;\n}\n"
+  no_match:
+    - "import { render, screen } from \"@testing-library/react\";\nimport { createElement } from \"react\";\n\nexport function title() {\n  render(createElement(\"h1\", null, \"Hi\"));\n  return screen.getByRole(\"heading\", { name: \"Hi\" });\n}\n"
+    - "const page = { container: document.body };\n\nexport const first = page.container.querySelector(\"h1\");\nexport const { container } = page;\n"

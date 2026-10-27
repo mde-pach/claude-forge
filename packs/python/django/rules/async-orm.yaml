@@ -1,0 +1,29 @@
+id: python/django/async-orm
+description: "Inside an async def, the ORM is used through its async API: asave() / adelete() / arefresh_from_db() on a model, aget() / afirst() / acount() / aexists() / acreate() / aupdate() / … on a QuerySet or manager, async for over a QuerySet. The sync calls raise SynchronousOnlyOperation when they run; wrap sync code in sync_to_async."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        # the innermost function is an async def (a lambda or a sync def inside it runs elsewhere)
+        - inside: {kind: function_definition, regex: "^async\\s", stopBy: {any: [{kind: function_definition}, {kind: lambda}]}}
+        - any:
+            - {kind: call, pattern: "$R.$METHOD($$$)"}
+            - {kind: for_statement, pattern: "for $X in $R: $$$B", not: {regex: "^async\\s"}}
+    constraints:
+      METHOD: {regex: "^(save|delete|refresh_from_db|full_clean|get|first|last|count|exists|create|get_or_create|update_or_create|update|aggregate|in_bulk|bulk_create|bulk_update|earliest|latest|contains|iterator)$"}
+    # the receiver is a Django model, QuerySet or manager by its type (§15.1), which ty sees
+    # through django-stubs
+    where:
+      R: {type: {package: django, name: [Model, QuerySet, BaseManager]}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nasync def rename(pk: int, title: str) -> None:\n    article = await Article.objects.aget(pk=pk)\n    article.title = title\n    article.save()\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nasync def count_titled(title: str) -> int:\n    return Article.objects.filter(title=title).count()\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nasync def titles() -> list[str]:\n    out = []\n    for article in Article.objects.all():\n        out.append(article.title)\n    return out\n"
+  no_match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nasync def rename(pk: int, title: str) -> int:\n    article = await Article.objects.aget(pk=pk)\n    article.title = title\n    await article.asave()\n    out = [a.title async for a in Article.objects.all()]\n    async for a in Article.objects.filter(title=title):\n        out.append(a.title)\n    return await Article.objects.filter(title=title).acount() + len(out)\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\ndef count_titled(title: str) -> int:\n    return Article.objects.filter(title=title).count()\n\n\nasync def lookup(cache: dict[str, int], key: str) -> int | None:\n    def sync_count() -> int:\n        return Article.objects.count()\n\n    print(sync_count)\n    return cache.get(key)\n"
