@@ -1,0 +1,12 @@
+id: typescript/prisma/applied-migrations
+description: Prisma migrations already in the base (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev).
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: "forge_applied_migrations @prisma-migrations"}
+examples:
+  match:
+    - head: {prisma/schema.prisma: "datasource db {\n  provider = \"postgresql\"\n}\n", prisma/migrations/20260101000000_init/migration.sql: "CREATE TABLE \"User\" (\"id\" SERIAL NOT NULL);\n"}
+      files: {prisma/migrations/20260101000000_init/migration.sql: "CREATE TABLE \"User\" (\"id\" SERIAL NOT NULL, \"name\" TEXT);\n"}
+  no_match:
+    - head: {prisma/schema.prisma: "datasource db {\n  provider = \"postgresql\"\n}\n", prisma/migrations/20260101000000_init/migration.sql: "CREATE TABLE \"User\" (\"id\" SERIAL NOT NULL);\n"}
+      files: {prisma/migrations/20260102000000_name/migration.sql: "ALTER TABLE \"User\" ADD COLUMN \"name\" TEXT;\n", prisma/schema.prisma: "datasource db {\n  provider = \"postgresql\"\n}\n\nmodel User {\n  id   Int     @id @default(autoincrement())\n  name String?\n}\n"}

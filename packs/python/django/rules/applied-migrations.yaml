@@ -1,0 +1,12 @@
+id: python/django/applied-migrations
+description: Django migrations already in the base (file role @django-migrations) are not modified or deleted; they may already be applied, so a change goes in a new migration (makemigrations).
+scope: {language: any}
+enforce:
+  - {target: check, stage: migration, run: "forge_applied_migrations @django-migrations"}
+examples:
+  match:
+    - head: {shop/migrations/__init__.py: "", shop/migrations/0001_initial.py: "from django.db import migrations, models\n\n\nclass Migration(migrations.Migration):\n    initial = True\n    operations = [migrations.CreateModel(\"Order\", [(\"id\", models.BigAutoField(primary_key=True))])]\n"}
+      files: {shop/migrations/0001_initial.py: "from django.db import migrations, models\n\n\nclass Migration(migrations.Migration):\n    initial = True\n    operations = [migrations.CreateModel(\"Order\", [(\"id\", models.BigAutoField(primary_key=True)), (\"paid\", models.BooleanField(default=False))])]\n"}
+  no_match:
+    - head: {shop/migrations/__init__.py: "", shop/migrations/0001_initial.py: "from django.db import migrations, models\n\n\nclass Migration(migrations.Migration):\n    initial = True\n    operations = [migrations.CreateModel(\"Order\", [(\"id\", models.BigAutoField(primary_key=True))])]\n"}
+      files: {shop/migrations/0002_order_paid.py: "from django.db import migrations, models\n\n\nclass Migration(migrations.Migration):\n    dependencies = [(\"shop\", \"0001_initial\")]\n    operations = [migrations.AddField(\"order\", \"paid\", models.BooleanField(default=False))]\n", shop/migrations/__init__.py: "# migrations\n"}
