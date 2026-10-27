@@ -1,0 +1,17 @@
+id: python/no-bidi-chars
+description: No bidirectional-control or zero-width-space characters in source (they make code read differently from how it runs).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLE2502
+    snippet: '[tool.ruff.lint] extend-select = ["PLE2502"]'
+  - target: tool
+    tool: ruff
+    expects: PLE2515
+    snippet: '[tool.ruff.lint] extend-select = ["PLE2515"]'
+examples:
+  match:
+    - "access_level = \"user\"\nif access_level != \"none\u202e \u2066\":  # admin\n    pass\nname = \"ad\u200bmin\"\n"
+  no_match:
+    - "greeting = \"שלום\"\nname = \"admin\"\n"

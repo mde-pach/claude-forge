@@ -1,10 +1,13 @@
 id: python/uv/no-pip
-description: Dependencies are added with uv add, not pip install.
+description: Dependencies are added with uv add and the environment is uv's; Claude asks before pip install, other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv.
 scope: {language: any}
 enforce:
   - target: guard
     decision: ask
     pattern: '(^|[^A-Za-z0-9_-])(pip3?|uv[[:space:]]+pip|python[0-9.]*[[:space:]]+-m[[:space:]]+pip)[[:space:]]+install([[:space:];&|)]|$)'
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_./-])(poetry[[:space:]]+(add|install)|pipenv[[:space:]]+install|pdm[[:space:]]+(add|install)|(conda|mamba|micromamba)[[:space:]]+install|python[0-9.]*[[:space:]]+-m[[:space:]]+(venv|virtualenv)|virtualenv)([[:space:];&|)]|$)'
 examples:
-  match: ["pip install requests", "pip3 install -r requirements.txt", "uv pip install httpx", "python -m pip install x"]
-  no_match: ["uv add requests", "pip list", "uv sync"]
+  match: ["pip install requests", "pip3 install -r requirements.txt", "uv pip install httpx", "python -m pip install x", "poetry add httpx", "pipenv install", "pdm add httpx", "conda install numpy", "micromamba install -c conda-forge numpy", "python3 -m venv .venv", "virtualenv venv && source venv/bin/activate"]
+  no_match: ["uv add requests", "pip list", "uv sync", "uv venv", "poetry show", "conda list", "ls ~/.virtualenvs", "cat docs/virtualenv.md"]

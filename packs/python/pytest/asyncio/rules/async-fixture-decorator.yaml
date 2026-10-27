@@ -1,0 +1,20 @@
+id: python/pytest/asyncio/async-fixture-decorator
+description: "async def fixtures use @pytest_asyncio.fixture, not @pytest.fixture (which strict mode, the default, does not run as a coroutine)."
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: function_definition
+      regex: "^async\\s"
+      inside:
+        kind: decorated_definition
+        stopBy: neighbor
+        has: {kind: decorator, regex: "^@pytest\\.fixture\\b"}
+examples:
+  match:
+    - "import httpx\nimport pytest\n\n\n@pytest.fixture\nasync def client():\n    async with httpx.AsyncClient() as c:\n        yield c\n"
+    - "import pytest\n\n\n@pytest.fixture(scope=\"module\")\nasync def db():\n    return await connect()\n"
+  no_match:
+    - "import httpx\nimport pytest_asyncio\n\n\n@pytest_asyncio.fixture\nasync def client():\n    async with httpx.AsyncClient() as c:\n        yield c\n"
+    - "import pytest\n\n\n@pytest.fixture\ndef settings():\n    return {\"debug\": True}\n"

@@ -1,0 +1,28 @@
+id: python/typer/annotated-params
+description: "Typer parameters use Annotated (name: Annotated[str, typer.Option()] = \"x\"), not a typer.Option() / typer.Argument() default value."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: default_parameter}
+        - {kind: typed_default_parameter}
+      has:
+        field: value
+        kind: call
+        has:
+          field: function
+          any:
+            - regex: "^typer\\.(Option|Argument)$"
+            # Option / Argument imported from typer by those names (typer's own API names)
+            - all:
+                - regex: "^(Option|Argument)$"
+                - inside: {kind: module, stopBy: end, has: {kind: import_from_statement, regex: "^from\\s+typer\\s+import\\s[^;]*\\b(Option|Argument)\\s*(,|\\)|$)"}}
+examples:
+  match:
+    - "import typer\n\napp = typer.Typer()\n\n\n@app.command()\ndef greet(name: str = typer.Argument(...), loud: bool = typer.Option(False, \"--loud\")) -> None:\n    print(name.upper() if loud else name)\n"
+    - "from typer import Option, Typer\n\napp = Typer()\n\n\n@app.command()\ndef serve(port: int = Option(8000)) -> None:\n    print(port)\n"
+  no_match:
+    - "from typing import Annotated\n\nimport typer\n\napp = typer.Typer()\n\n\n@app.command()\ndef greet(name: Annotated[str, typer.Argument()], loud: Annotated[bool, typer.Option(\"--loud\")] = False) -> None:\n    print(name.upper() if loud else name)\n"
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Option:\n    value: int\n\n\ndef make(o: Option = Option(1)) -> Option:\n    return o\n"

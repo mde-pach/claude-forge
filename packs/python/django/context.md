@@ -3,3 +3,4 @@ SQL in `.raw()`, `cursor.execute()` and `RawSQL()` takes `%s` placeholders and a
 List views, serializers and templates that touch related objects load them with `select_related()` (foreign keys, one-to-one) or `prefetch_related()` (many-to-many, reverse relations); a query per row (N+1) is the usual slowdown.
 Several writes that must succeed or fail together run inside `transaction.atomic()`; work that must see the committed rows (tasks, emails) goes in `transaction.on_commit()`.
 HTML built in Python goes through `format_html()` (`mark_safe()` on text that is not a constant is rejected, ruff S308). `@csrf_exempt` is the user's decision: ask before adding it.
+Tests that assert what a `transaction.on_commit()` callback does run it with `django_capture_on_commit_callbacks(execute=True)` (pytest-django) or `TestCase.captureOnCommitCallbacks(execute=True)`, not with `django_db(transaction=True)` / `TransactionTestCase` for that alone.

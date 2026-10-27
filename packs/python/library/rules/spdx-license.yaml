@@ -1,0 +1,14 @@
+id: python/library/spdx-license
+description: "[project] license is an SPDX expression string (PEP 639: license = \"MIT\", with license-files), not a {text = ...} / {file = ...} table, and there is no License :: classifier."
+scope: {language: any, files: ["**/pyproject.toml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*license[[:space:]]*=[[:space:]]*\\{|\"License ::"
+examples:
+  match:
+    - "[project]\nname = \"lib\"\nlicense = {text = \"MIT\"}\n"
+    - "[project]\nname = \"lib\"\nlicense = { file = \"LICENSE\" }\n"
+    - "[project]\nclassifiers = [\n  \"License :: OSI Approved :: MIT License\",\n]\n"
+  no_match:
+    - "[project]\nname = \"lib\"\nlicense = \"MIT\"\nlicense-files = [\"LICENSE\"]\nclassifiers = [\"Programming Language :: Python :: 3\"]\n"

@@ -1,0 +1,13 @@
+id: python/misplaced-bare-raise
+description: A bare raise is only used inside an exception handler.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLE0704
+    snippet: '[tool.ruff.lint] extend-select = ["PLE0704"]'
+examples:
+  match:
+    - "def check(ok: bool) -> None:\n    if not ok:\n        raise\n"
+  no_match:
+    - "def check(ok: bool) -> None:\n    try:\n        assert ok\n    except AssertionError:\n        raise\n"

@@ -1,5 +1,5 @@
 id: python/no-unknown
-description: Parameters and return types are annotated, so no value is Unknown to the type checker (and type constraints of other rules see every receiver).
+description: Parameters and return types are annotated (special, static and class methods included), so no value is Unknown to the type checker (and type constraints of other rules see every receiver).
 scope: {language: python}
 enforce:
   - target: tool
@@ -22,6 +22,18 @@ enforce:
     tool: ruff
     expects: ANN202
     snippet: '[tool.ruff.lint] extend-select = ["ANN202"]'
+  - target: tool
+    tool: ruff
+    expects: ANN204
+    snippet: '[tool.ruff.lint] extend-select = ["ANN204"]'
+  - target: tool
+    tool: ruff
+    expects: ANN205
+    snippet: '[tool.ruff.lint] extend-select = ["ANN205"]'
+  - target: tool
+    tool: ruff
+    expects: ANN206
+    snippet: '[tool.ruff.lint] extend-select = ["ANN206"]'
 examples:
-  match: ["def f(x, *args, **kwargs):\n    return x\n\n\ndef _g(y):\n    return y\n"]
-  no_match: ["def f(x: int, *args: int, **kwargs: str) -> int:\n    return x\n\n\ndef _g(y: str) -> str:\n    return y\n"]
+  match: ["def f(x, *args, **kwargs):\n    return x\n\n\ndef _g(y):\n    return y\n\n\nclass C:\n    def __init__(self, x: int):\n        self.x = x\n\n    @staticmethod\n    def make(x: int):\n        return C(x)\n\n    @classmethod\n    def zero(cls):\n        return cls(0)\n"]
+  no_match: ["def f(x: int, *args: int, **kwargs: str) -> int:\n    return x\n\n\ndef _g(y: str) -> str:\n    return y\n\n\nclass C:\n    def __init__(self, x: int) -> None:\n        self.x = x\n\n    @staticmethod\n    def make(x: int) -> \"C\":\n        return C(x)\n\n    @classmethod\n    def zero(cls) -> \"C\":\n        return cls(0)\n"]

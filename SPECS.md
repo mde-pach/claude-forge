@@ -534,12 +534,12 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
 | `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |
-| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
+| `python/no-unknown` | `tool` ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`, `ANN204`, `ANN205`, `ANN206`: parameters and return types annotated, so no receiver is Unknown (§15.1); an unannotated local's type is inferred (ty has no equivalent of `reportUnknownVariableType`) |
 | `python/no-useless-cast` | `tool` ty `redundant-cast`, `disjoint-cast` |
 | `python/no-deprecated` | `tool` ty `deprecated` (PEP 702 and typeshed deprecations) |
-| `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251` |
-| `python/no-tls-bypass` | `tool` ruff `S501` |
-| `python/no-shell-true` | `tool` ruff `S602` |
+| `python/no-blocking-in-async` | `tool` ruff `ASYNC210`, `ASYNC230`, `ASYNC251`, `ASYNC212`, `ASYNC220`, `ASYNC221`, `ASYNC222`, `ASYNC240`, `ASYNC250`, `ASYNC100`, `ASYNC105`, `ASYNC110` (not `ASYNC109`: it keys on a parameter named `timeout`) |
+| `python/no-tls-bypass` | `tool` ruff `S501`, `S323`, `S502` |
+| `python/no-shell-true` | `tool` ruff `S602`, `S605` |
 | `python/no-stale-ignore` | `tool` ty `unused-ignore-comment`, `unused-type-ignore-comment` |
 | `python/no-unawaited-coroutine` | `tool` ty `unused-awaitable` |
 | `python/no-forgotten-call` | `tool` ty `redundant-condition`, `truthiness-test-of-callable`, `truthiness-test-of-iterable` |
@@ -556,7 +556,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-passlib` | `tool` ruff `TID251`, banned-api `passlib` |
 | `python/no-pkg-resources` | `tool` ruff `TID251`, banned-api `pkg_resources` |
 | `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
-| `python/aware-datetime` | `tool` ruff `DTZ005` |
+| `python/aware-datetime` | `tool` ruff `DTZ005`, `DTZ001`, `DTZ002`, `DTZ006`, `DTZ011`, `DTZ012`, `DTZ901` (not `DTZ007`: it flags date-only `strptime(…).date()`) |
 | `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
@@ -573,17 +573,53 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/http-timeout` | `tool` ruff `S113` (requests without `timeout`; httpx with `timeout=None`) |
 | `python/llm-client-timeout` | `ast-grep` forbid: a call typed `anthropic` or `openai` (§15.1: a client constructor, `with_options()`, a request) with `timeout=None` |
 | `python/no-weak-hash` | `tool` ruff `S324` |
-| `python/no-pickle` | `tool` ruff `S301` |
+| `python/no-pickle` | `tool` ruff `S301`, `S302` |
 | `python/no-unsafe-yaml` | `tool` ruff `S506` |
 | `python/jinja-autoescape` | `tool` ruff `S701` |
 | `python/no-stub` | `ast-grep` forbid, not in `*.pyi` or migrations: a function whose body is only `pass` / `...` (docstrings and comments aside), or `raise NotImplementedError`, outside `@abstractmethod`, `@overload` and `Protocol` / `ABC` classes |
 | `python/stub-sync` | `check` lint, advisory (§10.7): `forge_stub_sync` on `*.py` |
 | `python/no-placeholder-comment` | `grep` forbid (case-insensitive): comments such as `TODO: implement`, "in a real implementation", "placeholder logic", "stub for now" |
 | `python/env-example` | `check` lint: `forge_env_example py`, not with `--all`: a field added to a pydantic-settings `BaseSettings` class (`env_prefix`, `alias`, `case_sensitive` applied) appears in the nearest directory's `.env.example`, `.env.template`, `.env.sample`, `.env.dist` or `.env.<name>.example` (a `# KEY=` line counts): always without a default, also with one when the template lists at least half of the class's variables; a template listing none of them is not about that class |
+| `python/taskgroup-except-star` | `ast-grep` forbid: a plain `except SomeError` (not `except*`, `Exception`, `BaseException`, `ExceptionGroup`, `BaseExceptionGroup`) on a `try` whose body is only `async with <cm> as …:`, where `<cm>` is typed `asyncio` / `anyio` `TaskGroup` (§15.1) or is literally `trio.open_nursery(…)` (typed `AbstractAsyncContextManager[Nursery]`) |
+| `python/no-swallowed-cancel` | `ast-grep` forbid: an `except` catching `asyncio.CancelledError` (or `CancelledError` imported from `asyncio`), alone or in a tuple, with no `raise` in the handler (nested functions aside) |
+| `python/subprocess-check` | `tool` ruff `PLW1510` |
+| `python/no-mutable-defaults` | `tool` ruff `B006`, `B039`, `RUF008`, `RUF009`, `RUF033` |
+| `python/type-checking-imports` | `tool` ruff `TC004` |
+| `python/raise-from` | `tool` ruff `B904` |
+| `python/no-raise-vanilla` | `tool` ruff `TRY002` |
+| `python/no-jump-in-finally` | `tool` ruff `B012` |
+| `python/no-root-logger` | `tool` ruff `LOG015`, `LOG001`, `LOG002` (not `LOG004`, `LOG007`, `LOG014`, `PLE1205`, `PLE1206`: they pick loggers by receiver name) |
+| `python/open-with-context` | `tool` ruff `SIM115` |
+| `python/decimal-from-str` | `tool` ruff `RUF032` |
+| `python/loop-closure` | `tool` ruff `B023` |
+| `python/no-eval` | `tool` ruff `S307`, `S102` |
+| `python/no-debugger` | `tool` ruff `T100` |
+| `python/no-unsafe-markup` | `tool` ruff `S704` |
+| `python/ruff-config-current` | `check` lint: `ruff check --exit-zero` prints no `warning: … deprecat…` line for the project's config (deprecated top-level linter settings, deprecated options); `when_changed`: `pyproject.toml`, `ruff.toml`, `.ruff.toml` |
+| `python/project-table` | `check` lint: the root `pyproject.toml` has `[project]` `requires-python` (`forge_toml_get`); `when_changed: [pyproject.toml]` |
+| `python/no-preexec-fn` | `tool` ruff `PLW1509` |
+| `python/no-useless-lock` | `tool` ruff `PLW2101` |
+| `python/no-cached-method` | `tool` ruff `B019` |
+| `python/self-type` | `tool` ruff `PYI019`, `PYI034` |
+| `python/annotations-api` | `tool` ruff `RUF063` |
+| `python/typeis-over-typeguard` | `ast-grep` advise: a function whose return annotation is `TypeGuard[…]` (`typing.` / `typing_extensions.` or bare) |
+| `python/no-useless-try` | `tool` ruff `TRY203`, `TRY201` |
+| `python/misplaced-bare-raise` | `tool` ruff `PLE0704` |
+| `python/contextmanager-finally` | `ast-grep` forbid: in a function decorated `@contextmanager` / `@asynccontextmanager` (bare or `contextlib.`), a `yield` statement directly in its body followed by another statement |
+| `python/with-suffix-dot` | `tool` ruff `PTH210` |
+| `python/no-commonprefix` | `tool` ruff `RUF071` |
+| `python/strict-zip` | `tool` ruff `B905` |
+| `python/weak-crypto` | `tool` ruff `S304`, `S305`, `S505` (the `cryptography` package) |
+| `python/no-bidi-chars` | `tool` ruff `PLE2502`, `PLE2515` |
+| `python/no-unused-args` | `tool` ruff `ARG001`, `ARG002` |
+| `python/no-global-statement` | `tool` ruff `PLW0603` |
+| `python/env-misuse` | `tool` ruff `B003`, `PLW1508`, `PLW1507` |
+| `python/no-setup-py` | `permission` ask: `Write(**/setup.py)`, `Write(**/setup.cfg)` |
+| `python/no-ruff-overlap` | `grep` forbid (case-insensitive) in `pyproject.toml` and `.pre-commit-config.yaml`: `black`, `isort`, `flake8`, `autopep8`, `pyupgrade`, `autoflake` as a quoted dependency string, or their pre-commit hook repository URLs |
 
 Every banned-api rule shares ruff's `TID251`: each rule's examples import only its own module, so the audit tells them apart, and `forge status` merges their tables (§11).
 
-context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`, `CancelledError` re-raised, `except*` around task groups; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### typescript
 
@@ -640,7 +676,9 @@ context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never sil
 | Rule | Targets |
 |---|---|
 | `python/uv/lock-sync` | `check` lint: `run: uv lock --check`, `when_changed: [pyproject.toml]` |
-| `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install` |
+| `python/uv/no-pip` | `guard` ask: `pip install`, `pip3 install`, `uv pip install`, `python -m pip install`; `poetry add` / `install`, `pipenv install`, `pdm add` / `install`, `conda` / `mamba` / `micromamba install`, `python -m venv` / `virtualenv`, `virtualenv` |
+| `python/uv/dependency-groups` | `grep` forbid in `pyproject.toml`: a `dev-dependencies =` key (`[tool.uv]`; development dependencies go in `[dependency-groups]`, PEP 735) |
+| `python/uv/no-requirements-txt` | `permission` ask: `Write(**/requirements*.txt)`, `Edit(**/requirements*.txt)` (`uv export` through Bash is not asked) |
 | `python/uv/exclude-newer` | `check` lint: `forge_uv_cooldown`: `[tool.uv]` (or `uv.toml`) `exclude-newer` is a relative duration of at least 3 days (`"7 days"`, `P1W`) and `required-version` is `>=0.9.17`; `when_changed`: `pyproject.toml`, `uv.toml`, `uv.lock` |
 
 ### python/fastapi
@@ -687,6 +725,10 @@ Detected by `flask-sqlalchemy` (pypi).
 | `python/flask/sqlalchemy/no-model-query` | `ast-grep` forbid: `$M.query` where `$M` is typed `flask_sqlalchemy` (§15.1: a `db.Model` class); `db.session.query()` is `python/sqlalchemy/no-query-api` |
 
 context.md: SQLAlchemy 2.0 queries through `db.session`, `db.get_or_404()`, `db.paginate()`.
+
+| `python/fastapi/basic-auth-compare-digest` | `ast-grep` forbid: `==` / `!=` with `$C.username` or `$C.password` as an operand, where `C` is typed `fastapi` `HTTPBasicCredentials` (§15.1) |
+
+context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." HTTP Basic credentials are compared with `secrets.compare_digest`.
 
 ### python/sqlalchemy
 
@@ -751,6 +793,18 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 
 context.md: tests assert behaviour, never weakened; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
 
+### python/pytest/asyncio
+
+Detected by `pytest-asyncio` (pypi). Rules on test files (`**/test_*.py`, `**/*_test.py`, `**/conftest.py`).
+
+| Rule | Targets |
+|---|---|
+| `python/pytest/asyncio/no-event-loop-fixture` | `ast-grep` forbid: a function `event_loop` decorated `@pytest.fixture` / `@pytest_asyncio.fixture`; an `event_loop` parameter of a function whose name starts with `test` |
+| `python/pytest/asyncio/no-loop-policy-fixture` | `ast-grep` forbid: a function `event_loop_policy` decorated `@pytest.fixture` / `@pytest_asyncio.fixture` |
+| `python/pytest/asyncio/async-fixture-decorator` | `ast-grep` forbid: an `async def` decorated `@pytest.fixture` |
+
+context.md: `@pytest_asyncio.fixture` for async fixtures; `loop_scope=` and `asyncio_default_fixture_loop_scope`, no `event_loop` fixture, `pytest_asyncio_loop_factories` instead of an `event_loop_policy` fixture.
+
 ### python/django
 
 Detected by `django` (pypi) or a `manage.py` at the root or one level down.
@@ -766,6 +820,8 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
 
 context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`; `format_html()` rather than `mark_safe()`; `@csrf_exempt` asked for.
+
+context.md: migrations generated and committed with model changes; SQL parameters; `select_related()` / `prefetch_related()` against N+1; `transaction.atomic()` and `transaction.on_commit()`; on-commit callbacks tested with `django_capture_on_commit_callbacks(execute=True)` / `captureOnCommitCallbacks`, not a transactional test.
 
 ### python/django/drf
 
@@ -1005,8 +1061,62 @@ Detected by `library_any: [pypi]` (§13.4).
 |---|---|
 | `python/library/all-exports` | `ast-grep` no-increase, not in tests: in a module with `__all__`, top-level function and class names without a leading underscore that `__all__` does not list |
 | `python/library/deprecation-shim` | `check` lint: `forge_helper python public_api.py` (§13.4), `when_changed`: `**/*.py`, `pyproject.toml` |
+| `python/library/spdx-license` | `grep` forbid in `pyproject.toml`: `license = {…}` (a table), `"License ::` classifiers (PEP 639) |
+| `python/library/no-python-cap` | `grep` forbid in `pyproject.toml`: `requires-python` with `<`, `~=` or `==` |
+| `python/library/no-logging-config` | `ast-grep` forbid, not in tests or `__main__.py`: `logging.basicConfig(…)`, `logging.getLogger().addHandler(…)`, `logging.root.addHandler(…)` |
 
-context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version.
+context.md: `__all__` is the public API; removals and renames warn with `DeprecationWarning` until a major version; SPDX `license` (and the backends that support it), no `requires-python` cap; no logging configuration in library code.
+
+### python/pyjwt
+
+Detected by `pyjwt` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pyjwt/jwt-verify` | `ast-grep` forbid: `jwt.decode(…)`, or `$J.decode(…)` where `J` is typed `jwt` `PyJWT` / `PyJWS` (§15.1), without `algorithms` (keyword or third positional argument; a `**kwargs` is not judged), or with `verify=False`, `options={…"verify_signature": False…}` or `"none"` (any case) in the algorithms list |
+
+context.md: `algorithms=[…]` always, never `"none"`; no signature check turned off; `jwt.get_unverified_header()` for an unverified header.
+
+### python/typer
+
+Detected by `typer` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/typer/annotated-params` | `ast-grep` forbid: a parameter whose default value is a `typer.Option(…)` / `typer.Argument(…)` call (or `Option(…)` / `Argument(…)` imported from `typer`) |
+
+context.md: parameters declared with `Annotated[T, typer.Option(...)]`, the default as the parameter's default.
+
+### python/structlog
+
+Detected by `structlog` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/structlog/constant-event` | `ast-grep` forbid: `$L.<level>(…)` (`debug`, `info`, `warning`, `warn`, `error`, `err`, `exception`, `critical`, `fatal`, `msg`, and their `a`-prefixed async forms) whose first argument is an f-string, a `.format()` call or a `%`-formatted string, where `L` is typed `structlog` `BoundLoggerBase` / `BindableLogger` (§15.1) |
+| `python/structlog/typed-logger` | `ast-grep` advise: `structlog.get_logger(…)` (typed `Any`) not assigned to an annotated name |
+
+context.md: constant events with key/value data; annotate loggers from `structlog.get_logger()`.
+
+### python/msgspec
+
+Detected by `msgspec` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/msgspec/typed-decode` | `ast-grep` forbid: `msgspec.json` / `msgpack` / `yaml` / `toml` `.decode(…)` without `type=` (a `from msgspec import json` alias is not matched) |
+
+context.md: decode with `type=` or a typed `Decoder`.
+
+### python/loguru
+
+Detected by `loguru` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/loguru/no-fstring-with-args` | `ast-grep` forbid: `$L.<level>(…)` (`trace`, `debug`, `info`, `success`, `warning`, `error`, `exception`, `critical`, `log`) whose first argument is an f-string and that has a second argument, where `L` is typed `loguru` `Logger` (§15.1) |
+
+context.md: an f-string or a format string with arguments, never both.
 
 ### typescript/node
 

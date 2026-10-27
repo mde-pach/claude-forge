@@ -1,0 +1,28 @@
+id: python/pytest/asyncio/no-event-loop-fixture
+description: "No event_loop fixture (removed in pytest-asyncio 1.0) and no test requesting event_loop: choose the loop with @pytest.mark.asyncio(loop_scope=...), @pytest_asyncio.fixture(loop_scope=...) or asyncio_default_fixture_loop_scope, and get it with asyncio.get_running_loop()."
+scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: function_definition
+          has: {field: name, regex: "^event_loop$"}
+          inside:
+            kind: decorated_definition
+            stopBy: neighbor
+            has: {kind: decorator, regex: "^@(pytest\\.fixture|pytest_asyncio\\.fixture)\\b"}
+        # pytest-asyncio's fixture name, requested by a test (pytest's default test_ prefix)
+        - kind: identifier
+          regex: "^event_loop$"
+          any:
+            - inside: {kind: parameters, stopBy: neighbor, inside: {kind: function_definition, stopBy: neighbor, has: {field: name, regex: "^test"}}}
+            - inside: {kind: typed_parameter, stopBy: neighbor, inside: {kind: parameters, stopBy: neighbor, inside: {kind: function_definition, stopBy: neighbor, has: {field: name, regex: "^test"}}}}
+examples:
+  match:
+    - "import asyncio\n\nimport pytest\n\n\n@pytest.fixture(scope=\"session\")\ndef event_loop():\n    loop = asyncio.new_event_loop()\n    yield loop\n    loop.close()\n"
+    - "import asyncio\n\nimport pytest\n\n\n@pytest.mark.asyncio\nasync def test_ping(event_loop: asyncio.AbstractEventLoop) -> None:\n    assert event_loop.is_running()\n"
+    - "def test_sync(event_loop) -> None:\n    event_loop.run_until_complete(ping())\n"
+  no_match:
+    - "import asyncio\n\nimport pytest\n\n\n@pytest.mark.asyncio(loop_scope=\"session\")\nasync def test_ping() -> None:\n    assert asyncio.get_running_loop().is_running()\n"
+    - "import asyncio\n\nimport pytest\n\n\n@pytest.fixture\ndef loop_factory():\n    return asyncio.new_event_loop\n\n\ndef helper(event_loop) -> None:\n    pass\n"

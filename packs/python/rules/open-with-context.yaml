@@ -1,0 +1,13 @@
+id: python/open-with-context
+description: Files are opened in a with block, so they are closed on every path.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: SIM115
+    snippet: '[tool.ruff.lint] extend-select = ["SIM115"]'
+examples:
+  match:
+    - "def head(path: str) -> str:\n    f = open(path)\n    return f.readline()\n"
+  no_match:
+    - "def head(path: str) -> str:\n    with open(path) as f:\n        return f.readline()\n"

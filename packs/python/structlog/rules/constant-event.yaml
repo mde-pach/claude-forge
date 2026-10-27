@@ -1,0 +1,28 @@
+id: python/structlog/constant-event
+description: "structlog events are constant strings with the data as key/value pairs (log.info(\"user_login\", user_id=uid)), not an f-string, .format() or %-formatted message: the event is what logs are grouped and searched by."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "$L.$M($$$)"
+      has: {field: arguments, has: {nthChild: 1, matches: eager}}
+    constraints:
+      M: {regex: "^a?(debug|info|warning|warn|error|err|exception|critical|fatal|msg)$"}
+    utils:
+      eager:
+        any:
+          - {kind: string, regex: "^[rRbBuU]?[fF]"}
+          - {kind: call, has: {field: function, kind: attribute, regex: "\\.format$"}}
+          - {kind: binary_operator, regex: "^[\\s\\S]*%[\\s\\S]*$", has: {field: left, kind: string}}
+    # a structlog logger by its type (§15.1); BindableLogger is the protocol FilteringBoundLogger extends
+    where:
+      L: {type: {package: structlog, name: [BoundLoggerBase, BindableLogger]}}
+examples:
+  deps: [{ecosystem: pypi, name: structlog, version: "26.1.0"}]
+  match:
+    - "import structlog\n\nlog: structlog.typing.FilteringBoundLogger = structlog.get_logger()\n\n\ndef login(uid: int) -> None:\n    log.info(f\"user {uid} logged in\")\n"
+    - "import structlog\n\nlog = structlog.stdlib.get_logger()\n\n\ndef login(uid: int, ip: str) -> None:\n    log.warning(\"user {} from {}\".format(uid, ip))\n    log.error(\"user %s failed\" % uid)\n"
+  no_match:
+    - "import structlog\n\nlog: structlog.typing.FilteringBoundLogger = structlog.get_logger()\n\n\ndef login(uid: int) -> None:\n    log.info(\"user_login\", user_id=uid)\n"
+    - "import logging\n\nlog = logging.getLogger(__name__)\n\n\ndef login(uid: int) -> None:\n    log.info(f\"user {uid} logged in\")\n"

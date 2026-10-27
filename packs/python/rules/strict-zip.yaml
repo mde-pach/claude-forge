@@ -1,0 +1,14 @@
+id: python/strict-zip
+description: zip() passes strict= (strict=True when the iterables must have the same length), so a length mismatch is not silently truncated.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B905
+    snippet: '[tool.ruff.lint] extend-select = ["B905"]'
+examples:
+  match:
+    - "def pairs(a: list[int], b: list[int]) -> list[tuple[int, int]]:\n    return list(zip(a, b))\n"
+  no_match:
+    - "def pairs(a: list[int], b: list[int]) -> list[tuple[int, int]]:\n    return list(zip(a, b, strict=True))\n"
+    - "import itertools\n\n\ndef pairs(a: list[int]) -> list[tuple[int, int]]:\n    return list(zip(a, itertools.count()))\n"

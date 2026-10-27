@@ -1,11 +1,35 @@
 id: python/aware-datetime
-description: datetime.now() takes a time zone (datetime.now(UTC)); naive datetimes shift silently against timestamptz columns.
+description: "Datetimes carry a time zone: datetime.now(UTC), datetime(..., tzinfo=UTC), fromtimestamp(ts, tz=UTC); no datetime.today(), date.today() or naive datetime.min/max. Naive datetimes shift silently against timestamptz columns."
 scope: {language: python}
 enforce:
   - target: tool
     tool: ruff
     expects: DTZ005
     snippet: '[tool.ruff.lint] extend-select = ["DTZ005"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ001
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ001"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ002
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ002"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ006
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ006"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ011
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ011"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ012
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ012"]'
+  - target: tool
+    tool: ruff
+    expects: DTZ901
+    snippet: '[tool.ruff.lint] extend-select = ["DTZ901"]'
 examples:
-  match: ["from datetime import datetime\n\nnow = datetime.now()\n", "import datetime as dt\n\nnow = dt.datetime.now(None)\n"]
-  no_match: ["from datetime import UTC, datetime\n\nnow = datetime.now(UTC)\n", "from datetime import UTC, datetime\n\nnow = datetime.now(tz=UTC)\n"]
+  match: ["from datetime import date, datetime\n\nnow = datetime.now()\nstart = datetime(2024, 1, 1)\ntoday = datetime.today()\nday = date.today()\nat = datetime.fromtimestamp(0)\nd = date.fromtimestamp(0)\nfloor = datetime.min\n", "import datetime as dt\n\nnow = dt.datetime.now(None)\nstart = dt.datetime(2024, 1, 1, tzinfo=None)\ntoday = dt.datetime.today()\nday = dt.date.today()\nat = dt.datetime.fromtimestamp(0, None)\nd = dt.date.fromtimestamp(0)\nceiling = dt.datetime.max\n"]
+  no_match: ["from datetime import UTC, datetime\n\nnow = datetime.now(UTC)\nstart = datetime(2024, 1, 1, tzinfo=UTC)\nat = datetime.fromtimestamp(0, tz=UTC)\nday = datetime.now(UTC).date()\nfloor = datetime.min.replace(tzinfo=UTC)\n", "from datetime import UTC, datetime\n\nnow = datetime.now(tz=UTC)\n"]

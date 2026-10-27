@@ -1,0 +1,13 @@
+id: python/no-useless-lock
+description: "A lock is shared, not created in its own with statement (with threading.Lock(): protects nothing)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PLW2101
+    snippet: '[tool.ruff.lint] extend-select = ["PLW2101"]'
+examples:
+  match:
+    - "import threading\n\n\ndef bump(counter: list[int]) -> None:\n    with threading.Lock():\n        counter[0] += 1\n"
+  no_match:
+    - "import threading\n\nLOCK = threading.Lock()\n\n\ndef bump(counter: list[int]) -> None:\n    with LOCK:\n        counter[0] += 1\n"

@@ -1,10 +1,19 @@
 id: python/no-blocking-in-async
-description: Async functions do not block the event loop with sync HTTP, sleep or file I/O.
+description: "Async functions do not block the event loop (sync HTTP clients, sleep, file and pathlib I/O, blocking subprocesses, input()) or misuse async primitives (a timeout scope without an await, an unawaited trio call, a sleep-polling loop instead of an Event)."
 scope: {language: python}
 enforce:
   - {target: tool, tool: ruff, expects: ASYNC210, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
   - {target: tool, tool: ruff, expects: ASYNC230, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
   - {target: tool, tool: ruff, expects: ASYNC251, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC212, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC220, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC221, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC222, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC240, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC250, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC100, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC105, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
+  - {target: tool, tool: ruff, expects: ASYNC110, snippet: '[tool.ruff.lint] extend-select = ["ASYNC"]'}
 examples:
-  match: ["import time\n\nimport requests\n\n\nasync def h(u: str, p: str) -> None:\n    requests.get(u)\n    time.sleep(1)\n    open(p)\n"]
-  no_match: ["import asyncio\n\nimport httpx\n\n\nasync def h(client: httpx.AsyncClient, u: str) -> None:\n    await client.get(u)\n    await asyncio.sleep(1)\n", "import time\n\n\ndef sync_job() -> None:\n    time.sleep(1)\n"]
+  match: ["import asyncio\nimport os\nimport subprocess\nimport time\nfrom pathlib import Path\n\nimport httpx\nimport requests\nimport trio\n\n\nasync def h(u: str, p: str, client: httpx.Client, ready: asyncio.Event) -> None:\n    requests.get(u)\n    time.sleep(1)\n    open(p)\n    client.get(u)\n    subprocess.Popen([\"ls\"])\n    subprocess.run([\"ls\"], check=True)\n    os.wait()\n    Path(p).read_text()\n    input()\n    with trio.move_on_after(1):\n        pass\n    trio.sleep(1)\n    while not ready.is_set():\n        await asyncio.sleep(1)\n"]
+  no_match: ["import asyncio\n\nimport httpx\nimport trio\n\n\nasync def h(client: httpx.AsyncClient, u: str, ready: asyncio.Event) -> None:\n    await client.get(u)\n    await asyncio.sleep(1)\n    proc = await asyncio.create_subprocess_exec(\"ls\")\n    await proc.wait()\n    with trio.move_on_after(1):\n        await trio.sleep(1)\n    await ready.wait()\n", "import subprocess\nimport time\nfrom pathlib import Path\n\n\ndef sync_job(p: str) -> str:\n    time.sleep(1)\n    subprocess.run([\"ls\"], check=True)\n    return Path(p).read_text()\n"]

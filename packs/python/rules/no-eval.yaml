@@ -1,0 +1,17 @@
+id: python/no-eval
+description: "No eval() or exec(): parse data with ast.literal_eval or json."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S307
+    snippet: '[tool.ruff.lint] extend-select = ["S307"]'
+  - target: tool
+    tool: ruff
+    expects: S102
+    snippet: '[tool.ruff.lint] extend-select = ["S102"]'
+examples:
+  match:
+    - "def run(expr: str, code: str) -> object:\n    exec(code)\n    return eval(expr)\n"
+  no_match:
+    - "import ast\nimport json\n\n\ndef parse(expr: str, doc: str) -> object:\n    return ast.literal_eval(expr), json.loads(doc)\n"

@@ -1,0 +1,13 @@
+id: python/no-cached-method
+description: "No functools.lru_cache or cache on methods: the cache keeps every instance alive; cache a module-level function or use cached_property."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: B019
+    snippet: '[tool.ruff.lint] extend-select = ["B019"]'
+examples:
+  match:
+    - "import functools\n\n\nclass Rates:\n    @functools.lru_cache(maxsize=None)\n    def rate(self, currency: str) -> float:\n        return 1.0\n\n    @functools.cache\n    def fee(self, currency: str) -> float:\n        return 0.1\n"
+  no_match:
+    - "import functools\n\n\n@functools.cache\ndef rate(currency: str) -> float:\n    return 1.0\n\n\nclass Rates:\n    @functools.cached_property\n    def table(self) -> dict[str, float]:\n        return {}\n\n    @staticmethod\n    @functools.cache\n    def fee(currency: str) -> float:\n        return 0.1\n"

@@ -1,0 +1,31 @@
+id: python/contextmanager-finally
+description: "In a @contextmanager / @asynccontextmanager function, a yield followed by cleanup sits in try/finally (or inside a with): otherwise an exception in the with body skips the cleanup."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: expression_statement
+      any:
+        - has: {kind: yield}
+        - has: {kind: assignment, has: {field: right, kind: yield}}
+      precedes: {not: {kind: comment}, stopBy: neighbor}
+      inside:
+        kind: block
+        stopBy: neighbor
+        inside:
+          kind: function_definition
+          stopBy: neighbor
+          inside:
+            kind: decorated_definition
+            stopBy: neighbor
+            has: {kind: decorator, regex: "^@(contextlib\\.)?(async)?contextmanager$"}
+examples:
+  match:
+    - "from contextlib import contextmanager\n\n\n@contextmanager\ndef connection(pool):\n    conn = pool.acquire()\n    yield conn\n    pool.release(conn)\n"
+    - "import contextlib\n\n\n@contextlib.asynccontextmanager\nasync def lifespan(app):\n    await app.start()\n    state = yield\n    await app.stop()\n"
+  no_match:
+    - "from contextlib import contextmanager\n\n\n@contextmanager\ndef connection(pool):\n    conn = pool.acquire()\n    try:\n        yield conn\n    finally:\n        pool.release(conn)\n"
+    - "from contextlib import contextmanager\n\n\n@contextmanager\ndef locked(lock):\n    with lock:\n        yield\n"
+    - "from contextlib import contextmanager\n\n\n@contextmanager\ndef settings(values):\n    values[\"debug\"] = True\n    yield values\n"
+    - "def numbers():\n    yield 1\n    print(\"after\")\n"

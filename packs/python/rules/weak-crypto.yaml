@@ -1,0 +1,21 @@
+id: python/weak-crypto
+description: No insecure cipher (ARC4, Blowfish, IDEA, ...) or ECB mode, and no RSA/DSA key under 2048 bits or EC curve under 224 bits with the cryptography package.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S304
+    snippet: '[tool.ruff.lint] extend-select = ["S304"]'
+  - target: tool
+    tool: ruff
+    expects: S305
+    snippet: '[tool.ruff.lint] extend-select = ["S305"]'
+  - target: tool
+    tool: ruff
+    expects: S505
+    snippet: '[tool.ruff.lint] extend-select = ["S505"]'
+examples:
+  match:
+    - "from cryptography.hazmat.primitives.asymmetric import rsa\nfrom cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes\n\n\ndef make(key: bytes) -> None:\n    Cipher(algorithms.ARC4(key), mode=None)\n    Cipher(algorithms.AES(key), modes.ECB())\n    rsa.generate_private_key(public_exponent=65537, key_size=1024)\n"
+  no_match:
+    - "from cryptography.hazmat.primitives.asymmetric import rsa\nfrom cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes\n\n\ndef make(key: bytes, nonce: bytes) -> None:\n    Cipher(algorithms.AES(key), modes.GCM(nonce))\n    rsa.generate_private_key(public_exponent=65537, key_size=3072)\n"

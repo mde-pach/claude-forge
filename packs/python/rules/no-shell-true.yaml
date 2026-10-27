@@ -1,11 +1,15 @@
 id: python/no-shell-true
-description: subprocess runs an argument list, never a shell string (shell=True).
+description: Commands run as an argument list, never through a shell (subprocess shell=True, os.system, os.popen).
 scope: {language: python}
 enforce:
   - target: tool
     tool: ruff
     expects: S602
     snippet: '[tool.ruff.lint] extend-select = ["S602"]'
+  - target: tool
+    tool: ruff
+    expects: S605
+    snippet: '[tool.ruff.lint] extend-select = ["S605"]'
 examples:
-  match: ["import subprocess\n\n\ndef f(cmd: str) -> None:\n    subprocess.run(cmd, shell=True)\n", "import subprocess\n\n\ndef ls(d: str) -> None:\n    subprocess.Popen(f\"ls {d}\", shell=True)\n"]
-  no_match: ["import subprocess\n\n\ndef ls(d: str) -> None:\n    subprocess.run([\"ls\", d], check=True)\n", "import subprocess\n\nsubprocess.run([\"git\", \"status\"], check=True)\n"]
+  match: ["import os\nimport subprocess\n\n\ndef f(cmd: str) -> None:\n    subprocess.run(cmd, shell=True)\n    os.system(cmd)\n", "import os\nimport subprocess\n\n\ndef ls(d: str) -> None:\n    subprocess.Popen(f\"ls {d}\", shell=True)\n    os.popen(f\"ls {d}\")\n"]
+  no_match: ["import subprocess\n\n\ndef ls(d: str) -> None:\n    subprocess.run([\"ls\", d], check=True)\n", "import subprocess\n\nsubprocess.run([\"git\", \"status\"], check=True)\n", "import os\n\nos.execvp(\"ls\", [\"ls\", \"-l\"])\n"]

@@ -1,0 +1,17 @@
+id: python/no-unused-args
+description: No unused function or method arguments (methods marked @override and abstract methods are exempt; prefix an intentionally unused one with an underscore).
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: ARG001
+    snippet: '[tool.ruff.lint] extend-select = ["ARG001"]'
+  - target: tool
+    tool: ruff
+    expects: ARG002
+    snippet: '[tool.ruff.lint] extend-select = ["ARG002"]'
+examples:
+  match:
+    - "def total(prices: list[int], currency: str) -> int:\n    return sum(prices)\n\n\nclass Cart:\n    def add(self, item: str, qty: int) -> None:\n        print(item)\n"
+  no_match:
+    - "from typing import override\n\n\nclass Base:\n    def add(self, item: str, qty: int) -> None:\n        print(item, qty)\n\n\nclass Cart(Base):\n    @override\n    def add(self, item: str, qty: int) -> None:\n        print(item)\n\n\ndef total(prices: list[int], _currency: str) -> int:\n    return sum(prices)\n"

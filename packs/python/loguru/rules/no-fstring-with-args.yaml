@@ -1,0 +1,26 @@
+id: python/loguru/no-fstring-with-args
+description: "With loguru, a message is either an f-string or a format string with arguments, never both: logger.info(f\"{x} {}\", y) formats the f-string's braces a second time (KeyError, IndexError or a garbled message)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "$L.$M($$$)"
+      has:
+        field: arguments
+        all:
+          - has: {nthChild: 1, kind: string, regex: "^[rRbBuU]?[fF]"}
+          - has: {nthChild: 2}
+    constraints:
+      M: {regex: "^(trace|debug|info|success|warning|error|exception|critical|log)$"}
+    # loguru's Logger by its type (§15.1): from loguru import logger, logger.bind(...), logger.opt(...)
+    where:
+      L: {type: {package: loguru, name: Logger}}
+examples:
+  deps: [{ecosystem: pypi, name: loguru, version: "0.7.3"}]
+  match:
+    - "from loguru import logger\n\n\ndef paid(order_id: int, amount: float) -> None:\n    logger.info(f\"order {order_id} paid {{}}\", amount)\n"
+    - "from loguru import logger\n\nlog = logger.bind(service=\"billing\")\n\n\ndef paid(order_id: int) -> None:\n    log.warning(f\"order {order_id} paid\", order=order_id)\n"
+  no_match:
+    - "from loguru import logger\n\n\ndef paid(order_id: int, amount: float) -> None:\n    logger.info(f\"order {order_id} paid {amount}\")\n    logger.info(\"order {} paid {}\", order_id, amount)\n"
+    - "import logging\n\nlog = logging.getLogger(__name__)\n\n\ndef paid(order_id: int) -> None:\n    log.info(f\"order {order_id} paid\", extra={\"id\": order_id})\n"

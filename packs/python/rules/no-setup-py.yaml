@@ -1,0 +1,9 @@
+id: python/no-setup-py
+description: Claude asks you before creating setup.py or setup.cfg; project metadata and the build backend live in pyproject.toml.
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Write(**/setup.py)"}
+  - {target: permission, decision: ask, rule: "Write(**/setup.cfg)"}
+examples:
+  match: ["Write(setup.py)", "Write(packages/core/setup.cfg)"]
+  no_match: ["Write(pyproject.toml)", "Write(app/setup_db.py)"]

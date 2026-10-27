@@ -1,0 +1,17 @@
+id: python/self-type
+description: Methods returning their own class use typing.Self, not a TypeVar bound to the class; __enter__, __new__ and in-place operators return Self.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PYI019
+    snippet: '[tool.ruff.lint] extend-select = ["PYI019"]'
+  - target: tool
+    tool: ruff
+    expects: PYI034
+    snippet: '[tool.ruff.lint] extend-select = ["PYI034"]'
+examples:
+  match:
+    - "from typing import TypeVar\n\n_T = TypeVar(\"_T\", bound=\"Shape\")\n\n\nclass Shape:\n    def scale(self: _T, k: float) -> _T:\n        return self\n\n    def __enter__(self) -> \"Shape\":\n        return self\n"
+  no_match:
+    - "from typing import Self\n\n\nclass Shape:\n    def scale(self, k: float) -> Self:\n        return self\n\n    def __enter__(self) -> Self:\n        return self\n"

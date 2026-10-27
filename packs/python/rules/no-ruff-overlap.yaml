@@ -1,0 +1,18 @@
+id: python/no-ruff-overlap
+description: "No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines."
+scope: {language: any, files: ["**/pyproject.toml", ".pre-commit-config.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "\"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|\")|repo:[[:space:]]*https://github\\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$"
+examples:
+  match:
+    - "[dependency-groups]\ndev = [\"pytest>=8\", \"black>=24.1\"]\n"
+    - "[project.optional-dependencies]\nlint = [\"flake8\", \"isort[colors]\"]\n"
+    - "repos:\n  - repo: https://github.com/psf/black-pre-commit-mirror\n    rev: 24.10.0\n    hooks:\n      - id: black\n"
+    - "repos:\n  - repo: https://github.com/PyCQA/isort\n    rev: 5.13.2\n    hooks:\n      - id: isort\n"
+  no_match:
+    - "[dependency-groups]\ndev = [\"pytest>=8\", \"ruff>=0.8\", \"flake8-bugbear-stubs>=1\"]\n"
+    - "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.8.0\n    hooks:\n      - id: ruff-check\n      - id: ruff-format\n"
+    - "[tool.ruff.lint]\nselect = [\"E\", \"I\", \"UP\"]\n"

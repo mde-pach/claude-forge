@@ -3,6 +3,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 
 FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected). FastAPI reads request and response bodies from Pydantic v2 models.
 `FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
+HTTP Basic credentials (`HTTPBasicCredentials.username` / `.password`) are compared with `secrets.compare_digest`, never `==`.
 
 ===== .claude/rules/forge-python-pydantic.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -32,7 +33,7 @@ Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`,
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Python project managed with uv. Tools run from `.venv/bin`. Type checking: ty (`[tool.ty]`); parameters and return types are annotated.
-Inside `async def`, the checks reject blocking calls that ruff's ASYNC210, ASYNC230 and ASYNC251 detect (sync HTTP clients, `open()`, `time.sleep`).
+Inside `async def`, the checks reject blocking calls (ruff ASYNC: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`). A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
 
@@ -46,7 +47,11 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
       "Edit(.claude/rules/forge-*.md)",
       "Edit(**/ruff.toml)",
       "Edit(**/.ruff.toml)",
-      "Edit(**/ty.toml)"
+      "Edit(**/ty.toml)",
+      "Write(**/setup.py)",
+      "Write(**/setup.cfg)",
+      "Write(**/requirements*.txt)",
+      "Edit(**/requirements*.txt)"
     ]
   }
 }
@@ -228,7 +233,8 @@ exit 0
 # Sources: packs/python/sqlalchemy/alembic/rules/downgrade.yaml, packs/python/sqlalchemy/alembic/rules/no-downgrade-base.yaml, packs/python/uv/rules/no-pip.yaml
 python/sqlalchemy/alembic/no-downgrade-base	deny	(^|[^A-Za-z0-9_-])alembic[[:space:]]([^;&|]*[[:space:]])?downgrade[[:space:]]+base([[:space:];&|)]|$)	alembic downgrade base drops the whole schema.
 python/sqlalchemy/alembic/downgrade	ask	(^|[^A-Za-z0-9_-])alembic[[:space:]]([^;&|]*[[:space:]])?(downgrade|stamp)([[:space:];&|)]|$)	alembic downgrade and stamp change the database's revision; confirm them.
-python/uv/no-pip	ask	(^|[^A-Za-z0-9_-])(pip3?|uv[[:space:]]+pip|python[0-9.]*[[:space:]]+-m[[:space:]]+pip)[[:space:]]+install([[:space:];&|)]|$)	Dependencies are added with uv add, not pip install.
+python/uv/no-pip	ask	(^|[^A-Za-z0-9_-])(pip3?|uv[[:space:]]+pip|python[0-9.]*[[:space:]]+-m[[:space:]]+pip)[[:space:]]+install([[:space:];&|)]|$)	Dependencies are added with uv add and the environment is uv's; Claude asks before pip install, other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv.
+python/uv/no-pip	ask	(^|[^A-Za-z0-9_./-])(poetry[[:space:]]+(add|install)|pipenv[[:space:]]+install|pdm[[:space:]]+(add|install)|(conda|mamba|micromamba)[[:space:]]+install|python[0-9.]*[[:space:]]+-m[[:space:]]+(venv|virtualenv)|virtualenv)([[:space:];&|)]|$)	Dependencies are added with uv add and the environment is uv's; Claude asks before pip install, other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv.
 
 ===== .claude/skills/forge-project/scripts/guard.sh
 #!/bin/sh
@@ -1194,7 +1200,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=20
+FORGE_NCHECKS=22
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -1268,184 +1274,214 @@ forge_check_fix_4() {
 ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/project-table
 forge_check_meta_5() {
+  c_id='python/project-table'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_5() {
+  case $1 in pyproject.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_5() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_5() {
+[ ! -f pyproject.toml ] || [ -n "$(forge_toml_get pyproject.toml project requires-python)" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\n'; false; }
+}
+
+# 6. python/pytest/no-test-edits
+forge_check_meta_6() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_5() { return 1; }
-forge_check_run_5() {
-forge_test_edits
-}
-
-# 6. python/pytest/run
-forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
-}
 forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_6() { return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_6() {
-pytest -q $FORGE_FILES
+forge_test_edits
 }
 
-# 7. python/pytest/untested-change
+# 7. python/pytest/run
 forge_check_meta_7() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
+pytest -q
+}
+forge_check_changed_7() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_7() {
+pytest -q $FORGE_FILES
+}
+
+# 8. python/pytest/untested-change
+forge_check_meta_8() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_8() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
-forge_check_meta_8() {
+# 9. python/ruff-config-current
+forge_check_meta_9() {
+  c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_9() {
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_9() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_9() {
+! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+}
+
+# 10. python/sqlalchemy/alembic/check
+forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_10() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
+# 11. python/sqlalchemy/alembic/data-migration-downgrade
+forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-forge_advise forge_alembic_fk_index
-}
-
-# 11. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_data_downgrade
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/fk-index
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-forge_models_registered
+forge_advise forge_alembic_fk_index
 }
 
-# 13. python/sqlalchemy/alembic/single-head
+# 13. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_13() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 14. python/sqlalchemy/alembic/sqlite-batch
+# 14. python/sqlalchemy/alembic/model-registered
 forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_14() { return 1; }
 forge_check_run_14() {
-forge_alembic_batch
+forge_models_registered
 }
 
-# 15. python/sqlalchemy/asyncio-extra
+# 15. python/sqlalchemy/alembic/single-head
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_15() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 16. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_16() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+forge_alembic_batch
+}
+
+# 17. python/sqlalchemy/asyncio-extra
+forge_check_meta_17() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_17() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -1453,42 +1489,9 @@ return 1
 
 }
 
-# 16. python/sqlalchemy/fk-index
-forge_check_meta_16() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_16() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_16() { return 1; }
-forge_check_run_16() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 17. python/stub-sync
-forge_check_meta_17() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_17() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_17() { return 1; }
-forge_check_run_17() {
-forge_advise forge_stub_sync
-}
-
-# 18. python/typecheck
+# 18. python/sqlalchemy/fk-index
 forge_check_meta_18() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -1498,38 +1501,71 @@ forge_scope_18() {
 }
 forge_when_18() { return 1; }
 forge_check_run_18() {
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
+}
+
+# 19. python/stub-sync
+forge_check_meta_19() {
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_advise forge_stub_sync
+}
+
+# 20. python/typecheck
+forge_check_meta_20() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { return 1; }
+forge_check_run_20() {
 ty check --output-format concise
 }
 
-# 19. python/uv/exclude-newer
-forge_check_meta_19() {
+# 21. python/uv/exclude-newer
+forge_check_meta_21() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_19() {
+forge_scope_21() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_19() {
+forge_when_21() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_21() {
 forge_uv_cooldown
 }
 
-# 20. python/uv/lock-sync
-forge_check_meta_20() {
+# 22. python/uv/lock-sync
+forge_check_meta_22() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
+forge_scope_22() {
   return 0
 }
-forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_20() {
+forge_when_22() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=4
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
@@ -1553,6 +1589,28 @@ forge_grep_meta_2() {
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
+}
+
+# grep 3. python/no-ruff-overlap
+forge_grep_meta_3() {
+  g_id='python/no-ruff-overlap'; g_mode=forbid; g_flags=-iE
+  g_pattern='"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|")|repo:[[:space:]]*https://github\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$'
+  g_desc='No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines.'
+}
+forge_grep_scope_3() {
+  case $1 in pyproject.toml|*/pyproject.toml|.pre-commit-config.yaml) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 4. python/uv/dependency-groups
+forge_grep_meta_4() {
+  g_id='python/uv/dependency-groups'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*dev-dependencies[[:space:]]*='
+  g_desc='Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies.'
+}
+forge_grep_scope_4() {
+  case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
+  return 0
 }
 # ---- end of generated checks
 
@@ -4550,7 +4608,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/sqlalchemy/session-context'
+FORGE_FORBID='python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star|python/fastapi/no-raw-request-body|python/fastapi/testclient-lifespan|python/pydantic/typeadapter-module-level|python/sqlalchemy/session-context|python/typeis-over-typeguard'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -4706,7 +4764,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=20
+FORGE_NCHECKS=22
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -4780,184 +4838,214 @@ forge_check_fix_4() {
 ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/project-table
 forge_check_meta_5() {
+  c_id='python/project-table'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_5() {
+  case $1 in pyproject.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_5() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_5() {
+[ ! -f pyproject.toml ] || [ -n "$(forge_toml_get pyproject.toml project requires-python)" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\n'; false; }
+}
+
+# 6. python/pytest/no-test-edits
+forge_check_meta_6() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_5() { return 1; }
-forge_check_run_5() {
-forge_test_edits
-}
-
-# 6. python/pytest/run
-forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
-}
 forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_6() { return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_6() {
-pytest -q $FORGE_FILES
+forge_test_edits
 }
 
-# 7. python/pytest/untested-change
+# 7. python/pytest/run
 forge_check_meta_7() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
+pytest -q
+}
+forge_check_changed_7() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_7() {
+pytest -q $FORGE_FILES
+}
+
+# 8. python/pytest/untested-change
+forge_check_meta_8() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_8() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
-forge_check_meta_8() {
+# 9. python/ruff-config-current
+forge_check_meta_9() {
+  c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_9() {
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_9() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_9() {
+! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+}
+
+# 10. python/sqlalchemy/alembic/check
+forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_10() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
+# 11. python/sqlalchemy/alembic/data-migration-downgrade
+forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-forge_advise forge_alembic_fk_index
-}
-
-# 11. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_data_downgrade
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/fk-index
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-forge_models_registered
+forge_advise forge_alembic_fk_index
 }
 
-# 13. python/sqlalchemy/alembic/single-head
+# 13. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_13() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 14. python/sqlalchemy/alembic/sqlite-batch
+# 14. python/sqlalchemy/alembic/model-registered
 forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_14() { return 1; }
 forge_check_run_14() {
-forge_alembic_batch
+forge_models_registered
 }
 
-# 15. python/sqlalchemy/asyncio-extra
+# 15. python/sqlalchemy/alembic/single-head
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_15() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 16. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_16() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+forge_alembic_batch
+}
+
+# 17. python/sqlalchemy/asyncio-extra
+forge_check_meta_17() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_17() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -4965,42 +5053,9 @@ return 1
 
 }
 
-# 16. python/sqlalchemy/fk-index
-forge_check_meta_16() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_16() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_16() { return 1; }
-forge_check_run_16() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 17. python/stub-sync
-forge_check_meta_17() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_17() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_17() { return 1; }
-forge_check_run_17() {
-forge_advise forge_stub_sync
-}
-
-# 18. python/typecheck
+# 18. python/sqlalchemy/fk-index
 forge_check_meta_18() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -5010,38 +5065,71 @@ forge_scope_18() {
 }
 forge_when_18() { return 1; }
 forge_check_run_18() {
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
+}
+
+# 19. python/stub-sync
+forge_check_meta_19() {
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_advise forge_stub_sync
+}
+
+# 20. python/typecheck
+forge_check_meta_20() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { return 1; }
+forge_check_run_20() {
 ty check --output-format concise
 }
 
-# 19. python/uv/exclude-newer
-forge_check_meta_19() {
+# 21. python/uv/exclude-newer
+forge_check_meta_21() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_19() {
+forge_scope_21() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_19() {
+forge_when_21() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_21() {
 forge_uv_cooldown
 }
 
-# 20. python/uv/lock-sync
-forge_check_meta_20() {
+# 22. python/uv/lock-sync
+forge_check_meta_22() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
+forge_scope_22() {
   return 0
 }
-forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_20() {
+forge_when_22() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=4
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
@@ -5065,6 +5153,28 @@ forge_grep_meta_2() {
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
+}
+
+# grep 3. python/no-ruff-overlap
+forge_grep_meta_3() {
+  g_id='python/no-ruff-overlap'; g_mode=forbid; g_flags=-iE
+  g_pattern='"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|")|repo:[[:space:]]*https://github\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$'
+  g_desc='No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines.'
+}
+forge_grep_scope_3() {
+  case $1 in pyproject.toml|*/pyproject.toml|.pre-commit-config.yaml) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 4. python/uv/dependency-groups
+forge_grep_meta_4() {
+  g_id='python/uv/dependency-groups'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*dev-dependencies[[:space:]]*='
+  g_desc='Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies.'
+}
+forge_grep_scope_4() {
+  case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
+  return 0
 }
 # ---- end of generated checks
 
@@ -8238,7 +8348,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=20
+FORGE_NCHECKS=22
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -8312,184 +8422,214 @@ forge_check_fix_4() {
 ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/project-table
 forge_check_meta_5() {
+  c_id='python/project-table'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_5() {
+  case $1 in pyproject.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_5() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_5() {
+[ ! -f pyproject.toml ] || [ -n "$(forge_toml_get pyproject.toml project requires-python)" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\n'; false; }
+}
+
+# 6. python/pytest/no-test-edits
+forge_check_meta_6() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_5() { return 1; }
-forge_check_run_5() {
-forge_test_edits
-}
-
-# 6. python/pytest/run
-forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
-}
 forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_6() { return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_6() {
-pytest -q $FORGE_FILES
+forge_test_edits
 }
 
-# 7. python/pytest/untested-change
+# 7. python/pytest/run
 forge_check_meta_7() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
+pytest -q
+}
+forge_check_changed_7() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_7() {
+pytest -q $FORGE_FILES
+}
+
+# 8. python/pytest/untested-change
+forge_check_meta_8() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_8() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
-forge_check_meta_8() {
+# 9. python/ruff-config-current
+forge_check_meta_9() {
+  c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_9() {
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_9() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_9() {
+! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+}
+
+# 10. python/sqlalchemy/alembic/check
+forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_10() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
+# 11. python/sqlalchemy/alembic/data-migration-downgrade
+forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-forge_advise forge_alembic_fk_index
-}
-
-# 11. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_data_downgrade
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/fk-index
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-forge_models_registered
+forge_advise forge_alembic_fk_index
 }
 
-# 13. python/sqlalchemy/alembic/single-head
+# 13. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_13() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 14. python/sqlalchemy/alembic/sqlite-batch
+# 14. python/sqlalchemy/alembic/model-registered
 forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_14() { return 1; }
 forge_check_run_14() {
-forge_alembic_batch
+forge_models_registered
 }
 
-# 15. python/sqlalchemy/asyncio-extra
+# 15. python/sqlalchemy/alembic/single-head
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_15() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 16. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_16() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+forge_alembic_batch
+}
+
+# 17. python/sqlalchemy/asyncio-extra
+forge_check_meta_17() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_17() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -8497,42 +8637,9 @@ return 1
 
 }
 
-# 16. python/sqlalchemy/fk-index
-forge_check_meta_16() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_16() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_16() { return 1; }
-forge_check_run_16() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 17. python/stub-sync
-forge_check_meta_17() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_17() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_17() { return 1; }
-forge_check_run_17() {
-forge_advise forge_stub_sync
-}
-
-# 18. python/typecheck
+# 18. python/sqlalchemy/fk-index
 forge_check_meta_18() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -8542,38 +8649,71 @@ forge_scope_18() {
 }
 forge_when_18() { return 1; }
 forge_check_run_18() {
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
+}
+
+# 19. python/stub-sync
+forge_check_meta_19() {
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_advise forge_stub_sync
+}
+
+# 20. python/typecheck
+forge_check_meta_20() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { return 1; }
+forge_check_run_20() {
 ty check --output-format concise
 }
 
-# 19. python/uv/exclude-newer
-forge_check_meta_19() {
+# 21. python/uv/exclude-newer
+forge_check_meta_21() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_19() {
+forge_scope_21() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_19() {
+forge_when_21() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_21() {
 forge_uv_cooldown
 }
 
-# 20. python/uv/lock-sync
-forge_check_meta_20() {
+# 22. python/uv/lock-sync
+forge_check_meta_22() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
+forge_scope_22() {
   return 0
 }
-forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_20() {
+forge_when_22() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=4
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
@@ -8597,6 +8737,28 @@ forge_grep_meta_2() {
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
+}
+
+# grep 3. python/no-ruff-overlap
+forge_grep_meta_3() {
+  g_id='python/no-ruff-overlap'; g_mode=forbid; g_flags=-iE
+  g_pattern='"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|")|repo:[[:space:]]*https://github\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$'
+  g_desc='No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines.'
+}
+forge_grep_scope_3() {
+  case $1 in pyproject.toml|*/pyproject.toml|.pre-commit-config.yaml) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 4. python/uv/dependency-groups
+forge_grep_meta_4() {
+  g_id='python/uv/dependency-groups'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*dev-dependencies[[:space:]]*='
+  g_desc='Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies.'
+}
+forge_grep_scope_4() {
+  case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
+  return 0
 }
 # ---- end of generated checks
 
@@ -11595,7 +11757,7 @@ forge_types_filter() {
 }
 
 FORGE_NTESTRULES=1
-forge_test_rule_1() { t_n=5; t_id='python/pytest/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
+forge_test_rule_1() { t_n=6; t_id='python/pytest/no-test-edits'; t_review='Is this change to existing tests required by the user'\''s request (the request changes the behaviour these tests assert, so they must assert the new behaviour), or does it weaken or remove tests to make the code pass? Allow only the first.'; }
 
 # forge_test_rule_for <file>: sets t_n, t_id, t_review for the test-edit rule whose
 # scope holds <file>; fails when none does.
@@ -11791,7 +11953,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=20
+FORGE_NCHECKS=22
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -11865,184 +12027,214 @@ forge_check_fix_4() {
 ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/project-table
 forge_check_meta_5() {
+  c_id='python/project-table'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_5() {
+  case $1 in pyproject.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_5() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_5() {
+[ ! -f pyproject.toml ] || [ -n "$(forge_toml_get pyproject.toml project requires-python)" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\n'; false; }
+}
+
+# 6. python/pytest/no-test-edits
+forge_check_meta_6() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_5() { return 1; }
-forge_check_run_5() {
-forge_test_edits
-}
-
-# 6. python/pytest/run
-forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
-}
 forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_6() { return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_6() {
-pytest -q $FORGE_FILES
+forge_test_edits
 }
 
-# 7. python/pytest/untested-change
+# 7. python/pytest/run
 forge_check_meta_7() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
+pytest -q
+}
+forge_check_changed_7() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_7() {
+pytest -q $FORGE_FILES
+}
+
+# 8. python/pytest/untested-change
+forge_check_meta_8() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_8() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
-forge_check_meta_8() {
+# 9. python/ruff-config-current
+forge_check_meta_9() {
+  c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_9() {
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_9() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_9() {
+! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+}
+
+# 10. python/sqlalchemy/alembic/check
+forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_10() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
+# 11. python/sqlalchemy/alembic/data-migration-downgrade
+forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-forge_advise forge_alembic_fk_index
-}
-
-# 11. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_data_downgrade
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/fk-index
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-forge_models_registered
+forge_advise forge_alembic_fk_index
 }
 
-# 13. python/sqlalchemy/alembic/single-head
+# 13. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_13() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 14. python/sqlalchemy/alembic/sqlite-batch
+# 14. python/sqlalchemy/alembic/model-registered
 forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_14() { return 1; }
 forge_check_run_14() {
-forge_alembic_batch
+forge_models_registered
 }
 
-# 15. python/sqlalchemy/asyncio-extra
+# 15. python/sqlalchemy/alembic/single-head
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_15() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 16. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_16() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+forge_alembic_batch
+}
+
+# 17. python/sqlalchemy/asyncio-extra
+forge_check_meta_17() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_17() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -12050,42 +12242,9 @@ return 1
 
 }
 
-# 16. python/sqlalchemy/fk-index
-forge_check_meta_16() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_16() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_16() { return 1; }
-forge_check_run_16() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 17. python/stub-sync
-forge_check_meta_17() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_17() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_17() { return 1; }
-forge_check_run_17() {
-forge_advise forge_stub_sync
-}
-
-# 18. python/typecheck
+# 18. python/sqlalchemy/fk-index
 forge_check_meta_18() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -12095,38 +12254,71 @@ forge_scope_18() {
 }
 forge_when_18() { return 1; }
 forge_check_run_18() {
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
+}
+
+# 19. python/stub-sync
+forge_check_meta_19() {
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_advise forge_stub_sync
+}
+
+# 20. python/typecheck
+forge_check_meta_20() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { return 1; }
+forge_check_run_20() {
 ty check --output-format concise
 }
 
-# 19. python/uv/exclude-newer
-forge_check_meta_19() {
+# 21. python/uv/exclude-newer
+forge_check_meta_21() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_19() {
+forge_scope_21() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_19() {
+forge_when_21() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_21() {
 forge_uv_cooldown
 }
 
-# 20. python/uv/lock-sync
-forge_check_meta_20() {
+# 22. python/uv/lock-sync
+forge_check_meta_22() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
+forge_scope_22() {
   return 0
 }
-forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_20() {
+forge_when_22() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=4
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
@@ -12150,6 +12342,28 @@ forge_grep_meta_2() {
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
+}
+
+# grep 3. python/no-ruff-overlap
+forge_grep_meta_3() {
+  g_id='python/no-ruff-overlap'; g_mode=forbid; g_flags=-iE
+  g_pattern='"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|")|repo:[[:space:]]*https://github\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$'
+  g_desc='No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines.'
+}
+forge_grep_scope_3() {
+  case $1 in pyproject.toml|*/pyproject.toml|.pre-commit-config.yaml) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 4. python/uv/dependency-groups
+forge_grep_meta_4() {
+  g_id='python/uv/dependency-groups'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*dev-dependencies[[:space:]]*='
+  g_desc='Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies.'
+}
+forge_grep_scope_4() {
+  case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
+  return 0
 }
 # ---- end of generated checks
 
@@ -15187,6 +15401,86 @@ exit 2
 ===== .forge/.gitignore
 state/
 
+===== .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
+id: python/contextmanager-finally
+valid:
+  - |
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def connection(pool):
+        conn = pool.acquire()
+        try:
+            yield conn
+        finally:
+            pool.release(conn)
+  - |
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def locked(lock):
+        with lock:
+            yield
+  - |
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def settings(values):
+        values["debug"] = True
+        yield values
+  - |
+    def numbers():
+        yield 1
+        print("after")
+invalid:
+  - |
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def connection(pool):
+        conn = pool.acquire()
+        yield conn
+        pool.release(conn)
+  - |
+    import contextlib
+
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app):
+        await app.start()
+        state = yield
+        await app.stop()
+
+===== .forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml
+id: python/fastapi/basic-auth-compare-digest
+valid: []
+invalid:
+  - |
+    from typing import Annotated
+
+    from fastapi import Depends, FastAPI, HTTPException
+    from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+    app = FastAPI()
+    security = HTTPBasic()
+
+
+    @app.get("/me")
+    def me(credentials: Annotated[HTTPBasicCredentials, Depends(security)]) -> str:
+        if credentials.username != "admin" or credentials.password != "s3cret":
+            raise HTTPException(status_code=401)
+        return credentials.username
+  - |
+    from fastapi.security import HTTPBasicCredentials as Basic
+
+
+    def check(c: Basic, expected: str) -> bool:
+        return c.password == expected
+
 ===== .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 id: python/fastapi/cors-credentials-wildcard
 valid:
@@ -15416,6 +15710,85 @@ invalid:
     def total(items: list[int]) -> int:
         # TODO
         pass
+
+===== .forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml
+id: python/no-swallowed-cancel
+valid:
+  - |
+    import asyncio
+    import logging
+
+    log = logging.getLogger(__name__)
+
+
+    async def worker(q: asyncio.Queue[int]) -> None:
+        try:
+            await q.get()
+        except asyncio.CancelledError:
+            log.info("worker stopped")
+            raise
+  - |
+    import asyncio
+
+
+    async def worker(q: asyncio.Queue[int]) -> None:
+        try:
+            await q.get()
+        except (asyncio.CancelledError, TimeoutError) as err:
+            if isinstance(err, asyncio.CancelledError):
+                raise
+  - |
+    import asyncio
+
+
+    async def worker(q: asyncio.Queue[int]) -> None:
+        try:
+            await q.get()
+        except asyncio.QueueEmpty:
+            pass
+  - |
+    from concurrent.futures import CancelledError
+
+
+    def wait(f) -> None:
+        try:
+            f.result()
+        except CancelledError:
+            pass
+invalid:
+  - |
+    import asyncio
+    import logging
+
+    log = logging.getLogger(__name__)
+
+
+    async def worker(q: asyncio.Queue[int]) -> None:
+        try:
+            await q.get()
+        except asyncio.CancelledError:
+            log.info("worker stopped")
+  - |
+    import asyncio
+
+
+    async def worker(q: asyncio.Queue[int]) -> int | None:
+        try:
+            return await q.get()
+        except (asyncio.CancelledError, TimeoutError) as err:
+            print(err)
+            return None
+  - |
+    from asyncio import CancelledError, Queue
+
+
+    async def worker(q: Queue[int]) -> None:
+        try:
+            await q.get()
+        except CancelledError:
+            def later() -> None:
+                raise RuntimeError
+            later()
 
 ===== .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
 id: python/pydantic/typeadapter-module-level
@@ -15841,6 +16214,133 @@ invalid:
         db = SessionLocal()
         db.commit()
 
+===== .forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml
+id: python/taskgroup-except-star
+valid: []
+invalid:
+  - |
+    import asyncio
+
+
+    async def fetch(n: int) -> int:
+        return n
+
+
+    async def main() -> None:
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(fetch(1))
+                tg.create_task(fetch(2))
+        except ValueError:
+            pass
+  - |
+    import anyio
+
+
+    async def fetch(n: int) -> None:
+        pass
+
+
+    async def main() -> None:
+        try:
+            async with anyio.create_task_group() as group:
+                group.start_soon(fetch, 1)
+        except (ValueError, KeyError) as err:
+            print(err)
+  - |
+    import trio
+
+
+    async def fetch(n: int) -> None:
+        pass
+
+
+    async def main() -> None:
+        try:
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(fetch, 1)
+        except OSError:
+            pass
+
+===== .forge/ast-grep/rule-tests/python-typeis-over-typeguard-test.yml
+id: python/typeis-over-typeguard
+valid:
+  - |
+    from typing import TypeIs
+
+
+    def is_str(x: object) -> TypeIs[str]:
+        return isinstance(x, str)
+  - |
+    def is_str(x: object) -> bool:
+        return isinstance(x, str)
+invalid:
+  - |
+    from typing import TypeGuard
+
+
+    def is_str(x: object) -> TypeGuard[str]:
+        return isinstance(x, str)
+  - |
+    import typing_extensions
+
+
+    def is_int(x: object) -> typing_extensions.TypeGuard[int]:
+        return isinstance(x, int)
+
+===== .forge/ast-grep/rules/python/contextmanager-finally.yml
+# Generated by forge from python/contextmanager-finally (mode: forbid).
+id: python/contextmanager-finally
+language: Python
+severity: error
+message: "forge:python/contextmanager-finally In a @contextmanager / @asynccontextmanager function, a yield followed by cleanup sits in try/finally (or inside a with): otherwise an exception in the with body skips the cleanup."
+rule:
+  kind: expression_statement
+  any:
+    - has:
+        kind: yield
+    - has:
+        kind: assignment
+        has:
+          field: right
+          kind: yield
+  precedes:
+    not:
+      kind: comment
+    stopBy: neighbor
+  inside:
+    kind: block
+    stopBy: neighbor
+    inside:
+      kind: function_definition
+      stopBy: neighbor
+      inside:
+        kind: decorated_definition
+        stopBy: neighbor
+        has:
+          kind: decorator
+          regex: ^@(contextlib\.)?(async)?contextmanager$
+
+===== .forge/ast-grep/rules/python/fastapi/basic-auth-compare-digest.yml
+# Generated by forge from python/fastapi/basic-auth-compare-digest (mode: forbid).
+id: python/fastapi/basic-auth-compare-digest
+language: Python
+severity: error
+message: forge:python/fastapi/basic-auth-compare-digest HTTP Basic credentials (HTTPBasicCredentials.username / .password) are compared with secrets.compare_digest, never == or !=, which leak through timing how much of the value matched.
+rule:
+  kind: comparison_operator
+  regex: (==|!=)
+  has:
+    any:
+      - pattern: $C.password
+      - pattern: $C.username
+metadata:
+  forge_where:
+    C:
+      type:
+        package: fastapi
+        name: HTTPBasicCredentials
+
 ===== .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
 # Generated by forge from python/fastapi/cors-credentials-wildcard (mode: forbid).
 id: python/fastapi/cors-credentials-wildcard
@@ -16080,6 +16580,52 @@ rule:
           has:
             field: superclasses
             regex: \b(Protocol|ABC)\b
+
+===== .forge/ast-grep/rules/python/no-swallowed-cancel.yml
+# Generated by forge from python/no-swallowed-cancel (mode: forbid).
+id: python/no-swallowed-cancel
+language: Python
+severity: error
+message: "forge:python/no-swallowed-cancel An except handler that catches asyncio.CancelledError (alone or in a tuple) re-raises it: swallowing it breaks cancellation, timeouts and task group shutdown."
+rule:
+  kind: except_clause
+  has:
+    field: value
+    any:
+      - regex: ^asyncio\.CancelledError(\s+as\s+\w+)?$
+      - kind: tuple
+        has:
+          regex: ^asyncio\.CancelledError$
+      - kind: as_pattern
+        has:
+          kind: tuple
+          has:
+            regex: ^asyncio\.CancelledError$
+      - all:
+          - any:
+              - regex: ^CancelledError(\s+as\s+\w+)?$
+              - kind: tuple
+                has:
+                  regex: ^CancelledError$
+              - kind: as_pattern
+                has:
+                  kind: tuple
+                  has:
+                    regex: ^CancelledError$
+          - inside:
+              kind: module
+              stopBy: end
+              has:
+                kind: import_from_statement
+                regex: ^from\s+asyncio\s+import\s[^;]*\bCancelledError\s*(,|\)|$)
+  not:
+    has:
+      kind: raise_statement
+      stopBy:
+        any:
+          - kind: function_definition
+          - kind: lambda
+          - kind: class_definition
 
 ===== .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
 # Generated by forge from python/pydantic/typeadapter-module-level (mode: advise).
@@ -16529,6 +17075,59 @@ metadata:
         name:
           - Session
           - AsyncSession
+
+===== .forge/ast-grep/rules/python/taskgroup-except-star.yml
+# Generated by forge from python/taskgroup-except-star (mode: forbid).
+id: python/taskgroup-except-star
+language: Python
+severity: error
+message: "forge:python/taskgroup-except-star A try whose body is one task group (asyncio.TaskGroup, anyio task group, trio nursery) catches with except*, ExceptionGroup or Exception: a task group raises an ExceptionGroup, which a plain except SomeError never catches."
+rule:
+  kind: except_clause
+  has:
+    field: value
+    regex: .
+  not:
+    any:
+      - regex: ^except\s*\*
+      - has:
+          field: value
+          regex: ^(Exception|BaseException|ExceptionGroup|BaseExceptionGroup)(\s+as\s+\w+)?$
+  inside:
+    kind: try_statement
+    stopBy: neighbor
+    has:
+      field: body
+      kind: block
+      all:
+        - has:
+            nthChild: 1
+            any:
+              - pattern: "async with trio.open_nursery($$$) as $N: $$$B"
+              - pattern: "async with $CM as $N: $$$B"
+        - not:
+            has:
+              nthChild: 2
+metadata:
+  forge_where:
+    CM:
+      type:
+        package:
+          - asyncio
+          - anyio
+        name: TaskGroup
+
+===== .forge/ast-grep/rules/python/typeis-over-typeguard.yml
+# Generated by forge from python/typeis-over-typeguard (mode: advise).
+id: python/typeis-over-typeguard
+language: Python
+severity: warning
+message: forge:python/typeis-over-typeguard Narrowing predicates return TypeIs[T] (typing 3.13, typing_extensions), which also narrows the else branch; keep TypeGuard[T] only when T is not a subtype of the parameter's type.
+rule:
+  kind: function_definition
+  has:
+    field: return_type
+    regex: ^((typing|typing_extensions)\.)?TypeGuard\[
 
 ===== .forge/ast-grep/sgconfig.yml
 # Generated by forge.
@@ -17094,7 +17693,7 @@ pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
-FORGE_NCHECKS=20
+FORGE_NCHECKS=22
 
 # 1. python/config-ratchet
 forge_check_meta_1() {
@@ -17168,184 +17767,214 @@ forge_check_fix_4() {
 ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
 }
 
-# 5. python/pytest/no-test-edits
+# 5. python/project-table
 forge_check_meta_5() {
+  c_id='python/project-table'; c_stage=lint; c_tools=''
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_5() {
+  case $1 in pyproject.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_5() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_5() {
+[ ! -f pyproject.toml ] || [ -n "$(forge_toml_get pyproject.toml project requires-python)" ] || { printf 'pyproject.toml: no [project] requires-python; declare the project in a PEP 621 [project] table (name, version, requires-python, dependencies)\n'; false; }
+}
+
+# 6. python/pytest/no-test-edits
+forge_check_meta_6() {
   c_id='python/pytest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_5() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_5() { return 1; }
-forge_check_run_5() {
-forge_test_edits
-}
-
-# 6. python/pytest/run
-forge_check_meta_6() {
-  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
-  c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
-}
 forge_scope_6() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_6() { return 1; }
 forge_check_run_6() {
-pytest -q
-}
-forge_check_changed_6() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
-}
-forge_check_rerun_6() {
-pytest -q $FORGE_FILES
+forge_test_edits
 }
 
-# 7. python/pytest/untested-change
+# 7. python/pytest/run
 forge_check_meta_7() {
-  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_id='python/pytest/run'; c_stage=test; c_tools='pytest'
+  c_when=0; c_localdb=0; c_timeout=300
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
-  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
+pytest -q
+}
+forge_check_changed_7() {
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+}
+forge_check_rerun_7() {
+pytest -q $FORGE_FILES
+}
+
+# 8. python/pytest/untested-change
+forge_check_meta_8() {
+  c_id='python/pytest/untested-change'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_8() {
+  case $1 in test_*.py|*/test_*.py|*_test.py|*/*_test.py|conftest.py|*/conftest.py|tests/*|*/tests/*|migrations/*|*/migrations/*|alembic/versions/*|*/alembic/versions/*) return 1 ;; esac
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_8() { return 1; }
+forge_check_run_8() {
 forge_advise forge_untested_change
 }
 
-# 8. python/sqlalchemy/alembic/check
-forge_check_meta_8() {
+# 9. python/ruff-config-current
+forge_check_meta_9() {
+  c_id='python/ruff-config-current'; c_stage=lint; c_tools='ruff'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_9() {
+  case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) ;; *) return 1 ;; esac
+  return 0
+}
+forge_when_9() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
+forge_check_run_9() {
+! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+}
+
+# 10. python/sqlalchemy/alembic/check
+forge_check_meta_10() {
   c_id='python/sqlalchemy/alembic/check'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=1; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_8() {
+forge_scope_10() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_8() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
-forge_check_run_8() {
+forge_when_10() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_10() {
 alembic check
 }
 
-# 9. python/sqlalchemy/alembic/data-migration-downgrade
-forge_check_meta_9() {
+# 11. python/sqlalchemy/alembic/data-migration-downgrade
+forge_check_meta_11() {
   c_id='python/sqlalchemy/alembic/data-migration-downgrade'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_9() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_9() { return 1; }
-forge_check_run_9() {
-forge_advise forge_alembic_data_downgrade
-}
-
-# 10. python/sqlalchemy/alembic/fk-index
-forge_check_meta_10() {
-  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_10() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_10() { return 1; }
-forge_check_run_10() {
-forge_advise forge_alembic_fk_index
-}
-
-# 11. python/sqlalchemy/alembic/migration-lint
-forge_check_meta_11() {
-  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
-  c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
-forge_when_11() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_when_11() { return 1; }
 forge_check_run_11() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
-}
-forge_check_changed_11() {
-forge_squawk_alembic $FORGE_FILES
+forge_advise forge_alembic_data_downgrade
 }
 
-# 12. python/sqlalchemy/alembic/model-registered
+# 12. python/sqlalchemy/alembic/fk-index
 forge_check_meta_12() {
-  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/fk-index'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
-  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-forge_models_registered
+forge_advise forge_alembic_fk_index
 }
 
-# 13. python/sqlalchemy/alembic/single-head
+# 13. python/sqlalchemy/alembic/migration-lint
 forge_check_meta_13() {
-  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
+  c_id='python/sqlalchemy/alembic/migration-lint'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_13() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_13() {
-test "$(alembic heads | wc -l)" -le 1
+forge_squawk_alembic $(alembic heads | forge_alembic_files)
+}
+forge_check_changed_13() {
+forge_squawk_alembic $FORGE_FILES
 }
 
-# 14. python/sqlalchemy/alembic/sqlite-batch
+# 14. python/sqlalchemy/alembic/model-registered
 forge_check_meta_14() {
-  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_id='python/sqlalchemy/alembic/model-registered'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
-  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in models/*|*/models/*) ;; *) return 1 ;; esac
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
 }
 forge_when_14() { return 1; }
 forge_check_run_14() {
-forge_alembic_batch
+forge_models_registered
 }
 
-# 15. python/sqlalchemy/asyncio-extra
+# 15. python/sqlalchemy/alembic/single-head
 forge_check_meta_15() {
-  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_id='python/sqlalchemy/alembic/single-head'; c_stage=migration; c_tools='alembic'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_15() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
+forge_check_run_15() {
+test "$(alembic heads | wc -l)" -le 1
+}
+
+# 16. python/sqlalchemy/alembic/sqlite-batch
+forge_check_meta_16() {
+  c_id='python/sqlalchemy/alembic/sqlite-batch'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_16() {
+  case $1 in alembic/versions/*) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_16() { return 1; }
+forge_check_run_16() {
+forge_alembic_batch
+}
+
+# 17. python/sqlalchemy/asyncio-extra
+forge_check_meta_17() {
+  c_id='python/sqlalchemy/asyncio-extra'; c_stage=lint; c_tools='uv'
+  c_when=1; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_17() {
   return 0
 }
-forge_when_15() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
-forge_check_run_15() {
+forge_when_17() { case $1 in pyproject.toml|*/pyproject.toml|requirements*.txt|*/requirements*.txt|*.py|*/*.py) return 0 ;; esac; return 1; }
+forge_check_run_17() {
 git grep -q --untracked -E '^[[:space:]]*(from[[:space:]]+sqlalchemy\.ext\.asyncio[[:space:]]|import[[:space:]]+sqlalchemy\.ext\.asyncio|from[[:space:]]+sqlalchemy\.ext[[:space:]]+import[[:space:]].*asyncio)' -- '*.py' || return 0
 git ls-files -z --cached --others --exclude-standard -- pyproject.toml '*/pyproject.toml' 'requirements*.txt' '*/requirements*.txt' | xargs -0 grep -qiE 'sqlalchemy[[:space:]]*\[[^]]*asyncio|(^|["'"'"'[:space:]])greenlet([^A-Za-z0-9_.-]|$)' /dev/null && return 0
 echo 'sqlalchemy.ext.asyncio is imported but no pyproject.toml or requirements*.txt declares sqlalchemy[asyncio] (or greenlet): uv add "sqlalchemy[asyncio]"'
@@ -17353,42 +17982,9 @@ return 1
 
 }
 
-# 16. python/sqlalchemy/fk-index
-forge_check_meta_16() {
-  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_16() {
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_16() { return 1; }
-forge_check_run_16() {
-case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
-forge_advise forge_helper python fk_index.py
-
-}
-
-# 17. python/stub-sync
-forge_check_meta_17() {
-  c_id='python/stub-sync'; c_stage=lint; c_tools=''
-  c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
-}
-forge_scope_17() {
-  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
-  case $1 in *.py|*.pyi) return 0 ;; esac
-  return 1
-}
-forge_when_17() { return 1; }
-forge_check_run_17() {
-forge_advise forge_stub_sync
-}
-
-# 18. python/typecheck
+# 18. python/sqlalchemy/fk-index
 forge_check_meta_18() {
-  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_id='python/sqlalchemy/fk-index'; c_stage=lint; c_tools='python'
   c_when=0; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -17398,38 +17994,71 @@ forge_scope_18() {
 }
 forge_when_18() { return 1; }
 forge_check_run_18() {
+case $(forge_db_url) in mysql*|mariadb*) return 0 ;; esac
+forge_advise forge_helper python fk_index.py
+
+}
+
+# 19. python/stub-sync
+forge_check_meta_19() {
+  c_id='python/stub-sync'; c_stage=lint; c_tools=''
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_19() {
+  case $1 in *.py|*/*.py) ;; *) return 1 ;; esac
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_19() { return 1; }
+forge_check_run_19() {
+forge_advise forge_stub_sync
+}
+
+# 20. python/typecheck
+forge_check_meta_20() {
+  c_id='python/typecheck'; c_stage=typecheck; c_tools='ty'
+  c_when=0; c_localdb=0; c_timeout=''
+  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+}
+forge_scope_20() {
+  case $1 in *.py|*.pyi) return 0 ;; esac
+  return 1
+}
+forge_when_20() { return 1; }
+forge_check_run_20() {
 ty check --output-format concise
 }
 
-# 19. python/uv/exclude-newer
-forge_check_meta_19() {
+# 21. python/uv/exclude-newer
+forge_check_meta_21() {
   c_id='python/uv/exclude-newer'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_19() {
+forge_scope_21() {
   return 0
 }
-forge_when_19() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
-forge_check_run_19() {
+forge_when_21() { case $1 in pyproject.toml|uv.toml|uv.lock) return 0 ;; esac; return 1; }
+forge_check_run_21() {
 forge_uv_cooldown
 }
 
-# 20. python/uv/lock-sync
-forge_check_meta_20() {
+# 22. python/uv/lock-sync
+forge_check_meta_22() {
   c_id='python/uv/lock-sync'; c_stage=lint; c_tools='uv'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
-forge_scope_20() {
+forge_scope_22() {
   return 0
 }
-forge_when_20() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
-forge_check_run_20() {
+forge_when_22() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
+forge_check_run_22() {
 uv lock --check
 }
 
-FORGE_NGREPS=2
+FORGE_NGREPS=4
 FORGE_GREP_NO_INCREASE='python/no-new-suppressions'
 FORGE_GREP_NO_DECREASE=''
 
@@ -17453,6 +18082,28 @@ forge_grep_meta_2() {
 forge_grep_scope_2() {
   case $1 in *.py|*.pyi) return 0 ;; esac
   return 1
+}
+
+# grep 3. python/no-ruff-overlap
+forge_grep_meta_3() {
+  g_id='python/no-ruff-overlap'; g_mode=forbid; g_flags=-iE
+  g_pattern='"(black|isort|flake8|autopep8|pyupgrade|autoflake)([[:space:]]*[]<>=!~;[]|")|repo:[[:space:]]*https://github\.com/(psf/black(-pre-commit-mirror)?|pycqa/(isort|flake8|autoflake)|asottile/pyupgrade|hhatto/autopep8)([.]git)?[[:space:]]*$'
+  g_desc='No black, isort, flake8, autopep8, pyupgrade or autoflake as a dependency or pre-commit hook: ruff format and ruff check cover them, and two tools fight over the same lines.'
+}
+forge_grep_scope_3() {
+  case $1 in pyproject.toml|*/pyproject.toml|.pre-commit-config.yaml) ;; *) return 1 ;; esac
+  return 0
+}
+
+# grep 4. python/uv/dependency-groups
+forge_grep_meta_4() {
+  g_id='python/uv/dependency-groups'; g_mode=forbid; g_flags=-E
+  g_pattern='^[[:space:]]*dev-dependencies[[:space:]]*='
+  g_desc='Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies.'
+}
+forge_grep_scope_4() {
+  case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
+  return 0
 }
 # ---- end of generated checks
 
@@ -20453,7 +21104,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring'
+FORGE_FORBID='python/contextmanager-finally|python/fastapi/basic-auth-compare-digest|python/fastapi/cors-credentials-wildcard|python/fastapi/deprecated-params|python/fastapi/no-debug-true|python/fastapi/no-on-event|python/fastapi/no-testclient-in-async-test|python/llm-client-timeout|python/no-stub|python/no-swallowed-cancel|python/pydantic/v2-api|python/pytest/no-tautological-assert|python/pytest/no-test-env-branch|python/sqlalchemy/alembic/no-create-all|python/sqlalchemy/async-expire-on-commit|python/sqlalchemy/mapped-column|python/sqlalchemy/no-backref|python/sqlalchemy/no-concurrent-session|python/sqlalchemy/no-declarative-base|python/sqlalchemy/no-lazy-dynamic|python/sqlalchemy/no-query-api|python/sqlalchemy/no-raw-execute|python/sqlalchemy/no-text-fstring|python/taskgroup-except-star'
 FORGE_NO_INCREASE='python/pytest/no-mock-increase|python/pytest/no-new-skip'
 FORGE_NO_DECREASE='python/pytest/no-fewer-asserts'
 
@@ -20647,11 +21298,16 @@ forge_end "$fail"
   "forge_version": "0.5.0",
   "claude_code_min": "2.1.295",
   "rules": {
-    "python/aware-datetime": "34edbcba3e80528562da1cc94eaf4c50305b8749f03027d6b653546eb64bd5dc",
+    "python/annotations-api": "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a",
+    "python/aware-datetime": "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b",
     "python/config-files": "10a4c68ce6ad01cd9aef64ddc48117984fc693c065aafd4ec566327a2d109f20",
     "python/config-ratchet": "97a033be5bce27330c9ddcd5d36728904a6989998278ce50d45fa78812de2db8",
+    "python/contextmanager-finally": "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55",
+    "python/decimal-from-str": "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262",
     "python/env-example": "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd",
+    "python/env-misuse": "5a5cc025a0ab1b58dc61ab934840895b9e91f856ca683b8d3b4bc7fcd23de339",
     "python/fastapi/annotated-depends": "74fc0e4e89bf389aa7377ee0ab2d47d29257c9d063592ab8156b1f3f9dca7f38",
+    "python/fastapi/basic-auth-compare-digest": "24e57eb010290be6e27de1dfdb6290e45fef0fdd7c1b3fd82d7d365db9c03f94",
     "python/fastapi/cors-credentials-wildcard": "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c",
     "python/fastapi/deprecated-params": "de3831b362bb016f17b82dd083a133023a43800e4f03d45f203c5ec0b01c1071",
     "python/fastapi/no-debug-true": "c18e5a042914d571469d52a7667fc5085fc5881cbcd67a0082ab6d668638cb9f",
@@ -20667,44 +21323,66 @@ forge_end "$fail"
     "python/lint": "ee52570ea6ee01c0688c5f22c3f364dbf5b7208a2a0f6bc1953bc872e488686e",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "66fed902165c9cc84ef1f614b239888767e9a90c8b5b6549e5593eb70f2d3e3f",
+    "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
+    "python/misplaced-bare-raise": "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c",
     "python/no-async-timeout": "4cb4ebed582e7c990d9205d07ea88d943bf3356edeb9f9162bb900fcfa352ffe",
     "python/no-bare-except": "1ea911085040c162828227d499b90871d6a395de928351c6bd4b1843c31b26ca",
+    "python/no-bidi-chars": "4e06bbba9bfeb852b50bfd5de1d2037f1516f79591e3461d302e6dcbba6445e4",
     "python/no-blanket-noqa": "8e80247d900e6ab1d3205281b3e0b352f983cec7180e6ff904fe9b3dc7af03d1",
     "python/no-blind-except": "4f3bfd74f11c5b6e2357af09286afde64c0bf2370be519dd68e79be42fe5e7f5",
-    "python/no-blocking-in-async": "153fdfba0b1d27a269663ac9d98ba8cb0f3eea2cc969cba6333e913f109bff16",
+    "python/no-blocking-in-async": "c9720ff9c61c7d427764aed8bb2917d3fb9bde7e15aa3a844de81a13832f23f3",
+    "python/no-cached-method": "9dcf97f5f700521455c82f0bdb5020b0e9cb0b69259fe254bcceeb01600d07c4",
     "python/no-commented-out-code": "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101",
+    "python/no-commonprefix": "7cbe29348a97eaaf7ebf9e045bddd7ebd01b65f01f8d9aea07cb9dfcc8c885d3",
     "python/no-dangling-task": "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901",
+    "python/no-debugger": "164e5665b19459d1d4fd670ef634ee12ed0ee35d20700ca3c3fafed08f281b7b",
     "python/no-deprecated": "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd",
     "python/no-ensure-future": "65a1f258c08dabc70ad036262a5215443032def2595d93651ee3a123de6a4dcb",
+    "python/no-eval": "6dbaa96e5c5ec9952f70419be092a2261f7a0c6df75a091b5f5a5a8b678fefbd",
     "python/no-explicit-any": "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b",
     "python/no-forgotten-call": "dc244142f38dbc163fec9b03b13687f1291d072400e5f9a944a53c6138421f2c",
     "python/no-get-event-loop": "72c8a9a8df88f46797dce49e8c8aa208a87b4031c8f2ab87c47a4f77be8eeb99",
+    "python/no-global-statement": "19d5b2acc7c201af57b1c29fdd6c7b9cb515caa6db46d5ec747a02c649d83f2a",
     "python/no-hardcoded-password": "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e",
+    "python/no-jump-in-finally": "7a0cfb2d8894b112ab04f6b4bf01e7888e97640bb80c5462b12c03f61e120746",
+    "python/no-mutable-defaults": "9b431e94f8974c5ab1b937f224674196aa31520649925e40579908702af678a5",
     "python/no-nest-asyncio": "42bd48664c16e28b8b2761b7b9e872b71bcf1f756c2474ca4a7f06342892d12f",
     "python/no-new-suppressions": "ca503a681a10fd3e7a96e807f6750247db8168ced4b532412e4173f8dda00abd",
     "python/no-passlib": "c0485f2eb0ab87bcd139cd46d4b69dc3476d31c065cd94089fbb5e459822153d",
-    "python/no-pickle": "b85ea1a2242fa9e0d748e6512ee83c185d91afe515473f1559fd3ba3fac87152",
+    "python/no-pickle": "9c351dae94ee08822dae165aa3162647da126477b5c75b8cf49f8dcaef858b6b",
     "python/no-pkg-resources": "885bc29a2544d66bb79d4bd714209d549366f764a4737423cc1b1d55a5281c79",
     "python/no-placeholder-comment": "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286",
     "python/no-possibly-missing-submodule": "23169ba136c8097d032bd0466d9db0ac7de78683071e5e7f953090cd8d855bd2",
+    "python/no-preexec-fn": "d53a83e7784fc809c37da3485cb62511bfe801b65fe43781853ab8b8fda96f94",
     "python/no-print": "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a",
     "python/no-python-jose": "e2514dc0891d352768775fd48c8640667273b578588402f31218e95045313506",
     "python/no-pytz": "c20d211b7166bcbd6623f78fce4e748a104e357af1ef1e13b5d29407a8ba87a0",
+    "python/no-raise-vanilla": "94d69facf52fe2d7a0634aaf155c6bc8759ada50e98844f0b331be10901216ff",
     "python/no-removed-stdlib": "1b81a299489064187600523e13170dca614a99732ec12fd81d52358600aea585",
-    "python/no-shell-true": "3e958140e547ae367e19a44a2b3bd223ec1e095333d7ff7664f4a0d4e31e782f",
+    "python/no-root-logger": "f2fd080c455236b6cc9bfd5c769afbbfd7486f25a81f56bc42920b627aa8c32e",
+    "python/no-ruff-overlap": "c056a910aedd5616c5e512586a468c6fbd9cc77588a11de88e54c3115eca689c",
+    "python/no-setup-py": "40550650c37e0a43e830dcfaf184fc97353fdca73d4027f3b8e3db783d164e38",
+    "python/no-shell-true": "e57da980e2cf90ab2998c0b12987735c970262277193bdea72397679c12200de",
     "python/no-silent-except": "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c",
     "python/no-sql-format": "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c",
     "python/no-stale-ignore": "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa",
     "python/no-stub": "eeec4edd5c17679b9c1ffe5fed019b968ed15975a2636b78bdcb632043885be9",
-    "python/no-tls-bypass": "4196bdee89c3f655bbbf51c477b21ac4834f3c680211fa6b9d26d3d2a7695695",
+    "python/no-swallowed-cancel": "86e42ec8b2f39f0b68b032cea2591268f0adf076b78571691c8ee012bed5cc67",
+    "python/no-tls-bypass": "50f40612ba7d0bccc6df25dc918b467429f7fb120f9d8a9d74389dcb9eddcab4",
     "python/no-unawaited-coroutine": "f8c54678f05d37ca91b302b9513ba4290521c927748f95d2684edf4a62511012",
-    "python/no-unknown": "6355a10b97485aaad9f6857abef12eba928769a8a9634da109b916b156e2f036",
+    "python/no-unknown": "338e97ad56332dc9b8a0f04db8b6bac86eacbe5be0a639ad11d6d0633f6bd820",
+    "python/no-unsafe-markup": "36cc21c3e5ad54bb0b7c5a1e5b6ed3cd3be645008967dcecdaa0d99b49c4e6f3",
     "python/no-unsafe-yaml": "3a1aa90fcb8512a33df1c4afff6717b4cb4e95f77c634409f7f7b6221eabad92",
     "python/no-unscoped-ignore": "431b8ace40499bc0444f2d57b5a4a826853bb8d340a4c1091003ad9b7bb8ce0c",
+    "python/no-unused-args": "f9581d5227911b978ccddedb552372edf436218e640e07a0ab57d03c947dc9c5",
     "python/no-unused-noqa": "451c4baa594552fae0c808e39002665ddfe1a86dd3d9ba95ebc22def6d80edd6",
     "python/no-useless-cast": "69e12c7922cfc0c6a2d6c9d2baa84e04b5746e11393627a6bc1b6076fe300421",
+    "python/no-useless-lock": "443e98c84edc59f69d9d85f01b983d2cdeb58dd67a0b9b743f92666963f3c4b6",
+    "python/no-useless-try": "2b26c37730777ecc9d8b657bafba15e5037ead286a08f3b1dc120dcc27eb00d3",
     "python/no-weak-hash": "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03",
+    "python/open-with-context": "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056",
     "python/override-decorator": "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089",
+    "python/project-table": "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327",
     "python/pydantic/typeadapter-module-level": "9055642fc8900ac8af6d9b0a553233a93f7ef38ad7a45a4c83f04f7f5312ea24",
     "python/pydantic/v2-api": "530f46e310f2bd30f6347d75b3a2243922cb5aeef921df69c2314e399473e4eb",
     "python/pytest/no-blind-raises": "5e4380936ff598117305786c79894401af219e7a4e3514aa1bfbf603228b3277",
@@ -20716,6 +21394,9 @@ forge_end "$fail"
     "python/pytest/no-test-env-branch": "9d251f32eedb18ac7d819e8b6cf6a4450b14b5eead1f43c544e1fbf995a9e7aa",
     "python/pytest/run": "ef1248916825b76f9441dc0223f9ccb3601caef3751dd8e72fa8a9cc56a4141b",
     "python/pytest/untested-change": "001b26a918f3eb428cd4996addab633cac381b1736a440a45787741b1a5cb483",
+    "python/raise-from": "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381",
+    "python/ruff-config-current": "38ca37ed01e532ff526ed4925777a447ab52d7e74543dbae88c34c9181e2a6a6",
+    "python/self-type": "7d4247c8346d32b948d11e91b0b2e7aa69dda3dd6401f83879479de240a7b4a1",
     "python/sqlalchemy/alembic/check": "20302f517e19991c41d1ab5de4a979a8aae9c8149b9b88ec44e87775c56ffc0c",
     "python/sqlalchemy/alembic/data-migration-downgrade": "0a8b1ab713c05ee2df82ed8bbce9aaceef3c40942548a61d9e1cd8f1cf7822ef",
     "python/sqlalchemy/alembic/downgrade": "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a",
@@ -20738,35 +21419,46 @@ forge_end "$fail"
     "python/sqlalchemy/no-raw-execute": "9412a8f512351567d2b2e9cb3cb8c7d7b9db5dedfbbf09c40a78122803accad0",
     "python/sqlalchemy/no-text-fstring": "d6124c4cd9fb3be0b5014c11bca908f9ed24f7998fce175c36dee6a3cf19740a",
     "python/sqlalchemy/session-context": "d82d5556d244e6bb0de557a738c1f680f7ada159bc744b5df60f6129c371bb6f",
+    "python/strict-zip": "a657834c26cca0bb51b07a18b297238075b337fc30a03ea089e7e10c913fccde",
     "python/stub-sync": "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe",
+    "python/subprocess-check": "3b8e572d9f78082ac6eb7df6f0d8ffb1ae9e4a0ec797077fea459d1691e6bd08",
+    "python/taskgroup-except-star": "cac6a24d72d057d9dcf8aa120647e94a330c34c20536836e868f85c452e0f6ad",
+    "python/type-checking-imports": "a3ffea57777c1ccaec2df6487798c5621ed3195313d6114b4b44a34242b97df4",
     "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
     "python/typed-decorators": "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75",
+    "python/typeis-over-typeguard": "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9",
+    "python/uv/dependency-groups": "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a",
     "python/uv/exclude-newer": "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b",
     "python/uv/lock-sync": "bf3de58f036a46f0407262272fb55e128b2acd4b1c08c46025d3f417eb198e25",
-    "python/uv/no-pip": "00667955d4cd816878c5358a3503771adf37b8015214dae0b1ed32583a081537"
+    "python/uv/no-pip": "67264ba6e92a5fc863f81f816d05223a758c9eece0a4eae9dc85fe8c718803c1",
+    "python/uv/no-requirements-txt": "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5",
+    "python/weak-crypto": "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48",
+    "python/with-suffix-dot": "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2"
   },
   "files": {
-    ".claude/rules/forge-python-fastapi.md": "1793d6be335ee31cf71d7d0755a9772590d14eeb4cb418bd392b1a66c261875e",
+    ".claude/rules/forge-python-fastapi.md": "f087d2341264d50383f79fc83c6e300192c545a22c368a73ab19e9212bb25d61",
     ".claude/rules/forge-python-pydantic.md": "cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d",
     ".claude/rules/forge-python-pytest.md": "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d",
     ".claude/rules/forge-python-sqlalchemy.md": "45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e",
-    ".claude/rules/forge-python.md": "901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330",
+    ".claude/rules/forge-python.md": "7915a21b1bb862c2f58f4413f7217aec6829112f542c033eec86390010151748",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/guard.rules": "a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20",
+    ".claude/skills/forge-project/scripts/guard.rules": "8bb4459a3b60573a45bb03ad0ca719d9f0c0077d9774617a086a9019e985c1d7",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "170103cde0ab1dd517ce50d5d48c752de6f1218a6c323a34bae90abbd8ec0a38",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "3de3f461bb49360e0f38ba10eba657e5a27f962ad5b120e0d31ed78a53d1d449",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "306c72948e6dab3350f5831178cb97ea8d37b8fa1f8c2e75bc6ce4b792552b85",
+    ".claude/skills/forge-project/scripts/session-start.sh": "71f0c7684dfbcb98d6a1d5b14edc8224575ca6db84991538141cd2fc82033b40",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "bc98aaa89c9276323965d645dc3159ea1773199a2385c468f0c7ed53e76a28ba",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "292a8a016a6217031fab2109633f97c66392e1816d33703db1869ad31905fb0a",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "03436608880d2cc9ffd9ec3959c4e0ea7487816581b3551e42f92a07ee1f9799",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "8220f3b5dcc824a5eb1f9ff354ffab14415c3c25ac3cb06e183e03233c3e6c80",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
+    ".forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml": "c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15",
+    ".forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml": "c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5",
     ".forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml": "69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700",
     ".forge/ast-grep/rule-tests/python-fastapi-deprecated-params-test.yml": "3ab907fdafea1f658c6da3626c3fc0fb0cdc6f63162f45339d7a57a03edce0c4",
     ".forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml": "cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1",
@@ -20776,6 +21468,7 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml": "83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7",
     ".forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml": "75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26",
     ".forge/ast-grep/rule-tests/python-no-stub-test.yml": "caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b",
+    ".forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml": "e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363",
     ".forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml": "20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3",
     ".forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml": "190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c",
     ".forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml": "09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443",
@@ -20794,6 +21487,10 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-raw-execute-test.yml": "e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml": "b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0",
     ".forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml": "c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831",
+    ".forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml": "d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c",
+    ".forge/ast-grep/rule-tests/python-typeis-over-typeguard-test.yml": "d11d996fa649fbe56af564508c298af431eca98262f7dbb1102f34e2243fb52e",
+    ".forge/ast-grep/rules/python/contextmanager-finally.yml": "3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba",
+    ".forge/ast-grep/rules/python/fastapi/basic-auth-compare-digest.yml": "490bdb2e13062df7a4012fc2f61ae47d4fc76035a171f0cb225d3e730492a9b0",
     ".forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml": "166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd",
     ".forge/ast-grep/rules/python/fastapi/deprecated-params.yml": "e9c9abce3eaf90e32efd589ca64a7fd4ac6ed080e6866748a8bad37c86a631f4",
     ".forge/ast-grep/rules/python/fastapi/no-debug-true.yml": "dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b",
@@ -20803,6 +21500,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml": "f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab",
     ".forge/ast-grep/rules/python/llm-client-timeout.yml": "e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869",
     ".forge/ast-grep/rules/python/no-stub.yml": "0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf",
+    ".forge/ast-grep/rules/python/no-swallowed-cancel.yml": "a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa",
     ".forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml": "55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418",
     ".forge/ast-grep/rules/python/pydantic/v2-api.yml": "0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776",
     ".forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml": "6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363",
@@ -20821,8 +21519,10 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml": "4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0",
     ".forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml": "04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca",
     ".forge/ast-grep/rules/python/sqlalchemy/session-context.yml": "085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251",
+    ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
+    ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "49e39b9b647b54d9095e54f6e8cf5bcebe587fbe03ab1f1732e08b514f0189b6",
+    ".forge/check.sh": "c9a367e97f726de9cb4e2604ed2392d299fdb1badf652ef10584d18942eb36bb",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/ratchet.py": "4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d",
     ".forge/helpers/types_python.py": "bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e",
@@ -20863,6 +21563,26 @@ forge_end "$fail"
       "file": ".claude/settings.json",
       "path": "permissions.ask",
       "value": "Edit(**/ty.toml)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Write(**/setup.py)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Write(**/setup.cfg)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Write(**/requirements*.txt)"
+    },
+    {
+      "file": ".claude/settings.json",
+      "path": "permissions.ask",
+      "value": "Edit(**/requirements*.txt)"
     }
   ]
 }
@@ -21870,27 +22590,29 @@ def main():
 main()
 
 ===== .forge/manifest.sha256
-1793d6be335ee31cf71d7d0755a9772590d14eeb4cb418bd392b1a66c261875e  .claude/rules/forge-python-fastapi.md
+f087d2341264d50383f79fc83c6e300192c545a22c368a73ab19e9212bb25d61  .claude/rules/forge-python-fastapi.md
 cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d  .claude/rules/forge-python-pydantic.md
 bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a  .claude/rules/forge-python-pytest.md
 dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d  .claude/rules/forge-python-sqlalchemy-alembic.md
 45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e  .claude/rules/forge-python-sqlalchemy.md
-901fbb585eee69fe9a3442a8334787233666b61533ed0e5104a57e9996fe3330  .claude/rules/forge-python.md
+7915a21b1bb862c2f58f4413f7217aec6829112f542c033eec86390010151748  .claude/rules/forge-python.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-a3bb50a3648137c8e0c7cda3d1cb07050fcb36f990e50b8b2b7f46b78e363f20  .claude/skills/forge-project/scripts/guard.rules
+8bb4459a3b60573a45bb03ad0ca719d9f0c0077d9774617a086a9019e985c1d7  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-170103cde0ab1dd517ce50d5d48c752de6f1218a6c323a34bae90abbd8ec0a38  .claude/skills/forge-project/scripts/post-edit.sh
+3de3f461bb49360e0f38ba10eba657e5a27f962ad5b120e0d31ed78a53d1d449  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-306c72948e6dab3350f5831178cb97ea8d37b8fa1f8c2e75bc6ce4b792552b85  .claude/skills/forge-project/scripts/session-start.sh
+71f0c7684dfbcb98d6a1d5b14edc8224575ca6db84991538141cd2fc82033b40  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-bc98aaa89c9276323965d645dc3159ea1773199a2385c468f0c7ed53e76a28ba  .claude/skills/forge-project/scripts/test-edit.sh
+292a8a016a6217031fab2109633f97c66392e1816d33703db1869ad31905fb0a  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-03436608880d2cc9ffd9ec3959c4e0ea7487816581b3551e42f92a07ee1f9799  .claude/skills/forge-project/scripts/typecheck.sh
+8220f3b5dcc824a5eb1f9ff354ffab14415c3c25ac3cb06e183e03233c3e6c80  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
+c0b0640d3d20bce2e5798634fc3c9c4387ac9c8815311263ae0ab8fa1ff5ce15  .forge/ast-grep/rule-tests/python-contextmanager-finally-test.yml
+c19dd70b73c09bfb7e5119240af1bfdeb7cd6daea53f9781cbfb2506d0af9be5  .forge/ast-grep/rule-tests/python-fastapi-basic-auth-compare-digest-test.yml
 69a94f1a0b16aa08bcf758af3e3dc269266cdd808aba1a4289b4c58c7f969700  .forge/ast-grep/rule-tests/python-fastapi-cors-credentials-wildcard-test.yml
 3ab907fdafea1f658c6da3626c3fc0fb0cdc6f63162f45339d7a57a03edce0c4  .forge/ast-grep/rule-tests/python-fastapi-deprecated-params-test.yml
 cc41b4679da7c42ca44eb92af4f9787ad42ff4e396d0e0ddd1d44268f5bbd6e1  .forge/ast-grep/rule-tests/python-fastapi-no-debug-true-test.yml
@@ -21900,6 +22622,7 @@ e883f61b194e9a1c9df39b834fbe1984abb7f5ad08a28f021f9c41f89dc31a47  .forge/ast-gre
 83b1a552b00e4702557022df97ad8d91ab3513fff1a5dc7bedc2e20c8875b6f7  .forge/ast-grep/rule-tests/python-fastapi-testclient-lifespan-test.yml
 75030e1f874dde137461d40541297c31398c57143669d2d574239e626590eb26  .forge/ast-grep/rule-tests/python-llm-client-timeout-test.yml
 caa135cd54c3f53d5d2fbb85c518a2e94d263fd9a4860a63d224c7187432275b  .forge/ast-grep/rule-tests/python-no-stub-test.yml
+e691cbd8a0067558ca59e7ca6502bc70e914b41dfce4a38e0987cb9fe51c3363  .forge/ast-grep/rule-tests/python-no-swallowed-cancel-test.yml
 20a26571984c9145822cde4f3c2837ef9babcccda1f7c63b22975dd4fc7616c3  .forge/ast-grep/rule-tests/python-pydantic-typeadapter-module-level-test.yml
 190345231426a2518af45845d7e40c71d9a4cc0f68b656a91b17fb10156c4f0c  .forge/ast-grep/rule-tests/python-pydantic-v2-api-test.yml
 09250fc39904625fa6b9fbf8e680592026afa92b309bb44978ceced953e85443  .forge/ast-grep/rule-tests/python-pytest-no-fewer-asserts-test.yml
@@ -21918,6 +22641,10 @@ b0949d9f9be5bd6c2ca2d8c383c74d1379e2abd0dd75ce9f0e669a462638abef  .forge/ast-gre
 e252681713a4306ca3b759cee11ed31df0350ad0355186f6120761fa8b03aa1d  .forge/ast-grep/rule-tests/python-sqlalchemy-no-raw-execute-test.yml
 b6ad70dac48994e60453edd07d73a3669d26b21954b227be8177a7a98426baa0  .forge/ast-grep/rule-tests/python-sqlalchemy-no-text-fstring-test.yml
 c47d06cd6e01012e44f04ab6fcccff0fc4aa96723a31d2a5e693098fdde80831  .forge/ast-grep/rule-tests/python-sqlalchemy-session-context-test.yml
+d703e5516697fa9964c3ef7a173c1207dd476da1714ed884209cfb0f385ff16c  .forge/ast-grep/rule-tests/python-taskgroup-except-star-test.yml
+d11d996fa649fbe56af564508c298af431eca98262f7dbb1102f34e2243fb52e  .forge/ast-grep/rule-tests/python-typeis-over-typeguard-test.yml
+3e4a4f92a974f3a8addc4065da0ae0df4544c5bf48570836da80dd81611511ba  .forge/ast-grep/rules/python/contextmanager-finally.yml
+490bdb2e13062df7a4012fc2f61ae47d4fc76035a171f0cb225d3e730492a9b0  .forge/ast-grep/rules/python/fastapi/basic-auth-compare-digest.yml
 166a169b8e196d6820c512fc277f5fcfb1ab03ddfbed4eff4479202c7a34b9cd  .forge/ast-grep/rules/python/fastapi/cors-credentials-wildcard.yml
 e9c9abce3eaf90e32efd589ca64a7fd4ac6ed080e6866748a8bad37c86a631f4  .forge/ast-grep/rules/python/fastapi/deprecated-params.yml
 dc64b5d1aacfe0e08b84585850948286cf2290a77e4a80a9ae0df3d98a6fcd3b  .forge/ast-grep/rules/python/fastapi/no-debug-true.yml
@@ -21927,6 +22654,7 @@ b72f3428ab91e438f0a87abb050528198af17ada55fe41cfab020be5588d6ef3  .forge/ast-gre
 f0c942050eac1c5e3858e388b9a11da2981e340f523666cfd0c0e79984e6dbab  .forge/ast-grep/rules/python/fastapi/testclient-lifespan.yml
 e5f6e62d4108157ce6f7f73a1a9843b7111bd2566f4ff61ba54f3ab23e297869  .forge/ast-grep/rules/python/llm-client-timeout.yml
 0660a06b80fa4e3cccbc89f496275e8f093b873632d1d93ecb48e4315d987bbf  .forge/ast-grep/rules/python/no-stub.yml
+a15e6941ec0e8c33957ca6f33e30dc7dbafa60986fd4264e6031740da40941aa  .forge/ast-grep/rules/python/no-swallowed-cancel.yml
 55ed9e6a95ab3337d0ec6547c529f5cf766f39be8a66885cbad0d12a12d63418  .forge/ast-grep/rules/python/pydantic/typeadapter-module-level.yml
 0285c193f340cfebcfd12ac21c1b8a21b96bea3970e1cbd8dd48aca0b1af5776  .forge/ast-grep/rules/python/pydantic/v2-api.yml
 6a5651b8e53b3fcd6d075650f3e52439916dde0d825bba80f5db0c5a9f3e1363  .forge/ast-grep/rules/python/pytest/no-fewer-asserts.yml
@@ -21945,8 +22673,10 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4cbbfe0fdd4cb1ccf170cb147d2f46b341389b65239166356994632836be70c0  .forge/ast-grep/rules/python/sqlalchemy/no-raw-execute.yml
 04c44c9e215449d46b10540e86e999ec1d6383d8c3a849855fe73cb456668fca  .forge/ast-grep/rules/python/sqlalchemy/no-text-fstring.yml
 085314ebd159593e95b8d7f956bf947428cdc502d1ceadce0999f2f368cb2251  .forge/ast-grep/rules/python/sqlalchemy/session-context.yml
+4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
+0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-49e39b9b647b54d9095e54f6e8cf5bcebe587fbe03ab1f1732e08b514f0189b6  .forge/check.sh
+c9a367e97f726de9cb4e2604ed2392d299fdb1badf652ef10584d18942eb36bb  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 4f7e312b9419bd1ee09fe9cd3e988546bba089d706cb1b44e4546c4b4c87173d  .forge/helpers/ratchet.py
 bbd4ed6863d3fde7b4f1aa8d578d6a83bd5755c2167057733a1c7d7f99ee919e  .forge/helpers/types_python.py

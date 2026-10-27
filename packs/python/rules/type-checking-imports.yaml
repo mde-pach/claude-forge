@@ -1,0 +1,14 @@
+id: python/type-checking-imports
+description: "A name imported only under if TYPE_CHECKING: is not used at run time (it would raise NameError)."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TC004
+    snippet: '[tool.ruff.lint] extend-select = ["TC004"]'
+examples:
+  match:
+    - "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from decimal import Decimal\n\n\ndef zero() -> \"Decimal\":\n    return Decimal(0)\n"
+  no_match:
+    - "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from decimal import Decimal\n\n\ndef total(xs: list[\"Decimal\"]) -> \"Decimal\":\n    return sum(xs)\n"
+    - "from decimal import Decimal\n\n\ndef zero() -> Decimal:\n    return Decimal(0)\n"

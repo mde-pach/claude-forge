@@ -1,0 +1,16 @@
+id: python/typeis-over-typeguard
+description: "Narrowing predicates return TypeIs[T] (typing 3.13, typing_extensions), which also narrows the else branch; keep TypeGuard[T] only when T is not a subtype of the parameter's type."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: function_definition
+      has: {field: return_type, regex: "^((typing|typing_extensions)\\.)?TypeGuard\\["}
+examples:
+  match:
+    - "from typing import TypeGuard\n\n\ndef is_str(x: object) -> TypeGuard[str]:\n    return isinstance(x, str)\n"
+    - "import typing_extensions\n\n\ndef is_int(x: object) -> typing_extensions.TypeGuard[int]:\n    return isinstance(x, int)\n"
+  no_match:
+    - "from typing import TypeIs\n\n\ndef is_str(x: object) -> TypeIs[str]:\n    return isinstance(x, str)\n"
+    - "def is_str(x: object) -> bool:\n    return isinstance(x, str)\n"

@@ -1,0 +1,13 @@
+id: python/no-debugger
+description: No breakpoint(), pdb.set_trace() or other debugger hooks in committed code.
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: T100
+    snippet: '[tool.ruff.lint] extend-select = ["T100"]'
+examples:
+  match:
+    - "import pdb\n\n\ndef pay(amount: int) -> int:\n    pdb.set_trace()\n    breakpoint()\n    return amount\n"
+  no_match:
+    - "import logging\n\nlog = logging.getLogger(__name__)\n\n\ndef pay(amount: int) -> int:\n    log.debug(\"amount=%s\", amount)\n    return amount\n"
