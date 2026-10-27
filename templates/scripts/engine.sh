@@ -1362,6 +1362,35 @@ forge_credential_files() {
   return "$_cf_rc"
 }
 
+# forge_env_files: "path:0 …" for each tracked or added dotenv file (file role @env-files:
+# .env, .env.*, not the templates of @env-template); then, when a template or a .gitignore is
+# part of the change (or with --all), each template's directory whose .env git would not ignore.
+forge_env_files() {
+  _ef_rc=0
+  { git ls-files 2>/dev/null; cat "$FORGE_TMP/existing"; } | sort -u > "$FORGE_TMP/env.files"
+  while IFS= read -r _ef_f; do
+    [ -f "$_ef_f" ] && forge_role @env-files "$_ef_f" || continue
+    printf '%s:0 is a dotenv file; keep it out of the repository (git rm --cached, .gitignore) and commit a template (.env.example) instead\n' "$_ef_f"
+    _ef_rc=1
+  done < "$FORGE_TMP/env.files"
+  if [ "$mode" != --all ]; then
+    _ef_any=''
+    while IFS= read -r _ef_f; do
+      case $_ef_f in .gitignore|*/.gitignore) _ef_any=1 ;; *) forge_role @env-template "$_ef_f" && _ef_any=1 ;; esac
+    done < "$FORGE_TMP/changed"
+    [ -n "$_ef_any" ] || return "$_ef_rc"
+  fi
+  while IFS= read -r _ef_f; do
+    [ -f "$_ef_f" ] && forge_role @env-template "$_ef_f" || continue
+    _ef_d=$(dirname "$_ef_f")
+    case $_ef_d in .) _ef_env=.env ;; *) _ef_env=$_ef_d/.env ;; esac
+    git check-ignore -q --no-index -- "$_ef_env" 2>/dev/null && continue
+    printf '%s is not git-ignored next to its template %s; add .env to .gitignore\n' "$_ef_env" "$_ef_f"
+    _ef_rc=1
+  done < "$FORGE_TMP/env.files"
+  return "$_ef_rc"
+}
+
 # ---- git hygiene (git/*)
 
 # forge_large_files <bytes>: each in-scope file (forge_scope_files) larger than <bytes> that is
@@ -1380,6 +1409,33 @@ forge_large_files() {
     _lg_rc=1
   done < "$FORGE_TMP/large.files"
   return "$_lg_rc"
+}
+
+# forge_artifacts <@role>: each file of the change in the role (dependency, cache and build
+# output: node_modules/, __pycache__/, *.pyc, .next/, … by Forge's defaults) or under a
+# directory holding a tool's own marker (pyvenv.cfg: a virtualenv; CACHEDIR.TAG: a cache,
+# per the Cache Directory Tagging spec), reported once per shallowest such directory
+# ("<dir>/ is not ignored …"; a file the role names alone: "<file> is not ignored …"). The
+# change already leaves out ignored files.
+forge_artifacts() {
+  _ba_role=$1
+  while IFS= read -r _ba_f; do
+    [ -n "$_ba_f" ] || continue
+    _ba_d=''; _ba_rest=$_ba_f; _ba_hit=''
+    while :; do
+      case $_ba_rest in */*) ;; *) break ;; esac
+      _ba_d=${_ba_d:+$_ba_d/}${_ba_rest%%/*}
+      _ba_rest=${_ba_rest#*/}
+      if [ -f "$_ba_d/pyvenv.cfg" ] || [ -f "$_ba_d/CACHEDIR.TAG" ] || forge_role "$_ba_role" "$_ba_d/"; then _ba_hit=$_ba_d/; break; fi
+    done
+    [ -n "$_ba_hit" ] || ! forge_role "$_ba_role" "$_ba_f" || _ba_hit=$_ba_f
+    [ -z "$_ba_hit" ] || printf '%s\n' "$_ba_hit"
+  done < "$FORGE_TMP/existing" | sort -u > "$FORGE_TMP/artifacts"
+  [ -s "$FORGE_TMP/artifacts" ] || return 0
+  while IFS= read -r _ba_p; do
+    printf '%s is not ignored: it is dependency, cache or build output; add it to .gitignore (and git rm -r --cached it if it was committed)\n' "$_ba_p"
+  done < "$FORGE_TMP/artifacts"
+  return 1
 }
 
 # forge_generated_edits: each changed in-scope file ($FORGE_FILES) marked generated:

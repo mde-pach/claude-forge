@@ -1931,7 +1931,7 @@ Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use 
 | `docker/compose/healthy-depends` | `ast-grep` forbid: `depends_on` as a list (block or flow); the long form with `condition:` is required |
 | `docker/compose/pinned-images` | `ast-grep` forbid: `image:` with `:latest` or no tag or digest, unless the service also has `build:`; `${VAR}` images are not checked |
 | `docker/compose/no-links` | `ast-grep` forbid: `links` / `external_links` in a service |
-| `docker/compose/env-not-committed` | `check` lint: `git ls-files` lists no `.env` or `.env.*` other than `.env.example`, `.env.sample`, `.env.template` |
+| `docker/compose/env-not-committed` | deprecated, replaced by `secrets/env-not-committed` (every repository, not only Compose projects) |
 
 context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
 
@@ -1943,6 +1943,7 @@ Active in every repository (`detect: {always: true}`, §5.1). Rules are `check` 
 |---|---|
 | `secrets/gitleaks` | `forge_gitleaks`: pinned gitleaks (§13.5) `dir` on copies of the changed files (every tracked file with `--all`), with Forge's config only (`-c`: gitleaks' default rules without `generic-api-key`, which decides on identifier names and entropy, plus LangSmith `lsv2_(pt\|sk)_…` and Pinecone `pcsk_…` keys), `-i` to an empty directory (`.gitleaksignore` does not apply), `--ignore-gitleaks-allow`, `--redact`; findings `path:line rule: description`, on added lines |
 | `secrets/no-credential-files` | `forge_credential_files`, when such a file or an `.npmrc` changed: tracked or added files matching `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.key`, `id_rsa`, `id_ecdsa`, `id_ed25519`, `.pypirc`, `.netrc`, `.git-credentials` (line 0); `.npmrc` lines setting `_authToken`, `_auth` or `_password` to a literal value (`${VAR}` is fine) |
+| `secrets/env-not-committed` | `forge_env_files`, when an `@env-files` or `@env-template` file or a `.gitignore` changed: tracked or added `@env-files` (`.env`, `.env.*`, not the templates) at line 0; when a template or a `.gitignore` changed (or with `--all`), each template's directory whose `.env` git would not ignore (`git check-ignore --no-index`) |
 
 context.md: credentials come from the environment or a secret store; a token or key found in a file, a log or a tool's output is never used to call an API or a CLI (`secrets/no-credential-reuse`); what gitleaks and the credential-file check reject.
 
@@ -1956,6 +1957,7 @@ Active in every repository (`detect: {always: true}`, §5.1).
 | `git/large-files` | `check` lint: `forge_large_files 1048576`: a file of the change over 1 MiB, new or grown, whose `git check-attr filter` is not `lfs` (line 0); the threshold is the argument (replace the rule locally). Proved by a spec test: its files do not fit in examples |
 | `git/generated-files` | `check` lint, advisory (§10.7): `forge_generated_edits`: a changed file marked `linguist-generated` (`git check-attr`) or with `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines: regenerate it rather than edit it |
 | `git/editorconfig` | `check` lint: `forge_editorconfig`, when `.editorconfig` exists: pinned editorconfig-checker (§13.5) with an empty config of Forge's (`.editorconfig-checker.json` excludes and disables do not apply), `-format gcc`, on the changed files no format check of the setup covers |
+| `git/no-build-artifacts` | `check` lint: `forge_artifacts @build-artifacts`: each file of the change (ignored files are not part of it) in the role, or under a directory holding `pyvenv.cfg` (a virtualenv) or `CACHEDIR.TAG` (a tagged cache: pytest, ruff, mypy, uv), reported once per shallowest such directory: add it to `.gitignore` |
 
 ### kubernetes
 
@@ -2289,6 +2291,7 @@ files:
 | `adr` | `docs/adr/**`, `doc/adr/**`, `docs/decisions/**` | adr-tools `.adr-dir` + `/**` |
 | `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` (or `[tool.alembic]`) `version_locations`, else `script_location` + `/versions/**` |
 | `better-auth-config` | the auth CLI's search paths: `{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}` | — |
+| `build-artifacts` | `**/node_modules/**`, `**/__pycache__/**`, `**/*.pyc`, `**/.next/**`, `**/.nuxt/**`, `**/.svelte-kit/**`, `**/.turbo/**`, `**/.coverage`, `**/.DS_Store` (and, in `forge_artifacts`, any directory holding `pyvenv.cfg` or `CACHEDIR.TAG`) | — |
 | `compose` | `**/compose*.yaml`, `**/compose*.yml`, `**/docker-compose*.yaml`, `**/docker-compose*.yml` | — |
 | `django-migrations` | `**/migrations/[0-9]*.py` | — |
 | `django-settings` | `**/settings.py`, `**/settings/*.py` | pytest-django `DJANGO_SETTINGS_MODULE` (`a.b` → `a/b.py`, `a/b/*.py`) |
