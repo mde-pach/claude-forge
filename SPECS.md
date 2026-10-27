@@ -46,12 +46,12 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 | Command | Behavior |
 |---|---|
-| `forge init` | New project only. Creates the stack's tool configs from pack templates (§5.2), each only if the file does not exist, then runs `forge apply`. |
+| `forge init` | New project only. Creates the stack's tool configs from pack templates (§5.2), each only if the file does not exist (with the diagnostics active packs switch off set to off, §5.1 `tool_off`), then runs `forge apply`. |
 | `forge apply` | Generate or update the project-level setup in the current repository. |
 | `forge apply --user` | Generate or update the user-level setup. |
 | `forge apply --local` | Like `apply`, but permission entries go to `.claude/settings.local.json` (for repositories you don't own). |
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
-| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `snippets` (§11), `missing_tools`, `packs`, `disabled`, `gated` (§6.1), `drift`. |
+| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set`, `ESLint rules not at error` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `snippets` (§11), `missing_tools`, `packs`, `disabled`, `gated` (§6.1), `switched_off` (§5.1), `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
 | `forge test` | Inside a git repository: validate the project's local rules (`.forge/rules/`; a local rule replacing a pack rule is tested as written) against the schema and run their examples (§14.1). No local rules: prints that there is nothing to test, exit 0. The bundled packs are not run: they are proved by Forge's own test suite. |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
@@ -93,10 +93,13 @@ detect:                     # omitted for user-level packs; any one of these det
   library_any: [pypi | npm]  # the project is a library published there (§13.4)
   content_any: [{files: [glob], pattern: regex}]  # a line of a matching file matches (a literal value in a literal config file)
   yaml_keys: [key]           # a .yaml/.yml file whose first document is a mapping with all these top-level keys
+tool_off:                   # optional: tool diagnostics this pack switches off where it is active
+  - {tool: biome, expects: lint/<group>/<name>, reason: string}
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
 - `content_any` and `yaml_keys` read file contents, only for packs that use them and only files of at most 1 MiB. `content_any` patterns are JavaScript regular expressions tested on each line (`^` and `$` anchor lines); one that does not compile rejects the pack. `yaml_keys` reads a file's first document (up to the next `---` or `...`); a file that is not YAML (a template that renders to YAML) does not count. Detection by content stays a detection: `packs.add` and `packs.remove` decide last.
+- **`tool_off`.** Where the pack is active, no rule's `tool` target with that `tool` and `expects` is audited or demanded (nor its rule's `ast-grep` stand-in): status lists it as `not enforced here: <tool> <expects> switched off by <pack> (<reason>)` and under `Switched off by packs:` (`--json`: `switched_off`, with the rules whose targets asked for it), and `forge init` writes Forge's config for that tool with the diagnostic `"off"` (Biome: `linter.rules.<group>.<name>` in `biome.json`, the rest of the template kept). For a diagnostic the tool's own fix makes harmful in that framework (NestJS: `useImportType`).
 - `forge.yaml` `packs.add` activates a pack and its ancestors. `requires` activates the required pack and its ancestors.
 - `packs.remove` deactivates a pack, its whole subtree, and every pack that requires a removed pack.
 - Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`, and the files `content_any` and `yaml_keys` name.
@@ -162,7 +165,7 @@ deprecated:                    # optional
 review: string                 # optional, one line: for an ask, the one question a reviewer answers (§9.3)
 ```
 
-An example is a string (code, written to a file inside the rule's scope) or, for rules whose targets are all `check`, a **fixture**:
+An example is a string (code, written to a file inside the rule's scope), for a rule whose targets are all `tool`, one file `{files: {<path>: <code>}}` (the code written with that path's file type, §11), or, for rules whose targets are all `check`, a **fixture**:
 
 ```yaml
 - head: {<path>: <content>}    # optional: committed first
@@ -173,7 +176,7 @@ A `guard` example is a command string or `{command, files}`: the command runs fr
 
 A rule with `when` is active only where each listed dependency is declared in its version range, read as detection reads it (§5.1; `package.json` `packageManager` and `devEngines.packageManager` declare the package manager as a dependency at that version): at the root for a pack that applies to the whole repository, else in the workspace packages where its pack was detected; a pack added in `forge.yaml` or required takes the packages where the gate holds when the root does not satisfy it. Its ast-grep and grep rules are scoped to those packages. A rule its gate leaves out is listed by `forge status` under `Inactive (version gate):` with what it needs (`--json`: `gated`).
 
-Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check` or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
+Paths are relative, without `..`. Every rule has examples, except a `check` target that runs the project's tests (stage `test`), its migrations (stage `migration`), `astro check`, the Angular compiler (`ngc`) or a lock-file check (`uv`, `bun`): those need a whole project, and their examples are optional.
 
 Every rule blocks, except an `ast-grep` or `grep` target in `advise` mode (§6.2), for heuristics whose matches need judgement. A rule you don't want is disabled with a reason.
 
@@ -181,12 +184,12 @@ Every rule blocks, except an `ast-grep` or `grep` target in `advise` mode (§6.2
 
 | Target | Fields | Category | Effect |
 |---|---|---|---|
-| `tool` | `tool: biome \| ruff \| ty \| tsc`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
+| `tool` | `tool: biome \| ruff \| ty \| tsc \| eslint`, `expects` (diagnostic code or rule name), `snippet` (config to show when unsatisfied) | audited | §11 |
 | `ast-grep` | `rule` (ast-grep rule object), `mode: forbid \| no-increase \| no-decrease \| advise`, `constraints`, `utils` (passed through), `where` (optional: engine capabilities on metavariables, §15.1) | owned | `.forge/ast-grep/rules/<rule-id>.yml` |
 | `permission` | `decision: deny \| ask`, `rule` (permission rule string) | appended | settings `permissions` |
 | `guard` | `decision: deny \| ask`, `pattern` (POSIX ERE against the JSON-escaped command), `check` (optional, `decision: ask` only: a built-in guard check, `ephemeral-exec`, that decides when `pattern` matches) | owned | `guard.rules` (§9.2) |
 | `sandbox` | `path`, `value` | appended, user only | `~/.claude/settings.json` `sandbox` |
-| `check` | `stage: format \| lint \| typecheck \| migration \| test`, `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1), `config_files` (optional, lint only, globs or roles: the tool's own config files it also lints, e.g. ruff's `RUF200` on `pyproject.toml`; a changed one is in the check's scope, so `{files}`, the edit-time run and the attribution of §10.1 include it) | owned | `.forge/check.sh` (§10) |
+| `check` | `stage: format \| lint \| codegen \| typecheck \| migration \| test` (`codegen`: generated code is up to date, or is generated, before the typecheck, §10.1), `run`, `changed_run` (optional, `{files}`), `fix_run` (optional, lint only, `{files}`: safe fixes applied after an edit, §8.1), `format_stdin` (optional, format or lint, `{file}`: the formatter as a filter, formatting stdin as if it were `{file}`; formats base copies for added lines, §10.1), `rerun` (optional, test only, `{files}`: runs only the given test files, §10.6), `when_changed` (optional), `requires_local_db` (optional, boolean), `fail_on_warnings` (optional, `true`: the run fails on warnings, e.g. `oxlint --deny-warnings`, and its warning diagnostics are attributed like errors, §10.1), `config_files` (optional, lint only, globs or roles: the tool's own config files it also lints, e.g. ruff's `RUF200` on `pyproject.toml`; a changed one is in the check's scope, so `{files}`, the edit-time run and the attribution of §10.1 include it) | owned | `.forge/check.sh` (§10) |
 | `grep` | `pattern` (POSIX ERE, matched line by line), `mode: forbid \| no-increase \| no-decrease \| advise`, `ignore_case` (optional) | owned | `.forge/check.sh` (§10): counts are matching lines per file |
 
 ast-grep and grep modes:
@@ -368,7 +371,7 @@ Runs in order, stops at the first failing step, prints `forge:<rule-id>` lines:
 1. **Integrity:** every owned file under `.forge/` and `.claude/` matches its hash in `.forge/manifest.sha256`, and no other file sits in Forge's directories. check.sh never parses `forge.lock.json`, so the lock's formatting does not matter.
 2. **Tests and counts:** test files present in the base and deleted → fail; ast-grep and grep `no-increase` / `no-decrease` rules compared with the base (`forge:<id> <path>: <before> -> <after>`).
 3. **Forbid rules** (ast-grep and grep), on added lines outside `--all` (`forge:<id> <path>:<line>[:<column>] <description>`).
-4. **Format, lint, typecheck:** `check` targets of stages `format`, `lint`, `typecheck`, using project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; `Would reformat: path` and Biome's `path format` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
+4. **Format, lint, codegen, typecheck:** `check` targets of stages `format`, `lint`, `codegen`, `typecheck`, in that order, each stage a step of its own: a failing `codegen` check (stale generated code: `graphql-codegen --check`, `wrangler types --check`) stops before the typecheck, whose errors would only repeat it; a `codegen` failure is not attributed (its output is shown). The edit-time typecheck (`typecheck.sh`, §8.1) runs the `typecheck` stage only. Checks use project binaries: `changed_run` on the changed files with `--turn` and `--changed`, `run` (read-only, whole project) with `--since` and `--all`. Outside `--all`, a failing run's error diagnostics are attributed: `lint` diagnostics count on added lines, `typecheck` diagnostics (and a whole-project `format` run's) on changed files. When none counts, the check prints `forge:<rule-id> ok for the added lines (…)` or `ok for the changed files (…)` and passes; otherwise it prints only the diagnostics that count. Output naming no file at all (configuration error, crash) fails as before. Diagnostic locations are read from the tools' plain output (`path(l,c)`, `path:l:c`, `--> path:l:c`; ESLint's stylish output, a file's absolute path alone on a line then its `l:c  error|warning  …` lines; `Would reformat: path`, Biome's `path format` and Prettier's `[warn] path` and `[error] path: …` name a file only; absolute paths under the repository are made relative; warning-only lines are ignored, except in a check with `fail_on_warnings`, where they count as errors). A failing run whose output has warnings and no error (ty with `terminal.error-on-warning` exits 1 on warnings alone) prints `forge:<rule-id> ok for the added lines (only warnings)` or `ok for the changed files (only warnings)` and passes; the edit-time hooks stay silent on it. `--all` fails on any error, and on the tool's exit status.
 5. **Migration checks:** `check` targets of stage `migration`, only if a `when_changed` path changed and, when `requires_local_db` is set, the configured database host is `localhost`, `127.0.0.1`, `::1` or a Unix socket. Otherwise print `forge:<rule-id> skipped: no local database` and continue.
 6. **Tests:** `check` targets of stage `test` (`changed_run` with `--changed` and `--turn`). Under `--turn`, failing tests are first compared with the start of the turn (§10.6).
 
@@ -468,7 +471,7 @@ Advice does not stop the steps after it (§10.1): the later stages still run, an
 For each `tool` target of an active rule:
 
 1. The tool is not present in the project → the rule's `ast-grep` target is used if it has one; otherwise `forge status` reports "not enforced here: <tool> not configured".
-2. The tool is present → Forge writes each example to a temporary file inside the rule's scope and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>…`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`. Biome and ty report by file, so the examples of a target are checked in one run (one per path when two examples share a path); each example gets the verdict a run on it alone would give, and runs alone when the shared run cannot tell (output not read, diagnostics left out, or a warning-only diagnostic while another file got an error).
+2. The tool is present → Forge writes each example to a temporary file inside the rule's scope (an example given as one file, `{files: {src/Card.vue: …}}`, next to that path with its file type: a rule covering several file types proves each) and runs the project's own tool with the project's config, reading machine-readable output: `biome lint --reporter=json <file>…`, `ruff check --output-format json --stdin-filename`, `ty check --output-format gitlab <file>` (Forge's pinned ty through uvx, with the project's config: present wherever there is a `pyproject.toml` or `ty.toml`; `major` is an error, `minor` a warning), `tsc --noEmit -p <temporary tsconfig extending the project's>`, `eslint --format json --no-warn-ignored <file>` (ESLint 9 and later: present with an `eslint.config.*` file or the `eslint` dependency; severity 2 is an error, 1 a warning; a file ESLint cannot parse, e.g. one its `projectService` does not cover, skips the audit with ESLint's message). Biome, ESLint and ty report by file, so the examples of a target are checked in one run (one per path when two examples share a path); each example gets the verdict a run on it alone would give, and runs alone when the shared run cannot tell (output not read, diagnostics left out, or a warning-only diagnostic while another file got an error).
 3. Every `match` example gets the expected diagnostic **as an error**, and no `no_match` example gets it → satisfied (stricter configs satisfy automatically). A warning never enforces a rule, even when the tool exits non-zero on warnings (ty's `terminal.error-on-warning`): the checks do not block on warning-only output (§10.1), so a rule's snippet sets the error level. ruff has no warning level; tsc reports errors only.
 4. Otherwise → `forge status` reports the rule as unsatisfied and prints its `snippet`; when the diagnostic is reported only as a warning, the detail says so. Rules of a TOML-configured tool (ruff, ty) add entries to the same tables (`extend-select`, the `flake8-tidy-imports.banned-api` table, `[tool.ty.rules]`), and a TOML table may be written only once: when several of a tool's audits are unsatisfied (per audited package), `apply` and `status` also print their snippets merged into one block (tables merged key by key, arrays joined; `--json`: `snippets`, keyed `<tool>` or `<tool> (in <dir>)`). Forge never edits the config. Output that cannot be read → the audit is skipped with the tool's first line of output, never satisfied.
 
@@ -492,7 +495,7 @@ Audits run during `forge apply` and `forge status`, never in hooks.
 - **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
 - **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed, and the scripts in `.forge/helpers/`, hashed also without `'`, `"`, `` ` ``, `,`, `;`, `(` and `)`: a formatter reflowing Forge's JSON, or rewriting its helper scripts (`ruff format .`, `biome check --write .`: layout, quote style, trailing commas, semicolons, parentheses), is not drift; any other change is. (A change made only of those characters, such as moving a parenthesis, is not detected: the price of letting formatters rewrite the scripts.) A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
 - **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON and helper lines need the normalised content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
-- **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
+- **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes; without Biome, they, the context files (`.claude/rules/forge-*.md`), the ast-grep YAML files and the JavaScript helpers are formatted with the project's own Prettier when installed (`prettier --stdin-filepath`), so `prettier --check .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
 
 ## 13. Packs and rules
 
@@ -647,7 +650,8 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 
 | Rule | Targets |
 |---|---|
-| `typescript/format-lint` | `check` lint: `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
+| `typescript/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` in `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro` and `.html` files (snippet: `html.experimentalFullSupportEnabled` and the whole `a11y` group at error; examples in each file type, §11) |
+| `typescript/format-lint` | `check` lint, on TypeScript and JavaScript files and the `.vue`, `.svelte`, `.astro` and `.html` files Biome also reads (their templates with `html.experimentalFullSupportEnabled`): `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
 | `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under the repository root's `.forge/state/`, as an absolute path, one file per workspace package (`<package dir, / as ->.tsc.tsbuildinfo`), so a project's own or composite build info is never written and a package never gets a `.forge/` of its own) |
 | `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
 | `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
@@ -658,6 +662,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-double-assertion` | `ast-grep` forbid: `$X as unknown as $T`, `$X as any as $T` |
 | `typescript/no-ts-nocheck` | `ast-grep` forbid comment `@ts-nocheck` |
 | `typescript/ts-expect-error-reason` | `ast-grep` forbid comment `@ts-expect-error` with nothing after it |
+| `typescript/no-deprecated` | `when` typescript `>=5.0.0` (the project's TypeScript answers); `ast-grep` forbid, `where` `{deprecated: true}` (§15.7) on every identifier, property, type and shorthand name: a use of a declaration marked `@deprecated` (the project's, a library's, `@types/node`'s: `url.parse`, `new Buffer()`, React's `ElementRef`) as TypeScript reports it, including the overload a call resolves to, and an object literal key of a deprecated property |
 | `typescript/no-ignore-deprecations` | `check` lint: no `"ignoreDeprecations"` in tracked `tsconfig*.json`, `when_changed: [tsconfig*.json]` |
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
@@ -688,7 +693,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-object-literal-assertion` | `ast-grep` forbid: `$E as $T` where `E` is an object literal or a non-empty array literal and `T` is not `const` |
 | `typescript/no-unchecked-json` | `ast-grep` forbid: `JSON.parse(…) as T`, `const x: T = JSON.parse(…)`, and the same on `await $R.json()` where `R` is a `Response` (`typescript` lib.dom, `undici-types`); `T` other than `unknown` |
 | `typescript/error-cause` | `tool` biome `lint/style/useErrorCause` |
-| `typescript/array-sort-compare` | `tool` biome `lint/suspicious/useArraySortCompare` (strings too: Biome has no option to exempt them) |
+| `typescript/array-sort-compare` | `tool` biome `lint/suspicious/useArraySortCompare` (strings too: Biome has no option to exempt them); `tool` eslint `@typescript-eslint/require-array-sort-compare` (`ignoreStringArrays: false`) |
 | `typescript/no-proto` | `tool` biome `lint/suspicious/noProto` (snippet: error) |
 | `typescript/no-dynamic-regexp` | `ast-grep` advise: `new RegExp($A, …)` / `RegExp($A, …)` whose pattern is not a string, a template without substitutions, or `RegExp.escape(…)` (a template whose substitutions are all `RegExp.escape(…)` counts as escaped) |
 
@@ -1255,9 +1260,31 @@ Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
 |---|---|
 | `typescript/eslint/flat-config-only` | `check` lint: no `.eslintrc`, `.eslintrc.*` or `.eslintignore` file (tracked or untracked, not ignored); `when_changed`: those names |
 | `typescript/eslint/no-eslint-env` | `grep` forbid: `/* eslint-env` comments |
+| `typescript/eslint/lint` | `check` lint, `fail_on_warnings`: `run: eslint --max-warnings=0 .`, `changed_run: eslint --max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern {files}`; ESLint's stylish output is attributed by file and line (§10.1) |
+| `typescript/eslint/type-checked` | `tool` eslint: typescript-eslint's `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`, `return-await`, `unbound-method`, `no-misused-spread`, `no-array-delete`, `no-for-in-array`, `restrict-template-expressions`, `prefer-promise-reject-errors`, `use-unknown-in-catch-callback-variable`, `no-unnecessary-type-assertion`, `no-unnecessary-condition`, `consistent-type-assertions` (`objectLiteralTypeAssertions: never`); snippet: error; type-aware (`parserOptions.projectService`) |
 | `typescript/eslint/ts-version` | `check` lint (with `bun`): the `typescript` that `@typescript-eslint/typescript-estree` resolves (directly, or through `typescript-eslint` / `@typescript-eslint/parser`) exports `createProgram`; TypeScript 7 has no compiler API, typescript-eslint supports `<6.1.0`; `when_changed`: `package.json` files and lock files |
 
-context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older.
+context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older; warnings block; the type-aware rules are errors.
+
+### typescript/oxlint
+
+Detected by `.oxlintrc.json`, `oxlint.config.ts` or the `oxlint` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/oxlint/lint` | `check` lint, `fail_on_warnings`: `run: oxlint --type-aware --deny-warnings --format unix`, `changed_run` the same on `{files}`; without `oxlint-tsgolint` the type-aware run fails ("Failed to find tsgolint executable"), so the type-aware rules are never skipped silently |
+
+context.md: `--type-aware` with oxlint-tsgolint; warnings block.
+
+### typescript/prettier
+
+Detected by a Prettier config file (`.prettierrc*`, `prettier.config.*`) or the `prettier` dependency.
+
+| Rule | Targets |
+|---|---|
+| `typescript/prettier/format` | `check` format: `run: prettier --check .`, `changed_run: prettier --write --ignore-unknown {files}`, `format_stdin: prettier --stdin-filepath {file}`; Prettier's `[warn] <path>` and `[error] <path>: …` lines name the files (§10.1) |
+
+context.md: Prettier formats; its options live in its config.
 
 ### typescript/pnpm
 
@@ -1305,6 +1332,7 @@ Detected by `.yarnrc.yml` (Yarn 2 and later).
 |---|---|
 | `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
 | `typescript/yarn/scripts-ratchet` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `yarn-scripts`, compared with the base: `.yarnrc.yml` `enableScripts` turned `true`; a `package.json` `dependenciesMeta` entry gaining `built: true`; accepted in `forge.yaml` |
+| `typescript/yarn/lock-sync` | `check` lint: `yarn install --immutable --mode=skip-build` (skipped when yarn is not installed or is Yarn 1, §13.5), `when_changed`: `package.json` files, `yarn.lock`, `.yarnrc.yml` |
 
 context.md: Yarn manages dependencies.
 
@@ -1337,8 +1365,9 @@ Detected by the `@testing-library/react` dependency.
 |---|---|
 | `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
 | `typescript/testing-library/no-container-queries` | `ast-grep` advise in `@ts-tests`: `$R.container.querySelector(…)` / `querySelectorAll(…)` and `const { container } = $R`, where `R` is `@testing-library/react`'s `RenderResult` (§15.1: an alias of an intersection) |
+| `typescript/testing-library/lint` | `tool` eslint (test files, `@ts-tests`): `testing-library/await-async-queries`, `no-wait-for-side-effects`, `prefer-find-by`, `prefer-screen-queries`, `no-unnecessary-act`, `no-node-access` (snippet: error; eslint-plugin-testing-library) |
 
-context.md: `renderHook` from `@testing-library/react`.
+context.md: `renderHook` from `@testing-library/react`; the testing-library ESLint rules' practices.
 
 ### typescript/msw
 
@@ -1445,8 +1474,8 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 | `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
 | `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
 | `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
-| `typescript/react/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` (snippet: the whole `a11y` group at error) |
-| `typescript/react/no-deprecated-types` | `tool` biome `lint/suspicious/noDeprecatedImports`, on imports React's types mark `@deprecated` (`ElementRef`, `MutableRefObject`, `LegacyRef`); Biome reads the tags from real `node_modules` directories only (not pnpm's symlinks) |
+| `typescript/react/a11y` | deprecated, replaced by `typescript/a11y` (which covers the Vue, Svelte, Astro and HTML templates too) |
+| `typescript/react/no-deprecated-types` | deprecated, replaced by `typescript/no-deprecated` (every deprecated use, React's types included, through the project's TypeScript) |
 | `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
 | `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
 | `typescript/react/stable-default-props` | `tool` biome `lint/nursery/noReactObjectTypeAsDefaultProp`: no object, array or function literal as a destructured prop's default |
@@ -1625,16 +1654,19 @@ context.md: `routeTree.gen.ts` is generated from the routes directory and never 
 
 ### typescript/vue
 
-Detected by `vue >= 3`. ESLint (`eslint-plugin-vue`) is not audited: `tool` targets are Biome, ruff, ty and tsc; the `.vue` rules are `check` and `grep` targets instead.
+Detected by `vue >= 3`. Biome lints `.vue` templates with `html.experimentalFullSupportEnabled` (every snippet sets it); `eslint-plugin-vue` is not audited.
 
 | Rule | Targets |
 |---|---|
 | `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
-| `typescript/vue/v-for-key` | `check` lint: `forge_vue_vfor_keys`: in `.vue` templates (comments, `<script>`, `<style>` skipped; quotes respected), an element other than `<template>` with `v-for` and no `:key` / `v-bind:key`, reported at the `v-for` line |
+| `typescript/vue/v-for-key` | deprecated, replaced by `typescript/vue/valid-templates` (`tool` biome `lint/correctness/useVueVForKey`) |
+| `typescript/vue/valid-templates` | `tool` biome in `.vue` files: `lint/correctness/useVueVForKey`, `noVueVIfWithVFor`, `useVueValidVBind`, `useVueValidVOn`, `useVueValidVIf`, `useVueValidVElse`, `useVueValidVElseIf`, `useVueValidVHtml`, `useVueValidVText`, `useVueValidTemplateRoot`, `lint/nursery/useVueValidVFor` (snippet: error) |
+| `typescript/vue/ref-value` | `tool` biome `lint/nursery/noVueRefAsOperand` in `.vue` and `.ts` files: a ref as an operand, a condition or a template-literal value |
+| `typescript/vue/no-setup-props-destructure` | `tool` biome `lint/correctness/noVueSetupPropsReactivityLoss`: `setup({ a })` (destructuring in the body is not detected) |
 | `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
 | `typescript/vue/no-vue2-template-syntax` | `grep` forbid in `**/*.vue`: `:x.sync=` / `v-bind:x.sync=`, `slot-scope=`, a `.native` modifier on `@x` / `v-on:x`, `@keyup.<digits>` (and `keydown`, `keypress`) |
 
-context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, `:key` with `v-for`, no `v-html`, no Vue 2 template syntax, eslint-plugin-vue not run by Forge.
+context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, valid templates (`:key` with `v-for`, no `v-if` with `v-for`), `.value` on refs, props not destructured in `setup()`, no `v-html`, no Vue 2 template syntax.
 
 ### typescript/vue/nuxt
 
@@ -1657,14 +1689,16 @@ context.md: state and getters are destructured through `storeToRefs()`.
 
 ### typescript/svelte
 
-Detected by `svelte >= 5`. Biome's Svelte rules need its HTML support, so the `.svelte` rules are `grep` targets.
+Detected by `svelte >= 5`. Biome lints `.svelte` templates with `html.experimentalFullSupportEnabled` (the snippets set it); the syntax rules are `grep` targets.
 
 | Rule | Targets |
 |---|---|
 | `typescript/svelte/runes-only` | `grep` forbid in `**/*.svelte`: `export let`, `$:` statements, `on:<event>` directives, `<slot`, `$$slots` / `$$props` / `$$restProps`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, imports of `svelte/legacy` (in `.ts` files the deprecated APIs are `@deprecated` in Svelte's types) |
 | `typescript/svelte/no-at-html` | `grep` forbid in `**/*.svelte`: `{@html ` |
+| `typescript/svelte/each-key` | `tool` biome `lint/nursery/useSvelteRequireEachKey`: `{#each}` with a key |
+| `typescript/svelte/no-debug-tags` | `tool` biome `lint/nursery/noSvelteAtDebugTags`: no `{@debug}` |
 
-context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected.
+context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected; keyed `{#each}`, no `{@debug}`.
 
 ### typescript/svelte/kit
 
@@ -1683,6 +1717,7 @@ Detected by `@angular/core >= 20`.
 |---|---|
 | `typescript/angular/control-flow` | `grep` forbid in `**/*.html`, `**/*.ts` (inline templates): `*ngIf=`, `*ngFor=`, `*ngSwitchCase=`, `*ngSwitchDefault=`, `[ngSwitch]=` |
 | `typescript/angular/no-bypass-sanitizer` | `ast-grep` forbid, `where` the receiver is `@angular/platform-browser` `DomSanitizer`: `bypassSecurityTrustHtml`, `…Script`, `…Style`, `…Url`, `…ResourceUrl` calls |
+| `typescript/angular/typecheck` | `check` typecheck: `ngc -p <tsconfig> --noEmit` for each file of role `@angular-tsconfig` (§15.4); the role naming no file prints `skipped`; on changes to `**/*.ts`, `**/*.html` |
 
 context.md: built-in control flow instead of `*ngIf` / `*ngFor` / `[ngSwitch]`; no `bypassSecurityTrust*`.
 
@@ -1722,18 +1757,19 @@ context.md: the client comes from the document through a generator script; the t
 
 ### typescript/nestjs
 
-Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone.
+Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone. `tool_off`: Biome's `lint/style/useImportType` (§5.1), whose fix turns a DTO import into `import type`.
 
 | Rule | Targets |
 |---|---|
 | `typescript/nestjs/validation-pipe-whitelist` | `ast-grep` forbid: `new $N(…)` without `whitelist: true` in its object argument, where `N` is `@nestjs/common`'s `ValidationPipe` |
 | `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | `ast-grep` advise: the same without `forbidNonWhitelisted: true` |
 | `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
+| `typescript/nestjs/dto-not-type-import` | `ast-grep` forbid: a parameter decorated by `@nestjs/common`'s `Body` / `Query` / `Param` whose type is a name bound by a type-only import (`import type { X }`, `import { type X }`, `import type X`, aliases included): `design:paramtypes` loses the class and `ValidationPipe` validates nothing |
 | `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
 | `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
 | `typescript/nestjs/express-path-syntax` | `ast-grep` advise, `when` `@nestjs/platform-express >= 11`: a string argument (or one in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` in a decorator call declared as `@nestjs/common`'s `Get`, `Post`, `Put`, `Patch`, `Delete`, `Options`, `Head` or `All` (§15.6), or in `$C.forRoutes(…)` where `C` is a `MiddlewareConfigProxy` (Nest converts the old syntax with a warning) |
 
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`, imported as values; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
 
 ### typescript/kysely
 
@@ -1796,6 +1832,7 @@ Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler`
 |---|---|
 | `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
 | `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
+| `typescript/cloudflare-workers/env-types-generated` | `check` codegen (§10.1), `when` wrangler `>=4.153.0`: `wrangler types <file> --check` for each file of role `@wrangler-types` (the config hash the file records is the current config's); `when_changed: [@wrangler-config, @wrangler-types]` |
 | `kubernetes/helm/chart-api-v2` | `grep` forbid on `Chart.yaml`: a top-level `apiVersion: v1` |
 
 ### typescript/cloudflare-workers/stripe
@@ -1861,6 +1898,16 @@ context.md: CSRF prevention on; no forced stack traces.
 
 context.md: error masking on; `GraphQLError` for client errors.
 
+### typescript/graphql-codegen
+
+Detected by `@graphql-codegen/cli`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/graphql-codegen/up-to-date` | `check` codegen (§10.1): `graphql-codegen --check` (exit 1 and the stale files when an output would change), on changes to `.graphql`, `.gql`, TypeScript and JavaScript files and the codegen config |
+
+context.md: generated files are regenerated, never edited by hand.
+
 ### typescript/effect
 
 `Effect` is the binding imported from `effect` (`import { Effect }`, aliases included) or the namespace import of `effect/Effect`. "In a generator" means the nearest enclosing function is the generator passed to `Effect.gen(…)`.
@@ -1881,6 +1928,7 @@ Detected by `@mikro-orm/core`.
 | `typescript/mikro-orm/no-global-context` | `ast-grep` forbid, outside test files (`*.test.*`, `*.spec.*`, `__tests__/`, `e2e/`): `allowGlobalContext: true` in the object passed to `MikroORM.init(…)`, `new MikroORM(…)` or `defineConfig(…)`, those names imported from `@mikro-orm/*` (aliases included) |
 | `typescript/mikro-orm/schema-guard` | `guard` deny: `mikro-orm` / `mikro-orm-esm` `schema:drop` or `schema:fresh` with `--run` / `-r` |
 | `typescript/mikro-orm/schema-update` | `guard` ask: `schema:update` with `--run` / `-r`, `migration:fresh` |
+| `typescript/mikro-orm/migration-present` | `check` migration, `requires_local_db`: `mikro-orm migration:up`, then `mikro-orm migration:check` (exit 1 when the entities differ from the migrated schema) |
 
 context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
 
@@ -1913,6 +1961,7 @@ context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
 |---|---|
 | `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
 | `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
+| `typescript/better-auth/schema-check` | `check` migration, `when` auth `>=1.7.13`: `better-auth check schema --config <file>` (the `auth` package's CLI) on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
 
 context.md: CSRF checks and Secure cookies on; real trusted origins.
 
@@ -1966,6 +2015,7 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 | `typescript/express/no-async-errors` | `ast-grep` forbid, `when` `express >= 5`: an import or `require` of `express-async-errors` |
 | `typescript/express/no-async-handler` | `ast-grep` advise, `when` `express >= 5`: an import or `require` of `express-async-handler` or `express-promise-router` (redundant: Express 5 handles rejected promises) |
 | `typescript/express/no-v4-response-signatures` | `ast-grep` forbid, `when` `express >= 5`: `$R.send(<number>)` (one argument) and `$R.redirect("back")`, where `R` is an Express `Response` |
+| `typescript/express/types-match` | `check` lint: `forge_dep_major_match express @types/express @types/express-serve-static-core`: in each changed `package.json` declaring both, the lowest major of the types package's range equals express's (`^4.17.21` on `^5.1.0` fails); a spec that is not a range (`catalog:`, `workspace:`, `*`) is reported as not compared; `when_changed: [**/package.json]` |
 
 context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`; Express 5 path syntax, `req.query` read-only, no async wrappers, no Express 4 `res.send(<number>)` / `res.redirect("back")`.
 
@@ -2288,7 +2338,7 @@ Forge has one release cooldown, `FORGE_COOLDOWN_SECONDS` in the generated script
 
 Tools with no PyPI or npm distribution run from their GitHub release binaries, pinned like Forge's other tools (the newest release older than 14 days) by version and by an embedded sha256 per platform (`uname -s`-`uname -m`: Linux and macOS on x86_64 and arm64), computed from the release assets and matching both GitHub's asset digest and the release's checksum file: actionlint 1.7.12, gitleaks 8.30.1, kubeconform 0.8.0, kube-linter 0.8.3, tflint 0.64.0, trivy 0.75.0, osv-scanner 2.7.0, oasdiff 1.33.0, editorconfig-checker 4.0.2 (`RELEASE_BINARIES` in `src/util.ts`). `forge_release_bin <name>` (and `forge_release <name> <var>`, which prints the check's skipped line) is the one way a helper gets such a binary: the first use on a machine downloads the asset with `curl` (or `wget`) from `check.sh`, which hooks, pre-commit and CI run outside the Bash sandbox; it checks the asset's sha256, unpacks the binary (`.tar.gz`, `.zip` with `unzip`, or the asset itself) and keeps it in `${XDG_CACHE_HOME:-~/.cache}/forge/bin/<name>-<version>-<platform>/<name>` (written to a temporary name and renamed, so concurrent runs never see half a file). No asset for the platform, no network on the first use, no `curl`/`wget` (or `unzip`), or a sha256 mismatch prints `forge:<id> skipped: …`, never a pass. A helper's skipped line under `forge_once` / `forge_advise` is printed, not counted as a finding.
 
-System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
+System tools a project installs outside `node_modules` and `.venv` (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are found on `PATH`, like the runtimes (`uv`, `bun`, `docker`), never as a shell function of that name. `yarn` counts only as Yarn 2 or later (`yarn --version` in the repository: a `.yarnrc.yml` project's `yarnPath` answers there), the Yarn the `typescript/yarn` pack is for; Yarn 1 is reported as `yarn 2 or later not installed`. A check that names `terraform` runs the project's Terraform CLI: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org` providers, else `terraform`; `kustomize` is `kubectl kustomize` when only kubectl is installed. A missing one is reported like any missing tool, by the binary's name (`forge:<id> skipped: tofu not installed`, `forge status`, SessionStart).
 
 ## 14. Acceptance tests
 
@@ -2303,7 +2353,7 @@ The same checks run on two sets of rules: `forge test` on a project's local rule
 - Every guard target: `guard.sh` on each example wrapped in hook JSON (its `cwd` a directory holding the example's `files`, executable, and `.git`) returns the rule's decision for `match` and nothing for `no_match`, on macOS `sh` (bash 3.2), dash and BusyBox.
 - Every grep target: `grep -E` matches a line of each `match` example and no line of a `no_match` example.
 - The `hadolint-bin` wheel's binary for this platform has the upstream release's sha256 (when a rule uses hadolint and uvx is available).
-- Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH`; an example whose tool is not found is reported skipped, never passed.
+- Every check target: each example runs in a temporary git repository holding the fixture's `head` files (committed), a `.forge/check.sh` generated with only that check, then the fixture's `files` written and staged, as a turn that started at the `head` fixture. `check.sh` runs as Stop runs it (`--turn`; `format` checks, which fix files at Stop, as CI runs them: `--all`). A `match` example fails the check (`forge:<id> failed`), a `no_match` example passes. Project tools come from the current project's `node_modules/.bin` and `.venv/bin`, then `PATH` (with the binaries a tool runs from `node_modules/.bin`, installed next to it: oxlint's `tsgolint`); an example whose tool is not found is reported skipped, never passed.
 - Every `context.md` ≤ 10 lines (packs only).
 
 ### 14.2 Generator
@@ -2360,6 +2410,7 @@ A rule says **what** it needs to know about the code; the engine decides **how**
 |---|---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as | implemented (§15.1–§15.3) |
 | declared | `where: {<VAR>: {declared: …}}` | what a name refers to (an imported function or class, through aliases): `textDocument/definition` instead of `typeDefinition`, no supertypes | implemented (§15.6) |
+| deprecated | `where: {<VAR>: {deprecated: true}}` | whether the name is a use of a declaration marked `@deprecated`, as the project's TypeScript reports it | implemented (§15.7), TypeScript |
 | files | `@<role>` in `scope.files`, `when_changed`, check commands and a where `module` | the paths of a file role: Forge's defaults, the tool's declarative config, `forge.yaml` | implemented (§15.4) |
 | tests | engine helpers of test checks | the tests a runner collects and the ones that failed, from the runner's own reports | proposed (§15.5) |
 
@@ -2379,7 +2430,7 @@ examples:
   no_match: ["class Session:\n    def query(self, q: str) -> list[str]:\n        return [q]\n\n\ndef search(session: Session):\n    return session.query(\"text\")\n"]
 ```
 
-`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}`, `{declared: <spec>}` (the declaration a name refers to, §15.6) or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
+`where` maps single metavariables of the rule (`$S`, not `$$$S`) to a condition: `{type: <spec>}`, `{declared: <spec>}` (the declaration a name refers to, §15.6), `{deprecated: true}` (a deprecated use, §15.7) or `{not: <condition>}`. A spec has `package` and/or `module` (a string or a list; at least one: a name alone would be a guess), optionally `name` (a string or a list of identifiers) and `unknown: match | no-match` (default `no-match`).
 
 **Semantics.** For each match, each condition is evaluated on the expression the metavariable is bound to; the match counts only when all of them hold.
 
@@ -2462,6 +2513,7 @@ files:
 |---|---|---|
 | `adr` | `docs/adr/**`, `doc/adr/**`, `docs/decisions/**` | adr-tools `.adr-dir` + `/**` |
 | `alembic-migrations` | `alembic/versions/**`, `migrations/versions/**` | `alembic.ini` (or `[tool.alembic]`) `version_locations`, else `script_location` + `/versions/**` |
+| `angular-tsconfig` | `**/tsconfig.app.json` | `angular.json`: each project's `architect` (or `targets`) `build.options.tsConfig` |
 | `better-auth-config` | the auth CLI's search paths: `{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}` | — |
 | `build-artifacts` | `**/node_modules/**`, `**/__pycache__/**`, `**/*.pyc`, `**/.next/**`, `**/.nuxt/**`, `**/.svelte-kit/**`, `**/.turbo/**`, `**/.coverage`, `**/.DS_Store` (and, in `forge_artifacts`, any directory holding `pyvenv.cfg` or `CACHEDIR.TAG`) | — |
 | `compose` | `**/compose*.yaml`, `**/compose*.yml`, `**/docker-compose*.yaml`, `**/docker-compose*.yml` | — |
@@ -2517,3 +2569,23 @@ enforce:
 5. A name bound to a project variable refers to that variable (`run = np.load`, then `run(…)`): the declaration is the project's, whatever its value. TypeScript's servers answer a called variable with its declarations and then the declaration of the signature it is called with (`useForm`'s for `const make = rhf.useForm; make()`, `NodeJS.Require`'s call signature for a module's own `const require = createRequire(…)`): that last one is what the value is, not what the name refers to, and is left out.
 
 Same engines, daemons, protocol and `forge test` as §15.1: a rule may mix `type` and `declared` conditions on different metavariables. Through the adapters, ty, tsserver (TypeScript 5, 6) and `tsc --lsp` (7) answer `definition` on a name through aliases, namespaces and re-exports; an unresolved import gives the import itself or nothing, and an attribute of `any` / `Any` nothing.
+
+### 15.7 Deprecated uses
+
+```yaml
+# packs/typescript/rules/no-deprecated.yaml
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {any: [{kind: identifier, pattern: $N}, {kind: property_identifier, pattern: $N}, {kind: type_identifier, pattern: $N}, {kind: shorthand_property_identifier, pattern: $N}]}
+    where:
+      N: {deprecated: true}
+```
+
+`{deprecated: true}` holds when the name the metavariable is bound to is a use of a declaration marked `@deprecated`, as the project's own TypeScript reports it (the strikethrough of an editor), in the file as it is on disk:
+
+1. **Uses the checker reports.** TypeScript's suggestion diagnostics `6385` ("'X' is deprecated.") and `6387` ("The signature … of 'X' is deprecated."): a reference, a property access, a call or construction (for an overloaded function, the signature the call resolves to: a call of a non-deprecated overload is not one), a type, an import. The name holds when its range overlaps one of them. tsserver (TypeScript 5, 6) answers `suggestionDiagnosticsSync` and `tsc --lsp` (7) `textDocument/diagnostic`, one request per file and question.
+2. **Object literal keys**, which TypeScript checks against the contextual type but never reports: a name in a key's position (`{ name: …`, `, name: …`, a shorthand `{ name }`) holds when the server documents the property as deprecated (tsserver's `quickinfo` kind modifiers; the language server's hover, which renders the tag as `*@deprecated*`) and its definition is not the name itself (an interface or type member declaring a deprecated property is not a use of it).
+3. A declaration is never a use: the checker reports none on a deprecated function's or property's own name.
+
+Only TypeScript's engine answers it: a Python rule with `deprecated` is rejected when it is loaded (ty's own `deprecated` rule covers Python, `python/no-deprecated`). The same spec tests hold for TypeScript 5, 6 and 7.

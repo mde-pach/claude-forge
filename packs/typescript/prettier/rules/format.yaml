@@ -1,0 +1,17 @@
+id: typescript/prettier/format
+description: Files are formatted with the project's Prettier (prettier --check; a changed file is written with prettier --write).
+scope: {language: any}
+enforce:
+  - target: check
+    stage: format
+    run: "prettier --check ."
+    changed_run: "prettier --write --ignore-unknown {files}"
+    # formats a file's base copy, so lines that only formatting changed are not counted as added
+    format_stdin: "prettier --stdin-filepath {file}"
+examples:
+  match:
+    - files: {src/cart.ts: "export const total = (items: {price:number}[]) => items.reduce((s, i) => s + i.price, 0)\n"}
+    - files: {README.md: "# Shop\n\n* first\n* second\n"}
+  no_match:
+    - files: {src/cart.ts: "export const total = (items: { price: number }[]) =>\n  items.reduce((s, i) => s + i.price, 0);\n"}
+    - files: {README.md: "# Shop\n\n- first\n- second\n"}

@@ -116,6 +116,33 @@ describe("init", () => {
     T,
   );
 
+  /**
+   * A pack can switch a tool diagnostic off where it is active (pack.yaml `tool_off`): NestJS
+   * needs DTOs imported as values, so Biome's useImportType (whose fix turns them into
+   * `import type`) is off in the biome.json init writes, no rule asks for it, and status
+   * says which pack switched it off and why.
+   * @rule typescript/nestjs/dto-not-type-import typescript/verbatim-imports
+   */
+  test(
+    "a pack's tool_off: init writes Biome's diagnostic off, no rule's audit asks for it, and status lists it with the pack and the reason",
+    () => {
+      const repo = mkdtempSync(join(tmpdir(), "forge-init-"));
+      git(repo, "init", "-q");
+      put(repo, "package.json", JSON.stringify({ name: "api", private: true, dependencies: { "@nestjs/common": "11.1.6", "@nestjs/core": "11.1.6" }, devDependencies: { typescript: "6.0.3" } }));
+      expect(forge(["init", "--yes"], repo).status).toBe(0);
+      const biome = JSON.parse(readFileSync(join(repo, "biome.json"), "utf8")) as { linter: { rules: { style: Record<string, string> } } };
+      expect(biome.linter.rules.style.useImportType).toBe("off");
+      expect(biome.linter.rules.style.useExportType).toBe("error");
+      const status = forge(["status"], repo).stdout;
+      expect(status).toContain("not enforced here: biome lint/style/useImportType switched off by typescript/nestjs (a DTO imported with import type erases design:paramtypes");
+      expect(status).toContain("Switched off by packs:\n  biome lint/style/useImportType (typescript/nestjs): a DTO imported with import type erases design:paramtypes");
+      expect(status).toContain("not asked for by typescript/verbatim-imports");
+      const json = JSON.parse(forge(["status", "--json"], repo).stdout) as { switched_off: { pack: string; expects: string; rules: string[] }[] };
+      expect(json.switched_off).toEqual([expect.objectContaining({ pack: "typescript/nestjs", tool: "biome", expects: "lint/style/useImportType", rules: ["typescript/verbatim-imports"] })]);
+    },
+    T,
+  );
+
   test(
     "init refuses a project that already has forge",
     () => {

@@ -4,9 +4,7 @@ scope: {language: any}
 enforce:
   - target: check
     stage: lint
-    run: |
-      if command -v npm >/dev/null 2>&1; then npm ci --dry-run --ignore-scripts --no-audit --no-fund
-      else printf 'forge:%s skipped: npm not installed\n' "$c_id"; fi
+    run: npm ci --dry-run --ignore-scripts --no-audit --no-fund
     when_changed: ["**/package.json", "package-lock.json", "npm-shrinkwrap.json"]
 examples:
   match:

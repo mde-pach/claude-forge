@@ -60,6 +60,24 @@ export const packSchema = {
         yaml_keys: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", minLength: 1 } },
       },
     },
+    /**
+     * Tool diagnostics this pack switches off where it is active: no rule's tool target asks
+     * for them, and forge init writes Forge's tool config with them off (Biome).
+     */
+    tool_off: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["tool", "expects", "reason"],
+        properties: {
+          tool: { enum: ["biome"] },
+          expects: { type: "string", pattern: "^lint/[a-zA-Z]+/[a-zA-Z]+$" },
+          reason: { type: "string", minLength: 1 },
+        },
+      },
+    },
   },
   if: { properties: { level: { const: "user" } } },
   then: { not: { required: ["detect"] } },
@@ -92,6 +110,8 @@ const whereCondition = {
   oneOf: [
     { type: "object", additionalProperties: false, required: ["type"], properties: { type: typeSpecs } },
     { type: "object", additionalProperties: false, required: ["declared"], properties: { declared: typeSpecs } },
+    // the name is a use the checker reports as deprecated (§15.7)
+    { type: "object", additionalProperties: false, required: ["deprecated"], properties: { deprecated: { const: true } } },
     { type: "object", additionalProperties: false, required: ["not"], properties: { not: { $ref: "#/$defs/where" } } },
   ],
 } as const;
@@ -108,7 +128,7 @@ const target = {
         required: ["tool", "expects", "snippet"],
         properties: {
           target: true,
-          tool: { enum: ["biome", "ruff", "ty", "tsc"] },
+          tool: { enum: ["biome", "ruff", "ty", "tsc", "eslint"] },
           expects: { type: "string", minLength: 1 },
           snippet: { type: "string", minLength: 1 },
         },
@@ -205,7 +225,7 @@ const target = {
         required: ["stage", "run"],
         properties: {
           target: true,
-          stage: { enum: ["format", "lint", "typecheck", "migration", "test"] },
+          stage: { enum: ["format", "lint", "codegen", "typecheck", "migration", "test"] },
           run: { type: "string", minLength: 1 },
           changed_run: { type: "string", minLength: 1 },
           fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },

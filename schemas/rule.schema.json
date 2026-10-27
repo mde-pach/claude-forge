@@ -54,6 +54,18 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "deprecated"
+          ],
+          "properties": {
+            "deprecated": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
             "not"
           ],
           "properties": {
@@ -266,7 +278,8 @@
                     "biome",
                     "ruff",
                     "ty",
-                    "tsc"
+                    "tsc",
+                    "eslint"
                   ]
                 },
                 "expects": {
@@ -537,6 +550,7 @@
                   "enum": [
                     "format",
                     "lint",
+                    "codegen",
                     "typecheck",
                     "migration",
                     "test"

@@ -1,0 +1,15 @@
+id: typescript/angular/typecheck
+description: "The Angular compiler type-checks the templates: ngc -p <tsconfig> --noEmit for each tsconfig of file role @angular-tsconfig (each angular.json project's build tsConfig, else tsconfig.app.json); tsc does not read templates."
+scope: {language: any, files: ["**/*.ts", "**/*.html"]}
+enforce:
+  - target: check
+    stage: typecheck
+    run: |
+      _ng_files=$(forge_role_files @angular-tsconfig)
+      if [ -z "$_ng_files" ]; then
+        printf 'forge:%s skipped: file role @angular-tsconfig names no file; set the application tsconfig in forge.yaml (files: {angular-tsconfig: {set: [tsconfig.app.json]}})\n' "$c_id"
+      else
+        _ng_rc=0
+        for _ng_f in $_ng_files; do ngc -p "$_ng_f" --noEmit || _ng_rc=1; done
+        [ "$_ng_rc" = 0 ]
+      fi

@@ -14,6 +14,7 @@ import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } fro
 import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
+import { applyEdits, modify } from "jsonc-parser/lib/esm/main.js";
 
 class ForgeError extends Error {
   constructor(
@@ -130,19 +131,22 @@ function context(flags: Flags): Ctx {
   const lock = lockOf(base, p.lockPath, level);
   const ctx: Ctx = { level, base, plan: p, lock, flags, blocks: level === "project" ? [...(lock?.blocks ?? [])] : [] };
   addPreCommit(ctx);
-  if (level === "project") for (const [path, text] of p.files) if (path.endsWith(".json")) p.files.set(path, formatJson(base, path, text));
+  if (level === "project") for (const [path, text] of p.files) if (/\.(json|md|yml|mjs)$/.test(path)) p.files.set(path, formatJson(base, path, text));
   return ctx;
 }
 
 /**
- * JSON Forge generates, formatted with the project's own Biome when it has one,
- * so `biome ci .` passes on a fresh apply. Unchanged when there is no Biome or
+ * JSON (and Markdown, YAML and JavaScript helpers) Forge generates, formatted with the
+ * project's own formatter, so `biome ci .` or `prettier --check .` passes on a fresh apply:
+ * JSON with Biome when the project has it, else all of them with Prettier (a helper's
+ * integrity hash leaves formatting out, §12). Unchanged when there is neither or
  * it declines (e.g. the path is ignored in its config).
  */
 function formatJson(base: string, path: string, text: string): string {
-  const bin = projectBinary(base, "biome");
-  if (!bin) return text;
-  const r = run(bin, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text });
+  const biome = path.endsWith(".json") ? projectBinary(base, "biome") : undefined;
+  const prettier = biome ? undefined : projectBinary(base, "prettier");
+  if (!biome && !prettier) return text;
+  const r = biome ? run(biome, ["format", `--stdin-file-path=${path}`], { cwd: base, input: text }) : run(prettier!, [`--stdin-filepath=${path}`], { cwd: base, input: text });
   return r.status === 0 && r.stdout.trim() ? r.stdout : text;
 }
 
@@ -562,6 +566,7 @@ const UNSATISFIED: Record<string, string> = {
   biome: "Biome rules not at error",
   ty: "ty rules not at error",
   tsc: "tsc options not set",
+  eslint: "ESLint rules not at error",
 };
 
 /** Whether each active rule is actually enforced in this project, and why not. */
@@ -643,6 +648,7 @@ function cmdStatus(flags: Flags): number {
           rules,
           disabled: p.disabled,
           gated: p.gated,
+          switched_off: p.switchedOff,
           deprecated: p.deprecated,
           audits,
           snippets: mergedSnippets(audits),
@@ -681,6 +687,11 @@ function cmdStatus(flags: Flags): number {
     out("");
     out("Inactive (version gate):");
     for (const g of p.gated) out(`  ${g.id}: needs ${g.needs}`);
+  }
+  if (p.switchedOff.length) {
+    out("");
+    out("Switched off by packs:");
+    for (const o of p.switchedOff) out(`  ${o.tool} ${o.expects} (${o.pack}): ${o.reason}${o.rules.length ? `; not asked for by ${o.rules.join(", ")}` : ""}`);
   }
   if (p.deprecated.length) for (const d of p.deprecated) out(`  ${d.id}: deprecated, replaced by ${d.replaced_by}`);
   if (ctx.level === "project" && p.roles.length) {
@@ -858,12 +869,31 @@ function cmdInit(flags: Flags): number {
       else if (flags.dryRun) out(`forge: would create ${f} (from ${pk.id})`);
       else {
         mkdirSync(dirname(dest), { recursive: true });
-        cpSync(src, dest);
+        const off = initSwitchOffs(f, readFileSync(src, "utf8"), p.switchedOff);
+        if (off === undefined) cpSync(src, dest);
+        else writeFileSync(dest, off);
         out(`forge: created ${f} (from ${pk.id})`);
       }
     }
   }
   return cmdApply(flags);
+}
+
+/**
+ * An init template with the diagnostics active packs switch off (pack.yaml tool_off) set to
+ * "off", the rest of the file as it is; undefined when none concerns it. Biome:
+ * biome.json's linter.rules.<group>.<name>.
+ */
+function initSwitchOffs(file: string, text: string, offs: Plan["switchedOff"]): string | undefined {
+  if (!/(^|\/)biome\.jsonc?$/.test(file)) return undefined;
+  const mine = offs.filter((o) => o.tool === "biome");
+  if (!mine.length) return undefined;
+  let out = text;
+  for (const o of mine) {
+    const [, group, name] = o.expects.split("/");
+    out = applyEdits(out, modify(out, ["linter", "rules", group!, name!], "off", { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- main

@@ -45,7 +45,7 @@ examples:
   no_match: [ … ]    # must not — include the near misses
 ```
 
-Targets, in order of preference: `tool` (your linter or type checker, audited), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target is a regex on the command, or a pre-filter regex plus a built-in `check` that parses the command (`ephemeral-exec` looks for the tool in `node_modules/.bin` or `.venv/bin`); its examples can then be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+Targets, in order of preference: `tool` (your linter or type checker, audited: `biome`, `ruff`, `ty`, `tsc`, `eslint`; an ESLint target's `expects` is the rule's name, its `snippet` a `"rules": {…}` entry of the flat config), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target is a regex on the command, or a pre-filter regex plus a built-in `check` that parses the command (`ephemeral-exec` looks for the tool in `node_modules/.bin` or `.venv/bin`); its examples can then be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
 
 `ast-grep` and `grep` targets in `advise` mode report a match on a line added during the turn to Claude after the edit, and never fail Stop, a commit or CI: for heuristics whose matches need judgement (a Django template's `|safe`).
 
@@ -63,7 +63,11 @@ A rule that names model ids (a retired model, the models that reject `budget_tok
 
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
-A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) are named in `run` like project tools and found on `PATH`; `terraform` runs `tofu` in an OpenTofu project.
+When a framework makes one of the tool rules Forge asks for harmful, its pack switches that diagnostic off: `tool_off: [{tool: biome, expects: lint/style/useImportType, reason: "…"}]` (NestJS: the fix turns DTO imports into `import type`, which erases them from the decorator metadata). Where the pack is active, no rule asks for it, `forge status` shows which pack switched it off and why, and `forge init` writes the Biome config with it off.
+
+A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are named in `run` like project tools and found on `PATH`, so a check whose tool is absent is reported skipped; `terraform` runs `tofu` in an OpenTofu project, and `yarn` counts only from Yarn 2 on (what a `.yarnrc.yml` project uses). A project tool whose name has a `-` is run as `forge_exec_tool <name>` (`forge_exec_tool graphql-codegen --check`).
+
+A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails check.sh stops there instead of reporting the typecheck errors stale generated code causes.
 
 <Spec file="10-check" describe="pinned release binaries and system tools" />
 
@@ -130,6 +134,10 @@ For a function, decorator or class used by name, ask what the name **refers to**
 
 TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
 
+### Deprecated uses
+
+`{deprecated: true}` asks whether a name is a use of a declaration marked `@deprecated`, as the project's TypeScript reports it: a call (of the overload it resolves to), a property, a type, an import, and an object literal key whose property is deprecated. `typescript/no-deprecated` asks it of every name, so one rule replaces lists of removed APIs per library.
+
 `where` works on `forbid` and `advise` targets, on metavariables bound to expressions: a match whose metavariable is bound to something else (a parameter's name, a type) cannot be asked, and is reported like a match whose engine could not answer, as `forge:forge/types <rule> was not checked: …`, never passed silently.
 
 ## Examples are tests
@@ -147,9 +155,9 @@ examples:
     - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n"}
 ```
 
-Only checks that need a whole project (test and migration runs, `astro check`, lock-file checks) may go without examples. An example whose tool is not installed is reported skipped, never passed.
+Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples; a spec test proves them instead. An example whose tool is not installed is reported skipped, never passed.
 
-The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff and ty: for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets.
+The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff, ty and ESLint (with typescript-eslint, type-aware): for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets. A rule whose files are of several types (JSX and Vue, Svelte, Astro or HTML templates) gives an example per type as one file, `{files: {src/components/Hero.vue: "…"}}`: the audit writes it with that file type.
 
 <Spec file="13-packs" top />
 <Spec file="13-packs" describe="forge test catches broken packs" />

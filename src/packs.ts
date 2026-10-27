@@ -16,6 +16,20 @@ export function codeExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_m
   return (rule.examples?.[kind] ?? []).filter((e): e is string => typeof e === "string");
 }
 
+/**
+ * A tool rule's examples: code written in the rule's scope (a string), or code written where
+ * a one-file fixture puts it (`{files: {"src/Card.vue": …}}`: the file type and directory
+ * of the example, for a rule that covers several file types).
+ */
+export function toolExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): { code: string; path?: string }[] {
+  return (rule.examples?.[kind] ?? []).flatMap((e) => {
+    if (typeof e === "string") return [{ code: e }];
+    if ("command" in e || e.head || Object.keys(e.files).length !== 1) return [];
+    const [path, code] = Object.entries(e.files)[0]!;
+    return [{ code, path }];
+  });
+}
+
 /** A guard rule's examples as commands, each with the files of the directory it runs from. */
 export function guardExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): GuardExample[] {
   return (rule.examples?.[kind] ?? []).flatMap((e) => (typeof e === "string" ? [{ command: e }] : "command" in e ? [e] : []));
@@ -30,6 +44,9 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
     if (t.target === "check")
       for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
         for (const tool of directDashedTools(cmd ?? "")) throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
+  // deprecated uses are answered by the TypeScript engine (§15.7)
+  if (rule.scope.language === "python" && rule.enforce.some((t) => t.target === "ast-grep" && JSON.stringify(t.where ?? {}).includes('"deprecated"')))
+    throw new Error(`${file}: invalid rule: where deprecated is answered for TypeScript only (§15.7); Python's deprecations are ty's deprecated rule`);
   const unknown = unknownRoles(rule);
   if (unknown.length) throw new Error(`${file}: invalid rule: unknown file role ${unknown.map((r) => `@${r}`).join(", ")} (§15.4)`);
   return { ...rule, file, hash: sha256(text), origin, pack: rule.id.slice(0, rule.id.lastIndexOf("/")) };

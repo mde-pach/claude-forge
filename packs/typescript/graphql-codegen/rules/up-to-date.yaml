@@ -1,0 +1,36 @@
+id: typescript/graphql-codegen/up-to-date
+description: "The files GraphQL Code Generator writes match the schema and the operations (graphql-codegen --check): regenerate after a change, never edit them by hand."
+scope: {language: any, files: ["**/*.graphql", "**/*.gql", "**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "codegen.yml", "codegen.yaml", "codegen.json", ".graphqlrc*"]}
+enforce:
+  - target: check
+    stage: codegen
+    run: |
+      forge_exec_tool graphql-codegen --check || { printf 'The generated files are stale: run GraphQL Code Generator again and commit what it writes.\n'; false; }
+examples:
+  # the examples' codegen plugin is a file of the project (graphql-codegen loads ./ paths), so they need no plugin package
+  match:
+    # the schema changed, the generated types did not
+    - head:
+        codegen.yml: "schema: schema.graphql\ngenerates:\n  src/gql/types.ts:\n    plugins: [./codegen-fields.mjs]\n"
+        codegen-fields.mjs: "export const plugin = (schema) => Object.keys(schema.getQueryType().getFields()).map((f) => `export type ${f} = unknown;`).join(\"\\n\") + \"\\n\";\n"
+        schema.graphql: "type Query {\n  hello: String\n}\n"
+        src/gql/types.ts: "export type hello = unknown;\n"
+      files:
+        schema.graphql: "type Query {\n  hello: String\n  bye: Int\n}\n"
+    # generated types edited by hand
+    - head:
+        codegen.yml: "schema: schema.graphql\ngenerates:\n  src/gql/types.ts:\n    plugins: [./codegen-fields.mjs]\n"
+        codegen-fields.mjs: "export const plugin = (schema) => Object.keys(schema.getQueryType().getFields()).map((f) => `export type ${f} = unknown;`).join(\"\\n\") + \"\\n\";\n"
+        schema.graphql: "type Query {\n  hello: String\n}\n"
+        src/gql/types.ts: "export type hello = unknown;\n"
+      files:
+        src/gql/types.ts: "export type hello = unknown;\nexport type extra = string;\n"
+  no_match:
+    - head:
+        codegen.yml: "schema: schema.graphql\ngenerates:\n  src/gql/types.ts:\n    plugins: [./codegen-fields.mjs]\n"
+        codegen-fields.mjs: "export const plugin = (schema) => Object.keys(schema.getQueryType().getFields()).map((f) => `export type ${f} = unknown;`).join(\"\\n\") + \"\\n\";\n"
+        schema.graphql: "type Query {\n  hello: String\n}\n"
+        src/gql/types.ts: "export type hello = unknown;\n"
+      files:
+        schema.graphql: "type Query {\n  hello: String\n  bye: Int\n}\n"
+        src/gql/types.ts: "export type bye = unknown;\nexport type hello = unknown;\n"

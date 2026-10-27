@@ -1,0 +1,1 @@
+GraphQL Code Generator writes the generated types: after changing the schema, a `.graphql` document or a `gql` operation, run `graphql-codegen` and commit its output; generated files are never edited by hand (`graphql-codegen --check` rejects stale ones).

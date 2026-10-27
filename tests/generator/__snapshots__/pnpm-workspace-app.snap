@@ -1384,9 +1384,8 @@ forge_check_meta_13() {
   c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_13() {
-  case $1 in packages/core/*) ;; *) return 1 ;; esac
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in packages/core/*.ts|packages/core/*/*.ts|packages/core/*.tsx|packages/core/*/*.tsx|packages/core/*.mts|packages/core/*/*.mts|packages/core/*.cts|packages/core/*/*.cts|packages/core/*.js|packages/core/*/*.js|packages/core/*.jsx|packages/core/*/*.jsx|packages/core/*.mjs|packages/core/*/*.mjs|packages/core/*.cjs|packages/core/*/*.cjs|packages/core/*.vue|packages/core/*/*.vue|packages/core/*.svelte|packages/core/*/*.svelte|packages/core/*.astro|packages/core/*/*.astro|packages/core/*.html|packages/core/*/*.html) ;; *) return 1 ;; esac
+  return 0
 }
 forge_when_13() { return 1; }
 forge_check_run_13() { forge_in_dirs forge_check_run_13_dir all; }
@@ -1505,7 +1504,7 @@ forge_advise forge_helper bun pm_policy.mjs pnpm-catalog
 
 # 20. typescript/pnpm/lock-sync
 forge_check_meta_20() {
-  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools=''
+  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools='pnpm'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -1514,9 +1513,7 @@ forge_scope_20() {
 }
 forge_when_20() { case $1 in package.json|*/package.json|pnpm-lock.yaml|pnpm-workspace.yaml) return 0 ;; esac; return 1; }
 forge_check_run_20() {
-if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
-
+pnpm install --frozen-lockfile --lockfile-only
 }
 
 # 21. typescript/pnpm/overrides
@@ -2803,6 +2800,52 @@ forge_pkg_deps() {
         i++
       }
     }' "$1" | sort
+}
+
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
 }
 
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
@@ -4155,7 +4198,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -4169,6 +4214,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -5055,53 +5101,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -5353,8 +5352,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -5370,6 +5370,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -5378,12 +5383,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -5392,7 +5401,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
@@ -5997,7 +6006,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='869071acfeae'
+FORGE_TYPES_REV='5a8b1ceebf4c'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -6130,7 +6139,7 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
-FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/ts-expect-error-reason|typescript/vitest/no-exit-zero|typescript/vitest/no-matcher-override|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/no-dynamic-regexp'
+FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-deprecated|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/ts-expect-error-reason|typescript/vitest/no-exit-zero|typescript/vitest/no-matcher-override|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch|typescript/no-dynamic-regexp'
 
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
@@ -6466,9 +6475,8 @@ forge_check_meta_13() {
   c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_13() {
-  case $1 in packages/core/*) ;; *) return 1 ;; esac
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in packages/core/*.ts|packages/core/*/*.ts|packages/core/*.tsx|packages/core/*/*.tsx|packages/core/*.mts|packages/core/*/*.mts|packages/core/*.cts|packages/core/*/*.cts|packages/core/*.js|packages/core/*/*.js|packages/core/*.jsx|packages/core/*/*.jsx|packages/core/*.mjs|packages/core/*/*.mjs|packages/core/*.cjs|packages/core/*/*.cjs|packages/core/*.vue|packages/core/*/*.vue|packages/core/*.svelte|packages/core/*/*.svelte|packages/core/*.astro|packages/core/*/*.astro|packages/core/*.html|packages/core/*/*.html) ;; *) return 1 ;; esac
+  return 0
 }
 forge_when_13() { return 1; }
 forge_check_run_13() { forge_in_dirs forge_check_run_13_dir all; }
@@ -6587,7 +6595,7 @@ forge_advise forge_helper bun pm_policy.mjs pnpm-catalog
 
 # 20. typescript/pnpm/lock-sync
 forge_check_meta_20() {
-  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools=''
+  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools='pnpm'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -6596,9 +6604,7 @@ forge_scope_20() {
 }
 forge_when_20() { case $1 in package.json|*/package.json|pnpm-lock.yaml|pnpm-workspace.yaml) return 0 ;; esac; return 1; }
 forge_check_run_20() {
-if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
-
+pnpm install --frozen-lockfile --lockfile-only
 }
 
 # 21. typescript/pnpm/overrides
@@ -7885,6 +7891,52 @@ forge_pkg_deps() {
         i++
       }
     }' "$1" | sort
+}
+
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
 }
 
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
@@ -9237,7 +9289,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -9251,6 +9305,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -10137,53 +10192,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -10435,8 +10443,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -10452,6 +10461,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -10460,12 +10474,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -10474,7 +10492,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
@@ -11079,7 +11097,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='869071acfeae'
+FORGE_TYPES_REV='5a8b1ceebf4c'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -11568,9 +11586,8 @@ forge_check_meta_13() {
   c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_13() {
-  case $1 in packages/core/*) ;; *) return 1 ;; esac
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in packages/core/*.ts|packages/core/*/*.ts|packages/core/*.tsx|packages/core/*/*.tsx|packages/core/*.mts|packages/core/*/*.mts|packages/core/*.cts|packages/core/*/*.cts|packages/core/*.js|packages/core/*/*.js|packages/core/*.jsx|packages/core/*/*.jsx|packages/core/*.mjs|packages/core/*/*.mjs|packages/core/*.cjs|packages/core/*/*.cjs|packages/core/*.vue|packages/core/*/*.vue|packages/core/*.svelte|packages/core/*/*.svelte|packages/core/*.astro|packages/core/*/*.astro|packages/core/*.html|packages/core/*/*.html) ;; *) return 1 ;; esac
+  return 0
 }
 forge_when_13() { return 1; }
 forge_check_run_13() { forge_in_dirs forge_check_run_13_dir all; }
@@ -11689,7 +11706,7 @@ forge_advise forge_helper bun pm_policy.mjs pnpm-catalog
 
 # 20. typescript/pnpm/lock-sync
 forge_check_meta_20() {
-  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools=''
+  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools='pnpm'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -11698,9 +11715,7 @@ forge_scope_20() {
 }
 forge_when_20() { case $1 in package.json|*/package.json|pnpm-lock.yaml|pnpm-workspace.yaml) return 0 ;; esac; return 1; }
 forge_check_run_20() {
-if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
-
+pnpm install --frozen-lockfile --lockfile-only
 }
 
 # 21. typescript/pnpm/overrides
@@ -12987,6 +13002,52 @@ forge_pkg_deps() {
         i++
       }
     }' "$1" | sort
+}
+
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
 }
 
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
@@ -14339,7 +14400,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -14353,6 +14416,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -15239,53 +15303,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -15537,8 +15554,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -15554,6 +15572,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -15562,12 +15585,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -15576,7 +15603,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
@@ -16181,7 +16208,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='869071acfeae'
+FORGE_TYPES_REV='5a8b1ceebf4c'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -16691,9 +16718,8 @@ forge_check_meta_13() {
   c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_13() {
-  case $1 in packages/core/*) ;; *) return 1 ;; esac
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in packages/core/*.ts|packages/core/*/*.ts|packages/core/*.tsx|packages/core/*/*.tsx|packages/core/*.mts|packages/core/*/*.mts|packages/core/*.cts|packages/core/*/*.cts|packages/core/*.js|packages/core/*/*.js|packages/core/*.jsx|packages/core/*/*.jsx|packages/core/*.mjs|packages/core/*/*.mjs|packages/core/*.cjs|packages/core/*/*.cjs|packages/core/*.vue|packages/core/*/*.vue|packages/core/*.svelte|packages/core/*/*.svelte|packages/core/*.astro|packages/core/*/*.astro|packages/core/*.html|packages/core/*/*.html) ;; *) return 1 ;; esac
+  return 0
 }
 forge_when_13() { return 1; }
 forge_check_run_13() { forge_in_dirs forge_check_run_13_dir all; }
@@ -16812,7 +16838,7 @@ forge_advise forge_helper bun pm_policy.mjs pnpm-catalog
 
 # 20. typescript/pnpm/lock-sync
 forge_check_meta_20() {
-  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools=''
+  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools='pnpm'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -16821,9 +16847,7 @@ forge_scope_20() {
 }
 forge_when_20() { case $1 in package.json|*/package.json|pnpm-lock.yaml|pnpm-workspace.yaml) return 0 ;; esac; return 1; }
 forge_check_run_20() {
-if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
-
+pnpm install --frozen-lockfile --lockfile-only
 }
 
 # 21. typescript/pnpm/overrides
@@ -18110,6 +18134,52 @@ forge_pkg_deps() {
         i++
       }
     }' "$1" | sort
+}
+
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
 }
 
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
@@ -19462,7 +19532,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -19476,6 +19548,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -20362,53 +20435,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -20660,8 +20686,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -20677,6 +20704,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -20685,12 +20717,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -20699,7 +20735,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
@@ -21304,7 +21340,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='869071acfeae'
+FORGE_TYPES_REV='5a8b1ceebf4c'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -21514,6 +21550,40 @@ invalid:
     class AppModule {}
 
     export const app = NestFactory.create(AppModule, { cors: { origin: true, credentials: true } });
+
+===== .forge/ast-grep/rule-tests/typescript-no-deprecated-test.yml
+id: typescript/no-deprecated
+valid: []
+invalid:
+  - |
+    import * as url from "node:url";
+
+    export const home = url.parse("https://example.com/");
+  - |
+    export const bytes = new Buffer("payload");
+  - |
+    /** @deprecated use total() */
+    function sum(a: number, b: number): number {
+      return a + b;
+    }
+
+    export const s = sum(1, 2);
+  - |
+    interface ConnectOptions {
+      /** @deprecated use timeoutMs */
+      timeout?: number;
+      timeoutMs?: number;
+    }
+
+    declare function connect(options: ConnectOptions): void;
+
+    connect({ timeout: 5 });
+  - |
+    declare function format(value: string): string;
+    /** @deprecated pass a string */
+    declare function format(value: number): string;
+
+    export const f = format(1);
 
 ===== .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 id: typescript/no-double-assertion
@@ -22075,6 +22145,29 @@ metadata:
       declared:
         package: "@nestjs/core"
         name: NestFactory
+
+===== .forge/ast-grep/rules/typescript/no-deprecated.yml
+# Generated by forge from typescript/no-deprecated (mode: forbid).
+id: typescript/no-deprecated
+language: Tsx
+severity: error
+message: "forge:typescript/no-deprecated No use of a declaration marked @deprecated (the project's, a library's, @types/node's): a call, construction, property, type or import TypeScript reports as deprecated (for an overloaded function, the signature the call resolves to), or an object literal key whose property is deprecated. Use the replacement the deprecation names."
+files:
+  - packages/core/**
+rule:
+  any:
+    - kind: identifier
+      pattern: $N
+    - kind: property_identifier
+      pattern: $N
+    - kind: type_identifier
+      pattern: $N
+    - kind: shorthand_property_identifier
+      pattern: $N
+metadata:
+  forge_where:
+    N:
+      deprecated: true
 
 ===== .forge/ast-grep/rules/typescript/no-double-assertion.yml
 # Generated by forge from typescript/no-double-assertion (mode: forbid).
@@ -23455,9 +23548,8 @@ forge_check_meta_13() {
   c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs='packages/core'
 }
 forge_scope_13() {
-  case $1 in packages/core/*) ;; *) return 1 ;; esac
-  case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
-  return 1
+  case $1 in packages/core/*.ts|packages/core/*/*.ts|packages/core/*.tsx|packages/core/*/*.tsx|packages/core/*.mts|packages/core/*/*.mts|packages/core/*.cts|packages/core/*/*.cts|packages/core/*.js|packages/core/*/*.js|packages/core/*.jsx|packages/core/*/*.jsx|packages/core/*.mjs|packages/core/*/*.mjs|packages/core/*.cjs|packages/core/*/*.cjs|packages/core/*.vue|packages/core/*/*.vue|packages/core/*.svelte|packages/core/*/*.svelte|packages/core/*.astro|packages/core/*/*.astro|packages/core/*.html|packages/core/*/*.html) ;; *) return 1 ;; esac
+  return 0
 }
 forge_when_13() { return 1; }
 forge_check_run_13() { forge_in_dirs forge_check_run_13_dir all; }
@@ -23576,7 +23668,7 @@ forge_advise forge_helper bun pm_policy.mjs pnpm-catalog
 
 # 20. typescript/pnpm/lock-sync
 forge_check_meta_20() {
-  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools=''
+  c_id='typescript/pnpm/lock-sync'; c_stage=lint; c_tools='pnpm'
   c_when=1; c_localdb=0; c_timeout=''
   c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
@@ -23585,9 +23677,7 @@ forge_scope_20() {
 }
 forge_when_20() { case $1 in package.json|*/package.json|pnpm-lock.yaml|pnpm-workspace.yaml) return 0 ;; esac; return 1; }
 forge_check_run_20() {
-if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile --lockfile-only
-else printf 'forge:%s skipped: pnpm not installed\n' "$c_id"; fi
-
+pnpm install --frozen-lockfile --lockfile-only
 }
 
 # 21. typescript/pnpm/overrides
@@ -24874,6 +24964,52 @@ forge_pkg_deps() {
         i++
       }
     }' "$1" | sort
+}
+
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
 }
 
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
@@ -26226,7 +26362,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -26240,6 +26378,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -27126,53 +27265,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -27424,8 +27516,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -27441,6 +27534,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -27449,12 +27547,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -27463,7 +27565,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }
@@ -28068,7 +28170,7 @@ FORGE_TYPES_LANGS='typescript'
 FORGE_TY_VERSION='0.0.86'
 FORGE_ENGINE_PYTHON='3.12'
 # the adapters' revision: a running daemon of another Forge version is restarted
-FORGE_TYPES_REV='869071acfeae'
+FORGE_TYPES_REV='5a8b1ceebf4c'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
 # environment (.venv) and configuration ([tool.ty], ty.toml).
@@ -28204,7 +28306,7 @@ forge_types_filter() {
 FORGE_STATE=$(forge_state_of "$(pwd -P)")
 
 
-FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/ts-expect-error-reason|typescript/vitest/no-exit-zero|typescript/vitest/no-matcher-override|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch'
+FORGE_FORBID='typescript/cors-credentials-wildcard|typescript/no-deprecated|typescript/no-double-assertion|typescript/no-hardcoded-session-secret|typescript/no-html-sinks|typescript/no-object-literal-assertion|typescript/no-stub|typescript/no-swallowed-catch|typescript/no-ts-nocheck|typescript/no-unchecked-json|typescript/postmessage-origin|typescript/ts-expect-error-reason|typescript/vitest/no-exit-zero|typescript/vitest/no-matcher-override|typescript/vitest/no-tautological-expect|typescript/vitest/no-test-env-branch'
 FORGE_NO_INCREASE='typescript/vitest/no-mock-increase|typescript/vitest/no-new-skip'
 FORGE_NO_DECREASE='typescript/vitest/no-fewer-expects'
 
@@ -28374,6 +28476,8 @@ forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
 forge_step forge_run_stage lint
+# generated code first: a stale one would only make the typecheck repeat it (§10.1)
+forge_step forge_run_stage codegen
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test
@@ -28403,19 +28507,21 @@ forge_end "$fail"
     "supply-chain/no-tls-disable": "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124",
     "supply-chain/no-tls-disable-command": "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542",
     "supply-chain/vuln-audit": "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2",
-    "typescript/array-sort-compare": "630811db75f2514ea3ec4bbe9f0e967a064dc038a0f93ba967ae0b4e48865832",
+    "typescript/a11y": "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6",
+    "typescript/array-sort-compare": "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7",
     "typescript/config-files": "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9",
     "typescript/config-ratchet": "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022",
     "typescript/cors-credentials-wildcard": "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/error-cause": "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a",
-    "typescript/format-lint": "18f0059c55bc0fd6acbd5c7a92fb06989649cd07e9981e421d898991e39aed7b",
+    "typescript/format-lint": "05c7d739312430fa0b59e663a21291286e698a91fa725d440b36bebd0b40b546",
     "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
     "typescript/implicit-returns": "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629",
     "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
     "typescript/no-banned-types": "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e",
     "typescript/no-console": "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5",
     "typescript/no-const-enum": "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d",
+    "typescript/no-deprecated": "95b64775b8c70d6e81054960efe4619b9cc7641fa5ab0c6f8eca20bcbf89953c",
     "typescript/no-double-assertion": "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80",
     "typescript/no-dynamic-regexp": "7feba0d9f253c3d0afe8d70f9c01fa27765c9484899bdf70c6faefb0142d697d",
     "typescript/no-empty-block": "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f",
@@ -28442,7 +28548,7 @@ forge_end "$fail"
     "typescript/node-version-file": "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1",
     "typescript/pnpm/allow-builds": "aa230a5f098979a6fc3363f33560cb94107984ab86ae60f8a31452a86416e0af",
     "typescript/pnpm/catalog": "c07da19d3b10f6df3e53e6a48c8d477f3f3051ffabfdabf5fbf7c7cf294dfcb9",
-    "typescript/pnpm/lock-sync": "ae85340aa57e02afdf9d3a0221c7c6b5905c7e80062eb1435c626a33eee666e4",
+    "typescript/pnpm/lock-sync": "6ad8a1f1c8abed5a02cb77cd8287c830e66d7ae86543660a53b9bb4d4a5a653a",
     "typescript/pnpm/no-other-pm": "4df6962a766f9fdf549a4860ccd99f7a6e69be0932f76aecf1d209dbbd9d66d5",
     "typescript/pnpm/overrides": "e936a6a10d787efcb8db9f0b3c2e9f65113b4c32dc0a8c4640f62323bf540558",
     "typescript/pnpm/settings-location": "f25e8fd2c0b4ae1646ac76a684d2b8fba4817cda7019e0fff5a073eb9a354411",
@@ -28481,16 +28587,17 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "4505668bced70b827df58ea8f056d53708aac954329b5d962e1ecf42ead37b56",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "1f23d5cc6cfe1cbfa996fdac57a1e6d4ba8b199a0b5251828326bd074cf95219",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "3ce2e07955dd9ffd5a792267cc7086d7ba8721a3eddf899a8712546860f3bee6",
+    ".claude/skills/forge-project/scripts/session-start.sh": "38cf40fd5db97416e5d0b33e0939673694643b443d29688431eb035eff56a4fa",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "4dda60710499f45daa47b3e5cb949313695f294a711be2d06c505dd3f4ff13db",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "4c74af6b2697740c86dcf33207e3004f85b3f769fc5a314f476336bdac7c93b8",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "bc08603f941ca650339a5a252f066a2dbdf54cfa3b6cdc6f37e123edc4769b04",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "e5fe73bcd1bd5aa2ca5dbdce4a50fd2d86200231d6e06bcf1fbd2e48c2e2f9f8",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
+    ".forge/ast-grep/rule-tests/typescript-no-deprecated-test.yml": "46f3313796d0209ffc0d4e18a31182888c4443c1db2d2b86d86a5b2c083c141c",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
     ".forge/ast-grep/rule-tests/typescript-no-dynamic-regexp-test.yml": "9b8b0c3df4b3ec738fa1aeab5f9792fc0ba7ab73c1868586f10cf694f44548f9",
     ".forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml": "4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8",
@@ -28510,6 +28617,7 @@ forge_end "$fail"
     ".forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml": "3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e",
     ".forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml": "72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8",
     ".forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml": "b247736df5e6119beaab32a96701ca35ee09026f28d8c10bcc81899236e647b9",
+    ".forge/ast-grep/rules/typescript/no-deprecated.yml": "3746d57046dbc3a193a86010398b17fd36647a7a933f6466d125989790a6268e",
     ".forge/ast-grep/rules/typescript/no-double-assertion.yml": "17ef002e2a714727a90c74a4e2a9db61b67b9836c305b4b1be9d329e32356811",
     ".forge/ast-grep/rules/typescript/no-dynamic-regexp.yml": "1192c92c865fc661f1a352f34e0eaf7e8c0b5a54a91f4d90b0c02ad8245e5f22",
     ".forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml": "7ea6d8ccffae116bcef4dbf9dac476a26b054ce62cd41df134dbb79fd30ab37a",
@@ -28529,13 +28637,13 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml": "82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac",
     ".forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml": "9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "dcc3e2c03e87639f3dfe276137aced6d301f67eb5bc946a7cdcf85cfebddff2a",
+    ".forge/check.sh": "22e01fcc4752fb4af1c94344f41ec716eacefae3ae0ca28bdad1d5e69988aaab",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
     ".forge/helpers/pm_policy.mjs": "cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
-    ".forge/helpers/types_typescript.mjs": "66909f35854098f88cc6a2f321fd9124f9efb71d2a6cc28f10ce6b7da7940a58",
+    ".forge/helpers/types_typescript.mjs": "a8a2b93dfba57ce82af00e1010e65f420f7fc1b4b236f1d5a8766049364fd21f",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -29522,7 +29630,7 @@ class Lsp extends Base {
       workspaceFolders: [{ uri: uri(ROOT), name: "root" }],
       capabilities: {
         general: { positionEncodings: ["utf-16"] },
-        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true }, inlayHint: {}, diagnostic: {} },
+        textDocument: { typeDefinition: { linkSupport: true }, definition: { linkSupport: true }, inlayHint: {}, diagnostic: {}, hover: { contentFormat: ["markdown"] } },
         workspace: { configuration: true, workspaceFolders: true },
       },
     });
@@ -29565,6 +29673,18 @@ class Lsp extends Base {
       pos: h.position,
       parts: (Array.isArray(h.label) ? h.label : [{ value: h.label }]).map((p) => ({ text: p.value, uri: p.location?.uri, pos: p.location?.range.start })),
     }));
+  }
+  /** The ranges the server reports as deprecated uses (suggestions 6385, 6387), as LSP ranges. */
+  async deprecatedRanges(file) {
+    const r = await this.request("textDocument/diagnostic", { textDocument: { uri: uri(file) } });
+    return (r?.items ?? []).filter((d) => DEPRECATED_CODES.has(Number(d.code))).map((d) => d.range);
+  }
+  /** Whether the server's hover at pos documents a @deprecated declaration (rendered "*@deprecated*"). */
+  async deprecatedAt(file, pos) {
+    const r = await this.request("textDocument/hover", { textDocument: { uri: uri(file) }, position: pos });
+    const c = r?.contents;
+    const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x === "string" ? x : x.value)).join("\n") : (c?.value ?? "");
+    return /(^|\n)\*@deprecated\*/.test(text);
   }
 }
 
@@ -29667,7 +29787,21 @@ class TsServer extends Base {
       parts: (h.displayParts ?? [{ text: h.text }]).map((p) => ({ text: p.text, uri: p.span ? pathToFileURL(p.span.file).href : undefined, pos: p.span ? lsp(p.span.start) : undefined })),
     }));
   }
+  /** The ranges the server reports as deprecated uses (suggestions 6385, 6387), as LSP ranges. */
+  async deprecatedRanges(file) {
+    const body = await this.command("suggestionDiagnosticsSync", { file });
+    const lsp = (p) => ({ line: p.line - 1, character: p.offset - 1 });
+    return asArray(body).filter((d) => DEPRECATED_CODES.has(d.code)).map((d) => ({ start: lsp(d.start), end: lsp(d.end) }));
+  }
+  /** Whether the symbol at pos is deprecated (quickinfo's kind modifiers). */
+  async deprecatedAt(file, pos) {
+    const body = await this.command("quickinfo", { file, line: pos.line + 1, offset: pos.character + 1 });
+    return (body?.kindModifiers ?? "").split(",").includes("deprecated");
+  }
 }
+
+/** TypeScript's suggestion diagnostics for a deprecated use: "'X' is deprecated." (6385), "The signature … of 'X' is deprecated." (6387). */
+const DEPRECATED_CODES = new Set([6385, 6387]);
 
 const languageId = (file) =>
   /\.[cm]?tsx?$/.test(file) ? (file.endsWith("x") ? "typescriptreact" : "typescript") : file.endsWith("x") ? "javascriptreact" : "javascript";
@@ -30243,6 +30377,48 @@ class Types {
   }
 }
 
+/**
+ * Whether a name is in the position of an object literal's key (`{ name: …`, `, name: …`,
+ * or a shorthand `{ name }`): the one use of a deprecated declaration TypeScript reports no
+ * suggestion for (its key is checked against the contextual type, §15.7). Comments are skipped.
+ */
+function keyPosition(text, start, end) {
+  let i = start - 1;
+  for (;;) {
+    while (i >= 0 && /\s/.test(text[i])) i--;
+    if (i >= 1 && text[i] === "/" && text[i - 1] === "*") {
+      const open = text.lastIndexOf("/*", i - 2);
+      if (open < 0) return false;
+      i = open - 1;
+      continue;
+    }
+    break;
+  }
+  if (i < 0 || (text[i] !== "{" && text[i] !== ",")) return false;
+  const after = skipTrivia(text, end);
+  return text[after] === ":" ? text[after + 1] !== ":" : text[after] === "," || text[after] === "}";
+}
+
+Types.prototype.deprecated = async function deprecated(file, items) {
+  // the file as it is on disk (a type question may have shown the server another version)
+  const text = this.server.sync(file);
+  const raw = Buffer.from(text, "utf8");
+  const ranges = (await this.server.deprecatedRanges(file)).map((r) => [indexOf(text, r.start), indexOf(text, r.end)]);
+  const found = new Map();
+  for (const [n, v, s, e] of items) {
+    const a = raw.subarray(0, s).toString("utf8").length;
+    const b = raw.subarray(0, e).toString("utf8").length;
+    let deprecated = ranges.some(([rs, re]) => rs < b && a < re);
+    if (!deprecated && keyPosition(text, a, b) && (await this.server.deprecatedAt(file, position(text, a)))) {
+      // a key that declares the property (an interface or type member) is not a use of it
+      const defs = await this.server.definition(file, position(text, a));
+      deprecated = !defs.some((l) => fs.realpathSync(pathOf(l.uri)) === fs.realpathSync(file) && indexOf(text, l.pos) === a);
+    }
+    found.set(`${n}\0${v}`, { deprecated });
+  }
+  return found;
+};
+
 const asArray = (r) => (Array.isArray(r) ? r : r ? [r] : []);
 
 // ---------------------------------------------------------------- constraints
@@ -30265,9 +30441,10 @@ function satisfies({ decls, unknown }, spec) {
   );
 }
 // several specs: one of them is enough
-const holds = (decls, cond) => (cond.not ? !holds(decls, cond.not) : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec)));
-/** What a condition asks of its metavariable: "type" or "declared". */
-const asks = (cond) => (cond.not ? asks(cond.not) : cond.declared ? "declared" : "type");
+const holds = (decls, cond) =>
+  cond.not ? !holds(decls, cond.not) : cond.deprecated !== undefined ? decls.deprecated === cond.deprecated : [cond.type ?? cond.declared].flat().some((spec) => satisfies(decls, spec));
+/** What a condition asks of its metavariable: "type", "declared" or "deprecated". */
+const asks = (cond) => (cond.not ? asks(cond.not) : cond.deprecated !== undefined ? "deprecated" : cond.declared ? "declared" : "type");
 
 async function answer(types, matches) {
   const byFile = new Map();
@@ -30277,12 +30454,16 @@ async function answer(types, matches) {
     for (const [v, cond] of Object.entries(where)) {
       if (!single[v]) continue;
       const b = single[v].range.byteOffset;
-      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [] });
+      if (!byFile.has(m.file)) byFile.set(m.file, { type: [], declared: [], deprecated: [] });
       byFile.get(m.file)[asks(cond)].push([n, v, b.start, b.end]);
     }
   });
   const found = new Map();
-  for (const [f, kinds] of byFile) for (const [k, d] of await types.check(path.join(ROOT, f), kinds.type, kinds.declared)) found.set(k, d);
+  for (const [f, kinds] of byFile) {
+    const file = path.join(ROOT, f);
+    if (kinds.type.length || kinds.declared.length) for (const [k, d] of await types.check(file, kinds.type, kinds.declared)) found.set(k, d);
+    if (kinds.deprecated.length) for (const [k, d] of await types.deprecated(file, kinds.deprecated)) found.set(k, d);
+  }
   // a match with a metavariable whose type cannot be asked is not checked (never passed)
   const unchecked = matches.flatMap((m, n) => Object.keys(m.metadata?.forge_where ?? {}).filter((v) => found.get(`${n}\0${v}`)?.unchecked).map((v) => [n, v]));
   const keep = matches.flatMap((m, n) =>
@@ -30499,16 +30680,17 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 e5aed356f97ea36eaee2a191c92a70c45687cebec3ac7743644cf3ef6766cda9  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-4505668bced70b827df58ea8f056d53708aac954329b5d962e1ecf42ead37b56  .claude/skills/forge-project/scripts/post-edit.sh
+1f23d5cc6cfe1cbfa996fdac57a1e6d4ba8b199a0b5251828326bd074cf95219  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-3ce2e07955dd9ffd5a792267cc7086d7ba8721a3eddf899a8712546860f3bee6  .claude/skills/forge-project/scripts/session-start.sh
+38cf40fd5db97416e5d0b33e0939673694643b443d29688431eb035eff56a4fa  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-4dda60710499f45daa47b3e5cb949313695f294a711be2d06c505dd3f4ff13db  .claude/skills/forge-project/scripts/test-edit.sh
+4c74af6b2697740c86dcf33207e3004f85b3f769fc5a314f476336bdac7c93b8  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-bc08603f941ca650339a5a252f066a2dbdf54cfa3b6cdc6f37e123edc4769b04  .claude/skills/forge-project/scripts/typecheck.sh
+e5fe73bcd1bd5aa2ca5dbdce4a50fd2d86200231d6e06bcf1fbd2e48c2e2f9f8  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
+46f3313796d0209ffc0d4e18a31182888c4443c1db2d2b86d86a5b2c083c141c  .forge/ast-grep/rule-tests/typescript-no-deprecated-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
 9b8b0c3df4b3ec738fa1aeab5f9792fc0ba7ab73c1868586f10cf694f44548f9  .forge/ast-grep/rule-tests/typescript-no-dynamic-regexp-test.yml
 4bb82e0ccf213407e475850de23f211251525fecaa743d77e2101590658f28c8  .forge/ast-grep/rule-tests/typescript-no-hardcoded-session-secret-test.yml
@@ -30528,6 +30710,7 @@ c031e536708f9aeb2b7903b4c26c3af77de7512bcbf8d5467d3b126751a277cd  .forge/ast-gre
 3d4d3dbd6f33aca3e8927619a223dd0a4b56012f4f896fad27ac301743bf849e  .forge/ast-grep/rule-tests/typescript-vitest-no-tautological-expect-test.yml
 72dcb1355a54b0a7a880206f4567d94c18f8eaaf6d2dc7d1ab0a9414981250c8  .forge/ast-grep/rule-tests/typescript-vitest-no-test-env-branch-test.yml
 b247736df5e6119beaab32a96701ca35ee09026f28d8c10bcc81899236e647b9  .forge/ast-grep/rules/typescript/cors-credentials-wildcard.yml
+3746d57046dbc3a193a86010398b17fd36647a7a933f6466d125989790a6268e  .forge/ast-grep/rules/typescript/no-deprecated.yml
 17ef002e2a714727a90c74a4e2a9db61b67b9836c305b4b1be9d329e32356811  .forge/ast-grep/rules/typescript/no-double-assertion.yml
 1192c92c865fc661f1a352f34e0eaf7e8c0b5a54a91f4d90b0c02ad8245e5f22  .forge/ast-grep/rules/typescript/no-dynamic-regexp.yml
 7ea6d8ccffae116bcef4dbf9dac476a26b054ce62cd41df134dbb79fd30ab37a  .forge/ast-grep/rules/typescript/no-hardcoded-session-secret.yml
@@ -30547,13 +30730,13 @@ a645044b98cb86509165bedeb7c9fa53c975a3480198d29ee0a48268e7219f12  .forge/ast-gre
 82f72e924557144bf226fb6baea84d80bc1752f5d721b2a2a4392895a2a9e2ac  .forge/ast-grep/rules/typescript/vitest/no-tautological-expect.yml
 9716e0e9f3f6a1e32fe600a3fa424cb0b9b7c8eb1ed517858b22f301a1cfb608  .forge/ast-grep/rules/typescript/vitest/no-test-env-branch.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-dcc3e2c03e87639f3dfe276137aced6d301f67eb5bc946a7cdcf85cfebddff2a  .forge/check.sh
+22e01fcc4752fb4af1c94344f41ec716eacefae3ae0ca28bdad1d5e69988aaab  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs
 cf681979262c843432f96ca43c6d829cb5f4dff7c5804f5946c0f205d85832cc  .forge/helpers/pm_policy.mjs
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
-66909f35854098f88cc6a2f321fd9124f9efb71d2a6cc28f10ce6b7da7940a58  .forge/helpers/types_typescript.mjs
+a8a2b93dfba57ce82af00e1010e65f420f7fc1b4b236f1d5a8766049364fd21f  .forge/helpers/types_typescript.mjs
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

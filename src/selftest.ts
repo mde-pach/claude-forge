@@ -163,7 +163,8 @@ export function hadolintIntegrity(): { status: "ok" | "mismatch" | "skipped"; de
  */
 export function checkExamplesOptional(t: CheckTarget): boolean {
   // forge_large_files: a file over its size limit does not fit in a rule file (a spec test runs it)
-  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
+  // astro check and ngc: the framework's packages must be installed (a whole project)
+  return t.stage === "test" || t.stage === "migration" || checkTools(t).some((x) => x === "astro" || x === "ngc" || x === "uv" || x === "bun") || /\bforge_large_files\b/.test(t.run);
 }
 
 /** How check examples are run: as Stop runs them, except format checks, which fix files at Stop and are run as CI runs them. */
@@ -265,7 +266,10 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           if (!bin) return void (results[i] = { outcome: "skip", detail: `${tool} not available` });
           const to = join(repo, PYTHON_TOOLS.has(tool) ? ".venv/bin" : "node_modules/.bin", tool);
           mkdirSync(dirname(to), { recursive: true });
-          symlinkSync(bin, to);
+          if (!existsSync(to)) symlinkSync(bin, to);
+          // a node tool's companions installed with it (oxlint runs oxlint-tsgolint's tsgolint from node_modules/.bin)
+          if (!PYTHON_TOOLS.has(tool))
+            for (const c of COMPANIONS[tool] ?? []) if (existsSync(join(dirname(bin), c)) && !existsSync(join(dirname(to), c))) symlinkSync(join(dirname(bin), c), join(dirname(to), c));
         } else {
           // a system tool (§13.5): from the tool directories, else PATH; its directory goes first on the example's PATH
           const want = tool === "ty" ? "uvx" : tool;
@@ -299,6 +303,9 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
     for (const d of dirs) rmSync(d, { recursive: true, force: true });
   }
 }
+
+/** Binaries a project tool runs from the project's node_modules/.bin, installed next to it. */
+const COMPANIONS: Record<string, string[]> = { oxlint: ["tsgolint"] };
 
 /** Bin directories that hold the project tools for check examples: the project's, then PATH. */
 export function defaultToolBins(repo?: string): string[] {
@@ -388,8 +395,11 @@ function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?:
     if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length))
       failures.push(`${r.id}: needs match and no_match examples`);
     const all = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])];
-    if (all.some((e) => typeof e !== "string" && !("command" in e)) && r.enforce.some((t) => t.target !== "check"))
-      failures.push(`${r.id}: fixture examples (files) are for check rules only`);
+    // fixtures (files): check rules; a rule of tool targets only may give one file without head (its path picks the file type)
+    const fixtures = all.filter((e): e is ExampleFixture => typeof e !== "string" && !("command" in e));
+    const toolOnly = r.enforce.every((t) => t.target === "tool");
+    if (fixtures.length && !r.enforce.every((t) => t.target === "check") && !(toolOnly && fixtures.every((f) => !f.head && Object.keys(f.files).length === 1)))
+      failures.push(`${r.id}: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets`);
     if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard"))
       failures.push(`${r.id}: command examples are for guard rules only`);
     // engine capabilities (§15.1): metavariables of the rule, a parsed language, examples with their packages
@@ -702,6 +712,7 @@ function describeDeps(lang: TypesLanguage, deps: DepSpec[]): string {
 
 function describeWhere(rule: Rule): string {
   const t = rule.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
-  const show = (c: WhereCondition): string => ("not" in c ? `not ${show(c.not)}` : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type));
+  const show = (c: WhereCondition): string =>
+    "not" in c ? `not ${show(c.not)}` : "deprecated" in c ? "deprecated" : "declared" in c ? `declared ${JSON.stringify(c.declared)}` : JSON.stringify(c.type);
   return Object.entries(t.where ?? {}).map(([v, c]) => `$${v}: ${show(c)}`).join(", ");
 }

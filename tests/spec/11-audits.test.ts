@@ -18,12 +18,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { parse as parseToml } from "smol-toml";
 import { mergeTomlSnippets } from "../../src/snippets";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { auditTarget, examplePath } from "../../src/audit";
 import { loadPacks } from "../../src/packs";
-import { commitAll, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo, TOOL_VERSIONS } from "../helpers";
+import { commitAll, EXAMPLE_NODE_TOOLS, ensureNodeTools, ensureTools, forge, git, hasBun, hasUv, linkTools, ROOT, sampleRepo, TOOL_VERSIONS } from "../helpers";
 import type { Rule, ToolTarget } from "../../src/types";
 
 const T = 300_000;
@@ -222,7 +222,21 @@ function projectFor(t: ToolTarget, on: boolean): string {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, dependencies: { react: TOOL_VERSIONS.react } }));
     // a Turborepo config declaring no env var: noUndeclaredEnvVars checks env reads against it, and is silent without one
     writeFileSync(join(dir, "turbo.json"), JSON.stringify({ tasks: {} }));
-    writeFileSync(join(dir, "biome.json"), JSON.stringify({ linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+    // the snippet's html section too: Vue, Svelte and Astro templates are linted only with html.experimentalFullSupportEnabled
+    const { html } = JSON.parse(`{${t.snippet}}`) as { html?: object };
+    writeFileSync(join(dir, "biome.json"), JSON.stringify({ ...(html ? { html } : {}), linter: { enabled: true, rules: { recommended: false, [group!]: { [name!]: on ? "error" : "off" } } } }));
+  } else if (t.tool === "eslint") {
+    // ESLint, typescript-eslint (type-aware: projectService, on TypeScript 6) and the plugins, from the tools cache;
+    // on: the rule's own snippet (its level and options), off: "off"
+    symlinkSync(join(ensureNodeTools("lint", EXAMPLE_NODE_TOOLS.lint!), "node_modules"), join(dir, "node_modules"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "audit", private: true, type: "module" }));
+    writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, module: "esnext", moduleResolution: "bundler", target: "es2022", lib: ["es2023", "dom"], jsx: "react-jsx" }, include: ["**/*.ts", "**/*.tsx"] }));
+    const rules = on ? (JSON.parse(`{${t.snippet}}`) as { rules: object }).rules : { [t.expects]: "off" };
+    writeFileSync(
+      join(dir, "eslint.config.mjs"),
+      `import tseslint from "typescript-eslint";\nimport testingLibrary from "eslint-plugin-testing-library";\n\nexport default [{ files: ["**/*.ts", "**/*.tsx"], languageOptions: { parser: tseslint.parser, parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } }, plugins: { "@typescript-eslint": tseslint.plugin, "testing-library": testingLibrary }, rules: ${JSON.stringify(rules)} }];\n`,
+    );
+    return dir;
   } else if (t.tool === "tsc") {
     // on: the rule's own snippet (e.g. strict plus noUncheckedIndexedAccess); off: not strict
     const options = on ? (JSON.parse(`{${t.snippet}}`) as { compilerOptions: object }).compilerOptions : { strict: false };
@@ -237,6 +251,25 @@ function projectFor(t: ToolTarget, on: boolean): string {
   linkTools(dir, t.tool === "ruff" || t.tool === "ty" ? "python" : "node");
   return dir;
 }
+
+/**
+ * ESLint reports by file in its JSON format (severity 2 an error, 1 a warning). An example
+ * ESLint could not parse (a type-aware config whose projectService does not cover the
+ * file) proves nothing either way: the audit is skipped with ESLint's message.
+ * @rule typescript/eslint/type-checked
+ */
+test.if(hasBun)("an ESLint audit is satisfied at error, unsatisfied as a warning, and skipped when ESLint cannot parse the example", () => {
+  const rule = toolRules.find((r) => r.id === "typescript/eslint/type-checked")!;
+  const t = rule.enforce.find((x): x is ToolTarget => x.target === "tool" && x.expects === "@typescript-eslint/no-unsafe-assignment")!;
+  const dir = projectFor(t, true);
+  expect(auditTarget(dir, rule, t).status).toBe("satisfied");
+  writeFileSync(join(dir, "eslint.config.mjs"), readFileSync(join(dir, "eslint.config.mjs"), "utf8").replace('"error"', '"warn"'));
+  expect(auditTarget(dir, rule, t).detail).toContain("is only a warning in your eslint config");
+  writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }));
+  const r = auditTarget(dir, rule, t);
+  expect(r.status).toBe("skipped");
+  expect(r.detail).toContain("could not read eslint's output: eslint could not parse the example");
+}, T);
 
 const toolRules = [...loadPacks(join(ROOT, "packs")).values()].flatMap((p) => p.rules).filter((r) => r.enforce.some((t) => t.target === "tool"));
 

@@ -1021,6 +1021,52 @@ forge_pkg_deps() {
     }' "$1" | sort
 }
 
+# forge_dep_major_match <package> <types-package>...: in each package.json of the check's
+# scope ($FORGE_TMP/scope: the changed files, every file with --all) that declares
+# <package> and a <types-package>, the lowest major version their ranges allow is the
+# same (a types package of another major describes another API). The lowest major of a
+# range is the smallest major its alternatives (||) start at: ^4.17.1, ~4.1, 4.x, >=4 <6
+# and 4 || 5 are 4. A spec that names no lower version (*, latest, workspace:, catalog:,
+# npm: aliases, git and file sources, <5) is reported as not compared, never passed.
+forge_dep_major_match() {
+  _dm_pkg=$1
+  shift
+  _dm_types=$(printf '%s ' "$@")
+  _dm_rc=0
+  while IFS= read -r _dm_f; do
+    case $_dm_f in package.json|*/package.json) ;; *) continue ;; esac
+    [ -f "$_dm_f" ] || continue
+    forge_pkg_deps "$_dm_f" | awk -F '\t' -v pkg="$_dm_pkg" -v types="$_dm_types" -v f="$_dm_f" -v id="${c_id:-}" '
+      function lowest(spec,   alts, n, i, a, m, best) {
+        best = ""
+        n = split(spec, alts, /[|][|]/)
+        for (i = 1; i <= n; i++) {
+          a = alts[i]
+          gsub(/^[ \t]+|[ \t]+$/, "", a)
+          if (a !~ /^(\^|~|>=|=|v)?[ \t]*v?[0-9]+([.]|[ \t]|$)/) return ""
+          sub(/^(\^|~|>=|=)?[ \t]*v?/, "", a)
+          m = a; sub(/[^0-9].*$/, "", m)
+          if (best == "" || m + 0 < best + 0) best = m
+        }
+        return best
+      }
+      BEGIN { nt = split(types, ts, " "); for (i = 1; i <= nt; i++) want[ts[i]] = 1 }
+      $2 == pkg { have = $3 }
+      ($2 in want) { tspec[$2] = $3 }
+      END {
+        if (have == "") exit 0
+        pm = lowest(have)
+        for (t in tspec) {
+          tm = lowest(tspec[t])
+          if (pm == "" || tm == "") { printf "forge:%s skipped: %s: %s \"%s\" and %s \"%s\" are not both version ranges, so their majors were not compared\n", id, f, pkg, have, t, tspec[t]; continue }
+          if (pm != tm) { printf "%s:0 %s \"%s\" (major %s) describes another API than %s \"%s\" (major %s): declare %s@^%s.0.0 (or the %s release you run)\n", f, t, tspec[t], tm, pkg, have, pm, t, pm, pkg; bad = 1 }
+        }
+        exit bad
+      }' || _dm_rc=1
+  done < "$FORGE_TMP/scope"
+  return "$_dm_rc"
+}
+
 # forge_check_active <rule-id>: the rule has a check in this check.sh.
 forge_check_active() {
   (
@@ -2321,7 +2367,9 @@ forge_has_tool() {
   case $1 in
     *@*) ( _fh_root=$(pwd); cd "${1#*@}" 2>/dev/null && FORGE_WS_ROOT=$_fh_root forge_has_tool "${1%%@*}" ) ;;
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
-    tofu|helm|kubectl) forge_on_path "$1" ;;
+    tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
+    # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
+    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -2335,6 +2383,7 @@ forge_tool_label() {
   case $1 in
     terraform) forge_tf_bin ;;
     kustomize) printf 'kustomize or kubectl' ;;
+    yarn) printf 'yarn 2 or later' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -3221,53 +3270,6 @@ forge_drizzle_squawk() {
   forge_squawk_files "$@"
 }
 
-# forge_vue_vfor_keys <files>: in the templates of .vue files, each element with v-for
-# (not <template>) also binds a key (:key, v-bind:key). Prints "path:line: ..." per element
-# (the line of its v-for). Comments, <script> and <style> are skipped; quotes are respected.
-forge_vue_vfor_keys() {
-  _vk_rc=0
-  for _vk_f in "$@"; do
-    case $_vk_f in *.vue) ;; *) continue ;; esac
-    [ -f "$_vk_f" ] || continue
-    awk -v f="$_vk_f" '
-      { s = s $0 "\n" }
-      END {
-        n = length(s); ln = 1; skip = ""
-        for (i = 1; i <= n; i++) {
-          c = substr(s, i, 1)
-          if (c == "\n") { ln++; continue }
-          if (c != "<") continue
-          if (substr(s, i, 4) == "<!--") {
-            j = index(substr(s, i + 4), "-->"); if (!j) break
-            t = substr(s, i, j + 6); ln += gsub(/\n/, "", t); i += j + 5; continue
-          }
-          if (!match(substr(s, i + 1, 1), /[A-Za-z\/]/)) continue
-          # one tag, quotes respected
-          start = ln; q = ""; tag = ""
-          for (i++; i <= n; i++) {
-            c = substr(s, i, 1)
-            if (c == "\n") ln++
-            if (q != "") { if (c == q) q = ""; tag = tag c; continue }
-            if (c == "\"" || c == "\047") q = c
-            else if (c == ">") break
-            tag = tag c
-          }
-          name = tag; sub(/[[:space:]].*$/, "", name); if (length(name) > 1) sub(/\/$/, "", name); shown = name; name = tolower(name)
-          if (skip != "") { if (name == "/" skip) skip = ""; continue }
-          if ((name == "script" || name == "style") && tag !~ /\/$/) { skip = name; continue }
-          tag = " " tag
-          if (name == "template" || tag !~ /[[:space:]]v-for[[:space:]]*=/) continue
-          if (tag ~ /[[:space:]](:key|v-bind:key)[[:space:]]*=/) continue
-          match(tag, /[[:space:]]v-for[[:space:]]*=/); pre = substr(tag, 1, RSTART)
-          printf "%s:%d: <%s> has v-for without :key\n", f, start + gsub(/\n/, "", pre), shown
-          bad = 1
-        }
-        exit bad
-      }' "$_vk_f" || _vk_rc=1
-  done
-  return "$_vk_rc"
-}
-
 # OpenAPI clients generated by openapi-typescript, orval or @hey-api/openapi-ts: their
 # files say so in their header, and a package.json script runs the generator.
 FORGE_OPENAPI_MARK='auto-generated by (openapi-typescript|@hey-api/openapi-ts)|generated by orval'
@@ -3519,8 +3521,9 @@ forge_excerpt() {
 
 # forge_diagnostics <output> <file|line> [print]: sorts the error diagnostics of a
 # failed run by what they name (tsc "path(l,c)", "path:l:c" from Python and JS
-# linters, "--> path:l:c"; "Would reformat: path" and Biome's "path format" name a
-# file only; absolute paths under the repository are made relative; warning-only
+# linters, "--> path:l:c", ESLint's stylish "<path>" then "  l:c  error …" lines,
+# printed as "path:l:c  error …"; "Would reformat: path", Biome's "path format" and
+# Prettier's "[warn] path" and "[error] path: …" name a file only; absolute paths under the repository are made relative; warning-only
 # lines are ignored, unless the check's c_warn is 1: its warnings count as errors). A diagnostic counts when it names a file of $FORGE_TMP/changed
 # ("file"), or an added line of $FORGE_TMP/added ("line"; one naming only a file, or
 # line 0, counts when that file changed). Prints "changed" when one counts, "other" when
@@ -3536,6 +3539,11 @@ forge_diagnostics() {
     {
       line = $0
       gsub(ansi, "", line)
+      # ESLint (stylish): a file named by its absolute path alone on a line, then its
+      # "  <l>:<c>  error|warning  <message>  <rule>" lines
+      if (line ~ /^\/[^[:space:]]*$/) { hdr = line; next }
+      sty = hdr != "" && line ~ /^[[:space:]]+[0-9]+:[0-9]+[[:space:]]+(error|warning)[[:space:]]/
+      if (!sty && line ~ /^[^[:space:]]/) hdr = ""
       if (warn != 1 && line ~ /[Ww]arning/ && line !~ /[Ee]rror/) {
         # a warning diagnostic: a location, then "warning" as a word (not DeprecationWarning)
         if (line ~ /^[[:space:]]*(-->[[:space:]]*)?[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+)/ && line ~ /(^|[^A-Za-z])[Ww]arning([^A-Za-z]|$)/) warned = 1
@@ -3544,12 +3552,16 @@ forge_diagnostics() {
       if ((line ~ /[Ee]rror/ || warn == 1 && line ~ /[Ww]arning/) && line !~ /(^|[^0-9])0 (errors?|warnings?)([^A-Za-z]|$)/) erred = 1
       sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
       ln = ""
-      if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
+      if (sty) { p = hdr; ln = line + 0 }
+      else if (match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) {
         p = substr(line, 1, RLENGTH)
         loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
         sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
       } else if (match(line, /^Would reformat: [^[:space:]]+/)) p = substr(line, 18, RLENGTH - 17)
       else if (match(line, /^[^[:space:]:(]+ format /)) { p = line; sub(/ format .*$/, "", p) }
+      # prettier --check: "[warn] <path>" per unformatted file, "[error] <path>: <error>"
+      else if (line ~ /^\[warn\] [^[:space:]]+$/) { p = substr(line, 8); erred = 1 }
+      else if (match(line, /^\[error\] [^[:space:]]+: /)) p = substr(line, 9, RLENGTH - 10)
       else next
       if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
       else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
@@ -3558,7 +3570,7 @@ forge_diagnostics() {
       if (p !~ /^\.forge\// && p !~ /^\.claude\/skills\/forge-project\//) project = 1
       if (level == "line") counts = (p in whole) || (ln == "" || ln == 0 ? (p in ch) : ((p "\t" ln) in ad))
       else counts = (p in ch)
-      if (counts) { hit = 1; if (mode == "print") print $0 }
+      if (counts) { hit = 1; if (mode == "print") print (sty ? p ":" line : $0) }
     }
     END { if (mode != "print") print (hit ? "changed" : named && !project ? "forge" : named ? "other" : (warned && !erred) ? "warnings" : "none") }' "$FORGE_TMP/changed" "$FORGE_TMP/added" "$1"
 }

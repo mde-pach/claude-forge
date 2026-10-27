@@ -205,6 +205,8 @@ forge_step forge_tests_integrity
 forge_step forge_forbid
 forge_step forge_run_stage format
 forge_step forge_run_stage lint
+# generated code first: a stale one would only make the typecheck repeat it (§10.1)
+forge_step forge_run_stage codegen
 forge_step forge_run_stage typecheck
 forge_step forge_run_stage migration
 forge_step forge_run_stage test

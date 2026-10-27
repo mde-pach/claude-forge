@@ -273,6 +273,18 @@ function flywayPart(locations: string[], source: string, notes: string[]): Part 
   return dirs.length ? { patterns: dirs.map((d) => under(d, "**/*.sql")), source } : undefined;
 }
 
+/** Angular CLI's angular.json: the build `tsConfig` of each project (`architect`, or `targets`). */
+function angularTsconfig(inputs: RoleInputs): Part[] | undefined {
+  const projects = readJsonAt(inputs, "angular.json")?.projects;
+  if (!projects || typeof projects !== "object") return undefined;
+  const files = Object.values(projects as Record<string, any>)
+    .map((p) => (p?.architect ?? p?.targets)?.build?.options?.tsConfig)
+    .filter((f): f is string => typeof f === "string")
+    .map((f) => cleanPath(f))
+    .filter((f): f is string => !!f);
+  return files.length ? [{ patterns: [...new Set(files)], source: "angular.json" }] : undefined;
+}
+
 /**
  * ESM files: .mts and .mjs, and .ts/.tsx/.js/.jsx under a package.json with "type":
  * "module" (Node's rule: the nearest package.json decides), less those under a nested
@@ -300,6 +312,7 @@ function esmModules(inputs: RoleInputs): Part[] | undefined {
 export const ROLES: Record<string, RoleDef> = {
   adr: { about: "architecture decision records", defaults: ["docs/adr/**", "doc/adr/**", "docs/decisions/**"], config: adr },
   "alembic-migrations": { about: "Alembic revision files", defaults: ["alembic/versions/**", "migrations/versions/**"], config: alembicMigrations },
+  "angular-tsconfig": { about: "the tsconfig each Angular application is built with", defaults: ["**/tsconfig.app.json"], config: angularTsconfig },
   "better-auth-config": {
     about: "the Better Auth config (the auth CLI's search paths)",
     defaults: ["{,src/,app/}{,lib/server/,server/auth/,server/,auth/,lib/,utils/}{auth,auth/index}{.ts,.tsx,.js,.jsx,.server.js,.server.ts}"],
@@ -431,6 +444,7 @@ export function rolesOfRule(rule: Pick<Rule, "scope" | "enforce">): string[] {
 
 /** The specs of a where condition's type or declared (a spec or a list of them). */
 function specsOf(c: Exclude<WhereCondition, { not: WhereCondition }>): TypeSpec[] {
+  if ("deprecated" in c) return [];
   const v = "type" in c ? c.type : c.declared;
   return Array.isArray(v) ? v : [v];
 }
@@ -485,6 +499,7 @@ function roleModules(name: string, roles: Roles, python: boolean): string[] {
 
 function mapWhere(c: WhereCondition, roles: Roles, python: boolean): WhereCondition {
   if ("not" in c) return { not: mapWhere(c.not, roles, python) };
+  if ("deprecated" in c) return c;
   const map = (t: TypeSpec): TypeSpec => {
     const m = t.module;
     if (m === undefined) return t;

@@ -79,6 +79,8 @@ export interface Plan {
   disabled: { id: string; reason: string }[];
   /** Rules of active packs left out by their version gate (`when`), with the dependencies they need. */
   gated: { id: string; needs: string }[];
+  /** Tool diagnostics an active pack switches off (pack.yaml tool_off), with the rule targets that asked for them. */
+  switchedOff: { pack: string; tool: string; expects: string; reason: string; rules: string[] }[];
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
@@ -130,6 +132,9 @@ function readPyproject(dir: string): Record<string, any> {
   }
 }
 
+/** ESLint's flat config files (ESLint 9 and later read nothing else). */
+export const ESLINT_CONFIGS = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts"];
+
 /** Whether each audited tool has a config file in dir, and whether its package depends on the tool. */
 function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boolean; dep: boolean }> {
   const has = (f: string) => existsSync(join(dir, f));
@@ -140,6 +145,8 @@ function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boo
     // Forge's own ty (§15.2): wherever there is a Python project; its config is optional
     ty: { config: has("pyproject.toml") || has("ty.toml"), dep: false },
     tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
+    // ESLint 9 and later: the flat config only
+    eslint: { config: ESLINT_CONFIGS.some(has), dep: deps.npm.has("eslint") },
   };
 }
 
@@ -353,6 +360,10 @@ export function plan(opts: PlanOptions): Plan {
   const astgrep: { rule: Rule; target: AstGrepTarget; dirs?: string[] }[] = [];
   const present = (t: ToolName) => tools[t];
 
+  // tool diagnostics an active pack switches off: no rule's tool target asks for them (pack.yaml tool_off)
+  const switchedOff: Plan["switchedOff"] = packs.flatMap((pk) => (opts.packs.get(pk.id)!.tool_off ?? []).map((o) => ({ pack: pk.id, ...o, rules: [] as string[] })));
+  const offBy = (t: ToolTarget) => switchedOff.find((o) => o.tool === t.tool && o.expects === t.expects);
+
   for (const rule of rulesSorted) {
     const st: RuleStatus = { rule, enforced: [], notEnforced: [], audits: [] };
     const empty = emptyRoles.get(rule.id);
@@ -366,13 +377,18 @@ export function plan(opts: PlanOptions): Plan {
     const astTargets = rule.enforce.filter((t): t is AstGrepTarget => t.target === "ast-grep");
     if (astTargets.length > 1) throw new Error(`${rule.file}: at most one ast-grep target per rule`);
     for (const t of toolTargets) {
-      if (present(t.tool)) {
+      const off = offBy(t);
+      if (off) {
+        off.rules.push(rule.id);
+        st.notEnforced.push(`not enforced here: ${t.tool} ${t.expects} switched off by ${off.pack} (${off.reason})`);
+      } else if (present(t.tool)) {
         st.audits.push(t);
         st.enforced.push(`${t.tool} (${t.expects}), audited`);
       } else st.notEnforced.push(`not enforced here: ${t.tool} not configured`);
     }
     const ast = astTargets[0];
-    if (ast && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
+    // a switched-off diagnostic is not asked for in any form: no ast-grep stand-in either
+    if (ast && !toolTargets.some((t) => offBy(t)) && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
       if (level === "user") warnings.push(`${rule.id}: ast-grep targets are project-level only`);
       else if (missingNeeds(rule, ast).length) {
         st.notEnforced.push(`not enforced here: the types engine needs ${missingNeeds(rule, ast).join(", ")} installed to see the types this rule checks (add it as a development dependency)`);
@@ -508,6 +524,7 @@ export function plan(opts: PlanOptions): Plan {
     active,
     disabled,
     gated,
+    switchedOff,
     deprecated,
     warnings,
     tools,

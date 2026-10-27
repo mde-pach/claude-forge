@@ -6,6 +6,10 @@ enforce:
     tool: biome
     expects: lint/suspicious/useArraySortCompare
     snippet: '"linter": {"rules": {"suspicious": {"useArraySortCompare": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/require-array-sort-compare"
+    snippet: '"rules": {"@typescript-eslint/require-array-sort-compare": ["error", {"ignoreStringArrays": false}]}'
 examples:
   match: ["export function ranked(scores: number[]): number[] {\n  return scores.toSorted();\n}\n"]
   no_match: ["export function ranked(scores: number[]): number[] {\n  return scores.toSorted((a, b) => a - b);\n}\n"]

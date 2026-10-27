@@ -22,16 +22,18 @@ export function renderLib(): string {
 // ---------------------------------------------------------------- tools in commands
 
 /** Project tools resolved through `tool <name>` (audited tools first). */
-export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc"] as const;
-export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "sqlfluff", "vue-tsc"] as const;
+export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc", "eslint"] as const;
+export const PROJECT_TOOLS = ["biome", "ruff", "tsc", "alembic", "pytest", "prisma", "vitest", "playwright", "astro", "python", "sqlfluff", "vue-tsc", "ngc", "mikro-orm", "graphql-codegen", "wrangler", "better-auth", "prettier", "eslint", "oxlint"] as const;
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
 /**
- * System tools, found on PATH: runtimes, and infrastructure CLIs a project installs
- * outside node_modules and .venv. A check names terraform, kustomize: the engine runs the
- * project's own (tofu in an OpenTofu project; `kubectl kustomize` without kustomize).
+ * System tools, found on PATH: runtimes, package managers, and infrastructure CLIs a
+ * project installs outside node_modules and .venv. A check names terraform, kustomize:
+ * the engine runs the project's own (tofu in an OpenTofu project; `kubectl kustomize`
+ * without kustomize). yarn counts only as Yarn 2 or later (Berry), the Yarn the
+ * typescript/yarn pack is for.
  */
-export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "docker", "terraform", "tofu", "helm", "kustomize", "kubectl"] as const;
+export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "npm", "pnpm", "yarn", "docker", "terraform", "tofu", "helm", "kustomize", "kubectl"] as const;
 /** System tools a check runs through an engine function that picks the binary (forge_terraform, forge_kustomize). */
 const RESOLVED_TOOLS = ["terraform", "kustomize"] as const;
 
@@ -44,11 +46,18 @@ const HELPER_TOOLS: [RegExp, string][] = [
   [/\bforge_sqlfluff\b/, "sqlfluff"],
 ];
 
+/**
+ * Package managers are words of many messages ("the pnpm field"): they count only where a
+ * command starts (a line's start, after ;, &, |, (, $(, a backtick, then, do or else).
+ */
+const COMMAND_POSITION_ONLY = new Set<string>(["npm", "pnpm", "yarn"]);
+
 /** Tools invoked as commands in a shell string, in order of first use. */
 export function toolsInCommand(cmd: string): string[] {
   const found: { tool: string; at: number }[] = [];
   for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
-    const m = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool}(?=$|[\\s;&|)\`])`).exec(cmd);
+    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
+    const m = new RegExp(`${lead}${tool}(?=$|[\\s;&|)\`])`, "m").exec(cmd);
     if (m) found.push({ tool, at: m.index });
   }
   return found.sort((a, b) => a.at - b.at).map((f) => f.tool);

@@ -16,9 +16,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ensureTools, ensureVueTools, forge, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
+import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, forge, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
-import { renderChecks, renderLib } from "../../src/render";
+import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
 import { loadModels, modelRuleFiles, renderRuleFile } from "../../scripts/models";
 
@@ -28,7 +28,7 @@ const rules = [...packs.values()].flatMap((p) => p.rules);
 let report: TestReport;
 
 /** The cached project tools (tests/helpers.ts), then PATH. */
-const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
 beforeAll(() => {
   ensureTools();
@@ -45,7 +45,7 @@ describe("every rule", () => {
   });
 });
 
-test("every check target has examples, except test and migration runs, astro check and the lock-file checks", () => {
+test("every check target has examples, except test and migration runs, astro check, ngc and the lock-file checks", () => {
   const missing = rules.filter((r) => r.enforce.some((t) => t.target === "check" && !checkExamplesOptional(t as CheckTarget)) && !(r.examples?.match?.length && r.examples?.no_match?.length));
   expect(missing.map((r) => r.id)).toEqual([]);
 });
@@ -66,11 +66,17 @@ test("every pinned release binary for this platform downloads and matches its em
   expect(r.stdout).toBe(names.map((n) => `${n} ok\n`).join(""));
 }, 600_000);
 
-/** Only a system tool this machine does not have (docker on CI's macOS runners) may skip an example. */
+/**
+ * Only a system tool (§13.5) this machine does not have (docker on CI's macOS runners, a
+ * package manager the project does not use) may skip an example; the engine decides, as
+ * check.sh does (forge_has_tool: Yarn 1 is not the yarn a .yarnrc.yml project needs).
+ */
 test("every check example ran: none was skipped, except for a system tool that is not installed here", () => {
-  const absent = (tool: string) => sh("sh", ["-c", `command -v ${tool}`]).status !== 0;
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const absent = (tool: string) => sh("sh", ["-c", `${engine}\nPATH=${SYSTEM_TOOLS_BIN}:$PATH forge_has_tool ${tool}`]).status !== 0;
   const skipped = report.notes.filter((n) => n.includes(" example ") && n.includes("skipped"));
-  expect(skipped.filter((n) => !(/skipped: (docker) (not available|not installed)/.test(n) && absent("docker")))).toEqual([]);
+  const system = (n: string) => SYSTEM_TOOLS.find((t) => new RegExp(`skipped: ${t}( 2 or later)? (not available|not installed)`).test(n));
+  expect(skipped.filter((n) => !(system(n) && absent(system(n)!)))).toEqual([]);
 });
 
 /**
@@ -286,9 +292,14 @@ describe("forge test catches broken packs", () => {
     expect(f).toContain('demo/g2: grep pattern does not match match example 1: "x  # type: ignore"');
     expect(f).toContain('demo/g2: grep pattern matches no_match example 1: "y  # noqa"');
   });
-  test("fixture examples are for check rules only", () => {
+  test("fixture examples are for check rules only, or one file without head for a rule of tool targets", () => {
+    const failure = "demo/f: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets";
     const rule = 'id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: guard, decision: ask, pattern: "x"}]\nexamples: {match: [{files: {a: x}}], no_match: ["y"]}\n';
-    expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain("demo/f: fixture examples (files) are for check rules only");
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": rule })).failures).toContain(failure);
+    const tool = (ex: string) => `id: demo/f\ndescription: F.\nscope: {language: any}\nenforce: [{target: tool, tool: biome, expects: lint/a11y/useAltText, snippet: x}]\nexamples: {match: [${ex}], no_match: ["y"]}\n`;
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {src/Card.vue: x}}") })).failures).toEqual([]);
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{files: {a.vue: x, b.vue: y}}") })).failures).toContain(failure);
+    expect(selfTest(packsWith({ "demo/rules/f.yaml": tool("{head: {a.vue: x}, files: {b.vue: y}}") })).failures).toContain(failure);
   });
   test("a pack requiring an unknown pack fails", () => {
     expect(selfTest(packsWith({ "demo/pack.yaml": "id: demo\ndescription: D.\nlevel: project\nrequires: [ghost]\n" })).failures[0]).toContain("requires unknown pack ghost");
@@ -309,4 +320,58 @@ describe("permission matching used by forge test", () => {
   ])("%s matches %s: %p", (rule, call, want) => {
     expect(permissionMatches(rule, call)).toBe(want);
   });
+});
+
+/**
+ * ngc needs the framework's packages, so typescript/angular/typecheck has no examples in
+ * its file: here a component imports @angular/core from the tools cache (tsconfig paths).
+ * @rule typescript/angular/typecheck
+ */
+test.if(hasBun)(
+  "typescript/angular/typecheck: ngc reports a template error of a changed component, and passes a correct one",
+  () => {
+    const ng = ensureNodeTools("angular", ANGULAR_TOOLS);
+    const rule = rules.find((r) => r.id === "typescript/angular/typecheck")!;
+    const target = rule.enforce[0] as CheckTarget;
+    const head = {
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "preserve", moduleResolution: "bundler", skipLibCheck: true, paths: { "@angular/*": [join(ng, "node_modules/@angular/*")] } }, angularCompilerOptions: { strictTemplates: true } }),
+      "tsconfig.app.json": '{"extends": "./tsconfig.json", "files": ["src/main.ts"]}\n',
+    };
+    const component = (field: string) => `import { Component } from "@angular/core";\n\n@Component({\n  selector: "app-root",\n  template: "<p>{{ user.${field} }}</p>",\n})\nexport class App {\n  user = { name: "Ada" };\n}\n`;
+    const bins = [join(ng, "node_modules/.bin")];
+    expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("nme") } }, "match", bins)).toEqual({ outcome: "pass", detail: "" });
+    expect(runCheckExample(rule, target, { head, files: { "src/main.ts": component("name") } }, "no_match", bins)).toEqual({ outcome: "pass", detail: "" });
+    // no application tsconfig: reported, never passed
+    expect(runCheckExample(rule, target, { files: { "src/main.ts": component("nme") } }, "match", bins).outcome).toBe("skip");
+  },
+  T,
+);
+
+/**
+ * The auth CLI loads the project's auth config and its ORM schema, so the rule has no
+ * examples in its file; here a stand-in `better-auth` (the auth package's CLI) answers as it does (exit 0, 1 on
+ * SCHEMA_MISMATCH, 2 when it cannot check). An adapter that reads the live database runs
+ * only against a local one.
+ * @rule typescript/better-auth/schema-check
+ */
+test("typescript/better-auth/schema-check: a schema mismatch fails, a check the CLI cannot run is skipped, and the database adapter needs a local database", () => {
+  const rule = rules.find((r) => r.id === "typescript/better-auth/schema-check")!;
+  const target = rule.enforce[0] as CheckTarget;
+  const bin = mkdtempSync(join(tmpdir(), "forge-auth-"));
+  const auth = (code: number, say: string) => {
+    writeFileSync(join(bin, "better-auth"), `#!/bin/sh\n[ "$1 $2 $3" = "check schema --config" ] || exit 9\nprintf '%s\\n' '${say}' >&2\nexit ${code}\n`);
+    chmodSync(join(bin, "better-auth"), 0o755);
+  };
+  const prisma = 'import { betterAuth } from "better-auth";\nimport { prismaAdapter } from "better-auth/adapters/prisma";\nimport { organization } from "better-auth/plugins";\nimport { prisma } from "./db";\n\nexport const auth = betterAuth({ database: prismaAdapter(prisma, { provider: "postgresql" }), plugins: [organization()] });\n';
+  const pool = 'import { betterAuth } from "better-auth";\nimport { Pool } from "pg";\n\nexport const auth = betterAuth({ database: new Pool({ connectionString: process.env.DATABASE_URL }) });\n';
+  const change = (config: string, env = "") => ({ head: { "src/lib/auth.ts": "export {};\n", ...(env ? { ".env": env } : {}) }, files: { "src/lib/auth.ts": config } });
+  auth(1, 'Schema mismatch against the generated Prisma client model: missing table "organization"');
+  expect(runCheckExample(rule, target, change(prisma), "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+  auth(0, "Schema check passed against the generated Prisma client model.");
+  expect(runCheckExample(rule, target, change(prisma), "no_match", [bin])).toEqual({ outcome: "pass", detail: "" });
+  auth(2, "Could not load the Better Auth configuration.");
+  expect(runCheckExample(rule, target, change(prisma), "match", [bin])).toEqual({ outcome: "skip", detail: "the schema check could not run: Could not load the Better Auth configuration." });
+  auth(1, "missing table");
+  expect(runCheckExample(rule, target, change(pool), "match", [bin])).toEqual({ outcome: "skip", detail: "no local database (the Better Auth adapter of src/lib/auth.ts checks the live database)" });
+  expect(runCheckExample(rule, target, change(pool, "DATABASE_URL=postgres://app@localhost:5432/app\n"), "match", [bin])).toEqual({ outcome: "pass", detail: "" });
 });

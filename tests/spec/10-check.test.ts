@@ -14,8 +14,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING } from "../helpers";
 import { loadPacks } from "../../src/packs";
-import { checkTools, renderChecks, renderLib } from "../../src/render";
-import { RELEASE_BINARIES } from "../../src/util";
+import { checkTools, renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
+import { ownedHash, RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
 import { parse as parseYaml } from "yaml";
@@ -1661,6 +1661,54 @@ describe("pinned release binaries and system tools", () => {
     expect(run("helm() { :; }\nforge_has_tool helm && echo has || echo no", r.cwd, { PATH }).stdout).toBe("no\n");
   });
 
+  /**
+   * The package managers a lock-file check runs are system tools: absent, the check is
+   * skipped, never passed. A .yarnrc.yml project needs Yarn 2 or later (Berry); Yarn 1 on
+   * PATH is another tool, reported as missing.
+   * @rule typescript/pnpm/lock-sync typescript/npm/lock-sync typescript/yarn/lock-sync
+   */
+  test("npm, pnpm and yarn are system tools found on PATH, named where a command starts; yarn counts only from Yarn 2 on", () => {
+    const r = release({});
+    const bin = join(r.dir, "bin");
+    const tool = (name: string, version: string) => {
+      put(bin, name, `#!/bin/sh
+echo "${version}"
+`);
+      chmodSync(join(bin, name), 0o755);
+    };
+    const PATH = `${bin}:/usr/bin:/bin`;
+    const probe = "for t in npm pnpm yarn; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("no npm\nno pnpm\nno yarn 2 or later\n");
+    tool("npm", "11.4.2");
+    tool("pnpm", "10.18.0");
+    tool("yarn", "1.22.22");
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("has npm\nhas pnpm\nno yarn 2 or later\n");
+    tool("yarn", "4.18.1");
+    expect(run(probe, r.cwd, { PATH }).stdout).toBe("has npm\nhas pnpm\nhas yarn\n");
+    expect(checkTools({ target: "check", stage: "lint", run: "yarn install --immutable --mode=skip-build" })).toEqual(["yarn"]);
+    // a package manager's name in a message is not a command: only where a command starts
+    expect(checkTools({ target: "check", stage: "lint", run: "printf '%s\\n' \"the pnpm field is not read by pnpm 11\"; false" })).toEqual([]);
+    expect(checkTools({ target: "check", stage: "lint", run: "if [ -f x ]; then pnpm install --frozen-lockfile; fi" })).toEqual(["pnpm"]);
+  });
+
+  /** @rule typescript/express/types-match */
+  test("forge_dep_major_match compares the lowest major of two declared ranges in each package.json, and reports a spec that is not a range as not compared", () => {
+    const r = release({});
+    put(r.cwd, "package.json", '{"dependencies": {"express": "^5.1.0"}, "devDependencies": {"@types/express": "~4.17.21"}}\n');
+    put(r.cwd, "b/package.json", '{"dependencies": {"express": ">=4.21 <6 || 5"}, "devDependencies": {"@types/express": "4.x"}}\n');
+    put(r.cwd, "c/package.json", '{"dependencies": {"express": "catalog:"}, "devDependencies": {"@types/express": "^5.0.3"}}\n');
+    put(r.cwd, "d/package.json", '{"dependencies": {"express": "5.1.0"}}\n');
+    const out = run(`printf 'package.json\\nb/package.json\\nc/package.json\\nd/package.json\\n' > "$FORGE_TMP/scope"\nforge_dep_major_match express @types/express; echo "rc=$?"`, r.cwd);
+    expect(out.stdout).toBe(
+      [
+        'package.json:0 @types/express "~4.17.21" (major 4) describes another API than express "^5.1.0" (major 5): declare @types/express@^5.0.0 (or the express release you run)',
+        'forge:demo/rule skipped: c/package.json: express "catalog:" and @types/express "^5.0.3" are not both version ranges, so their majors were not compared',
+        "rc=1",
+        "",
+      ].join("\n"),
+    );
+  });
+
   test("a check naming terraform or kustomize gets a wrapper that runs the engine's choice, and its tool is reported missing by that name", () => {
     const rule = { id: "demo/tf", description: "D.", scope: { language: "any" }, enforce: [], file: "x", hash: "", origin: "local", pack: "demo" } as unknown as Rule;
     const target: CheckTarget = { target: "check", stage: "format", run: "terraform fmt -check -recursive", changed_run: "terraform fmt {files}" };
@@ -1821,3 +1869,115 @@ describe("registry lookups", () => {
     }
   }, T);
 });
+
+/**
+ * Generated code is checked (or generated) in a stage of its own between lint and the
+ * typecheck: when it is stale, the typecheck's errors would only repeat that, so check.sh
+ * stops there and shows the generator's output.
+ * @rule typescript/graphql-codegen/up-to-date typescript/cloudflare-workers/env-types-generated
+ */
+test("a failing codegen check stops check.sh before the typecheck; a passing one lets it run", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-codegen-")));
+  const rule = (id: string) => ({ id, description: "D.", scope: { language: "any" }, enforce: [], file: "x", hash: "", origin: "local", pack: "demo" }) as unknown as Rule;
+  const script = (codegen: string) =>
+    renderCheckScript(
+      [
+        { rule: rule("demo/typecheck"), target: { target: "check", stage: "typecheck", run: "printf 'typecheck ran\\n'; false" } },
+        { rule: rule("demo/codegen"), target: { target: "check", stage: "codegen", run: codegen } },
+      ],
+      { forbid: "", noIncrease: "", noDecrease: "" },
+    );
+  const write = (codegen: string) => {
+    const owned = { ".forge/check.sh": script(codegen), ".forge/.gitignore": "state/\n", ".forge/ast-grep/sgconfig.yml": renderSgConfig() };
+    for (const [p, text] of Object.entries(owned)) put(dir, p, text);
+    put(dir, ".forge/manifest.sha256", Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n");
+  };
+  git(dir, "init", "-q");
+  write("printf 'The following stale files were detected:\\n  - src/gql/types.ts\\n'; false");
+  put(dir, "src/a.ts", "export const a = 1;\n");
+  let r = sh("sh", [".forge/check.sh", "--all"], { cwd: dir });
+  expect(r.status).toBe(1);
+  expect(r.stdout).toContain("forge:demo/codegen failed\nThe following stale files were detected:\n  - src/gql/types.ts");
+  expect(r.stdout).not.toContain("typecheck ran");
+  write("true");
+  r = sh("sh", [".forge/check.sh", "--all"], { cwd: dir });
+  expect(r.stdout).not.toContain("forge:demo/codegen");
+  expect(r.stdout).toContain("forge:demo/typecheck failed\ntypecheck ran");
+});
+
+/**
+ * Formatters and linters that do not print `path:line:col`: Prettier names each
+ * unformatted file as `[warn] <path>` (and a file it cannot parse as `[error] <path>: …`),
+ * then a `[warn] Code style issues …` summary that names none. Outside --all, a
+ * whole-project run (`prettier --check .` under --since) is attributed by those files.
+ * @rule typescript/prettier/format
+ */
+test("prettier --check output is attributed by the files it names: a changed file counts, an unchanged one and the summary do not", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const out = ["Checking formatting...", "[warn] src/cart.ts", "[warn] src/legacy.ts", "[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)", "[error] > 1 | const = ;", "[warn] Code style issues found in 2 files. Run Prettier with --write to fix."].join("\n");
+  const attribute = (changed: string[]) => {
+    writeFileSync(join(dir, "out"), `${out}\n`);
+    const script = `${engine}\nFORGE_TMP=${dir}\nprintf '%s\\n' ${changed.map((c) => `'${c}'`).join(" ")} > "$FORGE_TMP/changed"\n: > "$FORGE_TMP/added"\nforge_diagnostics "$FORGE_TMP/out" file; forge_diagnostics "$FORGE_TMP/out" file print`;
+    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+  };
+  expect(attribute(["src/cart.ts"])).toBe("changed\n[warn] src/cart.ts\n");
+  expect(attribute(["src/broken.ts"])).toBe("changed\n[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)\n");
+  expect(attribute(["src/other.ts"])).toBe("other\n");
+});
+
+/**
+ * ESLint 9 and later ship no `path:line:col` formatter: its default (stylish) names a file
+ * by its absolute path alone on a line, then that file's `l:c  error|warning  …` lines.
+ * Those lines are attributed to that file (shown as `path:l:c  …`); a check run with
+ * `--max-warnings=0` declares `fail_on_warnings`, so its warnings count too.
+ * @rule typescript/eslint/lint
+ */
+test("ESLint's stylish output is attributed by file and line: an error on an added line counts, one on another line does not, and warnings count only with fail_on_warnings", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
+  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const out = [
+    `${dir}/src/a.ts`,
+    "  4:9  error  'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",
+    "",
+    `${dir}/src/b.ts`,
+    "  2:9  error    'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",
+    "  3:3  warning  Unexpected console statement                 no-console",
+    "",
+    "✖ 3 problems (2 errors, 1 warning)",
+  ].join("\n");
+  const attribute = (added: string[], warn = 0) => {
+    writeFileSync(join(dir, "out"), `${out}\n`);
+    writeFileSync(join(dir, "added"), added.map((a) => `${a.replace(":", "\t")}\n`).join(""));
+    const script = `${engine}\nFORGE_TMP=${dir}\nc_warn=${warn}\nprintf 'src/a.ts\\nsrc/b.ts\\n' > "$FORGE_TMP/changed"\nforge_diagnostics "$FORGE_TMP/out" line; forge_diagnostics "$FORGE_TMP/out" line print`;
+    return sh("sh", ["-c", script], { cwd: dir }).stdout;
+  };
+  expect(attribute(["src/b.ts:2"])).toBe("changed\nsrc/b.ts:2:9  error    'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars\n");
+  expect(attribute(["src/a.ts:1"])).toBe("other\n");
+  expect(attribute(["src/b.ts:3"])).toBe("other\n");
+  expect(attribute(["src/b.ts:3"], 1)).toBe("changed\nsrc/b.ts:3:3  warning  Unexpected console statement                 no-console\n");
+});
+
+/**
+ * Biome reads Vue, Svelte, Astro and HTML files (their templates with
+ * html.experimentalFullSupportEnabled), and `biome ci .` covers them: so do the changed
+ * files format-lint lints after an edit and at Stop. An accessibility error in a changed
+ * `.vue` template blocks like one in a `.tsx` file.
+ * @rule typescript/format-lint typescript/a11y
+ */
+test.if(hasBun)("format-lint lints changed .vue, .svelte, .astro and .html files with Biome: an error in a template blocks", () => {
+  ensureTools();
+  const rule = loadPacks(join(ROOT, "packs")).get("typescript")!.rules.find((r) => r.id === "typescript/format-lint")!;
+  const target = rule.enforce[0] as CheckTarget;
+  const head = { "biome.json": JSON.stringify({ html: { experimentalFullSupportEnabled: true }, formatter: { enabled: false }, linter: { enabled: true, rules: { recommended: false, a11y: "error" } } }) };
+  const bins = [join(TOOLS_CACHE, "node_modules/.bin")];
+  for (const [path, bad, good] of [
+    ["src/components/Hero.vue", '<template>\n  <img src="/hero.png" />\n</template>\n', '<template>\n  <img src="/hero.png" alt="Sneakers" />\n</template>\n'],
+    ["src/lib/Hero.svelte", '<img src="/hero.png" />\n', '<img src="/hero.png" alt="Sneakers" />\n'],
+    ["src/pages/index.astro", '---\n---\n<img src="/hero.png" />\n', '---\n---\n<img src="/hero.png" alt="Sneakers" />\n'],
+    ["public/index.html", '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" /></body>\n</html>\n', '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" alt="Sneakers" /></body>\n</html>\n'],
+  ] as const) {
+    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
+    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
+  }
+}, T);

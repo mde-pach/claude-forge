@@ -1,0 +1,5 @@
+id: typescript/mikro-orm/migration-present
+description: "Entity changes come with a migration: once the migrations have run on the local database (mikro-orm migration:up), mikro-orm migration:check finds no schema change."
+scope: {language: typescript}
+enforce:
+  - {target: check, stage: migration, run: "forge_exec_tool mikro-orm migration:up && forge_exec_tool mikro-orm migration:check", requires_local_db: true, timeout: 180}

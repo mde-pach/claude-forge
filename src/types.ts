@@ -1,8 +1,8 @@
 export type Level = "user" | "project";
 export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
 export type Decision = "deny" | "ask";
-export type Stage = "format" | "lint" | "typecheck" | "migration" | "test";
-export type ToolName = "biome" | "ruff" | "ty" | "tsc";
+export type Stage = "format" | "lint" | "codegen" | "typecheck" | "migration" | "test";
+export type ToolName = "biome" | "ruff" | "ty" | "tsc" | "eslint";
 export type AstGrepMode = "forbid" | "no-increase" | "no-decrease" | "advise";
 
 export interface DepSpec {
@@ -38,6 +38,15 @@ export interface Pack {
   context?: string;
   initDir?: string;
   rules: Rule[];
+  /** Tool diagnostics this pack switches off where it is active (no target asks for them; forge init writes them off). */
+  tool_off?: ToolOff[];
+}
+
+/** A tool diagnostic a pack switches off (Biome's useImportType in NestJS, whose decorators need the value imports). */
+export interface ToolOff {
+  tool: "biome";
+  expects: string;
+  reason: string;
 }
 
 export interface ToolTarget {
@@ -77,7 +86,7 @@ export interface TypeSpec {
  * aliases and re-exports, no supertypes), or the negation of one. A list of specs holds
  * when one of them does.
  */
-export type WhereCondition = { type: TypeSpec | TypeSpec[] } | { declared: TypeSpec | TypeSpec[] } | { not: WhereCondition };
+export type WhereCondition = { type: TypeSpec | TypeSpec[] } | { declared: TypeSpec | TypeSpec[] } | { deprecated: true } | { not: WhereCondition };
 export interface PermissionTarget {
   target: "permission";
   decision: Decision;
