@@ -11,8 +11,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { allTests, autoPlaced, countTests, parseJUnit, readSpec, selectNodes, specUses, summarize } from "../../docs/src/lib/spec";
 import { loadPacks } from "../../src/packs";
-import { globMatch } from "../../src/packs";
-import { globToCase, toolsInCommand } from "../../src/render";
+import { globMatch, globToCase } from "../../src/core/globs";
+import { toolsInCommand } from "../../src/core/tools";
 import { ROOT, sh } from "../helpers";
 
 describe("globs", () => {
@@ -99,12 +99,7 @@ describe("source layout", () => {
   test("src has no import cycles", () => {
     const graph = srcImports();
     expect(graph.size).toBeGreaterThan(10);
-    const allowed = new Set(["packs.ts -> render.ts"]);
-    expect(
-      importCycles(graph)
-        .map((c) => c.join(" -> "))
-        .filter((c) => !allowed.has(c)),
-    ).toEqual([]);
+    expect(importCycles(graph).map((c) => c.join(" -> "))).toEqual([]);
   });
 });
 

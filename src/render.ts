@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { codeExamples } from "./packs.js";
+import { casePatterns, inDirs, scopeInDirs } from "./core/globs.js";
+import { checkTools, PROJECT_TOOLS, RESOLVED_TOOLS } from "./core/tools.js";
+import { codeExamples } from "./examples.js";
 import { defaultRoles, type Roles } from "./roles.js";
 import { toYaml } from "./yaml.js";
 import {
@@ -27,6 +29,11 @@ export function template(name: string): string {
   return readFileSync(join(packageRoot(), "templates", "scripts", name), "utf8");
 }
 
+/** A helper script shipped to .forge/helpers/ (templates/helpers/<name>). */
+function helperTemplate(name: string): string {
+  return readFileSync(join(packageRoot(), "templates", "helpers", name), "utf8");
+}
+
 /** Replaces each @@KEY@@ once per occurrence; values are inserted literally. */
 export function fill(text: string, values: Record<string, string>): string {
   return text.replace(/@@([A-Z_]+)@@/g, (m, key: string) => (key in values ? values[key]! : m));
@@ -34,91 +41,6 @@ export function fill(text: string, values: Record<string, string>): string {
 
 export function renderLib(): string {
   return fill(template("lib.sh"), { AST_GREP_VERSION });
-}
-
-// ---------------------------------------------------------------- tools in commands
-
-/** Project tools resolved through `tool <name>` (audited tools first). */
-export const AUDITED_TOOLS = ["biome", "ruff", "ty", "tsc", "eslint"] as const;
-export const PROJECT_TOOLS = [
-  "biome",
-  "ruff",
-  "tsc",
-  "alembic",
-  "pytest",
-  "prisma",
-  "vitest",
-  "playwright",
-  "astro",
-  "python",
-  "sqlfluff",
-  "vue-tsc",
-  "ngc",
-  "mikro-orm",
-  "graphql-codegen",
-  "wrangler",
-  "better-auth",
-  "prettier",
-  "eslint",
-  "oxlint",
-] as const;
-/** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
-export const FORGE_TOOLS = ["ty"] as const;
-/**
- * System tools, found on PATH: runtimes, package managers, and infrastructure CLIs a
- * project installs outside node_modules and .venv. A check names terraform, kustomize:
- * the engine runs the project's own (tofu in an OpenTofu project; `kubectl kustomize`
- * without kustomize). yarn counts only as Yarn 2 or later (Berry), the Yarn the
- * typescript/yarn pack is for.
- */
-export const SYSTEM_TOOLS = ["uv", "uvx", "bun", "npm", "pnpm", "yarn", "docker", "terraform", "tofu", "helm", "kustomize", "kubectl"] as const;
-/** System tools a check runs through an engine function that picks the binary (forge_terraform, forge_kustomize). */
-const RESOLVED_TOOLS = ["terraform", "kustomize"] as const;
-
-/** Tools that engine helpers run, which their name in a command does not show. */
-const HELPER_TOOLS: [RegExp, string][] = [
-  [/\bforge_(zizmor|hadolint)\b/, "uvx"],
-  [/\bforge_(trusted_deps|openapi_lint|lockfile_lint)\b/, "bun"],
-  [/\bforge_tf_validate\b/, "terraform"],
-  [/\bforge_helm\b/, "helm"],
-  [/\bforge_sqlfluff\b/, "sqlfluff"],
-];
-
-/**
- * Package managers are words of many messages ("the pnpm field"): they count only where a
- * command starts (a line's start, after ;, &, |, (, $(, a backtick, then, do or else).
- */
-const COMMAND_POSITION_ONLY = new Set<string>(["npm", "pnpm", "yarn"]);
-
-/** Tools invoked as commands in a shell string, in order of first use. */
-export function toolsInCommand(cmd: string): string[] {
-  const found: { tool: string; at: number }[] = [];
-  for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
-    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
-    const m = new RegExp(`${lead}${tool}(?=$|[\\s;&|)\`])`, "m").exec(cmd);
-    if (m) found.push({ tool, at: m.index });
-  }
-  return found.sort((a, b) => a.at - b.at).map((f) => f.tool);
-}
-
-/**
- * Project tools whose name has a "-" (no POSIX shell function can wrap them) that a
- * command runs directly instead of as `forge_exec_tool <name>`: run directly, they
- * would be whatever is on PATH, not the project's own.
- */
-export function directDashedTools(cmd: string): string[] {
-  const out = new Set<string>();
-  for (const tool of PROJECT_TOOLS.filter((t) => t.includes("-"))) {
-    const re = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "g");
-    for (const m of cmd.matchAll(re)) if (!/\bforge_exec_tool\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
-  }
-  return [...out];
-}
-
-export function checkTools(t: CheckTarget): string[] {
-  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""];
-  const helpers = HELPER_TOOLS.filter(([re]) => commands.some((c) => re.test(c))).map(([, tool]) => tool);
-  return [...new Set([...commands.flatMap(toolsInCommand), ...helpers])];
 }
 
 // ---------------------------------------------------------------- shell case patterns
@@ -130,48 +52,6 @@ const LANGUAGE_CASE: Record<Language, string[]> = {
   yaml: ["*.yaml", "*.yml"],
   any: [],
 };
-
-function caseEscape(s: string): string {
-  // bracket expressions ([0-9], [!x]) are kept: case patterns have them too
-  return s
-    .split(/(\[!?[^\]/'"\\]+\])/)
-    .map((part, i) => (i % 2 ? part : part.replace(/[^A-Za-z0-9_./*?@+,=:%-]/g, "\\$&")))
-    .join("");
-}
-
-/** A glob as shell `case` patterns. In `case`, `*` also matches `/`. */
-export function globToCase(glob: string): string[] {
-  const brace = /\{([^{}]*)\}/.exec(glob);
-  if (brace) {
-    return brace[1]!.split(",").flatMap((alt) => globToCase(glob.slice(0, brace.index) + alt + glob.slice(brace.index + brace[0].length)));
-  }
-  const out = new Set<string>();
-  const variants = (g: string): string[] => {
-    const i = g.indexOf("**/");
-    if (i < 0) return [g.replace(/\*\*/g, "*")];
-    const before = g.slice(0, i);
-    const after = g.slice(i + 3);
-    return [...variants(before + after), ...variants(before + "*/" + after)];
-  };
-  for (const v of variants(glob)) out.add(caseEscape(v.replace(/\*+/g, "*")));
-  return [...out];
-}
-
-function casePatterns(globs: string[]): string {
-  return [...new Set(globs.flatMap(globToCase))].join("|");
-}
-
-/**
- * A rule's scope as a shell function on repository paths. With dirs (workspace
- * packages), the scope's globs are relative to each package.
- */
-/** A rule's scope globs, relative to each workspace package of dirs (the whole package when the rule has no include glob). */
-export function scopeInDirs(files: string[], dirs?: string[]): string[] {
-  if (!dirs) return files;
-  const inDirs = (g: string) => dirs.map((d) => `${d}/${g}`);
-  const include = files.filter((g) => !g.startsWith("!"));
-  return [...(include.length ? include : ["**"]).flatMap(inDirs), ...files.filter((g) => g.startsWith("!")).flatMap((g) => inDirs(g.slice(1)).map((x) => "!" + x))];
-}
 
 /** forge_scope_<n> <path>: the rule's files; `config` (a lint check's config_files) are in scope too. */
 function scopeFunction(name: string, rule: Rule, dirs?: string[], config?: string[]): string {
@@ -240,7 +120,7 @@ export function typesLanguage(rule: Rule, target: AstGrepTarget): TypesLanguage 
 
 /** A hash of the engine adapters: a daemon started by another revision is restarted. */
 function typesRevision(): string {
-  const text = ["types_python.py", "types_typescript.mjs"].map((f) => readFileSync(join(packageRoot(), "templates", "helpers", f), "utf8")).join("\0");
+  const text = ["types_python.py", "types_typescript.mjs"].map(helperTemplate).join("\0");
   return sha256(text).slice(0, 12);
 }
 
@@ -286,7 +166,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     const changed = target.changed_run !== undefined;
     // in workspace packages: each command runs in every package through forge_in_dirs
     const body = (fn: string, cmd: string, form: "files" | "all") => (dirs ? [`${fn}() { forge_in_dirs ${fn}_dir ${form}; }`, `${fn}_dir() {`, cmd, "}"] : [`${fn}() {`, cmd, "}"]);
-    const when = dirs ? target.when_changed?.flatMap((g) => dirs.map((d) => `${d}/${g}`)) : target.when_changed;
+    const when = dirs ? target.when_changed?.flatMap((g) => inDirs(g, dirs)) : target.when_changed;
     out.push(
       "",
       `# ${n}. ${rule.id}`,
@@ -387,9 +267,6 @@ export function renderCheckScript(
   });
 }
 
-/** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
-export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sqlfluff"]);
-
 /**
  * Scripts that engine helpers and the types engine run with a runtime (§13.4, §15.2),
  * shipped as plain files in .forge/helpers/, only when an active check or rule uses
@@ -414,14 +291,13 @@ export const HELPERS_DIR = ".forge/helpers";
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */
 export function helperFiles(checks: ActiveCheck[], types: TypesLanguage[] = []): Map<string, string> {
   const out = new Map<string, string>();
-  const read = (name: string) => readFileSync(join(packageRoot(), "templates", "helpers", name), "utf8");
   for (const name of HELPER_SCRIPTS) {
     const used = new RegExp(`\\bforge_(ratchet|helper) [a-z]+ ${name.replace(".", "\\.")}(\\s|$)`);
-    if (checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) out.set(`${HELPERS_DIR}/${name}`, read(name));
+    if (checks.some((c) => used.test(c.target.run) || used.test(c.target.changed_run ?? ""))) out.set(`${HELPERS_DIR}/${name}`, helperTemplate(name));
   }
   for (const lang of types) {
     const name = lang === "python" ? "types_python.py" : "types_typescript.mjs";
-    out.set(`${HELPERS_DIR}/${name}`, read(name));
+    out.set(`${HELPERS_DIR}/${name}`, helperTemplate(name));
   }
   return out;
 }

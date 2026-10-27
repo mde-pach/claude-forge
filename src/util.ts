@@ -319,13 +319,6 @@ export function listRepoFiles(repo: string): string[] {
   return [...new Set(r.stdout.split("\0").filter(Boolean))].filter((f) => existsSync(join(repo, f)));
 }
 
-export function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map((x) => parseInt(x, 10) || 0);
-  const pb = b.split(".").map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
-  return 0;
-}
-
 export function shQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }

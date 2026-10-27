@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, posix } from "node:path";
-import { parse as parseToml } from "smol-toml";
+import { readJson, readText as readFile, readToml } from "./core/fs.js";
+import { under } from "./core/globs.js";
 import type { ProjectConfig, Rule, TypeSpec, WhereCondition } from "./types.js";
 
 /**
@@ -58,34 +59,10 @@ interface RoleDef {
 
 // ---------------------------------------------------------------- tool configs (data only, never code)
 
-function readText(inputs: RoleInputs, rel: string): string | undefined {
-  const f = join(inputs.repo, rel);
-  try {
-    return existsSync(f) ? readFileSync(f, "utf8") : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function readTomlAt(inputs: RoleInputs, rel: string): Record<string, any> | undefined {
-  const text = readText(inputs, rel);
-  if (text === undefined) return undefined;
-  try {
-    return parseToml(text) as Record<string, any>;
-  } catch {
-    return undefined;
-  }
-}
-
-function readJsonAt(inputs: RoleInputs, rel: string): Record<string, any> | undefined {
-  const text = readText(inputs, rel);
-  if (text === undefined) return undefined;
-  try {
-    return JSON.parse(text) as Record<string, any>;
-  } catch {
-    return undefined;
-  }
-}
+/** A file of the repository, by relative path (undefined when missing or unreadable). */
+const readText = (inputs: RoleInputs, rel: string) => readFile(join(inputs.repo, rel));
+const readTomlAt = (inputs: RoleInputs, rel: string) => readToml(join(inputs.repo, rel));
+const readJsonAt = (inputs: RoleInputs, rel: string) => readJson(join(inputs.repo, rel));
 
 /** An INI file's sections: name -> key -> value (continuation lines joined with a space). */
 export function parseIni(text: string): Map<string, Map<string, string>> {
@@ -126,7 +103,6 @@ function cleanPath(p: string, base = ""): string | undefined {
   return joined === "." ? "" : joined.startsWith("../") || joined === ".." ? undefined : joined;
 }
 
-const under = (dir: string, glob: string) => (dir ? `${dir}/${glob}` : glob);
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : typeof v === "string" ? v.split(/\s+/).filter(Boolean) : []);
 
 /** pytest's ini options: pytest.ini, pyproject.toml ([tool.pytest] or [tool.pytest.ini_options]), tox.ini, setup.cfg; pytest's own order. */

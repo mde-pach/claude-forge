@@ -1,17 +1,22 @@
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, writeFileSync, readSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { checkTools, renderLib } from "./render.js";
+import { readText } from "./core/fs.js";
+import { globToRegExp } from "./core/globs.js";
+import { MANIFEST_PATH, lockPath } from "./core/paths.js";
+import { checkTools, commandExists, TY_COMMAND } from "./core/tools.js";
+import { compareVersions } from "./core/versions.js";
+import { renderLib } from "./render.js";
 import { auditRules, projectBinary, type AuditResult } from "./audit.js";
-import { MANIFEST_PATH, readLock, renderLock, renderManifest } from "./lock.js";
-import { globToRegExp, loadLocalRules, loadPackBundle } from "./packs.js";
+import { readLock, renderLock, renderManifest } from "./lock.js";
+import { loadLocalRules, loadPackBundle } from "./packs.js";
 import { roleGlobs } from "./roles.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
 import { localSelfTest, testSummary } from "./selftest.js";
 import { mergeTomlSnippets } from "./snippets.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
-import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run, runScript } from "./util.js";
+import { CLAUDE_CODE_MIN, FORGE_VERSION, TY_VERSION, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run, runScript } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
 import { applyEdits, modify } from "jsonc-parser/lib/esm/main.js";
@@ -40,10 +45,6 @@ const out = (s = "") => process.stdout.write(s + "\n");
 const err = (s: string) => process.stderr.write(s + "\n");
 
 // ---------------------------------------------------------------- helpers
-
-function readText(path: string): string | undefined {
-  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
-}
 
 function writeText(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -97,9 +98,9 @@ interface Ctx {
   blocks: LockBlock[];
 }
 
-function lockOf(base: string, lockPath: string, level: Level): Lock | undefined {
+function lockOf(base: string, file: string, level: Level): Lock | undefined {
   try {
-    return readLock(base, lockPath, level);
+    return readLock(base, file, level);
   } catch (e) {
     throw new ForgeError(`forge: ${(e as Error).message}`);
   }
@@ -465,7 +466,7 @@ function cmdApply(flags: Flags): number {
  */
 function provisionEngines(langs: string[]): string[] {
   if (!langs.includes("python")) return [];
-  const r = run("uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty", "--version"]);
+  const r = run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "--version"]);
   if (r.status === 0) return [];
   return [
     `forge: the python types engine (ty ${TY_VERSION}) could not be provisioned with uvx: ${(r.stderr || r.stdout).trim().split("\n").slice(-1)[0] || `exit ${r.status}`}; rules with type constraints are reported unchecked until it is`,
@@ -484,8 +485,7 @@ function sandboxProblem(ctx: Ctx): string | undefined {
   if (process.platform !== "linux") return undefined;
   if (!ctx.plan.settings.some((e) => e.path === "sandbox.enabled" && e.value === true)) return undefined;
   const off = 'or turn the sandbox off knowingly: set "sandbox": {"enabled": false} in ~/.claude/settings.json (forge keeps a value you set)';
-  const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
-  const tools = ["bwrap", "socat"].filter((c) => !has(c));
+  const tools = ["bwrap", "socat"].filter((c) => !commandExists(c));
   if (tools.length) return `forge: sandbox: Claude Code's sandbox needs ${tools.join(" and ")} on Linux (apt install bubblewrap socat, or your distribution's packages), ${off}.`;
   const r = run("bwrap", ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-all", "--die-with-parent", "true"]);
   if (r.status === 0) return undefined;
@@ -554,8 +554,7 @@ function preCommitHint(base: string): string {
  */
 function missingTools(ctx: Ctx): string[] {
   if (ctx.level === "user" || !ctx.plan.checksFragment) {
-    const has = (c: string) => run("sh", ["-c", `command -v ${c}`]).status === 0;
-    return !has("bunx") && !has("uvx") ? ["bunx or uvx (ast-grep)"] : [];
+    return !commandExists("bunx") && !commandExists("uvx") ? ["bunx or uvx (ast-grep)"] : [];
   }
   const script = `${renderLib()}\nIFS='\n'\n${ctx.plan.checksFragment}\nforge_missing_tools\n`;
   const r = runScript(script, { cwd: ctx.base });
@@ -807,9 +806,9 @@ function cmdRemove(flags: Flags): number {
   const level: Level = flags.user ? "user" : "project";
   const base = level === "user" ? homedir() : gitToplevel(process.cwd());
   if (!base) throw new ForgeError("forge: not inside a git repository");
-  const lockPath = level === "user" ? ".claude/forge.lock.json" : ".forge/forge.lock.json";
-  const lock = lockOf(base, lockPath, level);
-  if (!lock) throw new ForgeError(`forge: no ${lockPath}; nothing to remove`);
+  const lockFile = lockPath(level);
+  const lock = lockOf(base, lockFile, level);
+  if (!lock) throw new ForgeError(`forge: no ${lockFile}; nothing to remove`);
   const settings = new Map<string, { before: string; after?: string }>();
   for (const file of [...new Set(lock.settings.map((e) => e.file))]) {
     const before = readText(join(base, file));
@@ -839,7 +838,7 @@ function cmdRemove(flags: Flags): number {
       `forge: ${f}: forge's pre-commit block cannot be removed safely (its begin/end markers were changed, or entries were added inside it); remove the lines between "# forge: begin" and "# forge: end" yourself`,
     );
   if (flags.dryRun) {
-    for (const f of [...files, lockPath, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
+    for (const f of [...files, lockFile, ...(level === "project" && existsSync(join(base, MANIFEST_PATH)) ? [MANIFEST_PATH] : [])]) out(`--- ${f} (deleted)`);
     for (const [file, s] of settings) process.stdout.write(lineDiff(s.before, s.after ?? "", s.after === undefined ? `${file} (deleted)` : file));
     for (const b of blocks) process.stdout.write(lineDiff(b.before, b.after ?? "", b.after === undefined ? `${b.block.file} (deleted)` : b.block.file));
     return 0;
@@ -865,13 +864,13 @@ function cmdRemove(flags: Flags): number {
     if (after === undefined) rmSync(join(base, block.file), { force: true });
     else writeFileSync(join(base, block.file), after);
   }
-  rmSync(join(base, lockPath), { force: true });
+  rmSync(join(base, lockFile), { force: true });
   if (level === "project") rmSync(join(base, MANIFEST_PATH), { force: true });
   if (level === "project") {
     rmSync(join(base, ".forge", "state"), { recursive: true, force: true });
     pruneDirs(join(base, ".forge"), base);
   }
-  pruneDirs(dirname(join(base, lockPath)), base);
+  pruneDirs(dirname(join(base, lockFile)), base);
   out(
     `forge: removed ${files.length} file(s) and ${lock.settings.length} settings entr${lock.settings.length === 1 ? "y" : "ies"}${blocks.length ? `, and the pre-commit block from ${blocks.map((b) => b.block.file).join(", ")}` : ""}`,
   );

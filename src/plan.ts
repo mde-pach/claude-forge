@@ -1,14 +1,13 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { parse as parseToml } from "smol-toml";
+import { readToml } from "./core/fs.js";
+import { lockPath, pluginRoot, settingsFile as settingsFileOf } from "./core/paths.js";
+import { AUDITED_TOOLS, type AuditedTool, checkTools, commandsOf, PROJECT_TOOLS } from "./core/tools.js";
 import { depMatches, detectAnywhere, detectPack, lineage, loadLocalRules, loadProjectConfig, readProjectFacts, type DepFacts, type ProjectFacts } from "./packs.js";
 import {
-  AUDITED_TOOLS,
   ENGINE_ROLES,
-  PROJECT_TOOLS,
   astGrepRulePath,
   astGrepTestPath,
-  checkTools,
   fill,
   helperFiles,
   renderAstGrepRule,
@@ -30,14 +29,9 @@ import {
 } from "./render.js";
 import { applyRoles, defaultRoles, resolveRoles, rolesOfRule, type RolePattern, type Roles } from "./roles.js";
 import { listRepoFiles, TY_VERSION } from "./util.js";
-import type { AstGrepTarget, CheckTarget, Level, Pack, ProjectConfig, Rule, SettingsEntry, ToolName, ToolTarget } from "./types.js";
+import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Pack, ProjectConfig, Rule, ToolName, ToolTarget } from "./types.js";
 
-export type AuditedTool = (typeof AUDITED_TOOLS)[number];
-
-export interface DesiredEntry extends SettingsEntry {
-  /** Append `value` to an array at `path` (else: set the scalar if absent). */
-  append: boolean;
-}
+export type { AuditedTool, DesiredEntry };
 
 export interface PackStatus {
   id: string;
@@ -122,23 +116,13 @@ export function readProjectInputs(repo: string): Pick<PlanOptions, "config" | "l
 
 // ---------------------------------------------------------------- tool presence (static)
 
-function readPyproject(dir: string): Record<string, any> {
-  const f = join(dir, "pyproject.toml");
-  if (!existsSync(f)) return {};
-  try {
-    return parseToml(readFileSync(f, "utf8")) as Record<string, any>;
-  } catch {
-    return {};
-  }
-}
-
 /** ESLint's flat config files (ESLint 9 and later read nothing else). */
 export const ESLINT_CONFIGS = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts"];
 
 /** Whether each audited tool has a config file in dir, and whether its package depends on the tool. */
 function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boolean; dep: boolean }> {
   const has = (f: string) => existsSync(join(dir, f));
-  const py = readPyproject(dir);
+  const py = readToml(join(dir, "pyproject.toml")) ?? {};
   return {
     biome: { config: has("biome.json") || has("biome.jsonc"), dep: deps.npm.has("@biomejs/biome") },
     ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined, dep: deps.pypi.has("ruff") },
@@ -177,7 +161,7 @@ const CWD_AGNOSTIC_HELPERS = new Set(["forge_exec_tool", "forge_state_file"]);
  * migrations, Docker).
  */
 function perPackage(t: CheckTarget): boolean {
-  const commands = [t.run, t.changed_run ?? "", t.fix_run ?? "", t.format_stdin ?? "", t.rerun ?? ""].join("\n");
+  const commands = commandsOf(t).join("\n");
   const helpers = commands.match(/\bforge_[a-z_]+/g) ?? [];
   return helpers.every((h) => CWD_AGNOSTIC_HELPERS.has(h)) && checkTools(t).some((x) => (PROJECT_TOOLS as readonly string[]).includes(x));
 }
@@ -352,7 +336,7 @@ export function plan(opts: PlanOptions): Plan {
   const greps: ActiveGrep[] = [];
   const guards: ActiveGuard[] = [];
   const settings: DesiredEntry[] = [];
-  const settingsFile = level === "user" ? ".claude/settings.json" : opts.local ? ".claude/settings.local.json" : ".claude/settings.json";
+  const settingsFile = settingsFileOf(level, opts.local);
   const astgrep: { rule: Rule; target: AstGrepTarget; dirs?: string[] }[] = [];
   const present = (t: ToolName) => tools[t];
 
@@ -445,7 +429,7 @@ export function plan(opts: PlanOptions): Plan {
   const lib = renderLib();
   const guardRules = renderGuardRules(guards, base);
   if (level === "user") {
-    const root = ".claude/skills/forge-user";
+    const root = pluginRoot("user");
     files.set(`${root}/.claude-plugin/plugin.json`, renderPlugin("user"));
     files.set(`${root}/hooks/hooks.json`, renderHooks("user"));
     files.set(`${root}/scripts/lib.sh`, lib);
@@ -470,7 +454,7 @@ export function plan(opts: PlanOptions): Plan {
     const fragment = renderChecks(checks, greps, types, rendered);
     checksFragment = fragment;
     typesUsed = types;
-    const root = ".claude/skills/forge-project";
+    const root = pluginRoot("project");
     files.set(`${root}/.claude-plugin/plugin.json`, renderPlugin("project"));
     files.set(`${root}/hooks/hooks.json`, renderHooks("project", { types: types.length > 0 }));
     files.set(`${root}/scripts/lib.sh`, lib);
@@ -513,7 +497,7 @@ export function plan(opts: PlanOptions): Plan {
     level,
     base,
     files: new Map([...files.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
-    lockPath: level === "user" ? ".claude/forge.lock.json" : ".forge/forge.lock.json",
+    lockPath: lockPath(level),
     settingsFile,
     settings: dedupe(settings),
     rules,

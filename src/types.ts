@@ -1,8 +1,11 @@
+import type { AuditedTool } from "./core/tools.js";
+
 export type Level = "user" | "project";
 export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
 export type Decision = "deny" | "ask";
 export type Stage = "format" | "lint" | "codegen" | "typecheck" | "migration" | "test";
-export type ToolName = "biome" | "ruff" | "ty" | "tsc" | "eslint";
+/** A tool a `tool` target audits. */
+export type ToolName = AuditedTool;
 export type AstGrepMode = "forbid" | "no-increase" | "no-decrease" | "advise";
 
 export interface DepSpec {
@@ -188,6 +191,11 @@ export interface SettingsEntry {
   file: string;
   path: string;
   value: unknown;
+}
+
+/** A settings entry a plan wants (§8.3): `append` adds `value` to an array at `path`; otherwise the scalar is set if absent. */
+export interface DesiredEntry extends SettingsEntry {
+  append: boolean;
 }
 
 export interface Lock {

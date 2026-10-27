@@ -1,6 +1,5 @@
 import { applyEdits, modify, parse, type EditResult, type FormattingOptions, type JSONPath, type ParseError } from "jsonc-parser/lib/esm/main.js";
-import type { SettingsEntry } from "./types.js";
-import type { DesiredEntry } from "./plan.js";
+import type { DesiredEntry, SettingsEntry } from "./types.js";
 
 const DEFAULT_FORMAT: FormattingOptions = { tabSize: 2, insertSpaces: true, eol: "\n" };
 

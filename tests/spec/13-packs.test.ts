@@ -18,7 +18,8 @@ import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
 import { ANGULAR_TOOLS, ensureNodeTools, packsSelfTest, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, shScript } from "../helpers";
 import type { CheckTarget } from "../../src/types";
-import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
+import { SYSTEM_TOOLS } from "../../src/core/tools";
+import { renderChecks, renderLib } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
 import { loadModels, modelRuleFiles, renderRuleFile } from "../../scripts/models";
 

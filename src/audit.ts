@@ -1,8 +1,9 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix } from "node:path";
-import { toolExamples } from "./packs.js";
-import { ENGINE_PYTHON, run, TY_VERSION } from "./util.js";
+import { TY_COMMAND } from "./core/tools.js";
+import { toolExamples } from "./examples.js";
+import { run } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
 export interface AuditResult {
@@ -16,9 +17,6 @@ export interface AuditResult {
   detail?: string;
   snippet?: string;
 }
-
-/** Forge's pinned ty (§15.2), run through uvx: the argv before ty's own arguments. */
-export const TY_COMMAND = ["uvx", "-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "ty"];
 
 /** The project's own binary for a tool, or undefined. */
 export function projectBinary(repo: string, tool: string): string | undefined {

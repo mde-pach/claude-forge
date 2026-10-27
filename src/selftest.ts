@@ -3,13 +3,13 @@ import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { examplePath } from "./audit.js";
 import { applyRoles, defaultRoles } from "./roles.js";
-import { codeExamples, globMatch, guardExamples, loadPacks, loadLocalRules } from "./packs.js";
+import { globMatch } from "./core/globs.js";
+import { checkTools, commandExists, PROJECT_TOOLS, PYTHON_TOOLS } from "./core/tools.js";
+import { codeExamples, guardExamples } from "./examples.js";
+import { loadLocalRules, loadPacks } from "./packs.js";
 import {
   astGrepRulePath,
   astGrepTestPath,
-  checkTools,
-  PROJECT_TOOLS,
-  PYTHON_TOOLS,
   renderAstGrepRule,
   renderAstGrepTest,
   renderCheckScript,
@@ -283,7 +283,7 @@ export function runCheckExamples(runs: CheckExampleRun[], toolBins: string[]): C
           const want = tool === "ty" ? "uvx" : tool;
           const dir = toolBins.find((b) => existsSync(join(b, want)));
           if (dir) path.add(dir);
-          else if (run("sh", ["-c", `command -v ${want}`]).status !== 0) {
+          else if (!commandExists(want)) {
             results[i] = { outcome: "skip", detail: `${tool === "ty" ? "uvx (for ty)" : tool} not available` };
             return;
           }

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { marked } from "marked";
 import { loadPacks } from "../../../src/packs";
-import { checkTools } from "../../../src/render";
+import { checkTools } from "../../../src/core/tools";
 import type { Pack, Rule, Target } from "../../../src/types";
 import { readResults, readSpec, summarize, type Results, type SpecNode, type SpecSection, type Status, type TestResult } from "./spec";
 

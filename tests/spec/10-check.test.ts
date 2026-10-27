@@ -34,7 +34,8 @@ import {
   shScript,
 } from "../helpers";
 import { loadPacks } from "../../src/packs";
-import { checkTools, renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
+import { checkTools } from "../../src/core/tools";
+import { renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
 import { ownedHash, RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";

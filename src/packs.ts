@@ -1,39 +1,17 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { satisfies, minVersion, coerce, validRange } from "semver";
 import { parse as parseJsonc } from "jsonc-parser/lib/esm/main.js";
 import { parse as parseToml } from "smol-toml";
 import { isMap, isScalar, parse as parseYaml, parseDocument } from "yaml";
 import { parseStrictYaml } from "./yaml.js";
-import { directDashedTools } from "./render.js";
+import { readJson, readSmallFile, readToml } from "./core/fs.js";
+import { globMatch, globToRegExp } from "./core/globs.js";
+import { directDashedTools } from "./core/tools.js";
+import { coerceVersion, versionFromPep440, versionFromRange, versionSatisfies } from "./core/versions.js";
 import { unknownRoles } from "./roles.js";
 import { validate } from "./schemas.js";
 import { sha256 } from "./util.js";
-import type { DepSpec, GuardExample, Pack, ProjectConfig, Rule } from "./types.js";
-
-/** A rule's code examples (strings); fixtures are for check rules only. */
-export function codeExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): string[] {
-  return (rule.examples?.[kind] ?? []).filter((e): e is string => typeof e === "string");
-}
-
-/**
- * A tool rule's examples: code written in the rule's scope (a string), or code written where
- * a one-file fixture puts it (`{files: {"src/Card.vue": …}}`: the file type and directory
- * of the example, for a rule that covers several file types).
- */
-export function toolExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): { code: string; path?: string }[] {
-  return (rule.examples?.[kind] ?? []).flatMap((e) => {
-    if (typeof e === "string") return [{ code: e }];
-    if ("command" in e || e.head || Object.keys(e.files).length !== 1) return [];
-    const [path, code] = Object.entries(e.files)[0]!;
-    return [{ code, path }];
-  });
-}
-
-/** A guard rule's examples as commands, each with the files of the directory it runs from. */
-export function guardExamples(rule: Pick<Rule, "examples">, kind: "match" | "no_match"): GuardExample[] {
-  return (rule.examples?.[kind] ?? []).flatMap((e) => (typeof e === "string" ? [{ command: e }] : "command" in e ? [e] : []));
-}
+import type { DepSpec, Pack, ProjectConfig, Rule } from "./types.js";
 
 export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const text = readFileSync(file, "utf8");
@@ -258,22 +236,6 @@ function normPy(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, "-");
 }
 
-function readJson(file: string): Record<string, any> | undefined {
-  try {
-    return JSON.parse(readFileSync(file, "utf8")) as Record<string, any>;
-  } catch {
-    return undefined;
-  }
-}
-
-function readTomlFile(file: string): Record<string, any> | undefined {
-  try {
-    return parseToml(readFileSync(file, "utf8")) as Record<string, any>;
-  } catch {
-    return undefined;
-  }
-}
-
 /** Dependencies declared by the package.json and pyproject.toml in dir (the root's must parse; a package's may not). */
 function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files" | "contains" | "yamlKeys"> {
   const npm = new Map<string, string>();
@@ -287,10 +249,10 @@ function readDeps(dir: string, strict: boolean, hasManagePy = false, published =
   const pm = [pkg?.packageManager, pkg?.devEngines?.packageManager?.name && `${pkg.devEngines.packageManager.name}@${pkg.devEngines.packageManager.version ?? ""}`];
   for (const spec of pm) {
     const m = typeof spec === "string" ? /^(@?[^@\s]+)@([^+\s]*)/.exec(spec) : null;
-    if (m) npm.set(m[1]!, versionFromRange(m[2]!) || (coerce(m[2]!)?.version ?? ""));
+    if (m) npm.set(m[1]!, versionFromRange(m[2]!) || coerceVersion(m[2]!));
   }
   if (pkg && isNpmLibrary(pkg, published.npm)) library.add("npm");
-  const toml = read(join(dir, "pyproject.toml"), readTomlFile, (t) => parseToml(t) as Record<string, any>);
+  const toml = read(join(dir, "pyproject.toml"), readToml, (t) => parseToml(t) as Record<string, any>);
   if (toml) {
     const reqs: string[] = [
       ...(toml.project?.dependencies ?? []),
@@ -332,7 +294,7 @@ export function workspaceDirs(repo: string, files: string[]): string[] {
   }
   const pkg = existsSync(join(repo, "package.json")) ? readJson(join(repo, "package.json")) : undefined;
   add(Array.isArray(pkg?.workspaces) ? pkg.workspaces : pkg?.workspaces?.packages);
-  const uv = existsSync(join(repo, "pyproject.toml")) ? readTomlFile(join(repo, "pyproject.toml"))?.tool?.uv?.workspace : undefined;
+  const uv = existsSync(join(repo, "pyproject.toml")) ? readToml(join(repo, "pyproject.toml"))?.tool?.uv?.workspace : undefined;
   add(uv?.members);
   if (Array.isArray(uv?.exclude)) for (const g of uv.exclude) if (typeof g === "string") exclude.push(g.replace(/^\.\//, "").replace(/\/+$/, ""));
   // Lerna declares its packages in lerna.json (default packages/*); without any declaration the repository has none
@@ -409,7 +371,7 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
   // file contents are read only when a pack asks (content_any, yaml_keys), each file once
   const fileFacts = (dir: string): Pick<DepFacts, "files" | "contains" | "yamlKeys"> => {
     const mine = own.get(dir)!;
-    const read = (f: string) => readSmallFile(join(repo, dir, f));
+    const read = (f: string) => readSmallFile(join(repo, dir, f), DETECT_READ_MAX);
     const seen = new Map<string, boolean>();
     const memo = (key: string, compute: () => boolean) => {
       let hit = seen.get(key);
@@ -447,15 +409,6 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
 /** Files detection reads the contents of (content_any, yaml_keys) are at most this large; larger ones are not read. */
 const DETECT_READ_MAX = 1024 * 1024;
 
-function readSmallFile(file: string): string | undefined {
-  try {
-    if (statSync(file).size > DETECT_READ_MAX) return undefined;
-    return readFileSync(file, "utf8");
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * The top-level keys of a YAML file's first document, when it is a mapping (none when it
  * does not parse: a template that only renders to YAML, such as a Helm template, is not YAML).
@@ -476,24 +429,10 @@ export function firstDocumentKeys(text: string): Set<string> {
   }
 }
 
-function versionFromRange(range: string): string {
-  if (!validRange(range)) return "";
-  return minVersion(range)?.version ?? "";
-}
-
-function versionFromPep440(spec: string): string {
-  const m = /(?:==|>=|~=|===)\s*([0-9][0-9A-Za-z.]*)/.exec(spec);
-  return m ? (coerce(m[1]!)?.version ?? "") : "";
-}
-
 export function depMatches(facts: DepFacts, dep: DepSpec): boolean {
   const map = dep.ecosystem === "npm" ? facts.npm : facts.pypi;
   const name = dep.ecosystem === "pypi" ? normPy(dep.name) : dep.name;
-  if (!map.has(name)) return false;
-  if (!dep.version) return true;
-  const v = coerce(map.get(name)!)?.version;
-  // An unknown version (e.g. "workspace:*", git URL) is accepted.
-  return !v || satisfies(v, dep.version, { includePrerelease: true });
+  return map.has(name) && versionSatisfies(map.get(name)!, dep.version);
 }
 
 /** Whether the pack is detected at the root or in a workspace package (each judged on its own facts). */
@@ -512,69 +451,4 @@ export function detectPack(pack: Pack, facts: DepFacts): boolean {
     (d.content_any ?? []).some((c) => facts.contains(c.files, c.pattern)) ||
     (d.yaml_keys !== undefined && facts.yamlKeys(d.yaml_keys))
   );
-}
-
-// ---------------------------------------------------------------- globs
-
-const globCache = new Map<string, RegExp>();
-
-/** Glob to RegExp: `**` spans directories, `*` and `?` stay within one segment, `[0-9]` / `[!x]` one character, `{a,b}` alternation (nested, and holding any of these). */
-export function globToRegExp(glob: string): RegExp {
-  let re = globCache.get(glob);
-  if (re) return re;
-  re = new RegExp(`^${globSource(glob)}$`);
-  globCache.set(glob, re);
-  return re;
-}
-
-function globSource(glob: string): string {
-  let out = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i]!;
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        i++;
-        if (glob[i + 1] === "/") {
-          i++;
-          out += "(?:.*/)?";
-        } else out += ".*";
-      } else out += "[^/]*";
-    } else if (c === "?") out += "[^/]";
-    else if (c === "[" && glob.indexOf("]", i + 2) > 0) {
-      // a bracket expression: [0-9], [!._] (one character, never "/")
-      const end = glob.indexOf("]", i + 2);
-      let body = glob.slice(i + 1, end);
-      const neg = body.startsWith("!") || body.startsWith("^");
-      if (neg) body = body.slice(1);
-      out += `(?!/)[${neg ? "^" : ""}${body.replace(/[\\\]^]/g, "\\$&")}]`;
-      i = end;
-    } else if (c === "{") {
-      // the matching brace, and the alternatives split at depth 0
-      const alts: string[] = [];
-      let depth = 0;
-      let start = i + 1;
-      let end = -1;
-      for (let k = i + 1; k < glob.length && end < 0; k++) {
-        if (glob[k] === "{") depth++;
-        else if (glob[k] === "}" && depth > 0) depth--;
-        else if (glob[k] === "}") end = k;
-        else if (glob[k] === "," && depth === 0) {
-          alts.push(glob.slice(start, k));
-          start = k + 1;
-        }
-      }
-      if (end < 0) {
-        out += "\\{";
-        continue;
-      }
-      alts.push(glob.slice(start, end));
-      out += `(?:${alts.map(globSource).join("|")})`;
-      i = end;
-    } else out += c.replace(/[.+^$()|[\]\\]/g, "\\$&");
-  }
-  return out;
-}
-
-export function globMatch(glob: string, path: string): boolean {
-  return globToRegExp(glob).test(path);
 }
