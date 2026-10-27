@@ -108,6 +108,42 @@ export const RELEASE_BINARIES: Record<string, ReleaseBinary> = {
       "Darwin-x86_64": ["tflint_darwin_amd64.zip", "0f3a9fd17526014646a2dfc3f9122f7b4161abe3d6b0f0f03f9014483ddf4d19"],
     },
   },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-aws": {
+    version: "0.49.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-aws/releases/download/v0.49.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-aws_linux_amd64.zip", "98a530130d33efd49408f3d0ab9198072192ede413cc2a2ce38295d0922eb1c6"],
+      "Linux-aarch64": ["tflint-ruleset-aws_linux_arm64.zip", "94f4f965a959d1699ae59687ffccc25031f8aaeae6f49756e5d8ca6e36d9f95b"],
+      "Linux-arm64": ["tflint-ruleset-aws_linux_arm64.zip", "94f4f965a959d1699ae59687ffccc25031f8aaeae6f49756e5d8ca6e36d9f95b"],
+      "Darwin-arm64": ["tflint-ruleset-aws_darwin_arm64.zip", "246818b24c65a60d2b95d7c88921480d72bdca89cfbb936f23bb583b8c631f87"],
+      "Darwin-x86_64": ["tflint-ruleset-aws_darwin_amd64.zip", "f68a67291f0635911793934b9d02f9f3aa654264f11364eca98c06af3a4d60d5"],
+    },
+  },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-google": {
+    version: "0.40.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-google/releases/download/v0.40.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-google_linux_amd64.zip", "a5c02b3de937456de2521155831eaf1cc876014a21445bf7dd1621654511fe28"],
+      "Linux-aarch64": ["tflint-ruleset-google_linux_arm64.zip", "cdda9b8ef8647885ca81ba2d9c6b1a213a1f608860452d79a9c0ac7de9b2750a"],
+      "Linux-arm64": ["tflint-ruleset-google_linux_arm64.zip", "cdda9b8ef8647885ca81ba2d9c6b1a213a1f608860452d79a9c0ac7de9b2750a"],
+      "Darwin-arm64": ["tflint-ruleset-google_darwin_arm64.zip", "93e1a6f2c196e9ba5fa6359cd8d2116d18c1770bddb09bf333e0617e216a5e22"],
+      "Darwin-x86_64": ["tflint-ruleset-google_darwin_amd64.zip", "9b32d94e4b32ae35b67dcddef02932a970e09a38421448d33160109b0b91c1d0"],
+    },
+  },
+  // a tflint ruleset (terraform/tflint), fetched as an asset like the tools, not by tflint --init (GitHub's API)
+  "tflint-ruleset-azurerm": {
+    version: "0.32.0",
+    base: "https://github.com/terraform-linters/tflint-ruleset-azurerm/releases/download/v0.32.0/",
+    assets: {
+      "Linux-x86_64": ["tflint-ruleset-azurerm_linux_amd64.zip", "f1150b2dea7aef001ad07002671c75b5495f4521ddf3538ededf00896f7b0aaa"],
+      "Linux-aarch64": ["tflint-ruleset-azurerm_linux_arm64.zip", "70510c58a2d550c548645c42a5ff8acc93940a7dd9ce18a5de207c326f5f3cd3"],
+      "Linux-arm64": ["tflint-ruleset-azurerm_linux_arm64.zip", "70510c58a2d550c548645c42a5ff8acc93940a7dd9ce18a5de207c326f5f3cd3"],
+      "Darwin-arm64": ["tflint-ruleset-azurerm_darwin_arm64.zip", "f0140f15332e15e710f149d53cf9cbc2d48da051fadd6eec84f52db6094dc43f"],
+      "Darwin-x86_64": ["tflint-ruleset-azurerm_darwin_amd64.zip", "f956b4c80eee7d2ae1b40ffb9748d8ef2248cc91417500231e17c85ff0a7e849"],
+    },
+  },
   "trivy": {
     version: "0.75.0",
     base: "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/",
@@ -161,8 +197,8 @@ export function releaseTable(): string {
     .join("\n");
 }
 
-/** tflint's provider rulesets (terraform/tflint), pinned like the tools; tflint --init fetches and verifies them. */
-export const TFLINT_RULESETS: Record<string, string> = { aws: "0.49.0", google: "0.40.0", azurerm: "0.32.0" };
+/** tflint's provider rulesets (terraform/tflint): release binaries of their own (RELEASE_BINARIES tflint-ruleset-<name>). */
+export const TFLINT_RULESETS: Record<string, string> = Object.fromEntries(["aws", "google", "azurerm"].map((n) => [n, RELEASE_BINARIES[`tflint-ruleset-${n}`]!.version]));
 
 export function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");
