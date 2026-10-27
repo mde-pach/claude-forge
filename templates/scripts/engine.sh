@@ -1747,7 +1747,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -1760,7 +1760,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1

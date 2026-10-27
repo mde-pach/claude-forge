@@ -3246,7 +3246,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -3259,7 +3259,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
@@ -7441,7 +7443,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -7454,7 +7456,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
@@ -11656,7 +11660,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -11669,7 +11673,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
@@ -15891,7 +15897,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -15904,7 +15910,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
@@ -21546,7 +21554,7 @@ forge_tflint() {
   if [ "$_tl_missing" = 1 ]; then
     mkdir -p "$TFLINT_PLUGIN_DIR"
     _tl_new=$(mktemp -d "$TFLINT_PLUGIN_DIR/.install.XXXXXX") || return 0
-    TFLINT_PLUGIN_DIR=$_tl_new "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
+    TFLINT_PLUGIN_DIR=$_tl_new TMPDIR=/tmp "$_tl_bin" --config "$FORGE_TMP/tflint.hcl" --init > "$FORGE_TMP/tfl.init" 2>&1 \
       || { rm -rf "$_tl_new"; printf 'forge:%s skipped: tflint could not install its rulesets (offline?): %s\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.init" | tail -n 1)"; return 0; }
     ( cd "$_tl_new" && find . -mindepth 4 -maxdepth 4 -type d ) | while IFS= read -r _tl_d; do
       [ -d "$TFLINT_PLUGIN_DIR/$_tl_d" ] && continue
@@ -21559,7 +21567,9 @@ forge_tflint() {
   fi
   _tl_rc=0
   while IFS= read -r _tl_d; do
-    "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
+    # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
+    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
@@ -23786,14 +23796,14 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/guard.rules": "f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39",
     ".claude/skills/forge-project/scripts/guard.sh": "31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17",
     ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "0b8b71ecdb72d8fbaa9c3a08c3bd94b46ce5cdf1d6f4bbb7a7cb82c023dbafe8",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "31f4ad4a37f3f7efdf5fa21b0ecadcdfad9505392cb5bb6742c18ceda977073f",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "6398e990e2068f6b756fa271e8d609a2477240f5453ed6cfb01beb05a8ca19fc",
+    ".claude/skills/forge-project/scripts/session-start.sh": "4488ee708e364635c3dc82a34c1d4c0c9aab32b2118d7434ca5db69419081f4c",
     ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "a0a964a08e123040249737409ae747876caeaaa24f4fd52b44e3d338a8f6dd26",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "a48bb1502e6a8b17fcc77b69a899826cf26389e9fd42084802399136de7e4a0b",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "f13866292bbdcd947089eda9de955d1a102f4eb02b9b550f1cfa83b0e54770d3",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "e3d1d9c01a6d05c369c35c78cdc818a22a9e98fab8dcd0cc158dcbad26a27af4",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml": "d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f",
     ".forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml": "c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20",
@@ -23830,7 +23840,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/postmessage-origin.yml": "7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd",
     ".forge/ast-grep/rules/typescript/ts-expect-error-reason.yml": "b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "6a5b0e33739cf6159b6d8f98316ec47a1af8fbd0c1c1de48d29096c97b4af662",
+    ".forge/check.sh": "7c461d009aa91d6c068aa84e1c64487228ceab9934ea07acaa8a3e74eb1b2bc6",
     ".forge/helpers/ratchet.mjs": "14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38",
     ".forge/helpers/types_typescript.mjs": "3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
@@ -24919,14 +24929,14 @@ c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills
 f8f3da6877955b84c1048d4fa479d011a084b9e322b84d85b1e5115e22ff4d39  .claude/skills/forge-project/scripts/guard.rules
 31937122f2f05ddf9b35fafd1e827c8c9cd4acd44156b948670abf3cef8dbf17  .claude/skills/forge-project/scripts/guard.sh
 83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-0b8b71ecdb72d8fbaa9c3a08c3bd94b46ce5cdf1d6f4bbb7a7cb82c023dbafe8  .claude/skills/forge-project/scripts/post-edit.sh
+31f4ad4a37f3f7efdf5fa21b0ecadcdfad9505392cb5bb6742c18ceda977073f  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-6398e990e2068f6b756fa271e8d609a2477240f5453ed6cfb01beb05a8ca19fc  .claude/skills/forge-project/scripts/session-start.sh
+4488ee708e364635c3dc82a34c1d4c0c9aab32b2118d7434ca5db69419081f4c  .claude/skills/forge-project/scripts/session-start.sh
 52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-a0a964a08e123040249737409ae747876caeaaa24f4fd52b44e3d338a8f6dd26  .claude/skills/forge-project/scripts/test-edit.sh
+a48bb1502e6a8b17fcc77b69a899826cf26389e9fd42084802399136de7e4a0b  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-f13866292bbdcd947089eda9de955d1a102f4eb02b9b550f1cfa83b0e54770d3  .claude/skills/forge-project/scripts/typecheck.sh
+e3d1d9c01a6d05c369c35c78cdc818a22a9e98fab8dcd0cc158dcbad26a27af4  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 d591423dfeff165622a89f63e9ea675277676dfc06aa5b3f3d56ce148223627f  .forge/ast-grep/rule-tests/typescript-cors-credentials-wildcard-test.yml
 c6886ea686752f2c80d3d497fd0204e141e7beaf22375061c3166673c0a9fa20  .forge/ast-grep/rule-tests/typescript-no-double-assertion-test.yml
@@ -24963,7 +24973,7 @@ aaa50e84fc281bc9899b8c74441c4d9cd0afced0d16bdd8d92d3ae8529a96c21  .forge/ast-gre
 7ca18b3797ab76739daa6d0d38cc6cb9b53821ff3dfc0025974c6316baa6c1dd  .forge/ast-grep/rules/typescript/postmessage-origin.yml
 b1248c35b66f6dc0ff4145f26c5e456b9e7ef36d9003bed5479c893ea18fedad  .forge/ast-grep/rules/typescript/ts-expect-error-reason.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-6a5b0e33739cf6159b6d8f98316ec47a1af8fbd0c1c1de48d29096c97b4af662  .forge/check.sh
+7c461d009aa91d6c068aa84e1c64487228ceab9934ea07acaa8a3e74eb1b2bc6  .forge/check.sh
 14ca6568183c20aaed370d74d075fe49ea96723029aa4bd070a932f8bf156c38  .forge/helpers/ratchet.mjs
 3df893f435f5f0652bb2b68d428f2e6c03f5b2ea7f02cda0cc2904fb2070b875  .forge/helpers/types_typescript.mjs
 
