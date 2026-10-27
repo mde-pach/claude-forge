@@ -112,7 +112,7 @@ function djangoRepo(): string {
   const r = forge(["apply", "--yes"], repo);
   if (r.status !== 0) throw new Error(`forge apply failed:\n${r.stdout}\n${r.stderr}`);
   linkTools(repo, "django");
-  writeFileSync(join(repo, ".gitignore"), ".venv\n");
+  writeFileSync(join(repo, ".gitignore"), ".venv\n__pycache__/\n");
   commitAll(repo, "init");
   return repo;
 }

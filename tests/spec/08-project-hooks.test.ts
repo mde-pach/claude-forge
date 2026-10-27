@@ -141,7 +141,7 @@ describe("SessionStart", () => {
       expect(lines[0]).toBe("forge: branch main, 15 changed files");
       expect(lines.filter((l) => l.startsWith("  notes/")).length).toBe(10);
       expect(out).toContain("forge: last commits\n  ");
-      expect(out).toContain("forge: packs git, python, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/sqlalchemy/alembic, python/uv, secrets, supply-chain");
+      expect(out).toContain("forge: packs git, python, python/asyncpg, python/fastapi, python/pydantic, python/pytest, python/sqlalchemy, python/sqlalchemy/alembic, python/uv, secrets, supply-chain");
       reset();
     },
     T,
