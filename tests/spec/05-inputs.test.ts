@@ -289,7 +289,7 @@ describe("workspaces", () => {
 
   test("packs are detected inside the packages of pnpm-workspace.yaml, with their dependencies", () => {
     const p = planOf({ "package.json": '{"name": "mono", "private": true}\n', "pnpm-workspace.yaml": "packages:\n  - 'libs/*'\n", ...inDir("libs/core", TS) });
-    expect(p.packs.map((x) => x.id)).toEqual(["typescript", "typescript/vitest"]);
+    expect(p.packs.map((x) => x.id)).toEqual(["typescript", "typescript/pnpm", "typescript/vitest"]);
   });
 
   test("package.json workspaces (npm, Yarn, Bun) and uv workspace members declare packages too; excluded ones are not read", () => {

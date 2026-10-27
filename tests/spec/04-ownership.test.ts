@@ -77,7 +77,7 @@ describe("the lock", () => {
     () => {
       const r = applied("eslint-app");
       const manifest = readFileSync(join(r, ".forge/manifest.sha256"), "utf8");
-      expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/);
+      expect(manifest).toMatch(/^[0-9a-f]{64} {2}\.claude\/rules\/forge-typescript\.md\n/m);
       expect(manifest).not.toContain("forge.lock.json");
       expect(manifest).not.toContain("manifest.sha256");
       // other entries verify with the standard tool; JSON entries hash without whitespace, helper scripts without what formatters change
