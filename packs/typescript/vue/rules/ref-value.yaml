@@ -1,0 +1,15 @@
+id: typescript/vue/ref-value
+description: "A ref is read through .value in script code: a ref used as an operand, a condition or a template-literal value is the Ref object itself (always truthy), which vue-tsc reports only for arithmetic."
+scope: {language: any, files: ["**/*.vue", "**/*.ts", "**/*.mts", "**/*.cts"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/noVueRefAsOperand
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"nursery\": {\"noVueRefAsOperand\": \"error\"}}}"
+examples:
+  match:
+    - files: {src/composables/useCount.ts: "import { ref } from \"vue\";\n\nconst count = ref(0);\n\nexport function label(): string {\n  if (count) return `${count} items`;\n  return String(count + 1);\n}\n"}
+    - files: {src/components/Toggle.vue: "<script setup lang=\"ts\">\nimport { ref } from \"vue\";\n\nconst open = ref(false);\nconst title = open ? \"Close\" : \"Open\";\n</script>\n\n<template>\n  <button type=\"button\">{{ title }}</button>\n</template>\n"}
+  no_match:
+    - files: {src/composables/useCount.ts: "import { ref } from \"vue\";\n\nconst count = ref(0);\n\nexport function label(): string {\n  if (count.value) return `${count.value} items`;\n  return String(count.value + 1);\n}\n"}
+    - files: {src/components/Toggle.vue: "<script setup lang=\"ts\">\nimport { computed, ref } from \"vue\";\n\nconst open = ref(false);\nconst title = computed(() => (open.value ? \"Close\" : \"Open\"));\n</script>\n\n<template>\n  <button type=\"button\">{{ title }}</button>\n</template>\n"}

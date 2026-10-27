@@ -1,0 +1,15 @@
+id: typescript/vue/no-setup-props-destructure
+description: "setup() does not destructure its props parameter: the destructured values are read once and lose reactivity (use props.x, toRefs(props) or toRef(props, \"x\")). Destructuring props inside the body is not detected."
+scope: {language: any, files: ["**/*.vue", "**/*.ts", "**/*.mts", "**/*.cts"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/correctness/noVueSetupPropsReactivityLoss
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"noVueSetupPropsReactivityLoss\": \"error\"}}}"
+examples:
+  match:
+    - files: {src/components/Heading.ts: "import { defineComponent } from \"vue\";\n\nexport default defineComponent({\n  props: { title: String },\n  setup({ title }) {\n    return { heading: title };\n  },\n});\n"}
+    - files: {src/components/Heading.vue: "<script lang=\"ts\">\nexport default {\n  props: { title: String },\n  setup({ title }) {\n    return { heading: title };\n  },\n};\n</script>\n\n<template>\n  <h1>{{ heading }}</h1>\n</template>\n"}
+  no_match:
+    - files: {src/components/Heading.ts: "import { defineComponent, toRefs } from \"vue\";\n\nexport default defineComponent({\n  props: { title: String },\n  setup(props) {\n    const { title } = toRefs(props);\n    return { heading: title };\n  },\n});\n"}
+    - files: {src/components/Heading.vue: "<script lang=\"ts\">\nimport { toRef } from \"vue\";\n\nexport default {\n  props: { title: String },\n  setup(props) {\n    return { heading: toRef(props, \"title\") };\n  },\n};\n</script>\n\n<template>\n  <h1>{{ heading }}</h1>\n</template>\n"}

@@ -1,0 +1,11 @@
+id: typescript/svelte/no-debug-tags
+description: "No {@debug} tag is left in a .svelte file: it pauses the browser's devtools on every update."
+scope: {language: any, files: ["**/*.svelte"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/noSvelteAtDebugTags
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"nursery\": {\"noSvelteAtDebugTags\": \"error\"}}}"
+examples:
+  match: ["<script lang=\"ts\">\n  let { user } = $props();\n</script>\n\n{@debug user}\n<p>{user.name}</p>\n"]
+  no_match: ["<script lang=\"ts\">\n  let { user } = $props();\n</script>\n\n<p>{user.name}</p>\n<p>{\"{@debug user}\"}</p>\n"]

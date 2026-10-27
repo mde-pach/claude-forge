@@ -1,15 +1,14 @@
 id: typescript/vue/v-for-key
-description: An element with v-for in a .vue template binds :key, so Vue can track each item instead of patching in place (eslint-plugin-vue vue/require-v-for-key). <template v-for> is not checked.
+description: An element with v-for in a .vue template binds :key, so Vue can track each item instead of patching in place.
 scope: {language: any, files: ["**/*.vue"]}
+deprecated: {replaced_by: typescript/vue/valid-templates}
 enforce:
-  - target: check
-    stage: lint
-    run: "forge_vue_vfor_keys $(git ls-files '*.vue')"
-    changed_run: "forge_vue_vfor_keys {files}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueVForKey
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueVForKey\": \"error\"}}}"
 examples:
   match:
     - files: {src/TodoList.vue: "<script setup lang=\"ts\">\ndefineProps<{ todos: { id: number; title: string }[] }>();\n</script>\n\n<template>\n  <ul>\n    <li v-for=\"todo in todos\">{{ todo.title }}</li>\n  </ul>\n</template>\n"}
-    - files: {src/TodoList.vue: "<template>\n  <TodoItem\n    v-for=\"todo in todos\"\n    :todo=\"todo\"\n  />\n</template>\n"}
   no_match:
     - files: {src/TodoList.vue: "<script setup lang=\"ts\">\ndefineProps<{ todos: { id: number; title: string }[] }>();\n</script>\n\n<template>\n  <ul>\n    <li v-for=\"todo in todos\" :key=\"todo.id\">{{ todo.title }}</li>\n  </ul>\n</template>\n"}
-    - files: {src/TodoList.vue: "<template>\n  <!-- <li v-for=\"t in todos\"> -->\n  <TodoItem\n    v-for=\"todo in todos\"\n    v-bind:key=\"todo.id\"\n    :class=\"{ done: todo.count > 0 }\"\n  />\n</template>\n"}

@@ -1,0 +1,54 @@
+id: typescript/vue/valid-templates
+description: "Vue templates are valid, as Biome checks them with html.experimentalFullSupportEnabled: v-for binds :key and has a valid expression, no v-if with v-for on one element, v-bind / v-on / v-if / v-else / v-else-if / v-html / v-text with what they need, and a valid root <template>."
+scope: {language: any, files: ["**/*.vue"]}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueVForKey
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueVForKey\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/noVueVIfWithVFor
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"noVueVIfWithVFor\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVBind
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVBind\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVOn
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVOn\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVIf
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVIf\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVElse
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVElse\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVElseIf
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVElseIf\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVHtml
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVHtml\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidVText
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidVText\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/correctness/useVueValidTemplateRoot
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"correctness\": {\"useVueValidTemplateRoot\": \"error\"}}}"
+  - target: tool
+    tool: biome
+    expects: lint/nursery/useVueValidVFor
+    snippet: "\"html\": {\"experimentalFullSupportEnabled\": true}, \"linter\": {\"rules\": {\"nursery\": {\"useVueValidVFor\": \"error\"}}}"
+examples:
+  # one component with every mistake (a root <template> with both src and content, so that its content is still linted)
+  match:
+    - "<script setup lang=\"ts\">\nimport { ref } from \"vue\";\n\nconst items = ref([{ id: 1, name: \"a\", done: false }]);\nconst show = ref(true);\n</script>\n\n<template src=\"./list.html\">\n  <ul>\n    <li v-for=\"item in items\">{{ item.name }}</li>\n    <li v-for=\"item in items\" v-if=\"item.done\" :key=\"item.id\">{{ item.name }}</li>\n    <li v-for=\"item in items\" :key=\"show\">{{ item.name }}</li>\n  </ul>\n  <input v-bind />\n  <button type=\"button\" v-on:click>Save</button>\n  <p v-if>shown</p>\n  <p v-else-if>other</p>\n  <p v-else=\"show\">else</p>\n  <div v-html></div>\n  <div v-text></div>\n</template>\n"
+  no_match:
+    - "<script setup lang=\"ts\">\nimport { ref } from \"vue\";\n\nconst items = ref([{ id: 1, name: \"a\", done: false }]);\nconst show = ref(true);\nconst html = ref(\"<b>x</b>\");\nconst value = ref(\"\");\nfunction save() {}\n</script>\n\n<template>\n  <ul>\n    <li v-for=\"item in items\" :key=\"item.id\">{{ item.name }}</li>\n    <template v-for=\"item in items\" :key=\"item.id\">\n      <li v-if=\"item.done\">{{ item.name }}</li>\n    </template>\n  </ul>\n  <input v-bind:value=\"value\" />\n  <button type=\"button\" v-on:click=\"save\">Save</button>\n  <p v-if=\"show\">shown</p>\n  <p v-else-if=\"items.length\">other</p>\n  <p v-else>else</p>\n  <div v-html=\"html\"></div>\n  <div v-text=\"value\"></div>\n</template>\n"
