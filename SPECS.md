@@ -1356,6 +1356,24 @@ Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applie
 
 context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps` (object defaults hoisted), `createRoot` instead of `ReactDOM.render`, React Compiler's checks, props never assigned to.
 
+### typescript/react/zustand
+
+Detected by `zustand >= 5` (npm), under `typescript/react`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/react/zustand/stable-selector` | `ast-grep` forbid: a call whose first argument is an arrow returning an object or array literal (`(s) => ({ … })`, `(s) => [ … ]`, or a block returning one), where the callee is `zustand`'s `UseBoundStore` (§15.1: an alias of an intersection); a selector wrapped in `useShallow(…)` is not an arrow argument |
+
+context.md: zustand 5 compares selector results with `Object.is`: one value per selector, or `useShallow`.
+
+### typescript/react/react-hook-form
+
+Detected by `react-hook-form >= 7` (npm), under `typescript/react`.
+
+| Rule | Targets |
+|---|---|
+| `typescript/react/react-hook-form/watch-all` | `ast-grep` advise: `$W()` with no argument where `W` is `react-hook-form`'s `UseFormWatch` (§15.1: an alias of an object type literal), however `watch` is destructured or renamed |
+
 ### typescript/astro
 
 | Rule | Targets |

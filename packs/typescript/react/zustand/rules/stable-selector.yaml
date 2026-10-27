@@ -1,0 +1,33 @@
+id: typescript/react/zustand/stable-selector
+description: "A zustand store hook's selector does not return a new object or array literal (useStore((s) => ({ a: s.a })), (s) => [s.a, s.b]): zustand 5 compares with Object.is, so every render gets a new value and the component re-renders until React gives up (Maximum update depth exceeded). Select one value per call or wrap the selector in useShallow()."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, pattern: $S}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: arrow_function
+              has:
+                field: body
+                any:
+                  - {kind: array}
+                  - {kind: parenthesized_expression, has: {kind: object}}
+                  - {kind: statement_block, has: {kind: return_statement, has: {any: [{kind: object}, {kind: array}]}}}
+    # the hook is a zustand store, by its type (§15.1): create()'s UseBoundStore (an alias of an
+    # intersection); a selector wrapped in useShallow(…) is not an arrow argument
+    where:
+      S: {type: {package: zustand, name: UseBoundStore}}
+examples:
+  deps: [{ecosystem: npm, name: zustand, version: "5.0.16"}, {ecosystem: npm, name: react, version: "19.2.0"}, {ecosystem: npm, name: "@types/react", version: "19.2.2"}]
+  match:
+    - "import { create } from \"zustand\";\n\ntype Cart = { items: string[]; total: number };\nconst useCart = create<Cart>()(() => ({ items: [], total: 0 }));\n\nexport function useSummary() {\n  return useCart((s) => ({ count: s.items.length, total: s.total }));\n}\n"
+    - "import { create } from \"zustand\";\n\nconst useBears = create<{ bears: number; fish: number }>()(() => ({ bears: 0, fish: 0 }));\n\nexport function useBoth() {\n  const [bears, fish] = useBears((state) => [state.bears, state.fish]);\n  return bears + fish;\n}\n"
+  no_match:
+    - "import { create } from \"zustand\";\nimport { useShallow } from \"zustand/react/shallow\";\n\ntype Cart = { items: string[]; total: number };\nconst useCart = create<Cart>()(() => ({ items: [], total: 0 }));\n\nexport function useSummary() {\n  const total = useCart((s) => s.total);\n  const both = useCart(useShallow((s) => ({ count: s.items.length, total: s.total })));\n  return [total, both];\n}\n"
+    - "function useMemoized<T>(make: () => T): T {\n  return make();\n}\n\nexport const point = useMemoized(() => ({ x: 1, y: 2 }));\n"
