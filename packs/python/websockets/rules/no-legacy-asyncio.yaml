@@ -1,0 +1,19 @@
+id: python/websockets/no-legacy-asyncio
+description: "No websockets.legacy imports: the legacy asyncio implementation is deprecated; use websockets.asyncio.server.serve and websockets.asyncio.client.connect."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "websockets.legacy".msg = "deprecated; use websockets.asyncio.server / websockets.asyncio.client"
+examples:
+  match:
+    - "from websockets.legacy.server import serve\n\nserver = serve(handler, \"localhost\", 8765)\n"
+    - "import websockets.legacy.client\n\nconnection = websockets.legacy.client.connect(\"ws://localhost:8765\")\n"
+  no_match:
+    - "from websockets.asyncio.server import serve\n\nserver = serve(handler, \"localhost\", 8765)\n"

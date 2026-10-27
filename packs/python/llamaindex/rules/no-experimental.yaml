@@ -1,0 +1,18 @@
+id: python/llamaindex/no-experimental
+description: "No llama_index.experimental (PandasQueryEngine, PolarsQueryEngine, JSONalyzeQueryEngine): the package is deprecated and unmaintained, and its pandas and polars engines eval model-written code."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "llama_index.experimental".msg = "deprecated and unmaintained (its query engines eval model-written code)"
+examples:
+  match:
+    - "from llama_index.experimental.query_engine import PandasQueryEngine\n\nengine = PandasQueryEngine(df=df)\n"
+  no_match:
+    - "from llama_index.core.query_engine import RetrieverQueryEngine\n\nengine = RetrieverQueryEngine.from_args(retriever)\n"

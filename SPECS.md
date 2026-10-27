@@ -794,6 +794,22 @@ context.md: "Alembic with an async engine: `alembic/env.py` runs migrations thro
 
 context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`)."
 
+### python/pydantic/settings
+
+Detected by `pydantic-settings` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pydantic/settings/no-load-dotenv` | `tool` ruff `TID251`, banned-api `dotenv.load_dotenv` |
+
+### python/attrs
+
+Detected by `attrs` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/attrs/next-gen-api` | `tool` ruff `TID251`, banned-api `attr.s`, `attr.attrs`, `attr.dataclass`, `attr.ib`, `attr.attrib` |
+
 ### python/pytest
 
 | Rule | Targets |
@@ -909,14 +925,23 @@ context.md: `%s` placeholders; pools opened explicitly in startup.
 
 ### python/redis
 
-Detected by `redis` (pypi).
+Detected by `redis` or `aioredis` (pypi).
 
 | Rule | Targets |
 |---|---|
 | `python/redis/no-keys` | `ast-grep` advise: `$R.keys(…)`, `$R` typed `redis` `Redis` / `StrictRedis` / `RedisCluster` (sync and `redis.asyncio`) |
 | `python/redis/aclose` | `ast-grep` forbid: `$R.close()`, `$R` typed `redis.asyncio` `Redis` |
+| `python/redis/no-aioredis` | `tool` ruff `TID251`, banned-api `aioredis` |
 
 context.md: `scan_iter()` instead of `KEYS`; `aclose()` on asyncio clients.
+
+### python/websockets
+
+Detected by `websockets` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/websockets/no-legacy-asyncio` | `tool` ruff `TID251`, banned-api `websockets.legacy` |
 
 ### python/strawberry
 
@@ -948,6 +973,14 @@ Detected by `polars` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/polars/no-python-row-functions` | `ast-grep` advise: `map_elements`, `map_rows`, `iter_rows` on a receiver typed `polars` `Expr` / `Series` / `DataFrame` |
+
+### python/pandera
+
+Detected by `pandera` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/pandera/pandas-namespace` | `tool` ruff `TID251`, banned-api `pandera.` `DataFrameSchema`, `SeriesSchema`, `Column`, `Index`, `MultiIndex`, `DataFrameModel`, `infer_schema`, `check_types`, `check_input`, `check_output`, `check_io` (not `Check`, `Field`, `check`, `dataframe_check`, `parser`: pandera keeps them top-level) |
 
 ### python/numpy
 
@@ -1004,6 +1037,18 @@ Detected by `langchain-core` (pypi).
 |---|---|
 | `python/langchain/no-dangerous-flags` | `ast-grep` advise: the keyword arguments `allow_dangerous_deserialization=True`, `allow_dangerous_code=True`, `allow_dangerous_requests=True` |
 | `python/langchain/safe-load` | `ast-grep` forbid: the keyword arguments `allowed_objects="all"`, `secrets_from_env=True` |
+| `python/langchain/partner-packages` | `tool` ruff `TID251`, banned-api: each `langchain_community` class deprecated with an `alternative_import` in a partner package (langchain-community 0.4.2: 84 classes, 164 entries), at its defining module and at its package's re-export (TID251 matches a path, not the object) |
+| `python/langchain/no-legacy-chains` | `tool` ruff `TID251`, banned-api `langchain_classic` |
+| `python/langchain/no-python-repl` | `tool` ruff `TID251`, banned-api `langchain_experimental` `PythonREPLTool`, `PythonAstREPLTool` (`tools`, `tools.python.tool`), `PythonREPL` (`utilities`, `utilities.python`) |
+
+### python/llamaindex
+
+Detected by `llama-index-core` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/llamaindex/no-service-context` | `tool` ruff `TID251`, banned-api `llama_index.core.ServiceContext`, `llama_index.core.service_context.ServiceContext`, `llama_index.core.set_global_service_context` |
+| `python/llamaindex/no-experimental` | `tool` ruff `TID251`, banned-api `llama_index.experimental` |
 
 ### python/mcp
 
@@ -1028,6 +1073,15 @@ Detected by `apache-airflow` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/airflow/dag-schedule` | `tool` ruff `AIR002` |
+| `python/airflow/airflow3` | `tool` ruff `AIR301`, `AIR302`, `AIR303`, `AIR311`, `AIR312` (stable; not the preview `AIR304`, `AIR321`); `tool` ruff `TID251`, banned-api `airflow.settings.Session`, `airflow.utils.session.provide_session`, `airflow.utils.session.create_session`; only with `apache-airflow >= 3.0.0` (`when`) |
+
+### python/prefect
+
+Detected by `prefect` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/prefect/no-removed-v2-api` | `tool` ruff `TID251`, banned-api: Prefect's own migration table (`prefect/_internal/compatibility/migration.py`, 3.9.0: `REMOVED_IN_V3` and `MOVED_IN_V3`, `a.b:C` as `a.b.C`), the message naming Prefect's replacement; only with `prefect >= 3.0.0` (`when`) |
 
 ### python/sentry
 
@@ -1036,6 +1090,7 @@ Detected by `sentry-sdk` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/sentry/span-attributes` | `ast-grep` forbid: a call with `data=` whose callee is declared (§15.6) by `sentry_sdk` as `update_current_span` |
+| `python/sentry/no-deprecated-scope-api` | `tool` ruff `TID251`, banned-api `sentry_sdk.configure_scope`, `push_scope`, `Hub`, `set_measurement` (each also at its defining module, `sentry_sdk.api` / `sentry_sdk.hub`); only with `sentry-sdk >= 2.0.0` (`when`) |
 
 ### python/temporal
 

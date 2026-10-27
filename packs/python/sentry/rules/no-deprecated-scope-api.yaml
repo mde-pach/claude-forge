@@ -1,0 +1,30 @@
+id: python/sentry/no-deprecated-scope-api
+description: "No sentry_sdk.configure_scope, push_scope, Hub (Hub.current) or set_measurement: Sentry SDK 2 deprecated them. Use sentry_sdk.get_isolation_scope() / get_current_scope(), new_scope() / isolation_scope(), set_tag(), and span attributes."
+scope: {language: python}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: TID251
+    snippet: |
+      [tool.ruff.lint]
+      extend-select = ["TID251"]
+
+      [tool.ruff.lint.flake8-tidy-imports.banned-api]
+      "sentry_sdk.configure_scope".msg = "deprecated; use sentry_sdk.get_isolation_scope() or get_current_scope()"
+      "sentry_sdk.api.configure_scope".msg = "deprecated; use sentry_sdk.get_isolation_scope() or get_current_scope()"
+      "sentry_sdk.push_scope".msg = "deprecated; use sentry_sdk.new_scope() or isolation_scope()"
+      "sentry_sdk.api.push_scope".msg = "deprecated; use sentry_sdk.new_scope() or isolation_scope()"
+      "sentry_sdk.Hub".msg = "deprecated; use the sentry_sdk top-level API and scopes"
+      "sentry_sdk.hub.Hub".msg = "deprecated; use the sentry_sdk top-level API and scopes"
+      "sentry_sdk.set_measurement".msg = "deprecated; set a span attribute"
+      "sentry_sdk.api.set_measurement".msg = "deprecated; set a span attribute"
+when:
+  deps: [{ecosystem: pypi, name: sentry-sdk, version: ">=2.0.0"}]
+examples:
+  match:
+    - "import sentry_sdk\n\nwith sentry_sdk.configure_scope() as scope:\n    scope.set_tag(\"tenant\", tenant)\n"
+    - "from sentry_sdk import Hub\n\nclient = Hub.current.client\n"
+    - "import sentry_sdk\n\nsentry_sdk.set_measurement(\"rows\", 42)\n"
+    - "from sentry_sdk import push_scope\n\nwith push_scope() as scope:\n    scope.set_extra(\"job\", job_id)\n"
+  no_match:
+    - "import sentry_sdk\n\nsentry_sdk.get_isolation_scope().set_tag(\"tenant\", tenant)\nwith sentry_sdk.new_scope() as scope:\n    scope.set_extra(\"job\", job_id)\n"
