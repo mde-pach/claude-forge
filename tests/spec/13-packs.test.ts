@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, forge, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
+import { ANGULAR_TOOLS, ensureExampleTools, ensureNodeTools, ensureTools, ensureVueTools, fixture, forge, hasBun, hasUv, ROOT, sh, SYSTEM_TOOLS_BIN, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 import { renderChecks, renderLib, SYSTEM_TOOLS } from "../../src/render";
 import { RELEASE_BINARIES } from "../../src/util";
@@ -30,10 +30,18 @@ let report: TestReport;
 /** The cached project tools (tests/helpers.ts), then PATH. */
 const toolBins = () => [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
 
+/**
+ * The self-test of every pack runs once per test run: the runner splits this file into
+ * shards, and each shard reads the same report (a fixture, built by the first shard while
+ * the others wait).
+ */
 beforeAll(() => {
   ensureTools();
   ensureVueTools();
-  report = selfTest(join(ROOT, "packs"), undefined, { toolBins: toolBins() });
+  const dir = fixture("packs-selftest", (d) => {
+    writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins: toolBins() })));
+  });
+  report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8")) as TestReport;
 }, T);
 
 /** Failures of `forge test` that concern one rule. */
