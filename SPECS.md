@@ -595,7 +595,6 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
 | `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
 | `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
-| `typescript/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`); `trustProxy: true` in the object passed to fastify's default or named `fastify` import |
 
 context.md: strict TypeScript and Bun; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; search for an existing helper (warn-once, logging, `util.*`) before writing one.
 
@@ -1049,8 +1048,9 @@ Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstanc
 |---|---|
 | `typescript/fastify/plugin-style` | `ast-grep` forbid: an `async` arrow or function expression with a third parameter, passed first to `$F.register(…)` (where `F` is a `FastifyInstance`) or to fastify-plugin's default import |
 | `typescript/fastify/full-json-schema` | `ast-grep` forbid: in the `schema` of `$F.route({…})` / `$F.<method>(url, {…}, …)` (where `F` is a `FastifyInstance`), a `body`, `querystring`, `params` or `headers` value, or a `response` status value, that is an object literal with properties, no spread and no JSON Schema keyword key |
+| `typescript/fastify/no-permissive-trust-proxy` | `ast-grep` advise: `trustProxy: true` in the object passed to fastify's default or named `fastify` import (aliases included) |
 
-context.md: the two plugin signatures; full JSON Schemas in routes.
+context.md: the two plugin signatures; full JSON Schemas in routes; `trustProxy` is not `true`.
 
 ### typescript/elysia
 
@@ -1175,8 +1175,9 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 | Rule | Targets |
 |---|---|
 | `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
+| `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
 
-context.md: no literal `secure: false` / `httpOnly: false` session cookies.
+context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
 
 ### typescript/bullmq
 
