@@ -38,8 +38,19 @@ export function testSummary(c: Record<string, number>, what: string): string {
   return `${what}; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, grep ${c.grep}, check ${c.check}, context ${c.context}`;
 }
 
+/**
+ * The pinned ast-grep. Through bunx, the copy in bunx's cache (--no-install), installed
+ * once when missing, as lib.sh's astgrep_bunx: `bunx -p` alone installs the package again
+ * at every run, and concurrent installs fail now and then (a scan printing nothing).
+ */
+let bunxReady = false;
 export function astGrepCommand(): string[] | undefined {
-  if (run("bunx", ["--version"]).status === 0) return ["bunx", "-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep"];
+  if (run("bunx", ["--version"]).status === 0) {
+    const pkg = `@ast-grep/cli@${AST_GREP_VERSION}`;
+    if (!bunxReady && run("bunx", ["--no-install", "-p", pkg, "ast-grep", "--version"]).status !== 0) run("bunx", ["-p", pkg, "ast-grep", "--version"]);
+    bunxReady = true;
+    return ["bunx", "--no-install", "-p", pkg, "ast-grep"];
+  }
   if (run("uvx", ["--version"]).status === 0) return ["uvx", "-q", "--from", `ast-grep-cli==${AST_GREP_VERSION}`, "ast-grep"];
   return undefined;
 }
@@ -620,6 +631,11 @@ function typesExamples(rules: Rule[], report: TestReport): void {
           });
       }
       const scan = run(cmd[0]!, [...cmd.slice(1), "scan", "-c", join(sg, "sgconfig.yml"), "--json=stream", "--include-metadata", ...expected.keys()], { cwd: project.dir });
+      // ast-grep exits 0 without a match, 1 with an error-severity one; anything else is a failed scan
+      if (scan.status > 1) {
+        failures.push(`types examples (${lang}): ast-grep scan failed: ${(scan.stderr || scan.stdout).trim().split("\n").slice(0, 3).join(" | ")}`);
+        continue;
+      }
       const matches = join(state, "matches.json");
       writeFileSync(matches, scan.stdout);
       const res = runTypesFilter(project.dir, lang, matches, join(state, "s"));
