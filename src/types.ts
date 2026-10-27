@@ -110,6 +110,8 @@ export interface CheckTarget {
   /** Test checks: runs only the given test files ({files}); Stop re-runs failing tests with it at the start of the turn. */
   rerun?: string;
   when_changed?: string[];
+  /** Lint checks: the tool's config files it also lints (ruff's RUF200 on pyproject.toml): a changed one is in the check's scope, so {files} gets it. */
+  config_files?: string[];
   requires_local_db?: boolean;
   /** warning diagnostics count like errors (§10.1) */
   fail_on_warnings?: true;

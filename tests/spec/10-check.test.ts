@@ -174,6 +174,23 @@ describe("steps", () => {
     T,
   );
 
+  /** @rule python/lint python/valid-pyproject */
+  test.if(hasRuff)(
+    "4. a lint check's config_files are linted when they changed: an invalid pyproject.toml fails python/lint (ruff RUF200) on its line",
+    () => {
+      const path = join(repo, "pyproject.toml");
+      const text = readFileSync(path, "utf8").replace('select = ["E", "F", "ANN401", "E722"]', 'select = ["E", "F", "ANN401", "E722", "RUF200"]');
+      writeFileSync(path, text);
+      expect(check().stdout).not.toContain("forge:python/lint");
+      writeFileSync(path, text.replace('version = "0.1.0"', 'version = "0.1.0"\nreadme = 3'));
+      const r = check();
+      expect(r.status).toBe(1);
+      expect(r.stdout).toMatch(/forge:python\/lint failed\npyproject\.toml:4:\d+: RUF200/);
+      reset();
+    },
+    T,
+  );
+
   /** @rule python/pytest/run */
   test(
     "a check whose tool is not installed prints skipped and does not fail",
