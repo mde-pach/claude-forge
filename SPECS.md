@@ -815,6 +815,17 @@ Detected by `typer` (pypi).
 
 context.md: parameters declared with `Annotated[T, typer.Option(...)]`, the default as the parameter's default.
 
+### python/structlog
+
+Detected by `structlog` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/structlog/constant-event` | `ast-grep` forbid: `$L.<level>(…)` (`debug`, `info`, `warning`, `warn`, `error`, `err`, `exception`, `critical`, `fatal`, `msg`, and their `a`-prefixed async forms) whose first argument is an f-string, a `.format()` call or a `%`-formatted string, where `L` is typed `structlog` `BoundLoggerBase` / `BindableLogger` (§15.1) |
+| `python/structlog/typed-logger` | `ast-grep` advise: `structlog.get_logger(…)` (typed `Any`) not assigned to an annotated name |
+
+context.md: constant events with key/value data; annotate loggers from `structlog.get_logger()`.
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
