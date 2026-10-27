@@ -909,6 +909,43 @@ forge_trusted_deps() {
   return "$_td_rc"
 }
 
+# ---- package manager policies (typescript/npm, typescript/pnpm, typescript/yarn): the
+# config checks are modes of .forge/helpers/pm_policy.mjs (forge_helper bun pm_policy.mjs <mode>).
+
+# forge_accept_hint: after a ratchet-style forge_helper run that found something (run as
+# "forge_helper … || forge_accept_hint"), says how the user accepts a change; fails.
+forge_accept_hint() {
+  printf 'Restore it, or have the user accept the change in forge.yaml: accept: [{rule: %s, change: "<line above>", reason: "..."}]\n' "$c_id"
+  return 1
+}
+
+FORGE_LOCKFILE_LINT_VERSION="@@LOCKFILE_LINT_VERSION@@"
+
+# forge_lockfile_lint: the pinned lockfile-lint (through bunx) on each in-scope package-lock.json
+# (forge_scope_files): every package resolves from registry.npmjs.org, over https, with a
+# sha512 integrity. "path:0 <package>: <problem> (expected …, actual …)" per finding; when it
+# cannot run (offline, no bunx), the check is reported skipped.
+forge_lockfile_lint() {
+  _ll_rc=0
+  forge_scope_files > "$FORGE_TMP/ll.files"
+  while IFS= read -r _ll_f; do
+    case $_ll_f in package-lock.json|*/package-lock.json) ;; *) continue ;; esac
+    [ -f "$_ll_f" ] || continue
+    command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
+    bunx "lockfile-lint@$FORGE_LOCKFILE_LINT_VERSION" --type npm --path "$_ll_f" --allowed-hosts npm --validate-https --validate-integrity > "$FORGE_TMP/ll.out" 2>&1 && continue
+    if ! grep -q '^detected ' "$FORGE_TMP/ll.out"; then
+      printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
+      return 0
+    fi
+    awk -v f="$_ll_f" '
+      /^detected / { what = $0; sub(/^detected /, "", what); pkg = what; sub(/^.* for package: /, "", pkg); sub(/ for package: .*$/, "", what); if (match(pkg, /-[0-9a-f]+$/) && RLENGTH == 41) pkg = substr(pkg, 1, RSTART - 1); next }
+      /^[[:space:]]+expected: / { want = $0; sub(/^[[:space:]]+expected: /, "", want); next }
+      /^[[:space:]]+actual: / { got = $0; sub(/^[[:space:]]+actual: /, "", got); printf "%s:0 %s: %s (expected %s, actual %s)\n", f, pkg, what, want, got }' "$FORGE_TMP/ll.out"
+    _ll_rc=1
+  done < "$FORGE_TMP/ll.files"
+  return "$_ll_rc"
+}
+
 FORGE_JS_LOCKS='pnpm-lock.yaml package-lock.json npm-shrinkwrap.json yarn.lock bun.lock bun.lockb'
 
 # forge_pkg_deps <package.json>: "section<TAB>name<TAB>spec" for each entry of

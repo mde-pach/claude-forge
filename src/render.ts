@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { codeExamples } from "./packs.js";
 import { defaultRoles, type Roles } from "./roles.js";
 import { toYaml } from "./yaml.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, packageRoot, REDOCLY_VERSION, releaseTable, sha256, shQuote, SPECTRAL_VERSION, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, FORGE_VERSION, HADOLINT_SHA256, HADOLINT_VERSION, LOCKFILE_LINT_VERSION, packageRoot, REDOCLY_VERSION, releaseTable, sha256, shQuote, SPECTRAL_VERSION, SQUAWK_VERSION, TFLINT_RULESETS, TY_VERSION, ZIZMOR_VERSION } from "./util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, GuardTarget, Language, Level, Rule } from "./types.js";
 
 export function template(name: string): string {
@@ -38,7 +38,7 @@ const RESOLVED_TOOLS = ["terraform", "kustomize"] as const;
 /** Tools that engine helpers run, which their name in a command does not show. */
 const HELPER_TOOLS: [RegExp, string][] = [
   [/\bforge_(zizmor|hadolint)\b/, "uvx"],
-  [/\bforge_(trusted_deps|openapi_lint)\b/, "bun"],
+  [/\bforge_(trusted_deps|openapi_lint|lockfile_lint)\b/, "bun"],
   [/\bforge_tf_validate\b/, "terraform"],
   [/\bforge_helm\b/, "helm"],
   [/\bforge_sqlfluff\b/, "sqlfluff"],
@@ -260,6 +260,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       SQUAWK_VERSION,
       REDOCLY_VERSION,
       SPECTRAL_VERSION,
+      LOCKFILE_LINT_VERSION,
       ZIZMOR_VERSION,
       HADOLINT_VERSION,
       HADOLINT_SHAS: Object.entries(HADOLINT_SHA256).map(([p, h]) => `${p} ${h}`).join("\n"),
@@ -337,7 +338,7 @@ export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sql
  * them. A project formatter may rewrite them: their integrity hash ignores formatting
  * (ownedHash).
  */
-const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "node_version.mjs"];
+const HELPER_SCRIPTS = ["ratchet.py", "ratchet.mjs", "drf_permissions.py", "public_api.py", "public_api.mjs", "fk_index.py", "node_version.mjs", "pm_policy.mjs"];
 export const HELPERS_DIR = ".forge/helpers";
 
 /** The helper files the checks and types engines use: path (repository-relative) -> content. */

@@ -10,6 +10,8 @@ export const CLAUDE_CODE_MIN = "2.1.295";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";
+/** lockfile-lint (package-lock.json hosts, https and integrity), run through bunx by typescript/npm/lockfile-lint. */
+export const LOCKFILE_LINT_VERSION = "5.1.0";
 /**
  * The Python types engine (§15.2), pinned like the other Forge tools (the newest release
  * older than 14 days): ty's language server through uvx on this Python. TypeScript's
