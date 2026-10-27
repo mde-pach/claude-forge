@@ -299,6 +299,8 @@ export const TOOL_VERSIONS = {
   typescriptForVue: "5.9.3",
   // python/django/makemigrations runs the project's manage.py (5.2 LTS: Python 3.10+)
   django: "5.2.18",
+  // sql/sqlfluff runs the project's sqlfluff
+  sqlfluff: "4.4.0",
 };
 /** Shared by every process of a run: the runner (tests/run.ts) passes it down with each shard's own TMPDIR. */
 export const TOOLS_CACHE = process.env.FORGE_TOOLS_CACHE || join(tmpdir(), "forge-tools-v2");
@@ -352,7 +354,7 @@ function ensureSystemTools(): void {
   }
 }
 
-/** Installs Biome, TypeScript and React's types (bun), ruff (uv), and Alembic and Django (uv, own venvs) once into TOOLS_CACHE, and terraform and helm (ensureSystemTools). ty is Forge's own, through uvx. */
+/** Installs Biome, TypeScript and React's types (bun), ruff (uv), and Alembic, Django and sqlfluff (uv, own venvs) once into TOOLS_CACHE, and terraform and helm (ensureSystemTools). ty is Forge's own, through uvx. */
 export function ensureTools(): void {
   mkdirSync(TOOLS_CACHE, { recursive: true });
   ensureSystemTools();
@@ -366,6 +368,7 @@ export function ensureTools(): void {
   ensureVenv(join(TOOLS_CACHE, ".venv-alembic"), "bin/alembic", [`alembic==${TOOL_VERSIONS.alembic}`, `sqlalchemy[asyncio]==${TOOL_VERSIONS.sqlalchemy}`]);
   ensureVenv(join(TOOLS_CACHE, ".venv-django"), "bin/django-admin", [`django==${TOOL_VERSIONS.django}`]);
   ensureVenv(join(TOOLS_CACHE, ".venv"), "bin/ruff", [`ruff==${TOOL_VERSIONS.ruff}`]);
+  ensureVenv(join(TOOLS_CACHE, ".venv-sqlfluff"), "bin/sqlfluff", [`sqlfluff==${TOOL_VERSIONS.sqlfluff}`]);
 }
 
 /** Installs vue-tsc (TOOL_VERSIONS["vue-tsc"]) with its TypeScript in its own cache directory; returns its bin directory. */
