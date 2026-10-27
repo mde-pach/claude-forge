@@ -667,6 +667,7 @@ test(
   T,
 );
 
+/** @rule python/numpy/no-allow-pickle */
 test("a where condition asks a type (§15.1) or a declared name (§15.6), as one spec or a list of them, or negates one; a spec names a package or a module, never a name alone", () => {
   const rule = (F: unknown) => ({ id: "local/x", description: "d", scope: { language: "python" }, enforce: [{ target: "ast-grep", mode: "forbid", rule: { pattern: "$F()" }, where: { F } }] });
   const ok = (F: unknown) => {
