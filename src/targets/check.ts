@@ -4,8 +4,7 @@ import { checkExamplesOptional, type CheckExampleRun, hadolintIntegrity, runChec
 import type { CheckTarget, Rule } from "../types.js";
 import { cmd, code, type Effect, type LifecycleEvent, scopeNoun } from "./events.js";
 import type { TargetKind } from "./kind.js";
-
-export const STAGES = ["format", "lint", "codegen", "typecheck", "migration", "test"] as const;
+import { STAGES } from "../core/vocabulary.js";
 
 export const check: TargetKind<CheckTarget> = {
   kind: "check",

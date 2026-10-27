@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse as parseYaml } from "yaml";
 import { run, sha256 } from "./util.js";
+import type { HOOK_MANAGERS } from "./core/vocabulary.js";
 
 // ---------------------------------------------------------------- pre-commit through a hook manager (§10.3)
 
@@ -10,7 +11,7 @@ export const CHECK = "sh .forge/check.sh --changed";
 export const BEGIN = "# forge: begin (forge remove deletes this block)";
 export const END = "# forge: end";
 
-export type ManagerKind = "pre-commit" | "husky" | "lefthook" | "hooks";
+export type ManagerKind = (typeof HOOK_MANAGERS)[number];
 
 export interface HookManager {
   kind: ManagerKind;

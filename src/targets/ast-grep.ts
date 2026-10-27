@@ -8,8 +8,7 @@ import type { AstGrepTarget, ToolTarget } from "../types.js";
 import { TY_VERSION, run } from "../util.js";
 import { patternEvents } from "./events.js";
 import type { TargetKind } from "./kind.js";
-
-export const MODES = ["forbid", "no-increase", "no-decrease", "advise"] as const;
+import { ECOSYSTEMS, MODES } from "../core/vocabulary.js";
 
 export const astGrep: TargetKind<AstGrepTarget> = {
   kind: "ast-grep",
@@ -32,7 +31,7 @@ export const astGrep: TargetKind<AstGrepTarget> = {
           type: "object",
           additionalProperties: false,
           required: ["ecosystem", "name"],
-          properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 } },
+          properties: { ecosystem: { enum: [...ECOSYSTEMS] }, name: { type: "string", minLength: 1 } },
         },
       },
     },

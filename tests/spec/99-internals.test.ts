@@ -13,6 +13,7 @@ import { allTests, autoPlaced, countTests, parseJUnit, readSpec, selectNodes, sp
 import { loadPacks } from "../../src/packs";
 import { globMatch, globToCase } from "../../src/core/globs";
 import { toolsInCommand } from "../../src/core/tools";
+import { GUARD_CHECKS } from "../../src/core/vocabulary";
 import { ROOT, sh } from "../helpers";
 
 describe("globs", () => {
@@ -100,6 +101,12 @@ describe("source layout", () => {
     const graph = srcImports();
     expect(graph.size).toBeGreaterThan(10);
     expect(importCycles(graph).map((c) => c.join(" -> "))).toEqual([]);
+  });
+
+  /** A guard target names its check (§9.2); guard.sh runs guard_check_<name>, so each name the schema allows needs that function. */
+  test("every built-in guard check the schema allows has its function in guard.sh", () => {
+    const guard = readFileSync(join(ROOT, "templates/scripts/guard.sh"), "utf8");
+    for (const name of GUARD_CHECKS) expect(guard).toContain(`guard_check_${name.replaceAll("-", "_")}() {`);
   });
 });
 

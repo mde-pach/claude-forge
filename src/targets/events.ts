@@ -2,7 +2,7 @@
  * What a rule does at each step of a project's life (the docs' lifecycle pages): the steps,
  * the effects, and the sentence helpers the target kinds describe their events with.
  */
-import type { Rule } from "../types.js";
+import type { AstGrepMode, Rule } from "../types.js";
 
 export type StepId = "apply" | "session" | "tool" | "edit" | "stop" | "commit" | "ci";
 export type Effect = "blocks" | "asks" | "feedback" | "wakes" | "fixes" | "audits" | "informs" | "inactive";
@@ -44,7 +44,7 @@ export function cmd(command: string, which: "--all" | "--changed"): string {
 }
 
 /** The events of a pattern target (ast-grep, grep) by mode; `condition` when it applies only in some projects. */
-export function patternEvents(rule: Rule, kind: "ast-grep" | "grep", mode: "forbid" | "no-increase" | "no-decrease" | "advise", condition?: string): LifecycleEvent[] {
+export function patternEvents(rule: Rule, kind: "ast-grep" | "grep", mode: AstGrepMode, condition?: string): LifecycleEvent[] {
   const scope = `a changed ${scopeNoun(rule)}`;
   if (mode === "advise")
     return [

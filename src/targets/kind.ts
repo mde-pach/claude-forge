@@ -5,7 +5,7 @@
  * lifecycle pages follow from it.
  */
 import type { ActiveAstGrep, ActiveCheck, ActiveGrep, ActiveGuard } from "../render/index.js";
-import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Rule, RuleStatus, SwitchedOff, Target, TestReport, ToolName, ToolTarget } from "../types.js";
+import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Rule, RuleFile, RuleStatus, SwitchedOff, Target, TestReport, ToolName, ToolTarget } from "../types.js";
 import type { LifecycleEvent } from "./events.js";
 
 /** What a target's plan step reads from the plan, and where it adds what it enforces. */
@@ -54,7 +54,7 @@ export interface TargetKind<T extends Target = Target> {
   /** Short name on the docs' rule cards: "guard deny", "check · lint". */
   label(t: T): string;
   /** Checks a rule file's target when packs and local rules load (beyond the schema); throws on an invalid one. */
-  validate?(rule: Rule, t: T): void;
+  validate?(rule: RuleFile, t: T): void;
   /** Whether a rule with this target needs match and no_match examples. */
   needsExamples(t: T): boolean;
   /** Adds what the target enforces here to the plan, and says where in `st`. */

@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { codeExamples } from "../examples.js";
 import type { GrepTarget } from "../types.js";
 import { run } from "../util.js";
-import { MODES } from "./ast-grep.js";
 import { patternEvents } from "./events.js";
 import type { TargetKind } from "./kind.js";
+import { MODES } from "../core/vocabulary.js";
 
 export const grep: TargetKind<GrepTarget> = {
   kind: "grep",

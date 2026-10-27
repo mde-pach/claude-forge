@@ -11,13 +11,12 @@ import { unknownRoles } from "./roles.js";
 import { validate } from "./schemas.js";
 import { kindOf } from "./targets/index.js";
 import { sha256 } from "./util.js";
-import type { DepSpec, Pack, ProjectConfig, Rule } from "./types.js";
+import type { DepSpec, Ecosystem, Pack, ProjectConfig, Rule } from "./types.js";
 
 export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const text = readFileSync(file, "utf8");
-  const data = parseStrictYaml(text, file) as Record<string, unknown>;
-  validate("rule", data, file);
-  const rule = data as unknown as Rule;
+  const rule: unknown = parseStrictYaml(text, file);
+  validate("rule", rule, file);
   for (const t of rule.enforce) {
     try {
       kindOf(t).validate?.(rule, t);
@@ -41,9 +40,8 @@ export function loadPacks(packsDir: string): Map<string, Pack> {
   const packs = new Map<string, Pack>();
   const walk = (dir: string, id: string, parent?: Pack) => {
     const packFile = join(dir, "pack.yaml");
-    const data = parseStrictYaml(readFileSync(packFile, "utf8"), packFile) as Record<string, unknown>;
-    validate("pack", data, packFile);
-    const pack = data as unknown as Pack;
+    const pack: unknown = parseStrictYaml(readFileSync(packFile, "utf8"), packFile);
+    validate("pack", pack, packFile);
     if (pack.id !== id) throw new Error(`${packFile}: id "${pack.id}" must equal its path in the pack tree, "${id}"`);
     if (parent && pack.level !== parent.level) throw new Error(`${packFile}: level ${pack.level} differs from parent ${parent.id} (${parent.level})`);
     for (const c of pack.detect?.content_any ?? []) {
@@ -138,9 +136,9 @@ export function lineage(packs: Map<string, Pack>, id: string): string[] {
 export function loadProjectConfig(repo: string): ProjectConfig | undefined {
   const file = join(repo, "forge.yaml");
   if (!existsSync(file)) return undefined;
-  const data = parseStrictYaml(readFileSync(file, "utf8"), file);
-  validate("project", data, file);
-  return data as ProjectConfig;
+  const config: unknown = parseStrictYaml(readFileSync(file, "utf8"), file);
+  validate("project", config, file);
+  return config;
 }
 
 export function loadLocalRules(repo: string): Rule[] {
@@ -164,7 +162,7 @@ export interface DepFacts {
   /** A .yaml / .yml file's first document is a mapping with all these top-level keys (detect.yaml_keys). */
   yamlKeys: (keys: string[]) => boolean;
   /** Ecosystems the project publishes a library to (see isPyLibrary, isNpmLibrary). */
-  library: Set<"pypi" | "npm">;
+  library: Set<Ecosystem>;
 }
 
 /** A workspace package: its directory (relative to the repository) and its own facts, globs relative to it. */
@@ -239,7 +237,7 @@ function normPy(name: string): string {
 function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files" | "contains" | "yamlKeys"> {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
-  const library = new Set<"pypi" | "npm">();
+  const library = new Set<Ecosystem>();
   const read = <T>(file: string, parse: (f: string) => T | undefined, raw: (t: string) => T) => (!existsSync(file) ? undefined : strict ? raw(readFileSync(file, "utf8")) : parse(file));
   const pkg = read(join(dir, "package.json"), readJson, (t) => JSON.parse(t) as Record<string, any>);
   for (const key of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"])

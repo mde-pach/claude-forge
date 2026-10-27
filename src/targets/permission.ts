@@ -4,6 +4,7 @@ import { permissionMatches } from "../selftest/runners.js";
 import type { PermissionTarget } from "../types.js";
 import { code, type LifecycleEvent } from "./events.js";
 import type { TargetKind } from "./kind.js";
+import { DECISIONS } from "../core/vocabulary.js";
 
 export const permission: TargetKind<PermissionTarget> = {
   kind: "permission",
@@ -13,7 +14,7 @@ export const permission: TargetKind<PermissionTarget> = {
     required: ["decision", "rule"],
     properties: {
       target: true,
-      decision: { enum: ["deny", "ask"] },
+      decision: { enum: [...DECISIONS] },
       rule: { type: "string", pattern: "^[A-Za-z]+(\\(.+\\))?$" },
     },
   },

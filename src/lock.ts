@@ -21,7 +21,7 @@ export function readLock(base: string, lockPath: string, level: Level): Lock | u
     throw new Error(`${lockPath}: not valid JSON (${(e as Error).message}); fix it or delete it`);
   }
   validate("lock", data, lockPath);
-  const lock = data as Omit<Lock, "blocks"> & { blocks?: LockBlock[] };
+  const lock = data;
   const bad = lockPathProblems(base, level, lock);
   if (bad.length) throw new Error(`${lockPath}: refused: ${bad.join("; ")}`);
   return { ...lock, blocks: lock.blocks ?? [] };

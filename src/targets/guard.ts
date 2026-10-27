@@ -9,9 +9,7 @@ import type { GuardTarget } from "../types.js";
 import { type Job, runParallel } from "../util.js";
 import { code } from "./events.js";
 import type { TargetKind } from "./kind.js";
-
-/** Built-in guard checks: guard_check_<name> in guard.sh decides on the parsed command. */
-export const GUARD_CHECKS = ["ephemeral-exec"] as const;
+import { DECISIONS, GUARD_CHECKS } from "../core/vocabulary.js";
 
 export const guard: TargetKind<GuardTarget> = {
   kind: "guard",
@@ -21,7 +19,7 @@ export const guard: TargetKind<GuardTarget> = {
     required: ["decision", "pattern"],
     properties: {
       target: true,
-      decision: { enum: ["deny", "ask"] },
+      decision: { enum: [...DECISIONS] },
       pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
       check: { enum: [...GUARD_CHECKS] },
     },

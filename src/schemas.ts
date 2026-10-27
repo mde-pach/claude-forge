@@ -1,5 +1,7 @@
 import Ajv2020 from "ajv/dist/2020.js";
 import { TARGET_KINDS, TARGETS } from "./targets/index.js";
+import type { LockFile, PackFile, ProjectConfig, RuleFile } from "./types.js";
+import { ECOSYSTEMS, HOOK_MANAGERS, LANGUAGES, LEVELS } from "./core/vocabulary.js";
 
 const SEGMENT = "[a-z][a-z0-9-]*";
 /** Pack ids are paths in the pack tree: "python", "python/sqlalchemy/alembic". */
@@ -19,7 +21,7 @@ export const packSchema = {
   properties: {
     id: { type: "string", pattern: ID },
     description: { type: "string", minLength: 1 },
-    level: { enum: ["user", "project"] },
+    level: { enum: LEVELS },
     requires: { type: "array", items: { type: "string", pattern: ID }, uniqueItems: true },
     detect: {
       type: "object",
@@ -33,14 +35,14 @@ export const packSchema = {
             additionalProperties: false,
             required: ["ecosystem", "name"],
             properties: {
-              ecosystem: { enum: ["pypi", "npm"] },
+              ecosystem: { enum: ECOSYSTEMS },
               name: { type: "string", minLength: 1 },
               version: { type: "string", minLength: 1 },
             },
           },
         },
         /** The project is a library published to that ecosystem (packs.ts, isPyLibrary / isNpmLibrary). */
-        library_any: { type: "array", items: { enum: ["pypi", "npm"] }, uniqueItems: true },
+        library_any: { type: "array", items: { enum: ECOSYSTEMS }, uniqueItems: true },
         /** Active in every repository (a root pack not tied to a language). */
         always: { const: true },
         /** A file matching one of files has a line matching pattern (a regular expression): a literal value in a literal config file. */
@@ -174,7 +176,7 @@ export const ruleSchema = {
       additionalProperties: false,
       required: ["language"],
       properties: {
-        language: { enum: ["python", "typescript", "tsx", "yaml", "any"] },
+        language: { enum: LANGUAGES },
         files: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
       },
     },
@@ -194,7 +196,7 @@ export const ruleSchema = {
             additionalProperties: false,
             required: ["ecosystem", "name", "version"],
             properties: {
-              ecosystem: { enum: ["pypi", "npm"] },
+              ecosystem: { enum: ECOSYSTEMS },
               name: { type: "string", minLength: 1 },
               version: { type: "string", pattern: "^[0-9][0-9A-Za-z.+-]*$" },
             },
@@ -216,7 +218,7 @@ export const ruleSchema = {
             type: "object",
             additionalProperties: false,
             required: ["ecosystem", "name", "version"],
-            properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 }, version: { type: "string", minLength: 1 } },
+            properties: { ecosystem: { enum: ECOSYSTEMS }, name: { type: "string", minLength: 1 }, version: { type: "string", minLength: 1 } },
           },
         },
       },
@@ -316,7 +318,7 @@ export const lockSchema = {
         required: ["file", "kind", "created", "hash"],
         properties: {
           file: { type: "string", minLength: 1 },
-          kind: { enum: ["pre-commit", "husky", "lefthook", "hooks"] },
+          kind: { enum: HOOK_MANAGERS },
           created: { type: "boolean" },
           hash: { type: "string", pattern: SHA256 },
         },
@@ -333,7 +335,31 @@ const validators = {
   lock: ajv.compile(lockSchema),
 };
 
-export function validate(kind: keyof typeof validators, data: unknown, source: string): void {
+/** What each schema validates, as its TypeScript type. */
+interface Validated {
+  pack: PackFile;
+  rule: RuleFile;
+  project: ProjectConfig;
+  lock: LockFile;
+}
+
+/** The top-level property names of a schema. */
+type SchemaKeys<S> = S extends { properties: infer P } ? keyof P : never;
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+/**
+ * The schemas and the types name the same fields: a field added to one and not the other
+ * fails the typecheck here.
+ */
+const schemasMatchTypes: [
+  Same<SchemaKeys<typeof packSchema>, keyof PackFile>,
+  Same<SchemaKeys<typeof ruleSchema>, keyof RuleFile>,
+  Same<SchemaKeys<typeof projectConfigSchema>, keyof ProjectConfig>,
+  Same<SchemaKeys<typeof lockSchema>, keyof LockFile>,
+] = [true, true, true, true];
+void schemasMatchTypes;
+
+/** Validates data against a schema, and narrows it to that schema's type; throws with every error found. */
+export function validate<K extends keyof Validated>(kind: K, data: unknown, source: string): asserts data is Validated[K] {
   const v = validators[kind];
   if (!v(data)) {
     const msgs = (v.errors ?? [])
