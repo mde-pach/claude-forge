@@ -1831,8 +1831,13 @@ context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag f
 |---|---|
 | `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
 | `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
+| `typescript/express/path-syntax-v5` | `ast-grep` forbid, `when` `express >= 5`: a first argument of `$R.get\|post\|put\|patch\|delete\|options\|head\|all\|use\|route(…)` (a string, or a string in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` (path-to-regexp 8 throws), where `R` is an Express `IRouter` (`express-serve-static-core`: applications and routers) |
+| `typescript/express/no-req-query-assign` | `ast-grep` forbid, `when` `express >= 5`: an assignment (or `+=`, …) to `$R.query`, `$R.query.<p>` or `$R.query[<k>]`, where `R` is an Express `Request` (a getter in Express 5) |
+| `typescript/express/no-async-errors` | `ast-grep` forbid, `when` `express >= 5`: an import or `require` of `express-async-errors` |
+| `typescript/express/no-async-handler` | `ast-grep` advise, `when` `express >= 5`: an import or `require` of `express-async-handler` or `express-promise-router` (redundant: Express 5 handles rejected promises) |
+| `typescript/express/no-v4-response-signatures` | `ast-grep` forbid, `when` `express >= 5`: `$R.send(<number>)` (one argument) and `$R.redirect("back")`, where `R` is an Express `Response` |
 
-context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`.
+context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`; Express 5 path syntax, `req.query` read-only, no async wrappers, no Express 4 `res.send(<number>)` / `res.redirect("back")`.
 
 ### typescript/bullmq
 
