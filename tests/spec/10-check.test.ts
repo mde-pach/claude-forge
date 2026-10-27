@@ -1631,7 +1631,7 @@ describe("pinned release binaries and system tools", () => {
    * PATH is another tool, reported as missing.
    * @rule typescript/pnpm/lock-sync typescript/npm/lock-sync typescript/yarn/lock-sync
    */
-  test("npm, pnpm and yarn are system tools found on PATH; yarn counts only from Yarn 2 on", () => {
+  test("npm, pnpm and yarn are system tools found on PATH, named where a command starts; yarn counts only from Yarn 2 on", () => {
     const r = release({});
     const bin = join(r.dir, "bin");
     const tool = (name: string, version: string) => {
@@ -1650,6 +1650,9 @@ echo "${version}"
     tool("yarn", "4.18.1");
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("has npm\nhas pnpm\nhas yarn\n");
     expect(checkTools({ target: "check", stage: "lint", run: "yarn install --immutable --mode=skip-build" })).toEqual(["yarn"]);
+    // a package manager's name in a message is not a command: only where a command starts
+    expect(checkTools({ target: "check", stage: "lint", run: "printf '%s\\n' \"the pnpm field is not read by pnpm 11\"; false" })).toEqual([]);
+    expect(checkTools({ target: "check", stage: "lint", run: "if [ -f x ]; then pnpm install --frozen-lockfile; fi" })).toEqual(["pnpm"]);
   });
 
   /** @rule typescript/express/types-match */
