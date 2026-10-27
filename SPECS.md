@@ -654,7 +654,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-double-assertion` | `ast-grep` forbid: `$X as unknown as $T`, `$X as any as $T` |
 | `typescript/no-ts-nocheck` | `ast-grep` forbid comment `@ts-nocheck` |
 | `typescript/ts-expect-error-reason` | `ast-grep` forbid comment `@ts-expect-error` with nothing after it |
-| `typescript/no-deprecated` | `ast-grep` forbid, `where` `{deprecated: true}` (§15.7) on every identifier, property, type and shorthand name: a use of a declaration marked `@deprecated` (the project's, a library's, `@types/node`'s: `url.parse`, `new Buffer()`, React's `ElementRef`) as TypeScript reports it, including the overload a call resolves to, and an object literal key of a deprecated property |
+| `typescript/no-deprecated` | `when` typescript `>=5.0.0` (the project's TypeScript answers); `ast-grep` forbid, `where` `{deprecated: true}` (§15.7) on every identifier, property, type and shorthand name: a use of a declaration marked `@deprecated` (the project's, a library's, `@types/node`'s: `url.parse`, `new Buffer()`, React's `ElementRef`) as TypeScript reports it, including the overload a call resolves to, and an object literal key of a deprecated property |
 | `typescript/no-ignore-deprecations` | `check` lint: no `"ignoreDeprecations"` in tracked `tsconfig*.json`, `when_changed: [tsconfig*.json]` |
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
@@ -1832,7 +1832,7 @@ context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
 |---|---|
 | `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
 | `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
-| `typescript/better-auth/schema-check` | `check` migration, `when` auth `>=1.7.13`: `auth check schema --config <file>` on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
+| `typescript/better-auth/schema-check` | `check` migration, `when` auth `>=1.7.13`: `better-auth check schema --config <file>` (the `auth` package's CLI) on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
 
 context.md: CSRF checks and Secure cookies on; real trusted origins.
 

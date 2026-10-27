@@ -1,5 +1,5 @@
 id: typescript/better-auth/schema-check
-description: "Better Auth's own schema check passes (auth check schema --config <the file of role @better-auth-config>, the auth CLI 1.7.13 and later): every table and field the config's plugins write exists in the Prisma client, the Drizzle schema or, with another adapter, the local database. A check that cannot run is reported, never passed."
+description: "Better Auth's own schema check passes (better-auth check schema --config <the file of role @better-auth-config>: the CLI of the auth package, 1.7.13 and later): every table and field the config's plugins write exists in the Prisma client, the Drizzle schema or, with another adapter, the local database. A check that cannot run is reported, never passed."
 scope: {language: any, files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.prisma"]}
 enforce:
   - target: check
@@ -12,11 +12,11 @@ enforce:
       elif ! grep -Eq 'better-auth/adapters/drizzle|better-auth/adapters/prisma|@better-auth/drizzle-adapter|@better-auth/prisma-adapter' "$_ba_cfg" && ! forge_local_db; then
         printf 'forge:%s skipped: no local database (the Better Auth adapter of %s checks the live database)\n' "$c_id" "$_ba_cfg"
       else
-        auth check schema --config "$_ba_cfg" > "$FORGE_TMP/better-auth.out" 2>&1
+        forge_exec_tool better-auth check schema --config "$_ba_cfg" > "$FORGE_TMP/better-auth.out" 2>&1
         case $? in
           0) ;;
           1) cat "$FORGE_TMP/better-auth.out"; printf 'Add the tables and fields above (generate them with the auth CLI or your ORM, then migrate).\n'; false ;;
-          *) printf 'forge:%s skipped: auth check schema could not run: %s\n' "$c_id" "$(grep . "$FORGE_TMP/better-auth.out" | tail -n 1)" ;;
+          *) printf 'forge:%s skipped: the schema check could not run: %s\n' "$c_id" "$(grep . "$FORGE_TMP/better-auth.out" | tail -n 1)" ;;
         esac
       fi
 when:

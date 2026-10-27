@@ -736,7 +736,10 @@ test("a where condition asks a type (§15.1), a declared name (§15.6), as one s
   expect(ok({ declared: { package: "numpy" }, type: { package: "numpy" } })).toBe(false);
 });
 
-/** Only the TypeScript engine answers deprecated uses (§15.7): ty's own rule covers Python. */
+/**
+ * Only the TypeScript engine answers deprecated uses (§15.7): ty's own rule covers Python.
+ * @rule typescript/no-deprecated
+ */
 test("a Python rule asking deprecated is rejected when it is loaded", () => {
   const dir = mkdtempSync(join(tmpdir(), "forge-dep-"));
   const file = join(dir, "x.yaml");

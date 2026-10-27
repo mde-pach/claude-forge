@@ -12,6 +12,9 @@ enforce:
         - {kind: shorthand_property_identifier, pattern: $N}
     where:
       N: {deprecated: true}
+# the project's own TypeScript answers (§15.2): where it declares one the engine supports
+when:
+  deps: [{ecosystem: npm, name: typescript, version: ">=5.0.0"}]
 examples:
   deps: [{ecosystem: npm, name: "@types/node", version: "24.10.1"}]
   match:
