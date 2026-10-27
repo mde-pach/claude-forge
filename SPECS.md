@@ -705,8 +705,8 @@ context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never sil
 | `python/fastapi/unused-path-param` | `tool` ruff `FAST003` |
 | `python/fastapi/no-debug-true` | `ast-grep` forbid, not in tests: a call typed `starlette` `Starlette` (`FastAPI` included) with `debug=True` |
 | `python/fastapi/no-raw-request-body` | `ast-grep` advise: `await $REQ.json()`, `await $REQ.form(…)`, `await $REQ.body()`, `$REQ.stream()` on a `starlette` `Request` |
-| `python/fastapi/testclient-lifespan` | `ast-grep` advise: a call typed `starlette` `TestClient` outside a `with` item |
-| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid: a call typed `starlette` `TestClient` inside an `async def` |
+| `python/fastapi/testclient-lifespan` | `ast-grep` advise, in `@python-tests`: a call typed `starlette` `TestClient` outside a `with` item |
+| `python/fastapi/no-testclient-in-async-test` | `ast-grep` forbid, in `@python-tests`: a call typed `starlette` `TestClient` inside an `async def` |
 | `python/fastapi/deprecated-params` | `ast-grep` forbid: a call with `regex=` or `example=` whose callee is declared (§15.6) by `fastapi` as `Query`, `Path`, `Header`, `Cookie`, `Body`, `Form` or `File` (they return `Any`: the call's type says nothing); a call with `root_path=` whose type is `fastapi`'s `FastAPI` |
 
 context.md: "FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan`. Request and response bodies are Pydantic v2 models." No debug mode outside tests; `with TestClient(app)` so the lifespan runs, `httpx.AsyncClient` with `ASGITransport` in async tests.
@@ -800,7 +800,7 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 | `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module and, at Stop, the test files edited during the turn (`<snapshot>/touched`, §10.5) even when the edit was reverted; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
 | `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)`, `pytest.importorskip($$$)` |
 | `python/pytest/no-hook-tamper` | `ast-grep` advise on test files and `conftest.py`: a `def` of a result-rewriting hook (`pytest_runtest_makereport`, `pytest_report_teststatus`, `pytest_runtest_call`, `pytest_pyfunc_call`, `pytest_runtest_protocol`, `pytest_terminal_summary`, `pytest_collection_modifyitems`) |
-| `python/pytest/no-exitstatus` | `ast-grep` advise: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
+| `python/pytest/no-exitstatus` | `ast-grep` advise, in `@python-tests`: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
 | `python/pytest/no-exit-zero` | `ast-grep` forbid on test files and `conftest.py`: `sys.exit(0)`, `os._exit(0)`, `pytest.exit(…, returncode=0)` |
 | `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
@@ -1396,7 +1396,7 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
 | `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
-| `typescript/vitest/no-matcher-override` | `ast-grep` forbid: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
+| `typescript/vitest/no-matcher-override` | `ast-grep` forbid, in `@ts-tests`, `vitest.setup.*` and `__mocks__/`: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
 | `typescript/vitest/no-exit-zero` | `ast-grep` forbid on test, setup and mock files: `process.exit(0)` |
 | `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
 | `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |

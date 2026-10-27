@@ -1,6 +1,6 @@
 id: typescript/vitest/no-matcher-override
 description: "expect.extend does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name. The receiver is Vitest's expect by its type, whatever it is called."
-scope: {language: typescript}
+scope: {language: typescript, files: ["@ts-tests", "**/vitest.setup.*", "**/__mocks__/**"]}
 enforce:
   - target: ast-grep
     mode: forbid
