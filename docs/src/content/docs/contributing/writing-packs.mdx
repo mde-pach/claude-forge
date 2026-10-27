@@ -53,6 +53,8 @@ A rule about one version of a library carries a gate: `when: {deps: [{ecosystem:
 
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
+When a framework makes one of the tool rules Forge asks for harmful, its pack switches that diagnostic off: `tool_off: [{tool: biome, expects: lint/style/useImportType, reason: "…"}]` (NestJS: the fix turns DTO imports into `import type`, which erases them from the decorator metadata). Where the pack is active, no rule asks for it, `forge status` shows which pack switched it off and why, and `forge init` writes the Biome config with it off.
+
 A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are named in `run` like project tools and found on `PATH`, so a check whose tool is absent is reported skipped; `terraform` runs `tofu` in an OpenTofu project, and `yarn` counts only from Yarn 2 on (what a `.yarnrc.yml` project uses). A project tool whose name has a `-` is run as `forge_exec_tool <name>` (`forge_exec_tool graphql-codegen --check`).
 
 A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails check.sh stops there instead of reporting the typecheck errors stale generated code causes.

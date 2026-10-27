@@ -46,12 +46,12 @@ Every requirement uses MUST / MUST NOT. Anything not described here is out of sc
 
 | Command | Behavior |
 |---|---|
-| `forge init` | New project only. Creates the stack's tool configs from pack templates (§5.2), each only if the file does not exist, then runs `forge apply`. |
+| `forge init` | New project only. Creates the stack's tool configs from pack templates (§5.2), each only if the file does not exist (with the diagnostics active packs switch off set to off, §5.1 `tool_off`), then runs `forge apply`. |
 | `forge apply` | Generate or update the project-level setup in the current repository. |
 | `forge apply --user` | Generate or update the user-level setup. |
 | `forge apply --local` | Like `apply`, but permission entries go to `.claude/settings.local.json` (for repositories you don't own). |
 | `forge diff [--user]` | Show what `apply` would change. Exit 1 if anything differs. |
-| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set`, `ESLint rules not at error` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `snippets` (§11), `missing_tools`, `packs`, `disabled`, `gated` (§6.1), `drift`. |
+| `forge status [--user] [--json]` | Active packs; rules as `Rules: <n> active, <m> enforced, <k> not enforced (<count> <reason>, …)` then each rule with where it is enforced; disabled rules with reasons; audit results with snippets; drift; missing tools. A rule is enforced when at least one of its targets acts here: a satisfied audit, an ast-grep rule, a permission, guard, sandbox or grep target, or a check whose tools are installed. Reasons: `ruff codes not selected`, `Biome rules not at error`, `ty rules not at error`, `tsc options not set`, `ESLint rules not at error` (unsatisfied audits), `<tool> not configured`, `<tool> not installed`. Missing tools are what the generated scripts' `forge_missing_tools` prints (the SessionStart hook reports the same list). `--json` prints all of it as one object: `counts`, `rules` (`id`, `enforced`, `by`, `not_enforced`), `audits`, `snippets` (§11), `missing_tools`, `packs`, `disabled`, `gated` (§6.1), `switched_off` (§5.1), `drift`. |
 | `forge explain <rule-id>` | The rule file, where it is enforced in this project, and its audit result. |
 | `forge test` | Inside a git repository: validate the project's local rules (`.forge/rules/`; a local rule replacing a pack rule is tested as written) against the schema and run their examples (§14.1). No local rules: prints that there is nothing to test, exit 0. The bundled packs are not run: they are proved by Forge's own test suite. |
 | `forge remove [--user]` | Delete every owned file and exactly the settings entries recorded in the lock. |
@@ -93,10 +93,13 @@ detect:                     # omitted for user-level packs; any one of these det
   library_any: [pypi | npm]  # the project is a library published there (§13.4)
   content_any: [{files: [glob], pattern: regex}]  # a line of a matching file matches (a literal value in a literal config file)
   yaml_keys: [key]           # a .yaml/.yml file whose first document is a mapping with all these top-level keys
+tool_off:                   # optional: tool diagnostics this pack switches off where it is active
+  - {tool: biome, expects: lint/<group>/<name>, reason: string}
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
 - `content_any` and `yaml_keys` read file contents, only for packs that use them and only files of at most 1 MiB. `content_any` patterns are JavaScript regular expressions tested on each line (`^` and `$` anchor lines); one that does not compile rejects the pack. `yaml_keys` reads a file's first document (up to the next `---` or `...`); a file that is not YAML (a template that renders to YAML) does not count. Detection by content stays a detection: `packs.add` and `packs.remove` decide last.
+- **`tool_off`.** Where the pack is active, no rule's `tool` target with that `tool` and `expects` is audited or demanded (nor its rule's `ast-grep` stand-in): status lists it as `not enforced here: <tool> <expects> switched off by <pack> (<reason>)` and under `Switched off by packs:` (`--json`: `switched_off`, with the rules whose targets asked for it), and `forge init` writes Forge's config for that tool with the diagnostic `"off"` (Biome: `linter.rules.<group>.<name>` in `biome.json`, the rest of the template kept). For a diagnostic the tool's own fix makes harmful in that framework (NestJS: `useImportType`).
 - `forge.yaml` `packs.add` activates a pack and its ancestors. `requires` activates the required pack and its ancestors.
 - `packs.remove` deactivates a pack, its whole subtree, and every pack that requires a removed pack.
 - Detection reads `pyproject.toml`, `uv.lock`, `package.json`, `bun.lock`, and the files `content_any` and `yaml_keys` name.
@@ -1623,17 +1626,18 @@ context.md: the client comes from the document through a generator script; the t
 
 ### typescript/nestjs
 
-Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone.
+Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone. `tool_off`: Biome's `lint/style/useImportType` (§5.1), whose fix turns a DTO import into `import type`.
 
 | Rule | Targets |
 |---|---|
 | `typescript/nestjs/validation-pipe-whitelist` | `ast-grep` forbid: `new $N(…)` without `whitelist: true` in its object argument, where `N` is `@nestjs/common`'s `ValidationPipe` |
 | `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | `ast-grep` advise: the same without `forbidNonWhitelisted: true` |
 | `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
+| `typescript/nestjs/dto-not-type-import` | `ast-grep` forbid: a parameter decorated by `@nestjs/common`'s `Body` / `Query` / `Param` whose type is a name bound by a type-only import (`import type { X }`, `import { type X }`, `import type X`, aliases included): `design:paramtypes` loses the class and `ValidationPipe` validates nothing |
 | `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
 | `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
 
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
+context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`, imported as values; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers.
 
 ### typescript/kysely
 

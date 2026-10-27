@@ -14,6 +14,7 @@ import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } fro
 import { CLAUDE_CODE_MIN, ENGINE_PYTHON, FORGE_VERSION, TY_VERSION, compareVersions, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
 import { USAGE } from "./usage.js";
+import { applyEdits, modify } from "jsonc-parser/lib/esm/main.js";
 
 class ForgeError extends Error {
   constructor(
@@ -647,6 +648,7 @@ function cmdStatus(flags: Flags): number {
           rules,
           disabled: p.disabled,
           gated: p.gated,
+          switched_off: p.switchedOff,
           deprecated: p.deprecated,
           audits,
           snippets: mergedSnippets(audits),
@@ -685,6 +687,11 @@ function cmdStatus(flags: Flags): number {
     out("");
     out("Inactive (version gate):");
     for (const g of p.gated) out(`  ${g.id}: needs ${g.needs}`);
+  }
+  if (p.switchedOff.length) {
+    out("");
+    out("Switched off by packs:");
+    for (const o of p.switchedOff) out(`  ${o.tool} ${o.expects} (${o.pack}): ${o.reason}${o.rules.length ? `; not asked for by ${o.rules.join(", ")}` : ""}`);
   }
   if (p.deprecated.length) for (const d of p.deprecated) out(`  ${d.id}: deprecated, replaced by ${d.replaced_by}`);
   if (ctx.level === "project" && p.roles.length) {
@@ -862,12 +869,31 @@ function cmdInit(flags: Flags): number {
       else if (flags.dryRun) out(`forge: would create ${f} (from ${pk.id})`);
       else {
         mkdirSync(dirname(dest), { recursive: true });
-        cpSync(src, dest);
+        const off = initSwitchOffs(f, readFileSync(src, "utf8"), p.switchedOff);
+        if (off === undefined) cpSync(src, dest);
+        else writeFileSync(dest, off);
         out(`forge: created ${f} (from ${pk.id})`);
       }
     }
   }
   return cmdApply(flags);
+}
+
+/**
+ * An init template with the diagnostics active packs switch off (pack.yaml tool_off) set to
+ * "off", the rest of the file as it is; undefined when none concerns it. Biome:
+ * biome.json's linter.rules.<group>.<name>.
+ */
+function initSwitchOffs(file: string, text: string, offs: Plan["switchedOff"]): string | undefined {
+  if (!/(^|\/)biome\.jsonc?$/.test(file)) return undefined;
+  const mine = offs.filter((o) => o.tool === "biome");
+  if (!mine.length) return undefined;
+  let out = text;
+  for (const o of mine) {
+    const [, group, name] = o.expects.split("/");
+    out = applyEdits(out, modify(out, ["linter", "rules", group!, name!], "off", { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- main

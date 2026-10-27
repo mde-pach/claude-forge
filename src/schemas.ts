@@ -60,6 +60,24 @@ export const packSchema = {
         yaml_keys: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", minLength: 1 } },
       },
     },
+    /**
+     * Tool diagnostics this pack switches off where it is active: no rule's tool target asks
+     * for them, and forge init writes Forge's tool config with them off (Biome).
+     */
+    tool_off: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["tool", "expects", "reason"],
+        properties: {
+          tool: { enum: ["biome"] },
+          expects: { type: "string", pattern: "^lint/[a-zA-Z]+/[a-zA-Z]+$" },
+          reason: { type: "string", minLength: 1 },
+        },
+      },
+    },
   },
   if: { properties: { level: { const: "user" } } },
   then: { not: { required: ["detect"] } },

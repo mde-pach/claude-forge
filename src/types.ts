@@ -38,6 +38,15 @@ export interface Pack {
   context?: string;
   initDir?: string;
   rules: Rule[];
+  /** Tool diagnostics this pack switches off where it is active (no target asks for them; forge init writes them off). */
+  tool_off?: ToolOff[];
+}
+
+/** A tool diagnostic a pack switches off (Biome's useImportType in NestJS, whose decorators need the value imports). */
+export interface ToolOff {
+  tool: "biome";
+  expects: string;
+  reason: string;
 }
 
 export interface ToolTarget {
