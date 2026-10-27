@@ -862,10 +862,14 @@ forge_version_ge() {
     exit 0 }'
 }
 
-# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least 3 days (259200 s).
+# Forge's one release cooldown (3 days, in seconds): the minimum age of a version the
+# package managers' cooldown settings must ask for, and of a newly added package (new_deps).
+FORGE_COOLDOWN_SECONDS=259200
+
+# forge_bun_cooldown: bunfig.toml [install] minimumReleaseAge is at least FORGE_COOLDOWN_SECONDS.
 forge_bun_cooldown() {
   _bc_v=$(forge_toml_get bunfig.toml install minimumReleaseAge)
-  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge 259200 ] && return 0 ;; esac
+  case $_bc_v in ''|*[!0-9]*) ;; *) [ "$_bc_v" -ge "$FORGE_COOLDOWN_SECONDS" ] && return 0 ;; esac
   printf 'bunfig.toml: [install] minimumReleaseAge is %s; set it to at least 259200 (3 days, in seconds) so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in minimumReleaseAgeExcludes.\n' "${_bc_v:-unset}"
   return 1
 }
@@ -877,7 +881,7 @@ forge_uv_cooldown() {
   _uc_rc=0
   _uc_v=$(forge_toml_get "$_uc_f" "$_uc_s" exclude-newer)
   _uc_n=$(forge_duration_seconds "$_uc_v")
-  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt 259200 ]; then
+  if [ -z "$_uc_n" ] || [ "$_uc_n" -lt "$FORGE_COOLDOWN_SECONDS" ]; then
     printf '%s: [%s] exclude-newer is %s; set a relative duration of at least 3 days, e.g. exclude-newer = "7 days", so a freshly published (possibly compromised) version is not resolved.\n' "$_uc_f" "${_uc_s:-top level}" "${_uc_v:-unset}"
     _uc_rc=1
   fi

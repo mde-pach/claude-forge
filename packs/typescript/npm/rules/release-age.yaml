@@ -2,7 +2,7 @@ id: typescript/npm/release-age
 description: npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude.
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs npm-cooldown", when_changed: [.npmrc, package.json, package-lock.json]}
+  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS", when_changed: [.npmrc, package.json, package-lock.json]}
 examples:
   match:
     - files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}}\n"}

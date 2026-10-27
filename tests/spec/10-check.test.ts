@@ -1737,3 +1737,70 @@ describe("Forge's own files and helper scopes", () => {
     expect(engineRun(checks, `FINDING='advice here'\n${body}`, cwd).stdout).toBe("forge:demo/advice skipped: the tool is offline\nrc=0\n---\nforge:demo/advice failed\na.txt: advice here\n");
   });
 });
+
+/**
+ * A dependency added to a manifest is looked up on its registry (§13 supply-chain): a package
+ * first published less than Forge's cooldown ago needs the user's review. The registries are
+ * replaced here by files (FORGE_REGISTRY_NPM / FORGE_REGISTRY_PYPI name a mirror), so the
+ * package's age is known.
+ * @rule supply-chain/new-npm-dep-exists supply-chain/new-pypi-dep-exists
+ */
+describe("registry lookups", () => {
+  const rules = () => loadPacks(join(ROOT, "packs")).get("supply-chain")!.rules;
+  function withRegistry<T>(fn: (dir: string) => T): T {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-registry-")));
+    const now = new Date().toISOString();
+    const old = "2020-01-01T00:00:00.000Z";
+    put(dir, "npm/fresh-forge-pkg", JSON.stringify({ name: "fresh-forge-pkg", "dist-tags": { latest: "1.0.0" }, versions: { "1.0.0": {} }, time: { created: now } }));
+    put(dir, "npm/settled-forge-pkg", JSON.stringify({ name: "settled-forge-pkg", "dist-tags": { latest: "1.0.0" }, versions: { "1.0.0": {} }, time: { created: old } }));
+    put(dir, "pypi/pypi/fresh-forge-pkg/json", JSON.stringify({ releases: { "1.0.0": [{ upload_time_iso_8601: now, yanked: false }] } }));
+    put(dir, "pypi/pypi/settled-forge-pkg/json", JSON.stringify({ releases: { "1.0.0": [{ upload_time_iso_8601: old, yanked: false }] } }));
+    put(dir, "pypi/pypi/yanked-forge-pkg/json", JSON.stringify({ releases: { "1.0.0": [{ upload_time_iso_8601: old, yanked: true }] } }));
+    const saved = { npm: process.env.FORGE_REGISTRY_NPM, pypi: process.env.FORGE_REGISTRY_PYPI };
+    process.env.FORGE_REGISTRY_NPM = `file://${dir}/npm`;
+    process.env.FORGE_REGISTRY_PYPI = `file://${dir}/pypi`;
+    try {
+      return fn(dir);
+    } finally {
+      if (saved.npm === undefined) delete process.env.FORGE_REGISTRY_NPM;
+      else process.env.FORGE_REGISTRY_NPM = saved.npm;
+      if (saved.pypi === undefined) delete process.env.FORGE_REGISTRY_PYPI;
+      else process.env.FORGE_REGISTRY_PYPI = saved.pypi;
+    }
+  }
+  const outcome = (id: string, files: Record<string, string>, kind: "match" | "no_match") => {
+    const rule = rules().find((r) => r.id === id)!;
+    return runCheckExample(rule, rule.enforce[0] as CheckTarget, { files }, kind, [...(process.env.PATH ?? "").split(":")]).outcome;
+  };
+
+  test.if(hasBun)("a package first published less than the cooldown (3 days) ago fails; an older one passes", () => {
+    withRegistry(() => {
+      const pkg = (name: string) => ({ "package.json": `{\n  "name": "shop",\n  "dependencies": {\n    "${name}": "^1.0.0"\n  }\n}\n` });
+      expect(outcome("supply-chain/new-npm-dep-exists", pkg("fresh-forge-pkg"), "match")).toBe("pass");
+      expect(outcome("supply-chain/new-npm-dep-exists", pkg("settled-forge-pkg"), "no_match")).toBe("pass");
+    });
+  }, T);
+
+  test("a PyPI package first uploaded less than the cooldown ago, or with every release yanked, fails", () => {
+    withRegistry(() => {
+      const py = (name: string) => ({ "pyproject.toml": `[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["${name}>=1"]\n` });
+      expect(outcome("supply-chain/new-pypi-dep-exists", py("fresh-forge-pkg"), "match")).toBe("pass");
+      expect(outcome("supply-chain/new-pypi-dep-exists", py("yanked-forge-pkg"), "match")).toBe("pass");
+      expect(outcome("supply-chain/new-pypi-dep-exists", py("settled-forge-pkg"), "no_match")).toBe("pass");
+    });
+  }, T);
+
+  test("an unreachable registry makes the check skipped, never passed", () => {
+    const saved = process.env.FORGE_REGISTRY_PYPI;
+    process.env.FORGE_REGISTRY_PYPI = "http://127.0.0.1:9";
+    try {
+      const rule = rules().find((r) => r.id === "supply-chain/new-pypi-dep-exists")!;
+      const r = runCheckExample(rule, rule.enforce[0] as CheckTarget, { files: { "pyproject.toml": '[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["httpx"]\n' } }, "match", [...(process.env.PATH ?? "").split(":")]);
+      expect(r.outcome).toBe("skip");
+      expect(r.detail).toStartWith("registry unreachable");
+    } finally {
+      if (saved === undefined) delete process.env.FORGE_REGISTRY_PYPI;
+      else process.env.FORGE_REGISTRY_PYPI = saved;
+    }
+  }, T);
+});

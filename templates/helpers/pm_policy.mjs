@@ -2,7 +2,7 @@
 // .forge/check.sh with bun, through forge_helper). Usage:
 //   bun pm_policy.mjs <forge-tmp> <mode>
 // Modes (the change is <forge-tmp>/changed, base copies under <forge-tmp>/base/):
-//   npm-cooldown        .npmrc min-release-age is at least 3 (days), and package.json requires
+//   npm-cooldown <s>    .npmrc min-release-age is at least <s> seconds in days (3), and package.json requires
 //                       npm >= 11.10 (devEngines.packageManager or packageManager): older npm ignores it
 //   npm-scripts         package.json allowScripts gains no approval; .npmrc gains no
 //                       ignore-scripts=false, allow-scripts entry or dangerously-allow-all-scripts
@@ -21,7 +21,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const [tmp, mode] = process.argv.slice(2);
+const [tmp, mode, cooldownArg] = process.argv.slice(2);
+// npm-cooldown: Forge's one release cooldown, in seconds (FORGE_COOLDOWN_SECONDS), as days
+const cooldownDays = Math.ceil(Number(cooldownArg) / 86400);
 const lines = (name) => {
   try { return readFileSync(join(tmp, name), "utf8").split("\n").filter(Boolean); } catch { return []; }
 };
@@ -100,10 +102,11 @@ function lowest(range) {
 // ---- modes
 
 function npmCooldown() {
+  if (!(cooldownDays > 0)) skip("npm-cooldown needs the cooldown in seconds");
   const rc = npmrc(readNow(".npmrc"));
   const age = last(rc, "min-release-age");
-  if (!(age !== undefined && /^\d+(\.\d+)?$/.test(age) && Number(age) >= 3))
-    out(`.npmrc: min-release-age is ${age ?? "unset"}; set min-release-age=3 (days) or more so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in min-release-age-exclude.`);
+  if (!(age !== undefined && /^\d+(\.\d+)?$/.test(age) && Number(age) >= cooldownDays))
+    out(`.npmrc: min-release-age is ${age ?? "unset"}; set min-release-age=${cooldownDays} (days) or more so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in min-release-age-exclude.`);
   const pkg = json(readNow("package.json"), "package.json");
   const wanted = [];
   for (const e of Array.isArray(obj(pkg.devEngines).packageManager) ? pkg.devEngines.packageManager : [obj(pkg.devEngines).packageManager])

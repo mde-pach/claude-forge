@@ -1,0 +1,17 @@
+id: supply-chain/new-pypi-dep-exists
+description: "Each dependency a pyproject.toml gains ([project] dependencies and optional-dependencies, [dependency-groups], [tool.uv] dev-dependencies, [tool.poetry.*dependencies]) exists on PyPI, has a release that is not yanked, and was first uploaded at least Forge's cooldown (3 days) ago; names an explicit private index serves (uv sources, Poetry explicit sources) and path, git or URL sources are not looked up, and an unreachable index is reported skipped."
+scope: {language: any, files: ["**/pyproject.toml"]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_helper python new_deps.py $FORGE_COOLDOWN_SECONDS"
+    when_changed: ["**/pyproject.toml"]
+examples:
+  match:
+    - head: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\n    \"httpx>=0.28\",\n]\n"}
+      files: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\n    \"httpx>=0.28\",\n    \"forge-hallucinated-package-0f3a9c>=1.0\",\n]\n"}
+    - files: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n\n[dependency-groups]\ndev = [\"pytest-forge-hallucinated-0f3a9c\"]\n"}
+  no_match:
+    - head: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\n    \"httpx>=0.28\",\n]\n"}
+      files: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\n    \"httpx>=0.28\",\n    \"pydantic>=2.11\",\n]\n"}
+    - files: {pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"acme-internal\", \"acme-lib\"]\n\n[[tool.uv.index]]\nname = \"acme\"\nurl = \"https://pypi.acme.internal/simple\"\nexplicit = true\n\n[tool.uv.sources]\nacme-internal = { index = \"acme\" }\nacme-lib = { path = \"../acme-lib\" }\n"}
