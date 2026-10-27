@@ -433,7 +433,8 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
         { cwd: root, env: ENV },
       );
       expect(start.stdout.split("\n").filter((l) => l.startsWith("ready ty "))).toHaveLength(2);
-      const twins = processesNaming(state);
+      // the adapters themselves: a newer uv keeps a uvx parent around its child (it exits with it)
+      const twins = processesNaming(state).filter((p) => !/(^|\/)uvx?$/.test(sh("ps", ["-o", "comm=", "-p", p]).stdout.trim()));
       expect(twins).toHaveLength(2);
       const tree = (p: string): string[] => [p, ...sh("pgrep", ["-P", p]).stdout.split("\n").filter(Boolean).flatMap(tree)];
       const all = twins.flatMap(tree);
