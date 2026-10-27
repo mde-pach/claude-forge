@@ -324,3 +324,32 @@ test.if(hasBun)(
   },
   T,
 );
+
+/**
+ * The auth CLI loads the project's auth config and its ORM schema, so the rule has no
+ * examples in its file; here a stand-in `auth` answers as the CLI does (exit 0, 1 on
+ * SCHEMA_MISMATCH, 2 when it cannot check). An adapter that reads the live database runs
+ * only against a local one.
+ * @rule typescript/better-auth/schema-check
+ */
+test("typescript/better-auth/schema-check: a schema mismatch fails, a check the CLI cannot run is skipped, and the database adapter needs a local database", () => {
+  const rule = rules.find((r) => r.id === "typescript/better-auth/schema-check")!;
+  const target = rule.enforce[0] as CheckTarget;
+  const bin = mkdtempSync(join(tmpdir(), "forge-auth-"));
+  const auth = (code: number, say: string) => {
+    writeFileSync(join(bin, "auth"), `#!/bin/sh\n[ "$1 $2 $3" = "check schema --config" ] || exit 9\nprintf '%s\\n' '${say}' >&2\nexit ${code}\n`);
+    chmodSync(join(bin, "auth"), 0o755);
+  };
+  const prisma = 'import { betterAuth } from "better-auth";\nimport { prismaAdapter } from "better-auth/adapters/prisma";\nimport { organization } from "better-auth/plugins";\nimport { prisma } from "./db";\n\nexport const auth = betterAuth({ database: prismaAdapter(prisma, { provider: "postgresql" }), plugins: [organization()] });\n';
+  const pool = 'import { betterAuth } from "better-auth";\nimport { Pool } from "pg";\n\nexport const auth = betterAuth({ database: new Pool({ connectionString: process.env.DATABASE_URL }) });\n';
+  const change = (config: string, env = "") => ({ head: { "src/lib/auth.ts": "export {};\n", ...(env ? { ".env": env } : {}) }, files: { "src/lib/auth.ts": config } });
+  auth(1, 'Schema mismatch against the generated Prisma client model: missing table "organization"');
+  expect(runCheckExample(rule, target, change(prisma), "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+  auth(0, "Schema check passed against the generated Prisma client model.");
+  expect(runCheckExample(rule, target, change(prisma), "no_match", [bin])).toEqual({ outcome: "pass", detail: "" });
+  auth(2, "Could not load the Better Auth configuration.");
+  expect(runCheckExample(rule, target, change(prisma), "match", [bin])).toEqual({ outcome: "skip", detail: "auth check schema could not run: Could not load the Better Auth configuration." });
+  auth(1, "missing table");
+  expect(runCheckExample(rule, target, change(pool), "match", [bin])).toEqual({ outcome: "skip", detail: "no local database (the Better Auth adapter of src/lib/auth.ts checks the live database)" });
+  expect(runCheckExample(rule, target, change(pool, "DATABASE_URL=postgres://app@localhost:5432/app\n"), "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+});
