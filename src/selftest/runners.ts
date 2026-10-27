@@ -1,43 +1,16 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
-import { examplePath } from "./audit.js";
-import { applyRoles, defaultRoles } from "./roles.js";
-import { globMatch } from "./core/globs.js";
-import { checkTools, commandExists, PROJECT_TOOLS, PYTHON_TOOLS } from "./core/tools.js";
-import { codeExamples, guardExamples } from "./examples.js";
-import { loadLocalRules, loadPacks } from "./packs.js";
-import {
-  astGrepRulePath,
-  astGrepTestPath,
-  renderAstGrepRule,
-  renderAstGrepTest,
-  renderCheckScript,
-  renderChecks,
-  helperFiles,
-  renderGuardRules,
-  renderLib,
-  renderSgConfig,
-  template,
-  typesLanguage,
-  type TypesLanguage,
-} from "./render.js";
-import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, type Job, ownedHash, run, runParallel, sha256 } from "./util.js";
-import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, GrepTarget, GuardTarget, PermissionTarget, Rule, WhereCondition } from "./types.js";
-
-export interface TestReport {
-  failures: string[];
-  notes: string[];
-  counts: Record<string, number>;
-}
+import { examplePath } from "../audit.js";
+import { globMatch } from "../core/globs.js";
+import { checkTools, commandExists, PROJECT_TOOLS, PYTHON_TOOLS } from "../core/tools.js";
+import { codeExamples } from "../examples.js";
+import { astGrepRulePath, renderAstGrepRule, renderCheckScript, renderChecks, helperFiles, renderLib, renderSgConfig, typesLanguage, type TypesLanguage } from "../render.js";
+import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, type Job, ownedHash, run, runParallel, sha256 } from "../util.js";
+import type { TestReport } from "../types.js";
+import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, Rule, WhereCondition } from "../types.js";
 
 // ---------------------------------------------------------------- ast-grep
-
-/** argv prefix that runs the pinned ast-grep, or undefined. */
-/** The counts line of a test run, after `what` (packs and rules, or local rules). */
-export function testSummary(c: Record<string, number>, what: string): string {
-  return `${what}; ast-grep ${c.astgrep}, guard ${c.guard}, permission ${c.permission}, grep ${c.grep}, check ${c.check}, context ${c.context}`;
-}
 
 /**
  * The pinned ast-grep. Through bunx, the copy in bunx's cache (--no-install), installed
@@ -74,12 +47,12 @@ export function guardDecision(shell: string[], dir: string, command: string, cwd
 }
 
 /** The guard.sh run of guardDecision. */
-function guardJob(shell: string[], dir: string, command: string, cwd = "/"): Job {
+export function guardJob(shell: string[], dir: string, command: string, cwd = "/"): Job {
   return { cmd: shell[0]!, args: [...shell.slice(1), join(dir, "guard.sh")], input: hookInput(command, cwd) };
 }
 
 /** guardDecision's reading of a guard.sh run. */
-function guardOutcome(r: { status: number; stdout: string; stderr: string }): string {
+export function guardOutcome(r: { status: number; stdout: string; stderr: string }): string {
   if (r.status !== 0) return `error: exit ${r.status} ${r.stderr.trim()}`;
   if (!r.stdout.trim()) return "";
   try {
@@ -326,256 +299,6 @@ export function defaultToolBins(repo?: string): string[] {
   return [...(repo ? [join(repo, "node_modules", ".bin"), join(repo, ".venv", "bin")] : []), ...(process.env.PATH ?? "").split(delimiter).filter(Boolean)];
 }
 
-/**
- * The development self-test (`bun run test:packs`, the spec suite): every pack and rule
- * of packsDir (and, with repo, its local rules replacing or adding to them) validated
- * and their examples run.
- */
-export function selfTest(packsDir: string, repo?: string, opts: { toolBins?: string[] } = {}): TestReport {
-  const failures: string[] = [];
-  const notes: string[] = [];
-  const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, grep: 0, check: 0, context: 0 };
-
-  const rules: Rule[] = [];
-  try {
-    const packs = loadPacks(packsDir);
-    counts.packs = packs.size;
-    for (const p of packs.values()) {
-      rules.push(...p.rules);
-      if (p.context !== undefined) {
-        counts.context!++;
-        const lines = p.context.replace(/\n$/, "").split("\n").length;
-        if (lines > 10) failures.push(`${p.id}/context.md: ${lines} lines (max 10)`);
-      }
-    }
-    if (repo) {
-      const local = loadLocalRules(repo);
-      const ids = new Map(rules.map((r, i) => [r.id, i]));
-      for (const r of local) {
-        const i = ids.get(r.id);
-        if (i !== undefined) rules[i] = r;
-        else rules.push(r);
-      }
-      if (local.length) notes.push(`including ${local.length} local rule(s) from .forge/rules`);
-    }
-  } catch (e) {
-    failures.push((e as Error).message);
-    return { failures, notes, counts };
-  }
-  testRules(rules, repo, opts, { failures, notes, counts });
-  if (!existsSync(packsDir)) failures.push(`${packsDir} does not exist`);
-  return { failures, notes, counts };
-}
-
-/**
- * `forge test` in a project: the rules of .forge/rules only (a local rule replacing a
- * pack rule is tested as written), validated and their examples run. The bundled
- * packs are proved by Forge's own test suite.
- */
-export function localSelfTest(repo: string, opts: { toolBins?: string[] } = {}): TestReport {
-  const failures: string[] = [];
-  const notes: string[] = [];
-  const counts: Record<string, number> = { packs: 0, rules: 0, astgrep: 0, guard: 0, permission: 0, grep: 0, check: 0, context: 0 };
-  let rules: Rule[];
-  try {
-    rules = loadLocalRules(repo);
-  } catch (e) {
-    failures.push((e as Error).message);
-    return { failures, notes, counts };
-  }
-  testRules(rules, repo, opts, { failures, notes, counts });
-  return { failures, notes, counts };
-}
-
-/** Structural checks and every example of the given rules. */
-function testRules(written: Rule[], repo: string | undefined, opts: { toolBins?: string[] }, report: TestReport): void {
-  const { failures, notes, counts } = report;
-  // file roles (§15.4) with Forge's defaults: examples are written where a default project has them
-  const rules = written.map((r) => {
-    const { rule, empty } = applyRoles(r, defaultRoles());
-    if (empty.length) failures.push(`${r.id}: file role ${empty.map((e) => `@${e}`).join(", ")} has no default files: its examples cannot be placed`);
-    return rule;
-  });
-  counts.rules = rules.length;
-
-  // structural checks the schema cannot express
-  for (const r of rules) {
-    const ast = r.enforce.filter((t) => t.target === "ast-grep");
-    if (ast.length > 1) failures.push(`${r.id}: at most one ast-grep target`);
-    if (ast.length && r.scope.language === "any") failures.push(`${r.id}: ast-grep targets need a concrete scope.language`);
-    const needsExamples = r.enforce.some((t) => ["ast-grep", "guard", "permission", "tool", "grep"].includes(t.target) || (t.target === "check" && !checkExamplesOptional(t)));
-    if (needsExamples && !(r.examples?.match?.length && r.examples?.no_match?.length)) failures.push(`${r.id}: needs match and no_match examples`);
-    const all = [...(r.examples?.match ?? []), ...(r.examples?.no_match ?? [])];
-    // fixtures (files): check rules; a rule of tool targets only may give one file without head (its path picks the file type)
-    const fixtures = all.filter((e): e is ExampleFixture => typeof e !== "string" && !("command" in e));
-    const toolOnly = r.enforce.every((t) => t.target === "tool");
-    if (fixtures.length && !r.enforce.every((t) => t.target === "check") && !(toolOnly && fixtures.every((f) => !f.head && Object.keys(f.files).length === 1)))
-      failures.push(`${r.id}: fixture examples (files) are for check rules only, or one file without head for a rule of tool targets`);
-    if (all.some((e) => typeof e !== "string" && "command" in e) && r.enforce.some((t) => t.target !== "guard")) failures.push(`${r.id}: command examples are for guard rules only`);
-    // engine capabilities (§15.1): metavariables of the rule, a parsed language, examples with their packages
-    const typed = ast.find((t): t is AstGrepTarget => t.target === "ast-grep" && !!(t as AstGrepTarget).where);
-    if (typed) {
-      const text = JSON.stringify([typed.rule, typed.constraints ?? {}, typed.utils ?? {}]);
-      for (const v of Object.keys(typed.where!)) if (!text.includes(`$${v}`)) failures.push(`${r.id}: where: $${v} is not a metavariable of the rule`);
-      if (!["python", "typescript", "tsx"].includes(r.scope.language)) failures.push(`${r.id}: where needs scope.language python, typescript or tsx`);
-      const eco = typesLanguage(r, typed) === "python" ? "pypi" : "npm";
-      // without examples.deps, the examples are type-checked against the standard library (Python) or TypeScript's own lib only
-      if (r.examples?.deps?.some((d) => d.ecosystem !== eco)) failures.push(`${r.id}: examples.deps must be ${eco} packages`);
-      for (const n of typed.needs ?? [])
-        if (!r.examples?.deps?.some((d) => d.ecosystem === n.ecosystem && d.name === n.name)) failures.push(`${r.id}: needs ${n.name}, so examples.deps must install it`);
-    } else if (r.examples?.deps) failures.push(`${r.id}: examples.deps is for rules with a where`);
-  }
-
-  // ast-grep rule-tests
-  const astRules = rules.filter((r) => r.enforce.some((t) => t.target === "ast-grep"));
-  counts.astgrep = astRules.length;
-  if (astRules.length) {
-    const cmd = astGrepCommand();
-    if (!cmd) failures.push("ast-grep: neither bunx nor uvx is available");
-    else {
-      const dir = mkdtempSync(join(tmpdir(), "forge-test-"));
-      try {
-        writeFileSync(join(dir, "sgconfig.yml"), renderSgConfig());
-        for (const r of astRules) {
-          const t = r.enforce.find((x): x is AstGrepTarget => x.target === "ast-grep")!;
-          for (const [rel, text] of [
-            [astGrepRulePath(r.id), renderAstGrepRule(r, t)],
-            [astGrepTestPath(r.id), renderAstGrepTest(r)],
-          ] as const) {
-            mkdirSync(dirname(join(dir, rel)), { recursive: true });
-            writeFileSync(join(dir, rel), text);
-          }
-        }
-        const res = run(cmd[0]!, [...cmd.slice(1), "test", "--skip-snapshot-tests", "-c", join(dir, "sgconfig.yml")], { cwd: dir });
-        const out = res.stdout + res.stderr;
-        const ran = /Running (\d+) tests/.exec(out);
-        const files = readdirSync(join(dir, "rules"), { recursive: true }).filter((f) => String(f).endsWith(".yml")).length;
-        if (!ran) failures.push(`ast-grep test did not run:\n${out.trim()}`);
-        else if (Number(ran[1]) !== files) failures.push(`ast-grep loaded ${ran[1]} rules, expected ${files}`);
-        if (res.status !== 0) {
-          const failed = out
-            .split("\n")
-            .filter((l) => /^(FAIL|\[|Error|error)/.test(l.trim()) || /incorrect|Noisy|Missing/i.test(l))
-            .slice(0, 40);
-          failures.push(`ast-grep test failed:\n${(failed.length ? failed : out.trim().split("\n").slice(-30)).join("\n")}`);
-        }
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
-    }
-  }
-
-  // examples of rules with type constraints, through the types engine (§15.1)
-  const typedRules = astRules.filter((r) => r.enforce.some((t) => t.target === "ast-grep" && t.where));
-  counts.types = typedRules.length;
-  if (typedRules.length) typesExamples(typedRules, { failures, notes, counts });
-
-  // guard examples, each rule in isolation, on every available shell
-  const guardRules = rules.filter((r) => r.enforce.some((t) => t.target === "guard"));
-  counts.guard = guardRules.length;
-  if (guardRules.length) {
-    const shells = availableShells();
-    for (const s of ["sh", "dash", "bash --posix", "busybox sh"]) if (!shells.some((x) => x.name === s)) notes.push(`guard: ${s} not available, skipped`);
-    // each rule in its own directory, every example on every shell, several at a time
-    const dirs: string[] = [];
-    const runs: { job: Job; report: (got: string) => void }[] = [];
-    try {
-      for (const r of guardRules) {
-        const dir = mkdtempSync(join(tmpdir(), "forge-guard-"));
-        dirs.push(dir);
-        writeFileSync(join(dir, "guard.sh"), template("guard.sh"));
-        const targets = r.enforce.filter((t): t is GuardTarget => t.target === "guard");
-        writeFileSync(
-          join(dir, "guard.rules"),
-          renderGuardRules(
-            targets.map((target) => ({ rule: r, target })),
-            "/",
-          ),
-        );
-        const decision = targets.some((t) => t.decision === "deny") ? "deny" : "ask";
-        for (const kind of ["match", "no_match"] as const)
-          for (const ex of guardExamples(r, kind)) {
-            const cwd = guardExampleDir(ex.files);
-            dirs.push(cwd);
-            for (const sh of shells) {
-              const want = kind === "match" ? decision : "";
-              runs.push({
-                job: guardJob(sh.argv, dir, ex.command, cwd),
-                report: (got) => {
-                  if (got !== want)
-                    failures.push(
-                      `${r.id} [${sh.name}]: expected ${want || "nothing"} for ${JSON.stringify(ex.command)}${ex.files ? ` with ${Object.keys(ex.files).join(", ")}` : ""}, got ${got || "nothing"}`,
-                    );
-                },
-              });
-            }
-          }
-      }
-      runParallel(runs.map((x) => x.job)).forEach((res, i) => {
-        runs[i]!.report(guardOutcome(res));
-      });
-    } finally {
-      for (const d of dirs) rmSync(d, { recursive: true, force: true });
-    }
-  }
-
-  // permission examples
-  const permRules = rules.filter((r) => r.enforce.some((t) => t.target === "permission"));
-  counts.permission = permRules.length;
-  for (const r of permRules) {
-    const specs = r.enforce.filter((t): t is PermissionTarget => t.target === "permission").map((t) => t.rule);
-    for (const ex of codeExamples(r, "match")) if (!specs.some((s) => permissionMatches(s, ex))) failures.push(`${r.id}: no permission rule matches ${ex}`);
-    for (const ex of codeExamples(r, "no_match")) {
-      const hit = specs.find((s) => permissionMatches(s, ex));
-      if (hit) failures.push(`${r.id}: ${hit} matches no_match example ${ex}`);
-    }
-  }
-
-  // grep examples: the pattern (grep -E) matches a line of every match example and none of a no_match example
-  const grepRules = rules.filter((r) => r.enforce.some((t) => t.target === "grep"));
-  counts.grep = grepRules.length;
-  if (grepRules.length) {
-    const dir = mkdtempSync(join(tmpdir(), "forge-grep-"));
-    try {
-      for (const r of grepRules)
-        for (const t of r.enforce.filter((x): x is GrepTarget => x.target === "grep"))
-          for (const kind of ["match", "no_match"] as const)
-            codeExamples(r, kind).forEach((ex, i) => {
-              writeFileSync(join(dir, "example"), ex);
-              const n = Number(run("sh", ["-c", 'grep -c "$3" -- "$1" "$2"', "sh", t.pattern, join(dir, "example"), t.ignore_case ? "-iE" : "-E"]).stdout.trim() || "0");
-              if (kind === "match" && n === 0) failures.push(`${r.id}: grep pattern does not match match example ${i + 1}: ${JSON.stringify(ex)}`);
-              if (kind === "no_match" && n > 0) failures.push(`${r.id}: grep pattern matches no_match example ${i + 1}: ${JSON.stringify(ex)}`);
-            });
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  }
-
-  // check examples, each in its own temporary repository, several at a time
-  const checkRules = rules.filter((r) => r.enforce.some((t) => t.target === "check") && (r.examples?.match?.length || r.examples?.no_match?.length));
-  counts.check = checkRules.length;
-  const toolBins = opts.toolBins ?? defaultToolBins(repo);
-  const runs: (CheckExampleRun & { n: number })[] = [];
-  for (const r of checkRules)
-    for (const t of r.enforce.filter((x): x is CheckTarget => x.target === "check"))
-      for (const kind of ["match", "no_match"] as const)
-        (r.examples?.[kind] ?? []).forEach((ex, i) => {
-          runs.push({ rule: r, target: t, example: ex, kind, n: i + 1 });
-        });
-  runCheckExamples(runs, toolBins).forEach((res, j) => {
-    const { rule: r, kind, n } = runs[j]!;
-    if (res.outcome === "fail") failures.push(`${r.id}: ${kind} example ${n} ${res.detail}`);
-    else if (res.outcome === "skip") notes.push(`${r.id}: ${kind} example ${n} skipped: ${res.detail}`);
-  });
-
-  // hadolint: the hadolint-bin wheel's binary is the upstream release binary (§13.3)
-  if (rules.some((r) => r.enforce.some((t) => t.target === "check" && /\bforge_hadolint\b/.test(t.run)))) {
-    const h = hadolintIntegrity();
-    if (h.status === "mismatch") failures.push(`hadolint: ${h.detail}`);
-    else if (h.status === "skipped") notes.push(`hadolint: ${h.detail}`);
-  }
-}
-
 // ---------------------------------------------------------------- types (§15.1)
 
 /** The TypeScript that type-checks a rule's examples when its examples.deps name none. */
@@ -647,7 +370,7 @@ export function runTypesFilter(project: string, lang: TypesLanguage, matches: st
   return { kept: readFileSync(matches, "utf8").split("\n").filter(Boolean), output: r.stdout + r.stderr, status: r.status };
 }
 
-function typesExamples(rules: Rule[], report: TestReport): void {
+export function typesExamples(rules: Rule[], report: TestReport): void {
   const { failures, notes } = report;
   const cmd = astGrepCommand();
   if (!cmd) return; // reported by the ast-grep tests

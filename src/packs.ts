@@ -6,10 +6,10 @@ import { isMap, isScalar, parse as parseYaml, parseDocument } from "yaml";
 import { parseStrictYaml } from "./yaml.js";
 import { readJson, readSmallFile, readToml } from "./core/fs.js";
 import { globMatch, globToRegExp } from "./core/globs.js";
-import { directDashedTools } from "./core/tools.js";
 import { coerceVersion, versionFromPep440, versionFromRange, versionSatisfies } from "./core/versions.js";
 import { unknownRoles } from "./roles.js";
 import { validate } from "./schemas.js";
+import { kindOf } from "./targets/index.js";
 import { sha256 } from "./util.js";
 import type { DepSpec, Pack, ProjectConfig, Rule } from "./types.js";
 
@@ -18,14 +18,13 @@ export function loadRuleFile(file: string, origin: Rule["origin"]): Rule {
   const data = parseStrictYaml(text, file) as Record<string, unknown>;
   validate("rule", data, file);
   const rule = data as unknown as Rule;
-  for (const t of rule.enforce)
-    if (t.target === "check")
-      for (const cmd of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
-        for (const tool of directDashedTools(cmd ?? ""))
-          throw new Error(`${file}: invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
-  // deprecated uses are answered by the TypeScript engine (§15.7)
-  if (rule.scope.language === "python" && rule.enforce.some((t) => t.target === "ast-grep" && JSON.stringify(t.where ?? {}).includes('"deprecated"')))
-    throw new Error(`${file}: invalid rule: where deprecated is answered for TypeScript only (§15.7); Python's deprecations are ty's deprecated rule`);
+  for (const t of rule.enforce) {
+    try {
+      kindOf(t).validate?.(rule, t);
+    } catch (e) {
+      throw new Error(`${file}: ${(e as Error).message}`);
+    }
+  }
   const unknown = unknownRoles(rule);
   if (unknown.length) throw new Error(`${file}: invalid rule: unknown file role ${unknown.map((r) => `@${r}`).join(", ")} (§15.4)`);
   return { ...rule, file, hash: sha256(text), origin, pack: rule.id.slice(0, rule.id.lastIndexOf("/")) };

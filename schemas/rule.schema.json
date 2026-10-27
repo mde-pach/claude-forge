@@ -399,41 +399,6 @@
             "if": {
               "properties": {
                 "target": {
-                  "const": "grep"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "mode",
-                "pattern"
-              ],
-              "properties": {
-                "target": true,
-                "mode": {
-                  "enum": [
-                    "forbid",
-                    "no-increase",
-                    "no-decrease",
-                    "advise"
-                  ]
-                },
-                "pattern": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^[^\\t\\n]+$"
-                },
-                "ignore_case": {
-                  "type": "boolean"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
                   "const": "permission"
                 }
               }
@@ -654,6 +619,41 @@
                   }
                 }
               ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "target": {
+                  "const": "grep"
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "pattern"
+              ],
+              "properties": {
+                "target": true,
+                "mode": {
+                  "enum": [
+                    "forbid",
+                    "no-increase",
+                    "no-decrease",
+                    "advise"
+                  ]
+                },
+                "pattern": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\t\\n]+$"
+                },
+                "ignore_case": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         ]

@@ -4,16 +4,17 @@ import { dirname, join } from "node:path";
 import { readText } from "./core/fs.js";
 import { globToRegExp } from "./core/globs.js";
 import { MANIFEST_PATH, lockPath } from "./core/paths.js";
-import { checkTools, commandExists, TY_COMMAND } from "./core/tools.js";
+import { commandExists, TY_COMMAND } from "./core/tools.js";
 import { compareVersions } from "./core/versions.js";
 import { renderLib } from "./render.js";
+import { kindOf, targetsByPhase } from "./targets/index.js";
 import { auditRules, projectBinary, type AuditResult } from "./audit.js";
 import { readLock, renderLock, renderManifest } from "./lock.js";
 import { loadLocalRules, loadPackBundle } from "./packs.js";
 import { roleGlobs } from "./roles.js";
 import { plan, readProjectInputs, type Plan } from "./plan.js";
 import { blockHash, CHECK, hasBlock, hookManager, insertBlock, managerInactive, onlyForge, preCommitPath, removeBlock, runsForgeCheck } from "./precommit.js";
-import { localSelfTest, testSummary } from "./selftest.js";
+import { localSelfTest, testSummary } from "./selftest/index.js";
 import { mergeTomlSnippets } from "./snippets.js";
 import { addEntries, conflictingScalars, entryKey, hasEntry, removeEntries } from "./settings.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION, TY_VERSION, gitToplevel, lineDiff, listRepoFiles, ownedHash, packageRoot, run, runScript } from "./util.js";
@@ -601,15 +602,10 @@ function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]): Enforc
       else not.push(/not installed/.test(bad.detail ?? "") ? `${tool} not installed` : `${tool} audit skipped`);
     }
     for (const n of st.notEnforced) not.push(n.replace(/^not enforced here: /, ""));
-    if (st.astgrep) by.push(`ast-grep ${st.astgrep.mode}`);
-    for (const t of st.rule.enforce) {
-      if (t.target === "permission" || t.target === "guard" || t.target === "sandbox" || t.target === "grep")
-        by.push(t.target === "permission" || t.target === "guard" ? `${t.target} ${t.decision}` : t.target);
-      else if (t.target === "check" && st.enforced.some((e) => e.startsWith("check "))) {
-        const gone = checkTools(t).filter((x) => absent.has(x));
-        if (gone.length) not.push(`${gone.join(", ")} not installed`);
-        else by.push(`check ${t.stage}`);
-      }
+    for (const t of targetsByPhase(st.rule)) {
+      const e = kindOf(t).enforcement(st, t, absent);
+      if (e.by) by.push(e.by);
+      if (e.not) not.push(e.not);
     }
     return { id: st.rule.id, enforced: by.length > 0, by: [...new Set(by)], not_enforced: [...new Set(not)] };
   });

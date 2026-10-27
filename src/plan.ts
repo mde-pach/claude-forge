@@ -23,30 +23,18 @@ import {
   template,
   typesLanguage,
   type TypesLanguage,
-  type ActiveCheck,
-  type ActiveGrep,
-  type ActiveGuard,
 } from "./render.js";
+import { kindOf, targetsByPhase } from "./targets/index.js";
+import type { PlanContext } from "./targets/kind.js";
 import { applyRoles, defaultRoles, resolveRoles, rolesOfRule, type RolePattern, type Roles } from "./roles.js";
-import { listRepoFiles, TY_VERSION } from "./util.js";
-import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Pack, ProjectConfig, Rule, ToolName, ToolTarget } from "./types.js";
+import { listRepoFiles } from "./util.js";
+import type { AstGrepTarget, CheckTarget, DesiredEntry, Level, Pack, ProjectConfig, Rule, RuleStatus, SwitchedOff } from "./types.js";
 
-export type { AuditedTool, DesiredEntry };
+export type { AuditedTool, DesiredEntry, RuleStatus };
 
 export interface PackStatus {
   id: string;
   why: string;
-}
-
-export interface RuleStatus {
-  rule: Rule;
-  /** Where the rule is enforced in this project. */
-  enforced: string[];
-  /** "not enforced here: …" notes. */
-  notEnforced: string[];
-  /** Tool targets whose tool is present: audited (§11). */
-  audits: ToolTarget[];
-  astgrep?: AstGrepTarget;
 }
 
 /** A file role an active rule names (§15.4), as forge status shows it. */
@@ -74,7 +62,7 @@ export interface Plan {
   /** Rules of active packs left out by their version gate (`when`), with the dependencies they need. */
   gated: { id: string; needs: string }[];
   /** Tool diagnostics an active pack switches off (pack.yaml tool_off), with the rule targets that asked for them. */
-  switchedOff: { pack: string; tool: string; expects: string; reason: string; rules: string[] }[];
+  switchedOff: SwitchedOff[];
   deprecated: { id: string; replaced_by: string }[];
   warnings: string[];
   tools: Record<AuditedTool, boolean>;
@@ -332,17 +320,21 @@ export function plan(opts: PlanOptions): Plan {
       return rule;
     });
   const active: RuleStatus[] = [];
-  const checks: ActiveCheck[] = [];
-  const greps: ActiveGrep[] = [];
-  const guards: ActiveGuard[] = [];
-  const settings: DesiredEntry[] = [];
   const settingsFile = settingsFileOf(level, opts.local);
-  const astgrep: { rule: Rule; target: AstGrepTarget; dirs?: string[] }[] = [];
-  const present = (t: ToolName) => tools[t];
-
   // tool diagnostics an active pack switches off: no rule's tool target asks for them (pack.yaml tool_off)
   const switchedOff: Plan["switchedOff"] = packs.flatMap((pk) => (opts.packs.get(pk.id)!.tool_off ?? []).map((o) => ({ pack: pk.id, ...o, rules: [] as string[] })));
-  const offBy = (t: ToolTarget) => switchedOff.find((o) => o.tool === t.tool && o.expects === t.expects);
+  const ctx: PlanContext = {
+    level,
+    settingsFile,
+    warnings,
+    out: { settings: [], guards: [], greps: [], checks: [], astgrep: [] },
+    present: (t) => tools[t],
+    switchedOff: (t) => switchedOff.find((o) => o.tool === t.tool && o.expects === t.expects),
+    ruleDirs,
+    missingNeeds,
+    checkPlace,
+  };
+  const { settings, guards, greps, checks, astgrep } = ctx.out;
 
   for (const rule of rulesSorted) {
     const st: RuleStatus = { rule, enforced: [], notEnforced: [], audits: [] };
@@ -353,72 +345,8 @@ export function plan(opts: PlanOptions): Plan {
       active.push(st);
       continue;
     }
-    const toolTargets = rule.enforce.filter((t): t is ToolTarget => t.target === "tool");
-    const astTargets = rule.enforce.filter((t): t is AstGrepTarget => t.target === "ast-grep");
-    if (astTargets.length > 1) throw new Error(`${rule.file}: at most one ast-grep target per rule`);
-    for (const t of toolTargets) {
-      const off = offBy(t);
-      if (off) {
-        off.rules.push(rule.id);
-        st.notEnforced.push(`not enforced here: ${t.tool} ${t.expects} switched off by ${off.pack} (${off.reason})`);
-      } else if (present(t.tool)) {
-        st.audits.push(t);
-        st.enforced.push(`${t.tool} (${t.expects}), audited`);
-      } else st.notEnforced.push(`not enforced here: ${t.tool} not configured`);
-    }
-    const ast = astTargets[0];
-    // a switched-off diagnostic is not asked for in any form: no ast-grep stand-in either
-    if (ast && !toolTargets.some((t) => offBy(t)) && (toolTargets.length === 0 || !toolTargets.some((t) => present(t.tool)))) {
-      if (level === "user") warnings.push(`${rule.id}: ast-grep targets are project-level only`);
-      else if (missingNeeds(rule, ast).length) {
-        st.notEnforced.push(`not enforced here: the types engine needs ${missingNeeds(rule, ast).join(", ")} installed to see the types this rule checks (add it as a development dependency)`);
-      } else {
-        const dirs = ruleDirs(rule);
-        st.astgrep = ast;
-        astgrep.push({ rule, target: ast, ...(dirs ? { dirs } : {}) });
-        const lang = typesLanguage(rule, ast);
-        const engine = lang === "python" ? `ty ${TY_VERSION}` : "the project's TypeScript";
-        st.enforced.push(`ast-grep ${ast.mode} (.forge/ast-grep/${astGrepRulePath(rule.id)})${lang ? ` with types (${engine})` : ""}${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
-        st.notEnforced = [];
-      }
-    }
-    for (const t of rule.enforce) {
-      if (t.target === "permission") {
-        settings.push({ file: settingsFile, path: `permissions.${t.decision}`, value: t.rule, append: true });
-        st.enforced.push(`permission ${t.decision} ${t.rule} (${settingsFile})`);
-      } else if (t.target === "guard") {
-        guards.push({ rule, target: t });
-        if (!st.enforced.some((e) => e.startsWith("guard"))) st.enforced.push(`guard ${t.decision} (PreToolUse Bash)`);
-      } else if (t.target === "sandbox") {
-        if (level !== "user") {
-          warnings.push(`${rule.id}: sandbox targets are user-level only`);
-          continue;
-        }
-        const path = `sandbox.${t.path}`;
-        if (Array.isArray(t.value)) for (const v of t.value) settings.push({ file: settingsFile, path, value: v, append: true });
-        else settings.push({ file: settingsFile, path, value: t.value, append: false });
-        st.enforced.push(`sandbox ${t.path} (${settingsFile})`);
-      } else if (t.target === "grep") {
-        if (level === "user") {
-          warnings.push(`${rule.id}: grep targets are project-level only`);
-          continue;
-        }
-        const dirs = ruleDirs(rule);
-        greps.push({ rule, target: t, ...(dirs ? { dirs } : {}) });
-        st.enforced.push(`grep ${t.mode} (.forge/check.sh)${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
-      } else if (t.target === "check") {
-        if (level === "user") {
-          warnings.push(`${rule.id}: check targets are project-level only`);
-          continue;
-        }
-        const { dirs, absent } = checkPlace(rule, t);
-        if (absent.length) st.notEnforced.push(`not enforced here: ${absent.join(", ")} not configured`);
-        else {
-          checks.push({ rule, target: t, ...(dirs ? { dirs } : {}) });
-          st.enforced.push(`check ${t.stage}: ${t.run}${dirs ? ` (in ${dirs.join(", ")})` : ""}`);
-        }
-      }
-    }
+    if (rule.enforce.filter((t) => t.target === "ast-grep").length > 1) throw new Error(`${rule.file}: at most one ast-grep target per rule`);
+    for (const t of targetsByPhase(rule)) kindOf(t).plan(ctx, rule, st, t);
     active.push(st);
   }
 

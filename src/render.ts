@@ -78,6 +78,12 @@ export interface ActiveCheck {
   /** Workspace packages to run in (repository-relative); absent: the root. */
   dirs?: string[];
 }
+export interface ActiveAstGrep {
+  rule: Rule;
+  target: AstGrepTarget;
+  /** Workspace packages its pack was detected in; absent: the whole repository. */
+  dirs?: string[];
+}
 export interface ActiveGrep {
   rule: Rule;
   target: GrepTarget;

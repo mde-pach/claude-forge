@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { marked } from "marked";
 import { loadPacks } from "../../../src/packs";
 import { checkTools } from "../../../src/core/tools";
+import { enforcedBy, kindOf } from "../../../src/targets/index";
 import type { Pack, Rule, Target } from "../../../src/types";
 import { readResults, readSpec, summarize, type Results, type SpecNode, type SpecSection, type Status, type TestResult } from "./spec";
 
@@ -73,29 +74,12 @@ export function leaf(id: string): string {
   return id.split("/").pop()!;
 }
 
+/** A target's short label on rule cards ("guard deny", "check · lint"), from its kind. */
 export function targetLabel(t: Target): string {
-  switch (t.target) {
-    case "tool":
-      return `${t.tool} audit`;
-    case "ast-grep":
-      return `ast-grep ${t.mode}`;
-    case "permission":
-      return `permission ${t.decision}`;
-    case "guard":
-      return `guard ${t.decision}`;
-    case "sandbox":
-      return "sandbox";
-    case "check":
-      return `check · ${t.stage}`;
-    case "grep":
-      return `grep ${t.mode}`;
-  }
+  return kindOf(t).label(t);
 }
 
-export function enforcedBy(rule: Rule): string[] {
-  return [...new Set(rule.enforce.map(targetLabel))];
-}
-
+export { enforcedBy };
 export { checkTools };
 export type { Pack, Rule, Target, Status, TestResult, SpecNode, SpecSection, Results };
 

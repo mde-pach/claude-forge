@@ -219,3 +219,31 @@ export interface LockBlock {
   /** blockHash() of the block as written. */
   hash: string;
 }
+
+/** What forge apply makes of an active rule here (§3.1 status). */
+export interface RuleStatus {
+  rule: Rule;
+  /** Where the rule is enforced in this project. */
+  enforced: string[];
+  /** "not enforced here: …" notes. */
+  notEnforced: string[];
+  /** Tool targets whose tool is present: audited (§11). */
+  audits: ToolTarget[];
+  astgrep?: AstGrepTarget;
+}
+
+/** A tool diagnostic an active pack switches off (pack.yaml tool_off), with the rules whose targets asked for it. */
+export interface SwitchedOff {
+  pack: string;
+  tool: string;
+  expects: string;
+  reason: string;
+  rules: string[];
+}
+
+/** The outcome of running rules' examples (forge test, the pack self-test). */
+export interface TestReport {
+  failures: string[];
+  notes: string[];
+  counts: Record<string, number>;
+}
