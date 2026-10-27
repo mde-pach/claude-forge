@@ -48,10 +48,10 @@ test(
     const { home: h, env } = home();
     expect(forge(["apply", "--user", "--yes"], "/", env).status).toBe(0);
     const s = JSON.parse(readFileSync(join(h, ".claude/settings.json"), "utf8"));
-    expect(s.permissions.deny).toEqual(expect.arrayContaining(["Bash(git reset --hard:*)", "Read(~/.ssh/**)", "Edit(**/.env)", "Bash(npm publish:*)"]));
+    expect(s.permissions.deny).toEqual(expect.arrayContaining(["Bash(git reset --hard:*)", "Read(~/.ssh/**)", "Edit(**/.env)", "Bash(npm publish:*)", "Edit(**/node_modules/**)"]));
     expect(s.permissions.ask).toEqual([
-      ...["pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "uv.lock", "poetry.lock", "Cargo.lock"].map((f) => `Edit(**/${f})`),
-      "Bash(bun add:*)", "Bash(uv add:*)", "Edit(~/.claude/skills/forge-user/**)", "Edit(~/.claude/forge.lock.json)"]);
+      ...["pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "uv.lock", "poetry.lock", "Cargo.lock", "deno.lock", "pdm.lock", "pixi.lock", "Pipfile.lock", ".terraform.lock.hcl", "flake.lock", "mise.lock", "go.sum", "Gemfile.lock", "composer.lock", "packages.lock.json"].map((f) => `Edit(**/${f})`),
+      "Edit(~/.claude/skills/forge-user/**)", "Edit(~/.claude/forge.lock.json)"]);
     expect(s.sandbox).toEqual({ enabled: true, network: { allowedDomains: ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org", "github.com"] } });
   },
   T,

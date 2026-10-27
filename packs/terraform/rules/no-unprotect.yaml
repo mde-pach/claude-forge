@@ -1,0 +1,15 @@
+id: terraform/no-unprotect
+description: "No force_destroy = true, skip_final_snapshot = true or deletion_protection = false: they clear the way for destroying data. An intended decommission is accepted in forge.yaml."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "(force_destroy|skip_final_snapshot)[[:space:]]*=[[:space:]]*true|deletion_protection[[:space:]]*=[[:space:]]*false"
+examples:
+  match:
+    - "resource \"aws_s3_bucket\" \"logs\" {\n  bucket        = \"acme-logs\"\n  force_destroy = true\n}\n"
+    - "resource \"aws_db_instance\" \"main\" {\n  skip_final_snapshot = true\n}\n"
+    - "resource \"google_sql_database_instance\" \"main\" {\n  deletion_protection = false\n}\n"
+  no_match:
+    - "resource \"aws_s3_bucket\" \"logs\" {\n  bucket        = \"acme-logs\"\n  force_destroy = false\n}\n"
+    - "resource \"aws_db_instance\" \"main\" {\n  skip_final_snapshot       = false\n  final_snapshot_identifier = \"main-final\"\n  deletion_protection       = true\n}\n"

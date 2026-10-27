@@ -1,0 +1,26 @@
+id: supply-chain/no-tls-disable
+description: "Committed files never turn TLS verification off: no strict-ssl=false (.npmrc), enableStrictSsl: false (.yarnrc.yml), NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, sslVerify = false (git config), GIT_SSL_NO_VERIFY, pip's --trusted-host / trusted-host =, uv's allow-insecure-host / UV_INSECURE_HOST. Install the proxy's CA certificate instead (NODE_EXTRA_CA_CERTS, PIP_CERT, SSL_CERT_FILE)."
+scope: {language: any, files: ["!.claude/skills/forge-project/**"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "strict-ssl[[:space:]]*=[[:space:]]*false|enableStrictSsl:[[:space:]]*false|NODE_TLS_REJECT_UNAUTHORIZED[\"']?[[:space:]]*[:=][[:space:]]*[\"']?0|PYTHONHTTPSVERIFY[\"']?[[:space:]]*[:=][[:space:]]*[\"']?0|sslVerify[[:space:]]*=[[:space:]]*false|GIT_SSL_NO_VERIFY|--trusted-host|^[[:space:]]*trusted-host[[:space:]]*=|allow-insecure-host|UV_INSECURE_HOST"
+examples:
+  match:
+    - "registry=https://registry.npmjs.org/\nstrict-ssl=false\n"
+    - "nodeLinker: node-modules\nenableStrictSsl: false\n"
+    - "NODE_TLS_REJECT_UNAUTHORIZED=0\n"
+    - "services:\n  api:\n    environment:\n      NODE_TLS_REJECT_UNAUTHORIZED: \"0\"\n"
+    - "ENV PYTHONHTTPSVERIFY=0\n"
+    - "[http]\n\tsslVerify = false\n"
+    - "RUN GIT_SSL_NO_VERIFY=1 git clone https://git.internal/acme/lib.git\n"
+    - "--trusted-host pypi.internal\nrequests==2.32.5\n"
+    - "[global]\ntrusted-host = pypi.internal\n"
+    - "[tool.uv]\nallow-insecure-host = [\"pypi.internal\"]\n"
+    - "UV_INSECURE_HOST=pypi.internal\n"
+  no_match:
+    - "registry=https://registry.npmjs.org/\nstrict-ssl=true\n"
+    - "NODE_TLS_REJECT_UNAUTHORIZED=1\n"
+    - "NODE_EXTRA_CA_CERTS=/etc/ssl/corp-ca.pem\n"
+    - "[http]\n\tsslVerify = true\n"
+    - "--index-url https://pypi.internal/simple\nrequests==2.32.5\n"

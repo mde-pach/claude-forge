@@ -1,0 +1,13 @@
+id: docker/hadolint-correctness
+description: "Dockerfiles avoid build-breaking and wrong-behaviour mistakes hadolint finds: a relative WORKDIR (DL3000), sudo (DL3004), apt-get install without -y (DL3014), COPY --from a missing or own stage or an alias used twice (DL3022, DL3023, DL3024), apt instead of apt-get (DL3027), an ENV referencing itself (DL3044), instructions before FROM (DL3061), DL3063, COPY --from a stage to / (DL3067), MAINTAINER (DL4000), several CMD or ENTRYPOINT (DL4003, DL4004)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_hadolint DL3000 DL3004 DL3014 DL3022 DL3023 DL3024 DL3027 DL3044 DL3061 DL3063 DL3067 DL4000 DL4003 DL4004", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nWORKDIR app\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM debian:13-slim\nRUN apt-get update && apt-get install curl\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM node:24-slim AS build\nWORKDIR /app\nCOPY --from=build /app/dist /dist\nUSER node\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM node:24-slim\nMAINTAINER dev@example.com\nUSER node\nCMD [\"node\", \"a.js\"]\nCMD [\"node\", \"b.js\"]\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM node:24-slim AS build\nWORKDIR /app\nCOPY package.json package-lock.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:24-slim\nWORKDIR /app\nCOPY --from=build /app/dist ./dist\nUSER node\nCMD [\"node\", \"dist/server.js\"]\n", .dockerignore: ".env*\n.git\n"}

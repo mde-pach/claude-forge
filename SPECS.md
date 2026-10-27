@@ -506,22 +506,29 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `safety/git-discard` | `guard` deny: `git checkout -- …`, `git checkout .`, `git restore` without `--staged` |
 | `safety/git-force-push` | `guard` deny: `git push` with `--force`, `-f` or `+<ref>`; not `--force-with-lease` |
 | `safety/git-force-with-lease` | `guard` ask |
-| `safety/git-no-verify` | `guard` deny: `git commit` with `--no-verify` or `-n` |
+| `safety/git-no-verify` | `guard` deny: `git commit` with `--no-verify` or `-n`; a `SKIP=`, `PRE_COMMIT_ALLOW_NO_CONFIG=`, `HUSKY=`, `HUSKY_SKIP_HOOKS=`, `LEFTHOOK=` or `LEFTHOOK_EXCLUDE=` assignment at the start of a command; `git -c core.hooksPath=…`; `git config` setting or unsetting `core.hooksPath` (reading it is fine); `pre-commit` / `lefthook uninstall`; `rm`, `mv`, `chmod`, `truncate` on `.git/hooks/` or `.husky/` |
 | `safety/git-history-rewrite` | `permission` deny: `Bash(git filter-branch:*)`, `Bash(git filter-repo:*)`, `Bash(git reflog expire:*)`, `Bash(git stash clear:*)` |
-| `safety/rm-root` | `guard` deny: recursive `rm` on `/`, `~`, `$HOME`, `..` |
+| `safety/rm-root` | `guard` deny: recursive `rm` on `/`, `~`, `$HOME`, `..`, or on a bare variable followed by `/` or `/*` (`$DIR/`, `${OUT}/*`: `/` when it is empty; `${VAR:?}` is fine) |
 | `safety/remote-script` | `guard` deny: `curl` / `wget` piped to `sh`, `bash`, `zsh`, `python`, `bun`, `node`; `base64 -d` piped to a shell |
 | `safety/publish` | `permission` deny: `Bash(npm publish:*)`, `Bash(bun publish:*)`, `Bash(uv publish:*)` |
 | `safety/secret-read-bash` | `guard` deny: `cat`, `less`, `head`, `tail`, `cp`, `source`, `grep`, `base64` on `.env` files (not `.env.example`), `~/.ssh/`, `~/.pgpass`, `~/.netrc` |
 | `safety/dropdb` | `permission` deny: `Bash(dropdb:*)` |
-| `safety/sql-destructive` | `guard` deny: `psql` with `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE` |
+| `safety/sql-destructive` | `guard` deny: `psql`, `mysql`, `mariadb`, `sqlite3` with `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE` or a `DELETE FROM <table>` without `WHERE`; `mongosh` / `mongo` with `dropDatabase()` or `.drop()`; `heroku pg:reset`; `supabase db reset` with `--linked` or `--db-url` |
+| `safety/datastore-reset` | `guard` ask (`review`: a local, disposable database the request calls for wiping): `redis-cli` `FLUSHALL` / `FLUSHDB`, `supabase db reset`, `manage.py flush` |
 | `safety/docker-volumes` | `guard` deny: `docker compose down` / `docker-compose down` with `-v` or `--volumes`, `docker volume rm`, `docker volume prune`, `docker system prune --volumes` |
-| `safety/package-add` | `permission` ask: `Bash(bun add:*)`, `Bash(uv add:*)` (hallucinated package names, slopsquatting) |
-| `safety/lockfile-hand-edit` | `permission` ask: `Edit(**/pnpm-lock.yaml)`, `Edit(**/package-lock.json)`, `Edit(**/npm-shrinkwrap.json)`, `Edit(**/yarn.lock)`, `Edit(**/bun.lock)`, `Edit(**/uv.lock)`, `Edit(**/poetry.lock)`, `Edit(**/Cargo.lock)` (the package manager writes lock files) |
+| `safety/package-add` | `guard` ask (`review`: each package well-known, needed and spelled right): a named package added at the start of a command (after `sudo`, `env` or assignments) by `npm` / `pnpm` / `yarn` / `bun` `install` / `i` / `add`, `yarn` / `pnpm global add`, `pip` / `pip3` / `uv pip install`, `python -m pip install`, `uv` / `poetry` / `pdm add`, `pipenv install`, `pipx install`, `uv tool install` (hallucinated package names, slopsquatting); installs from the lock file, `-r` / `-c` files, `-e` and `.` do not ask |
+| `safety/no-vendored-edits` | `permission` deny: `Edit(**/node_modules/**)`, `Edit(**/.venv/**)`, `Edit(**/site-packages/**)` (patch through the package manager instead) |
+| `safety/no-break-system-packages` | `guard` deny: `--break-system-packages`, `PIP_BREAK_SYSTEM_PACKAGES=`, `sudo` `pip install` / `python -m pip install` / `npm`, `pnpm`, `yarn`, `bun` `i`, `install`, `add`, `global` |
+| `safety/lockfile-hand-edit` | `permission` ask: `Edit(**/pnpm-lock.yaml)`, `Edit(**/package-lock.json)`, `Edit(**/npm-shrinkwrap.json)`, `Edit(**/yarn.lock)`, `Edit(**/bun.lock)`, `Edit(**/uv.lock)`, `Edit(**/poetry.lock)`, `Edit(**/Cargo.lock)`, `Edit(**/deno.lock)`, `Edit(**/pdm.lock)`, `Edit(**/pixi.lock)`, `Edit(**/Pipfile.lock)`, `Edit(**/.terraform.lock.hcl)`, `Edit(**/flake.lock)`, `Edit(**/mise.lock)`, `Edit(**/go.sum)`, `Edit(**/Gemfile.lock)`, `Edit(**/composer.lock)`, `Edit(**/packages.lock.json)` (the package manager writes lock files) |
 | `safety/lockfile-bash-write` | `guard` ask (`review`: is it a hand rewrite of a lock file the request asks for): the same lock files rewritten through Bash: `sed -i` / `perl -i` (`-0pi` included), a `>` / `>>` redirect or `tee` into one, `cp` / `mv` / `install` / `rsync` with one as the last argument, `dd of=`, `truncate`, a `python` / `node` / `bun` / `deno` / `ruby` command naming one and writing (`.write(`, `write_text`, `writeFile`, `Bun.write`, an `open(…, 'w')` mode) |
 | `safety/prisma-ai-consent` | `guard` deny: any command containing `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` (only the user gives that consent) |
-| `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve` |
+| `safety/terraform-destroy` | `guard` ask: `terraform` / `tofu` `destroy`, `apply … -auto-approve`; `state rm` / `mv` / `push` / `replace-provider`, `force-unlock`, CLI `import`, `workspace delete`; `apply` with `-replace=`, `-target=` or `-lock=false` (`plan -target` is fine) |
 | `safety/cdk-destructive` | `guard` ask: `cdk deploy … --require-approval never`, `cdk destroy` |
 | `safety/pulumi-destructive` | `guard` ask: `pulumi up` / `pulumi refresh` with `--yes`, `-y` or `--skip-preview`; `pulumi destroy`, `pulumi stack rm`, `pulumi state delete` / `unprotect`, `pulumi cancel` |
+| `safety/kubernetes-destructive` | `guard` deny: `kubectl delete` of namespaces, persistent volumes and claims, CRDs, or with `--all`, `-A`, `--all-namespaces` |
+| `safety/kubernetes-change` | `guard` ask (`review`: a local or development cluster, and the change the user asked for): `kubectl delete`, `drain`, `edit`, `patch`, `replace`, `scale --replicas=0`; `helm uninstall` / `delete` / `rollback` |
+| `safety/cloud-destructive` | `guard` ask (`review`: a disposable resource the user asked to delete): `aws … delete-*` / `terminate-instances` / `deregister-*` / `s3 rb` / `s3 rm --recursive`; `gcloud`, `az`, `doctl … delete`; `gsutil rm` / `rb`; `fly` apps / volumes / postgres / machines `destroy` / `delete`; `railway down` / `delete`; `vercel remove`; `heroku apps:destroy`; `netlify sites:delete`; `wrangler … delete` |
+| `safety/chmod-777` | `guard` deny: `chmod` `777`, `0777`, `a+rwx`, `ugo+rwx`, `=rwx`; recursive `chown` of `/`, `~`, `$HOME` |
 | `safety/git-stash-drop` | `guard` ask: `git stash drop` (`git stash clear` is denied by `git-history-rewrite`) |
 | `safety/git-branch-force-delete` | `guard` ask: `git branch -D`, `--delete --force`, `-f -d` |
 | `safety/ephemeral-exec` | `guard` ask, check `ephemeral-exec` (§9.2): packages fetched from a registry on the fly. `npx tsc`, `bunx prisma`, `uvx ruff` with the tool installed in the project are not asked; `npx some-typo` is |
@@ -563,7 +570,7 @@ Rule ids are `<pack-id>/<name>`. Each line is one rule file. Headings are pack i
 | `python/no-pkg-resources` | `tool` ruff `TID251`, banned-api `pkg_resources` |
 | `python/no-removed-stdlib` | `tool` ruff `TID251`, banned-api: the modules removed in Python 3.12 (`distutils`, `imp`, `asynchat`, `asyncore`, `smtpd`) and 3.13 (PEP 594's 19, `lib2to3`) |
 | `python/aware-datetime` | `tool` ruff `DTZ005`, `DTZ001`, `DTZ002`, `DTZ006`, `DTZ011`, `DTZ012`, `DTZ901` (not `DTZ007`: it flags date-only `strptime(…).date()`) |
-| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore` (suppression budget) |
+| `python/no-new-suppressions` | `grep` no-increase: `# noqa`, `# ty: ignore`, `# type: ignore`, `# pyright: ignore`, `# pragma: no cover`, `# pragma: no branch` (suppression budget) |
 | `python/config-files` | `permission` ask: `Edit(**/ruff.toml)`, `Edit(**/.ruff.toml)`, `Edit(**/ty.toml)` |
 | `python/config-ratchet` | `check` lint: `forge_ratchet python ratchet.py` (§10.4), `when_changed`: the Python config files |
 | `python/no-silent-except` | `tool` ruff `S110`, `S112` |
@@ -647,7 +654,7 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
 | `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
 | `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
-| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore`, `eslint-disable`, `oxlint-disable` (every form), `deno-lint-ignore`, `prettier-ignore`, `@ts-expect-error` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
+| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore`, `eslint-disable`, `oxlint-disable` (every form), `deno-lint-ignore`, `prettier-ignore`, `@ts-expect-error`, and the coverage hints `istanbul ignore`, `c8 ignore`, `v8 ignore` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
 | `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
 | `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
 | `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
@@ -722,6 +729,7 @@ Detected by `flask` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/flask/no-debug-run` | `tool` ruff `S201` |
+| `python/flask/no-template-string-injection` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `flask` as `render_template_string` and whose first argument is an f-string with an interpolation, a binary operation (`+`, `%`) or a `.format()` call |
 
 ### python/flask/sqlalchemy
 
@@ -791,6 +799,9 @@ context.md: "Pydantic v2: `model_validate`, `model_dump`, `model_config = Config
 |---|---|
 | `python/pytest/run` | `check` test: `run: pytest -q`, `changed_run`: changed test files plus `tests/**/test_<module>.py` for each changed module and, at Stop, the test files edited during the turn (`<snapshot>/touched`, §10.5) even when the edit was reverted; `pytest --testmon` when the project depends on pytest-testmon; timeout 300 s |
 | `python/pytest/no-new-skip` | `ast-grep` no-increase on test files: `@pytest.mark.skip($$$)`, `@pytest.mark.skipif($$$)`, `@pytest.mark.xfail($$$)`, `pytest.skip($$$)`, `@unittest.skip($$$)`, `pytest.importorskip($$$)` |
+| `python/pytest/no-hook-tamper` | `ast-grep` advise on test files and `conftest.py`: a `def` of a result-rewriting hook (`pytest_runtest_makereport`, `pytest_report_teststatus`, `pytest_runtest_call`, `pytest_pyfunc_call`, `pytest_runtest_protocol`, `pytest_terminal_summary`, `pytest_collection_modifyitems`) |
+| `python/pytest/no-exitstatus` | `ast-grep` advise: `$S.exitstatus = $V` where `S` is pytest's `Session` (`_pytest.main`, §15.1) |
+| `python/pytest/no-exit-zero` | `ast-grep` forbid on test files and `conftest.py`: `sys.exit(0)`, `os._exit(0)`, `pytest.exit(…, returncode=0)` |
 | `python/pytest/no-fewer-asserts` | `ast-grep` no-decrease on test files: `assert $$$` |
 | `python/pytest/no-test-env-branch` | `ast-grep` forbid on non-test files: `PYTEST_CURRENT_TEST` lookups, `"pytest" in sys.modules` |
 | `python/pytest/no-blind-raises` | `tool` ruff `B017` |
@@ -874,6 +885,7 @@ Detected by `tortoise-orm` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/tortoise/primary-key-kw` | `ast-grep` forbid: a call typed `tortoise` (§15.1: a field constructor) with `pk=True` |
+| `python/tortoise/no-generate-schemas` | `ast-grep` forbid, not in tests: a call whose callee is declared (§15.6) by `tortoise` as `generate_schemas`; a call with `generate_schemas=True` whose callee is declared by `tortoise` (`register_tortoise`, `RegisterTortoise`) |
 
 ### python/piccolo
 
@@ -943,6 +955,7 @@ Detected by `numpy` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/numpy/legacy-random` | `tool` ruff `NPY002` |
+| `python/numpy/no-allow-pickle` | `ast-grep` forbid: a call with `allow_pickle=True` whose callee is declared (§15.6) by `numpy` as `load` (`np.save(allow_pickle=True)` is not matched) |
 
 ### python/torch
 
@@ -952,6 +965,7 @@ Detected by `torch` (pypi).
 |---|---|
 | `python/torch/no-unsafe-load` | `ast-grep` forbid: the keyword argument `weights_only=False` |
 | `python/torch/no-unsafe-load-env` | `grep` forbid: `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD` in `*.py`, `.env` files, Dockerfiles, Compose files, `*.sh`, `*.toml`, `*.ini`, `*.cfg`, `.github/workflows/*` |
+| `python/torch/save-state-dict` | `ast-grep` advise: a call whose callee is declared (§15.6) in `torch.serialization` as `save` and whose first argument's type is (a subclass of) `torch`'s `Module` (§15.1); `torch.jit.save` is another declaration |
 
 ### python/huggingface
 
@@ -1014,22 +1028,6 @@ Detected by `apache-airflow` (pypi).
 |---|---|
 | `python/airflow/dag-schedule` | `tool` ruff `AIR002` |
 
-### python/numpy
-
-Detected by `numpy` (pypi).
-
-| Rule | Targets |
-|---|---|
-| `python/numpy/no-allow-pickle` | `ast-grep` forbid: a call with `allow_pickle=True` whose callee is declared (§15.6) by `numpy` as `load` (`np.save(allow_pickle=True)` is not matched) |
-
-### python/torch
-
-Detected by `torch` (pypi).
-
-| Rule | Targets |
-|---|---|
-| `python/torch/save-state-dict` | `ast-grep` advise: a call whose callee is declared (§15.6) in `torch.serialization` as `save` and whose first argument's type is (a subclass of) `torch`'s `Module` (§15.1); `torch.jit.save` is another declaration |
-
 ### python/sentry
 
 Detected by `sentry-sdk` (pypi).
@@ -1037,22 +1035,6 @@ Detected by `sentry-sdk` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/sentry/span-attributes` | `ast-grep` forbid: a call with `data=` whose callee is declared (§15.6) by `sentry_sdk` as `update_current_span` |
-
-### python/flask
-
-Detected by `flask` (pypi).
-
-| Rule | Targets |
-|---|---|
-| `python/flask/no-template-string-injection` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `flask` as `render_template_string` and whose first argument is an f-string with an interpolation, a binary operation (`+`, `%`) or a `.format()` call |
-
-### python/tortoise
-
-Detected by `tortoise-orm` (pypi).
-
-| Rule | Targets |
-|---|---|
-| `python/tortoise/no-generate-schemas` | `ast-grep` forbid, not in tests: a call whose callee is declared (§15.6) by `tortoise` as `generate_schemas`; a call with `generate_schemas=True` whose callee is declared by `tortoise` (`register_tortoise`, `RegisterTortoise`) |
 
 ### python/temporal
 
@@ -1140,6 +1122,10 @@ Detected by `@types/node` (npm).
 | `typescript/node/fetch-timeout` | `ast-grep` advise: a call declared (§15.6) as `fetch` by `typescript` (the DOM library), `node`, `undici-types` or `bun-types`, with one argument, or with an object literal second argument without `signal` (and no spread) |
 | `typescript/node/weak-crypto` | `ast-grep` advise: a call declared (§15.6) in `node/crypto` as `createHash` / `createHmac` whose first argument is the string `md5` or `sha1` (any case) |
 | `typescript/node/no-ecb-cipher` | `ast-grep` forbid: a call declared (§15.6) in `node/crypto` as `createCipheriv` / `createDecipheriv` whose first argument is a string ending in `-ecb` (any case) |
+| `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
+| `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
+
+context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
 
 ### typescript/library
 
@@ -1170,17 +1156,6 @@ context.md: entry points are the public API; renamed exports stay as `@deprecate
 | `typescript/bun/text-lockfile` | `check` lint: no `bun.lockb` file (tracked or untracked, not ignored); `when_changed`: `bun.lockb`, `package.json` |
 
 context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
-
-### typescript/node
-
-Detected by the `@types/node` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
-| `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
-
-context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
 
 ### typescript/eslint
 
@@ -1421,6 +1396,8 @@ context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, 
 | `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
 | `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
 | `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
+| `typescript/vitest/no-matcher-override` | `ast-grep` forbid: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
+| `typescript/vitest/no-exit-zero` | `ast-grep` forbid on test, setup and mock files: `process.exit(0)` |
 | `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
 | `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
 | `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |
@@ -1652,6 +1629,7 @@ context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `
 | `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
 | `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
 | `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
+| `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
 
 context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.query()` and in query builder conditions.
 
@@ -1683,6 +1661,13 @@ context.md: webhook payloads are the raw body.
 ### typescript/cloudflare-workers
 
 Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler` dependency.
+
+
+| Rule | Targets |
+|---|---|
+| `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
+| `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
+| `kubernetes/helm/chart-api-v2` | `grep` forbid on `Chart.yaml`: a top-level `apiVersion: v1` |
 
 ### typescript/cloudflare-workers/stripe
 
@@ -1904,7 +1889,9 @@ Detected by `.github/workflows/*.yml` or `*.yaml`.
 
 | Rule | Targets |
 |---|---|
-| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows and actions, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions` and `artipacked` audits |
+| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows, actions and `.github/dependabot.y*ml`, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions`, `artipacked`, `cache-poisoning`, `github-env`, `insecure-commands`, `overprovisioned-secrets`, `unredacted-secrets`, `secrets-inherit`, `bot-conditions`, `obfuscation`, `unsound-condition`, `unsound-contains`, `unsound-ternary`, `hardcoded-container-credentials`, `unpinned-images`, `ref-version-mismatch`, `archived-uses`, `typosquat-uses`, `use-trusted-publishing`, `dependabot-cooldown` and `dependabot-execution` audits |
+| `github-actions/zizmor-advice` | `check` lint, advisory (§10.7): `forge_advise forge_zizmor adhoc-packages unpinned-tools superfluous-actions` |
+| `github-actions/ci-ratchet` | `grep` no-increase on workflows: `continue-on-error: true`, a run line ending in `\|\| true` / `\|\| exit 0` / `\|\| :`, `if: false` (or `${{ false }}`), `paths-ignore:` |
 
 context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
 
@@ -1923,6 +1910,8 @@ Detected by `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Container
 | `docker/no-secret-arg-env` | `forge_docker_secrets`: no `ARG` / `ENV` named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*`, `*PRIVATE_KEY*`, `*CREDENTIALS*` (`*_FILE` is fine); use `RUN --mount=type=secret` |
 | `docker/locked-install` | `forge_docker_locked`: in `RUN` (continuations joined, commands split on `&&`, `\|\|`, `;`): no `npm install` / `npm i` (except `-g`), `bun install` with `--frozen-lockfile` and no `bun add`, `uv sync` with `--locked` or `--frozen` and no `uv add`, `pnpm install` with `--frozen-lockfile`, `yarn` with `--immutable` or `--frozen-lockfile` |
 | `docker/dockerignore` | `forge_docker_ignore`: each Dockerfile has a `.dockerignore` (`<Dockerfile>.dockerignore`, its directory's, or the root's) that excludes `.env` files |
+| `docker/hadolint-correctness` | `forge_hadolint DL3000 DL3004 DL3014 DL3022 DL3023 DL3024 DL3027 DL3044 DL3061 DL3063 DL3067 DL4000 DL4003 DL4004` (relative `WORKDIR`, `sudo`, `apt-get install` without `-y`, stage references and aliases, `apt`, self-referencing `ENV`, instruction order, `COPY --from` to `/`, `MAINTAINER`, several `CMD` / `ENTRYPOINT`) |
+| `docker/image-size` | advisory (§10.7): `forge_advise forge_hadolint DL3009 DL3015 DL3042 DL3059` (apt lists, `--no-install-recommends`, pip cache, consecutive `RUN`) |
 
 Structural findings (`non-root-user`, `dockerignore`) are reported at line 0, so they count whenever the Dockerfile changed (removing a `USER` adds no line). context.md: multi-stage builds, a non-root final stage, lock-file installs with cache mounts, build secrets, pinned base images; the sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`. Forge does not write that setting; `forge status` prints the line to add when the pack is active.
 
@@ -1941,6 +1930,7 @@ Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use 
 | `docker/compose/no-inline-secrets` | `ast-grep` forbid: under `environment` or `args`, a secret-like key (map form) or `KEY=value` entry (list form) whose value is neither empty nor a `${VAR}` reference; `*_FILE` keys are fine |
 | `docker/compose/healthy-depends` | `ast-grep` forbid: `depends_on` as a list (block or flow); the long form with `condition:` is required |
 | `docker/compose/pinned-images` | `ast-grep` forbid: `image:` with `:latest` or no tag or digest, unless the service also has `build:`; `${VAR}` images are not checked |
+| `docker/compose/no-links` | `ast-grep` forbid: `links` / `external_links` in a service |
 | `docker/compose/env-not-committed` | `check` lint: `git ls-files` lists no `.env` or `.env.*` other than `.env.example`, `.env.sample`, `.env.template` |
 
 context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
@@ -1979,6 +1969,57 @@ Detected by a YAML file whose first document has top-level `apiVersion` and `kin
 
 context.md: what kube-linter enforces, no ignore annotations, Secrets through SealedSecret / ExternalSecret / SOPS, RBAC without wildcards or `cluster-admin`.
 
+### supply-chain
+
+Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/Pipfile`, `**/setup.py` or `**/Cargo.lock`.
+
+| Rule | Targets |
+|---|---|
+| `supply-chain/no-tls-disable` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/` (it holds the patterns): `strict-ssl=false`, `enableStrictSsl: false`, `NODE_TLS_REJECT_UNAUTHORIZED` / `PYTHONHTTPSVERIFY` set to `0`, `sslVerify = false`, `GIT_SSL_NO_VERIFY`, `--trusted-host`, `trusted-host =`, `allow-insecure-host`, `UV_INSECURE_HOST` |
+| `supply-chain/no-tls-disable-command` | `guard` deny: `npm` / `pnpm` / `yarn config set strict-ssl false`, `--strict-ssl=false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, `PYTHONHTTPSVERIFY=0`, `GIT_SSL_NO_VERIFY=`, `PIP_TRUSTED_HOST=`, `UV_INSECURE_HOST=`, `--allow-insecure-host`, `--trusted-host`, `git -c http.sslVerify=false`, `git config … http.sslVerify false` |
+| `supply-chain/insecure-download` | `guard` ask (`review`: only a local or development server): `curl -k` / `--insecure`, `wget --no-check-certificate` |
+| `supply-chain/no-dependency-confusion` | `grep` forbid on requirements and constraints files, `pip.conf` / `pip.ini`, Dockerfiles, workflows, `.gitlab-ci.yml`, shell scripts, Makefiles, `tox.ini`, `noxfile.py`, `.env.example`, `pyproject.toml`, `uv.toml`: `--extra-index-url`, `PIP_EXTRA_INDEX_URL`, an INI `extra-index-url =` (uv's TOML `extra-index-url` and `[[tool.uv.index]]` are first-index, and fine), uv `index-strategy` / `UV_INDEX_STRATEGY` / `--index-strategy` `unsafe-best-match` or `unsafe-first-match` |
+| `supply-chain/no-dependency-confusion-command` | `guard` ask: `pip install … --extra-index-url`, `--index-strategy unsafe-…` |
+| `supply-chain/audit-ignore-ratchet` | `grep` no-increase on `osv-scanner.toml`, `pnpm-workspace.yaml`, `package.json`, `.nsprc`, `audit-ci.json(c)`, `.trivyignore`, `.grype.yaml`, workflows, `.gitlab-ci.yml`, `Makefile`: advisory ids (`GHSA-…`, `CVE-…`, `PYSEC-…`, `RUSTSEC-…`) |
+| `supply-chain/vuln-audit` | `check` lint: `forge_osv` on the changed lock files (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt`, `Pipfile.lock`, `pdm.lock`, `Cargo.lock`): pinned osv-scanner (§13.5), one backend for every ecosystem, `scan source --config <empty> --format markdown -L <lock>` on the lock and on its base copy (an empty config: `osv-scanner.toml` `[[IgnoredVulns]]` do not apply); each (package, version, advisory) present now and not in the base is a finding at line 0. Needs api.osv.dev: unreachable, `skipped`. `bun.lockb` (binary) is `skipped`. Not with `--all` |
+
+### gitlab-ci
+
+Detected by `.gitlab-ci.yml`. Rules apply to `.gitlab-ci.yml` and `.gitlab/ci/**/*.y*ml`; ast-grep rules use `scope.language: yaml`.
+
+| Rule | Targets |
+|---|---|
+| `gitlab-ci/ci-ratchet` | `grep` no-increase: `allow_failure: true`, `when: manual`, a script line ending in `\|\| true` / `\|\| exit 0` / `\|\| :` |
+| `gitlab-ci/no-debug-trace` | `grep` forbid: `CI_DEBUG_TRACE` or `CI_DEBUG_SERVICES` set to `true` (masked secrets go to the job log) |
+| `gitlab-ci/pinned-images` | `ast-grep` forbid: an `image:` value, `image: name:`, a `services:` entry or its `name:` with `:latest` or no tag or digest; `$VAR` images are not checked |
+| `gitlab-ci/rules-not-only-except` | `ast-grep` forbid: `only:` / `except:` in a job (a top-level key other than `variables`, `workflow`, `default`, `include`, `stages`) |
+| `gitlab-ci/pinned-includes` | `ast-grep` forbid: under `include`, a `project:` entry without `ref:` or with `ref:` `main`, `master`, `HEAD`, `develop`; a `component:` ending in `@~latest`, `@main` or `@master` |
+
+### terraform
+
+Detected by `**/*.tf` or `**/*.tofu`. The grep rules apply to those files; checks run the project's Terraform CLI, a system tool (§13.5): `tofu` in an OpenTofu project, else `terraform`.
+
+| Rule | Targets |
+|---|---|
+| `terraform/protection-ratchet` | `grep` no-decrease: `prevent_destroy = true`, `deletion_protection = true` |
+| `terraform/no-unprotect` | `grep` forbid: `force_destroy = true`, `skip_final_snapshot = true`, `deletion_protection = false` |
+| `terraform/no-new-suppressions` | `grep` no-increase: `#trivy:ignore:`, `#tfsec:ignore:`, `#checkov:skip=`, `# tflint-ignore:` (also after `//`) |
+| `terraform/state-not-committed` | `check` lint: `git ls-files -co --exclude-standard` lists no `*.tfstate`, `*.tfstate.backup`, `crash.log` or file under `.terraform/`; a `.terraform.lock.hcl` next to a tracked `*.tf` / `*.tofu` is not git-ignored |
+| `terraform/fmt` | `check` format: `terraform fmt -check -recursive`; changed files: `terraform fmt {files}` (on `*.tf`, `*.tfvars`, `*.tofu`) |
+| `terraform/validate` | `check` typecheck: `forge_tf_validate`: `validate -no-color` in each directory of a changed `.tf` / `.tofu` file; errors as `path:line: Error: summary`; a directory validate cannot judge before `init` (its output asks for `terraform init`: providers or modules not installed) is `skipped` |
+| `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, installed once by `tflint --init` into `~/.cache/forge/tflint-plugins`; offline: `skipped`); every issue counts, whatever tflint's severity |
+| `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
+
+context.md: `moved {}`, `removed {}` and `import {}` blocks instead of `terraform state mv|rm` and CLI import; protections are kept; suppressions and state as above.
+
+### ai-models
+
+Detected by a dependency on `anthropic`, `openai`, `pydantic-ai`, `litellm`, `langchain-anthropic`, `langchain-openai` (PyPI) or `@anthropic-ai/sdk`, `openai`, `ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`, `@langchain/anthropic`, `@langchain/openai` (npm).
+
+| Rule | Targets |
+|---|---|
+| `ai-models/model-ids` | `grep` forbid, any file but Forge's own `.claude/skills/forge-project/`: a quoted retired model id (Anthropic's and OpenAI's deprecation pages as of 2026-10-26: `claude-3-*` dated ids and their `-latest` aliases, `claude-opus-4-0` / `-4-1`, `claude-sonnet-4-0`, `claude-2.x`, `claude-1.x`, `claude-instant-1.x`; `gpt-4`, `gpt-4-turbo*`, `gpt-3.5-turbo*`, `gpt-4-32k*`, `gpt-4.1-nano*`, `gpt-4.5-preview`, `o1`, `o1-pro`, `o3-mini`, `dall-e-2` / `-3`, `text-davinci-*`, …), optionally after pydantic-ai's `anthropic:` / `openai:` or LiteLLM's `anthropic/` prefix; Bedrock (`anthropic.`) and Vertex (`@`) ids are not checked |
+
 ### kubernetes/helm
 
 Detected by `**/Chart.yaml`.
@@ -1986,25 +2027,6 @@ Detected by `**/Chart.yaml`.
 | Rule | Targets |
 |---|---|
 | `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
-
-### terraform
-
-Detected by `**/*.tf`, `**/*.tofu`. Checks run the project's Terraform CLI, a system tool (§13.5): `tofu` in an OpenTofu project, else `terraform`.
-
-| Rule | Targets |
-|---|---|
-| `terraform/fmt` | `check` format: `terraform fmt -check -recursive`; changed files: `terraform fmt {files}` (on `*.tf`, `*.tfvars`, `*.tofu`) |
-| `terraform/validate` | `check` typecheck: `forge_tf_validate`: `validate -no-color` in each directory of a changed `.tf` / `.tofu` file; errors as `path:line: Error: summary`; a directory validate cannot judge before `init` (its output asks for `terraform init`: providers or modules not installed) is `skipped` |
-| `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, installed once by `tflint --init` into `~/.cache/forge/tflint-plugins`; offline: `skipped`); every issue counts, whatever tflint's severity |
-| `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
-
-### supply-chain
-
-Detected by `**/package.json`, `**/pyproject.toml`, `**/requirements*.txt`, `**/Pipfile`, `**/setup.py`, `**/Cargo.lock`.
-
-| Rule | Targets |
-|---|---|
-| `supply-chain/vuln-audit` | `check` lint: `forge_osv` on the changed lock files (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt`, `Pipfile.lock`, `pdm.lock`, `Cargo.lock`): pinned osv-scanner (§13.5), one backend for every ecosystem, `scan source --config <empty> --format markdown -L <lock>` on the lock and on its base copy (an empty config: `osv-scanner.toml` `[[IgnoredVulns]]` do not apply); each (package, version, advisory) present now and not in the base is a finding at line 0. Needs api.osv.dev: unreachable, `skipped`. `bun.lockb` (binary) is `skipped`. Not with `--all` |
 
 ### openapi
 
@@ -2032,18 +2054,38 @@ Detected by `flyway.conf`, `flyway.toml`, `conf/flyway.conf`, `supabase/config.t
 |---|---|
 | `sql/applied-migrations` | `check` migration: `forge_applied_migrations @sql-migrations` (§15.4): a migration that exists in the base is not modified or deleted (not with `--all`) |
 
-### typescript/typeorm
+### kubernetes/kustomize
+
+Detected by `**/kustomization.yaml`, `**/kustomization.yml` or `**/Kustomization`.
 
 | Rule | Targets |
 |---|---|
-| `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
+| `kubernetes/kustomize/no-deprecated-fields` | `ast-grep` forbid on `kustomization.y*ml`: a top-level `bases`, `patchesStrategicMerge`, `patchesJson6902`, `commonLabels`, `imageTags`, `vars` or `helmChartInflationGenerator` key |
 
-### typescript/cloudflare-workers
+### pre-commit
+
+Detected by `.pre-commit-config.yaml`.
 
 | Rule | Targets |
 |---|---|
-| `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
-| `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
+| `pre-commit/pinned-revs` | `grep` forbid on `.pre-commit-config.yaml`: a `rev:` of `main`, `master`, `HEAD`, `trunk`, `develop` or `latest` |
+
+### release
+
+Detected by `.changeset/config.json`, `release-please-config.json`, `.release-please-manifest.json`, `.releaserc`, `.releaserc.*`, `release.config.*`, `cliff.toml`, `towncrier.toml`, `changelog.d/*`, or a dependency on `semantic-release`, `@changesets/cli` (npm) or `towncrier` (PyPI).
+
+| Rule | Targets |
+|---|---|
+| `release/no-hand-changelog` | `permission` ask: `Edit(**/CHANGELOG.md)` (the release tooling writes it) |
+
+### toolchain
+
+Detected by `mise.toml`, `.mise.toml`, `.tool-versions`, `.devcontainer/**` or `.devcontainer.json`.
+
+| Rule | Targets |
+|---|---|
+| `toolchain/pinned-versions` | `grep` forbid on `mise.toml`, `.mise.toml`, `mise.*.toml`, `.tool-versions`: a `latest` version |
+| `toolchain/devcontainer-pinned` | `grep` forbid on `devcontainer.json`: an `"image"` with `:latest` or no tag or digest; `curl` / `wget` piped to `sh`, `bash` or `zsh` |
 
 ### 13.1 Migration linting
 

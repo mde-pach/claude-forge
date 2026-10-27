@@ -1,0 +1,10 @@
+id: typescript/vitest/no-exit-zero
+description: "Test, setup and mock files never call process.exit(0): the run reports success whatever the tests did."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/__mocks__/**", "**/test-utils.*", "**/test-helpers.*", "**/vitest.setup.*", "!e2e/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule: {pattern: "process.exit(0)"}
+examples:
+  match: ["import { afterAll } from \"vitest\";\n\nafterAll(() => {\n  process.exit(0);\n});\n"]
+  no_match: ["import { afterAll } from \"vitest\";\n\nafterAll(() => {\n  process.exitCode = process.exitCode ?? 0;\n});\n", "process.exit(1);\n"]

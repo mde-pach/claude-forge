@@ -1,0 +1,14 @@
+id: pre-commit/pinned-revs
+description: "Every repos[].rev in .pre-commit-config.yaml is a tag or a commit SHA, never a branch (main, master, HEAD, trunk, develop, latest): a branch runs whatever the hook repository pushes next, on every developer machine. pre-commit autoupdate --freeze pins SHAs."
+scope: {language: any, files: [".pre-commit-config.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*-?[[:space:]]*rev:[[:space:]]*[\"']?(main|master|HEAD|trunk|develop|latest)[\"']?[[:space:]]*(#.*)?$"
+examples:
+  match:
+    - "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: main\n    hooks:\n      - id: ruff\n"
+    - "repos:\n  - rev: \"master\"\n    repo: https://github.com/pre-commit/pre-commit-hooks\n"
+  no_match:
+    - "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.17.1\n    hooks:\n      - id: ruff\n"
+    - "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: 0123abc4567def  # frozen: v6.0.0\n"

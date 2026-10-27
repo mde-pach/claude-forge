@@ -1,0 +1,30 @@
+id: supply-chain/no-tls-disable-command
+description: "Commands never turn TLS verification off: no npm / pnpm / yarn config set strict-ssl false or --strict-ssl=false, NODE_TLS_REJECT_UNAUTHORIZED=0, PYTHONHTTPSVERIFY=0, GIT_SSL_NO_VERIFY, git http.sslVerify false, pip --trusted-host / PIP_TRUSTED_HOST, uv --allow-insecure-host / UV_INSECURE_HOST. Every install would then accept an intercepted connection; install the proxy's CA certificate instead."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(npm|pnpm|yarn)[[:space:]]+config[[:space:]]+set[[:space:]]+strict-ssl[[:space:]=]+false'
+  - target: guard
+    decision: deny
+    pattern: '--strict-ssl[= ]false|NODE_TLS_REJECT_UNAUTHORIZED=\\?["'']?0|PYTHONHTTPSVERIFY=\\?["'']?0|GIT_SSL_NO_VERIFY=|PIP_TRUSTED_HOST=|UV_INSECURE_HOST=|--allow-insecure-host|--trusted-host'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-c[[:space:]]+http\.sslVerify=false|config[[:space:]]+([^;&|]*[[:space:]])?http\.sslVerify[[:space:]]+false)'
+examples:
+  match:
+    - "npm config set strict-ssl false"
+    - "npm install --strict-ssl=false"
+    - "NODE_TLS_REJECT_UNAUTHORIZED=0 node app.js"
+    - "export PYTHONHTTPSVERIFY=0"
+    - "pip install --trusted-host pypi.org requests"
+    - "uv sync --allow-insecure-host pypi.internal"
+    - "git config --global http.sslVerify false"
+    - "git -c http.sslVerify=false clone https://git.internal/acme/lib.git"
+    - "GIT_SSL_NO_VERIFY=1 git clone https://git.internal/acme/lib.git"
+  no_match:
+    - "npm config set registry https://registry.npmjs.org/"
+    - "git config http.sslVerify true"
+    - "NODE_TLS_REJECT_UNAUTHORIZED=1 node app.js"
+    - "export NODE_EXTRA_CA_CERTS=/etc/ssl/corp-ca.pem"
+    - "pip install requests"

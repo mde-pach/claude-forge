@@ -1,0 +1,10 @@
+id: safety/no-vendored-edits
+description: "Installed packages are not edited: Edit and Write under node_modules/, .venv/ or site-packages/ are denied. An edit there vanishes on the next install and hides the real fix; patch through the package manager (patch-package, pnpm patch, bun patch) or upgrade the dependency instead."
+scope: {language: any}
+enforce:
+  - {target: permission, decision: deny, rule: "Edit(**/node_modules/**)"}
+  - {target: permission, decision: deny, rule: "Edit(**/.venv/**)"}
+  - {target: permission, decision: deny, rule: "Edit(**/site-packages/**)"}
+examples:
+  match: ["Edit(node_modules/zod/index.js)", "Edit(packages/web/node_modules/react/index.js)", "Edit(.venv/lib/python3.13/site-packages/httpx/_client.py)", "Edit(/usr/lib/python3/site-packages/six.py)"]
+  no_match: ["Edit(src/node_modules.ts)", "Edit(patches/zod+4.1.12.patch)", "Read(node_modules/zod/index.js)", "Edit(docs/venv.md)"]

@@ -1,10 +1,34 @@
 id: safety/sql-destructive
-description: No DROP TABLE / DATABASE / SCHEMA or TRUNCATE through psql.
+description: "No data-destroying database commands: DROP TABLE / DATABASE / SCHEMA, TRUNCATE or a DELETE FROM without WHERE through psql, mysql, mariadb or sqlite3; dropDatabase() or .drop() through mongosh or mongo; heroku pg:reset; supabase db reset on a linked or remote database."
 scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])psql[[:space:]].*([Dd][Rr][Oo][Pp][[:space:]]+([Tt][Aa][Bb][Ll][Ee]|[Dd][Aa][Tt][Aa][Bb][Aa][Ss][Ee]|[Ss][Cc][Hh][Ee][Mm][Aa])|[Tt][Rr][Uu][Nn][Cc][Aa][Tt][Ee])([[:space:];]|$)'
+    pattern: '(^|[^A-Za-z0-9_-])(psql|mysql|mariadb|sqlite3)[[:space:]].*(([Dd][Rr][Oo][Pp][[:space:]]+([Tt][Aa][Bb][Ll][Ee]|[Dd][Aa][Tt][Aa][Bb][Aa][Ss][Ee]|[Ss][Cc][Hh][Ee][Mm][Aa])|[Tt][Rr][Uu][Nn][Cc][Aa][Tt][Ee])([[:space:];]|\\?["'']|$)|[Dd][Ee][Ll][Ee][Tt][Ee][[:space:]]+[Ff][Rr][Oo][Mm][[:space:]]+[A-Za-z0-9_."]+[[:space:]]*(;|\\?["'']|$))'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(mongosh|mongo)[[:space:]].*(dropDatabase[[:space:]]*\(|\.drop[[:space:]]*\()'
+  - target: guard
+    decision: deny
+    pattern: '(^|[^A-Za-z0-9_-])(heroku[[:space:]]+pg:reset|supabase[[:space:]]+db[[:space:]]+reset[^;&|]*(--linked|--db-url))'
 examples:
-  match: ["psql \"$DATABASE_URL\" -c 'DROP TABLE users;'", "psql -c \"truncate orders\"", "psql app -c 'drop schema public cascade'"]
-  no_match: ["psql -c 'SELECT 1'", "psql app -c 'select * from drop_table_log'"]
+  match:
+    - "psql \"$DATABASE_URL\" -c 'DROP TABLE users;'"
+    - "psql -c \"truncate orders\""
+    - "psql app -c 'drop schema public cascade'"
+    - "mysql -e 'DROP TABLE users'"
+    - "sqlite3 app.db \"drop table users\""
+    - "psql -c 'DELETE FROM users;'"
+    - "mariadb shop -e \"delete from orders\""
+    - "mongosh --eval 'db.dropDatabase()'"
+    - "mongosh shop --eval 'db.orders.drop()'"
+    - "heroku pg:reset DATABASE_URL --confirm shop"
+    - "supabase db reset --linked"
+  no_match:
+    - "psql -c 'SELECT 1'"
+    - "psql app -c 'select * from drop_table_log'"
+    - "psql -c 'DELETE FROM users WHERE id = 1;'"
+    - "mysql -e 'select 1'"
+    - "sqlite3 app.db .tables"
+    - "mongosh --eval 'db.orders.find()'"
+    - "supabase db reset"

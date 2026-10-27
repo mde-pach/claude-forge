@@ -1,0 +1,11 @@
+id: supply-chain/no-dependency-confusion-command
+description: Claude asks before pip install with --extra-index-url or a uv command with an unsafe index strategy; a public package with an internal package's name would win.
+review: "Is every package this command installs from the extra index one whose name cannot also exist on the public index (or is pinned there by hash), as the user's request requires?"
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    pattern: '(^|[^A-Za-z0-9_-])pip3?[[:space:]][^;&|]*--extra-index-url|--index-strategy[= ]unsafe-'
+examples:
+  match: ["pip install --extra-index-url https://pypi.internal/simple acme-utils", "uv pip install --index-strategy unsafe-best-match acme-utils", "python -m pip install --extra-index-url=https://pypi.internal/simple acme"]
+  no_match: ["pip install --index-url https://pypi.internal/simple acme-utils", "uv sync --index-strategy first-index", "uv add acme-utils --index internal"]

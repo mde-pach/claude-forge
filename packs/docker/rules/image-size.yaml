@@ -1,0 +1,11 @@
+id: docker/image-size
+description: "Advice, once per turn at Stop: smaller images (hadolint DL3009: delete the apt lists; DL3015: apt-get install --no-install-recommends; DL3042: pip install --no-cache-dir or a cache mount; DL3059: consecutive RUN instructions merged)."
+scope: {language: any, files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_hadolint DL3009 DL3015 DL3042 DL3059", when_changed: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
+examples:
+  match:
+    - files: {Dockerfile: "FROM debian:13-slim\nRUN apt-get update && apt-get install -y curl\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+    - files: {Dockerfile: "FROM python:3.13-slim\nRUN pip install uv\nUSER app\n", .dockerignore: ".env*\n.git\n"}
+  no_match:
+    - files: {Dockerfile: "FROM python:3.13-slim\nRUN apt-get update \\\n && apt-get install -y --no-install-recommends curl \\\n && rm -rf /var/lib/apt/lists/*\nRUN --mount=type=cache,target=/root/.cache/pip pip install uv==0.9.5\nUSER app\n", .dockerignore: ".env*\n.git\n"}

@@ -1,0 +1,22 @@
+id: docker/compose/no-links
+description: "No links: or external_links: in services; services reach each other by name on a shared network."
+scope: {language: yaml, files: ["**/compose*.yml", "**/compose*.yaml", "**/docker-compose*.yml", "**/docker-compose*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^[\"']?(links|external_links)[\"']?$"}
+      inside:
+        kind: block_mapping
+        inside:
+          kind: block_node
+          inside:
+            kind: block_mapping_pair
+            inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: block_mapping_pair, has: {field: key, regex: "^[\"']?services[\"']?$"}}}}
+examples:
+  match:
+    - "services:\n  api:\n    image: acme/api:1.2\n    links:\n      - db\n"
+    - "services:\n  api:\n    image: acme/api:1.2\n    external_links:\n      - redis_1\n"
+  no_match:
+    - "services:\n  api:\n    image: acme/api:1.2\n    depends_on:\n      db:\n        condition: service_healthy\n    labels:\n      links: \"docs\"\n"
