@@ -29,6 +29,10 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      # Biome (format and lint of the TypeScript) and shellcheck (the generated scripts' templates); the same on both systems
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: bun run lint
       # The spec run: its JUnit report (test-results/<platform>.xml) is what the docs show.
       - run: bun run test:report
       - if: always()

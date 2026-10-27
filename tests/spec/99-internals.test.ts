@@ -7,8 +7,8 @@
  * site reads this test suite and its JUnit results faithfully.
  */
 import { describe, expect, test } from "bun:test";
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { allTests, autoPlaced, countTests, parseJUnit, readSpec, selectNodes, specUses, summarize } from "../../docs/src/lib/spec";
 import { loadPacks } from "../../src/packs";
 import { globMatch } from "../../src/packs";
@@ -56,6 +56,56 @@ test("tools are found in check commands, not in paths or package names", () => {
   expect(toolsInCommand('if grep -qi "pytest-testmon" pyproject.toml; then pytest -q; fi')).toEqual(["pytest"]);
   expect(toolsInCommand("prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma")).toEqual(["prisma"]);
   expect(toolsInCommand("astro check")).toEqual(["astro"]);
+});
+
+/** The modules of src/ and the src/ modules each one imports (relative imports, type-only ones included). */
+function srcImports(): Map<string, string[]> {
+  const src = join(ROOT, "src");
+  const files = readdirSync(src, { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith(".ts"));
+  const graph = new Map<string, string[]>();
+  for (const f of files) {
+    const text = readFileSync(join(src, f), "utf8");
+    const deps = [...text.matchAll(/\bfrom\s+"(\.\.?\/[^"]+)"/g)].map((m) => {
+      const target = join(dirname(join(src, f)), m[1]!.replace(/\.js$/, ""));
+      return relative(src, existsSync(`${target}.ts`) ? `${target}.ts` : join(target, "index.ts"));
+    });
+    graph.set(f, [...new Set(deps)]);
+  }
+  return graph;
+}
+
+/** Every import cycle, as the modules it goes through (each cycle once, from its smallest module). */
+function importCycles(graph: Map<string, string[]>): string[][] {
+  const cycles = new Map<string, string[]>();
+  const visit = (f: string, path: string[]) => {
+    const at = path.indexOf(f);
+    if (at >= 0) {
+      const cycle = path.slice(at);
+      const start = cycle.indexOf([...cycle].sort()[0]!);
+      const norm = [...cycle.slice(start), ...cycle.slice(0, start)];
+      cycles.set(norm.join(" -> "), norm);
+      return;
+    }
+    for (const d of graph.get(f) ?? []) visit(d, [...path, f]);
+  };
+  for (const f of graph.keys()) visit(f, []);
+  return [...cycles.values()];
+}
+
+describe("source layout", () => {
+  /** A module that imports one that imports it back cannot be read, tested or moved alone. */
+  test("src has no import cycles", () => {
+    const graph = srcImports();
+    expect(graph.size).toBeGreaterThan(10);
+    const allowed = new Set(["packs.ts -> render.ts"]);
+    expect(
+      importCycles(graph)
+        .map((c) => c.join(" -> "))
+        .filter((c) => !allowed.has(c)),
+    ).toEqual([]);
+  });
 });
 
 describe("the documentation is the test suite", () => {

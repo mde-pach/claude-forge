@@ -2327,7 +2327,7 @@ forge_trivy_config() {
       rm -f "$_tr_b/${_tr_f##*/}"
       [ -f "$FORGE_TMP/base/$_tr_f" ] && cp "$FORGE_TMP/base/$_tr_f" "$_tr_b/"
     done < "$FORGE_TMP/tv.changed"
-    for _tr_side in now then; do
+    for _tr_side in now "then"; do
       [ "$_tr_side" = now ] && _tr_dir=$_tr_d || _tr_dir=$_tr_b
       "$_tr_bin" config --quiet --cache-dir "$_tr_cache" --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update \
         --ignorefile "$FORGE_TMP/trivy.ignore" --format template --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
@@ -2602,7 +2602,7 @@ forge_alembic_files() {
   forge_role_files @alembic-migrations | grep '\.py$' > "$FORGE_TMP/alembic.all"
   awk '{ print $1 }' | while read -r _fa_id; do
     # shellcheck disable=SC2046
-    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]$_fa_id['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
+    [ -n "$_fa_id" ] && [ -s "$FORGE_TMP/alembic.all" ] && grep -lE "^revision[^=]*=[[:space:]]*['\"]${_fa_id}['\"]" $(cat "$FORGE_TMP/alembic.all") 2>/dev/null
   done
 }
 
