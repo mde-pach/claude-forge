@@ -17,9 +17,9 @@
 //   pnpm-overrides      pnpm-workspace.yaml overrides entries new since the base
 // Exit 0: nothing found; 1: findings printed ("path:line message", or "path: message" for a
 // requirement of the whole setup); 3: cannot run ("skipped: …" printed).
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const [tmp, mode, cooldownArg] = process.argv.slice(2);
 // npm-cooldown: Forge's one release cooldown, in seconds (FORGE_COOLDOWN_SECONDS), as days
