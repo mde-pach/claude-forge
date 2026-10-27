@@ -15,7 +15,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
-import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, selfTest, type TestReport } from "../../src/selftest";
+import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
 import { ensureTools, ensureVueTools, forge, ROOT, sh, TOOLS_CACHE } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 
@@ -120,13 +120,21 @@ test("prisma migration-present passes in a db push workflow and still runs migra
     const changed = { files: { "prisma/schema.prisma": "model User {\n  id    Int    @id\n  phone String?\n}\n" } };
     const env = { ".env": "DATABASE_URL=postgresql://app@localhost:5432/app\n" };
     const push = { head: { ...schema, ...env, "package.json": '{"scripts": {"db:push": "prisma db push"}}\n' }, ...changed };
-    expect(runCheckExample(rule, target, push, "no_match", [bin])).toEqual({ outcome: "pass", detail: "" });
-    expect(calls()).toBe("");
     const migrate = {
       head: { ...schema, ...env, "package.json": '{"scripts": {"migrate": "prisma migrate dev"}}\n', "prisma.config.ts": "export default { datasource: { shadowDatabaseUrl: env('SHADOW_DATABASE_URL') } };\n", "prisma/migrations/20261020000000_init/migration.sql": "CREATE TABLE \"User\" (\"id\" INTEGER NOT NULL);\n" },
       ...changed,
     };
-    expect(runCheckExample(rule, target, migrate, "match", [bin])).toEqual({ outcome: "pass", detail: "" });
+    // both examples in one call: they run in parallel
+    const [p, m] = runCheckExamples(
+      [
+        { rule, target, example: push, kind: "no_match" },
+        { rule, target, example: migrate, kind: "match" },
+      ],
+      [bin],
+    );
+    expect(p).toEqual({ outcome: "pass", detail: "" });
+    expect(m).toEqual({ outcome: "pass", detail: "" });
+    // only the migrate workflow called prisma
     expect(calls()).toBe("migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code\n");
   } finally {
     rmSync(bin, { recursive: true, force: true });
