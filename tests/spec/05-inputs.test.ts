@@ -455,8 +455,11 @@ examples:
     expect(active(planWith({ "package.json": '{"dependencies": {"express": "^5.1.0"}}\n' }).p)).toBe(true);
     const old = planWith({ "package.json": '{"dependencies": {"express": "^4.21.0"}}\n' });
     expect(active(old.p)).toBe(false);
-    expect(old.p.gated).toEqual([{ id: "local/v5-only", needs: "express >=5" }]);
-    expect(forge(["status"], old.repo).stdout).toContain("Inactive (version gate):\n  local/v5-only: needs express >=5");
+    // the pack rules about Express 5 are gated the same way
+    expect(old.p.gated.filter((g) => g.id.startsWith("local/"))).toEqual([{ id: "local/v5-only", needs: "express >=5" }]);
+    const status = forge(["status"], old.repo).stdout;
+    expect(status).toContain("Inactive (version gate):\n");
+    expect(status).toContain("\n  local/v5-only: needs express >=5\n");
     expect(active(planWith({ "package.json": '{"dependencies": {}}\n' }).p)).toBe(false);
   });
 
