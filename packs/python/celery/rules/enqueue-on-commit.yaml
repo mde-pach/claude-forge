@@ -1,0 +1,37 @@
+id: python/celery/enqueue-on-commit
+description: "A task is not sent (.delay() / .apply_async()) inside a Django transaction (with transaction.atomic():, an @transaction.atomic function): the worker can run before the transaction commits and read missing or stale rows, or run for a transaction that rolls back. Send it with transaction.on_commit(lambda: task.delay(…)) or task.delay_on_commit(…)."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: "$T.$SEND($$$)"
+      inside:
+        stopBy: end
+        any:
+          - kind: with_statement
+            has: {kind: with_clause, has: {kind: with_item, regex: "atomic", has: {any: [{kind: call, pattern: $C}, {kind: as_pattern, has: {kind: call, pattern: $C}}]}}}
+          - kind: decorated_definition
+            has: {kind: decorator, regex: "atomic", has: {any: [{kind: call, has: {field: function, pattern: $F}}, {pattern: $F}]}}
+      # on_commit(lambda: task.delay(…)) runs after the commit
+      not: {inside: {kind: lambda, stopBy: end}}
+    constraints:
+      SEND: {regex: "^(delay|apply_async)$"}
+    # a Celery task (§15.1, through celery-types) in Django's Atomic (§15.1) or a function
+    # decorated with its atomic (§15.6), through django-stubs
+    where:
+      T: {type: {package: celery, name: Task}}
+      C: {type: {package: django, module: django.db.transaction, name: Atomic}}
+      F: {declared: {package: django, module: django.db.transaction, name: atomic}}
+    needs: [{ecosystem: pypi, name: celery-types}, {ecosystem: pypi, name: django-stubs}]
+when:
+  deps: [{ecosystem: pypi, name: django, version: ">=4.2"}]
+examples:
+  deps: [{ecosystem: pypi, name: celery, version: "5.6.3"}, {ecosystem: pypi, name: celery-types, version: "0.26.0"}, {ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\ndef publish(title: str) -> None:\n    with transaction.atomic():\n        article = Article.objects.create(title=title)\n        notify.delay(article.pk)\n"
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\n@transaction.atomic\ndef publish(title: str) -> None:\n    article = Article.objects.create(title=title)\n    notify.apply_async(args=(article.pk,), countdown=5)\n"
+  no_match:
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\ndef publish(title: str) -> None:\n    with transaction.atomic():\n        article = Article.objects.create(title=title)\n        transaction.on_commit(lambda: notify.delay(article.pk))\n    notify.delay(article.pk)\n"
+    - "from celery import shared_task\nfrom django.db import models, transaction\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\n@shared_task\ndef notify(article_id: int) -> None:\n    print(article_id)\n\n\nclass Mailer:\n    def delay(self, n: int) -> None:\n        print(n)\n\n\ndef publish(title: str, mailer: Mailer) -> None:\n    with transaction.atomic():\n        article = Article.objects.create(title=title)\n        mailer.delay(article.pk)\n"

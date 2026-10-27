@@ -841,6 +841,13 @@ Detected by `django` (pypi) or a `manage.py` at the root or one level down.
 | `python/django/no-mark-safe` | `tool` ruff `S308` |
 | `python/django/migrate-guard` | `guard` ask (`review`: is the user aware it resets data or the migration state): `manage.py` / `django-admin` `migrate … --fake`, `migrate <app> zero`, `flush`, `reset_db`, `sqlflush` piped to a command |
 | `python/django/user-model-ref` | `ast-grep` forbid: a call whose callee is declared (§15.6) by `django` as `ForeignKey`, `OneToOneField` or `ManyToManyField` and whose first argument is the string `"auth.User"` or a name declared as `django.contrib.auth.models`' `User` |
+| `python/django/async-orm` | `ast-grep` forbid, `needs` `django-stubs`: inside an `async def` (the innermost function; not a lambda or sync def in it), `$R.save/delete/refresh_from_db/full_clean/get/first/last/count/exists/create/get_or_create/update_or_create/update/aggregate/in_bulk/bulk_create/bulk_update/earliest/latest/contains/iterator(…)` and a sync `for … in $R`, where `R` is typed `django` `Model`, `QuerySet` or `BaseManager` (§15.1) |
+| `python/django/queryset-len` | `ast-grep` advise, `needs` `django-stubs`: `len($Q)` where `Q` is a `QuerySet` (§15.1) |
+| `python/django/no-atomic-in-async` | `ast-grep` forbid, `needs` `django-stubs`: a call typed `django.db.transaction` `Atomic` (§15.1) in a `with` item of an `async def`, or a decorator on an `async def` declared (§15.6) as `django.db.transaction`'s `atomic` (called or not) |
+| `python/django/no-index-together` | `ast-grep` forbid, `needs` `django-stubs`: `index_together = …` in a `class Meta` of a class whose last base is typed `django` `Model` (§15.1); split from the candidate `no-deprecated-api` (another target) |
+| `python/django/storages-setting` | `ast-grep` forbid in `@django-settings`, `when` `django >= 4.2`: top-level `DEFAULT_FILE_STORAGE = …` / `STATICFILES_STORAGE = …` (removed in 5.1, ignored); split from `no-deprecated-api` |
+| `python/django/mailers-setting` | `ast-grep` forbid in `@django-settings`, `when` `django >= 6.1`: top-level `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `EMAIL_TIMEOUT`, `EMAIL_FILE_PATH`, `EMAIL_SSL_CERTFILE`, `EMAIL_SSL_KEYFILE` assignments (`MAILERS` replaces them); split from `no-deprecated-api` |
+| `python/django/no-deprecated-api` | `ast-grep` forbid, `needs` `django-stubs`, `when` `django >= 6.1`: `$Q.select_related()` with no argument and `$Q.values_list(flat=True)` with no field, where `Q` is a `QuerySet` or `BaseManager` (§15.1); `CheckConstraint(check=)`, positional `save()`, `savepoint()` and `format_html()` without arguments are left to ty (`python/typecheck`, `python/no-deprecated`) |
 | `python/django/migration-imports-models` | `ast-grep` forbid on `@django-migrations`: `from <x>.models import …`, `from <x> import models` (not `django.*`) |
 | `python/django/migration-reversible` | `ast-grep` forbid on `@django-migrations`: `migrations.RunPython(…)` without a second positional argument or `reverse_code=`, `migrations.RunSQL(…)` without one or `reverse_sql=` |
 | `python/django/applied-migrations` | `check` migration: `forge_applied_migrations @django-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
@@ -879,6 +886,9 @@ Detected by `celery` (pypi).
 | `python/celery/bounded-retries` | `ast-grep` forbid: `max_retries=None` in a `shared_task(…)` / `<x>.task(…)` call or a `.retry()`, `.apply_async()`, `.signature()`, `.set()` call; `"max_retries": None` inside `retry_kwargs=`; a `max_retries = None` class attribute of a class whose bases name `Task` |
 | `python/celery/no-pickle` | `grep` forbid (case-insensitive): `task_serializer`, `result_serializer`, `event_serializer` or `serializer` set to `"pickle"` (`=` or `:`); `accept_content` naming `pickle` or `application/x-python-serialize` |
 | `python/celery/no-result-get-in-task` | `ast-grep` forbid: inside a task, `.get()`, `.wait()`, `.join()` on `.delay()` / `.apply_async()` / `AsyncResult()` results (directly, through a variable of the function, or as the variable of a `for` loop or comprehension over them) or on a called `group` / `chord` / `chain`; `disable_sync_subtasks=False` anywhere |
+| `python/celery/enqueue-on-commit` | `ast-grep` forbid, `needs` `celery-types` and `django-stubs`, `when` `django >= 4.2`: `$T.delay(…)` / `$T.apply_async(…)` (not in a `lambda`) inside a `with` whose item is typed `django.db.transaction` `Atomic` (§15.1), or in a function whose decorator is declared as its `atomic` (§15.6), where `T` is a Celery `Task` |
+| `python/celery/no-model-args` | `ast-grep` forbid, `needs` `celery-types` and `django-stubs`, `when` `django >= 4.2`: an argument (positional or keyword) of `$T.delay/s/si(…)`, or an item of `$T.apply_async(args=[…], kwargs={…})`, typed `django` `Model` (§15.1), where `T` is a Celery `Task` |
+| `python/celery/no-sqlalchemy-model-args` | the same, `needs` `celery-types`, `when` `sqlalchemy >= 2.0`, for an argument typed `sqlalchemy` `DeclarativeBase`; split from `no-model-args` (each needs its own stubs and version gate) |
 
 context.md: ids as arguments, idempotent tasks queued from `transaction.on_commit()`, bounded retries, no waiting on results inside tasks, the json serializer.
 
@@ -898,6 +908,14 @@ Detected by `piccolo` (pypi).
 | Rule | Targets |
 |---|---|
 | `python/piccolo/no-run-sync-in-async` | `ast-grep` forbid: `$Q.run_sync(…)` inside an `async def`, `$Q` typed `piccolo` |
+
+### python/asyncpg
+
+Detected by `asyncpg` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/asyncpg/pool-acquire-ctx` | `ast-grep` advise, `needs` `asyncpg-stubs`: `await $P.acquire(…)` where `P` is an asyncpg `Pool` (§15.1) |
 
 ### python/psycopg
 

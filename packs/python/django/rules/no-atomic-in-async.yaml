@@ -1,0 +1,30 @@
+id: python/django/no-atomic-in-async
+description: "No transaction.atomic in or on an async def (with transaction.atomic(), @transaction.atomic): Django has no async transactions, so the block does not do what it says. Put the transactional work in a sync function and call it through sync_to_async."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        # with transaction.atomic(…): in an async def
+        - kind: call
+          pattern: $C
+          inside: {kind: with_item, stopBy: end, inside: {kind: function_definition, regex: "^async\\s", stopBy: {any: [{kind: function_definition}, {kind: lambda}]}}}
+        # @transaction.atomic(…) or @transaction.atomic on an async def
+        - kind: decorator
+          has: {any: [{kind: call, has: {field: function, pattern: $F}}, {pattern: $F}]}
+          inside: {kind: decorated_definition, stopBy: neighbor, has: {field: definition, kind: function_definition, regex: "^async\\s"}}
+    # Django's Atomic context manager (§15.1) and the atomic function (§15.6), whatever the
+    # imports call them; ty sees them through django-stubs
+    where:
+      C: {type: {package: django, module: django.db.transaction, name: Atomic}}
+      F: {declared: {package: django, module: django.db.transaction, name: atomic}}
+    needs: [{ecosystem: pypi, name: django-stubs}]
+examples:
+  deps: [{ecosystem: pypi, name: django, version: "6.1.2"}, {ecosystem: pypi, name: django-stubs, version: "6.1.2"}]
+  match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nfrom django.db import transaction\n\n\nasync def publish(pk: int) -> None:\n    with transaction.atomic():\n        print(pk)\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nfrom django.db.transaction import atomic\n\n\n@atomic\nasync def publish(pk: int) -> None:\n    print(pk)\n"
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nfrom django.db import transaction\n\n\n@transaction.atomic(using=\"default\")\nasync def publish(pk: int) -> None:\n    print(pk)\n"
+  no_match:
+    - "from django.db import models\n\n\nclass Article(models.Model):\n    title = models.CharField(max_length=100)\n\n\nimport contextlib\n\nfrom asgiref.sync import sync_to_async\nfrom django.db import transaction\n\n\n@transaction.atomic\ndef publish_sync(pk: int) -> None:\n    with transaction.atomic():\n        print(pk)\n\n\nasync def publish(pk: int) -> None:\n    with contextlib.suppress(KeyError):\n        await sync_to_async(publish_sync)(pk)\n"

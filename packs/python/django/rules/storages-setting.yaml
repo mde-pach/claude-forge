@@ -1,0 +1,18 @@
+id: python/django/storages-setting
+description: "File and static storage backends are set in STORAGES ({\"default\": {…}, \"staticfiles\": {…}}), not DEFAULT_FILE_STORAGE or STATICFILES_STORAGE: Django 5.1 removed those settings and ignores them in silence, so uploads and collectstatic fall back to the local file system."
+scope: {language: python, files: ["@django-settings"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      has: {field: left, kind: identifier, regex: "^(DEFAULT_FILE_STORAGE|STATICFILES_STORAGE)$"}
+      inside: {kind: expression_statement, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}
+when:
+  deps: [{ecosystem: pypi, name: django, version: ">=4.2"}]
+examples:
+  match:
+    - "DEFAULT_FILE_STORAGE = \"storages.backends.s3.S3Storage\"\n"
+    - "STATICFILES_STORAGE = \"whitenoise.storage.CompressedManifestStaticFilesStorage\"\n"
+  no_match:
+    - "STORAGES = {\n    \"default\": {\"BACKEND\": \"storages.backends.s3.S3Storage\"},\n    \"staticfiles\": {\"BACKEND\": \"whitenoise.storage.CompressedManifestStaticFilesStorage\"},\n}\n"
