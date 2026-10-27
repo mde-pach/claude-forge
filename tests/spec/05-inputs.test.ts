@@ -494,6 +494,13 @@ describe("detection by content", () => {
     expect(activeIn(PACKS, { ".github/workflows/ci.yml": "name: ci\non: push\njobs: {}\n", "compose.yaml": "services:\n  db:\n    image: postgres:17\n" })).not.toContain("kubernetes");
   });
 
+  /** @pack typescript/nextjs/cache-components */
+  test("a Next.js app whose next.config sets cacheComponents: true activates typescript/nextjs/cache-components; one that does not, or only mentions it in a comment, does not", () => {
+    const pkg = { "package.json": '{"name": "web", "dependencies": {"next": "16.2.0"}}\n', "tsconfig.json": "{}\n" };
+    expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  cacheComponents: true,\n};\nexport default config;\n" })).toContain("typescript/nextjs/cache-components");
+    expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  // cacheComponents: true,\n};\nexport default config;\n" })).not.toContain("typescript/nextjs/cache-components");
+  });
+
   test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {
     expect(() => packsDir({ "x/pack.yaml": 'id: x\ndescription: X.\nlevel: project\ndetect: {content_any: [{files: [a], pattern: "("}]}\n' })).toThrow("is not a regular expression");
   });

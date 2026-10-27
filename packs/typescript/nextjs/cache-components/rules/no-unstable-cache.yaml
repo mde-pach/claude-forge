@@ -1,0 +1,17 @@
+id: typescript/nextjs/cache-components/no-unstable-cache
+description: "Advice: with cacheComponents, cache with the 'use cache' directive and cacheTag() / cacheLife(), not unstable_cache from next/cache."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^unstable_cache$"}
+      inside: {kind: import_statement, stopBy: end, has: {field: source, regex: "^[\"']next/cache[\"']$"}}
+examples:
+  match:
+    - "import { unstable_cache } from \"next/cache\";\n\nexport const getOrders = unstable_cache(async () => [], [\"orders\"]);\n"
+    - "import { revalidateTag, unstable_cache as cached } from 'next/cache';\n"
+  no_match:
+    - "import { cacheLife, cacheTag } from \"next/cache\";\n"
+    - "import { unstable_cache } from \"./cache\";\n"

@@ -770,6 +770,17 @@ context.md: Next.js 16 App Router: async request APIs, Server Components by defa
 
 context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`."
 
+### typescript/nextjs/cache-components
+
+Detected by a `next.config.{js,mjs,cjs,ts,mts}` line matching `^\s*cacheComponents\s*:\s*true\b` (`content_any`, §5.1; `packs.add` / `packs.remove` override it).
+
+| Rule | Targets |
+|---|---|
+| `typescript/nextjs/cache-components/no-segment-config` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `const` named `dynamic`, `revalidate`, `fetchCache` or `experimental_ppr` (`next build` rejects them under `cacheComponents`) |
+| `typescript/nextjs/cache-components/no-unstable-cache` | `ast-grep` advise: `unstable_cache` imported from `next/cache` (use `'use cache'` with `cacheTag()` / `cacheLife()`) |
+
+context.md: caching with `'use cache'`, `cacheLife()`, `cacheTag()`; no segment config exports; `<Suspense>` around request data.
+
 ### typescript/react
 
 Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applies to every React setup.
