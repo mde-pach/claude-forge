@@ -1,0 +1,33 @@
+id: typescript/testing-library/lint
+description: "In ESLint projects, eslint-plugin-testing-library's rules are errors: async queries are awaited, waitFor callbacks have no side effects, findBy instead of waitFor + getBy, queries through screen, no unnecessary act(), no DOM node access."
+scope: {language: typescript, files: ["@ts-tests"]}
+enforce:
+  - target: tool
+    tool: eslint
+    expects: "testing-library/await-async-queries"
+    snippet: "\"rules\": {\"testing-library/await-async-queries\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "testing-library/no-wait-for-side-effects"
+    snippet: "\"rules\": {\"testing-library/no-wait-for-side-effects\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "testing-library/prefer-find-by"
+    snippet: "\"rules\": {\"testing-library/prefer-find-by\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "testing-library/prefer-screen-queries"
+    snippet: "\"rules\": {\"testing-library/prefer-screen-queries\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "testing-library/no-unnecessary-act"
+    snippet: "\"rules\": {\"testing-library/no-unnecessary-act\": \"error\"}"
+  - target: tool
+    tool: eslint
+    expects: "testing-library/no-node-access"
+    snippet: "\"rules\": {\"testing-library/no-node-access\": \"error\"}"
+examples:
+  match:
+    - "import { act, fireEvent, render, screen, waitFor } from \"@testing-library/react\";\nimport { createElement } from \"react\";\nimport { expect, test } from \"vitest\";\nimport { Cart } from \"./cart\";\n\ntest(\"adds an item\", async () => {\n  const { getByRole, container } = render(createElement(Cart));\n  screen.findByText(\"Total\");\n  await waitFor(() => {\n    fireEvent.click(getByRole(\"button\"));\n  });\n  const total = await waitFor(() => screen.getByText(\"Total: 1\"));\n  act(() => {});\n  expect(container.querySelector(\".total\")).toBeTruthy();\n  expect(total).toBeTruthy();\n});\n"
+  no_match:
+    - "import { render, screen } from \"@testing-library/react\";\nimport userEvent from \"@testing-library/user-event\";\nimport { createElement } from \"react\";\nimport { expect, test } from \"vitest\";\nimport { Cart } from \"./cart\";\n\ntest(\"adds an item\", async () => {\n  render(createElement(Cart));\n  await screen.findByText(\"Total\");\n  await userEvent.click(screen.getByRole(\"button\"));\n  const total = await screen.findByText(\"Total: 1\");\n  expect(screen.getByRole(\"status\")).toHaveTextContent(\"1\");\n  expect(total).toBeTruthy();\n});\n"

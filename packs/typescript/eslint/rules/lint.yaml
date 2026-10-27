@@ -1,0 +1,25 @@
+id: typescript/eslint/lint
+description: ESLint passes on the added lines with no error and no warning (eslint --max-warnings=0 on the changed files; the whole project in CI).
+scope: {language: typescript}
+enforce:
+  - target: check
+    stage: lint
+    run: "eslint --max-warnings=0 ."
+    changed_run: "eslint --max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern {files}"
+    # --max-warnings=0 makes warnings fail the run: they are attributed like errors
+    fail_on_warnings: true
+examples:
+  match:
+    - head: {eslint.config.mjs: "export default [{ rules: { \"no-unused-vars\": \"error\", \"no-console\": \"warn\" } }];\n"}
+      files: {src/cart.js: "export function total(items) {\n  const unused = items.length;\n  return items.reduce((s, i) => s + i.price, 0);\n}\n"}
+    # a warning blocks too
+    - head: {eslint.config.mjs: "export default [{ rules: { \"no-unused-vars\": \"error\", \"no-console\": \"warn\" } }];\n"}
+      files: {src/cart.js: "export function total(items) {\n  console.log(items);\n  return items.reduce((s, i) => s + i.price, 0);\n}\n"}
+  no_match:
+    - head: {eslint.config.mjs: "export default [{ rules: { \"no-unused-vars\": \"error\", \"no-console\": \"warn\" } }];\n"}
+      files: {src/cart.js: "export function total(items) {\n  return items.reduce((s, i) => s + i.price, 0);\n}\n"}
+    # a finding on a line the change did not add
+    - head:
+        eslint.config.mjs: "export default [{ rules: { \"no-unused-vars\": \"error\", \"no-console\": \"warn\" } }];\n"
+        src/cart.js: "export function total(items) {\n  console.log(items);\n  return 0;\n}\n"
+      files: {src/cart.js: "export function total(items) {\n  console.log(items);\n  return items.length;\n}\n"}
