@@ -836,6 +836,16 @@ Detected by `msgspec` (pypi).
 
 context.md: decode with `type=` or a typed `Decoder`.
 
+### python/loguru
+
+Detected by `loguru` (pypi).
+
+| Rule | Targets |
+|---|---|
+| `python/loguru/no-fstring-with-args` | `ast-grep` forbid: `$L.<level>(…)` (`trace`, `debug`, `info`, `success`, `warning`, `error`, `exception`, `critical`, `log`) whose first argument is an f-string and that has a second argument, where `L` is typed `loguru` `Logger` (§15.1) |
+
+context.md: an f-string or a format string with arguments, never both.
+
 ### typescript/library
 
 Detected by `library_any: [npm]` (§13.4).
