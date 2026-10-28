@@ -10,14 +10,12 @@
 # CODE: message" per violation. Not configured: nothing to check.
 forge_sqlfluff() {
   [ -f .sqlfluff ] || grep -qE '^\[tool\.sqlfluff(\]|\.)' pyproject.toml 2>/dev/null || grep -qE '^\[sqlfluff(\]|:)' setup.cfg tox.ini 2>/dev/null || return 0
-  _sf_cmd=$(tool sqlfluff)
-  [ -n "$_sf_cmd" ] || { printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
+  forge_has_tool sqlfluff || { printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
   for _sf_f in "$@"; do shift; case $_sf_f in *.sql) [ -f "$_sf_f" ] && set -- "$@" "$_sf_f" ;; esac; done
   [ "$#" -gt 0 ] || [ "$mode" = --all ] || return 0
   [ "$#" -gt 0 ] || set -- .
   set -f
-  # shellcheck disable=SC2086
-  $_sf_cmd lint --format github-annotation-native --nocolor "$@" > "$FORGE_TMP/sqlfluff" 2>&1
+  forge_do sqlfluff lint "$@" > "$FORGE_TMP/sqlfluff" 2>&1
   _sf_rc=$?
   set +f
   case $_sf_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
@@ -168,7 +166,7 @@ forge_squawk_alembic() {
       None*|'') _fs_range=$_fs_rev ;;
       *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
     esac
-    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+    if ! forge_do alembic upgrade-sql "$_fs_range" > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
       printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
       continue
     fi
@@ -645,11 +643,11 @@ forge_typeorm_pending() {
     printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
     return 0
   fi
-  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+  if ! forge_do "$_tp_bin" migrate "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
     printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
     return 0
   fi
-  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  forge_do "$_tp_bin" migrations-check "$_tp_ds" "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
   if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
     printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
     cat "$FORGE_TMP/typeorm.out"

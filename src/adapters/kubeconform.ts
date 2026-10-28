@@ -10,7 +10,7 @@
 import { RELEASE_BINARIES } from "../util.js";
 import type { ToolAdapter } from "./types.js";
 
-const PIN = RELEASE_BINARIES["kubeconform"]!.version;
+const PIN = RELEASE_BINARIES.kubeconform!.version;
 
 export const KUBECONFORM: ToolAdapter = {
   tool: "kubeconform",

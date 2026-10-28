@@ -1,7 +1,13 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix } from "node:path";
-import { adapterOf, rangeOf } from "./adapters/index.js";
+import { adapterOf, opSince, rangeOf } from "./adapters/index.js";
+import { BIOME } from "./adapters/biome.js";
+import { ESLINT } from "./adapters/eslint.js";
+import { TSC } from "./adapters/tsc.js";
+
+/** The adapter operation each audited project tool runs on the examples (§11, §16). */
+const AUDIT_OP: Partial<Record<ToolTarget["tool"], string>> = { ruff: "lint-json-stdin", biome: "lint-json", eslint: "lint-json", tsc: "typecheck" };
 import { TY } from "./adapters/ty.js";
 import { PYTHON_TOOLS, TY_COMMAND } from "./core/tools.js";
 import { toolExamples } from "./examples.js";
@@ -174,10 +180,10 @@ function withFiles<T>(repo: string, files: [string, string][], fn: () => T): T {
 /** Tools that report by file: the examples of a target are checked in one run (batchVerdicts). */
 const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
 
-/** biome, eslint and ty on example files (relative paths), with machine-readable output. */
-function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[], settings: EngineSettings): ToolRun {
-  if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
-  if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
+/** biome, eslint and ty on example files (relative paths), with machine-readable output; <args>: the installed release's (§16). */
+function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[], settings: EngineSettings, args?: string): ToolRun {
+  if (t.tool === "biome") return run(bin, opArgs(args ?? BIOME.ranges.at(-1)!.ops["lint-json"]!, rels), { cwd: repo });
+  if (t.tool === "eslint") return run(bin, opArgs(args ?? ESLINT.ranges.at(-1)!.ops["lint-json"]!, rels), { cwd: repo });
   // ty's adapter (§16): its operation's arguments, the project's environment and untyped packages after `check`
   const [sub, ...rest] = opArgs(TY.ranges[0]!.ops["typecheck-gitlab"]!, rels);
   return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), sub!, ...tyArgs(repo, settings), ...rest], { cwd: repo });
@@ -191,7 +197,7 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Examp
   if (t.tool === "ruff") return run(bin, opArgs(args ?? "check --no-cache --no-fix --output-format json --stdin-filename {args} -", [rel]), { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
-  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel], settings));
+  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel], settings, args));
   const cfg = `tsconfig.${stem}.json`;
   const tsconfig = JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { noEmit: true, incremental: false, composite: false }, include: [], files: [rel] });
   return withFiles(
@@ -200,7 +206,7 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Examp
       [rel, code],
       [cfg, tsconfig],
     ],
-    () => run(bin, ["--noEmit", "-p", cfg, "--pretty", "false"], { cwd: repo }),
+    () => run(bin, opArgs(args ?? TSC.ranges.at(-1)!.ops.typecheck!, [cfg]), { cwd: repo }),
   );
 }
 
@@ -284,7 +290,7 @@ function judge(expects: string, all: { id: string; severity: string }[]): Verdic
  * an example the batch cannot judge (output not read, diagnostics left out, a file name
  * that is not one of the examples'): it runs alone.
  */
-function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[], settings: EngineSettings): (Verdict | undefined)[] {
+function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[], settings: EngineSettings, args?: string): (Verdict | undefined)[] {
   const out: (Verdict | undefined)[] = new Array(examples.length);
   const codes = examples.map((e) => e.code);
   const rels = examples.map((e, n) => exampleRel(rule, e, n));
@@ -305,6 +311,7 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, exa
           bin,
           b.map((n) => rels[n]!),
           settings,
+          args,
         ),
     );
     let d: ReturnType<typeof diagnostics>;
@@ -351,7 +358,8 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   let args: string | undefined;
   const ad = adapterOf(t.tool);
   if (ad && !ad.pinned) {
-    const facts = toolFacts(root, t.tool, [t.expects], settings);
+    // every code of the tool's history at once: one engine run per repository for all its targets (shellTool's cache)
+    const facts = toolFacts(root, t.tool, Object.keys(ad.codes?.history ?? {}), settings);
     if (!facts.version) return { ...base, status: "skipped", detail: `the version of ${t.tool} could not be read` };
     const range = rangeOf(ad, facts.version);
     if (!range) return { ...base, status: "unavailable", detail: `no Forge adapter covers ${t.tool} ${facts.version} (Forge drives ${t.tool} ${ad.ranges[0]!.from} and later)` };
@@ -363,12 +371,18 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
       const r = auditTarget(repo, rule, swapped, root, settings, true);
       return { ...r, expects: t.expects, as, ...(r.detail ? { detail: r.detail.replaceAll(as, `${as} (what ${t.tool} ${facts.version} calls ${t.expects})`) } : {}) };
     }
-    args = range.ops["lint-json-stdin"] ?? undefined;
+    // the operation the audit runs (§16): a release that cannot do it is not audited
+    const op = AUDIT_OP[t.tool];
+    if (op) {
+      const a = range.ops[op];
+      if (a === null) return { ...base, status: "unavailable", detail: `${t.tool} ${facts.version} cannot ${op} (it needs ${t.tool} ${opSince(ad, op, facts.version) ?? "a newer release"} or later)` };
+      args = a;
+    }
   }
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
-  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch], settings) : [];
+  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch], settings, args) : [];
   const judge = (ex: Example, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;

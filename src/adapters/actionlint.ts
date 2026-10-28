@@ -11,7 +11,7 @@
 import { RELEASE_BINARIES } from "../util.js";
 import type { ToolAdapter } from "./types.js";
 
-const PIN = RELEASE_BINARIES["actionlint"]!.version;
+const PIN = RELEASE_BINARIES.actionlint!.version;
 
 export const ACTIONLINT: ToolAdapter = {
   tool: "actionlint",

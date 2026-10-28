@@ -33,6 +33,7 @@ import {
   sampleRepo,
   sh,
   shScript,
+  STUB_VERSION,
 } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools } from "../../src/core/tools";
@@ -56,7 +57,8 @@ function reset() {
 }
 function stub(name: string, body: string) {
   const p = join(repo, ".venv", "bin", name);
-  writeFileSync(p, `#!/bin/sh\n${body}\n`);
+  // a stand-in that says its own version keeps it
+  writeFileSync(p, `#!/bin/sh\n${body.includes("--version") ? "" : STUB_VERSION}${body}\n`);
   chmodSync(p, 0o755);
 }
 
@@ -999,7 +1001,7 @@ describe("failing tests at the start of the turn in a workspace package", () => 
     const log = join(r, "vitest.log");
     const bin = join(r, "packages/core/node_modules/.bin");
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, "vitest"), `#!/bin/sh\nprintf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
+    writeFileSync(join(bin, "vitest"), `#!/bin/sh\n${STUB_VERSION}printf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
     chmodSync(join(bin, "vitest"), 0o755);
     const snap = ".forge/state/t.turn";
     put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
@@ -1041,7 +1043,7 @@ describe("failing tests at the start of the turn in a workspace package", () => 
       commitAll(r, "forge");
       const stub = (dir: string, body: string) => {
         mkdirSync(join(r, dir, "node_modules/.bin"), { recursive: true });
-        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${body}\n`);
+        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${STUB_VERSION}${body}\n`);
         chmodSync(join(r, dir, "node_modules/.bin/vitest"), 0o755);
       };
       stub("packages/core", "exit 0");
@@ -1645,17 +1647,20 @@ describe("project tools whose name is not a shell function name", () => {
 
   /**
    * POSIX sh (dash) rejects "-" in a function name, so vue-tsc gets no wrapper
-   * function: the check runs it as `forge_exec_tool vue-tsc`, which still
+   * function: the check runs it as `forge_do vue-tsc typecheck` (§16), which still
    * resolves the project's own binary and reports it missing.
    * @rule typescript/vue/typecheck
    */
-  test("vue-tsc is run through forge_exec_tool, is a tool of the check, and is reported skipped when the project does not have it", () => {
+  test("vue-tsc is run through forge_do, is a tool of the check, and is reported skipped when the project does not have it", () => {
     expect(checkTools(target)).toEqual(["vue-tsc"]);
     expect(renderChecks([{ rule, target }])).not.toContain("vue-tsc()");
     expect(runCheckExample(rule, target, example, "match", [])).toEqual({ outcome: "skip", detail: "vue-tsc not available" });
     const bin = mkdtempSync(join(tmpdir(), "forge-vue-tsc-"));
     // (a type error in the file the change adds: the base, without it, has none)
-    writeFileSync(join(bin, "vue-tsc"), "#!/bin/sh\n[ -f src/Counter.vue ] || exit 0\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n");
+    writeFileSync(
+      join(bin, "vue-tsc"),
+      `#!/bin/sh\n${STUB_VERSION}` + "[ -f src/Counter.vue ] || exit 0\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n",
+    );
     chmodSync(join(bin, "vue-tsc"), 0o755);
     expect(runCheckExample(rule, target, example, "match", [bin]).outcome).toBe("pass");
   });
@@ -1754,9 +1759,11 @@ describe("pinned release binaries and system tools", () => {
     const probe = 'for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo "has $t" || echo "no $(forge_tool_label $t)"; done';
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("no terraform\nno tofu\nno helm\nno kustomize or kubectl\nno kubectl\n");
     tool("terraform");
-    tool("kubectl");
-    expect(run(`${probe}\nforge_terraform version\nforge_kustomize build .`, r.cwd, { PATH }).stdout).toBe(
-      "has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize build .\n",
+    // kubectl answers its version (forge_kustomize is the kustomize adapter's build, §16: kubectl's there)
+    put(bin, "kubectl", '#!/bin/sh\n[ "$*" = "version --client" ] && { echo "Client Version: v1.30.0"; exit 0; }\necho "kubectl $*"\n');
+    chmodSync(join(bin, "kubectl"), 0o755);
+    expect(run(`${probe}\nforge_terraform version\nforge_kustomize .`, r.cwd, { PATH }).stdout).toBe(
+      "has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize .\n",
     );
     put(r.cwd, "infra/main.tofu", "");
     expect(run(`${probe}\nforge_tf_bin`, r.cwd, { PATH }).stdout).toBe("no tofu\nno tofu\nno helm\nhas kustomize\nhas kubectl\ntofu");

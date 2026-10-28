@@ -4,6 +4,6 @@ scope: {language: python, files: ["@alembic-migrations"]}
 enforce:
   - target: check
     stage: migration
-    run: "forge_squawk_alembic $(alembic heads | forge_alembic_files)"
+    run: "forge_squawk_alembic $(forge_do alembic heads | forge_alembic_files)"
     changed_run: "forge_squawk_alembic {files}"
     when_changed: ["@alembic-migrations"]

@@ -160,7 +160,7 @@ forge_helm() {
   done | sort -u > "$FORGE_TMP/helm.charts"
   _hm_rc=0
   while IFS= read -r _hm_c; do
-    command helm lint --strict "$_hm_c" > "$FORGE_TMP/helm.out" 2>&1
+    forge_do helm lint "$_hm_c" > "$FORGE_TMP/helm.out" 2>&1
     _hm_lint=$?
     if grep -q 'chart directory is missing these dependencies' "$FORGE_TMP/helm.out"; then
       printf 'forge:%s skipped: %s: its dependencies are not built (helm dependency build %s)\n' "$c_id" "$_hm_c" "$_hm_c"; continue
@@ -169,7 +169,7 @@ forge_helm() {
       grep -E '^\[(ERROR|WARNING)\]|^Error' "$FORGE_TMP/helm.out" | grep -v '^Error: [0-9]* chart(s) linted' | sed "s|^|$_hm_c: helm lint: |"
       _hm_rc=1; continue
     fi
-    if ! command helm template forge "$_hm_c" > "$FORGE_TMP/helm.yaml" 2> "$FORGE_TMP/helm.err"; then
+    if ! forge_do helm template "$_hm_c" > "$FORGE_TMP/helm.yaml" 2> "$FORGE_TMP/helm.err"; then
       printf '%s: helm template: %s\n' "$_hm_c" "$({ grep '^Error' "$FORGE_TMP/helm.err"; grep -v '^[[:space:]]*$' "$FORGE_TMP/helm.err"; } | head -n 1)"; _hm_rc=1; continue
     fi
     forge_kubeconform "$_hm_c" "$FORGE_TMP/helm.yaml" || _hm_rc=1

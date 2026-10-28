@@ -4,8 +4,8 @@ scope: {language: typescript}
 enforce:
   - target: check
     stage: lint
-    run: "! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'"
-    changed_run: "! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched {files} 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'"
+    run: "! forge_do biome lint . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'"
+    changed_run: "! forge_do biome lint {files} 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'"
 examples:
   match:
     - "// biome-ignore lint/suspicious/noDoubleEquals: legacy comparison\nexport const same = (a: number, b: number) => a === b;\n"

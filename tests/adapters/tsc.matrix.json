@@ -1,0 +1,45 @@
+{
+  "tool": "tsc",
+  "install": {
+    "npm": "typescript",
+    "with": []
+  },
+  "versions": [
+    "4.0.2",
+    "5.0.4",
+    "5.9.3",
+    "6.0.3",
+    "7.0.2"
+  ],
+  "files": {
+    "tsconfig.json": "{\"compilerOptions\": {\"strict\": true, \"noEmit\": true}, \"include\": [\"src\"]}",
+    "src/total.ts": "export const total: number = \"12\";\n",
+    "tsconfig.ok.json": "{\"compilerOptions\": {\"strict\": true, \"noEmit\": true}, \"files\": [\"ok.ts\"]}",
+    "ok.ts": "export const total: number = 12;\n"
+  },
+  "calls": [
+    {
+      "call": "typecheck-incremental .forge-tsc.tsbuildinfo",
+      "exit": [
+        1,
+        2
+      ],
+      "out": "^src/total\\.ts\\(1,14\\): error TS2322"
+    },
+    {
+      "call": "typecheck tsconfig.json",
+      "exit": [
+        1,
+        2
+      ],
+      "out": "error TS2322"
+    },
+    {
+      "call": "typecheck tsconfig.ok.json",
+      "exit": [
+        0
+      ]
+    }
+  ],
+  "usageProbe": "typecheck tsconfig.ok.json --definitely-not-an-option"
+}

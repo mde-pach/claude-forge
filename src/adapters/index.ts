@@ -21,6 +21,36 @@ import { SQUAWK } from "./squawk.js";
 import { TFLINT } from "./tflint.js";
 import { TRIVY } from "./trivy.js";
 import { ZIZMOR } from "./zizmor.js";
+import { ALEMBIC } from "./alembic.js";
+import { ASTRO } from "./astro.js";
+import { BETTER_AUTH } from "./better-auth.js";
+import { BIOME } from "./biome.js";
+import { BUN } from "./bun.js";
+import { DOCKER } from "./docker.js";
+import { ESLINT } from "./eslint.js";
+import { GRAPHQL_CODEGEN } from "./graphql-codegen.js";
+import { HELM } from "./helm.js";
+import { KUBECTL } from "./kubectl.js";
+import { KUSTOMIZE } from "./kustomize.js";
+import { MIKRO_ORM } from "./mikro-orm.js";
+import { NGC } from "./ngc.js";
+import { NPM } from "./npm.js";
+import { OXLINT } from "./oxlint.js";
+import { PLAYWRIGHT } from "./playwright.js";
+import { PNPM } from "./pnpm.js";
+import { PRETTIER } from "./prettier.js";
+import { PRISMA } from "./prisma.js";
+import { PYTEST } from "./pytest.js";
+import { SQLFLUFF } from "./sqlfluff.js";
+import { TERRAFORM } from "./terraform.js";
+import { TOFU } from "./tofu.js";
+import { TSC } from "./tsc.js";
+import { TYPEORM, TYPEORM_TS_NODE_ESM, TYPEORM_TS_NODE_COMMONJS } from "./typeorm.js";
+import { UV } from "./uv.js";
+import { VITEST } from "./vitest.js";
+import { VUE_TSC } from "./vue-tsc.js";
+import { WRANGLER } from "./wrangler.js";
+import { YARN } from "./yarn.js";
 import { RUFF } from "./ruff.js";
 import { TY } from "./ty.js";
 import type { AdapterRange, ToolAdapter } from "./types.js";
@@ -31,6 +61,38 @@ export type { AdapterRange, ToolAdapter } from "./types.js";
 export const ADAPTERS: ToolAdapter[] = [
   RUFF,
   TY,
+  ALEMBIC,
+  ASTRO,
+  BETTER_AUTH,
+  BIOME,
+  BUN,
+  DOCKER,
+  ESLINT,
+  GRAPHQL_CODEGEN,
+  HELM,
+  KUBECTL,
+  KUSTOMIZE,
+  MIKRO_ORM,
+  NGC,
+  NPM,
+  OXLINT,
+  PLAYWRIGHT,
+  PNPM,
+  PRETTIER,
+  PRISMA,
+  PYTEST,
+  SQLFLUFF,
+  TERRAFORM,
+  TOFU,
+  TSC,
+  TYPEORM,
+  TYPEORM_TS_NODE_ESM,
+  TYPEORM_TS_NODE_COMMONJS,
+  UV,
+  VITEST,
+  VUE_TSC,
+  WRANGLER,
+  YARN,
   ACTIONLINT,
   AST_GREP,
   EDITORCONFIG_CHECKER,
@@ -90,7 +152,7 @@ export function adapterUses(commands: { rule: string; command: string }[]): stri
 export function adapterMeta(): string {
   const f = (v: string | undefined) => (v ? v : "-");
   return ADAPTERS.map((a) =>
-    [a.tool, f(a.pinned), a.verified, f(a.usage ? String(a.usage.exit) : ""), f(a.usage?.pattern), a.runner ?? "project", f(a.pick), a.versionArgs ?? "--version"].join("\t"),
+    [a.tool, f(a.pinned), a.verified, f(a.usage ? [a.usage.exit].flat().join(",") : ""), f(a.usage?.pattern), a.runner ?? "project", f(a.pick), a.versionArgs ?? "--version", f(a.package)].join("\t"),
   ).join("\n");
 }
 

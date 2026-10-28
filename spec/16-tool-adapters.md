@@ -20,7 +20,7 @@ Packs drive external tools, and tools change between releases: options and outpu
 
 ### 16.3 Selection and reporting
 
-- **Version.** The installed version of a project tool is asked once (`<tool> --version`, the first `x.y[.z]`) and kept as a fact (§9.4) until the binary changes (the executable, its directory, and the file and package directory it resolves to: an npm package's files keep their archive's times, the package's directory does not). The installed release's rule table likewise.
+- **Version.** The installed version of a project tool is asked once (`<tool> --version`, the first `x.y[.z]`) and kept as a fact (§9.4) until the binary changes (the executable, its directory, and the file and package directory it resolves to: an npm package's files keep their archive's times, the package's directory does not). Which of the codes the active rules expect the installed release has (§16.2 Codes) likewise, for that set of codes: a few lines, read back without a process (the audits ask for every code of the tool's history at once, so a repository's targets share one answer).
 - **Operation.** `forge_do` takes the range covering the version. A range that cannot do the operation: `forge:<id> not enforced: <tool> <version> cannot <operation> (it needs <tool> <first release that can> or later)`, and the check passes. No range covering the version (older than the first): `forge:<id> not enforced: no Forge adapter covers <tool> <version> (Forge drives <tool> <first> and later)`. These are the only ways a whole check is not enforced because of a version.
 - **Codes.** Each code is reported on its own, never the rule or the tool as a whole: `forge status` lists the codes the installed release does not have, each with the release it needs (the audit of such a target is `unavailable`: `<code> needs <tool> ≥ <since>; this project has <version>`, and never prints a snippet: a code the release does not know would break the project's config); a lint check notes `forge:<id> not enforced for <n> code(s) <tool> <version> does not have: <code> needs <tool> >= <since>, …` whatever its outcome; SessionStart prints the same once (until it changes). The other codes stay enforced (F401 on ruff 0.1.5).
 - **Reports.** `forge_tool_report` (SessionStart, `forge status` `Tool versions:`) prints, per tool the active checks drive: a version no adapter covers, a version newer than the adapter was proven on, an operation a check needs that the version cannot do, and the codes it does not have. `forge status --json`: `tool_versions`.
@@ -37,15 +37,69 @@ Every range: `lint-json` (`check --output-format json`), `lint-json-stdin`, `fix
 
 ### 16.5 Tests
 
-- Each adapter is run against real binaries of the releases it claims (the test tools' version matrix, `TOOL_VERSIONS.ruffAdapters`: 0.1.4, 0.1.15, 0.2.0, 0.5.0, 0.8.0 and the newest; as TypeScript 5, 6 and 7 are for the types engine): each operation of each range runs without a usage error and prints the format its callers read (one line per diagnostic for `lint`, JSON for `lint-json-stdin`, the formatted file for `format-stdin`); each code of the history is available exactly from its `since` (under the code the release gives it) and reports the rule's `match` examples there.
+- Each adapter is run against real binaries of the releases it claims: ruff's matrix is `TOOL_VERSIONS.ruffAdapters` (0.1.4, 0.1.15, 0.2.0, 0.5.0, 0.8.0 and the newest); every other tool's is `tests/adapters/<tool>.matrix.json` (the first release of every range that can do something, a release of each range that cannot, the newest; a range's first release the matrix cannot install here is listed with why, and was run by hand), run by `tests/spec/16-2-adapter-matrix.test.ts`: the version is read, each call of `forge_do` exits and prints as its callers read it, a usage probe is skipped, never a finding, and a release no range covers says so. Forge's pinned tools run on their pin. For ruff, each operation of each range runs without a usage error and prints the format its callers read (one line per diagnostic for `lint`, JSON for `lint-json-stdin`, the formatted file for `format-stdin`); each code of the history is available exactly from its `since` (under the code the release gives it) and reports the rule's `match` examples there.
 - `scripts/ruff-rules.ts --check` (in the tests) fails when the history differs from ruff's own tables.
 - A test fails when the tool's newest release (PyPI, npm) is newer than the adapter's `verified` minor: a release no adapter was proven on is flagged, so the matrix is extended and the history regenerated.
 
 ### 16.6 Tools
 
-| Tool | Adapter | State |
-|---|---|---|
-| ruff | `src/adapters/ruff.ts` | migrated: `python/lint`, `python/format`, `python/ruff-config-current`, the ruff audits |
-| ty | `src/adapters/ty.ts` (pinned) | migrated: `python/typecheck`, the ty audits |
+Every tool a rule or an engine helper runs has an adapter; none is run with a command line of its own (§16.1). Each adapter's header comment gives, for each boundary, what changed and where the tool's changelog or release notes say so, and why its first release is the oldest covered. ruff is §16.4. The table is the adapters as they are (`src/adapters/`):
 
-Not migrated yet: their checks still name a command line, and their audits run one fixed invocation. Project tools: Biome, tsc (and `vue-tsc`, `ngc`, `astro check`), ESLint, oxlint, Prettier, pytest, Vitest, Playwright, Alembic, sqlfluff, Prisma, MikroORM, graphql-codegen, wrangler, better-auth, terraform / tofu, helm, kubectl / kustomize, npm / pnpm / Yarn / Bun / uv as package managers. Forge's pinned tools (one range each, like ty): ast-grep, Squawk, zizmor, hadolint, actionlint, Redocly, Spectral, lockfile-lint, tflint, Trivy, kubeconform.
+| Tool | Run | Ranges | Operations | Usage exit | Proven up to |
+|---|---|---|---|---|---|
+| ty | pinned | 0.0.86 | `typecheck`, `typecheck-gitlab` | 2 | 0.0.86 |
+| alembic | project | 1.5.0–1.9.0 (cannot: migrations-check); 1.9.0– | `heads`, `migrations-check`, `upgrade-sql` | 2 | 1.20.1 |
+| astro | project | 1.0.0– | `check` | none | 7.4.2 |
+| better-auth | project | 1.0.0–1.7.6 (cannot: schema-check); 1.7.6– | `schema-check` | 1 | 1.7.14 |
+| biome | project | 1.1.0–1.7.0 (cannot: lint-json); 1.7.0–1.8.0; 1.8.0–1.9.0; 1.9.0– | `ci`, `fix`, `format-stdin`, `lint`, `lint-json` | 1 | 2.6.3 |
+| bun | PATH | 1.0.0–1.0.16 (cannot: test-files); 1.0.16– | `lock-check`, `test-files` | 1 | 1.4.4 |
+| docker | PATH | 2.0.0–2.24.7 (cannot: validate); 2.24.7–2.35.0; 2.35.0– | `validate` | 1 | 5.6.1 |
+| eslint | project | 9.0.0– | `lint`, `lint-files`, `lint-json` | 2 | 10.13.0 |
+| graphql-codegen | project | 2.0.0–2.11.0 (cannot: codegen-check); 2.11.0– | `codegen-check` | none | 7.4.6 |
+| helm | PATH | 3.0.0– | `lint`, `template` | 1 | 4.3.1 |
+| kubectl | PATH | 1.21.0– | `build` | 1 | 1.37.2 |
+| kustomize | PATH | 4.0.0– | `build` | 1 | 5.8.3 |
+| mikro-orm | project | 5.0.0–5.7.11 (cannot: migrations-check); 5.7.11– | `migrate`, `migrations-check` | 1 | 7.2.5 |
+| ngc | project | 9.0.0– | `typecheck` | 1 | 22.2.3 |
+| npm | PATH | 8.0.0–10.5.1; 10.5.1– | `lock-check` | 1 | 12.2.1 |
+| oxlint | project | 1.11.2– | `lint` | 1 | 1.90.0 |
+| playwright | project | 1.12.0– | `test` | 1 | 1.64.1 |
+| pnpm | PATH | 8.0.0–8.6.12 (cannot: lock-check); 8.6.12– | `lock-check` | 1/2 | 12.15.0 |
+| prettier | project | 2.1.0– | `format`, `format-check`, `format-stdin` | 1 | 3.9.10 |
+| prisma | project | 4.0.0–7.0.0 (cannot: migrations-check); 7.0.0– | `migrations-check`, `validate` | 1 | 7.10.1 |
+| pytest | project | 7.0.0– | `test`, `test-changed`, `test-files` | 4 | 9.2.0 |
+| sqlfluff | project | 1.3.0–3.0.0; 3.0.0–3.0.1 (cannot: lint); 3.0.1– | `lint` | 2 | 4.4.0 |
+| terraform | PATH | 1.0.0–1.3.0 (cannot: format); 1.3.0– | `format`, `format-check`, `validate` | 1 | 1.17.0 |
+| tofu | PATH | 1.6.0– | `format`, `format-check`, `validate` | 1 | 1.13.2 |
+| tsc | project | 4.0.2– | `typecheck`, `typecheck-incremental` | 1 | 7.0.2 |
+| typeorm | project | 0.3.0– | `migrate`, `migrations-check` | 1 | 1.1.2 |
+| typeorm-ts-node-esm | project | 0.3.2– | `migrate`, `migrations-check` | 1 | 1.1.2 |
+| typeorm-ts-node-commonjs | project | 0.3.2– | `migrate`, `migrations-check` | 1 | 1.1.2 |
+| uv | PATH | 0.3.0–0.4.5 (cannot: build-wheel); 0.4.5–0.5.8; 0.5.8– | `build-wheel`, `lock-check`, `run-python` | 2 | 0.13.6 |
+| vitest | project | 0.8.4– | `test`, `test-changed`, `test-files` | 1 | 5.0.5 |
+| vue-tsc | project | 1.0.0– | `typecheck`, `typecheck-build` | 1 | 3.3.13 |
+| wrangler | project | 3.0.0–4.59.0 (cannot: codegen-check); 4.59.0– | `codegen-check` | 1 | 4.154.0 |
+| yarn | PATH | 2.0.0–2.4.0 (cannot: lock-check); 2.4.0–3.0.0; 3.0.0– | `lock-check` | 1 | 4.18.1 |
+| actionlint | pinned | 1.7.12 | `lint` | 2 | 1.7.12 |
+| ast-grep | pinned | 0.45.3 | `scan`, `scan-meta` | 2 | 0.45.3 |
+| editorconfig-checker | pinned | 4.0.2 | `lint` | 2 | 4.0.2 |
+| gitleaks | pinned | 8.30.1 | `scan` | 126 | 8.30.1 |
+| hadolint | pinned | 2.15.1 | `lint` | 1 | 2.15.1 |
+| kube-linter | pinned | 0.8.3 | `lint` | 1 | 0.8.3 |
+| kubeconform | pinned | 0.8.0 | `validate` | 1 | 0.8.0 |
+| lockfile-lint | pinned | 5.1.0 | `lint` | 1 | 5.1.0 |
+| oasdiff | pinned | 1.33.0 | `diff` | 100 | 1.33.0 |
+| osv-scanner | pinned | 2.7.0 | `scan` | 127 | 2.7.0 |
+| redocly | pinned | 2.62.1 | `lint` | 1 | 2.62.1 |
+| spectral | pinned | 6.17.0 | `lint` | 1 | 6.17.0 |
+| squawk | pinned | 2.70.0 | `lint` | 2 | 2.70.0 |
+| tflint | pinned | 0.64.0 | `lint` | 1 | 0.64.0 |
+| trivy | pinned | 0.75.0 | `scan` | 1 | 0.75.0 |
+| zizmor | pinned | 1.30.1 | `lint` | 2 | 1.30.1 |
+
+Where the oldest covered release is (the rest of the adapter's header comment explains each):
+
+- **Releases a range cannot serve.** biome before 1.7 cannot `lint-json` (the audit is `unavailable`); alembic before 1.9 has no `check`; sqlfluff 3.0.0 exits like its last file on a directory (`lint .` passes with violations: not enforced on that one release); terraform before 1.3 formats one target only; Compose before 2.24.7 resolves `env_file` with `--no-interpolate`; pnpm before 8.6.12 rewrites a stale lock under `--frozen-lockfile --lockfile-only`; Yarn before 2.4 cannot skip build scripts; uv before 0.4.5 has no `build`; bun before 1.0.16 runs no test file it is given; prisma before 7 takes the migrations check's schema differently (not enforced there); mikro-orm before 5.7.11 has no `migration:check`; graphql-codegen before 2.11 ignores `--check` and rewrites the files; wrangler before 4.59 has no `types --check`; Better Auth's CLI has `check schema` from 1.7.6 (the rule's dependency gate is `auth >=1.7.13`, unchanged).
+- **A different command where an older one is unsafe.** npm before 10.5.1 deletes `node_modules` on `ci --dry-run`: its lock check is `npm ls --package-lock-only --all` there.
+- **No usage-error signature.** astro (unknown options are ignored, an unknown command prints help and exits 0) and graphql-codegen (unknown options ignored): a wrong command line cannot be told from a run. lockfile-lint ignores unknown options; only a bad `--type` is recognised.
+- **Version.** helm (`version --short`), kubectl (`version --client`), kustomize (`version`), kube-linter (`version`), kubeconform (`-v`), typeorm (`version`) and Compose (`docker compose version`: the plugin's) are asked otherwise than `--version`; vue-tsc (its `--version` is TypeScript's), ngc (`unknown`) and graphql-codegen (`unknown` before 7.1.1) are read from their package's `package.json`. Compose's version is kept until the `docker` executable changes, not the plugin: a plugin upgraded alone is seen when the docker CLI or its facts change.

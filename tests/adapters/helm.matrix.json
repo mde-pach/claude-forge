@@ -1,0 +1,63 @@
+{
+  "tool": "helm",
+  "install": {
+    "urls": {
+      "darwin-arm64": "https://get.helm.sh/helm-v{version}-darwin-arm64.tar.gz",
+      "linux-amd64": "https://get.helm.sh/helm-v{version}-linux-amd64.tar.gz"
+    },
+    "member": {
+      "darwin-arm64": "darwin-arm64/helm",
+      "linux-amd64": "linux-amd64/helm"
+    }
+  },
+  "versions": [
+    "3.6.0",
+    "3.22.1",
+    "4.0.0",
+    "4.3.1"
+  ],
+  "files": {
+    "good/Chart.yaml": "apiVersion: v2\nname: good\nversion: 0.1.0\nicon: https://example.com/i.png\n",
+    "good/values.yaml": "k: v\n",
+    "good/templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-cm\ndata:\n  k: {{ .Values.k | quote }}\n",
+    "badlint/Chart.yaml": "apiVersion: v2\nname: badlint\nversion: notsemver\nicon: https://example.com/i.png\n",
+    "badlint/values.yaml": "k: v\n",
+    "badlint/templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-cm\ndata:\n  k: {{ .Values.k | quote }}\n",
+    "bad/Chart.yaml": "apiVersion: v2\nname: bad\nversion: 0.1.0\nicon: https://example.com/i.png\n",
+    "bad/templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-cm\ndata:\n  k: {{ required \"foo is required\" .Values.foo | quote }}\n"
+  },
+  "calls": [
+    {
+      "call": "lint good",
+      "exit": [
+        0
+      ],
+      "out": "1 chart\\(s\\) linted, 0 chart\\(s\\) failed"
+    },
+    {
+      "call": "lint badlint",
+      "exit": [
+        1
+      ],
+      "out": "^\\[ERROR\\] Chart.yaml: version"
+    },
+    {
+      "call": "template good",
+      "exit": [
+        0
+      ],
+      "out": "name: forge-cm"
+    },
+    {
+      "call": "template bad",
+      "exit": [
+        1
+      ],
+      "out": "^Error: execution error at"
+    }
+  ],
+  "usageProbe": "lint good --definitely-not-an-option",
+  "untestedVersions": {
+    "3.0.0": "Helm 3.0 to 3.5 have no darwin-arm64 release: verified from 3.6.0, the 3.x command line is the same (v3.0.0 release notes)"
+  }
+}

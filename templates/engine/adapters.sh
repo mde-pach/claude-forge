@@ -22,7 +22,7 @@ FORGE_TOOL_CODES='@@TOOL_CODES@@'
 # FORGE_AM_UPATTERN, FORGE_AM_RUNNER, FORGE_AM_PICK and FORGE_AM_VARGS from the tool's
 # FORGE_ADAPTER_META line; fails when the tool has no adapter. Shell builtins only.
 forge_adapter_meta() {
-  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS=''
+  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS='' FORGE_AM_PKG=''
   _am_ifs=$IFS
   IFS='
 '
@@ -33,7 +33,8 @@ forge_adapter_meta() {
         # shellcheck disable=SC2086
         set -f; set -- $_am_l; set +f
         IFS=$_am_ifs
-        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version}
+        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version} FORGE_AM_PKG=${9:-}
+        [ "$FORGE_AM_PKG" != - ] || FORGE_AM_PKG=''
         [ "$FORGE_AM_PIN" != - ] || FORGE_AM_PIN=''
         [ "$FORGE_AM_UEXIT" != - ] || FORGE_AM_UEXIT=''
         [ "$FORGE_AM_UPATTERN" != - ] || FORGE_AM_UPATTERN=''
@@ -46,11 +47,15 @@ forge_adapter_meta() {
 }
 
 # forge_adapter_tool <tool>: FORGE_AD_TOOL, the adapter that drives the project's <tool>: its
-# own, or the one its pick function names (tofu for terraform in an OpenTofu project).
+# own, or the one its pick function sets in FORGE_PICKED (tofu for terraform in an OpenTofu
+# project).
 forge_adapter_tool() {
   FORGE_AD_TOOL=$1
   forge_adapter_meta "$1" || return 0
-  [ -z "$FORGE_AM_PICK" ] || FORGE_AD_TOOL=$($FORGE_AM_PICK)
+  [ -n "$FORGE_AM_PICK" ] || return 0
+  FORGE_PICKED=$1
+  $FORGE_AM_PICK
+  FORGE_AD_TOOL=$FORGE_PICKED
 }
 
 # forge_tool_version <tool>: the installed version of the project's <tool> (Forge's pin for
@@ -72,14 +77,28 @@ forge_tool_version() {
       _tv_bin=$FORGE_FOUND
       _tv_key="$1 $FORGE_FOUND" ;;
   esac
-  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" || return 1
+  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" "$FORGE_AM_PKG" || return 1
   [ -n "$FORGE_FACT" ] || return 1
   printf '%s\n' "$FORGE_FACT"
 }
 
-# forge_tool_version_ask <tool> <executable> <runner> <version args>
+# forge_tool_version_ask <tool> <executable> <runner> <version args> [<package>]: the version
+# the package's package.json says, when the adapter names one and it is found up from the
+# executable's real path (an npm package's bin); else the first x.y[.z] the tool prints.
 forge_tool_version_ask() {
   forge_tool_watch "$2"
+  if [ -n "${5:-}" ]; then
+    _va_d=$(realpath "$2" 2>/dev/null || readlink -f "$2" 2>/dev/null)
+    while [ -n "$_va_d" ] && [ "$_va_d" != / ]; do
+      _va_d=${_va_d%/*}
+      [ -n "$_va_d" ] || break
+      if [ -f "$_va_d/package.json" ] && grep -q "^[[:space:]]*\"name\"[[:space:]]*:[[:space:]]*\"$5\"" "$_va_d/package.json"; then
+        printf 'watch %s\n' "$_va_d/package.json"
+        sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([0-9][^"]*\)".*/\1/p' "$_va_d/package.json" | grep -oE '^[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | grep . && return 0
+        break
+      fi
+    done
+  fi
   _va_ifs=$IFS
   IFS=' '
   # shellcheck disable=SC2086
@@ -216,9 +235,9 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && [ "$_do_rc" = "$_do_ux" ] && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
-    # a command line this version rejects is not a finding (a base copy on stdin fails instead)
-    case " $* " in *" - "*) ;; *)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+    # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
+    case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
         _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
         [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
@@ -249,18 +268,35 @@ forge_do_note() {
 # forge_tool_codes <tool>: for each code the active rules expect of <tool> (FORGE_TOOL_CODES),
 # "<code><TAB><the installed version's code for that rule, or -><TAB><its first stable
 # release>". The installed version's rules are asked from the binary (the adapter's codes
-# operation: ruff `rule --all --output-format json`) once per binary (forge_fact); a rule is
-# the installed one with one of the rule's codes and one of its names, not in preview, in a
-# release from which it reports the rules' examples (the history's first release, §16.4).
+# operation: ruff `rule --all --output-format json`); a rule is the installed one with one of
+# the rule's codes and one of its names, not in preview, in a release from which it reports
+# the rules' examples (the history's first release, §16.4). The answer is a fact (forge_fact)
+# for the binary and the codes asked: a few lines, read back without a process.
 forge_tool_codes() {
-  printf '%s\n' "$FORGE_TOOL_CODES" | grep -q "^$1	" || return 0
+  _tk_want=''
+  _tk_ifs=$IFS
+  IFS='
+'
+  for _tk_l in $FORGE_TOOL_CODES; do
+    case $_tk_l in "$1	"*) _tk_want="$_tk_want${_tk_want:+ }${_tk_l#*	}" ;; esac
+  done
+  IFS=$_tk_ifs
+  [ -n "$_tk_want" ] || return 0
   _tk_v=$(forge_tool_version "$1") || return 0
   forge_adapter "$1" "$_tk_v" rules || return 0
   forge_tool_lookup "$1"
   case $FORGE_TOOL_BIN in /*) _tk_bin=$FORGE_TOOL_BIN ;; *) _tk_bin=$PWD/$FORGE_TOOL_BIN ;; esac
-  forge_fact tool-rules "$1 $_tk_v $PWD $FORGE_TOOL_CMD" forge_tool_rules_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" || return 0
-  _tk_have=$FORGE_FACT
-  { printf '%s\n' "$_tk_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$_tk_v" '
+  # the codes asked are part of the key: one answer per set of active rules
+  forge_fact tool-codes "$1 $_tk_v $PWD $FORGE_TOOL_CMD $_tk_want" forge_tool_codes_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" "$_tk_v" || return 0
+  [ -z "$FORGE_FACT" ] || printf '%s\n' "$FORGE_FACT"
+}
+
+# forge_tool_codes_ask <tool> <rules args> <executable> <version>: forge_tool_codes' answer,
+# from the binary's rule table.
+forge_tool_codes_ask() {
+  forge_tool_watch "$3"
+  _tc_have=$(forge_tool_rules "$1" "$2") || return 1
+  { printf '%s\n' "$_tc_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$4" '
     function cmp(a, b,   x, y, i) {
       split(a, x, "."); split(b, y, ".")
       for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
@@ -275,12 +311,6 @@ forge_tool_codes() {
       if (cmp(v, $4) < 0) got = "-"
       print $3 "\t" got "\t" $4
     }'
-}
-
-# forge_tool_rules_ask <tool> <args> <executable>: forge_tool_rules, watching the executable.
-forge_tool_rules_ask() {
-  forge_tool_watch "$3"
-  forge_tool_rules "$1" "$2"
 }
 
 # forge_tool_rules <tool> <args>: "<code><TAB><name><TAB><preview>" per rule the binary lists

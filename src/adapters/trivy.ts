@@ -10,7 +10,7 @@
 import { RELEASE_BINARIES } from "../util.js";
 import type { ToolAdapter } from "./types.js";
 
-const PIN = RELEASE_BINARIES["trivy"]!.version;
+const PIN = RELEASE_BINARIES.trivy!.version;
 
 export const TRIVY: ToolAdapter = {
   tool: "trivy",

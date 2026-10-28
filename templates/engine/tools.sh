@@ -232,7 +232,7 @@ forge_has_tool() {
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
     # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
-    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
+    yarn) forge_on_path yarn && case $(forge_tool_version yarn) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
@@ -262,9 +262,16 @@ forge_on_path() {
   return 1
 }
 
-# forge_tf_bin: the project's Terraform CLI: tofu when it uses OpenTofu (a *.tofu file, or
-# a .terraform.lock.hcl naming registry.opentofu.org providers), else terraform.
+# forge_tf_bin: prints the project's Terraform CLI (forge_tf_pick).
 forge_tf_bin() {
+  forge_tf_pick
+  printf '%s' "$_tf_bin"
+}
+
+# forge_tf_pick: FORGE_PICKED (and _tf_bin, kept for the shell), the project's Terraform CLI:
+# tofu when it uses OpenTofu (a *.tofu file, or a .terraform.lock.hcl naming
+# registry.opentofu.org providers), else terraform; the terraform adapter's pick (§16.2).
+forge_tf_pick() {
   if [ -z "${_tf_bin:-}" ]; then
     _tf_bin=terraform
     _tf_files=$(git ls-files --cached --others --exclude-standard -- '*.tofu' '*.terraform.lock.hcl' 2>/dev/null)
@@ -277,15 +284,20 @@ forge_tf_bin() {
 $_tf_files
 EOF
   fi
-  printf '%s' "$_tf_bin"
+  FORGE_PICKED=$_tf_bin
 }
 
 # forge_terraform <args>: the project's Terraform CLI (forge_tf_bin) from PATH.
 forge_terraform() { command "$(forge_tf_bin)" "$@"; }
 
-# forge_kustomize <args>: kustomize from PATH, else `kubectl kustomize`.
-forge_kustomize() {
-  if forge_on_path kustomize; then command kustomize "$@"; else command kubectl kustomize "$@"; fi
+# forge_kustomize <dir>: the kustomization's build, by kustomize from PATH, else `kubectl
+# kustomize` (their adapters' build operation).
+forge_kustomize() { forge_do kustomize build "$@"; }
+
+# forge_kustomize_pick: FORGE_PICKED, kustomize when it is on PATH, else kubectl (the
+# kustomize adapter's pick, §16.2).
+forge_kustomize_pick() {
+  if forge_on_path kustomize; then FORGE_PICKED=kustomize; else FORGE_PICKED=kubectl; fi
 }
 
 # forge_missing_tool: prints the first tool of $c_tools that is absent (in a package

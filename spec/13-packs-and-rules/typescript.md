@@ -139,7 +139,7 @@ Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
 | Rule | Targets |
 |---|---|
 | `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
-| `typescript/pnpm/lock-sync` | `check` lint: `pnpm install --frozen-lockfile --lockfile-only` (skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
+| `typescript/pnpm/lock-sync` | `check` lint: `forge_do pnpm lock-check` (`pnpm install --frozen-lockfile --lockfile-only`; not enforced before pnpm 8.6.12, which rewrites a stale lock; skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
 | `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
 | `typescript/pnpm/no-removed-settings` | `grep` forbid in `pnpm-workspace.yaml`, `when` `pnpm >= 11` (`packageManager`): the top-level keys `onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, `ignoreDepScripts`, `allowNonAppliedPatches`, and `ignoreCves` (under `auditConfig`) |
 | `typescript/pnpm/allow-builds` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `pnpm-builds`, when `pnpm-workspace.yaml` changed, compared with the base: an `allowBuilds` entry newly `true`, a new `onlyBuiltDependencies` entry, `dangerouslyAllowAllBuilds: true`, `strictDepBuilds` or `blockExoticSubdeps` turned `false`; each at its line, accepted in `forge.yaml` |
@@ -156,7 +156,7 @@ Detected by `package-lock.json` or `npm-shrinkwrap.json`.
 | Rule | Targets |
 |---|---|
 | `typescript/npm/no-other-pm` | `guard` ask: `pnpm`, `yarn`, `bun install`, `bun i`, `bun add` |
-| `typescript/npm/lock-sync` | `check` lint: `npm ci --dry-run --ignore-scripts` (skipped when npm is not installed), `when_changed`: `package.json` files, `package-lock.json`, `npm-shrinkwrap.json` |
+| `typescript/npm/lock-sync` | `check` lint: `forge_do npm lock-check` (`npm ci --dry-run --ignore-scripts --no-audit --no-fund` from npm 10.5.1; before, `npm ls --package-lock-only --all`, since `ci --dry-run` deletes `node_modules` there; skipped when npm is not installed), `when_changed`: `package.json` files, `package-lock.json`, `npm-shrinkwrap.json` |
 | `typescript/npm/no-exotic-sources` | `grep` forbid in `.npmrc`: `allow-git=all`, `allow-remote=all`; `guard` deny: the same settings in a command |
 | `typescript/npm/no-exotic-deps` | `check` lint: a `dependencies`, `devDependencies` or `optionalDependencies` entry added or changed since the base (`forge_pkg_deps`) whose spec is `git+…`, `git:`, `github:`, `gitlab:`, `bitbucket:`, `http(s)://…` or `user/repo` |
 | `typescript/npm/no-legacy-peer-deps` | `guard` deny: `npm install`, `i`, `ci`, `add` with `--legacy-peer-deps` or `--force` |
@@ -351,7 +351,7 @@ Detected by `react-hook-form >= 7` (npm), under `typescript/react`.
 
 | Rule | Targets |
 |---|---|
-| `typescript/astro/check` | `check` typecheck: `run: astro check`, scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
+| `typescript/astro/check` | `check` typecheck: `forge_do astro check`; without `@astrojs/check` (Astro 4 and later print why and exit 0) it is reported skipped, never passed; scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
 | `typescript/astro/no-set-html` | `grep` forbid in `**/*.astro`: `set:html=` |
 
 context.md: Astro renders on the server to static HTML; `astro check`; content collections in `src/content.config.ts` with `glob()` / `file()` loaders and `entry.id`; no `Astro.glob()`; `<ClientRouter />`.
@@ -365,7 +365,7 @@ context.md: "React components in Astro render to static HTML; they become intera
 | Rule | Targets |
 |---|---|
 | `typescript/prisma/validate` | `check` migration: `run: prisma validate`, `when_changed: [prisma/schema.prisma]` |
-| `typescript/prisma/migration-present` | `check` migration: `run: prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl`; passes in a db push workflow (no `prisma/migrations` directory and `prisma db push` in `package.json`) |
+| `typescript/prisma/migration-present` | `check` migration: `forge_do prisma migrations-check` (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, Prisma 7 and later): exit 2 (a difference) fails, any other failure is reported skipped; `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl`; passes in a db push workflow (no `prisma/migrations` directory and `prisma db push` in `package.json`) |
 | `typescript/prisma/no-reset` | `guard` deny: `prisma migrate reset`, `prisma db push --force-reset`, `prisma db push --accept-data-loss` |
 | `typescript/prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
 | `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |

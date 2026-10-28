@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, STUB_VERSION } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -55,7 +55,7 @@ function withRealTy(fn: () => void) {
 /** A stand-in for a project tool in the repository's .venv. */
 function stubTool(name: string, body: string) {
   const p = join(repo, ".venv", "bin", name);
-  writeFileSync(p, `#!/bin/sh\n${body}\n`);
+  writeFileSync(p, `#!/bin/sh\n${body.includes("--version") ? "" : STUB_VERSION}${body}\n`);
   chmodSync(p, 0o755);
 }
 /** Runs <fn> with a stand-in for a tool in the repository's .venv (ty's: ty-stand-in), then puts back what was there. */
@@ -84,7 +84,7 @@ function withRuffWrapper(body: string, fn: () => void) {
   const real = join(repo, ".venv/bin/ruff");
   const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
   rmSync(real);
-  writeFileSync(real, `#!/bin/sh\n${body}\nexec "${target}" "$@"\n`);
+  writeFileSync(real, `#!/bin/sh\n${STUB_VERSION}${body}\nexec "${target}" "$@"\n`);
   chmodSync(real, 0o755);
   try {
     fn();
@@ -1658,7 +1658,7 @@ describe("failing tests at the start of the turn", () => {
     // a stand-in pytest: imports the package with the venv's python, and writes to an ignored file
     writeFileSync(
       join(r, ".venv", "bin", "pytest"),
-      `#!/bin/sh\nprintf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
+      `#!/bin/sh\n${STUB_VERSION}printf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
     );
     chmodSync(join(r, ".venv", "bin", "pytest"), 0o755);
     return r;

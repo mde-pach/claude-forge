@@ -1,10 +1,10 @@
 id: typescript/npm/lock-sync
-description: package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts, which leaves node_modules alone).
+description: "package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules)."
 scope: {language: any}
 enforce:
   - target: check
     stage: lint
-    run: npm ci --dry-run --ignore-scripts --no-audit --no-fund
+    run: forge_do npm lock-check
     when_changed: ["**/package.json", "package-lock.json", "npm-shrinkwrap.json"]
 examples:
   match:

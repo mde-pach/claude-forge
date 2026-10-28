@@ -18,7 +18,7 @@ import { plan, readProjectInputs } from "../../src/plan";
 import { renderLib } from "../../src/render";
 import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
-import { applied, forge, put, ROOT, sampleRepo, sh, shScript } from "../helpers";
+import { applied, forge, put, ROOT, STUB_VERSION, sampleRepo, sh, shScript } from "../helpers";
 import type { Pack } from "../../src/types";
 
 const T = 120_000;
@@ -400,7 +400,7 @@ describe("workspaces", () => {
   });
 
   /** @rule typescript/vue/typecheck */
-  test("the Vue type check (vue-tsc through forge_exec_tool) runs in the package that has Vue", () => {
+  test("the Vue type check (vue-tsc through forge_do) runs in the package that has Vue", () => {
     const ws = planOf({
       "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
       "packages/web/package.json": '{"name": "web", "private": true, "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"vue-tsc": "^2.0.0", "typescript": "^5.4.0"}}\n',
@@ -418,7 +418,7 @@ describe("workspaces", () => {
    * @rule typescript/format-lint
    */
   test("a format_stdin filter runs in the package that configures the formatter, on the path relative to it", () => {
-    const biome = '#!/bin/sh\ncat\nprintf \'// in %s as %s\\n\' "$(basename "$PWD")" "$2"\n';
+    const biome = `#!/bin/sh\n${STUB_VERSION}cat\nprintf '// in %s as %s %s\\n' "$(basename "$PWD")" "$2" "$3"\n`;
     const ws = planOf({
       "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
       ...inDir("packages/a", { "package.json": '{"name": "a", "devDependencies": {"@biomejs/biome": "2.5.15"}}\n', "biome.json": "{}\n", "tsconfig.json": "{}\n" }),
@@ -428,7 +428,7 @@ describe("workspaces", () => {
     put(ws.base, "in.ts", "const a = 1;\n");
     const script = `${renderLib()}\nIFS='\n'\n${ws.checksFragment}\nforge_format_copy packages/a/src/x.ts in.ts out.ts; echo "rc=$?"; cat out.ts`;
     const r = shScript(script, { cwd: ws.base });
-    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path=src/x.ts\n");
+    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path src/x.ts\n");
   });
 
   /** Each package has its own tool config: each is audited (§11), not only the first. */

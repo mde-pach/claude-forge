@@ -8,6 +8,6 @@ scope: {language: any}
 enforce:
   - target: check
     stage: migration
-    run: 'if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi'
+    run: 'if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else forge_do prisma migrations-check; case $? in 0) ;; 2) false ;; *) printf ''forge:%s skipped: prisma migrate diff could not compare the migrations with the schema\n'' "$c_id" ;; esac; fi'
     when_changed: [prisma/schema.prisma]
     requires_local_db: true

@@ -1,0 +1,51 @@
+{
+  "tool": "yarn",
+  "install": {
+    "urls": {
+      "darwin-arm64": "https://repo.yarnpkg.com/{version}/packages/yarnpkg-cli/bin/yarn.js",
+      "linux-amd64": "https://repo.yarnpkg.com/{version}/packages/yarnpkg-cli/bin/yarn.js"
+    },
+    "node": true
+  },
+  "versions": [
+    "2.3.3",
+    "2.4.0",
+    "2.4.3",
+    "3.8.7",
+    "4.0.0",
+    "4.18.1"
+  ],
+  "files": {
+    "package.json": "{\"name\":\"shop\",\"version\":\"1.0.0\",\"private\":true,\"dependencies\":{\"is-number\":\"7.0.0\"}}\n",
+    "yarn.lock": ""
+  },
+  "calls": [
+    {
+      "before": "install",
+      "call": "lock-check",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "write": {
+        "package.json": "{\"name\":\"shop\",\"version\":\"1.0.0\",\"private\":true,\"dependencies\":{\"is-number\":\"7.0.0\",\"is-odd\":\"3.0.1\"}}\n"
+      },
+      "call": "lock-check",
+      "exit": [
+        1
+      ],
+      "out": "YN0028"
+    }
+  ],
+  "usageProbe": "lock-check --definitely-not-an-option",
+  "env": {
+    "YARN_IGNORE_PATH": "1"
+  },
+  "needs": [
+    "node"
+  ],
+  "untestedVersions": {
+    "3.0.0": "Yarn 3.0.0 cannot fetch packages on Node 22 and later (ERR_STREAM_PREMATURE_CLOSE): its command line was checked by hand; the range is run on 3.8.7"
+  }
+}

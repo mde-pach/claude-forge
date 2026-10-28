@@ -4,8 +4,8 @@ scope: {language: typescript}
 enforce:
   - target: check
     stage: lint
-    run: "oxlint --type-aware --deny-warnings --format unix"
-    changed_run: "oxlint --type-aware --deny-warnings --format unix {files}"
+    run: "forge_do oxlint lint"
+    changed_run: "forge_do oxlint lint {files}"
     # --deny-warnings makes warnings fail the run: they are attributed like errors
     fail_on_warnings: true
 examples:

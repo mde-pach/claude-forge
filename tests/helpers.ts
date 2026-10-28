@@ -330,6 +330,13 @@ export function commitAll(repo: string, message = "commit"): void {
 }
 
 /** Pinned project tools used by specs that need the real thing. */
+/**
+ * The first lines of a shell stand-in for a project tool: it answers the ways adapters ask a
+ * version (§16.3) with one newer than every adapter was proven on, so it is driven as the
+ * newest range.
+ */
+export const STUB_VERSION = 'case "$1" in --version|-v|-V|version) echo "stub 99.0.0"; exit 0 ;; esac\n';
+
 export const TOOL_VERSIONS = {
   biome: "2.5.15",
   typescript: "7.0.2",

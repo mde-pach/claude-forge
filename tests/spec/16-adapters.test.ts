@@ -8,10 +8,10 @@
  * adapter was proven on is flagged.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adapterOf, rangeOf } from "../../src/adapters";
+import { ADAPTERS, adapterOf, directPattern, rangeOf } from "../../src/adapters";
 import { RUFF } from "../../src/adapters/ruff";
 import { RUFF_RULES } from "../../src/adapters/ruff-rules";
 import { reportsEveryFile, ruffExampleProject } from "../../src/adapters/ruff-examples";
@@ -166,6 +166,68 @@ describe("selection and reporting", () => {
     expect(() => checkTarget({ target: "check", stage: "lint", run: "forge_do ruff lint {files}" })).not.toThrow();
     expect(adapterOf("ty")!.pinned).toBeDefined();
   });
+});
+
+/** Shell text with its comments and single-quoted strings blanked (newlines kept): what remains are commands, double-quoted strings and their $(…). */
+function shellCode(text: string): string {
+  let out = "";
+  let state: "code" | "single" | "double" | "comment" = "code";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === "\n") {
+      if (state === "comment") state = "code";
+      out += c;
+      continue;
+    }
+    if (state === "single") {
+      if (c === "'") state = "code";
+      out += " ";
+    } else if (state === "comment") out += " ";
+    else if (c === "\\") {
+      out += c + (text[i + 1] === "\n" ? "" : (text[i + 1] ?? ""));
+      if (text[i + 1] !== "\n") i++;
+    } else if (state === "double") {
+      if (c === '"') state = "code";
+      out += c;
+    } else if (c === "'") {
+      state = "single";
+      out += " ";
+    } else if (c === '"') {
+      state = "double";
+      out += c;
+    } else if (c === "#" && (i === 0 || /[\s;&|(]/.test(text[i - 1]!))) {
+      state = "comment";
+      out += " ";
+    } else out += c;
+  }
+  return out;
+}
+
+test("the engine runs an adapted tool only through forge_do: no command of templates/ starts with one, outside the functions that are its runner", () => {
+  // a runner (§16.2) is where the tool's own command line lives: forge_ty, forge_pinned_<tool> and their helpers
+  const runners = /^(forge_ty|forge_pinned_[a-z_]+|astgrep_bunx|forge_hadolint_bin)$/;
+  const found: string[] = [];
+  for (const d of ["templates/engine", "templates/scripts"])
+    for (const f of readdirSync(join(ROOT, d)).filter((x) => x.endsWith(".sh"))) {
+      let fn = "";
+      // comments and single-quoted text (awk programs, messages, even over several lines) are not commands of the shell
+      shellCode(readFileSync(join(ROOT, d, f), "utf8"))
+        .split("\n")
+        .forEach((line, i) => {
+          const m = /^([a-z_][a-z0-9_]*)\(\) \{/.exec(line);
+          if (m) fn = m[1]!;
+          if (runners.test(fn)) return;
+          // a case label (`yarn)`) names the tool, it does not run it
+          const code = line.replace(/^\s*[^\s()]+\)(\s|$)/, " ");
+          for (const a of ADAPTERS) {
+            const t = a.tool.replace(/[.-]/g, "\\$&");
+            // the tool's own pattern of direct uses where it has one (bun as a runtime is not one), else its name as a command
+            const re = a.direct ? directPattern(a) : new RegExp(`(^|[;&|(\`]|\\$\\(|\\b(?:then|do|else)\\s)\\s*(command\\s+)?${t}(\\s|$)`);
+            if (re.test(code)) found.push(`${d}/${f}:${i + 1} ${a.tool}: ${line.trim()}`);
+          }
+        });
+    }
+  expect(found).toEqual([]);
 });
 
 describe.if(hasUv)("ruff's history", () => {

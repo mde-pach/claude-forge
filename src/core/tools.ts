@@ -88,7 +88,7 @@ export function directDashedTools(cmd: string): string[] {
   const out = new Set<string>();
   for (const tool of PROJECT_TOOLS.filter((t) => t.includes("-"))) {
     const re = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "g");
-    for (const m of cmd.matchAll(re)) if (!/\bforge_exec_tool\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
+    for (const m of cmd.matchAll(re)) if (!/\bforge_(exec_tool|do)\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
   }
   return [...out];
 }

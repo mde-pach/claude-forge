@@ -2,4 +2,4 @@ id: typescript/vitest/run
 description: Tests pass.
 scope: {language: typescript}
 enforce:
-  - {target: check, stage: test, run: "vitest run", changed_run: "vitest run --changed", rerun: "vitest run {files}", timeout: 300}
+  - {target: check, stage: test, run: "forge_do vitest test", changed_run: "forge_do vitest test-changed", rerun: "forge_do vitest test-files {files}", timeout: 300}

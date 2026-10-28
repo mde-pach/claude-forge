@@ -15,8 +15,10 @@ forge_tf_dirs() {
 forge_tf_validate() {
   _tv_rc=0
   forge_tf_dirs > "$FORGE_TMP/tf.dirs"
+  # which CLI, decided from the repository root (forge_tf_pick looks at its files)
+  forge_tf_pick
   while IFS= read -r _tv_d; do
-    forge_terraform -chdir="$_tv_d" validate -no-color > "$FORGE_TMP/tf.out" 2>&1 && continue
+    ( cd "$_tv_d" && forge_do terraform validate ) > "$FORGE_TMP/tf.out" 2>&1 && continue
     if grep -qE '(terraform|tofu) init' "$FORGE_TMP/tf.out"; then
       printf 'forge:%s skipped: %s is not initialised (%s init)\n' "$c_id" "$_tv_d" "$(forge_tf_bin)"; continue
     fi

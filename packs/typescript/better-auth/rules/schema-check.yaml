@@ -12,7 +12,7 @@ enforce:
       elif ! grep -Eq 'better-auth/adapters/drizzle|better-auth/adapters/prisma|@better-auth/drizzle-adapter|@better-auth/prisma-adapter' "$_ba_cfg" && ! forge_local_db; then
         printf 'forge:%s skipped: no local database (the Better Auth adapter of %s checks the live database)\n' "$c_id" "$_ba_cfg"
       else
-        forge_exec_tool better-auth check schema --config "$_ba_cfg" > "$FORGE_TMP/better-auth.out" 2>&1
+        forge_do better-auth schema-check "$_ba_cfg" > "$FORGE_TMP/better-auth.out" 2>&1
         case $? in
           0) ;;
           1) cat "$FORGE_TMP/better-auth.out"; printf 'Add the tables and fields above (generate them with the auth CLI or your ORM, then migrate).\n'; false ;;

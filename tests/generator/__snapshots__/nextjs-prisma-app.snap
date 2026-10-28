@@ -409,7 +409,7 @@ forge_edit_checks() {
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
@@ -3906,7 +3906,19 @@ vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
 python() { forge_exec_tool python "$@"; }
 FORGE_NCHECKS=39
-FORGE_ADAPTER_USES=''
+FORGE_ADAPTER_USES='bun	lock-check	typescript/bun/lock-sync
+bun	test-files	typescript/bun/test
+biome	ci	typescript/format-lint
+biome	fix	typescript/format-lint
+biome	format-stdin	typescript/format-lint
+biome	lint	typescript/no-unused-suppressions
+playwright	test	typescript/playwright/run
+prisma	migrations-check	typescript/prisma/migration-present
+prisma	validate	typescript/prisma/validate
+tsc	typecheck-incremental	typescript/typecheck
+vitest	test	typescript/vitest/run
+vitest	test-changed	typescript/vitest/run
+vitest	test-files	typescript/vitest/run'
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -4062,7 +4074,7 @@ forge_scope_11() {
 }
 forge_when_11() { case $1 in package.json) return 0 ;; esac; return 1; }
 forge_check_run_11() {
-bun install --frozen-lockfile
+forge_do bun lock-check
 }
 
 # 12. typescript/bun/no-test-edits
@@ -4111,7 +4123,7 @@ forge_scope_14() {
 forge_when_14() { return 1; }
 forge_check_run_14() {
 _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*' '*.spec.*' '*_spec.*' | sed 's|^|./|')
-[ -z "$_bt" ] || bun test $_bt
+[ -z "$_bt" ] || forge_do bun test-files $_bt
 
 }
 
@@ -4187,13 +4199,13 @@ forge_scope_19() {
 }
 forge_when_19() { return 1; }
 forge_check_run_19() {
-biome ci .
+forge_do biome ci .
 }
 forge_check_changed_19() {
-biome check --write --no-errors-on-unmatched $FORGE_FILES
+forge_do biome fix $FORGE_FILES
 }
 forge_check_fmt_19() {
-biome format --stdin-file-path="$FORGE_FILE"
+forge_do biome format-stdin "$FORGE_FILE"
 }
 
 # 20. typescript/lockfile-updated
@@ -4256,10 +4268,10 @@ forge_scope_23() {
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+! forge_do biome lint . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 forge_check_changed_23() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+! forge_do biome lint $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
 # 24. typescript/node-version-file
@@ -4318,7 +4330,7 @@ forge_scope_27() {
 }
 forge_when_27() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-playwright test --reporter=line
+forge_do playwright test
 }
 
 # 28. typescript/prisma/applied-migrations
@@ -4408,7 +4420,7 @@ forge_scope_32() {
 }
 forge_when_32() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_32() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else forge_do prisma migrations-check; case $? in 0) ;; 2) false ;; *) printf 'forge:%s skipped: prisma migrate diff could not compare the migrations with the schema\n' "$c_id" ;; esac; fi
 }
 
 # 33. typescript/prisma/validate
@@ -4422,7 +4434,7 @@ forge_scope_33() {
 }
 forge_when_33() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_33() {
-prisma validate
+forge_do prisma validate
 }
 
 # 34. typescript/typecheck
@@ -4437,7 +4449,7 @@ forge_scope_34() {
 }
 forge_when_34() { return 1; }
 forge_check_run_34() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+forge_do tsc typecheck-incremental "$(forge_state_file tsc.tsbuildinfo)"
 }
 
 # 35. typescript/vitest/no-test-edits
@@ -4483,13 +4495,13 @@ forge_scope_37() {
 }
 forge_when_37() { return 1; }
 forge_check_run_37() {
-vitest run
+forge_do vitest test
 }
 forge_check_changed_37() {
-vitest run --changed
+forge_do vitest test-changed
 }
 forge_check_rerun_37() {
-vitest run $FORGE_FILES
+forge_do vitest test-files $FORGE_FILES
 }
 
 # 38. typescript/vitest/snapshot-stale
@@ -4764,7 +4776,7 @@ forge_tests_integrity() {
 forge_counts() {
   set -f
   # shellcheck disable=SC2046
-  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
+  ( cd "$1" && forge_do ast-grep scan "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
   [ "$rc" -le 1 ] || return 1
@@ -4779,7 +4791,7 @@ forge_forbid() {
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
     if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
@@ -4837,7 +4849,7 @@ forge_end "$fail"
     "supply-chain/vuln-audit": "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2",
     "typescript/a11y": "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6",
     "typescript/array-sort-compare": "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7",
-    "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
+    "typescript/bun/lock-sync": "2e78b7e238ebb87b8b23c0803175145f8d336562f5d246f491a45a7945afc11c",
     "typescript/bun/no-fewer-expects": "d39ef28d4c918ccd050f1017d83623c984b090d379eff2868ba2300b89b64d87",
     "typescript/bun/no-mock-increase": "59da686537b2fe781f69a285892669bfee36a4a6458c0e46c8ba898544046442",
     "typescript/bun/no-new-skip": "26cfa8b0a0ad346a30b14bf8de071fe2802eaa1aa9dce056d063c7b033f7faf0",
@@ -4846,7 +4858,7 @@ forge_end "$fail"
     "typescript/bun/no-snapshot-update": "44f865cdc519d6c573a601582a64a08517db474ca9a2e8dbcb5ab782e9a603f8",
     "typescript/bun/no-test-edits": "4ae92104baca408cf8bac7598a5a8690da1dd8125f5070349349254dd52c73cd",
     "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
-    "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
+    "typescript/bun/test": "d6980775d1c6d8726b085a0dcd09455629a709ff34a3dba66f93abc3da2c5a8a",
     "typescript/bun/text-lockfile": "cbdb95a24e3862815c0c3d78ee5911f35e64012228b9a63d9553accb3a3a4384",
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
     "typescript/config-files": "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9",
@@ -4854,7 +4866,7 @@ forge_end "$fail"
     "typescript/cors-credentials-wildcard": "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/error-cause": "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a",
-    "typescript/format-lint": "05c7d739312430fa0b59e663a21291286e698a91fa725d440b36bebd0b40b546",
+    "typescript/format-lint": "f3c1c7a3201dc7873ee6391e60502b47631007eb844ee3c52de6732a9fc30110",
     "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
     "typescript/implicit-returns": "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629",
     "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
@@ -4907,7 +4919,7 @@ forge_end "$fail"
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
     "typescript/no-unchecked-json": "0edc9ae044271697c2d2bea389c11c3b79311c68d282ace56a58f6d9e9e73360",
     "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
-    "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
+    "typescript/no-unused-suppressions": "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d",
     "typescript/node-version-file": "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1",
     "typescript/playwright/axe": "e951813b377a71e9224293df5a8c9ef62a4b3bdd0c91c66374bd2087ab200981",
     "typescript/playwright/config-file": "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287",
@@ -4916,7 +4928,7 @@ forge_end "$fail"
     "typescript/playwright/no-snapshot-update": "78a18162973e50be255a9cdc5e3dd308ca4c339e29687e45bf9eb3986a8eca3e",
     "typescript/playwright/no-test-edits": "8791405a87b605a6a2b11343878db18ab330daa100414b8cddd692c312280161",
     "typescript/playwright/no-wait-for-timeout": "b8fec15a285fcc0bc18cfe89465455882f5610ae440f1ac501cbb1141d1285ce",
-    "typescript/playwright/run": "429826e2cc64a538bcea8f772b1c6a2e776f7a9d61b3fcfc1d5eb8db545ee203",
+    "typescript/playwright/run": "468f6b091253eec471e211167bafc948edacfdcb3884379ac2f68a13501d22b6",
     "typescript/postmessage-origin": "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c",
     "typescript/prisma/applied-migrations": "d5dc9eba1997a1e77d5bd748936c830d712c918f796d5c176e0ec9a95abef686",
     "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
@@ -4924,7 +4936,7 @@ forge_end "$fail"
     "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
     "typescript/prisma/generated-client-import": "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45",
     "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
-    "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
+    "typescript/prisma/migration-present": "468e4f6ea4a32f8bc571fa06cbce0917151ba2cbe7cd79a19fababb57ac4bc48",
     "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
     "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
     "typescript/prisma/no-query-in-loop": "68a5d28979fd4769b4da8bad4d6d654792ed373c3c2876a2fdb7d8d0c7d524a3",
@@ -4932,7 +4944,7 @@ forge_end "$fail"
     "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
     "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
     "typescript/prisma/no-unscoped-bulk-write": "1372fd1bdce2e8fde38e3a4b47061f397469be74458bbc602fa880cdc2790e23",
-    "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
+    "typescript/prisma/validate": "21fa58745959dc37b68516cbebb13ea09ca8c060d2afb7df64e1fa7015dcdbd1",
     "typescript/react/act-from-react": "6ce6eecb002259cfa74be55c1f0fee63bb28e3fc0d1170fd700584e20b563610",
     "typescript/react/compiler-rules": "c52d51ae79ed6796f3bcb200d1709ef50b5fd063f57eb95f80bca4756993eba1",
     "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
@@ -4947,7 +4959,7 @@ forge_end "$fail"
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
     "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
-    "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
+    "typescript/typecheck": "e2035c29acae905181896aefc37e91288b1d67c36f09553c1f631ab67b2a54cd",
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
     "typescript/verbatim-imports": "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8",
     "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
@@ -4962,7 +4974,7 @@ forge_end "$fail"
     "typescript/vitest/no-test-edits": "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172",
     "typescript/vitest/no-test-env-branch": "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466",
     "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
-    "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
+    "typescript/vitest/run": "ffed07c248aacf6ab9544906dee79dfbf08bb464600b5fb333d92b2b9eff49c9",
     "typescript/vitest/snapshot-stale": "5cfed406c2567dbc25cc4e46f73207f6d76e807866bd2874f08d8824ecdd49b8",
     "typescript/vitest/untested-change": "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99",
     "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
@@ -4982,11 +4994,11 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "3a8962db2d8eae2ac0ea562ed17979136a3f5144545a4a18cef966f9adc1cb1d",
+    ".claude/skills/forge-project/scripts/checks.sh": "de25c30dc96c269929d3f3788d592e3c3791e7b3b926671ee34fcda0d4d04daa",
     ".claude/skills/forge-project/scripts/guard.rules": "dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
-    ".claude/skills/forge-project/scripts/lib.sh": "ad2711db3b7dfae0840c3f7ddf1f886b83dc300a83bb3197167abefe4e497f26",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e",
+    ".claude/skills/forge-project/scripts/lib.sh": "b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "a1162d818099b2ab732539059e6a734ea9b3b90bf49d2ede5b59249e5b3d2bca",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
     ".claude/skills/forge-project/scripts/session-start.sh": "d1986cea26a1242c96bd2661b4df29aec04b9cee34252767de39196b9a3fed4c",
@@ -5114,7 +5126,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "778001b8f1ed1b7eb3ced570819415199d3cf5103db5d0ef4d5517f3d980807a",
+    ".forge/check.sh": "24887d9d1ba21d987ac3cd2402a246ec2752b166605f4efb2b1b20cc78dc33ae",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
@@ -5300,11 +5312,11 @@ a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-3a8962db2d8eae2ac0ea562ed17979136a3f5144545a4a18cef966f9adc1cb1d  .claude/skills/forge-project/scripts/checks.sh
+de25c30dc96c269929d3f3788d592e3c3791e7b3b926671ee34fcda0d4d04daa  .claude/skills/forge-project/scripts/checks.sh
 dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
-ad2711db3b7dfae0840c3f7ddf1f886b83dc300a83bb3197167abefe4e497f26  .claude/skills/forge-project/scripts/lib.sh
-ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e  .claude/skills/forge-project/scripts/post-edit.sh
+b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97  .claude/skills/forge-project/scripts/lib.sh
+a1162d818099b2ab732539059e6a734ea9b3b90bf49d2ede5b59249e5b3d2bca  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
 d1986cea26a1242c96bd2661b4df29aec04b9cee34252767de39196b9a3fed4c  .claude/skills/forge-project/scripts/session-start.sh
@@ -5432,7 +5444,7 @@ a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-778001b8f1ed1b7eb3ced570819415199d3cf5103db5d0ef4d5517f3d980807a  .forge/check.sh
+24887d9d1ba21d987ac3cd2402a246ec2752b166605f4efb2b1b20cc78dc33ae  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs

@@ -1,0 +1,52 @@
+{
+  "tool": "vitest",
+  "install": {
+    "npm": "vitest",
+    "with": []
+  },
+  "versions": [
+    "0.8.3",
+    "0.8.4",
+    "1.6.1",
+    "3.2.7",
+    "4.1.12",
+    "5.0.5"
+  ],
+  "files": {
+    "package.json": "{\"name\":\"p\",\"private\":true,\"type\":\"module\"}",
+    "src/add.js": "export const add = (a, b) => a - b;\n",
+    "src/add.test.js": "import { test, expect } from \"vitest\";\nimport { add } from \"./add.js\";\ntest(\"add\", () => { expect(add(1, 2)).toBe(3); });\n",
+    "src/mul.js": "export const mul = (a, b) => a * b;\n",
+    "src/mul.test.js": "import { test, expect } from \"vitest\";\nimport { mul } from \"./mul.js\";\ntest(\"mul\", () => { expect(mul(2, 3)).toBe(6); });\n"
+  },
+  "calls": [
+    {
+      "call": "test",
+      "exit": [
+        1
+      ],
+      "out": "FAIL +src/add.test.js"
+    },
+    {
+      "call": "test-files src/mul.test.js",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "test-files src/add.test.js",
+      "exit": [
+        1
+      ],
+      "out": "AssertionError"
+    },
+    {
+      "call": "test-changed",
+      "exit": [
+        0,
+        1
+      ]
+    }
+  ],
+  "usageProbe": "test --definitely-not-an-option"
+}

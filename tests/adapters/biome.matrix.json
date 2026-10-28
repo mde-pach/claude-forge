@@ -1,0 +1,71 @@
+{
+  "tool": "biome",
+  "install": {
+    "npm": "@biomejs/biome",
+    "with": []
+  },
+  "versions": [
+    "1.1.0",
+    "1.7.0",
+    "1.8.0",
+    "1.9.0",
+    "2.0.0",
+    "2.6.3"
+  ],
+  "files": {
+    "bad.ts": "export const same = (a: number, b: number) => a == b;\n",
+    "ok.ts": "export const same = (a: number, b: number) => a === b;\n",
+    "supp.ts": "// biome-ignore lint/suspicious/noDoubleEquals: legacy\nexport const same = (a: number, b: number) => a === b;\n"
+  },
+  "calls": [
+    {
+      "call": "ci bad.ts",
+      "exit": [
+        1
+      ],
+      "out": "noDoubleEquals"
+    },
+    {
+      "call": "ci ok.ts",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "fix bad.ts",
+      "exit": [
+        1
+      ],
+      "out": "noDoubleEquals"
+    },
+    {
+      "call": "fix ok.ts",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "format-stdin x.ts",
+      "exit": [
+        0
+      ],
+      "out": "^const x = 1;$",
+      "input": "const  x=1\n"
+    },
+    {
+      "call": "lint supp.ts",
+      "exit": [
+        0
+      ],
+      "out": "^(\\./)?supp\\.ts:1:1 suppressions/unused"
+    },
+    {
+      "call": "lint-json bad.ts",
+      "exit": [
+        1
+      ],
+      "out": "\"category\":\"lint/suspicious/noDoubleEquals\""
+    }
+  ],
+  "usageProbe": "ci ok.ts --definitely-not-an-option"
+}

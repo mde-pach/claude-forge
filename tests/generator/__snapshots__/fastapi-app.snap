@@ -568,15 +568,185 @@ ruff	0.2.0		lint-json-stdin	check --no-cache --no-fix --output-format json --std
 ruff	0.2.0		rules	rule --all --output-format json
 ruff	0.2.0		settings-warnings	check --exit-zero --no-cache
 ty	0.0.86		typecheck	check --output-format concise
-ty	0.0.86		typecheck-gitlab	check --output-format gitlab'
+ty	0.0.86		typecheck-gitlab	check --output-format gitlab
+alembic	1.5.0	1.9.0	heads	heads
+alembic	1.5.0	1.9.0	migrations-check	-
+alembic	1.5.0	1.9.0	upgrade-sql	upgrade {args} --sql
+alembic	1.9.0		heads	heads
+alembic	1.9.0		migrations-check	check
+alembic	1.9.0		upgrade-sql	upgrade {args} --sql
+astro	1.0.0		check	check
+better-auth	1.0.0	1.7.6	schema-check	-
+better-auth	1.7.6		schema-check	check schema --config {args}
+biome	1.1.0	1.7.0	ci	ci
+biome	1.1.0	1.7.0	fix	check --apply --no-errors-on-unmatched
+biome	1.1.0	1.7.0	format-stdin	format --stdin-file-path {args}
+biome	1.1.0	1.7.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.1.0	1.7.0	lint-json	-
+biome	1.7.0	1.8.0	ci	ci
+biome	1.7.0	1.8.0	fix	check --apply --no-errors-on-unmatched
+biome	1.7.0	1.8.0	format-stdin	format --stdin-file-path {args}
+biome	1.7.0	1.8.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.7.0	1.8.0	lint-json	lint --reporter=json --max-diagnostics=50
+biome	1.8.0	1.9.0	ci	ci
+biome	1.8.0	1.9.0	fix	check --write --no-errors-on-unmatched
+biome	1.8.0	1.9.0	format-stdin	format --stdin-file-path {args}
+biome	1.8.0	1.9.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.8.0	1.9.0	lint-json	lint --reporter=json --max-diagnostics=50
+biome	1.9.0		ci	ci
+biome	1.9.0		fix	check --write --no-errors-on-unmatched
+biome	1.9.0		format-stdin	format --stdin-file-path {args}
+biome	1.9.0		lint	lint --colors=off --max-diagnostics=none
+biome	1.9.0		lint-json	lint --reporter=json --max-diagnostics=50
+bun	1.0.0	1.0.16	lock-check	install --frozen-lockfile
+bun	1.0.0	1.0.16	test-files	-
+bun	1.0.16		lock-check	install --frozen-lockfile
+bun	1.0.16		test-files	test
+docker	2.0.0	2.24.7	validate	-
+docker	2.24.7	2.35.0	validate	compose config --quiet --no-interpolate
+docker	2.35.0		validate	compose config --quiet --no-interpolate --no-env-resolution
+eslint	9.0.0		lint	--max-warnings=0
+eslint	9.0.0		lint-files	--max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern
+eslint	9.0.0		lint-json	--format json --no-warn-ignored
+graphql-codegen	2.0.0	2.11.0	codegen-check	-
+graphql-codegen	2.11.0		codegen-check	--check
+helm	3.0.0		lint	lint --strict
+helm	3.0.0		template	template forge
+kubectl	1.21.0		build	kustomize
+kustomize	4.0.0		build	build
+mikro-orm	5.0.0	5.7.11	migrate	migration:up
+mikro-orm	5.0.0	5.7.11	migrations-check	-
+mikro-orm	5.7.11		migrate	migration:up
+mikro-orm	5.7.11		migrations-check	migration:check
+ngc	9.0.0		typecheck	-p {args} --noEmit
+npm	8.0.0	10.5.1	lock-check	ls --package-lock-only --all
+npm	10.5.1		lock-check	ci --dry-run --ignore-scripts --no-audit --no-fund
+oxlint	1.11.2		lint	--type-aware --deny-warnings --format unix
+playwright	1.12.0		test	test --reporter=line
+pnpm	8.0.0	8.6.12	lock-check	-
+pnpm	8.6.12		lock-check	install --frozen-lockfile --lockfile-only
+prettier	2.1.0		format	--write --ignore-unknown
+prettier	2.1.0		format-check	--check
+prettier	2.1.0		format-stdin	--stdin-filepath {args}
+prisma	4.0.0	7.0.0	migrations-check	-
+prisma	4.0.0	7.0.0	validate	validate
+prisma	7.0.0		migrations-check	migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+prisma	7.0.0		validate	validate
+pytest	7.0.0		test	-q
+pytest	7.0.0		test-changed	-q --testmon
+pytest	7.0.0		test-files	-q
+sqlfluff	1.3.0	3.0.0	lint	lint --format github-annotation-native --nocolor
+sqlfluff	3.0.0	3.0.1	lint	-
+sqlfluff	3.0.1		lint	lint --format github-annotation-native --nocolor
+terraform	1.0.0	1.3.0	format	-
+terraform	1.0.0	1.3.0	format-check	fmt -check -recursive
+terraform	1.0.0	1.3.0	validate	validate -no-color
+terraform	1.3.0		format	fmt
+terraform	1.3.0		format-check	fmt -check -recursive
+terraform	1.3.0		validate	validate -no-color
+tofu	1.6.0		format	fmt
+tofu	1.6.0		format-check	fmt -check -recursive
+tofu	1.6.0		validate	validate -no-color
+tsc	4.0.2		typecheck	--noEmit -p {args} --pretty false
+tsc	4.0.2		typecheck-incremental	--noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile {args}
+typeorm	0.3.0		migrate	migration:run -d {args}
+typeorm	0.3.0		migrations-check	migration:generate -d {args} --check
+typeorm-ts-node-esm	0.3.2		migrate	migration:run -d {args}
+typeorm-ts-node-esm	0.3.2		migrations-check	migration:generate -d {args} --check
+typeorm-ts-node-commonjs	0.3.2		migrate	migration:run -d {args}
+typeorm-ts-node-commonjs	0.3.2		migrations-check	migration:generate -d {args} --check
+uv	0.3.0	0.4.5	build-wheel	-
+uv	0.3.0	0.4.5	lock-check	lock --locked
+uv	0.3.0	0.4.5	run-python	run --no-project --quiet python -I -c
+uv	0.4.5	0.5.8	build-wheel	build --wheel --quiet -o
+uv	0.4.5	0.5.8	lock-check	lock --locked
+uv	0.4.5	0.5.8	run-python	run --no-project --quiet python -I -c
+uv	0.5.8		build-wheel	build --wheel --quiet -o
+uv	0.5.8		lock-check	lock --check
+uv	0.5.8		run-python	run --no-project --quiet python -I -c
+vitest	0.8.4		test	run
+vitest	0.8.4		test-changed	run --changed
+vitest	0.8.4		test-files	run
+vue-tsc	1.0.0		typecheck	--noEmit
+vue-tsc	1.0.0		typecheck-build	--build
+wrangler	3.0.0	4.59.0	codegen-check	-
+wrangler	4.59.0		codegen-check	types {args} --check
+yarn	2.0.0	2.4.0	lock-check	-
+yarn	2.4.0	3.0.0	lock-check	install --immutable --skip-builds
+yarn	3.0.0		lock-check	install --immutable --mode=skip-build
+actionlint	1.7.12		lint	-shellcheck= -pyflakes= -no-color -format {{range.}}{{.Filepath}}:{{.Line}}:{{.Column}}:{{"\x20"}}{{.Kind}}:{{"\x20"}}{{.Message}}\n{{end}} -config-file
+ast-grep	0.45.3		scan	scan --json=stream -c
+ast-grep	0.45.3		scan-meta	scan --json=stream --include-metadata -c
+editorconfig-checker	4.0.2		lint	-no-color -format gcc -config
+gitleaks	8.30.1		scan	dir --no-banner --no-color --redact -l error --ignore-gitleaks-allow --exit-code 0 --report-format template {args}
+hadolint	2.15.1		lint	--disable-ignore-pragma --no-fail --no-color -f tty -c
+kube-linter	0.8.3		lint	lint --format plain --with-color=false --config
+kubeconform	0.8.0		validate	-strict -output json -schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json -cache
+lockfile-lint	5.1.0		lint	--type npm --allowed-hosts npm --validate-https --validate-integrity --path
+oasdiff	1.33.0		diff	breaking {args} --fail-on ERR --format singleline
+osv-scanner	2.7.0		scan	scan source --format markdown --config
+redocly	2.62.1		lint	lint --format=github-actions
+spectral	6.17.0		lint	lint --format text --fail-severity error --ruleset
+squawk	2.70.0		lint	--reporter gcc -c
+tflint	0.64.0		lint	--format compact --force --chdir
+trivy	0.75.0		scan	config --quiet --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --format template {args}
+zizmor	1.30.1		lint	--offline --no-progress --no-ignores --format github'
 
 # One line per tool: tool, Forge's pin (its own tools; "" when the project's), the newest
 # release the adapter was proven on, the exit status and output line of a usage error ("" when
 # the tool has none), how it is run ("project", "path", or the function running Forge's
 # pinned release), the function picking which adapter drives the project's tool (""), and the
 # arguments printing its version.
-FORGE_ADAPTER_META='ruff	-	0.17.3	2	^For more information, try .--help.	project	-	--version
-ty	0.0.86	0.0.86	2	^For more information, try .--help.	forge_ty	-	--version'
+FORGE_ADAPTER_META='ruff	-	0.17.3	2	^For more information, try .--help.	project	-	--version	-
+ty	0.0.86	0.0.86	2	^For more information, try .--help.	forge_ty	-	--version	-
+alembic	-	1.20.1	2	^[^ ]+: error: (unrecognized arguments|argument |the following arguments are required)	project	-	--version	-
+astro	-	7.4.2	-	-	project	-	--version	-
+better-auth	-	1.7.14	1	^error: (unknown option|unknown command|too many arguments|option .* argument missing|missing required argument)	project	-	--version	-
+biome	-	2.6.3	1	^(flags/invalid|Error: )	project	-	--version	-
+bun	-	1.4.4	1	^error: bun [a-z]+ has no .* flag	path	-	--version	-
+docker	-	5.6.1	1	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
+eslint	-	10.13.0	2	^Invalid (option .--|value for option )	project	-	--version	-
+graphql-codegen	-	7.4.6	-	-	project	-	--version	@graphql-codegen/cli
+helm	-	4.3.1	1	^Error: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument)	path	-	version --short	-
+kubectl	-	1.37.2	1	^[Ee]rror: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument|specify one path to kustomization)	path	-	version --client	-
+kustomize	-	5.8.3	1	^[Ee]rror: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument|specify one path to kustomization)	path	forge_kustomize_pick	version	-
+mikro-orm	-	7.2.5	1	^Unknown arguments?: 	project	-	--version	-
+ngc	-	22.2.3	1	error.* TS(5023|5025): .*Unknown compiler option .--|error.* TS6044: 	project	-	--version	@angular/compiler-cli
+npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	--version	-
+oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
+playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
+pnpm	-	12.15.0	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
+prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
+prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
+pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
+sqlfluff	-	4.4.0	2	^Try .[^ ]+ [a-z-]+ (-h|--help). for help	project	-	--version	-
+terraform	-	1.17.0	1	flag provided but not defined: |invalid ([a-z]+ )?value .+ for (flag )?-	path	forge_tf_pick	--version	-
+tofu	-	1.13.2	1	flag provided but not defined: |invalid ([a-z]+ )?value .+ for (flag )?-	path	-	--version	-
+tsc	-	7.0.2	1	^error TS(5023|5025|6044|6046): 	project	-	--version	-
+typeorm	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+typeorm-ts-node-esm	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+typeorm-ts-node-commonjs	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+uv	-	0.13.6	2	^For more information, try .--help.	path	-	--version	-
+vitest	-	5.0.5	1	^CACError: Unknown option 	project	-	--version	-
+vue-tsc	-	3.3.13	1	^error TS(5023|5025|5072|5073|6044|6046): 	project	-	--version	vue-tsc
+wrangler	-	4.154.0	1	ERROR.*Unknown arguments?: 	project	-	--version	-
+yarn	-	4.18.1	1	(Unknown Syntax Error|Usage Error)	path	-	--version	-
+actionlint	1.7.12	1.7.12	2	^(flag provided but not defined: |invalid (boolean )?value )	forge_pinned actionlint	-	--version	-
+ast-grep	0.45.3	0.45.3	2	^For more information, try .--help.	forge_pinned ast-grep	-	--version	-
+editorconfig-checker	4.0.2	4.0.2	2	^(flag provided but not defined: |invalid (boolean )?value )	forge_pinned editorconfig-checker	-	--version	-
+gitleaks	8.30.1	8.30.1	126	^Error: unknown (shorthand )?flag	forge_pinned gitleaks	-	--version	-
+hadolint	2.15.1	2.15.1	1	^(Invalid (option|argument) |option -.*: cannot parse value )	forge_pinned hadolint	-	--version	-
+kube-linter	0.8.3	0.8.3	1	^Error: (unknown (shorthand )?flag|unknown command|invalid argument|invalid format)	forge_pinned kube-linter	-	version	-
+kubeconform	0.8.0	0.8.0	1	^(flag provided but not defined: |invalid (boolean )?value |.outputFormat. must be )	forge_pinned kubeconform	-	-v	-
+lockfile-lint	5.1.0	5.1.0	1	^Unable to find relevant lockfile parser for type 	forge_pinned lockfile-lint	-	--version	-
+oasdiff	1.33.0	1.33.0	100	^Error: (unknown (shorthand )?flag|unknown command|invalid argument)	forge_pinned oasdiff	-	--version	-
+osv-scanner	2.7.0	2.7.0	127	^Incorrect Usage: 	forge_pinned osv-scanner	-	--version	-
+redocly	2.62.1	2.62.1	1	^(Unknown arguments?|Invalid values?):	forge_pinned redocly	-	--version	-
+spectral	6.17.0	6.17.0	1	^(Unknown arguments?|Invalid values?):	forge_pinned spectral	-	--version	-
+squawk	2.70.0	2.70.0	2	^For more information, try .--help.	forge_pinned squawk	-	--version	-
+tflint	0.64.0	0.64.0	1	^Failed to parse CLI options; 	forge_pinned tflint	-	--version	-
+trivy	0.75.0	0.75.0	1	FATAL[[:space:]]+Fatal error[[:space:]]+(unknown (shorthand )?flag|unknown command|flag error)	forge_pinned trivy	-	--version	-
+zizmor	1.30.1	1.30.1	2	^For more information, try .--help.	forge_pinned zizmor	-	--version	-'
 
 # The codes the active rules' tool targets expect: tool, code, first stable release, the
 # codes and the names the same rule had (comma-separated).
@@ -685,7 +855,7 @@ ruff	TRY203	0.1.4	TRY203,TRY302	useless-try-except'
 # FORGE_AM_UPATTERN, FORGE_AM_RUNNER, FORGE_AM_PICK and FORGE_AM_VARGS from the tool's
 # FORGE_ADAPTER_META line; fails when the tool has no adapter. Shell builtins only.
 forge_adapter_meta() {
-  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS=''
+  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS='' FORGE_AM_PKG=''
   _am_ifs=$IFS
   IFS='
 '
@@ -696,7 +866,8 @@ forge_adapter_meta() {
         # shellcheck disable=SC2086
         set -f; set -- $_am_l; set +f
         IFS=$_am_ifs
-        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version}
+        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version} FORGE_AM_PKG=${9:-}
+        [ "$FORGE_AM_PKG" != - ] || FORGE_AM_PKG=''
         [ "$FORGE_AM_PIN" != - ] || FORGE_AM_PIN=''
         [ "$FORGE_AM_UEXIT" != - ] || FORGE_AM_UEXIT=''
         [ "$FORGE_AM_UPATTERN" != - ] || FORGE_AM_UPATTERN=''
@@ -709,11 +880,15 @@ forge_adapter_meta() {
 }
 
 # forge_adapter_tool <tool>: FORGE_AD_TOOL, the adapter that drives the project's <tool>: its
-# own, or the one its pick function names (tofu for terraform in an OpenTofu project).
+# own, or the one its pick function sets in FORGE_PICKED (tofu for terraform in an OpenTofu
+# project).
 forge_adapter_tool() {
   FORGE_AD_TOOL=$1
   forge_adapter_meta "$1" || return 0
-  [ -z "$FORGE_AM_PICK" ] || FORGE_AD_TOOL=$($FORGE_AM_PICK)
+  [ -n "$FORGE_AM_PICK" ] || return 0
+  FORGE_PICKED=$1
+  $FORGE_AM_PICK
+  FORGE_AD_TOOL=$FORGE_PICKED
 }
 
 # forge_tool_version <tool>: the installed version of the project's <tool> (Forge's pin for
@@ -735,14 +910,28 @@ forge_tool_version() {
       _tv_bin=$FORGE_FOUND
       _tv_key="$1 $FORGE_FOUND" ;;
   esac
-  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" || return 1
+  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" "$FORGE_AM_PKG" || return 1
   [ -n "$FORGE_FACT" ] || return 1
   printf '%s\n' "$FORGE_FACT"
 }
 
-# forge_tool_version_ask <tool> <executable> <runner> <version args>
+# forge_tool_version_ask <tool> <executable> <runner> <version args> [<package>]: the version
+# the package's package.json says, when the adapter names one and it is found up from the
+# executable's real path (an npm package's bin); else the first x.y[.z] the tool prints.
 forge_tool_version_ask() {
   forge_tool_watch "$2"
+  if [ -n "${5:-}" ]; then
+    _va_d=$(realpath "$2" 2>/dev/null || readlink -f "$2" 2>/dev/null)
+    while [ -n "$_va_d" ] && [ "$_va_d" != / ]; do
+      _va_d=${_va_d%/*}
+      [ -n "$_va_d" ] || break
+      if [ -f "$_va_d/package.json" ] && grep -q "^[[:space:]]*\"name\"[[:space:]]*:[[:space:]]*\"$5\"" "$_va_d/package.json"; then
+        printf 'watch %s\n' "$_va_d/package.json"
+        sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([0-9][^"]*\)".*/\1/p' "$_va_d/package.json" | grep -oE '^[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | grep . && return 0
+        break
+      fi
+    done
+  fi
   _va_ifs=$IFS
   IFS=' '
   # shellcheck disable=SC2086
@@ -879,9 +1068,9 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && [ "$_do_rc" = "$_do_ux" ] && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
-    # a command line this version rejects is not a finding (a base copy on stdin fails instead)
-    case " $* " in *" - "*) ;; *)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+    # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
+    case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
         _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
         [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
@@ -1133,7 +1322,7 @@ forge_edit_checks() {
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
@@ -3640,8 +3829,15 @@ ruff	format	python/format
 ruff	format-stdin	python/format
 ruff	lint	python/lint
 ruff	fix	python/lint
+pytest	test	python/pytest/run
+pytest	test-changed	python/pytest/run
+pytest	test-files	python/pytest/run
 ruff	settings-warnings	python/ruff-config-current
-ty	typecheck	python/typecheck'
+alembic	migrations-check	python/sqlalchemy/alembic/check
+alembic	heads	python/sqlalchemy/alembic/migration-lint
+alembic	heads	python/sqlalchemy/alembic/single-head
+ty	typecheck	python/typecheck
+uv	lock-check	python/uv/lock-sync'
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -3830,13 +4026,13 @@ forge_scope_12() {
 }
 forge_when_12() { return 1; }
 forge_check_run_12() {
-pytest -q
+forge_do pytest test
 }
 forge_check_changed_12() {
-if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then pytest -q --testmon; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || pytest -q "$@"; fi
+if grep -qi "pytest-testmon" pyproject.toml uv.lock 2>/dev/null; then forge_do pytest test-changed; else set -- $(forge_related_py_tests $FORGE_FILES); [ "$#" -eq 0 ] || forge_do pytest test-files "$@"; fi
 }
 forge_check_rerun_12() {
-pytest -q $FORGE_FILES
+forge_do pytest test-files $FORGE_FILES
 }
 
 # 13. python/pytest/untested-change
@@ -3897,7 +4093,7 @@ forge_scope_16() {
 }
 forge_when_16() { case $1 in models/*|*/models/*|models.py|*/models.py|alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_16() {
-alembic check
+forge_do alembic migrations-check
 }
 
 # 17. python/sqlalchemy/alembic/data-migration-downgrade
@@ -3945,7 +4141,7 @@ forge_scope_19() {
 }
 forge_when_19() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_19() {
-forge_squawk_alembic $(alembic heads | forge_alembic_files)
+forge_squawk_alembic $(forge_do alembic heads | forge_alembic_files)
 }
 forge_check_changed_19() {
 forge_squawk_alembic $FORGE_FILES
@@ -3979,7 +4175,7 @@ forge_scope_21() {
 }
 forge_when_21() { case $1 in alembic/versions/*) return 0 ;; esac; return 1; }
 forge_check_run_21() {
-test "$(alembic heads | wc -l)" -le 1
+test "$(forge_do alembic heads | wc -l)" -le 1
 }
 
 # 22. python/sqlalchemy/alembic/sqlite-batch
@@ -4089,7 +4285,7 @@ forge_scope_28() {
 }
 forge_when_28() { case $1 in pyproject.toml) return 0 ;; esac; return 1; }
 forge_check_run_28() {
-uv lock --check
+forge_do uv lock-check
 }
 
 # 29. secrets/env-not-committed
@@ -4644,15 +4840,185 @@ ruff	0.2.0		lint-json-stdin	check --no-cache --no-fix --output-format json --std
 ruff	0.2.0		rules	rule --all --output-format json
 ruff	0.2.0		settings-warnings	check --exit-zero --no-cache
 ty	0.0.86		typecheck	check --output-format concise
-ty	0.0.86		typecheck-gitlab	check --output-format gitlab'
+ty	0.0.86		typecheck-gitlab	check --output-format gitlab
+alembic	1.5.0	1.9.0	heads	heads
+alembic	1.5.0	1.9.0	migrations-check	-
+alembic	1.5.0	1.9.0	upgrade-sql	upgrade {args} --sql
+alembic	1.9.0		heads	heads
+alembic	1.9.0		migrations-check	check
+alembic	1.9.0		upgrade-sql	upgrade {args} --sql
+astro	1.0.0		check	check
+better-auth	1.0.0	1.7.6	schema-check	-
+better-auth	1.7.6		schema-check	check schema --config {args}
+biome	1.1.0	1.7.0	ci	ci
+biome	1.1.0	1.7.0	fix	check --apply --no-errors-on-unmatched
+biome	1.1.0	1.7.0	format-stdin	format --stdin-file-path {args}
+biome	1.1.0	1.7.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.1.0	1.7.0	lint-json	-
+biome	1.7.0	1.8.0	ci	ci
+biome	1.7.0	1.8.0	fix	check --apply --no-errors-on-unmatched
+biome	1.7.0	1.8.0	format-stdin	format --stdin-file-path {args}
+biome	1.7.0	1.8.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.7.0	1.8.0	lint-json	lint --reporter=json --max-diagnostics=50
+biome	1.8.0	1.9.0	ci	ci
+biome	1.8.0	1.9.0	fix	check --write --no-errors-on-unmatched
+biome	1.8.0	1.9.0	format-stdin	format --stdin-file-path {args}
+biome	1.8.0	1.9.0	lint	lint --colors=off --max-diagnostics=200
+biome	1.8.0	1.9.0	lint-json	lint --reporter=json --max-diagnostics=50
+biome	1.9.0		ci	ci
+biome	1.9.0		fix	check --write --no-errors-on-unmatched
+biome	1.9.0		format-stdin	format --stdin-file-path {args}
+biome	1.9.0		lint	lint --colors=off --max-diagnostics=none
+biome	1.9.0		lint-json	lint --reporter=json --max-diagnostics=50
+bun	1.0.0	1.0.16	lock-check	install --frozen-lockfile
+bun	1.0.0	1.0.16	test-files	-
+bun	1.0.16		lock-check	install --frozen-lockfile
+bun	1.0.16		test-files	test
+docker	2.0.0	2.24.7	validate	-
+docker	2.24.7	2.35.0	validate	compose config --quiet --no-interpolate
+docker	2.35.0		validate	compose config --quiet --no-interpolate --no-env-resolution
+eslint	9.0.0		lint	--max-warnings=0
+eslint	9.0.0		lint-files	--max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern
+eslint	9.0.0		lint-json	--format json --no-warn-ignored
+graphql-codegen	2.0.0	2.11.0	codegen-check	-
+graphql-codegen	2.11.0		codegen-check	--check
+helm	3.0.0		lint	lint --strict
+helm	3.0.0		template	template forge
+kubectl	1.21.0		build	kustomize
+kustomize	4.0.0		build	build
+mikro-orm	5.0.0	5.7.11	migrate	migration:up
+mikro-orm	5.0.0	5.7.11	migrations-check	-
+mikro-orm	5.7.11		migrate	migration:up
+mikro-orm	5.7.11		migrations-check	migration:check
+ngc	9.0.0		typecheck	-p {args} --noEmit
+npm	8.0.0	10.5.1	lock-check	ls --package-lock-only --all
+npm	10.5.1		lock-check	ci --dry-run --ignore-scripts --no-audit --no-fund
+oxlint	1.11.2		lint	--type-aware --deny-warnings --format unix
+playwright	1.12.0		test	test --reporter=line
+pnpm	8.0.0	8.6.12	lock-check	-
+pnpm	8.6.12		lock-check	install --frozen-lockfile --lockfile-only
+prettier	2.1.0		format	--write --ignore-unknown
+prettier	2.1.0		format-check	--check
+prettier	2.1.0		format-stdin	--stdin-filepath {args}
+prisma	4.0.0	7.0.0	migrations-check	-
+prisma	4.0.0	7.0.0	validate	validate
+prisma	7.0.0		migrations-check	migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+prisma	7.0.0		validate	validate
+pytest	7.0.0		test	-q
+pytest	7.0.0		test-changed	-q --testmon
+pytest	7.0.0		test-files	-q
+sqlfluff	1.3.0	3.0.0	lint	lint --format github-annotation-native --nocolor
+sqlfluff	3.0.0	3.0.1	lint	-
+sqlfluff	3.0.1		lint	lint --format github-annotation-native --nocolor
+terraform	1.0.0	1.3.0	format	-
+terraform	1.0.0	1.3.0	format-check	fmt -check -recursive
+terraform	1.0.0	1.3.0	validate	validate -no-color
+terraform	1.3.0		format	fmt
+terraform	1.3.0		format-check	fmt -check -recursive
+terraform	1.3.0		validate	validate -no-color
+tofu	1.6.0		format	fmt
+tofu	1.6.0		format-check	fmt -check -recursive
+tofu	1.6.0		validate	validate -no-color
+tsc	4.0.2		typecheck	--noEmit -p {args} --pretty false
+tsc	4.0.2		typecheck-incremental	--noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile {args}
+typeorm	0.3.0		migrate	migration:run -d {args}
+typeorm	0.3.0		migrations-check	migration:generate -d {args} --check
+typeorm-ts-node-esm	0.3.2		migrate	migration:run -d {args}
+typeorm-ts-node-esm	0.3.2		migrations-check	migration:generate -d {args} --check
+typeorm-ts-node-commonjs	0.3.2		migrate	migration:run -d {args}
+typeorm-ts-node-commonjs	0.3.2		migrations-check	migration:generate -d {args} --check
+uv	0.3.0	0.4.5	build-wheel	-
+uv	0.3.0	0.4.5	lock-check	lock --locked
+uv	0.3.0	0.4.5	run-python	run --no-project --quiet python -I -c
+uv	0.4.5	0.5.8	build-wheel	build --wheel --quiet -o
+uv	0.4.5	0.5.8	lock-check	lock --locked
+uv	0.4.5	0.5.8	run-python	run --no-project --quiet python -I -c
+uv	0.5.8		build-wheel	build --wheel --quiet -o
+uv	0.5.8		lock-check	lock --check
+uv	0.5.8		run-python	run --no-project --quiet python -I -c
+vitest	0.8.4		test	run
+vitest	0.8.4		test-changed	run --changed
+vitest	0.8.4		test-files	run
+vue-tsc	1.0.0		typecheck	--noEmit
+vue-tsc	1.0.0		typecheck-build	--build
+wrangler	3.0.0	4.59.0	codegen-check	-
+wrangler	4.59.0		codegen-check	types {args} --check
+yarn	2.0.0	2.4.0	lock-check	-
+yarn	2.4.0	3.0.0	lock-check	install --immutable --skip-builds
+yarn	3.0.0		lock-check	install --immutable --mode=skip-build
+actionlint	1.7.12		lint	-shellcheck= -pyflakes= -no-color -format {{range.}}{{.Filepath}}:{{.Line}}:{{.Column}}:{{"\x20"}}{{.Kind}}:{{"\x20"}}{{.Message}}\n{{end}} -config-file
+ast-grep	0.45.3		scan	scan --json=stream -c
+ast-grep	0.45.3		scan-meta	scan --json=stream --include-metadata -c
+editorconfig-checker	4.0.2		lint	-no-color -format gcc -config
+gitleaks	8.30.1		scan	dir --no-banner --no-color --redact -l error --ignore-gitleaks-allow --exit-code 0 --report-format template {args}
+hadolint	2.15.1		lint	--disable-ignore-pragma --no-fail --no-color -f tty -c
+kube-linter	0.8.3		lint	lint --format plain --with-color=false --config
+kubeconform	0.8.0		validate	-strict -output json -schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json -cache
+lockfile-lint	5.1.0		lint	--type npm --allowed-hosts npm --validate-https --validate-integrity --path
+oasdiff	1.33.0		diff	breaking {args} --fail-on ERR --format singleline
+osv-scanner	2.7.0		scan	scan source --format markdown --config
+redocly	2.62.1		lint	lint --format=github-actions
+spectral	6.17.0		lint	lint --format text --fail-severity error --ruleset
+squawk	2.70.0		lint	--reporter gcc -c
+tflint	0.64.0		lint	--format compact --force --chdir
+trivy	0.75.0		scan	config --quiet --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --format template {args}
+zizmor	1.30.1		lint	--offline --no-progress --no-ignores --format github'
 
 # One line per tool: tool, Forge's pin (its own tools; "" when the project's), the newest
 # release the adapter was proven on, the exit status and output line of a usage error ("" when
 # the tool has none), how it is run ("project", "path", or the function running Forge's
 # pinned release), the function picking which adapter drives the project's tool (""), and the
 # arguments printing its version.
-FORGE_ADAPTER_META='ruff	-	0.17.3	2	^For more information, try .--help.	project	-	--version
-ty	0.0.86	0.0.86	2	^For more information, try .--help.	forge_ty	-	--version'
+FORGE_ADAPTER_META='ruff	-	0.17.3	2	^For more information, try .--help.	project	-	--version	-
+ty	0.0.86	0.0.86	2	^For more information, try .--help.	forge_ty	-	--version	-
+alembic	-	1.20.1	2	^[^ ]+: error: (unrecognized arguments|argument |the following arguments are required)	project	-	--version	-
+astro	-	7.4.2	-	-	project	-	--version	-
+better-auth	-	1.7.14	1	^error: (unknown option|unknown command|too many arguments|option .* argument missing|missing required argument)	project	-	--version	-
+biome	-	2.6.3	1	^(flags/invalid|Error: )	project	-	--version	-
+bun	-	1.4.4	1	^error: bun [a-z]+ has no .* flag	path	-	--version	-
+docker	-	5.6.1	1	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
+eslint	-	10.13.0	2	^Invalid (option .--|value for option )	project	-	--version	-
+graphql-codegen	-	7.4.6	-	-	project	-	--version	@graphql-codegen/cli
+helm	-	4.3.1	1	^Error: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument)	path	-	version --short	-
+kubectl	-	1.37.2	1	^[Ee]rror: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument|specify one path to kustomization)	path	-	version --client	-
+kustomize	-	5.8.3	1	^[Ee]rror: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument|specify one path to kustomization)	path	forge_kustomize_pick	version	-
+mikro-orm	-	7.2.5	1	^Unknown arguments?: 	project	-	--version	-
+ngc	-	22.2.3	1	error.* TS(5023|5025): .*Unknown compiler option .--|error.* TS6044: 	project	-	--version	@angular/compiler-cli
+npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	--version	-
+oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
+playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
+pnpm	-	12.15.0	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
+prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
+prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
+pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
+sqlfluff	-	4.4.0	2	^Try .[^ ]+ [a-z-]+ (-h|--help). for help	project	-	--version	-
+terraform	-	1.17.0	1	flag provided but not defined: |invalid ([a-z]+ )?value .+ for (flag )?-	path	forge_tf_pick	--version	-
+tofu	-	1.13.2	1	flag provided but not defined: |invalid ([a-z]+ )?value .+ for (flag )?-	path	-	--version	-
+tsc	-	7.0.2	1	^error TS(5023|5025|6044|6046): 	project	-	--version	-
+typeorm	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+typeorm-ts-node-esm	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+typeorm-ts-node-commonjs	-	1.1.2	1	^(Unknown arguments?|Missing required arguments?): 	project	-	version	-
+uv	-	0.13.6	2	^For more information, try .--help.	path	-	--version	-
+vitest	-	5.0.5	1	^CACError: Unknown option 	project	-	--version	-
+vue-tsc	-	3.3.13	1	^error TS(5023|5025|5072|5073|6044|6046): 	project	-	--version	vue-tsc
+wrangler	-	4.154.0	1	ERROR.*Unknown arguments?: 	project	-	--version	-
+yarn	-	4.18.1	1	(Unknown Syntax Error|Usage Error)	path	-	--version	-
+actionlint	1.7.12	1.7.12	2	^(flag provided but not defined: |invalid (boolean )?value )	forge_pinned actionlint	-	--version	-
+ast-grep	0.45.3	0.45.3	2	^For more information, try .--help.	forge_pinned ast-grep	-	--version	-
+editorconfig-checker	4.0.2	4.0.2	2	^(flag provided but not defined: |invalid (boolean )?value )	forge_pinned editorconfig-checker	-	--version	-
+gitleaks	8.30.1	8.30.1	126	^Error: unknown (shorthand )?flag	forge_pinned gitleaks	-	--version	-
+hadolint	2.15.1	2.15.1	1	^(Invalid (option|argument) |option -.*: cannot parse value )	forge_pinned hadolint	-	--version	-
+kube-linter	0.8.3	0.8.3	1	^Error: (unknown (shorthand )?flag|unknown command|invalid argument|invalid format)	forge_pinned kube-linter	-	version	-
+kubeconform	0.8.0	0.8.0	1	^(flag provided but not defined: |invalid (boolean )?value |.outputFormat. must be )	forge_pinned kubeconform	-	-v	-
+lockfile-lint	5.1.0	5.1.0	1	^Unable to find relevant lockfile parser for type 	forge_pinned lockfile-lint	-	--version	-
+oasdiff	1.33.0	1.33.0	100	^Error: (unknown (shorthand )?flag|unknown command|invalid argument)	forge_pinned oasdiff	-	--version	-
+osv-scanner	2.7.0	2.7.0	127	^Incorrect Usage: 	forge_pinned osv-scanner	-	--version	-
+redocly	2.62.1	2.62.1	1	^(Unknown arguments?|Invalid values?):	forge_pinned redocly	-	--version	-
+spectral	6.17.0	6.17.0	1	^(Unknown arguments?|Invalid values?):	forge_pinned spectral	-	--version	-
+squawk	2.70.0	2.70.0	2	^For more information, try .--help.	forge_pinned squawk	-	--version	-
+tflint	0.64.0	0.64.0	1	^Failed to parse CLI options; 	forge_pinned tflint	-	--version	-
+trivy	0.75.0	0.75.0	1	FATAL[[:space:]]+Fatal error[[:space:]]+(unknown (shorthand )?flag|unknown command|flag error)	forge_pinned trivy	-	--version	-
+zizmor	1.30.1	1.30.1	2	^For more information, try .--help.	forge_pinned zizmor	-	--version	-'
 
 # The codes the active rules' tool targets expect: tool, code, first stable release, the
 # codes and the names the same rule had (comma-separated).
@@ -4761,7 +5127,7 @@ ruff	TRY203	0.1.4	TRY203,TRY302	useless-try-except'
 # FORGE_AM_UPATTERN, FORGE_AM_RUNNER, FORGE_AM_PICK and FORGE_AM_VARGS from the tool's
 # FORGE_ADAPTER_META line; fails when the tool has no adapter. Shell builtins only.
 forge_adapter_meta() {
-  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS=''
+  FORGE_AM_PIN='' FORGE_AM_VERIFIED='' FORGE_AM_UEXIT='' FORGE_AM_UPATTERN='' FORGE_AM_RUNNER='' FORGE_AM_PICK='' FORGE_AM_VARGS='' FORGE_AM_PKG=''
   _am_ifs=$IFS
   IFS='
 '
@@ -4772,7 +5138,8 @@ forge_adapter_meta() {
         # shellcheck disable=SC2086
         set -f; set -- $_am_l; set +f
         IFS=$_am_ifs
-        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version}
+        FORGE_AM_PIN=${2:-} FORGE_AM_VERIFIED=${3:-} FORGE_AM_UEXIT=${4:-} FORGE_AM_UPATTERN=${5:-} FORGE_AM_RUNNER=${6:-project} FORGE_AM_PICK=${7:-} FORGE_AM_VARGS=${8:---version} FORGE_AM_PKG=${9:-}
+        [ "$FORGE_AM_PKG" != - ] || FORGE_AM_PKG=''
         [ "$FORGE_AM_PIN" != - ] || FORGE_AM_PIN=''
         [ "$FORGE_AM_UEXIT" != - ] || FORGE_AM_UEXIT=''
         [ "$FORGE_AM_UPATTERN" != - ] || FORGE_AM_UPATTERN=''
@@ -4785,11 +5152,15 @@ forge_adapter_meta() {
 }
 
 # forge_adapter_tool <tool>: FORGE_AD_TOOL, the adapter that drives the project's <tool>: its
-# own, or the one its pick function names (tofu for terraform in an OpenTofu project).
+# own, or the one its pick function sets in FORGE_PICKED (tofu for terraform in an OpenTofu
+# project).
 forge_adapter_tool() {
   FORGE_AD_TOOL=$1
   forge_adapter_meta "$1" || return 0
-  [ -z "$FORGE_AM_PICK" ] || FORGE_AD_TOOL=$($FORGE_AM_PICK)
+  [ -n "$FORGE_AM_PICK" ] || return 0
+  FORGE_PICKED=$1
+  $FORGE_AM_PICK
+  FORGE_AD_TOOL=$FORGE_PICKED
 }
 
 # forge_tool_version <tool>: the installed version of the project's <tool> (Forge's pin for
@@ -4811,14 +5182,28 @@ forge_tool_version() {
       _tv_bin=$FORGE_FOUND
       _tv_key="$1 $FORGE_FOUND" ;;
   esac
-  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" || return 1
+  forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" "$FORGE_AM_PKG" || return 1
   [ -n "$FORGE_FACT" ] || return 1
   printf '%s\n' "$FORGE_FACT"
 }
 
-# forge_tool_version_ask <tool> <executable> <runner> <version args>
+# forge_tool_version_ask <tool> <executable> <runner> <version args> [<package>]: the version
+# the package's package.json says, when the adapter names one and it is found up from the
+# executable's real path (an npm package's bin); else the first x.y[.z] the tool prints.
 forge_tool_version_ask() {
   forge_tool_watch "$2"
+  if [ -n "${5:-}" ]; then
+    _va_d=$(realpath "$2" 2>/dev/null || readlink -f "$2" 2>/dev/null)
+    while [ -n "$_va_d" ] && [ "$_va_d" != / ]; do
+      _va_d=${_va_d%/*}
+      [ -n "$_va_d" ] || break
+      if [ -f "$_va_d/package.json" ] && grep -q "^[[:space:]]*\"name\"[[:space:]]*:[[:space:]]*\"$5\"" "$_va_d/package.json"; then
+        printf 'watch %s\n' "$_va_d/package.json"
+        sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([0-9][^"]*\)".*/\1/p' "$_va_d/package.json" | grep -oE '^[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | grep . && return 0
+        break
+      fi
+    done
+  fi
   _va_ifs=$IFS
   IFS=' '
   # shellcheck disable=SC2086
@@ -4955,9 +5340,9 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && [ "$_do_rc" = "$_do_ux" ] && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
-    # a command line this version rejects is not a finding (a base copy on stdin fails instead)
-    case " $* " in *" - "*) ;; *)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+    # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
+    case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
         _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
         [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
@@ -5229,7 +5614,7 @@ forge_tests_integrity() {
 forge_counts() {
   set -f
   # shellcheck disable=SC2046
-  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
+  ( cd "$1" && forge_do ast-grep scan "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
   [ "$rc" -le 1 ] || return 1
@@ -5244,7 +5629,7 @@ forge_forbid() {
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
     if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
@@ -5393,21 +5778,21 @@ forge_end "$fail"
     "python/pytest/no-test-edits": "ca6c6a53b6cc515ee89af3feefc54b44a135654f9f9f8bf2a83fa8e0ce32ea0b",
     "python/pytest/no-test-env-branch": "75d3bff83be8da527b4ca5a2fbe727b192c62b7ea0ab1c082e420dcc6f6993a9",
     "python/pytest/pydantic-deprecations-error": "94900a303cbed0c398bb2ec9516e0c99127bcbed015e85f3988c4fcba6b6217c",
-    "python/pytest/run": "ef1248916825b76f9441dc0223f9ccb3601caef3751dd8e72fa8a9cc56a4141b",
+    "python/pytest/run": "c4cf9c6ad142f4ad913e77170740850502655eda1d2e205a9eb8bcb93f3fa6ea",
     "python/pytest/untested-change": "2ac2a9e0f1e6af931ba702b7c5890f981e900d671ff825ae329b80dadf59cd3c",
     "python/raise-from": "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381",
     "python/ruff-config-current": "740352f926ca71cf7008eefd348543f0989a311eb1f051689ca0a7c480e7b312",
     "python/self-type": "7d4247c8346d32b948d11e91b0b2e7aa69dda3dd6401f83879479de240a7b4a1",
     "python/sqlalchemy/alembic/applied-migrations": "aed7425e1c5079bfbc5d364d830dd600bd64d3d07b4eb6ff4e11e76a947943a4",
-    "python/sqlalchemy/alembic/check": "e1329cc8315f0bb8369352a639de7ef260e0f676930b743e8ca378de8a82192d",
+    "python/sqlalchemy/alembic/check": "c26aa1453c76fc3a68bc9d3a34bb9f34ab8f2d4cc4b0c0fccd0cb706bd1705c8",
     "python/sqlalchemy/alembic/data-migration-downgrade": "532462028b399611dded62b7ca935ccadc8139fbb368578e79c6e1d5a944b3bd",
     "python/sqlalchemy/alembic/downgrade": "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a",
     "python/sqlalchemy/alembic/fk-index": "a0fdaaa36af5e509006d2e782436ff3778e676e3e56b7283f3689a5365f3e4dd",
-    "python/sqlalchemy/alembic/migration-lint": "91762a005148b23a2c63632a6ca089225a9632c5377bbd1777aa743bfb6c14f2",
+    "python/sqlalchemy/alembic/migration-lint": "decc6c2fb46676d13c4d3104fd729f1e57e1e7a278cb9275d060f4842181cb0a",
     "python/sqlalchemy/alembic/model-registered": "9bf9e4138717c73c3958b80129243d7332f1fdb53b5c35ad19939a5182568521",
     "python/sqlalchemy/alembic/no-create-all": "277c5982e162bda3c651a12d687ed49c444003c500a5bd11898a42f5e1fc9c54",
     "python/sqlalchemy/alembic/no-downgrade-base": "64399d2ccfb81a42cd95eb0d187143e4694829edeabe8d1005e930e9a6b7030b",
-    "python/sqlalchemy/alembic/single-head": "b41d9906950890825b0f0df9663f6e1ec2756af6b92a84f7dba2b5b6810a78c2",
+    "python/sqlalchemy/alembic/single-head": "7abea6498402320d3423515f4122a7187ee95c9a5bd621fb0e217796c92d2fcc",
     "python/sqlalchemy/alembic/sqlite-batch": "7d1cfb9046cd0e850310559dfa2ed6781a5882dd32e2ca94790b2e8c07e46588",
     "python/sqlalchemy/async-expire-on-commit": "6fce73f809a395ca43afda54db104f1352d624589698ec0f91bab90a9848054b",
     "python/sqlalchemy/asyncio-extra": "71ea9790379cb49b54e24b33a2632024623c225169aff4803985647df6e595fc",
@@ -5431,7 +5816,7 @@ forge_end "$fail"
     "python/typeis-over-typeguard": "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9",
     "python/uv/dependency-groups": "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a",
     "python/uv/exclude-newer": "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b",
-    "python/uv/lock-sync": "bf3de58f036a46f0407262272fb55e128b2acd4b1c08c46025d3f417eb198e25",
+    "python/uv/lock-sync": "ad113b0741738e0c2e01426f456301807bac75b55254ce77376e63b6bfaf2364",
     "python/uv/no-pip": "67264ba6e92a5fc863f81f816d05223a758c9eece0a4eae9dc85fe8c718803c1",
     "python/uv/no-requirements-txt": "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5",
     "python/valid-pyproject": "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241",
@@ -5461,11 +5846,11 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "52f88e2cfed19236014b28d7ecc20087a35bdbf34ecd95ac73ee75c712eb4408",
+    ".claude/skills/forge-project/scripts/checks.sh": "d59364c6c972e5097b8693b4732af4f8509745cb96a345155aa157068c8cbbe0",
     ".claude/skills/forge-project/scripts/guard.rules": "816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
-    ".claude/skills/forge-project/scripts/lib.sh": "ad2711db3b7dfae0840c3f7ddf1f886b83dc300a83bb3197167abefe4e497f26",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971",
+    ".claude/skills/forge-project/scripts/lib.sh": "b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "e9b52829e5977571e84b0bf37364f3f7dd8b99a1713243591bce9dfc51bdbea5",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
     ".claude/skills/forge-project/scripts/session-start.sh": "4de085178a00897d9086e4b3674397b14326c52304d490d2a6335254e553b145",
@@ -5555,7 +5940,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "e4d82568c9d27c4c6dc2d6c2613fe52bc8ade39641d2361cbbe407e31a6865be",
+    ".forge/check.sh": "c9c5a8d7d1f9ef4d8fef88892d8531403c9e713d265d6dec766457672403faba",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
@@ -5720,11 +6105,11 @@ f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-52f88e2cfed19236014b28d7ecc20087a35bdbf34ecd95ac73ee75c712eb4408  .claude/skills/forge-project/scripts/checks.sh
+d59364c6c972e5097b8693b4732af4f8509745cb96a345155aa157068c8cbbe0  .claude/skills/forge-project/scripts/checks.sh
 816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
-ad2711db3b7dfae0840c3f7ddf1f886b83dc300a83bb3197167abefe4e497f26  .claude/skills/forge-project/scripts/lib.sh
-0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971  .claude/skills/forge-project/scripts/post-edit.sh
+b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97  .claude/skills/forge-project/scripts/lib.sh
+e9b52829e5977571e84b0bf37364f3f7dd8b99a1713243591bce9dfc51bdbea5  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
 4de085178a00897d9086e4b3674397b14326c52304d490d2a6335254e553b145  .claude/skills/forge-project/scripts/session-start.sh
@@ -5814,7 +6199,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-e4d82568c9d27c4c6dc2d6c2613fe52bc8ade39641d2361cbbe407e31a6865be  .forge/check.sh
+c9c5a8d7d1f9ef4d8fef88892d8531403c9e713d265d6dec766457672403faba  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py

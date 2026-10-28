@@ -30,21 +30,26 @@ export interface ToolAdapter {
    */
   runner?: string;
   /**
-   * A shell function printing which adapter drives the project's tool, when it is one of
-   * several (terraform or tofu: forge_tf_bin). The rule names the first.
+   * A shell function setting FORGE_PICKED to the adapter that drives the project's tool, when
+   * it is one of several (terraform or tofu: forge_tf_pick). The rule names the first.
    */
   pick?: string;
   /** The arguments that make it print its version (default `--version`); its first x.y[.z] is the version. */
   versionArgs?: string;
+  /**
+   * The npm package of a project tool whose version its package.json says (read without a
+   * process), when the tool's own answer cannot be relied on.
+   */
+  package?: string;
   /** Oldest first, without gaps. */
   ranges: AdapterRange[];
   /**
    * A usage error of the tool's command line (an option or a value this version does not
-   * know): never a finding. The exit status and a line of its output, stdout or stderr,
+   * know): never a finding. The exit status (or statuses: pnpm 8 to 11 exit 1, pnpm 12 2) and a line of its output, stdout or stderr,
    * that say so (a POSIX ERE without quotes: it is rendered into a single-quoted shell
    * string). null: the tool has no such signature distinct from its findings.
    */
-  usage: { exit: number; pattern: string } | null;
+  usage: { exit: number | number[]; pattern: string } | null;
   /**
    * A check command that runs the tool itself (rejected when the rule is loaded: it must say
    * `forge_do <tool> <op>`): a regular expression over the command. Default: the tool's name

@@ -46,8 +46,8 @@ export function toolPlaces(repo: string, facts: ProjectFacts): Record<AuditedToo
   return out;
 }
 
-/** Engine helpers that work the same from any directory: forge_exec_tool runs the project's tool (a name with "-", e.g. vue-tsc); forge_state_file names a per-package file under the root's .forge/state (tool caches). */
-const CWD_AGNOSTIC_HELPERS = new Set(["forge_exec_tool", "forge_state_file"]);
+/** Engine helpers that work the same from any directory: forge_do and forge_exec_tool run the project's tool (§16: as its adapter says; a name with "-", e.g. vue-tsc); forge_state_file names a per-package file under the root's .forge/state (tool caches). */
+const CWD_AGNOSTIC_HELPERS = new Set(["forge_do", "forge_exec_tool", "forge_state_file"]);
 
 /**
  * Checks that may run inside workspace packages: those that run a project tool
