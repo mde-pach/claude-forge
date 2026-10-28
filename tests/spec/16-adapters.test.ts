@@ -64,7 +64,7 @@ function project(bin: string): { dir: string; run: (snippet: string, input?: str
   };
 }
 
-describe.if(hasUv).each(TOOL_VERSIONS.ruffAdapters.map((v) => [v]))("ruff %s", (version) => {
+describe.each((hasUv ? TOOL_VERSIONS.ruffAdapters : []).map((v) => [v]))("ruff %s", (version) => {
   let p: ReturnType<typeof project>;
   beforeAll(() => {
     p = project(ensureRuff(version));
