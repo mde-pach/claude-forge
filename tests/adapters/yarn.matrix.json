@@ -45,5 +45,11 @@
   ],
   "untestedVersions": {
     "3.0.0": "Yarn 3.0.0 cannot fetch packages on Node 22 and later (ERR_STREAM_PREMATURE_CLOSE): its command line was checked by hand; the range is run on 3.8.7"
-  }
+  },
+  "envFor": {
+    "4.18.1": {
+      "YARN_ENABLE_HARDENED_MODE": "0"
+    }
+  },
+  "envWhy": "Yarn 4 turns hardened mode on in CI for a public pull request (the lock is re-resolved, slower and network-bound); Yarn 2 and 3 reject the setting"
 }

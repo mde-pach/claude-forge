@@ -46,6 +46,9 @@ interface Matrix {
   filesFor?: Record<string, Record<string, string | null>>;
   /** Environment of every run; `{install}` is the release's install directory. */
   env?: Record<string, string>;
+  /** Environment of a release's runs, over `env`; and why. */
+  envFor?: Record<string, Record<string, string>>;
+  envWhy?: string;
   /** Shell commands run in the project before the calls (after git init). */
   setup?: string;
   /**
@@ -226,7 +229,7 @@ function project(m: Matrix, version: string) {
     // a short TMPDIR: tflint's plugins listen on a Unix socket there, whose path macOS caps at 104 bytes
     TMPDIR: "/tmp",
     ...(inst.path ? { PATH: `${inst.path}:${process.env.PATH}` } : {}),
-    ...Object.fromEntries(Object.entries(m.env ?? {}).map(([k, v]) => [k, v.replaceAll("{install}", inst.dir)])),
+    ...Object.fromEntries(Object.entries({ ...m.env, ...m.envFor?.[version] }).map(([k, v]) => [k, v.replaceAll("{install}", inst.dir)])),
   };
   if (m.setup) {
     const r = sh("sh", ["-c", m.setup], { cwd: dir, env });
@@ -347,8 +350,11 @@ for (const m of MATRICES) {
               const op = c.call.split(/\s+/)[0]!;
               if (c.write) p.put(c.write);
               if (c.before) {
-                const b = p.run(`command ${m.tool} ${c.before} >/dev/null 2>&1`, undefined, c.cwd);
-                if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}`);
+                // the setup install reaches the registry: one retry, and its last lines when it fails
+                const setup = `( _o=$(command ${m.tool} ${c.before} 2>&1); _r=$?; [ "$_r" = 0 ] || printf '%s\\n' "$_o" | tail -n 3; exit "$_r" )`;
+                let b = p.run(setup, undefined, c.cwd);
+                if (b.rc !== 0) b = p.run(setup, undefined, c.cwd);
+                if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}: ${b.out.trim().split("\n").join(" | ")}`);
               }
               const r = p.run(`forge_do ${m.tool} ${c.call}`, c.input, c.cwd);
               if (range.ops[op] === null) {

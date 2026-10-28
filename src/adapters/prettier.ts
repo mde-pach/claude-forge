@@ -22,7 +22,7 @@ import type { ToolAdapter } from "./types.js";
 export const PRETTIER: ToolAdapter = {
   tool: "prettier",
   verified: "3.9.10",
-  usage: { exit: 1, pattern: "^\\[error\\] Invalid --[a-zA-Z-]+ value" },
+  usage: { exit: [1, 2], pattern: "^\\[error\\] Invalid --[a-zA-Z-]+ value" },
   ranges: [
     {
       from: "2.1.0",
