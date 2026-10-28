@@ -23,3 +23,4 @@ The specification is split by section; each section's tests are `tests/spec/<NN>
 | §13 | [Packs and rules](spec/13-packs-and-rules/README.md) |
 | §14 | [Acceptance tests](spec/14-acceptance-tests.md) |
 | §15 | [Engine capabilities](spec/15-engine-capabilities.md) |
+| §16 | [Tool adapters](spec/16-tool-adapters.md) |

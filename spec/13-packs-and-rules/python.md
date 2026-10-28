@@ -2,10 +2,10 @@
 
 | Rule | Targets |
 |---|---|
-| `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
-| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check --output-format concise {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`) |
+| `python/format` | `check` format through ruff's adapter (§16.4): `run: forge_do ruff format-check .`, `changed_run: forge_do ruff format {files}`, `format_stdin: forge_do ruff format-stdin {file}` |
+| `python/lint` | `check` lint through ruff's adapter (§16.4): `run: forge_do ruff lint .`, `changed_run: forge_do ruff lint {files}` (one line per diagnostic: `concise`, `text` before ruff 0.2.0), `fix_run: forge_do ruff fix {files}` (`--fix --fixable I,UP`: sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`); notes the codes the active rules expect that the installed ruff does not have |
 | `python/valid-pyproject` | `tool` ruff `RUF200` (`[project]` fields typed as PEP 621 says; a changed `pyproject.toml` is linted by `python/lint`'s `config_files`) |
-| `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2, on the project's Python environment, §9.1); errors the base already has are not the change's (§10.1 step 4) |
+| `python/typecheck` | `check` typecheck: `run: forge_do ty typecheck` (ty's adapter, §16: `ty check --output-format concise`; Forge's pinned ty, §15.2, on the project's Python environment, §9.1, its untyped packages as Any); errors the base already has are not the change's (§10.1 step 4) |
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
 | `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |
@@ -74,7 +74,7 @@
 | `python/no-eval` | `tool` ruff `S307`, `S102` |
 | `python/no-debugger` | `tool` ruff `T100` |
 | `python/no-unsafe-markup` | `tool` ruff `S704` |
-| `python/ruff-config-current` | `check` lint: `ruff check --exit-zero` prints no `warning: … deprecat…` line for the project's config (deprecated top-level linter settings, deprecated options); `when_changed`: `pyproject.toml`, `ruff.toml`, `.ruff.toml` |
+| `python/ruff-config-current` | `check` lint: `forge_do ruff settings-warnings .` (`ruff check --exit-zero --no-cache`) prints no `warning: … deprecat…` line for the project's config (deprecated top-level linter settings, deprecated options); not enforced before ruff 0.2.0, which had no newer names (§16.4); `when_changed`: `pyproject.toml`, `ruff.toml`, `.ruff.toml` |
 | `python/project-table` | `check` lint: the root `pyproject.toml` has `[project]` `requires-python` (`forge_toml_get`); `when_changed: [pyproject.toml]` |
 | `python/no-preexec-fn` | `tool` ruff `PLW1509` |
 | `python/no-useless-lock` | `tool` ruff `PLW2101` |

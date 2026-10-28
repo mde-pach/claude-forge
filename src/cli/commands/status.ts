@@ -5,7 +5,7 @@ import { type Ctx, context } from "../context.js";
 import type { Flags } from "../flags.js";
 import { out } from "../io.js";
 import { notChecked, preCommitState } from "../pre-commit.js";
-import { defaultBranch, enforcement, enforcementSummary, formatAudit, formatMerged, mergedSnippets, missingTools, roleFiles, sandboxProblem } from "../report.js";
+import { defaultBranch, enforcement, enforcementSummary, formatAudit, formatMerged, mergedSnippets, missingTools, roleFiles, sandboxProblem, toolVersionReport } from "../report.js";
 
 export function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
@@ -14,6 +14,7 @@ export function cmdStatus(flags: Flags): number {
   const missing = missingTools(ctx);
   const rules = enforcement(ctx, audits, missing);
   const untyped = untypedState(ctx);
+  const versions = toolVersionReport(ctx);
   if (flags.json) {
     const ch = computeChanges(ctx);
     out(
@@ -35,6 +36,7 @@ export function cmdStatus(flags: Flags): number {
           snippets: mergedSnippets(audits),
           missing_tools: missing,
           untyped_packages: untyped,
+          tool_versions: versions,
           pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
           files: roleFiles(ctx),
@@ -107,6 +109,7 @@ export function cmdStatus(flags: Flags): number {
   if (sandbox) out(sandbox.replace(/^forge: sandbox: /, "Sandbox: "));
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
   if (untyped) out(formatUntyped(untyped));
+  if (ctx.level === "project") out(versions.length ? "Tool versions:\n" + versions.map((v) => `  ${v}`).join("\n") : "Tool versions: every tool the checks drive is covered");
   if (ctx.level === "project") {
     out("");
     const pre = preCommitState(ctx);

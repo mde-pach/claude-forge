@@ -207,7 +207,8 @@ describe("steps", () => {
       const path = join(repo, "pyproject.toml");
       const text = readFileSync(path, "utf8").replace('select = ["E", "F", "ANN401", "E722"]', 'select = ["E", "F", "ANN401", "E722", "RUF200"]');
       writeFileSync(path, text);
-      expect(check().stdout).not.toContain("forge:python/lint");
+      // no finding of python/lint (its note on the codes this ruff lacks, §16.3, is not one)
+      expect(check().stdout).not.toMatch(/^forge:python\/lint (failed|ok)/m);
       writeFileSync(path, text.replace('version = "0.1.0"', 'version = "0.1.0"\nreadme = 3'));
       const r = check();
       expect(r.status).toBe(1);
@@ -887,7 +888,7 @@ describe("errors in unchanged files", () => {
       put(
         r,
         ".forge/rules/lint-all.yaml",
-        'id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: "ruff check --output-format concise ."}\n',
+        'id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: "forge_do ruff lint ."}\n',
       );
       put(r, "app/legacy.py", "import os\n");
       commitAll(r, "legacy");
@@ -2184,13 +2185,14 @@ describe("typecheck errors the base already has", () => {
 });
 
 /**
- * Check commands name `ruff`; the project's own may be an older release (a Docker image
- * pinning ruff 0.1): its `text` output stands in for `concise`, which it does not have, and
- * a command it rejects as usage is reported skipped, never as a finding in the code.
+ * Check commands ask ruff for an operation (§16); the project's own may be an older release (a
+ * Docker image pinning ruff 0.1): its adapter asks it for `text`, the one-line format before
+ * `concise`; a release no adapter covers is not enforced, with why; a command it rejects as
+ * usage is reported skipped, never as a finding in the code.
  * @rule python/lint
  */
 test(
-  "an older ruff: lint findings still come out; a command it rejects is skipped, not a failure",
+  "an older ruff: lint findings still come out in its own one-line format; a release no adapter covers is not enforced; a command it rejects is skipped, not a failure",
   () => {
     const ruff = join(repo, ".venv", "bin", "ruff");
     const real = existsSync(ruff) ? realpathSync(ruff) : "";
@@ -2209,18 +2211,21 @@ test(
     };
     try {
       put(repo, "app/new.py", "import os\n");
-      // ruff 0.1 has no "concise" output format: its text format is used instead
+      // ruff 0.1 has no "concise" output format: its adapter asks for text, never concise
       fake("0.1.5", "concise", "invalid value 'concise' for '--output-format <OUTPUT_FORMAT>'");
       const old = check();
       expect(old.stdout).toContain("forge:python/lint failed\napp/new.py:1:8: F401");
       expect(old.stdout).not.toContain("invalid value");
-      // a ruff that rejects the command: skipped, with its version and error
+      // older than every range: not enforced, saying from which release Forge drives ruff
       fake("0.0.200", "--output-format", "unexpected argument '--output-format' found");
+      const uncovered = check();
+      expect(uncovered.stdout).not.toContain("forge:python/lint failed");
+      expect(uncovered.stdout).toContain("forge:python/lint not enforced: no Forge adapter covers ruff 0.0.200 (Forge drives ruff 0.1.4 and later)");
+      // a covered release that rejects the command anyway: skipped, with its version and error
+      fake("0.5.0", "--output-format", "unexpected argument '--output-format' found");
       const rejected = check();
       expect(rejected.stdout).not.toContain("forge:python/lint failed");
-      expect(rejected.stdout).toContain(
-        "forge:python/lint skipped: ruff 0.0.200 does not accept this command (ruff check --output-format concise app/new.py): unexpected argument '--output-format' found",
-      );
+      expect(rejected.stdout).toContain("forge:python/lint skipped: ruff 0.5.0 rejected the command (ruff check --output-format concise app/new.py): unexpected argument '--output-format' found");
     } finally {
       rmSync(ruff, { force: true });
       if (real) symlinkSync(real, ruff);

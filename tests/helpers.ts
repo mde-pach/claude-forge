@@ -339,6 +339,12 @@ export const TOOL_VERSIONS = {
   /** The TypeScript versions the types engine is proved on (§15.2): one per major. */
   typescriptEngines: ["5.9.3", "6.0.3", "7.0.2"],
   ruff: "0.17.1",
+  /**
+   * The ruff releases its adapter is proven on (§16.5): the first covered (0.1.4), the last
+   * before `concise` (0.1.15), the first with it (0.2.0), the flake8-async renumbering
+   * (0.5.0), the TCH -> TC rename (0.8.0), and the newest the adapter claims.
+   */
+  ruffAdapters: ["0.1.4", "0.1.15", "0.2.0", "0.5.0", "0.8.0", "0.17.3"],
   // types that Biome reads to report deprecated imports
   react: "19.2.0",
   "@types/react": "19.2.2",
@@ -438,6 +444,13 @@ export function ensureTools(): void {
   ensureVenv(join(TOOLS_CACHE, ".venv-django"), "bin/django-admin", [`django==${TOOL_VERSIONS.django}`]);
   ensureVenv(join(TOOLS_CACHE, ".venv"), "bin/ruff", [`ruff==${TOOL_VERSIONS.ruff}`]);
   ensureVenv(join(TOOLS_CACHE, ".venv-sqlfluff"), "bin/sqlfluff", [`sqlfluff==${TOOL_VERSIONS.sqlfluff}`]);
+}
+
+/** ruff <version> in a cache directory of its own (the adapter matrix, §16.5); returns its binary. */
+export function ensureRuff(version: string): string {
+  const dir = join(TOOLS_CACHE, `.venv-ruff-${version}`);
+  ensureVenv(dir, "bin/ruff", [`ruff==${version}`]);
+  return join(dir, "bin", "ruff");
 }
 
 /** Installs vue-tsc (TOOL_VERSIONS["vue-tsc"]) with its TypeScript in its own cache directory; returns its bin directory. */

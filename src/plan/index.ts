@@ -48,7 +48,13 @@ export function plan(opts: PlanOptions): Plan {
   const out =
     level === "user"
       ? { files: userFiles(ctx, base), fragment: undefined, types: [] }
-      : projectFiles(ctx, base, { active: packs, all: opts.packs }, { all: selected.roles, used: selected.roleUse }, engineSettings(opts));
+      : projectFiles(
+          ctx,
+          base,
+          { active: packs, all: opts.packs },
+          { all: selected.roles, used: selected.roleUse },
+          { ...engineSettings(opts), toolCodes: active.flatMap((st) => st.audits.map((t) => ({ tool: t.tool, code: t.expects }))) },
+        );
   return {
     level,
     base,

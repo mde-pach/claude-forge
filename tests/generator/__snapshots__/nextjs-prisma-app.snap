@@ -280,6 +280,8 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 
 @@ templates/engine/types.sh (types: typescript) @@
 
+@@ templates/engine/adapters.sh @@
+
 @@ templates/engine/env.sh @@
 
 @@ templates/engine/javascript.sh @@
@@ -486,6 +488,19 @@ if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
     printf 'forge: missing tools (checks using them are skipped): %s\n' "$missing"
     forge_state_dir && printf '%s\n' "$missing" > "$state"
+  fi
+else
+  rm -f "$state" 2>/dev/null
+fi
+
+# what the installed tool versions cannot do (§16.3), once until it changes
+report=$(forge_tool_report)
+state=$FORGE_STATE/tool-report
+if [ -n "$report" ]; then
+  if [ "$report" != "$(cat "$state" 2>/dev/null)" ]; then
+    printf 'forge: tool versions (what they cannot do is not enforced):\n'
+    printf '%s\n' "$report" | first_lines 4 | cut -c 1-400 | sed 's/^/  /'
+    forge_state_dir && printf '%s\n' "$report" > "$state"
   fi
 else
   rm -f "$state" 2>/dev/null
@@ -3891,6 +3906,7 @@ vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
 python() { forge_exec_tool python "$@"; }
 FORGE_NCHECKS=39
+FORGE_ADAPTER_USES=''
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -4603,6 +4619,8 @@ forge_role() {
 
 @@ templates/engine/types.sh (types: typescript) @@
 
+@@ templates/engine/adapters.sh @@
+
 @@ templates/engine/env.sh @@
 
 @@ templates/engine/javascript.sh @@
@@ -4964,15 +4982,15 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "257f814d4fb8ff7003c23c93c6128854e4caa6bacbb556cb7f8aa611f3554698",
+    ".claude/skills/forge-project/scripts/checks.sh": "03b806e92c29436583086177dc9a3a6c096dc1a0b70181665a9dd6a4bc229266",
     ".claude/skills/forge-project/scripts/guard.rules": "dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "c16ad6256a63c2facf22b84c6eb3fb3d3ce012b9062a75b0388ce0b9e71ff01e",
     ".claude/skills/forge-project/scripts/post-edit.sh": "ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "1bf5db5ab16bc0226ea2d48694fb5dfd424f45b16d008dfc25759f2eabc97639",
-    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
+    ".claude/skills/forge-project/scripts/session-start.sh": "d1986cea26a1242c96bd2661b4df29aec04b9cee34252767de39196b9a3fed4c",
+    ".claude/skills/forge-project/scripts/stop.sh": "4e1eddb73a1ba33d7ec251276cb64f3a21f1927370275ad211c5afe27b810d16",
     ".claude/skills/forge-project/scripts/test-edit.sh": "405462586c11bf21016d0c9c1f96b38345ab770d291ab1d1f5e66dfe282786d3",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
     ".claude/skills/forge-project/scripts/typecheck.sh": "d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9",
@@ -5096,7 +5114,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "a1713734178721d79ade2d812f89e87db6f002181db4c785f12f8c1393463eec",
+    ".forge/check.sh": "d98d5eb167653881461a498cd2c7bb8f801baec4312ec5b1de09b29f94b555f5",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
@@ -5282,15 +5300,15 @@ a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-257f814d4fb8ff7003c23c93c6128854e4caa6bacbb556cb7f8aa611f3554698  .claude/skills/forge-project/scripts/checks.sh
+03b806e92c29436583086177dc9a3a6c096dc1a0b70181665a9dd6a4bc229266  .claude/skills/forge-project/scripts/checks.sh
 dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 c16ad6256a63c2facf22b84c6eb3fb3d3ce012b9062a75b0388ce0b9e71ff01e  .claude/skills/forge-project/scripts/lib.sh
 ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-1bf5db5ab16bc0226ea2d48694fb5dfd424f45b16d008dfc25759f2eabc97639  .claude/skills/forge-project/scripts/session-start.sh
-52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
+d1986cea26a1242c96bd2661b4df29aec04b9cee34252767de39196b9a3fed4c  .claude/skills/forge-project/scripts/session-start.sh
+4e1eddb73a1ba33d7ec251276cb64f3a21f1927370275ad211c5afe27b810d16  .claude/skills/forge-project/scripts/stop.sh
 405462586c11bf21016d0c9c1f96b38345ab770d291ab1d1f5e66dfe282786d3  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
 d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9  .claude/skills/forge-project/scripts/typecheck.sh
@@ -5414,7 +5432,7 @@ a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-a1713734178721d79ade2d812f89e87db6f002181db4c785f12f8c1393463eec  .forge/check.sh
+d98d5eb167653881461a498cd2c7bb8f801baec4312ec5b1de09b29f94b555f5  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs

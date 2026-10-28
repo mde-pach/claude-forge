@@ -1,5 +1,6 @@
 import { casePatterns, inDirs, scopeInDirs } from "../core/globs.js";
-import { checkTools, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
+import { adapterUses } from "../adapters/index.js";
+import { checkTools, commandsOf, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
 import { defaultRoles, type Roles } from "../roles.js";
 import { shQuote } from "../util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, Language, Rule } from "../types.js";
@@ -99,8 +100,7 @@ export function renderChecks(
   const wrappers = PROJECT_TOOLS.filter((t) => used.has(t) && !t.includes("-"));
   if (wrappers.length) {
     out.push("# Project tools used in check commands, resolved through tool().");
-    // ruff through forge_ruff: the output formats of older releases, their usage errors (§13)
-    for (const t of wrappers) out.push(t === "ruff" ? 'ruff() { forge_ruff "$@"; }' : `${t}() { forge_exec_tool ${t} "$@"; }`);
+    for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
   }
   if (used.has("ty")) out.push("# ty is Forge's own, pinned (§15.2).", 'ty() { forge_ty "$@"; }');
   const resolved = RESOLVED_TOOLS.filter((t) => used.has(t));
@@ -109,6 +109,8 @@ export function renderChecks(
     for (const t of resolved) out.push(`${t}() { forge_${t} "$@"; }`);
   }
   out.push(`FORGE_NCHECKS=${checks.length}`);
+  // the operations the checks ask of adapted tools (§16.3: forge_tool_report)
+  out.push(`FORGE_ADAPTER_USES=${shQuote(adapterUses(checks.flatMap(({ rule, target }) => commandsOf(target).map((command) => ({ rule: rule.id, command })))))}`);
   checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
     const tools = checkTools(target);

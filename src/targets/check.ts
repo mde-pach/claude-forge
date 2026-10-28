@@ -1,4 +1,5 @@
 /** `check`: a command check.sh runs in a stage (format, lint, codegen, typecheck, migration, test), §10. */
+import { ADAPTERS } from "../adapters/index.js";
 import { checkTools, directDashedTools } from "../core/tools.js";
 import { checkExamplesOptional, type CheckExampleRun, hadolintIntegrity, runCheckExamples } from "../selftest/runners.js";
 import type { CheckTarget, Rule } from "../types.js";
@@ -37,9 +38,14 @@ export const check: TargetKind<CheckTarget> = {
   },
   label: (t) => `check · ${t.stage}`,
   validate(_rule, t) {
-    for (const command of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
+    for (const command of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun]) {
+      // a tool with an adapter is asked for an operation, never run with a command line of its own (§16.1)
+      for (const tool of ADAPTERS.map((a) => a.tool))
+        if (new RegExp(`(^|[\\s;&|(\`!]|\\$\\()${tool}(?=$|[\\s;&|)\`])`).test((command ?? "").replace(/\bforge_do\s+[a-z][a-z0-9-]*/g, "forge_do _")))
+          throw new Error(`invalid rule: run ${tool} as "forge_do ${tool} <operation>" (§16: its adapter knows how each release does it)`);
       for (const tool of directDashedTools(command ?? ""))
         throw new Error(`invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
+    }
   },
   needsExamples: (t) => !checkExamplesOptional(t),
   plan(ctx, rule, st, t) {

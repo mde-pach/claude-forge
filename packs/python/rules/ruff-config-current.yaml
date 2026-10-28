@@ -4,7 +4,8 @@ scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.to
 enforce:
   - target: check
     stage: lint
-    run: "! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'"
+    # the settings warnings of the installed ruff (§16: before 0.2.0 there was no newer name to warn about)
+    run: "! forge_do ruff settings-warnings . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'"
     when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml"]
 examples:
   match:

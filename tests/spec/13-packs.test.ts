@@ -322,7 +322,7 @@ describe("forge test catches broken packs", () => {
     "a check example whose tool is not available is reported skipped, never passed",
     () => {
       const rule =
-        'id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: "ruff check ."}]\nexamples: {match: ["import os\\n"], no_match: ["X = 1\\n"]}\n';
+        'id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: "forge_do ruff lint ."}]\nexamples: {match: ["import os\\n"], no_match: ["X = 1\\n"]}\n';
       const r = selfTest(packsWith({ "demo/rules/r.yaml": rule }), undefined, { toolBins: [] });
       expect(r.failures).toEqual([]);
       expect(r.notes).toContain("demo/r: match example 1 skipped: ruff not available");

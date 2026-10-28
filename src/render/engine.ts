@@ -14,6 +14,7 @@ import {
   ZIZMOR_VERSION,
 } from "../util.js";
 import type { AstGrepTarget, Rule, TypeSpec, UntypedPackages, WhereCondition } from "../types.js";
+import { adapterMeta, adapterTable, codeTable } from "../adapters/index.js";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fill, helperTemplate } from "./template.js";
@@ -24,6 +25,8 @@ export interface EngineSettings {
   untypedPackages: UntypedPackages;
   /** The Python packages the active rules' where conditions ask about (§15.2): the types engine sees them as they are, never as Any. */
   typesPackages?: string[];
+  /** The codes the active rules' tool targets expect, per adapted tool with codes (§16.2). */
+  toolCodes?: { tool: string; code: string }[];
 }
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = { untypedPackages: "any" };
 
@@ -161,5 +164,16 @@ function pins(types: TypesLanguage[], settings: EngineSettings): Record<string, 
     TYPES_REV: types.length ? typesRevision() : "",
     TY_UNTYPED: settings.untypedPackages,
     TYPES_PACKAGES: (settings.typesPackages ?? []).join("\n"),
+    ADAPTERS: adapterTable(),
+    ADAPTER_META: adapterMeta(),
+    TOOL_CODES: [...new Set((settings.toolCodes ?? []).map((c) => c.tool))]
+      .map((t) =>
+        codeTable(
+          t,
+          (settings.toolCodes ?? []).filter((c) => c.tool === t).map((c) => c.code),
+        ),
+      )
+      .filter(Boolean)
+      .join("\n"),
   };
 }

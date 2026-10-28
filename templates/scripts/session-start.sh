@@ -41,4 +41,17 @@ if [ -n "$missing" ]; then
 else
   rm -f "$state" 2>/dev/null
 fi
+
+# what the installed tool versions cannot do (§16.3), once until it changes
+report=$(forge_tool_report)
+state=$FORGE_STATE/tool-report
+if [ -n "$report" ]; then
+  if [ "$report" != "$(cat "$state" 2>/dev/null)" ]; then
+    printf 'forge: tool versions (what they cannot do is not enforced):\n'
+    printf '%s\n' "$report" | first_lines 4 | cut -c 1-400 | sed 's/^/  /'
+    forge_state_dir && printf '%s\n' "$report" > "$state"
+  fi
+else
+  rm -f "$state" 2>/dev/null
+fi
 exit 0

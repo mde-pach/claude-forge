@@ -232,6 +232,19 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
     T,
   );
 
+  test(
+    "the modules ty resolves without the environment are asked from ty for the project's Python version: typing_extensions is left out on Python 3.10 too",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "forge-untyped-310-"));
+      const r = sh("uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "python", join(repo, ".forge/helpers/untyped_python.py"), root, "3.10", join(repo, SITE)]);
+      expect(r.status).toBe(0);
+      const names = r.stdout.split("\n").filter((l) => l && !l.startsWith("watch "));
+      expect(names).toContain("alpha");
+      expect(names).not.toContain("typing_extensions");
+    },
+    T,
+  );
+
   test("the types engine never gets as Any a package the active rules' where conditions ask about: they need its declarations", () => {
     const r = shell("FORGE_TYPES_PACKAGES='alpha\nns'; printf 'alpha\\nalpha.sub\\nns.plainpart\\nsix\\n' | forge_types_untyped_filter");
     expect(r.stdout).toBe("six\n");

@@ -510,6 +510,357 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
+# @module adapters
+# Tool adapters (§16): a check names what it needs from a tool (`forge_do <tool> <op>`); the
+# adapter of the installed version says how to invoke it, or that this version cannot. Which
+# rule codes the installed version has is asked from the binary where it can tell.
+
+# One line per range and operation (src/adapters): tool, first version, first version after
+# the range ("" when open), operation, arguments ("-" when the range cannot).
+FORGE_ADAPTERS='ruff	0.1.4	0.2.0	fix	check --fix --fixable I,UP --exit-zero --show-fixes --output-format text
+ruff	0.1.4	0.2.0	format	format
+ruff	0.1.4	0.2.0	format-check	format --check
+ruff	0.1.4	0.2.0	format-stdin	format --stdin-filename {args} -
+ruff	0.1.4	0.2.0	lint	check --output-format text
+ruff	0.1.4	0.2.0	lint-json	check --output-format json
+ruff	0.1.4	0.2.0	lint-json-stdin	check --no-cache --no-fix --output-format json --stdin-filename {args} -
+ruff	0.1.4	0.2.0	rules	rule --all --output-format json
+ruff	0.1.4	0.2.0	settings-warnings	-
+ruff	0.2.0		fix	check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
+ruff	0.2.0		format	format
+ruff	0.2.0		format-check	format --check
+ruff	0.2.0		format-stdin	format --stdin-filename {args} -
+ruff	0.2.0		lint	check --output-format concise
+ruff	0.2.0		lint-json	check --output-format json
+ruff	0.2.0		lint-json-stdin	check --no-cache --no-fix --output-format json --stdin-filename {args} -
+ruff	0.2.0		rules	rule --all --output-format json
+ruff	0.2.0		settings-warnings	check --exit-zero --no-cache
+ty	0.0.86		typecheck	check --output-format concise
+ty	0.0.86		typecheck-gitlab	check --output-format gitlab'
+
+# One line per tool: tool, Forge's pin (its own tools; "" when the project's), the newest
+# release the adapter was proven on, the exit status and output line of a usage error.
+FORGE_ADAPTER_META='ruff		0.17.3	2	^For more information, try .--help.
+ty	0.0.86	0.0.86	2	^For more information, try .--help.'
+
+# The codes the active rules' tool targets expect: tool, code, first stable release, the
+# codes and the names the same rule had (comma-separated).
+FORGE_TOOL_CODES='ruff	ANN001	0.1.4	ANN001	missing-type-function-argument
+ruff	ANN002	0.1.4	ANN002	missing-type-args
+ruff	ANN003	0.1.4	ANN003	missing-type-kwargs
+ruff	ANN201	0.1.4	ANN201	missing-return-type-undocumented-public-function
+ruff	ANN202	0.1.4	ANN202	missing-return-type-private-function
+ruff	ANN204	0.1.4	ANN204	missing-return-type-special-method
+ruff	ANN205	0.1.4	ANN205	missing-return-type-static-method
+ruff	ANN206	0.1.4	ANN206	missing-return-type-class-method
+ruff	ANN401	0.1.4	ANN401	any-type
+ruff	ARG001	0.1.4	ARG001	unused-function-argument
+ruff	ARG002	0.1.4	ARG002	unused-method-argument
+ruff	ASYNC100	0.2.0	ASYNC100,TRIO100	cancel-scope-no-checkpoint,trio-timeout-without-await
+ruff	ASYNC105	0.2.0	ASYNC105,TRIO105	trio-sync-call
+ruff	ASYNC110	0.6.0	ASYNC110,TRIO110	async-busy-wait,trio-unneeded-sleep
+ruff	ASYNC210	0.1.4	ASYNC210,ASYNC100	blocking-http-call-in-async-function
+ruff	ASYNC212	0.15.0	ASYNC212	blocking-http-call-httpx-in-async-function
+ruff	ASYNC220	0.5.0	ASYNC220	create-subprocess-in-async-function
+ruff	ASYNC221	0.5.0	ASYNC221	run-process-in-async-function
+ruff	ASYNC222	0.5.0	ASYNC222	wait-for-process-in-async-function
+ruff	ASYNC230	0.5.0	ASYNC230	blocking-open-call-in-async-function
+ruff	ASYNC240	0.15.0	ASYNC240	blocking-path-method-in-async-function
+ruff	ASYNC250	0.15.0	ASYNC250	blocking-input-in-async-function
+ruff	ASYNC251	0.5.0	ASYNC251	blocking-sleep-in-async-function
+ruff	B003	0.1.4	B003	assignment-to-os-environ
+ruff	B006	0.1.4	B006	mutable-argument-default
+ruff	B012	0.1.4	B012	jump-statement-in-finally
+ruff	B017	0.1.4	B017	assert-raises-exception
+ruff	B019	0.1.4	B019	cached-instance-method
+ruff	B023	0.1.4	B023	function-uses-loop-variable
+ruff	B039	0.8.0	B039	mutable-contextvar-default
+ruff	B904	0.1.4	B904	raise-without-from-inside-except
+ruff	B905	0.1.4	B905	zip-without-explicit-strict
+ruff	BLE001	0.1.4	BLE001	blind-except
+ruff	DTZ001	0.1.4	DTZ001	call-datetime-without-tzinfo
+ruff	DTZ002	0.1.4	DTZ002	call-datetime-today
+ruff	DTZ005	0.1.4	DTZ005	call-datetime-now-without-tzinfo
+ruff	DTZ006	0.1.4	DTZ006	call-datetime-fromtimestamp
+ruff	DTZ011	0.1.4	DTZ011	call-date-today
+ruff	DTZ012	0.1.4	DTZ012	call-date-fromtimestamp
+ruff	DTZ901	0.10.0	DTZ901	datetime-min-max
+ruff	E722	0.1.4	E722	bare-except
+ruff	ERA001	0.1.4	ERA001	commented-out-code
+ruff	FAST002	0.8.0	FAST002	fast-api-non-annotated-dependency
+ruff	FAST003	0.10.0	FAST003	fast-api-unused-path-parameter
+ruff	LOG001	0.2.0	LOG001	direct-logger-instantiation
+ruff	LOG002	0.2.0	LOG002	invalid-get-logger-argument
+ruff	LOG015	0.10.0	LOG015	root-logger-call
+ruff	PGH003	0.1.4	PGH003	blanket-type-ignore
+ruff	PGH004	0.1.4	PGH004	blanket-noqa
+ruff	PLE0704	0.5.0	PLE0704	misplaced-bare-raise
+ruff	PLE2502	0.1.4	PLE2502	bidirectional-unicode
+ruff	PLE2515	0.1.4	PLE2515	invalid-character-zero-width-space
+ruff	PLW0603	0.1.4	PLW0603	global-statement
+ruff	PLW1507	0.10.0	PLW1507	shallow-copy-environ
+ruff	PLW1508	0.1.4	PLW1508	invalid-envvar-default
+ruff	PLW1509	0.1.4	PLW1509	subprocess-popen-preexec-fn
+ruff	PLW1510	0.1.4	PLW1510	subprocess-run-without-check
+ruff	PLW2101	0.5.0	PLW2101	useless-with-lock
+ruff	PTH210	0.10.0	PTH210	invalid-pathlib-with-suffix
+ruff	PYI019	0.1.4	PYI019	custom-type-var-for-self,custom-type-var-return-type
+ruff	PYI034	0.14.14	PYI034	non-self-return-type
+ruff	RUF006	0.1.4	RUF006	asyncio-dangling-task
+ruff	RUF008	0.1.4	RUF008	mutable-dataclass-default
+ruff	RUF009	0.1.4	RUF009	function-call-in-dataclass-default-argument
+ruff	RUF032	0.9.0	RUF032	decimal-from-float-literal
+ruff	RUF033	0.9.0	RUF033	post-init-default
+ruff	RUF063	0.16.0	RUF063	access-annotations-from-class-dict
+ruff	RUF071	0.17.0	RUF071	os-path-commonprefix
+ruff	RUF100	0.1.4	RUF100	unused-noqa
+ruff	RUF200	0.1.4	RUF200	invalid-pyproject-toml
+ruff	S102	0.1.4	S102	exec-builtin
+ruff	S105	0.1.4	S105	hardcoded-password-string
+ruff	S106	0.1.4	S106	hardcoded-password-func-arg
+ruff	S110	0.1.4	S110	try-except-pass
+ruff	S112	0.1.4	S112	try-except-continue
+ruff	S113	0.5.7	S113	request-without-timeout
+ruff	S301	0.1.4	S301	suspicious-pickle-usage
+ruff	S302	0.1.4	S302	suspicious-marshal-usage
+ruff	S304	0.1.4	S304	suspicious-insecure-cipher-usage
+ruff	S305	0.1.4	S305	suspicious-insecure-cipher-mode-usage
+ruff	S307	0.1.4	S307	suspicious-eval-usage
+ruff	S323	0.1.4	S323	suspicious-unverified-context-usage
+ruff	S324	0.1.4	S324	hashlib-insecure-hash-function
+ruff	S501	0.1.4	S501	request-with-no-cert-validation
+ruff	S502	0.2.0	S502	ssl-insecure-version
+ruff	S505	0.2.0	S505	weak-cryptographic-key
+ruff	S506	0.1.4	S506	unsafe-yaml-load
+ruff	S602	0.1.4	S602	subprocess-popen-with-shell-equals-true
+ruff	S605	0.1.4	S605	start-process-with-a-shell
+ruff	S608	0.1.4	S608	hardcoded-sql-expression
+ruff	S701	0.1.4	S701	jinja2-autoescape-false
+ruff	S704	0.10.0	S704,RUF035	unsafe-markup-use
+ruff	SIM115	0.1.4	SIM115	open-file-with-context-handler
+ruff	T100	0.1.4	T100	debugger
+ruff	T201	0.1.4	T201	print
+ruff	TC004	0.1.4	TC004,TCH004	runtime-import-in-type-checking-block
+ruff	TID251	0.1.4	TID251	banned-api
+ruff	TRY002	0.1.4	TRY002	raise-vanilla-class
+ruff	TRY201	0.1.4	TRY201	verbose-raise
+ruff	TRY203	0.1.4	TRY203,TRY302	useless-try-except'
+
+# forge_adapter_meta <tool> <field>: a field of the tool's FORGE_ADAPTER_META line (2: pin,
+# 3: verified, 4: usage exit, 5: usage pattern).
+forge_adapter_meta() {
+  printf '%s\n' "$FORGE_ADAPTER_META" | awk -F '\t' -v t="$1" -v f="$2" '$1 == t { print $f; exit }'
+}
+
+# forge_tool_version <tool>: the installed version of the project's <tool> (Forge's pin for
+# its own), asked once (`<tool> --version`) and kept until the binary changes (forge_fact).
+# Fails when the tool is absent or says no version.
+forge_tool_version() {
+  _tv_pin=$(forge_adapter_meta "$1" 2)
+  if [ -n "$_tv_pin" ]; then printf '%s\n' "$_tv_pin"; return 0; fi
+  _tv_cmd=$(tool "$1")
+  [ -n "$_tv_cmd" ] || return 1
+  case $_tv_cmd in "bun run --bun "*) _tv_bin=node_modules/.bin/$1 ;; *) _tv_bin=$_tv_cmd ;; esac
+  forge_fact tool-version "$1 $_tv_cmd $(ls -lL "$_tv_bin" 2>/dev/null)" forge_tool_version_ask "$1"
+}
+
+forge_tool_version_ask() {
+  forge_exec_tool "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | grep .
+}
+
+# forge_adapter <tool> <version> <op>: how this version does <op>. Returns 0 and sets
+# FORGE_AD_ARGS (its arguments); 1 when its range cannot (FORGE_AD_NEED: the first version
+# that can, "" when none); 2 when no range covers the version (FORGE_AD_COVER: the versions
+# that are).
+forge_adapter() {
+  _ad_out=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" -v op="$3" '
+    function cmp(a, b,   x, y, i, n) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 != t { next }
+    { if (first == "" || cmp($2, first) < 0) first = $2 }
+    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { found = 1; args = $5 }
+    $4 == op && $5 != "-" && ($3 == "" || cmp(v, $3) < 0) && (need == "" || cmp($2, need) < 0) { need = $2 }
+    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { inrange = 1 }
+    END {
+      if (!inrange) { print "none\t" first; exit }
+      if (args == "-") { print "cannot\t" need; exit }
+      print "ok\t" args
+    }')
+  case $_ad_out in
+    ok*) FORGE_AD_ARGS=${_ad_out#ok	}; return 0 ;;
+    cannot*) FORGE_AD_NEED=${_ad_out#cannot	}; return 1 ;;
+    *) FORGE_AD_COVER="$1 ${_ad_out#none	} and later"; return 2 ;;
+  esac
+}
+
+# forge_do <tool> <op> [args]: <op> by the installed <tool>, as its adapter says (§16). The
+# caller's arguments replace an {args} word of the adapter's, else follow them. A version
+# that cannot (its range has no such operation, or no range covers it) is not a failure: the
+# check is "not enforced", with why (forge_do_note). A usage error of the command line (the
+# adapter's exit status and line) is never a finding either: the check is skipped with the
+# tool's error. Then, after a lint, the codes the active rules expect that this version does
+# not have are noted (forge_tool_codes).
+forge_do() {
+  _do_t=$1
+  _do_op=$2
+  shift 2
+  if ! _do_v=$(forge_tool_version "$_do_t"); then
+    forge_do_note "skipped: the version of $_do_t could not be read"
+    return 0
+  fi
+  forge_adapter "$_do_t" "$_do_v" "$_do_op"
+  case $? in
+    1) forge_do_note "not enforced: $_do_t $_do_v cannot $_do_op${FORGE_AD_NEED:+ (it needs $_do_t $FORGE_AD_NEED or later)}"; return 0 ;;
+    2) forge_do_note "not enforced: no Forge adapter covers $_do_t $_do_v (Forge drives $FORGE_AD_COVER)"; return 0 ;;
+  esac
+  # the adapter's words, the caller's arguments at {args} or after them
+  _do_n=$#
+  _do_put=0
+  _do_ifs=$IFS
+  IFS=' '
+  for _do_w in $FORGE_AD_ARGS; do
+    if [ "$_do_w" = '{args}' ]; then
+      _do_i=0
+      for _do_a in "$@"; do
+        [ "$_do_i" -lt "$_do_n" ] && set -- "$@" "$_do_a"
+        _do_i=$((_do_i + 1))
+      done
+      _do_put=1
+    else
+      set -- "$@" "$_do_w"
+    fi
+  done
+  IFS=$_do_ifs
+  if [ "$_do_put" = 0 ]; then
+    _do_i=0
+    for _do_a in "$@"; do
+      [ "$_do_i" -lt "$_do_n" ] && set -- "$@" "$_do_a"
+      _do_i=$((_do_i + 1))
+    done
+  fi
+  shift "$_do_n"
+  _do_err=$(mktemp "${FORGE_TMP:-${TMPDIR:-/tmp}}/do-err.XXXXXX") || return 1
+  if [ "$_do_t" = ty ]; then forge_ty "$@" 2> "$_do_err"; else forge_exec_tool "$_do_t" "$@" 2> "$_do_err"; fi
+  _do_rc=$?
+  if [ "$_do_rc" = "$(forge_adapter_meta "$_do_t" 4)" ] && grep -qE "$(forge_adapter_meta "$_do_t" 5)" "$_do_err"; then
+    # a command line this version rejects is not a finding (a base copy on stdin fails instead)
+    case " $* " in *" - "*) ;; *)
+      if [ -n "${c_id:-}" ]; then
+        forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(grep -iE '^error' "$_do_err" | head -n 1 | sed 's/^[Ee]rror: //')"
+        rm -f "$_do_err"
+        return 0
+      fi ;;
+    esac
+  fi
+  cat "$_do_err" >&2
+  rm -f "$_do_err"
+  if [ "$_do_op" = lint ] && [ -n "${c_id:-}" ]; then
+    _do_miss=$(forge_tool_codes "$_do_t" | awk -F '\t' -v t="$_do_t" '$2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " needs " t " ≥ " $3 } END { if (n) print n "\t" s }')
+    [ -z "$_do_miss" ] || forge_do_note "not enforced for ${_do_miss%%	*} code(s) $_do_t $_do_v does not have: ${_do_miss#*	}"
+  fi
+  return "$_do_rc"
+}
+
+# forge_do_note <text>: "forge:<check id> <text>", in $FORGE_TMP/notes under check.sh (the
+# check prints it whatever its outcome, forge_run_check), else on stdout.
+forge_do_note() {
+  if [ -n "${FORGE_TMP:-}" ] && [ -n "${c_id:-}" ]; then printf 'forge:%s %s\n' "$c_id" "$1" >> "$FORGE_TMP/notes"
+  else printf 'forge:%s %s\n' "${c_id:-forge}" "$1"
+  fi
+}
+
+# forge_tool_codes <tool>: for each code the active rules expect of <tool> (FORGE_TOOL_CODES),
+# "<code><TAB><the installed version's code for that rule, or -><TAB><its first stable
+# release>". The installed version's rules are asked from the binary (the adapter's codes
+# operation: ruff `rule --all --output-format json`) once per binary (forge_fact); a rule is
+# the installed one with one of the rule's codes and one of its names, not in preview, in a
+# release from which it reports the rules' examples (the history's first release, §16.4).
+forge_tool_codes() {
+  printf '%s\n' "$FORGE_TOOL_CODES" | grep -q "^$1	" || return 0
+  _tk_v=$(forge_tool_version "$1") || return 0
+  forge_adapter "$1" "$_tk_v" rules || return 0
+  _tk_cmd=$(tool "$1")
+  _tk_have=$(forge_fact tool-rules "$1 $_tk_v $_tk_cmd $(ls -lL "${_tk_cmd##* }" 2>/dev/null)" forge_tool_rules "$1" "$FORGE_AD_ARGS") || return 0
+  { printf '%s\n' "$_tk_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$_tk_v" '
+    function cmp(a, b,   x, y, i) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 == "have" { if ($4 == "false") stable[$2 "\t" $3] = 1; next }
+    $2 != t { next }
+    {
+      nc = split($5, codes, ","); nn = split($6, names, ","); got = "-"
+      for (i = 1; i <= nc && got == "-"; i++) for (j = 1; j <= nn; j++) if ((codes[i] "\t" names[j]) in stable) { got = codes[i]; break }
+      # listed, but before the release from which it reports what the rules ask of it
+      if (cmp(v, $4) < 0) got = "-"
+      print $3 "\t" got "\t" $4
+    }'
+}
+
+# forge_tool_rules <tool> <args>: "<code><TAB><name><TAB><preview>" per rule the binary lists
+# (ruff's JSON: one key per line).
+forge_tool_rules() {
+  _tr_ifs=$IFS
+  IFS=' '
+  # shellcheck disable=SC2086
+  set -- "$1" $2
+  IFS=$_tr_ifs
+  forge_exec_tool "$@" 2>/dev/null | awk '
+    /^    "name": "/ { name = $0; sub(/^    "name": "/, "", name); sub(/",?$/, "", name) }
+    /^    "code": "/ { code = $0; sub(/^    "code": "/, "", code); sub(/",?$/, "", code) }
+    /^    "preview": / { p = $0; sub(/^    "preview": /, "", p); sub(/,?$/, "", p); preview = p }
+    /^  }/ { if (code != "") print code "\t" name "\t" (preview == "" ? "false" : preview); code = ""; name = ""; preview = "" }
+    END { if (NR == 0) exit 1 }'
+}
+
+# forge_adapter_covers <tool> <version>: a range of the tool's adapter covers the version;
+# else FORGE_AD_COVER says which versions are.
+forge_adapter_covers() {
+  _ac_first=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" '
+    function cmp(a, b,   x, y, i) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 != t { next }
+    { if (first == "" || cmp($2, first) < 0) first = $2 }
+    cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { in_range = 1 }
+    END { if (!in_range) print first }')
+  [ -z "$_ac_first" ] && return 0
+  FORGE_AD_COVER="$1 $_ac_first and later"
+  return 1
+}
+
+# forge_tool_report: what the installed versions of the tools the active rules drive cannot
+# do, one line each (SessionStart, forge status): a version no adapter covers, one newer than
+# the adapter was proven on, an operation a check needs that the version cannot do, the codes
+# the rules expect that it does not have. Absent tools are forge_missing_tools'.
+forge_tool_report() {
+  { printf '%s\n' "$FORGE_ADAPTER_USES"; printf '%s\n' "$FORGE_TOOL_CODES"; } | awk -F '\t' 'NF { print $1 }' | sort -u | while IFS= read -r _rp_t; do
+    forge_has_tool "$_rp_t" || continue
+    _rp_v=$(forge_tool_version "$_rp_t") || { printf '%s: its version could not be read\n' "$_rp_t"; continue; }
+    if ! forge_adapter_covers "$_rp_t" "$_rp_v"; then
+      _rp_ids=$(printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_t" '$1 == t { print $3 }' | sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+      printf '%s %s: no Forge adapter covers it (Forge drives %s)%s\n' "$_rp_t" "$_rp_v" "$FORGE_AD_COVER" "${_rp_ids:+: $_rp_ids not enforced}"
+      continue
+    fi
+    _rp_ver=$(forge_adapter_meta "$_rp_t" 3)
+    if [ -n "$_rp_ver" ] && ! forge_version_ge "$(printf '%s' "$_rp_ver" | cut -d. -f1-2)" "$(printf '%s' "$_rp_v" | cut -d. -f1-2)"; then
+      printf '%s %s is newer than the releases Forge'"'"'s adapter was proven on (up to %s): driven as %s\n' "$_rp_t" "$_rp_v" "$_rp_ver" "$_rp_ver"
+    fi
+    printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_t" '$1 == t' | while IFS='	' read -r _ _rp_op _rp_id; do
+      forge_adapter "$_rp_t" "$_rp_v" "$_rp_op" || printf '%s: not enforced: %s %s cannot %s%s\n' "$_rp_id" "$_rp_t" "$_rp_v" "$_rp_op" "${FORGE_AD_NEED:+ (it needs $_rp_t $FORGE_AD_NEED or later)}"
+    done
+    forge_tool_codes "$_rp_t" | awk -F '\t' -v t="$_rp_t" -v v="$_rp_v" '
+      $2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " (needs " t " ≥ " $3 ")" }
+      END { if (n) print t " " v " does not have " n " rule code(s) the active rules ask for (not enforced): " s }'
+  done
+}
+
 @@ templates/engine/env.sh @@
 
 @@ templates/engine/python.sh @@
@@ -712,6 +1063,19 @@ if [ -n "$missing" ]; then
   if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
     printf 'forge: missing tools (checks using them are skipped): %s\n' "$missing"
     forge_state_dir && printf '%s\n' "$missing" > "$state"
+  fi
+else
+  rm -f "$state" 2>/dev/null
+fi
+
+# what the installed tool versions cannot do (§16.3), once until it changes
+report=$(forge_tool_report)
+state=$FORGE_STATE/tool-report
+if [ -n "$report" ]; then
+  if [ "$report" != "$(cat "$state" 2>/dev/null)" ]; then
+    printf 'forge: tool versions (what they cannot do is not enforced):\n'
+    printf '%s\n' "$report" | first_lines 4 | cut -c 1-400 | sed 's/^/  /'
+    forge_state_dir && printf '%s\n' "$report" > "$state"
   fi
 else
   rm -f "$state" 2>/dev/null
@@ -3115,13 +3479,20 @@ trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 1
 
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
-ruff() { forge_ruff "$@"; }
+ruff() { forge_exec_tool ruff "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
 # ty is Forge's own, pinned (§15.2).
 ty() { forge_ty "$@"; }
 FORGE_NCHECKS=34
+FORGE_ADAPTER_USES='ruff	format-check	python/format
+ruff	format	python/format
+ruff	format-stdin	python/format
+ruff	lint	python/lint
+ruff	fix	python/lint
+ruff	settings-warnings	python/ruff-config-current
+ty	typecheck	python/typecheck'
 
 # 1. git/editorconfig
 forge_check_meta_1() {
@@ -3221,13 +3592,13 @@ forge_scope_7() {
 }
 forge_when_7() { return 1; }
 forge_check_run_7() {
-ruff format --check .
+forge_do ruff format-check .
 }
 forge_check_changed_7() {
-ruff format $FORGE_FILES
+forge_do ruff format $FORGE_FILES
 }
 forge_check_fmt_7() {
-ruff format --stdin-filename "$FORGE_FILE" -
+forge_do ruff format-stdin "$FORGE_FILE"
 }
 
 # 8. python/lint
@@ -3243,13 +3614,13 @@ forge_scope_8() {
 }
 forge_when_8() { return 1; }
 forge_check_run_8() {
-ruff check .
+forge_do ruff lint .
 }
 forge_check_changed_8() {
-ruff check --output-format concise $FORGE_FILES
+forge_do ruff lint $FORGE_FILES
 }
 forge_check_fix_8() {
-ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise $FORGE_FILES
+forge_do ruff fix $FORGE_FILES
 }
 
 # 9. python/project-table
@@ -3348,7 +3719,7 @@ forge_scope_14() {
 }
 forge_when_14() { case $1 in pyproject.toml|*/pyproject.toml|ruff.toml|*/ruff.toml|.ruff.toml|*/.ruff.toml) return 0 ;; esac; return 1; }
 forge_check_run_14() {
-! ruff check --exit-zero --no-cache . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
+! forge_do ruff settings-warnings . 2>&1 >/dev/null | grep -iE -A5 '^warning: .*deprecat'
 }
 
 # 15. python/sqlalchemy/alembic/applied-migrations
@@ -3541,7 +3912,7 @@ forge_scope_26() {
 }
 forge_when_26() { return 1; }
 forge_check_run_26() {
-ty check --output-format concise
+forge_do ty typecheck
 }
 
 # 27. python/uv/exclude-newer
@@ -4066,6 +4437,357 @@ forge_types_filter() {
   return "$_tf_rc"
 }
 
+# @module adapters
+# Tool adapters (§16): a check names what it needs from a tool (`forge_do <tool> <op>`); the
+# adapter of the installed version says how to invoke it, or that this version cannot. Which
+# rule codes the installed version has is asked from the binary where it can tell.
+
+# One line per range and operation (src/adapters): tool, first version, first version after
+# the range ("" when open), operation, arguments ("-" when the range cannot).
+FORGE_ADAPTERS='ruff	0.1.4	0.2.0	fix	check --fix --fixable I,UP --exit-zero --show-fixes --output-format text
+ruff	0.1.4	0.2.0	format	format
+ruff	0.1.4	0.2.0	format-check	format --check
+ruff	0.1.4	0.2.0	format-stdin	format --stdin-filename {args} -
+ruff	0.1.4	0.2.0	lint	check --output-format text
+ruff	0.1.4	0.2.0	lint-json	check --output-format json
+ruff	0.1.4	0.2.0	lint-json-stdin	check --no-cache --no-fix --output-format json --stdin-filename {args} -
+ruff	0.1.4	0.2.0	rules	rule --all --output-format json
+ruff	0.1.4	0.2.0	settings-warnings	-
+ruff	0.2.0		fix	check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise
+ruff	0.2.0		format	format
+ruff	0.2.0		format-check	format --check
+ruff	0.2.0		format-stdin	format --stdin-filename {args} -
+ruff	0.2.0		lint	check --output-format concise
+ruff	0.2.0		lint-json	check --output-format json
+ruff	0.2.0		lint-json-stdin	check --no-cache --no-fix --output-format json --stdin-filename {args} -
+ruff	0.2.0		rules	rule --all --output-format json
+ruff	0.2.0		settings-warnings	check --exit-zero --no-cache
+ty	0.0.86		typecheck	check --output-format concise
+ty	0.0.86		typecheck-gitlab	check --output-format gitlab'
+
+# One line per tool: tool, Forge's pin (its own tools; "" when the project's), the newest
+# release the adapter was proven on, the exit status and output line of a usage error.
+FORGE_ADAPTER_META='ruff		0.17.3	2	^For more information, try .--help.
+ty	0.0.86	0.0.86	2	^For more information, try .--help.'
+
+# The codes the active rules' tool targets expect: tool, code, first stable release, the
+# codes and the names the same rule had (comma-separated).
+FORGE_TOOL_CODES='ruff	ANN001	0.1.4	ANN001	missing-type-function-argument
+ruff	ANN002	0.1.4	ANN002	missing-type-args
+ruff	ANN003	0.1.4	ANN003	missing-type-kwargs
+ruff	ANN201	0.1.4	ANN201	missing-return-type-undocumented-public-function
+ruff	ANN202	0.1.4	ANN202	missing-return-type-private-function
+ruff	ANN204	0.1.4	ANN204	missing-return-type-special-method
+ruff	ANN205	0.1.4	ANN205	missing-return-type-static-method
+ruff	ANN206	0.1.4	ANN206	missing-return-type-class-method
+ruff	ANN401	0.1.4	ANN401	any-type
+ruff	ARG001	0.1.4	ARG001	unused-function-argument
+ruff	ARG002	0.1.4	ARG002	unused-method-argument
+ruff	ASYNC100	0.2.0	ASYNC100,TRIO100	cancel-scope-no-checkpoint,trio-timeout-without-await
+ruff	ASYNC105	0.2.0	ASYNC105,TRIO105	trio-sync-call
+ruff	ASYNC110	0.6.0	ASYNC110,TRIO110	async-busy-wait,trio-unneeded-sleep
+ruff	ASYNC210	0.1.4	ASYNC210,ASYNC100	blocking-http-call-in-async-function
+ruff	ASYNC212	0.15.0	ASYNC212	blocking-http-call-httpx-in-async-function
+ruff	ASYNC220	0.5.0	ASYNC220	create-subprocess-in-async-function
+ruff	ASYNC221	0.5.0	ASYNC221	run-process-in-async-function
+ruff	ASYNC222	0.5.0	ASYNC222	wait-for-process-in-async-function
+ruff	ASYNC230	0.5.0	ASYNC230	blocking-open-call-in-async-function
+ruff	ASYNC240	0.15.0	ASYNC240	blocking-path-method-in-async-function
+ruff	ASYNC250	0.15.0	ASYNC250	blocking-input-in-async-function
+ruff	ASYNC251	0.5.0	ASYNC251	blocking-sleep-in-async-function
+ruff	B003	0.1.4	B003	assignment-to-os-environ
+ruff	B006	0.1.4	B006	mutable-argument-default
+ruff	B012	0.1.4	B012	jump-statement-in-finally
+ruff	B017	0.1.4	B017	assert-raises-exception
+ruff	B019	0.1.4	B019	cached-instance-method
+ruff	B023	0.1.4	B023	function-uses-loop-variable
+ruff	B039	0.8.0	B039	mutable-contextvar-default
+ruff	B904	0.1.4	B904	raise-without-from-inside-except
+ruff	B905	0.1.4	B905	zip-without-explicit-strict
+ruff	BLE001	0.1.4	BLE001	blind-except
+ruff	DTZ001	0.1.4	DTZ001	call-datetime-without-tzinfo
+ruff	DTZ002	0.1.4	DTZ002	call-datetime-today
+ruff	DTZ005	0.1.4	DTZ005	call-datetime-now-without-tzinfo
+ruff	DTZ006	0.1.4	DTZ006	call-datetime-fromtimestamp
+ruff	DTZ011	0.1.4	DTZ011	call-date-today
+ruff	DTZ012	0.1.4	DTZ012	call-date-fromtimestamp
+ruff	DTZ901	0.10.0	DTZ901	datetime-min-max
+ruff	E722	0.1.4	E722	bare-except
+ruff	ERA001	0.1.4	ERA001	commented-out-code
+ruff	FAST002	0.8.0	FAST002	fast-api-non-annotated-dependency
+ruff	FAST003	0.10.0	FAST003	fast-api-unused-path-parameter
+ruff	LOG001	0.2.0	LOG001	direct-logger-instantiation
+ruff	LOG002	0.2.0	LOG002	invalid-get-logger-argument
+ruff	LOG015	0.10.0	LOG015	root-logger-call
+ruff	PGH003	0.1.4	PGH003	blanket-type-ignore
+ruff	PGH004	0.1.4	PGH004	blanket-noqa
+ruff	PLE0704	0.5.0	PLE0704	misplaced-bare-raise
+ruff	PLE2502	0.1.4	PLE2502	bidirectional-unicode
+ruff	PLE2515	0.1.4	PLE2515	invalid-character-zero-width-space
+ruff	PLW0603	0.1.4	PLW0603	global-statement
+ruff	PLW1507	0.10.0	PLW1507	shallow-copy-environ
+ruff	PLW1508	0.1.4	PLW1508	invalid-envvar-default
+ruff	PLW1509	0.1.4	PLW1509	subprocess-popen-preexec-fn
+ruff	PLW1510	0.1.4	PLW1510	subprocess-run-without-check
+ruff	PLW2101	0.5.0	PLW2101	useless-with-lock
+ruff	PTH210	0.10.0	PTH210	invalid-pathlib-with-suffix
+ruff	PYI019	0.1.4	PYI019	custom-type-var-for-self,custom-type-var-return-type
+ruff	PYI034	0.14.14	PYI034	non-self-return-type
+ruff	RUF006	0.1.4	RUF006	asyncio-dangling-task
+ruff	RUF008	0.1.4	RUF008	mutable-dataclass-default
+ruff	RUF009	0.1.4	RUF009	function-call-in-dataclass-default-argument
+ruff	RUF032	0.9.0	RUF032	decimal-from-float-literal
+ruff	RUF033	0.9.0	RUF033	post-init-default
+ruff	RUF063	0.16.0	RUF063	access-annotations-from-class-dict
+ruff	RUF071	0.17.0	RUF071	os-path-commonprefix
+ruff	RUF100	0.1.4	RUF100	unused-noqa
+ruff	RUF200	0.1.4	RUF200	invalid-pyproject-toml
+ruff	S102	0.1.4	S102	exec-builtin
+ruff	S105	0.1.4	S105	hardcoded-password-string
+ruff	S106	0.1.4	S106	hardcoded-password-func-arg
+ruff	S110	0.1.4	S110	try-except-pass
+ruff	S112	0.1.4	S112	try-except-continue
+ruff	S113	0.5.7	S113	request-without-timeout
+ruff	S301	0.1.4	S301	suspicious-pickle-usage
+ruff	S302	0.1.4	S302	suspicious-marshal-usage
+ruff	S304	0.1.4	S304	suspicious-insecure-cipher-usage
+ruff	S305	0.1.4	S305	suspicious-insecure-cipher-mode-usage
+ruff	S307	0.1.4	S307	suspicious-eval-usage
+ruff	S323	0.1.4	S323	suspicious-unverified-context-usage
+ruff	S324	0.1.4	S324	hashlib-insecure-hash-function
+ruff	S501	0.1.4	S501	request-with-no-cert-validation
+ruff	S502	0.2.0	S502	ssl-insecure-version
+ruff	S505	0.2.0	S505	weak-cryptographic-key
+ruff	S506	0.1.4	S506	unsafe-yaml-load
+ruff	S602	0.1.4	S602	subprocess-popen-with-shell-equals-true
+ruff	S605	0.1.4	S605	start-process-with-a-shell
+ruff	S608	0.1.4	S608	hardcoded-sql-expression
+ruff	S701	0.1.4	S701	jinja2-autoescape-false
+ruff	S704	0.10.0	S704,RUF035	unsafe-markup-use
+ruff	SIM115	0.1.4	SIM115	open-file-with-context-handler
+ruff	T100	0.1.4	T100	debugger
+ruff	T201	0.1.4	T201	print
+ruff	TC004	0.1.4	TC004,TCH004	runtime-import-in-type-checking-block
+ruff	TID251	0.1.4	TID251	banned-api
+ruff	TRY002	0.1.4	TRY002	raise-vanilla-class
+ruff	TRY201	0.1.4	TRY201	verbose-raise
+ruff	TRY203	0.1.4	TRY203,TRY302	useless-try-except'
+
+# forge_adapter_meta <tool> <field>: a field of the tool's FORGE_ADAPTER_META line (2: pin,
+# 3: verified, 4: usage exit, 5: usage pattern).
+forge_adapter_meta() {
+  printf '%s\n' "$FORGE_ADAPTER_META" | awk -F '\t' -v t="$1" -v f="$2" '$1 == t { print $f; exit }'
+}
+
+# forge_tool_version <tool>: the installed version of the project's <tool> (Forge's pin for
+# its own), asked once (`<tool> --version`) and kept until the binary changes (forge_fact).
+# Fails when the tool is absent or says no version.
+forge_tool_version() {
+  _tv_pin=$(forge_adapter_meta "$1" 2)
+  if [ -n "$_tv_pin" ]; then printf '%s\n' "$_tv_pin"; return 0; fi
+  _tv_cmd=$(tool "$1")
+  [ -n "$_tv_cmd" ] || return 1
+  case $_tv_cmd in "bun run --bun "*) _tv_bin=node_modules/.bin/$1 ;; *) _tv_bin=$_tv_cmd ;; esac
+  forge_fact tool-version "$1 $_tv_cmd $(ls -lL "$_tv_bin" 2>/dev/null)" forge_tool_version_ask "$1"
+}
+
+forge_tool_version_ask() {
+  forge_exec_tool "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 | grep .
+}
+
+# forge_adapter <tool> <version> <op>: how this version does <op>. Returns 0 and sets
+# FORGE_AD_ARGS (its arguments); 1 when its range cannot (FORGE_AD_NEED: the first version
+# that can, "" when none); 2 when no range covers the version (FORGE_AD_COVER: the versions
+# that are).
+forge_adapter() {
+  _ad_out=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" -v op="$3" '
+    function cmp(a, b,   x, y, i, n) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 != t { next }
+    { if (first == "" || cmp($2, first) < 0) first = $2 }
+    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { found = 1; args = $5 }
+    $4 == op && $5 != "-" && ($3 == "" || cmp(v, $3) < 0) && (need == "" || cmp($2, need) < 0) { need = $2 }
+    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { inrange = 1 }
+    END {
+      if (!inrange) { print "none\t" first; exit }
+      if (args == "-") { print "cannot\t" need; exit }
+      print "ok\t" args
+    }')
+  case $_ad_out in
+    ok*) FORGE_AD_ARGS=${_ad_out#ok	}; return 0 ;;
+    cannot*) FORGE_AD_NEED=${_ad_out#cannot	}; return 1 ;;
+    *) FORGE_AD_COVER="$1 ${_ad_out#none	} and later"; return 2 ;;
+  esac
+}
+
+# forge_do <tool> <op> [args]: <op> by the installed <tool>, as its adapter says (§16). The
+# caller's arguments replace an {args} word of the adapter's, else follow them. A version
+# that cannot (its range has no such operation, or no range covers it) is not a failure: the
+# check is "not enforced", with why (forge_do_note). A usage error of the command line (the
+# adapter's exit status and line) is never a finding either: the check is skipped with the
+# tool's error. Then, after a lint, the codes the active rules expect that this version does
+# not have are noted (forge_tool_codes).
+forge_do() {
+  _do_t=$1
+  _do_op=$2
+  shift 2
+  if ! _do_v=$(forge_tool_version "$_do_t"); then
+    forge_do_note "skipped: the version of $_do_t could not be read"
+    return 0
+  fi
+  forge_adapter "$_do_t" "$_do_v" "$_do_op"
+  case $? in
+    1) forge_do_note "not enforced: $_do_t $_do_v cannot $_do_op${FORGE_AD_NEED:+ (it needs $_do_t $FORGE_AD_NEED or later)}"; return 0 ;;
+    2) forge_do_note "not enforced: no Forge adapter covers $_do_t $_do_v (Forge drives $FORGE_AD_COVER)"; return 0 ;;
+  esac
+  # the adapter's words, the caller's arguments at {args} or after them
+  _do_n=$#
+  _do_put=0
+  _do_ifs=$IFS
+  IFS=' '
+  for _do_w in $FORGE_AD_ARGS; do
+    if [ "$_do_w" = '{args}' ]; then
+      _do_i=0
+      for _do_a in "$@"; do
+        [ "$_do_i" -lt "$_do_n" ] && set -- "$@" "$_do_a"
+        _do_i=$((_do_i + 1))
+      done
+      _do_put=1
+    else
+      set -- "$@" "$_do_w"
+    fi
+  done
+  IFS=$_do_ifs
+  if [ "$_do_put" = 0 ]; then
+    _do_i=0
+    for _do_a in "$@"; do
+      [ "$_do_i" -lt "$_do_n" ] && set -- "$@" "$_do_a"
+      _do_i=$((_do_i + 1))
+    done
+  fi
+  shift "$_do_n"
+  _do_err=$(mktemp "${FORGE_TMP:-${TMPDIR:-/tmp}}/do-err.XXXXXX") || return 1
+  if [ "$_do_t" = ty ]; then forge_ty "$@" 2> "$_do_err"; else forge_exec_tool "$_do_t" "$@" 2> "$_do_err"; fi
+  _do_rc=$?
+  if [ "$_do_rc" = "$(forge_adapter_meta "$_do_t" 4)" ] && grep -qE "$(forge_adapter_meta "$_do_t" 5)" "$_do_err"; then
+    # a command line this version rejects is not a finding (a base copy on stdin fails instead)
+    case " $* " in *" - "*) ;; *)
+      if [ -n "${c_id:-}" ]; then
+        forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(grep -iE '^error' "$_do_err" | head -n 1 | sed 's/^[Ee]rror: //')"
+        rm -f "$_do_err"
+        return 0
+      fi ;;
+    esac
+  fi
+  cat "$_do_err" >&2
+  rm -f "$_do_err"
+  if [ "$_do_op" = lint ] && [ -n "${c_id:-}" ]; then
+    _do_miss=$(forge_tool_codes "$_do_t" | awk -F '\t' -v t="$_do_t" '$2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " needs " t " ≥ " $3 } END { if (n) print n "\t" s }')
+    [ -z "$_do_miss" ] || forge_do_note "not enforced for ${_do_miss%%	*} code(s) $_do_t $_do_v does not have: ${_do_miss#*	}"
+  fi
+  return "$_do_rc"
+}
+
+# forge_do_note <text>: "forge:<check id> <text>", in $FORGE_TMP/notes under check.sh (the
+# check prints it whatever its outcome, forge_run_check), else on stdout.
+forge_do_note() {
+  if [ -n "${FORGE_TMP:-}" ] && [ -n "${c_id:-}" ]; then printf 'forge:%s %s\n' "$c_id" "$1" >> "$FORGE_TMP/notes"
+  else printf 'forge:%s %s\n' "${c_id:-forge}" "$1"
+  fi
+}
+
+# forge_tool_codes <tool>: for each code the active rules expect of <tool> (FORGE_TOOL_CODES),
+# "<code><TAB><the installed version's code for that rule, or -><TAB><its first stable
+# release>". The installed version's rules are asked from the binary (the adapter's codes
+# operation: ruff `rule --all --output-format json`) once per binary (forge_fact); a rule is
+# the installed one with one of the rule's codes and one of its names, not in preview, in a
+# release from which it reports the rules' examples (the history's first release, §16.4).
+forge_tool_codes() {
+  printf '%s\n' "$FORGE_TOOL_CODES" | grep -q "^$1	" || return 0
+  _tk_v=$(forge_tool_version "$1") || return 0
+  forge_adapter "$1" "$_tk_v" rules || return 0
+  _tk_cmd=$(tool "$1")
+  _tk_have=$(forge_fact tool-rules "$1 $_tk_v $_tk_cmd $(ls -lL "${_tk_cmd##* }" 2>/dev/null)" forge_tool_rules "$1" "$FORGE_AD_ARGS") || return 0
+  { printf '%s\n' "$_tk_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$_tk_v" '
+    function cmp(a, b,   x, y, i) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 == "have" { if ($4 == "false") stable[$2 "\t" $3] = 1; next }
+    $2 != t { next }
+    {
+      nc = split($5, codes, ","); nn = split($6, names, ","); got = "-"
+      for (i = 1; i <= nc && got == "-"; i++) for (j = 1; j <= nn; j++) if ((codes[i] "\t" names[j]) in stable) { got = codes[i]; break }
+      # listed, but before the release from which it reports what the rules ask of it
+      if (cmp(v, $4) < 0) got = "-"
+      print $3 "\t" got "\t" $4
+    }'
+}
+
+# forge_tool_rules <tool> <args>: "<code><TAB><name><TAB><preview>" per rule the binary lists
+# (ruff's JSON: one key per line).
+forge_tool_rules() {
+  _tr_ifs=$IFS
+  IFS=' '
+  # shellcheck disable=SC2086
+  set -- "$1" $2
+  IFS=$_tr_ifs
+  forge_exec_tool "$@" 2>/dev/null | awk '
+    /^    "name": "/ { name = $0; sub(/^    "name": "/, "", name); sub(/",?$/, "", name) }
+    /^    "code": "/ { code = $0; sub(/^    "code": "/, "", code); sub(/",?$/, "", code) }
+    /^    "preview": / { p = $0; sub(/^    "preview": /, "", p); sub(/,?$/, "", p); preview = p }
+    /^  }/ { if (code != "") print code "\t" name "\t" (preview == "" ? "false" : preview); code = ""; name = ""; preview = "" }
+    END { if (NR == 0) exit 1 }'
+}
+
+# forge_adapter_covers <tool> <version>: a range of the tool's adapter covers the version;
+# else FORGE_AD_COVER says which versions are.
+forge_adapter_covers() {
+  _ac_first=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" '
+    function cmp(a, b,   x, y, i) {
+      split(a, x, "."); split(b, y, ".")
+      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
+      return 0
+    }
+    $1 != t { next }
+    { if (first == "" || cmp($2, first) < 0) first = $2 }
+    cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { in_range = 1 }
+    END { if (!in_range) print first }')
+  [ -z "$_ac_first" ] && return 0
+  FORGE_AD_COVER="$1 $_ac_first and later"
+  return 1
+}
+
+# forge_tool_report: what the installed versions of the tools the active rules drive cannot
+# do, one line each (SessionStart, forge status): a version no adapter covers, one newer than
+# the adapter was proven on, an operation a check needs that the version cannot do, the codes
+# the rules expect that it does not have. Absent tools are forge_missing_tools'.
+forge_tool_report() {
+  { printf '%s\n' "$FORGE_ADAPTER_USES"; printf '%s\n' "$FORGE_TOOL_CODES"; } | awk -F '\t' 'NF { print $1 }' | sort -u | while IFS= read -r _rp_t; do
+    forge_has_tool "$_rp_t" || continue
+    _rp_v=$(forge_tool_version "$_rp_t") || { printf '%s: its version could not be read\n' "$_rp_t"; continue; }
+    if ! forge_adapter_covers "$_rp_t" "$_rp_v"; then
+      _rp_ids=$(printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_t" '$1 == t { print $3 }' | sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+      printf '%s %s: no Forge adapter covers it (Forge drives %s)%s\n' "$_rp_t" "$_rp_v" "$FORGE_AD_COVER" "${_rp_ids:+: $_rp_ids not enforced}"
+      continue
+    fi
+    _rp_ver=$(forge_adapter_meta "$_rp_t" 3)
+    if [ -n "$_rp_ver" ] && ! forge_version_ge "$(printf '%s' "$_rp_ver" | cut -d. -f1-2)" "$(printf '%s' "$_rp_v" | cut -d. -f1-2)"; then
+      printf '%s %s is newer than the releases Forge'"'"'s adapter was proven on (up to %s): driven as %s\n' "$_rp_t" "$_rp_v" "$_rp_ver" "$_rp_ver"
+    fi
+    printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_t" '$1 == t' | while IFS='	' read -r _ _rp_op _rp_id; do
+      forge_adapter "$_rp_t" "$_rp_v" "$_rp_op" || printf '%s: not enforced: %s %s cannot %s%s\n' "$_rp_id" "$_rp_t" "$_rp_v" "$_rp_op" "${FORGE_AD_NEED:+ (it needs $_rp_t $FORGE_AD_NEED or later)}"
+    done
+    forge_tool_codes "$_rp_t" | awk -F '\t' -v t="$_rp_t" -v v="$_rp_v" '
+      $2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " (needs " t " ≥ " $3 ")" }
+      END { if (n) print t " " v " does not have " n " rule code(s) the active rules ask for (not enforced): " s }'
+  done
+}
+
 @@ templates/engine/env.sh @@
 
 @@ templates/engine/python.sh @@
@@ -4288,13 +5010,13 @@ forge_end "$fail"
     "python/fastapi/no-testclient-in-async-test": "8463a8f5fad9b78b84ab69b6e962bb5cca3d212218f6300138d30b301438c316",
     "python/fastapi/testclient-lifespan": "bd931f1ad747c77549fbfcc1582cdcea85cb8ff6e74de911effc21cbe72d9820",
     "python/fastapi/unused-path-param": "82bb1ec3e4cf1b41d581e50cb522bc85bffc81f3f77a4a6c0d6b23ce63d9526f",
-    "python/format": "1aa3a77806c5786996cdfd0c51317768523af3ed210a5dce7039fcb038f58989",
+    "python/format": "8318b1f65f2c50fda053034fcbaef0c48b4556e32441cf08d04dda2153928f33",
     "python/generic-type-args": "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4",
     "python/hmac-compare": "73bd6611568c027294db648c172eb8f0fd7319e7fefc709748cc3131dddffaf4",
     "python/http-timeout": "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94",
     "python/jinja-autoescape": "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52",
     "python/lazy-log-args": "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221",
-    "python/lint": "d0f67a49b3a5d4ccd7fc6830e7782d53a30d5659d377baed8cb2db0a6ecccf9f",
+    "python/lint": "43a0c256d55f5447347cc738547fe20ed36c5daeb04be4c22f61ff9f510a1a81",
     "python/llm-client-timeout": "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8",
     "python/log-exception": "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81",
     "python/loop-closure": "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa",
@@ -4376,7 +5098,7 @@ forge_end "$fail"
     "python/pytest/run": "ef1248916825b76f9441dc0223f9ccb3601caef3751dd8e72fa8a9cc56a4141b",
     "python/pytest/untested-change": "2ac2a9e0f1e6af931ba702b7c5890f981e900d671ff825ae329b80dadf59cd3c",
     "python/raise-from": "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381",
-    "python/ruff-config-current": "38ca37ed01e532ff526ed4925777a447ab52d7e74543dbae88c34c9181e2a6a6",
+    "python/ruff-config-current": "740352f926ca71cf7008eefd348543f0989a311eb1f051689ca0a7c480e7b312",
     "python/self-type": "7d4247c8346d32b948d11e91b0b2e7aa69dda3dd6401f83879479de240a7b4a1",
     "python/sqlalchemy/alembic/applied-migrations": "aed7425e1c5079bfbc5d364d830dd600bd64d3d07b4eb6ff4e11e76a947943a4",
     "python/sqlalchemy/alembic/check": "e1329cc8315f0bb8369352a639de7ef260e0f676930b743e8ca378de8a82192d",
@@ -4406,7 +5128,7 @@ forge_end "$fail"
     "python/subprocess-check": "3b8e572d9f78082ac6eb7df6f0d8ffb1ae9e4a0ec797077fea459d1691e6bd08",
     "python/taskgroup-except-star": "cac6a24d72d057d9dcf8aa120647e94a330c34c20536836e868f85c452e0f6ad",
     "python/type-checking-imports": "a3ffea57777c1ccaec2df6487798c5621ed3195313d6114b4b44a34242b97df4",
-    "python/typecheck": "8649af2dc8c24e4104e077c4dc5ec03b64dd3ff4a5a11bed706bc9575fa02a9d",
+    "python/typecheck": "a0569facbec5254e123b397653773ea6e59e2e314833e24e7dc2739c99c9e5b8",
     "python/typed-decorators": "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75",
     "python/typeis-over-typeguard": "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9",
     "python/uv/dependency-groups": "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a",
@@ -4441,15 +5163,15 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "4f9772547faf5e0814e958dec491eb85ea31b61e74dac29611dc2921927a4477",
+    ".claude/skills/forge-project/scripts/checks.sh": "0ba0ea393b0224407b3b90b9c85c77791c88166f610e73c64e695fee5f020d93",
     ".claude/skills/forge-project/scripts/guard.rules": "816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "c16ad6256a63c2facf22b84c6eb3fb3d3ce012b9062a75b0388ce0b9e71ff01e",
     ".claude/skills/forge-project/scripts/post-edit.sh": "0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "4e73ed84790fa6f15050b85119e6bb97279b05c8d38a1ef9fbcca0a88c4cef69",
-    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
+    ".claude/skills/forge-project/scripts/session-start.sh": "4de085178a00897d9086e4b3674397b14326c52304d490d2a6335254e553b145",
+    ".claude/skills/forge-project/scripts/stop.sh": "4e1eddb73a1ba33d7ec251276cb64f3a21f1927370275ad211c5afe27b810d16",
     ".claude/skills/forge-project/scripts/test-edit.sh": "c86da2cff52985e3efe0b739b2253fb969074c7ac773dcadd1a1042a14538f70",
     ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
     ".claude/skills/forge-project/scripts/typecheck.sh": "d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9",
@@ -4535,14 +5257,14 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "96fb2898573a111d2f443dc10be9d31223c76da0b02692d23f50d6aab18c20eb",
+    ".forge/check.sh": "b57a8ed537eed45b3c3c505fea6b5137aee25e6985ce96269099362b55cacf0d",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/pytest_filterwarnings.py": "27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8",
     ".forge/helpers/ratchet.py": "59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf",
     ".forge/helpers/types_python.py": "7220b95a55e6808567e63963a5c0dc3968154183154e33f45931b95a1a28b481",
-    ".forge/helpers/untyped_python.py": "6f8c0b04b3432905b95a33063038860a10f3f7651af563062fc89504176bb816",
+    ".forge/helpers/untyped_python.py": "587a1f5268948ff1bffebb6be390db246be6638754cd44d89b5c0ed01ab2f21e",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -4700,15 +5422,15 @@ f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-4f9772547faf5e0814e958dec491eb85ea31b61e74dac29611dc2921927a4477  .claude/skills/forge-project/scripts/checks.sh
+0ba0ea393b0224407b3b90b9c85c77791c88166f610e73c64e695fee5f020d93  .claude/skills/forge-project/scripts/checks.sh
 816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 c16ad6256a63c2facf22b84c6eb3fb3d3ce012b9062a75b0388ce0b9e71ff01e  .claude/skills/forge-project/scripts/lib.sh
 0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-4e73ed84790fa6f15050b85119e6bb97279b05c8d38a1ef9fbcca0a88c4cef69  .claude/skills/forge-project/scripts/session-start.sh
-52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
+4de085178a00897d9086e4b3674397b14326c52304d490d2a6335254e553b145  .claude/skills/forge-project/scripts/session-start.sh
+4e1eddb73a1ba33d7ec251276cb64f3a21f1927370275ad211c5afe27b810d16  .claude/skills/forge-project/scripts/stop.sh
 c86da2cff52985e3efe0b739b2253fb969074c7ac773dcadd1a1042a14538f70  .claude/skills/forge-project/scripts/test-edit.sh
 e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
 d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9  .claude/skills/forge-project/scripts/typecheck.sh
@@ -4794,14 +5516,14 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-96fb2898573a111d2f443dc10be9d31223c76da0b02692d23f50d6aab18c20eb  .forge/check.sh
+b57a8ed537eed45b3c3c505fea6b5137aee25e6985ce96269099362b55cacf0d  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8  .forge/helpers/pytest_filterwarnings.py
 59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf  .forge/helpers/ratchet.py
 7220b95a55e6808567e63963a5c0dc3968154183154e33f45931b95a1a28b481  .forge/helpers/types_python.py
-6f8c0b04b3432905b95a33063038860a10f3f7651af563062fc89504176bb816  .forge/helpers/untyped_python.py
+587a1f5268948ff1bffebb6be390db246be6638754cd44d89b5c0ed01ab2f21e  .forge/helpers/untyped_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

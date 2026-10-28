@@ -72,7 +72,7 @@ export function formatMerged(audits: AuditResult[]): string[] {
 }
 
 export function formatAudit(a: AuditResult): string {
-  const head = `forge:${a.rule} ${a.tool} ${a.expects}${a.dir ? ` (in ${a.dir})` : ""}: ${a.status}`;
+  const head = `forge:${a.rule} ${a.tool} ${a.expects}${a.as ? ` (as ${a.as})` : ""}${a.dir ? ` (in ${a.dir})` : ""}: ${a.status}`;
   if (a.status === "satisfied") return head;
   const lines = [head + (a.detail ? ` (${a.detail})` : "")];
   if (a.snippet) lines.push(`  add to the ${a.tool} config: ${a.snippet}`);
@@ -91,6 +91,13 @@ export function missingTools(ctx: Ctx): string[] {
   const script = `${renderLib()}\nIFS='\n'\n${ctx.plan.checksFragment}\nforge_missing_tools\n`;
   const r = runScript(script, { cwd: ctx.base });
   return r.stdout.trim() ? r.stdout.trim().split(", ") : [];
+}
+
+/** What the installed releases of the tools the checks drive cannot do (§16.3): the generated scripts' forge_tool_report, as SessionStart prints it. */
+export function toolVersionReport(ctx: Ctx): string[] {
+  if (ctx.level === "user" || !ctx.plan.checksFragment) return [];
+  const r = runScript(`${renderLib()}\nIFS='\n'\n${ctx.plan.checksFragment}\nforge_tool_report\n`, { cwd: ctx.base });
+  return r.stdout.split("\n").filter(Boolean);
 }
 
 /** The remote's default branch (origin/HEAD), else "main". */
@@ -127,10 +134,13 @@ export function enforcement(ctx: Ctx, audits: AuditResult[], missing: string[]):
     const mine = audits.filter((x) => x.rule === st.rule.id);
     for (const tool of new Set(mine.map((a) => a.tool))) {
       const each = mine.filter((a) => a.tool === tool);
-      const bad = each.find((a) => a.status !== "satisfied");
-      if (!bad) by.push(`${tool} ${each[0]!.expects}`);
-      else if (bad.status === "unsatisfied") not.push(UNSATISFIED[tool]!);
-      else not.push(/not installed/.test(bad.detail ?? "") ? `${tool} not installed` : `${tool} audit skipped`);
+      // a code the installed release does not have is not enforced on its own (§16.3); the others are judged as usual
+      const avail = each.filter((a) => a.status !== "unavailable");
+      const bad = avail.find((a) => a.status !== "satisfied");
+      if (avail.length && !bad) by.push(`${tool} ${avail[0]!.expects}`);
+      else if (bad?.status === "unsatisfied") not.push(UNSATISFIED[tool]!);
+      else if (bad) not.push(/not installed/.test(bad.detail ?? "") ? `${tool} not installed` : `${tool} audit skipped`);
+      for (const u of each.filter((a) => a.status === "unavailable")) not.push(u.detail ?? `${tool} ${u.expects} unavailable`);
     }
     for (const n of st.notEnforced) not.push(n.replace(/^not enforced here: /, ""));
     for (const t of targetsByPhase(st.rule)) {
@@ -146,7 +156,10 @@ export function enforcementSummary(rules: Enforcement[]): string {
   const off = rules.filter((r) => !r.enforced);
   const reasons = new Map<string, number>();
   for (const r of off) {
-    const why = r.not_enforced[0] ?? "nothing applies here";
+    // "TC004 needs ruff ≥ 0.8.0; this project has 0.5.0": counted as the codes that release lacks (§16.3)
+    const why = (r.not_enforced[0] ?? "nothing applies here")
+      .replace(/^\S+ needs (\S+) ≥ \S+; this project has (\S+)$/, "codes $1 $2 does not have")
+      .replace(/^no Forge adapter covers (\S+ \S+) .*/, "no Forge adapter covers $1");
     reasons.set(why, (reasons.get(why) ?? 0) + 1);
   }
   const detail = [...reasons.entries()]

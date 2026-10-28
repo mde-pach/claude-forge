@@ -1,6 +1,8 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix } from "node:path";
+import { adapterOf, rangeOf } from "./adapters/index.js";
+import { TY } from "./adapters/ty.js";
 import { PYTHON_TOOLS, TY_COMMAND } from "./core/tools.js";
 import { toolExamples } from "./examples.js";
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings, renderEngine, resolveEngine } from "./render/engine.js";
@@ -13,7 +15,10 @@ export interface AuditResult {
   rule: string;
   tool: ToolTarget["tool"];
   expects: string;
-  status: "satisfied" | "unsatisfied" | "skipped";
+  /** unavailable: the installed release of the tool does not have the code, or no adapter covers it (§16.3): never a snippet. */
+  status: "satisfied" | "unsatisfied" | "skipped" | "unavailable";
+  /** The code the installed release gives the rule, when it is another (TCH004 for TC004 before ruff 0.8.0, §16.2). */
+  as?: string;
   /** The workspace package audited (its own config); absent: the root. */
   dir?: string;
   /** Why unsatisfied / skipped. */
@@ -47,6 +52,30 @@ function shellTool(repo: string, call: string, prelude = ""): string | null {
  */
 export function tyPrelude(settings: EngineSettings): string {
   return `${renderEngine(["python"], resolveEngine(["forge_ty_args"]), settings)}\nFORGE_TY_UNTYPED_HELPER=${shQuote(join(packageRoot(), "templates", "helpers", UNTYPED_HELPER))}`;
+}
+
+/** An adapter operation's arguments (§16.2) with the caller's in place of {args}, or after them. */
+export function opArgs(template: string, args: string[]): string[] {
+  const words = template.split(" ").filter(Boolean);
+  return words.includes("{args}") ? words.flatMap((w) => (w === "{args}" ? args : [w])) : [...words, ...args];
+}
+
+/**
+ * The installed release of an adapted tool in <repo> and, for each of <codes>, the code that
+ * release gives the rule ("" when it does not have it) and the first release that does: the
+ * engine's own forge_tool_version and forge_tool_codes (§16.3), so status, the audits and
+ * the hooks agree.
+ */
+export function toolFacts(repo: string, tool: string, codes: string[], settings: EngineSettings): { version?: string; codes: Map<string, { have: string; since: string }> } {
+  const prelude = renderEngine([], resolveEngine(["forge_tool_codes"]), { ...settings, toolCodes: codes.map((code) => ({ tool, code })) });
+  const out = shellTool(repo, `forge_tool_version ${tool} || printf '\\n'; forge_tool_codes ${tool}`, prelude) ?? "";
+  const [version, ...lines] = out.split("\n");
+  const map = new Map<string, { have: string; since: string }>();
+  for (const l of lines) {
+    const [code, have, since] = l.split("\t");
+    if (code && have && since) map.set(code, { have: have === "-" ? "" : have, since });
+  }
+  return { version: version?.trim() || undefined, codes: map };
 }
 
 /** The arguments `ty check` gets in <repo> (forge_ty_args): the project's environment when ty would not find it, the untyped packages as Any. */
@@ -146,15 +175,17 @@ const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
 function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[], settings: EngineSettings): ToolRun {
   if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
   if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
-  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", ...tyArgs(repo, settings), "--output-format", "gitlab", ...rels], { cwd: repo });
+  // ty's adapter (§16): its operation's arguments, the project's environment and untyped packages after `check`
+  const [sub, ...rest] = opArgs(TY.ranges[0]!.ops["typecheck-gitlab"]!, rels);
+  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), sub!, ...tyArgs(repo, settings), ...rest], { cwd: repo });
 }
 
-/** Runs the project's tool on one example with machine-readable output where the tool has it. */
-function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number, settings: EngineSettings): ToolRun {
+/** Runs the project's tool on one example with machine-readable output where the tool has it; <args>: its adapter's arguments for that (§16), {args} the example's path. */
+function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number, settings: EngineSettings, args?: string): ToolRun {
   const stem = stemOf(n);
   const rel = exampleRel(rule, ex, n);
   const code = ex.code;
-  if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
+  if (t.tool === "ruff") return run(bin, opArgs(args ?? "check --no-cache --no-fix --output-format json --stdin-filename {args} -", [rel]), { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
   if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel], settings));
@@ -299,7 +330,7 @@ function hasUvx(): boolean {
 }
 
 /** §11: every match example fails the tool's run on the expected diagnostic; no no_match example reports it. */
-export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS): AuditResult {
+export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS, resolved = false): AuditResult {
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
   // in a workspace package, the tool may be installed at the root (hoisted)
   // ty is Forge's own (through uvx); the others are the project's
@@ -313,6 +344,24 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
           ? "uvx is not installed (Forge runs its pinned ty through it)"
           : `${t.tool} is configured but not installed (node_modules/.bin, .venv/bin${PYTHON_TOOLS.has(t.tool) ? " or the project's Python environment" : ""})`,
     };
+  // the installed release, through the tool's adapter (§16): how it is asked, which code it gives the rule
+  let args: string | undefined;
+  const ad = adapterOf(t.tool);
+  if (ad && !ad.pinned) {
+    const facts = toolFacts(root, t.tool, [t.expects], settings);
+    if (!facts.version) return { ...base, status: "skipped", detail: `the version of ${t.tool} could not be read` };
+    const range = rangeOf(ad, facts.version);
+    if (!range) return { ...base, status: "unavailable", detail: `no Forge adapter covers ${t.tool} ${facts.version} (Forge drives ${t.tool} ${ad.ranges[0]!.from} and later)` };
+    const c = resolved ? undefined : facts.codes.get(t.expects);
+    if (c && !c.have) return { ...base, status: "unavailable", detail: `${t.expects} needs ${t.tool} ≥ ${c.since}; this project has ${facts.version}` };
+    if (c && c.have !== t.expects) {
+      const as = c.have;
+      const swapped = { ...t, expects: as, snippet: t.snippet.replace(new RegExp(`\\b${t.expects}\\b`, "g"), as) };
+      const r = auditTarget(repo, rule, swapped, root, settings, true);
+      return { ...r, expects: t.expects, as, ...(r.detail ? { detail: r.detail.replaceAll(as, `${as} (what ${t.tool} ${facts.version} calls ${t.expects})`) } : {}) };
+    }
+    args = range.ops["lint-json-stdin"] ?? undefined;
+  }
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
@@ -320,7 +369,7 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   const judge = (ex: Example, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;
-    const r = runTool(repo, rule, t, bin, ex, n, settings);
+    const r = runTool(repo, rule, t, bin, ex, n, settings, args);
     try {
       return verdict(t.tool, t.expects, r);
     } catch (e) {

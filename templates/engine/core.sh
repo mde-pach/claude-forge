@@ -639,10 +639,21 @@ forge_diag_keys() {
     }' "$FORGE_TMP/added" -
 }
 
-# forge_run_check <n>: one check under check.sh ($mode and forge_change_set's files).
+# forge_run_check <n>: one check under check.sh (forge_run_check_one), then the notes its
+# tool adapters left whatever its outcome (§16.3: what the installed version cannot do).
+forge_run_check() {
+  rm -f "$FORGE_TMP/notes"
+  forge_run_check_one "$1"
+  _rn_rc=$?
+  if [ -s "$FORGE_TMP/notes" ]; then awk '!seen[$0]++' "$FORGE_TMP/notes"; fi
+  rm -f "$FORGE_TMP/notes"
+  return "$_rn_rc"
+}
+
+# forge_run_check_one <n>: one check under check.sh ($mode and forge_change_set's files).
 # --changed and --turn run the {files} form on the changed files when there is one;
 # --since and --all run the whole-project form (read-only, as CI should).
-forge_run_check() {
+forge_run_check_one() {
   forge_check_meta_"$1"
   FORGE_CHECK_N=$1
   FORGE_FILES=''

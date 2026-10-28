@@ -130,7 +130,8 @@ def resolved_without_environment(names, config, project):
         os.makedirs(os.path.join(env, "lib", "python" + VERSION, "site-packages"))
         probe = os.path.join(tmp, "probe.py")
         with open(probe, "w") as fh:
-            fh.write("from typing import reveal_type\n")
+            # reveal_type unimported: ty knows it on every Python version (typing has it from 3.11 only)
+            fh.write("# probe\n")
             for i, n in enumerate(names):
                 fh.write("import %s as _m%d; reveal_type(_m%d)\n" % (n, i, i))
         args = [TY, "check", "--project", ROOT, "--python", env, "--output-format", "concise", "--exit-zero"]
