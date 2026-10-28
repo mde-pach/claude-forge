@@ -23,7 +23,7 @@ import type { ToolAdapter } from "./types.js";
 
 export const WRANGLER: ToolAdapter = {
   tool: "wrangler",
-  verified: "4.154.0",
+  verified: "4.155.0",
   usage: { exit: 1, pattern: "ERROR.*Unknown arguments?: " },
   ranges: [
     {
