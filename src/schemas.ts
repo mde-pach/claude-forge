@@ -267,6 +267,11 @@ export const projectConfigSchema = {
         properties: { add: roleGlobs, set: roleGlobs },
       },
     },
+    python: {
+      type: "object",
+      additionalProperties: false,
+      properties: { "untyped-packages": { enum: ["any", "source"] } },
+    },
     accept: {
       type: "array",
       items: {

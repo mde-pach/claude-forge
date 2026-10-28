@@ -10,17 +10,15 @@
  * BusyBox.
  */
 import { describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { renderGuardRules, renderLib, template } from "../../src/render";
+import { renderEngine, renderGuardRules, renderLib, resolveEngine, template } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import type { Rule } from "../../src/types";
 import { sh } from "../helpers";
 
 const shells = availableShells();
-const hasPython3 = sh("sh", ["-c", "command -v python3"]).status === 0;
 const lib = mkdtempSync(join(tmpdir(), "forge-lib-"));
 writeFileSync(join(lib, "lib.sh"), renderLib());
 
@@ -90,24 +88,94 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     expect(libRun([...argv], "{}", `${path}; UV_PROJECT_ENVIRONMENT="${base}/venv"; tool pytest`, repo)).toBe(`${base}/venv/bin/pytest`);
   });
 
-  /** Poetry keeps a project's environment in its cache, named after the project and a hash of its path. */
-  test.if(hasPython3)("tool finds a Python tool in Poetry's environment of the project, without running Poetry", () => {
+  /**
+   * Poetry decides where a project's environment is (its name hash, virtualenvs.path,
+   * in-project, create = false): Forge asks it (`poetry env info -p`) instead of
+   * recomputing its convention, and keeps the answer in the state until Poetry's inputs or
+   * its virtualenvs directory change.
+   */
+  test("tool finds a Python tool in the environment Poetry says is the project's, asking Poetry once until its environments change", () => {
     const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-poetry-")));
     const repo = join(base, "repo");
     mkdirSync(repo);
-    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "My_Cool.App"\nversion = "0.1.0"\n');
+    sh("git", ["init", "-q", repo]);
+    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "app"\nversion = "0.1.0"\n');
     writeFileSync(join(repo, "poetry.lock"), "");
-    const hash = createHash("sha256").update(repo).digest("base64url").slice(0, 8);
-    const env = join(base, "envs", `my-cool-app-${hash}-py3.12`);
-    mkdirSync(join(env, "bin"), { recursive: true });
+    const envs = join(base, "envs");
+    const env = join(envs, "app-x-py3.12");
+    for (const e of [env, join(base, "interp")]) mkdirSync(join(e, "bin"), { recursive: true });
     for (const t of ["python", "ruff"]) writeFileSync(join(env, "bin", t), "#!/bin/sh\n", { mode: 0o755 });
-    // another project's environment of the same name
-    mkdirSync(join(base, "envs", "my-cool-app-AAAAAAAA-py3.12", "bin"), { recursive: true });
-    expect(libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; export POETRY_VIRTUALENVS_PATH="${base}/envs"; tool ruff; printf '|'; tool python`, repo)).toBe(
-      `${env}/bin/ruff|${env}/bin/python`,
+    writeFileSync(join(base, "answer"), `${env}\n`);
+    // a fake Poetry: its answer is in <base>/answer ("" when it has no environment), each call is logged
+    writeFileSync(
+      join(base, "bin-poetry"),
+      `#!/bin/sh\necho "$*" >> "${base}/calls"\ncase "$*" in\n  *"config virtualenvs.path"*) echo "${envs}" ;;\n  *"env info -p"*) a=$(cat "${base}/answer"); [ -n "$a" ] || exit 1; echo "$a" ;;\nesac\n`,
+      { mode: 0o755 },
     );
-    writeFileSync(join(repo, "poetry.toml"), `[virtualenvs]\npath = "${base}/envs"\n`);
-    expect(libRun([...argv], "{}", "unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT POETRY_VIRTUALENVS_PATH; tool ruff", repo)).toBe(`${env}/bin/ruff`);
+    mkdirSync(join(base, "pbin"));
+    sh("ln", ["-s", join(base, "bin-poetry"), join(base, "pbin", "poetry")]);
+    writeFileSync(join(base, "interp", "bin", "python3"), `#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' "$0" "${base}/interp" "${base}/interp/bin"\n`, { mode: 0o755 });
+    writeFileSync(join(base, "interp", "bin", "ruff"), "#!/bin/sh\n", { mode: 0o755 });
+    const path = `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/pbin:${base}/interp/bin:$PATH"`;
+    const calls = () => (sh("cat", [join(base, "calls")]).stdout.match(/env info/g) ?? []).length;
+    expect(libRun([...argv], "{}", `${path}; tool ruff; printf '|'; tool python`, repo)).toBe(`${env}/bin/ruff|${env}/bin/python`);
+    expect(calls()).toBe(1);
+    // another shell: Poetry's answer is reused
+    expect(libRun([...argv], "{}", `${path}; tool ruff`, repo)).toBe(`${env}/bin/ruff`);
+    expect(calls()).toBe(1);
+    // Poetry makes another environment (poetry env use 3.13): its virtualenvs directory changed, so it is asked again
+    const env2 = join(envs, "app-x-py3.13");
+    mkdirSync(join(env2, "bin"), { recursive: true });
+    for (const t of ["python", "ruff"]) writeFileSync(join(env2, "bin", t), "#!/bin/sh\n", { mode: 0o755 });
+    writeFileSync(join(base, "answer"), `${env2}\n`);
+    expect(libRun([...argv], "{}", `${path}; tool ruff`, repo)).toBe(`${env2}/bin/ruff`);
+    expect(calls()).toBe(2);
+    // virtualenvs.create = false: Poetry has no environment, the project is in the interpreter on PATH
+    writeFileSync(join(base, "answer"), "");
+    writeFileSync(join(repo, "poetry.toml"), "[virtualenvs]\ncreate = false\n");
+    expect(libRun([...argv], "{}", `${path}; tool ruff`, repo)).toBe(`${base}/interp/bin/ruff`);
+    // Poetry not on PATH: the interpreter on PATH
+    expect(libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/interp/bin:$PATH"; tool ruff`, repo)).toBe(`${base}/interp/bin/ruff`);
+  });
+
+  /**
+   * ty finds .venv, $VIRTUAL_ENV and the environment its config names on its own; any other
+   * environment of the project (§9.1) is given to it, since under uvx the python it would find
+   * on PATH is uvx's (§15.2).
+   */
+  test("ty gets --python <sys.prefix> exactly when it would not find the project's environment: .venv, VIRTUAL_ENV, its config, uv, Poetry in-project and external, the interpreter on PATH", () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-tyenv-")));
+    const script = join(base, "ty-args.sh");
+    writeFileSync(script, [renderLib(), "IFS='\n'", renderEngine(["python"], resolveEngine(["forge_ty_args"]), { untypedPackages: "source" }), "forge_ty_args"].join("\n"));
+    const exe = (p: string, body = "") => {
+      mkdirSync(dirname(join(base, p)), { recursive: true });
+      writeFileSync(join(base, p), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    };
+    exe("interp/bin/python3", `printf '%s\\n%s\\n%s\\n' "$0" "${base}/interp" "${base}/interp/bin"`);
+    exe("venv/bin/python");
+    exe("poetry-envs/app-x-py3.12/bin/python");
+    exe("pbin/poetry", `case "$*" in *"env info -p"*) echo "${base}/poetry-envs/app-x-py3.12" ;; *"config virtualenvs.path"*) echo "${base}/poetry-envs" ;; esac`);
+    const repo = (name: string, files: Record<string, string> = {}) => {
+      const dir = join(base, name);
+      mkdirSync(dir, { recursive: true });
+      for (const [f, text] of Object.entries(files)) {
+        mkdirSync(dirname(join(dir, f)), { recursive: true });
+        writeFileSync(join(dir, f), text, { mode: f.includes("/bin/") ? 0o755 : 0o644 });
+      }
+      return dir;
+    };
+    const args = (dir: string, env = "") =>
+      sh(argv[0]!, [...argv.slice(1), "-c", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/pbin:${base}/interp/bin:$PATH"; ${env} . "${script}"`], { cwd: dir }).stdout.trim();
+    // ty finds these itself
+    expect(args(repo("dotvenv", { ".venv/bin/python": "#!/bin/sh\n" }))).toBe("");
+    expect(args(repo("activated"), `VIRTUAL_ENV="${base}/venv";`)).toBe("");
+    expect(args(repo("configured", { "ty.toml": `[environment]\npython = "${base}/venv"\n` }))).toBe("");
+    // Poetry with virtualenvs.in-project: its .venv
+    expect(args(repo("poetry-in-project", { "poetry.lock": "", "pyproject.toml": "", ".venv/bin/python": "#!/bin/sh\n" }))).toBe("");
+    // these it would not
+    expect(args(repo("uv", { "uv.lock": "" }), `UV_PROJECT_ENVIRONMENT="${base}/venv";`)).toBe(`--python\n${base}/venv`);
+    expect(args(repo("poetry", { "poetry.lock": "", "pyproject.toml": "" }))).toBe(`--python\n${base}/poetry-envs/app-x-py3.12`);
+    expect(args(repo("system"))).toBe(`--python\n${base}/interp`);
   });
 });
 

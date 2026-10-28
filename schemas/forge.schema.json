@@ -81,6 +81,18 @@
         }
       }
     },
+    "python": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "untyped-packages": {
+          "enum": [
+            "any",
+            "source"
+          ]
+        }
+      }
+    },
     "accept": {
       "type": "array",
       "items": {

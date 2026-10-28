@@ -142,6 +142,21 @@ describe("forge.yaml", () => {
     T,
   );
 
+  test(
+    "python.untyped-packages chooses how ty sees installed packages without typing: as Any (the default) or from their source (§15.2)",
+    () => {
+      const repo = sampleRepo("fastapi-app");
+      expect(forge(["apply", "--yes"], repo).status).toBe(0);
+      expect(readFileSync(join(repo, ".forge/check.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='any'");
+      put(repo, "forge.yaml", 'forge: "0.5"\npython: {untyped-packages: source}\n');
+      expect(forge(["apply", "--yes"], repo).status).toBe(0);
+      expect(readFileSync(join(repo, ".forge/check.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='source'");
+      expect(readFileSync(join(repo, ".claude/skills/forge-project/scripts/checks.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='source'");
+      expect(forge(["status"], repo).stdout).toContain("Untyped packages: ty infers them from their source (forge.yaml python: {untyped-packages: source})");
+    },
+    T,
+  );
+
   test.each([
     ["an unknown key", 'forge: "0.5"\nextra: 1\n', /invalid project.*extra/],
     ["a disable without a reason", 'forge: "0.5"\ndisable:\n  - id: python/pytest/run\n', /reason/],
@@ -149,6 +164,7 @@ describe("forge.yaml", () => {
     ["a duplicate key", 'forge: "0.5"\nforge: "0.5"\n', /forge\.yaml/],
     ["an alias", 'forge: &v "0.5"\npacks: {add: [*v]}\n', /alias|anchor/],
     ["no version", "packs: {add: [typescript/zod]}\n", /forge/],
+    ["an unknown untyped-packages value", 'forge: "0.5"\npython: {untyped-packages: ignore}\n', /untyped-packages/],
   ])(
     "a forge.yaml with %s stops apply and writes nothing",
     (_kind, text, message) => {

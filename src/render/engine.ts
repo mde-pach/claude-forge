@@ -13,10 +13,28 @@ import {
   TY_VERSION,
   ZIZMOR_VERSION,
 } from "../util.js";
-import type { AstGrepTarget, Rule } from "../types.js";
+import type { AstGrepTarget, Rule, TypeSpec, UntypedPackages, WhereCondition } from "../types.js";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fill, helperTemplate } from "./template.js";
+
+/** The project's settings (forge.yaml) the engine is rendered with. */
+export interface EngineSettings {
+  /** How ty sees installed packages without typing (§15.2). */
+  untypedPackages: UntypedPackages;
+  /** The Python packages the active rules' where conditions ask about (§15.2): the types engine sees them as they are, never as Any. */
+  typesPackages?: string[];
+}
+export const DEFAULT_ENGINE_SETTINGS: EngineSettings = { untypedPackages: "any" };
+
+/** The top-level Python packages (or modules) a rule's where conditions name (§15.1: package, module). */
+export function wherePackages(rule: Rule, target: AstGrepTarget): string[] {
+  if (rule.scope.language !== "python" || !target.where) return [];
+  const out = new Set<string>();
+  const specs = (c: WhereCondition): TypeSpec[] => ("not" in c ? specs(c.not) : "type" in c ? [c.type].flat() : "declared" in c ? [c.declared].flat() : []);
+  for (const c of Object.values(target.where)) for (const s of specs(c)) for (const p of [s.package ?? [], s.module ?? []].flat()) out.add(p.split(".")[0]!);
+  return [...out].sort();
+}
 
 /** The languages of the types engine (§15.2). */
 export type TypesLanguage = "python" | "typescript";
@@ -102,10 +120,10 @@ export function resolveEngine(texts: string[]): string[] {
 }
 
 /** One module with Forge's pins filled in (the types engines' pins depend on the languages used). */
-export function renderEngineModule(name: string, types: TypesLanguage[] = []): string {
+export function renderEngineModule(name: string, types: TypesLanguage[] = [], settings: EngineSettings = DEFAULT_ENGINE_SETTINGS): string {
   const m = engineModules().find((x) => x.name === name);
   if (!m) throw new Error(`templates/engine: no module ${name}`);
-  return fill(m.text, pins(types));
+  return fill(m.text, pins(types, settings));
 }
 
 /**
@@ -113,15 +131,15 @@ export function renderEngineModule(name: string, types: TypesLanguage[] = []): s
  * filled in. It depends on the plan through the modules its checks use and the types
  * engines it starts.
  */
-export function renderEngine(types: TypesLanguage[] = [], names: string[] = engineModules().map((m) => m.name)): string {
+export function renderEngine(types: TypesLanguage[] = [], names: string[] = engineModules().map((m) => m.name), settings: EngineSettings = DEFAULT_ENGINE_SETTINGS): string {
   return engineModules()
     .filter((m) => names.includes(m.name))
-    .map((m) => renderEngineModule(m.name, types))
+    .map((m) => renderEngineModule(m.name, types, settings))
     .join("\n\n");
 }
 
 /** The values of the engine's @@KEY@@ placeholders. */
-function pins(types: TypesLanguage[]): Record<string, string> {
+function pins(types: TypesLanguage[], settings: EngineSettings): Record<string, string> {
   return {
     SQUAWK_VERSION,
     REDOCLY_VERSION,
@@ -141,5 +159,7 @@ function pins(types: TypesLanguage[]): Record<string, string> {
     TY_VERSION,
     ENGINE_PYTHON,
     TYPES_REV: types.length ? typesRevision() : "",
+    TY_UNTYPED: settings.untypedPackages,
+    TYPES_PACKAGES: (settings.typesPackages ?? []).join("\n"),
   };
 }

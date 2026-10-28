@@ -187,7 +187,12 @@ export interface ProjectConfig {
   accept?: { rule: string; change: string; reason: string }[];
   /** File roles (§15.4): patterns added to a role, or replacing its defaults and the tool's config. */
   files?: Record<string, { add?: string[]; set?: string[] }>;
+  /** Python settings: how ty sees installed packages that ship no typing (§15.2; default "any"). */
+  python?: { "untyped-packages"?: UntypedPackages };
 }
+
+/** Installed packages without typing (PEP 561): checked as Any by ty ("any", as mypy does), or inferred from their source ("source"). */
+export type UntypedPackages = "any" | "source";
 
 export interface SettingsEntry {
   file: string;

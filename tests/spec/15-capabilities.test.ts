@@ -175,6 +175,108 @@ const PARAM_PY = [
   "",
 ].join("\n");
 
+/**
+ * Installed packages that ship no typing (PEP 561) are Any to ty, as they are to mypy (§15.2):
+ * ty would otherwise infer them from their source and reject correct code on libraries with
+ * runtime magic (SQLAlchemy 1.x declarative columns). The list is Forge's, computed from the
+ * project's environment and kept until that environment changes.
+ */
+/** @rule python/typecheck */
+describe.if(hasUv)("Python: installed packages without typing are Any to ty", () => {
+  let repo = "";
+  const SITE = ".venv/lib/python3.12/site-packages";
+  const SCRIPT = `. ${SCRIPTS}/lib.sh; IFS='\n'; . ${SCRIPTS}/checks.sh;`;
+  const shell = (snippet: string, env: Record<string, string> = {}) => sh("sh", ["-c", `${SCRIPT} ${snippet}`], { cwd: repo, env: { ...ENV, ...env } });
+  const pkg = (rel: string, text = "") => put(repo, `${SITE}/${rel}`, text);
+  /** A declarative model library without typing: its class attributes are descriptors at run time. */
+  const ALPHA =
+    'import logging\n\n\nclass Column:\n    def __init__(self, kind):\n        self.kind = kind\n\n\nclass Model:\n    flag = Column(bool)\n\n\ndef get_logger() -> logging.Logger:\n    return logging.getLogger("alpha")\n';
+  const facts = () => readdirSync(join(stateDir(repo), "facts")).filter((f) => f.startsWith("ty-untyped-"));
+  const factTimes = () => facts().map((f) => Bun.file(join(stateDir(repo), "facts", f)).lastModified);
+  beforeAll(() => {
+    repo = project("untyped", undefined, (dir) => {
+      expect(sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]).status).toBe(0);
+      const p = (rel: string, text = "") => put(dir, `${SITE}/${rel}`, text);
+      p("alpha/__init__.py", ALPHA);
+      p("alpha-1.0.dist-info/METADATA", "Name: alpha\nVersion: 1.0\n");
+      // typed: py.typed; a stub-only package; .pyi files; one namespace portion typed, the other not
+      p("beta/__init__.py", "class B:\n    x: int = 1\n");
+      p("beta/py.typed");
+      p("stubbed/__init__.py", "def f(x):\n    return x\n");
+      p("stubbed-stubs/__init__.pyi", "def f(x: int) -> int: ...\n");
+      p("ns/typedpart/__init__.py");
+      p("ns/typedpart/__init__.pyi");
+      p("ns/plainpart/__init__.py");
+      p("six.py", "PY3 = True\n");
+      // resolved by ty without the environment: its bundled standard library stubs, and the project's own tests package an installed one shadows
+      p("typing_extensions.py", "Any = object\n");
+      p("tests/__init__.py");
+      put(dir, "tests/__init__.py", "");
+      put(dir, "app/__init__.py", "");
+      // the project's own replace-imports-with-any (beta, which ships typing) is kept
+      put(dir, "pyproject.toml", '[project]\nname = "untyped"\nversion = "0"\nrequires-python = ">=3.12"\n\n[tool.ty.analysis]\nreplace-imports-with-any = ["beta"]\n');
+      put(dir, "app/models.py", 'import beta\nfrom alpha import Model\n\n\ndef enable(m: Model) -> None:\n    m.flag = True\n    b = beta.B()\n    b.x = "s"\n');
+    });
+  }, T);
+  afterAll(() => stopEngines(repo));
+
+  test(
+    "the list is the environment's untyped modules (namespace packages by portion), not those with py.typed, .pyi files or a stubs package, nor modules ty resolves without the environment (its standard library stubs, the project's own code)",
+    () => {
+      const r = shell("forge_ty_untyped");
+      expect(r.status).toBe(0);
+      const names = r.stdout.trim().split("\n");
+      expect(names).toEqual(expect.arrayContaining(["alpha", "ns.plainpart", "six"]));
+      for (const typed of ["beta", "stubbed", "ns", "ns.typedpart", "typing_extensions", "tests"]) expect(names).not.toContain(typed);
+    },
+    T,
+  );
+
+  test("the types engine never gets as Any a package the active rules' where conditions ask about: they need its declarations", () => {
+    const r = shell("FORGE_TYPES_PACKAGES='alpha\nns'; printf 'alpha\\nalpha.sub\\nns.plainpart\\nsix\\n' | forge_types_untyped_filter");
+    expect(r.stdout).toBe("six\n");
+  });
+
+  test(
+    "ty check gets them as replace-imports-with-any, added to the project's own list: the untyped model checks, the project's Any stays",
+    () => {
+      expect(sh("sh", [".forge/check.sh", "--all"], { cwd: repo, env: ENV }).stdout).not.toContain("invalid-assignment");
+      const args = shell("forge_ty_args").stdout;
+      expect(args).toContain('analysis.replace-imports-with-any = ["');
+      expect(args).toContain('"alpha", "alpha.**"');
+      // inferred from its source, the model's attribute is a Column; beta.B().x = "s" stays accepted (the project's own Any)
+      const source = shell("FORGE_TY_UNTYPED=source; forge_ty check --output-format concise app/models.py");
+      expect(source.stdout).toContain("app/models.py:6:");
+      expect(source.stdout).toContain("invalid-assignment");
+      expect(source.stdout).not.toContain("app/models.py:8:");
+      expect(shell("FORGE_TY_UNTYPED=source; forge_ty_args").stdout).not.toContain("replace-imports-with-any");
+    },
+    T,
+  );
+
+  test(
+    "the list is kept until the environment changes: a package upgraded to one that ships typing leaves it, and the types engine restarts with the new list",
+    () => {
+      put(repo, "app/log.py", 'import alpha\n\n\ndef run(text: str) -> None:\n    try:\n        int(text)\n    except ValueError:\n        alpha.get_logger().error("failed")\n');
+      // an Any receiver is not a Logger (§15.1 rule 7): not flagged while alpha is untyped
+      expect(afterEdit(repo, "app/log.py")).not.toContain("python/log-exception");
+      const pid = daemonPid(repo, "python");
+      const before = factTimes();
+      Bun.sleepSync(1100);
+      expect(shell("forge_ty_untyped").stdout).toContain("alpha");
+      expect(factTimes()).toEqual(before);
+      // alpha 1.1 ships py.typed
+      pkg("alpha/py.typed");
+      sh("mv", [join(repo, SITE, "alpha-1.0.dist-info"), join(repo, SITE, "alpha-1.1.dist-info")]);
+      expect(shell("forge_ty_untyped").stdout.split("\n")).not.toContain("alpha");
+      // the engine answers with the new list: get_logger() is a Logger again
+      expect(afterEdit(repo, "app/log.py")).toContain("forge:python/log-exception app/log.py:8:");
+      expect(daemonPid(repo, "python")).not.toBe(pid);
+    },
+    T,
+  );
+});
+
 /** @rule python/sqlalchemy/no-query-api */
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";

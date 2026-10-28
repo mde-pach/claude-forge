@@ -103,15 +103,14 @@ forge_py_tool() {
 #   - an activated virtual environment ($VIRTUAL_ENV);
 #   - uv's project environment ($UV_PROJECT_ENVIRONMENT); in a uv.lock project, nothing
 #     else: uv installs a project nowhere else;
-#   - Poetry's own environment of the project (a poetry.lock project): the one Poetry
-#     names <name>-<hash of the path>-py<X.Y> under its virtualenvs directory
-#     ($POETRY_VIRTUALENVS_PATH, virtualenvs.path in poetry.toml or Poetry's
-#     config.toml, else $POETRY_CACHE_DIR or the platform's cache directory +
-#     /virtualenvs), found without running Poetry;
+#   - in a poetry.lock project, the environment Poetry itself says is the project's
+#     (`poetry env info -p`, forge_poetry_env), when Poetry is on PATH; none when Poetry
+#     installs into the interpreter (virtualenvs.create false);
 #   - the interpreter on PATH (python3, else python): the dependencies installed into
 #     it (pip, Poetry with virtualenvs.create false, a Docker image) and its scripts
 #     directory (not the user scripts one, ~/.local/bin, where pipx puts global tools).
-# Looked up once per directory and shell.
+# Looked up once per directory and shell; what needs a process (Poetry's answer, the
+# interpreter's prefix) is a fact cached in the state (forge_fact).
 forge_py_env() {
   if [ "${_pe_at:-}" = "$(pwd)" ]; then [ -n "$FORGE_PY" ]; return; fi
   _pe_at=$(pwd)
@@ -126,10 +125,20 @@ forge_py_env() {
     done
   done
   [ ! -f uv.lock ] || return 1
+  if [ -f poetry.lock ] && _pe_poetry=$(command -v poetry 2>/dev/null); then
+    _pe_d=$(forge_fact poetry-env "$_pe_poetry $(env | grep '^POETRY_' | sort) $(cksum pyproject.toml poetry.toml 2>/dev/null)" forge_poetry_env "$_pe_poetry")
+    case $_pe_d in
+      /*)
+        for _pe_n in python python3; do
+          if [ -x "$_pe_d/bin/$_pe_n" ]; then FORGE_PY=$_pe_d/bin/$_pe_n; FORGE_PY_PREFIX=$_pe_d; FORGE_PY_BIN=$_pe_d/bin; return 0; fi
+        done ;;
+    esac
+  fi
   for _pe_n in python3 python; do
     _pe_p=$(command -v "$_pe_n" 2>/dev/null) || continue
     case $_pe_p in /*) ;; *) continue ;; esac
-    _pe_out=$("$_pe_p" -c "$FORGE_PY_FIND" 2>/dev/null) || continue
+    # the interpreter's own answer, until it (or the pyenv version selecting it) changes
+    _pe_out=$(forge_fact python-env "$_pe_p $(ls -lL "$_pe_p" 2>/dev/null) ${PYENV_VERSION:-} $(cat .python-version 2>/dev/null)" "$_pe_p" -c "$FORGE_PY_FIND") || continue
     FORGE_PY=$(printf '%s\n' "$_pe_out" | sed -n 1p)
     FORGE_PY_PREFIX=$(printf '%s\n' "$_pe_out" | sed -n 2p)
     FORGE_PY_BIN=$(printf '%s\n' "$_pe_out" | sed 1,2d)
@@ -138,61 +147,90 @@ forge_py_env() {
   return 1
 }
 
-# FORGE_PY_FIND: run by the interpreter on PATH in the project's directory (forge_py_env):
-# prints the project's interpreter, its sys.prefix, then its scripts directories: Poetry's
-# environment of the project (a poetry.lock project), else this interpreter.
-FORGE_PY_FIND='import base64, glob, hashlib, os, re, sys, sysconfig
-def done(py, prefix, dirs):
-    print(py)
-    print(prefix)
-    for d in dirs:
-        print(d)
-    sys.exit(0)
-if os.path.isfile("poetry.lock"):
-    name, section = None, None
-    try:
-        text = open("pyproject.toml").read()
-    except OSError:
-        text = ""
-    for line in text.splitlines():
-        m = re.match(r"\s*\[([^\]]+)\]", line)
-        if m:
-            section = m.group(1).strip()
-            continue
-        m = re.match(r"\s*name\s*=\s*[\"\x27]([^\"\x27]+)", line)
-        if m and section in ("tool.poetry", "project") and name is None:
-            name = m.group(1)
-    if name:
-        cache = os.environ.get("POETRY_CACHE_DIR") or (os.path.expanduser("~/Library/Caches/pypoetry") if sys.platform == "darwin" else os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "pypoetry"))
-        config = os.environ.get("POETRY_CONFIG_DIR") or (os.path.expanduser("~/Library/Application Support/pypoetry") if sys.platform == "darwin" else os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "pypoetry"))
-        where = os.environ.get("POETRY_VIRTUALENVS_PATH")
-        for f in ("poetry.toml", os.path.join(config, "config.toml")):
-            if where:
-                break
-            section = None
-            try:
-                lines = open(f).read().splitlines()
-            except OSError:
-                lines = []
-            for line in lines:
-                m = re.match(r"\s*\[([^\]]+)\]", line)
-                if m:
-                    section = m.group(1).strip()
-                    continue
-                m = re.match(r"\s*(virtualenvs\.)?path\s*=\s*[\"\x27]([^\"\x27]+)", line)
-                if m and (section == "virtualenvs" or (section is None and m.group(1))):
-                    where = m.group(2).replace("{cache-dir}", cache)
-                    break
-        where = os.path.expanduser(where or os.path.join(cache, "virtualenvs"))
-        digest = base64.urlsafe_b64encode(hashlib.sha256(os.path.normcase(os.path.realpath(os.getcwd())).encode()).digest()).decode()[:8]
-        names = {re.sub(r"[ $`!*@\"\\\r\n\t]", "_", name.lower())[:42], re.sub(r"[-_.]+", "-", name).lower()[:42]}
-        for n in sorted(names):
-            for env in sorted(glob.glob(os.path.join(where, glob.escape(n + "-" + digest) + "-py*")), key=os.path.getmtime, reverse=True):
-                for py in ("python", "python3"):
-                    if os.access(os.path.join(env, "bin", py), os.X_OK):
-                        done(os.path.join(env, "bin", py), env, [os.path.join(env, "bin")])
-done(sys.executable, sys.prefix, [sysconfig.get_path("scripts")])
+# forge_poetry_env <poetry>: the environment Poetry uses for the project in this
+# directory, as Poetry says (`poetry env info -p`), or "none" (no environment yet, or
+# Poetry installs into the interpreter: virtualenvs.create false). Poetry's
+# virtualenvs directory (`poetry config virtualenvs.path`) is watched, so an
+# environment created or replaced there is asked for again (forge_fact).
+forge_poetry_env() {
+  _pv_where=$("$1" -n config virtualenvs.path 2>/dev/null) && [ -n "$_pv_where" ] && printf 'watchl %s\n' "$_pv_where"
+  _pv_env=$("$1" -n env info -p 2>/dev/null)
+  case $_pv_env in /*) printf '%s\n' "$_pv_env" ;; *) printf 'none\n' ;; esac
+}
+
+# FORGE_PY_FIND: run by the interpreter on PATH (forge_py_env): prints the interpreter, its
+# sys.prefix, then its scripts directories.
+FORGE_PY_FIND='import sys, sysconfig
+print(sys.executable)
+print(sys.prefix)
+print(sysconfig.get_path("scripts"))
 '
+
+# forge_py_sites <python>: "version <X.Y>" and "site <dir>" per site-packages directory
+# of the interpreter's environment, in import order (what ty reads: the user site and
+# PYTHONPATH left out), cached until the interpreter changes.
+forge_py_sites() {
+  forge_fact python-sites "$1 $(ls -lL "$1" 2>/dev/null)" "$1" -I -c "$FORGE_PY_SITES"
+}
+FORGE_PY_SITES='import os, sys
+print("version %d.%d" % sys.version_info[:2])
+seen = set()
+for p in sys.path:
+    if os.path.basename(p) in ("site-packages", "dist-packages") and os.path.isdir(p) and p not in seen:
+        seen.add(p)
+        print("site " + p)
+'
+
+# ---- facts: what a tool or environment says about itself, asked once and cached in the
+# state (<state>/facts/, outside the repository) until what it depends on changes.
+
+# forge_fact <name> <key> <command> [args]: the value lines <command> prints, from the
+# cache when <key> (with the current directory) and every directory it watches are
+# unchanged. <command> may print "watch <dir>" (its entry names count) and "watchl
+# <dir>" (names, sizes and times count) lines among its value: a change there asks it
+# again. A failing command is not cached. Without a state directory (outside a git
+# repository) the command runs every time.
+forge_fact() {
+  _ff_name=$1
+  _ff_key=$2
+  shift 2
+  _ff_f=''
+  if forge_facts_dir; then
+    _ff_f=$FORGE_FACTS/$_ff_name-$(printf '%s\n%s\n' "$(pwd -P)" "$_ff_key" | forge_sha256 | cut -c 1-16)
+    if [ -f "$_ff_f" ] && [ "$(sed -n 1p "$_ff_f")" = "fp $(sed 1d "$_ff_f" | forge_fact_fp)" ]; then
+      sed '1d; /^watchl\{0,1\} /d' "$_ff_f"
+      return 0
+    fi
+  fi
+  _ff_out=$("$@") || return 1
+  if [ -n "$_ff_f" ]; then
+    { printf 'fp %s\n' "$(printf '%s\n' "$_ff_out" | forge_fact_fp)"; printf '%s\n' "$_ff_out"; } > "$_ff_f.$$" 2>/dev/null && mv -f "$_ff_f.$$" "$_ff_f" 2>/dev/null
+  fi
+  printf '%s\n' "$_ff_out" | sed '/^watchl\{0,1\} /d'
+}
+
+# forge_fact_fp: the fingerprint of the directories that stdin's "watch"/"watchl" lines name.
+forge_fact_fp() {
+  while IFS= read -r _fp_l; do
+    case $_fp_l in
+      "watch "*) printf '%s\n' "$_fp_l"; ls -A "${_fp_l#watch }" 2>/dev/null ;;
+      "watchl "*) printf '%s\n' "$_fp_l"; ls -lA "${_fp_l#watchl }" 2>/dev/null ;;
+    esac
+  done | forge_sha256
+}
+
+# forge_facts_dir: FORGE_FACTS, the facts' directory in this repository's state (created
+# readable by the user only); fails outside a git repository.
+forge_facts_dir() {
+  if [ -z "${FORGE_FACTS:-}" ]; then
+    if [ -n "${FORGE_STATE:-}" ]; then FORGE_FACTS=$FORGE_STATE/facts
+    else
+      _fd_top=$(git rev-parse --show-toplevel 2>/dev/null) && _fd_top=$(cd "$_fd_top" && pwd -P) || return 1
+      FORGE_FACTS=$(forge_state_of "$_fd_top")/facts
+    fi
+  fi
+  [ -d "$FORGE_FACTS" ] || (umask 077 && mkdir -p "$FORGE_FACTS") 2>/dev/null
+}
 
 # astgrep <args>: pinned ast-grep through bunx (bun repos) or uvx.
 # Exit status: 0 no finding, 1 findings, other = could not run.

@@ -3,7 +3,7 @@ import { checkTools, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
 import { defaultRoles, type Roles } from "../roles.js";
 import { shQuote } from "../util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, Language, Rule } from "../types.js";
-import { renderEngine, resolveEngine, type TypesLanguage } from "./engine.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings, renderEngine, resolveEngine, type TypesLanguage } from "./engine.js";
 import { renderRoles } from "./roles.js";
 import { fill, renderLib, template } from "./template.js";
 
@@ -85,7 +85,14 @@ export const ENGINE_SCRIPTS = ["check.sh", "post-edit.sh", "typecheck.sh", "test
  * The generated checks fragment (wrappers, per-check functions, grep rules, file roles), then
  * the engine: the modules it and the scripts running it use ("used"), or every module ("all").
  */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], roles: Roles = defaultRoles(), engine: "used" | "all" = "used"): string {
+export function renderChecks(
+  checks: ActiveCheck[],
+  greps: ActiveGrep[] = [],
+  types: TypesLanguage[] = [],
+  roles: Roles = defaultRoles(),
+  engine: "used" | "all" = "used",
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -129,7 +136,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
   out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
   out.push("# ---- end of generated checks");
   const modules = engine === "all" ? undefined : resolveEngine([out.join("\n"), ...ENGINE_SCRIPTS.map(template)]);
-  out.push("", renderEngine(types, modules));
+  out.push("", renderEngine(types, modules, settings));
   return out.join("\n");
 }
 
@@ -177,10 +184,11 @@ export function renderCheckScript(
   greps: ActiveGrep[] = [],
   types: TypesLanguage[] = [],
   roles: Roles = defaultRoles(),
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
 ): string {
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
-    CHECKS: renderChecks(checks, greps, types, roles),
+    CHECKS: renderChecks(checks, greps, types, roles, "used", settings),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,

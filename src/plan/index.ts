@@ -12,6 +12,7 @@ import { projectFiles, userFiles } from "./files.js";
 import { checkPlace, missingNeeds, ruleDirs, site, toolDirs } from "./placement.js";
 import { selectRules } from "./rules.js";
 import type { Plan, PlanOptions } from "./types.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from "../render/index.js";
 
 export type { AuditedTool } from "../core/tools.js";
 export type { DesiredEntry, RuleStatus } from "../types.js";
@@ -45,7 +46,9 @@ export function plan(opts: PlanOptions): Plan {
   const active = selected.rules.map((rule) => enforceRule(ctx, rule, selected.emptyRoles.get(rule.id)));
 
   const out =
-    level === "user" ? { files: userFiles(ctx, base), fragment: undefined, types: [] } : projectFiles(ctx, base, { active: packs, all: opts.packs }, { all: selected.roles, used: selected.roleUse });
+    level === "user"
+      ? { files: userFiles(ctx, base), fragment: undefined, types: [] }
+      : projectFiles(ctx, base, { active: packs, all: opts.packs }, { all: selected.roles, used: selected.roleUse }, engineSettings(opts));
   return {
     level,
     base,
@@ -66,6 +69,7 @@ export function plan(opts: PlanOptions): Plan {
     toolDirs: toolDirs(where),
     checksFragment: out.fragment,
     types: out.types,
+    engineSettings: engineSettings(opts),
     roles:
       level === "project"
         ? [...selected.roleUse.entries()]
@@ -86,6 +90,11 @@ function enforceRule(ctx: PlanContext, rule: Rule, emptyRoles: string[] | undefi
   if (rule.enforce.filter((t) => t.target === "ast-grep").length > 1) throw new Error(`${rule.file}: at most one ast-grep target per rule`);
   for (const t of targetsByPhase(rule)) kindOf(t).plan(ctx, rule, st, t);
   return st;
+}
+
+/** The forge.yaml settings the generated engine is rendered with. */
+export function engineSettings(opts: Pick<PlanOptions, "config">): EngineSettings {
+  return { untypedPackages: opts.config?.python?.["untyped-packages"] ?? DEFAULT_ENGINE_SETTINGS.untypedPackages };
 }
 
 /** Settings entries once each, in the order they were first wanted. */

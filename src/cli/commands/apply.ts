@@ -53,7 +53,7 @@ export function cmdApply(flags: Flags): number {
   const changed = ch.writes.length + ch.deletes.length + ch.settings.length + ch.blocks.length;
   out(changed ? `forge: applied (${ch.writes.length + ch.blocks.length} written, ${ch.deletes.length} deleted, ${ch.settings.length} settings file(s) updated)` : "forge: up to date");
   if (ctx.level === "project") {
-    const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t]);
+    const audits = auditRules(ctx.base, ctx.plan.active, (t) => ctx.plan.toolDirs[t], ctx.plan.engineSettings);
     for (const a of audits.filter((x) => x.status === "unsatisfied")) out(formatAudit(a));
     for (const l of formatMerged(audits)) out(l);
     const pre = preCommitState(ctx);

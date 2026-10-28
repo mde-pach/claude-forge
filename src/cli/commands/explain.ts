@@ -34,7 +34,7 @@ export function cmdExplain(id: string | undefined, flags: Flags): number {
     for (const e of st.enforced) out(`  ${e}`);
     for (const n of st.notEnforced) out(`  ${n}`);
     if (!st.enforced.length) out("  nowhere");
-    if (ctx.level === "project") for (const a of auditRules(ctx.base, [st], (t) => ctx.plan.toolDirs[t])) out(formatAudit(a));
+    if (ctx.level === "project") for (const a of auditRules(ctx.base, [st], (t) => ctx.plan.toolDirs[t], ctx.plan.engineSettings)) out(formatAudit(a));
   }
   return 0;
 }

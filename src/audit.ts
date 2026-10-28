@@ -3,8 +3,10 @@ import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node
 import { basename, dirname, join, posix } from "node:path";
 import { PYTHON_TOOLS, TY_COMMAND } from "./core/tools.js";
 import { toolExamples } from "./examples.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings, renderEngine, resolveEngine } from "./render/engine.js";
+import { UNTYPED_HELPER } from "./render/helpers.js";
 import { renderLib } from "./render/template.js";
-import { run, runScript } from "./util.js";
+import { packageRoot, run, runScript, shQuote } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
 export interface AuditResult {
@@ -27,22 +29,36 @@ export function projectBinary(repo: string, tool: string): string | undefined {
 }
 
 const shellTools = new Map<string, string | null>();
-/** What a lib.sh function prints in <repo> (one line), or null: the hooks' own lookup, so both agree. */
-function shellTool(repo: string, call: string): string | null {
-  const key = `${repo}\0${call}\0${process.env.PATH ?? ""}\0${process.env.VIRTUAL_ENV ?? ""}`;
+/** What a shell call prints in <repo> after lib.sh and <prelude> (trimmed), or null: the hooks' own lookup, so both agree. */
+function shellTool(repo: string, call: string, prelude = ""): string | null {
+  const key = `${repo}\0${prelude}\0${call}\0${process.env.PATH ?? ""}\0${process.env.VIRTUAL_ENV ?? ""}`;
   if (!shellTools.has(key)) {
-    const r = runScript(`${renderLib()}\n${call}\n`, { cwd: repo });
+    const r = runScript(`${renderLib()}\nIFS='\n'\n${prelude}\n${call}\n`, { cwd: repo });
     const out = r.status === 0 ? r.stdout.trim() : "";
     shellTools.set(key, out || null);
   }
   return shellTools.get(key)!;
 }
 
-/** `--python <the environment's sys.prefix>` for ty when it would not find the project's environment itself (forge_ty_python in the hooks). */
-function tyPython(repo: string): string[] {
-  if (existsSync(join(repo, ".venv")) || process.env.VIRTUAL_ENV) return [];
-  const py = shellTool(repo, 'forge_py_env && printf "%s" "$FORGE_PY_PREFIX"');
-  return py ? ["--python", py] : [];
+/**
+ * The engine's ty functions (forge_ty_args, forge_ty_untyped) rendered with the project's
+ * settings, the untyped-packages helper read from Forge's own templates: the audits and
+ * forge status ask the same as the hooks' `ty check`.
+ */
+export function tyPrelude(settings: EngineSettings): string {
+  return `${renderEngine(["python"], resolveEngine(["forge_ty_args"]), settings)}\nFORGE_TY_UNTYPED_HELPER=${shQuote(join(packageRoot(), "templates", "helpers", UNTYPED_HELPER))}`;
+}
+
+/** The arguments `ty check` gets in <repo> (forge_ty_args): the project's environment when ty would not find it, the untyped packages as Any. */
+export function tyArgs(repo: string, settings: EngineSettings): string[] {
+  const out = shellTool(repo, "forge_ty_args", tyPrelude(settings));
+  return out ? out.split("\n") : [];
+}
+
+/** The installed packages without typing that ty checks as Any in <repo> (forge_ty_untyped, §15.2). */
+export function untypedPackages(repo: string, settings: EngineSettings): string[] {
+  const out = shellTool(repo, "forge_ty_untyped", tyPrelude(settings));
+  return out ? out.split("\n") : [];
 }
 
 const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescript: ".ts", tsx: ".tsx", yaml: ".yaml", any: ".txt" };
@@ -127,21 +143,21 @@ function withFiles<T>(repo: string, files: [string, string][], fn: () => T): T {
 const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
 
 /** biome, eslint and ty on example files (relative paths), with machine-readable output. */
-function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[]): ToolRun {
+function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[], settings: EngineSettings): ToolRun {
   if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
   if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
-  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", ...tyPython(repo), "--output-format", "gitlab", ...rels], { cwd: repo });
+  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", ...tyArgs(repo, settings), "--output-format", "gitlab", ...rels], { cwd: repo });
 }
 
 /** Runs the project's tool on one example with machine-readable output where the tool has it. */
-function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number): ToolRun {
+function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number, settings: EngineSettings): ToolRun {
   const stem = stemOf(n);
   const rel = exampleRel(rule, ex, n);
   const code = ex.code;
   if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
-  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel]));
+  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel], settings));
   const cfg = `tsconfig.${stem}.json`;
   const tsconfig = JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { noEmit: true, incremental: false, composite: false }, include: [], files: [rel] });
   return withFiles(
@@ -234,7 +250,7 @@ function judge(expects: string, all: { id: string; severity: string }[]): Verdic
  * an example the batch cannot judge (output not read, diagnostics left out, a file name
  * that is not one of the examples'): it runs alone.
  */
-function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[]): (Verdict | undefined)[] {
+function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[], settings: EngineSettings): (Verdict | undefined)[] {
   const out: (Verdict | undefined)[] = new Array(examples.length);
   const codes = examples.map((e) => e.code);
   const rels = examples.map((e, n) => exampleRel(rule, e, n));
@@ -254,6 +270,7 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, exa
           t,
           bin,
           b.map((n) => rels[n]!),
+          settings,
         ),
     );
     let d: ReturnType<typeof diagnostics>;
@@ -282,7 +299,7 @@ function hasUvx(): boolean {
 }
 
 /** §11: every match example fails the tool's run on the expected diagnostic; no no_match example reports it. */
-export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo): AuditResult {
+export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS): AuditResult {
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
   // in a workspace package, the tool may be installed at the root (hoisted)
   // ty is Forge's own (through uvx); the others are the project's
@@ -299,11 +316,11 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
-  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch]) : [];
+  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch], settings) : [];
   const judge = (ex: Example, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;
-    const r = runTool(repo, rule, t, bin, ex, n);
+    const r = runTool(repo, rule, t, bin, ex, n, settings);
     try {
       return verdict(t.tool, t.expects, r);
     } catch (e) {
@@ -346,8 +363,13 @@ function firstLine(s: string): string {
 
 /** Audits every tool target; dirOf gives where a tool is configured (a workspace package, relative to repo). */
 /** Each tool target audited in every place that configures the tool (the root "", or workspace packages, each with its own config). */
-export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[], dirsOf: (tool: ToolTarget["tool"]) => string[] = () => [""]): AuditResult[] {
+export function auditRules(
+  repo: string,
+  items: { rule: Rule; audits: ToolTarget[] }[],
+  dirsOf: (tool: ToolTarget["tool"]) => string[] = () => [""],
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+): AuditResult[] {
   return items.flatMap(({ rule, audits }) =>
-    audits.flatMap((t) => (dirsOf(t.tool).length ? dirsOf(t.tool) : [""]).map((d) => ({ ...auditTarget(join(repo, d), rule, t, repo), ...(d ? { dir: d } : {}) }))),
+    audits.flatMap((t) => (dirsOf(t.tool).length ? dirsOf(t.tool) : [""]).map((d) => ({ ...auditTarget(join(repo, d), rule, t, repo, settings), ...(d ? { dir: d } : {}) }))),
   );
 }

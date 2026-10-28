@@ -35,10 +35,13 @@ ROOT = os.path.realpath(sys.argv[1])
 STATE = sys.argv[2]
 IDLE = int(os.environ.get("FORGE_TYPES_IDLE", "1800"))
 TY = os.path.join(os.path.dirname(sys.executable), "ty")
-# the project's interpreter when ty would not find its environment itself (no .venv, no
-# VIRTUAL_ENV: forge_ty_python); given to ty server as the active environment
+# the project's interpreter when ty would not find its environment itself (forge_ty_env);
+# given to ty server as the active environment
 PROJECT_PYTHON = os.environ.get("FORGE_TY_PYTHON", "")
 PROJECT_PREFIX = os.environ.get("FORGE_TY_PREFIX", "")
+# the installed packages without typing that ty checks as Any (forge_ty_untyped), as `ty
+# check` does: given as inline configuration, which ty adds to the project's own list
+UNTYPED = [n for n in os.environ.get("FORGE_TY_ANY", "").splitlines() if n]
 LOG = open(os.path.join(STATE, "log"), "a", buffering=1)
 
 
@@ -164,10 +167,14 @@ class Server:
         return wait
 
     def settings(self):
-        """ty's workspace settings: the project's interpreter as the active environment, if given."""
-        if not (PROJECT_PYTHON and PROJECT_PREFIX):
-            return None
-        return {"pythonExtension": {"activeEnvironment": {"executable": {"uri": uri(PROJECT_PYTHON), "sysPrefix": PROJECT_PREFIX}}}}
+        """ty's workspace settings: the project's interpreter as the active environment, and
+        the untyped packages as Any, when there are."""
+        out = {}
+        if PROJECT_PYTHON and PROJECT_PREFIX:
+            out["pythonExtension"] = {"activeEnvironment": {"executable": {"uri": uri(PROJECT_PYTHON), "sysPrefix": PROJECT_PREFIX}}}
+        if UNTYPED:
+            out["configuration"] = {"analysis": {"replace-imports-with-any": [p for n in UNTYPED for p in (n, n + ".**")]}}
+        return out or None
 
     def notify(self, method, params):
         self.send({"jsonrpc": "2.0", "method": method, "params": params})

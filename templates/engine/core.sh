@@ -605,8 +605,13 @@ forge_typecheck_compare() {
 }
 
 # forge_typecheck_in_base: check function $_tc_fn in the base tree (forge_typecheck_compare).
+# FORGE_BASE_OF (the working tree) and FORGE_BASE_AT (the base tree) let a tool that looks
+# up the project's environment there (forge_ty_args) use the working tree's: the base
+# tree is a temporary copy of the same project.
 forge_typecheck_in_base() {
+  FORGE_BASE_OF=$(pwd -P)
   cd "$FORGE_TMP/base-tree" || return 1
+  FORGE_BASE_AT=$(pwd -P)
   "$_tc_fn"
 }
 

@@ -1,5 +1,5 @@
 import type { AuditedTool } from "../core/tools.js";
-import type { TypesLanguage } from "../render/index.js";
+import type { EngineSettings, TypesLanguage } from "../render/index.js";
 import type { Roles, RolePattern } from "../roles.js";
 import type { DesiredEntry, Level, Pack, ProjectConfig, Rule, RuleStatus, SwitchedOff } from "../types.js";
 import type { ProjectFacts } from "../packs.js";
@@ -45,6 +45,8 @@ export interface Plan {
   checksFragment?: string;
   /** The types engines the active rules use (§15.2). */
   types: TypesLanguage[];
+  /** The forge.yaml settings the engine is rendered with (forge status and the audits use the same). */
+  engineSettings: EngineSettings;
   /** The file roles the active rules name, with their effective patterns (§15.4). */
   roles: RoleStatus[];
 }

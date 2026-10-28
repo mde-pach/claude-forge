@@ -62,6 +62,8 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
     reason: string          # required
 files:                      # file roles (§15.4)
   <role>: {add: [glob], set: [glob]}   # add to the role, or replace its defaults and the tool's config
+python:
+  untyped-packages: any | source       # installed packages without typing: Any to ty (default), or inferred from their source (§15.2)
 ```
 
 `<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.3).
