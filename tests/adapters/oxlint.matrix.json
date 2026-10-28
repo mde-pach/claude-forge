@@ -7,15 +7,6 @@
       "1.11.2": [
         "oxlint-tsgolint@0.0.1"
       ],
-      "1.14.0": [
-        "oxlint-tsgolint@0.1.5"
-      ],
-      "1.15.0": [
-        "oxlint-tsgolint@0.2.0"
-      ],
-      "1.50.0": [
-        "oxlint-tsgolint@0.14.1"
-      ],
       "1.90.0": [
         "oxlint-tsgolint@7.0.2005"
       ]
@@ -23,9 +14,6 @@
   },
   "versions": [
     "1.11.2",
-    "1.14.0",
-    "1.15.0",
-    "1.50.0",
     "1.90.0"
   ],
   "files": {
@@ -56,5 +44,6 @@
       ]
     }
   ],
-  "usageProbe": "lint --definitely-not-an-option"
+  "usageProbe": "lint --definitely-not-an-option",
+  "withWhy": "--type-aware runs oxlint-tsgolint, a separate package whose version follows oxlint's"
 }

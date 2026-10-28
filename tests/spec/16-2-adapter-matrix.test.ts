@@ -62,6 +62,8 @@ interface Matrix {
   untested?: Record<string, string>;
   /** Commands the matrix needs on this machine. */
   needs?: string[];
+  /** Why the peers installed with the tool's package are needed by its operations. */
+  withWhy?: string;
 }
 
 const DIR = join(ROOT, "tests", "adapters");
@@ -71,6 +73,34 @@ const MATRICES: Matrix[] = existsSync(DIR)
       .sort()
       .map((f) => JSON.parse(readFileSync(join(DIR, f), "utf8")) as Matrix)
   : [];
+
+/**
+ * The real-binary matrix is opt-in: FORGE_ADAPTER_MATRIX=1 installs the releases it lacks
+ * (CI's adapter-matrix job), and removes them when done unless FORGE_ADAPTER_MATRIX_KEEP=1.
+ * Otherwise only releases already installed run; the others are listed as skipped, saying so.
+ * A tool's releases share one content-addressed store (bun's cache, hardlinked into each
+ * release's node_modules; uv's cache, hardlinked into each venv), removed with them once the
+ * tool's releases ran; the matrix's directory stays within FORGE_ADAPTER_MATRIX_BUDGET_MB
+ * (1024 by default), measured after each install (du, each hardlinked file once).
+ */
+const MATRIX_DIR = join(TOOLS_CACHE, "adapters");
+const OPT_IN = process.env.FORGE_ADAPTER_MATRIX === "1";
+const KEEP = process.env.FORGE_ADAPTER_MATRIX_KEEP === "1";
+const BUDGET_MB = Number(process.env.FORGE_ADAPTER_MATRIX_BUDGET_MB ?? 1024);
+/** The content-addressed store a tool's releases share: bun's and uv's caches, hardlinked into each install. */
+const storeEnv = (tool: string) => ({
+  BUN_INSTALL_CACHE_DIR: join(MATRIX_DIR, `.store-${tool}`, "bun"),
+  UV_CACHE_DIR: join(MATRIX_DIR, `.store-${tool}`, "uv"),
+  UV_LINK_MODE: "hardlink",
+});
+/** The matrix directory's size in MB, each hardlinked file counted once (du). */
+function matrixMB(): number {
+  if (!existsSync(MATRIX_DIR)) return 0;
+  return Math.round(Number(sh("du", ["-sk", MATRIX_DIR]).stdout.split(/\s/)[0] ?? 0) / 1024);
+}
+const sizes: { after: string; mb: number }[] = [];
+/** Whether <version> of <m> can run here without installing anything. */
+const isCached = (m: Matrix, version: string) => "pinned" in m.install || existsSync(join(MATRIX_DIR, `${m.tool}-${version}`, ".complete"));
 
 const PLATFORM = `${process.platform === "darwin" ? "darwin" : "linux"}-${process.arch === "arm64" ? "arm64" : "amd64"}`;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape that starts a colour code
@@ -89,7 +119,7 @@ function peers(i: { with?: string[]; withFor?: Record<string, string[]> }, versi
  * spec runner's shards, which may install the same release at once; a venv cannot move).
  */
 function install(m: Matrix, version: string): { dir: string; link?: [string, string]; path?: string; inProject?: boolean } {
-  const dir = join(TOOLS_CACHE, "adapters", `${m.tool}-${version}`);
+  const dir = join(MATRIX_DIR, `${m.tool}-${version}`);
   // Forge's pin: the engine fetches it, nothing to install here
   if ("pinned" in m.install) return { dir };
   if (existsSync(join(dir, ".complete"))) return installed(m, version, dir);
@@ -123,7 +153,7 @@ function installed(m: Matrix, version: string, dir: string): { dir: string; link
     if (!existsSync(join(dir, "node_modules", ".bin"))) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "package.json"), '{"name":"m","private":true}\n');
-      const r = sh("bun", ["add", "--exact", `${i.npm}@${version}`, ...peers(i, version)], { cwd: dir });
+      const r = sh("bun", ["add", "--exact", "--backend=hardlink", `${i.npm}@${version}`, ...peers(i, version)], { cwd: dir, env: storeEnv(m.tool) });
       if (r.status !== 0) throw new Error(`bun add ${i.npm}@${version}: ${r.stderr}`);
       // the project's tool runs on Node, as in a project without bun.lock
       rmSync(join(dir, "bun.lock"), { force: true });
@@ -135,8 +165,8 @@ function installed(m: Matrix, version: string, dir: string): { dir: string; link
   if ("pypi" in i) {
     if (!existsSync(join(dir, ".venv", "bin", "python"))) {
       mkdirSync(dir, { recursive: true });
-      let r = sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]);
-      if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), `${i.pypi}==${version}`, ...peers(i, version)]);
+      let r = sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")], { env: storeEnv(m.tool) });
+      if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), `${i.pypi}==${version}`, ...peers(i, version)], { env: storeEnv(m.tool) });
       if (r.status !== 0) {
         rmSync(dir, { recursive: true, force: true });
         throw new Error(`uv pip install ${i.pypi}==${version}: ${r.stderr}`);
@@ -260,73 +290,94 @@ test("every adapter has a matrix, and each matrix runs every operation of its ad
     const called = new Set(m.calls.map((c) => c.call.split(/\s+/)[0]!));
     for (const op of opsOf(a)) if (!called.has(op) && !m.untested?.[op]) missing.push(`${m.tool} ${op}: no call`);
     if (!a.pinned && m.versions.at(-1) !== a.verified) missing.push(`${m.tool}: matrix ends at ${m.versions.at(-1)}, verified is ${a.verified}`);
-    // the first release of each range that can do something, and a release of each range that can do nothing (it says so)
-    for (const r of a.ranges) {
-      const can = Object.values(r.ops).some((o) => o !== null);
-      if (can && !a.pinned && !m.versions.includes(r.from) && !m.untestedVersions?.[r.from]) missing.push(`${m.tool}: ${r.from}, where a range starts, is not in the matrix`);
-      if (!can && !m.versions.some((v) => rangeOf(a, v) === r)) missing.push(`${m.tool}: no release of ${r.from}-${r.to} in the matrix`);
-    }
+    if (a.pinned) continue;
+    // the releases run: the oldest covered (when its range can do something), each boundary and the release before it, the newest; no more
+    const first = a.ranges[0]!;
+    const can = (r: (typeof a.ranges)[number]) => Object.values(r.ops).some((o) => o !== null);
+    if (can(first) && !m.versions.includes(first.from) && !m.untestedVersions?.[first.from]) missing.push(`${m.tool}: the oldest covered release ${first.from} is not in the matrix (nor said why)`);
+    a.ranges.slice(1).forEach((r, i) => {
+      if (!m.versions.includes(r.from) && !m.untestedVersions?.[r.from]) missing.push(`${m.tool}: the boundary ${r.from} is not in the matrix`);
+      if (!m.versions.some((v) => rangeOf(a, v) === a.ranges[i])) missing.push(`${m.tool}: no release before the boundary ${r.from}`);
+    });
+    const most = 2 + 2 * (a.ranges.length - 1);
+    if (m.versions.length > most) missing.push(`${m.tool}: ${m.versions.length} releases, at most ${most} (oldest, newest, each boundary and the one before)`);
+    // the minimum installed: a peer of the tool's package only when an operation needs it, and why
+    const i = m.install;
+    if (("npm" in i || "pypi" in i) && (i.with?.length || Object.keys(i.withFor ?? {}).length) && !m.withWhy) missing.push(`${m.tool}: peers installed without withWhy`);
   }
   expect(missing).toEqual([]);
 });
 
 for (const m of MATRICES) {
   const why = runnable(m);
-  describe.if(!why).each(m.versions.map((v) => [v]))(`${m.tool} %s`, (version) => {
-    const a = adapterOf(m.tool)!;
-    let p: ReturnType<typeof project>;
-    beforeAll(() => {
-      p = project(m, version);
-    }, T);
-    afterAll(() => p?.cleanup());
+  describe(m.tool, () => {
+    // after the tool's releases: their installs go (the shared store stays), and the matrix's size is noted
+    afterAll(() => {
+      if (!OPT_IN) return;
+      if (!KEEP) for (const d of [...m.versions.map((v) => `${m.tool}-${v}`), `.store-${m.tool}`]) rmSync(join(MATRIX_DIR, d), { recursive: true, force: true });
+      sizes.push({ after: m.tool, mb: matrixMB() });
+    });
+    for (const version of m.versions) {
+      const runs = !why && (OPT_IN || isCached(m, version));
+      const title = runs ? version : `${version} (${why ? `needs ${why}` : "not installed: FORGE_ADAPTER_MATRIX=1 installs and runs it"})`;
+      describe.if(runs)(title, () => {
+        const a = adapterOf(m.tool)!;
+        let p: ReturnType<typeof project>;
+        beforeAll(() => {
+          p = project(m, version);
+          if (OPT_IN) sizes.push({ after: `${m.tool} ${version}`, mb: matrixMB() });
+        }, T);
+        afterAll(() => p?.cleanup());
 
-    test(
-      "its version is read, and every operation of its range runs without a usage error and exits and prints as its callers read it (a release no range covers says so)",
-      () => {
-        if (!a.pinned) expect(p.run(`forge_tool_version ${m.tool}`).out.trim()).toBe(version);
-        const range = rangeOf(a, version);
-        if (!range) {
-          const op = m.calls[0]!.call.split(/\s+/)[0]!;
-          expect(p.run(`forge_do ${m.tool} ${m.calls[0]!.call}`).notes).toContain(`not enforced: no Forge adapter covers ${m.tool} ${version}`);
-          expect(op).toBeDefined();
-          return;
-        }
-        const failures: string[] = [];
-        for (const c of m.calls) {
-          if (c.from && compareVersions(version, c.from) < 0) continue;
-          if (c.to && compareVersions(version, c.to) >= 0) continue;
-          const op = c.call.split(/\s+/)[0]!;
-          if (c.write) p.put(c.write);
-          if (c.before) {
-            const b = p.run(`command ${m.tool} ${c.before} >/dev/null 2>&1`, undefined, c.cwd);
-            if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}`);
-          }
-          const r = p.run(`forge_do ${m.tool} ${c.call}`, c.input, c.cwd);
-          if (range.ops[op] === null) {
-            if (!r.notes.includes(`not enforced: ${m.tool} ${version} cannot ${op}`)) failures.push(`${op}: expected "cannot", got ${JSON.stringify(r.notes)}`);
-            continue;
-          }
-          if (r.notes) failures.push(`${c.call}: note ${JSON.stringify(r.notes.trim())}`);
-          if (!c.exit.includes(r.rc)) failures.push(`${c.call}: exit ${r.rc}, expected ${c.exit.join(" or ")}: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
-          if (c.out && !new RegExp(c.out, "m").test(r.out)) failures.push(`${c.call}: output does not match /${c.out}/: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
-        }
-        expect(failures).toEqual([]);
-      },
-      T,
-    );
+        test(
+          "its version is read, and every operation of its range runs without a usage error and exits and prints as its callers read it (a release no range covers says so)",
+          () => {
+            if (!a.pinned) expect(p.run(`forge_tool_version ${m.tool}`).out.trim()).toBe(version);
+            const range = rangeOf(a, version);
+            if (!range) {
+              const op = m.calls[0]!.call.split(/\s+/)[0]!;
+              expect(p.run(`forge_do ${m.tool} ${m.calls[0]!.call}`).notes).toContain(`not enforced: no Forge adapter covers ${m.tool} ${version}`);
+              expect(op).toBeDefined();
+              return;
+            }
+            const failures: string[] = [];
+            for (const c of m.calls) {
+              if (c.from && compareVersions(version, c.from) < 0) continue;
+              if (c.to && compareVersions(version, c.to) >= 0) continue;
+              const op = c.call.split(/\s+/)[0]!;
+              if (c.write) p.put(c.write);
+              if (c.before) {
+                const b = p.run(`command ${m.tool} ${c.before} >/dev/null 2>&1`, undefined, c.cwd);
+                if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}`);
+              }
+              const r = p.run(`forge_do ${m.tool} ${c.call}`, c.input, c.cwd);
+              if (range.ops[op] === null) {
+                if (!r.notes.includes(`not enforced: ${m.tool} ${version} cannot ${op}`)) failures.push(`${op}: expected "cannot", got ${JSON.stringify(r.notes)}`);
+                continue;
+              }
+              if (r.notes) failures.push(`${c.call}: note ${JSON.stringify(r.notes.trim())}`);
+              if (!c.exit.includes(r.rc)) failures.push(`${c.call}: exit ${r.rc}, expected ${c.exit.join(" or ")}: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
+              if (c.out && !new RegExp(c.out, "m").test(r.out)) failures.push(`${c.call}: output does not match /${c.out}/: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
+            }
+            expect(failures).toEqual([]);
+          },
+          T,
+        );
 
-    // a probe on a release that can run its operation, and that rejects unknown options (usageFrom)
-    const probeOp = m.usageProbe?.split(/\s+/)[0];
-    const probeRange = rangeOf(a, version);
-    test.if(!!m.usageProbe && !!probeRange && typeof probeRange.ops[probeOp!] === "string" && (!m.usageFrom || compareVersions(version, m.usageFrom) >= 0))(
-      "a command line the release rejects is skipped with its error, never a finding",
-      () => {
-        const r = p.run(`forge_do ${m.tool} ${m.usageProbe}`);
-        expect(r.notes).toContain(`forge:adapter/${m.tool} skipped: ${m.tool} ${a.pinned ?? version} rejected the command`);
-        expect(r.rc).toBe(0);
-      },
-      T,
-    );
+        // a probe on a release that can run its operation, and that rejects unknown options (usageFrom)
+        const probeOp = m.usageProbe?.split(/\s+/)[0];
+        const probeRange = rangeOf(a, version);
+        test.if(!!m.usageProbe && !!probeRange && typeof probeRange.ops[probeOp!] === "string" && (!m.usageFrom || compareVersions(version, m.usageFrom) >= 0))(
+          "a command line the release rejects is skipped with its error, never a finding",
+          () => {
+            const r = p.run(`forge_do ${m.tool} ${m.usageProbe}`);
+            expect(r.notes).toContain(`forge:adapter/${m.tool} skipped: ${m.tool} ${a.pinned ?? version} rejected the command`);
+            expect(r.rc).toBe(0);
+          },
+          T,
+        );
+      });
+    }
   });
 }
 
@@ -351,4 +402,14 @@ describe("newest releases", () => {
       expect({ tool: m.tool, latest, verified: a.verified, covered: compareVersions(minor(latest), minor(a.verified)) <= 0 }).toMatchObject({ covered: true });
     });
   }
+});
+
+test.if(OPT_IN)(`the matrix stays within its disk budget (${BUDGET_MB} MB, FORGE_ADAPTER_MATRIX_BUDGET_MB)`, () => {
+  const peak = sizes.reduce((x, y) => (y.mb > x.mb ? y : x), { after: "start", mb: 0 });
+  console.log(`adapter matrix: peak ${peak.mb} MB (after ${peak.after}), now ${matrixMB()} MB`);
+  expect(peak.mb).toBeLessThanOrEqual(BUDGET_MB);
+});
+
+afterAll(() => {
+  if (OPT_IN && !KEEP) rmSync(MATRIX_DIR, { recursive: true, force: true });
 });

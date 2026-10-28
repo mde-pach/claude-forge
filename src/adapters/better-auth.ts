@@ -14,6 +14,15 @@
  *   SCHEMA_MISMATCH, 2 could not run) is the same in 1.7.6 to 1.7.14; no release note from
  *   v1.7.7 to v1.7.14 mentions the schema check. So the first range is the releases the
  *   binary has and that cannot (before 1.7.6), the second from 1.7.6.
+ * - Where it works, checked on the real CLI (2026-10-28, Node 24.3, each release of `auth` with the
+ *   `better-auth` of the same release): on a SQLite database through Kysely (the live-database
+ *   path) and on a Drizzle schema (the schema-file path), 1.7.6, 1.7.7, 1.7.8, 1.7.9, 1.7.10,
+ *   1.7.11, 1.7.12, 1.7.13 and 1.7.14 all exit 1 on a fresh database (missing tables), 0 after
+ *   `auth migrate` (or on the schema `auth generate` writes), 1 once a plugin adds fields the
+ *   database or schema lacks (`username()`: drift), and reject an unknown option with
+ *   commander's `error: unknown option`; 1.7.5 rejects `--config` (no `check` command). So the
+ *   range starts at 1.7.6, the rule's only gate. The Prisma path was not run (it needs a
+ *   generated client).
  * - Usage errors are commander's: exit 1 (as a schema mismatch) and a line starting with
  *   `error: ` (unknown option, unknown command, too many arguments, missing option argument).
  *   A mismatch prints `Database schema mismatch` and Better Auth's logger line (`ERROR`,

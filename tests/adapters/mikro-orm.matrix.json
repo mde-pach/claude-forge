@@ -12,8 +12,6 @@
   "versions": [
     "5.7.10",
     "5.7.11",
-    "5.9.8",
-    "6.6.17",
     "7.2.5"
   ],
   "files": {
@@ -46,15 +44,10 @@
     "5.7.11": {
       "mikro-orm.config.js": "const { EntitySchema } = require(\"@mikro-orm/core\");\nconst User = new EntitySchema({ name: \"User\", properties: { id: { type: \"number\", primary: true }, email: { type: \"string\" } } });\nmodule.exports = { type: \"sqlite\", dbName: \"dev.db\", entities: [User], migrations: { path: \"./migrations\" } };\n"
     },
-    "5.9.8": {
-      "mikro-orm.config.js": "const { EntitySchema } = require(\"@mikro-orm/core\");\nconst User = new EntitySchema({ name: \"User\", properties: { id: { type: \"number\", primary: true }, email: { type: \"string\" } } });\nmodule.exports = { type: \"sqlite\", dbName: \"dev.db\", entities: [User], migrations: { path: \"./migrations\" } };\n"
-    },
-    "6.6.17": {
-      "mikro-orm.config.js": "const { EntitySchema } = require(\"@mikro-orm/core\");\nconst { defineConfig } = require(\"@mikro-orm/sqlite\");\nconst { Migrator } = require(\"@mikro-orm/migrations\");\nconst User = new EntitySchema({ name: \"User\", properties: { id: { type: \"number\", primary: true }, email: { type: \"string\" } } });\nmodule.exports = defineConfig({ dbName: \"dev.db\", entities: [User], extensions: [Migrator], migrations: { path: \"./migrations\" } });\n"
-    },
     "7.2.5": {
       "mikro-orm.config.js": "import { EntitySchema } from \"@mikro-orm/core\";\nimport { defineConfig } from \"@mikro-orm/sqlite\";\nimport { Migrator } from \"@mikro-orm/migrations\";\nconst User = new EntitySchema({ name: \"User\", properties: { id: { type: \"number\", primary: true }, email: { type: \"string\" } } });\nexport default defineConfig({ dbName: \"dev.db\", entities: [User], extensions: [Migrator], migrations: { path: \"./migrations\" } });\n",
       "package.json": "{\"type\":\"module\"}"
     }
-  }
+  },
+  "withWhy": "the CLI loads the config's driver (@mikro-orm/sqlite) and migrator (@mikro-orm/migrations) of the same release; @mikro-orm/core is their base"
 }

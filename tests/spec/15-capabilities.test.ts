@@ -105,7 +105,7 @@ function project(key: string, sample: string | undefined, setup: (dir: string) =
  */
 function typeQuestion(repo: string, lang: "python" | "typescript", file: string, limit = Infinity): { asked: number; kept: number; ms: number } {
   const tmp = mkdtempSync(join(tmpdir(), "forge-tq-"));
-  const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; astgrep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
+  const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; forge_pinned_ast_grep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
   const typed = scan.stdout
     .split("\n")
     .filter((l) => l.includes('"forge_where"'))

@@ -26,7 +26,7 @@ import type { ToolAdapter } from "./types.js";
 export const PNPM: ToolAdapter = {
   tool: "pnpm",
   runner: "path",
-  verified: "12.15.0",
+  verified: "12.16.1",
   // 8.x–11.x; pnpm 12's clap line is in the pattern but its exit status is 2 (unconfirmed how to express)
   usage: { exit: [1, 2], pattern: "(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)" },
   // pnpm as a command, not the word in a message or a JS string ("pnpm" field checks)

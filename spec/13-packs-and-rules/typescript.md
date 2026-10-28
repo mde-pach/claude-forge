@@ -798,7 +798,7 @@ context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
 |---|---|
 | `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
 | `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
-| `typescript/better-auth/schema-check` | `check` migration, `when` auth `>=1.7.13`: `better-auth check schema --config <file>` (the `auth` package's CLI) on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
+| `typescript/better-auth/schema-check` | `check` migration: `forge_do better-auth schema-check <file>` (`better-auth check schema --config <file>`, from `auth` 1.7.6, the release that added it; an older release is reported not enforced by its adapter, the one gate) (the `auth` package's CLI) on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
 
 context.md: CSRF checks and Secure cookies on; real trusted origins.
 

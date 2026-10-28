@@ -2,9 +2,7 @@
   "tool": "alembic",
   "install": {
     "pypi": "alembic",
-    "with": [
-      "sqlalchemy"
-    ],
+    "with": [],
     "withFor": {
       "1.5.0": [
         "sqlalchemy==1.4.54"
@@ -15,7 +13,6 @@
     "1.5.0",
     "1.8.1",
     "1.9.0",
-    "1.13.0",
     "1.20.1"
   ],
   "files": {
@@ -47,5 +44,6 @@
       "out": "^FAILED: (New upgrade operations detected|Target database is not up to date)"
     }
   ],
-  "usageProbe": "heads --definitely-not-an-option"
+  "usageProbe": "heads --definitely-not-an-option",
+  "withWhy": "only for 1.5.0: SQLAlchemy 1.4 (alembic depends on SQLAlchemy; 1.5 does not import under SQLAlchemy 2, which resolves by default)"
 }

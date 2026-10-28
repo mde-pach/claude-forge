@@ -704,7 +704,7 @@ astro	-	7.4.2	-	-	project	-	--version	-
 better-auth	-	1.7.14	1	^error: (unknown option|unknown command|too many arguments|option .* argument missing|missing required argument)	project	-	--version	-
 biome	-	2.6.3	1	^(flags/invalid|Error: )	project	-	--version	-
 bun	-	1.4.4	1	^error: bun [a-z]+ has no .* flag	path	-	--version	-
-docker	-	5.6.1	1	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
+docker	-	5.6.1	1,16	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
 eslint	-	10.13.0	2	^Invalid (option .--|value for option )	project	-	--version	-
 graphql-codegen	-	7.4.6	-	-	project	-	--version	@graphql-codegen/cli
 helm	-	4.3.1	1	^Error: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument)	path	-	version --short	-
@@ -715,7 +715,7 @@ ngc	-	22.2.3	1	error.* TS(5023|5025): .*Unknown compiler option .--|error.* TS60
 npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	--version	-
 oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
 playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
-pnpm	-	12.15.0	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
+pnpm	-	12.16.1	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
 prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
 prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
 pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
@@ -1101,18 +1101,35 @@ forge_do_note() {
 # forge_tool_codes <tool>: for each code the active rules expect of <tool> (FORGE_TOOL_CODES),
 # "<code><TAB><the installed version's code for that rule, or -><TAB><its first stable
 # release>". The installed version's rules are asked from the binary (the adapter's codes
-# operation: ruff `rule --all --output-format json`) once per binary (forge_fact); a rule is
-# the installed one with one of the rule's codes and one of its names, not in preview, in a
-# release from which it reports the rules' examples (the history's first release, §16.4).
+# operation: ruff `rule --all --output-format json`); a rule is the installed one with one of
+# the rule's codes and one of its names, not in preview, in a release from which it reports
+# the rules' examples (the history's first release, §16.4). The answer is a fact (forge_fact)
+# for the binary and the codes asked: a few lines, read back without a process.
 forge_tool_codes() {
-  printf '%s\n' "$FORGE_TOOL_CODES" | grep -q "^$1	" || return 0
+  _tk_want=''
+  _tk_ifs=$IFS
+  IFS='
+'
+  for _tk_l in $FORGE_TOOL_CODES; do
+    case $_tk_l in "$1	"*) _tk_want="$_tk_want${_tk_want:+ }${_tk_l#*	}" ;; esac
+  done
+  IFS=$_tk_ifs
+  [ -n "$_tk_want" ] || return 0
   _tk_v=$(forge_tool_version "$1") || return 0
   forge_adapter "$1" "$_tk_v" rules || return 0
   forge_tool_lookup "$1"
   case $FORGE_TOOL_BIN in /*) _tk_bin=$FORGE_TOOL_BIN ;; *) _tk_bin=$PWD/$FORGE_TOOL_BIN ;; esac
-  forge_fact tool-rules "$1 $_tk_v $PWD $FORGE_TOOL_CMD" forge_tool_rules_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" || return 0
-  _tk_have=$FORGE_FACT
-  { printf '%s\n' "$_tk_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$_tk_v" '
+  # the codes asked are part of the key: one answer per set of active rules
+  forge_fact tool-codes "$1 $_tk_v $PWD $FORGE_TOOL_CMD $_tk_want" forge_tool_codes_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" "$_tk_v" || return 0
+  [ -z "$FORGE_FACT" ] || printf '%s\n' "$FORGE_FACT"
+}
+
+# forge_tool_codes_ask <tool> <rules args> <executable> <version>: forge_tool_codes' answer,
+# from the binary's rule table.
+forge_tool_codes_ask() {
+  forge_tool_watch "$3"
+  _tc_have=$(forge_tool_rules "$1" "$2") || return 1
+  { printf '%s\n' "$_tc_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$4" '
     function cmp(a, b,   x, y, i) {
       split(a, x, "."); split(b, y, ".")
       for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
@@ -1127,12 +1144,6 @@ forge_tool_codes() {
       if (cmp(v, $4) < 0) got = "-"
       print $3 "\t" got "\t" $4
     }'
-}
-
-# forge_tool_rules_ask <tool> <args> <executable>: forge_tool_rules, watching the executable.
-forge_tool_rules_ask() {
-  forge_tool_watch "$3"
-  forge_tool_rules "$1" "$2"
 }
 
 # forge_tool_rules <tool> <args>: "<code><TAB><name><TAB><preview>" per rule the binary lists
@@ -4976,7 +4987,7 @@ astro	-	7.4.2	-	-	project	-	--version	-
 better-auth	-	1.7.14	1	^error: (unknown option|unknown command|too many arguments|option .* argument missing|missing required argument)	project	-	--version	-
 biome	-	2.6.3	1	^(flags/invalid|Error: )	project	-	--version	-
 bun	-	1.4.4	1	^error: bun [a-z]+ has no .* flag	path	-	--version	-
-docker	-	5.6.1	1	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
+docker	-	5.6.1	1,16	^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument	path	-	compose version	-
 eslint	-	10.13.0	2	^Invalid (option .--|value for option )	project	-	--version	-
 graphql-codegen	-	7.4.6	-	-	project	-	--version	@graphql-codegen/cli
 helm	-	4.3.1	1	^Error: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument)	path	-	version --short	-
@@ -4987,7 +4998,7 @@ ngc	-	22.2.3	1	error.* TS(5023|5025): .*Unknown compiler option .--|error.* TS60
 npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	--version	-
 oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
 playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
-pnpm	-	12.15.0	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
+pnpm	-	12.16.1	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
 prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
 prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
 pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
@@ -5373,18 +5384,35 @@ forge_do_note() {
 # forge_tool_codes <tool>: for each code the active rules expect of <tool> (FORGE_TOOL_CODES),
 # "<code><TAB><the installed version's code for that rule, or -><TAB><its first stable
 # release>". The installed version's rules are asked from the binary (the adapter's codes
-# operation: ruff `rule --all --output-format json`) once per binary (forge_fact); a rule is
-# the installed one with one of the rule's codes and one of its names, not in preview, in a
-# release from which it reports the rules' examples (the history's first release, §16.4).
+# operation: ruff `rule --all --output-format json`); a rule is the installed one with one of
+# the rule's codes and one of its names, not in preview, in a release from which it reports
+# the rules' examples (the history's first release, §16.4). The answer is a fact (forge_fact)
+# for the binary and the codes asked: a few lines, read back without a process.
 forge_tool_codes() {
-  printf '%s\n' "$FORGE_TOOL_CODES" | grep -q "^$1	" || return 0
+  _tk_want=''
+  _tk_ifs=$IFS
+  IFS='
+'
+  for _tk_l in $FORGE_TOOL_CODES; do
+    case $_tk_l in "$1	"*) _tk_want="$_tk_want${_tk_want:+ }${_tk_l#*	}" ;; esac
+  done
+  IFS=$_tk_ifs
+  [ -n "$_tk_want" ] || return 0
   _tk_v=$(forge_tool_version "$1") || return 0
   forge_adapter "$1" "$_tk_v" rules || return 0
   forge_tool_lookup "$1"
   case $FORGE_TOOL_BIN in /*) _tk_bin=$FORGE_TOOL_BIN ;; *) _tk_bin=$PWD/$FORGE_TOOL_BIN ;; esac
-  forge_fact tool-rules "$1 $_tk_v $PWD $FORGE_TOOL_CMD" forge_tool_rules_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" || return 0
-  _tk_have=$FORGE_FACT
-  { printf '%s\n' "$_tk_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$_tk_v" '
+  # the codes asked are part of the key: one answer per set of active rules
+  forge_fact tool-codes "$1 $_tk_v $PWD $FORGE_TOOL_CMD $_tk_want" forge_tool_codes_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" "$_tk_v" || return 0
+  [ -z "$FORGE_FACT" ] || printf '%s\n' "$FORGE_FACT"
+}
+
+# forge_tool_codes_ask <tool> <rules args> <executable> <version>: forge_tool_codes' answer,
+# from the binary's rule table.
+forge_tool_codes_ask() {
+  forge_tool_watch "$3"
+  _tc_have=$(forge_tool_rules "$1" "$2") || return 1
+  { printf '%s\n' "$_tc_have" | sed 's/^/have	/'; printf '%s\n' "$FORGE_TOOL_CODES" | sed 's/^/want	/'; } | awk -F '\t' -v t="$1" -v v="$4" '
     function cmp(a, b,   x, y, i) {
       split(a, x, "."); split(b, y, ".")
       for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
@@ -5399,12 +5427,6 @@ forge_tool_codes() {
       if (cmp(v, $4) < 0) got = "-"
       print $3 "\t" got "\t" $4
     }'
-}
-
-# forge_tool_rules_ask <tool> <args> <executable>: forge_tool_rules, watching the executable.
-forge_tool_rules_ask() {
-  forge_tool_watch "$3"
-  forge_tool_rules "$1" "$2"
 }
 
 # forge_tool_rules <tool> <args>: "<code><TAB><name><TAB><preview>" per rule the binary lists
@@ -5846,7 +5868,7 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "d59364c6c972e5097b8693b4732af4f8509745cb96a345155aa157068c8cbbe0",
+    ".claude/skills/forge-project/scripts/checks.sh": "ddc373098ce42a5304585caf13ffdee31aeff407dc104ea3706b60feb36907c0",
     ".claude/skills/forge-project/scripts/guard.rules": "816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97",
@@ -5940,7 +5962,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "c9c5a8d7d1f9ef4d8fef88892d8531403c9e713d265d6dec766457672403faba",
+    ".forge/check.sh": "0113546a015c1b2b6010e870764954479f00ec89841b8c7dcea42c4c0ed42e51",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
@@ -6105,7 +6127,7 @@ f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-d59364c6c972e5097b8693b4732af4f8509745cb96a345155aa157068c8cbbe0  .claude/skills/forge-project/scripts/checks.sh
+ddc373098ce42a5304585caf13ffdee31aeff407dc104ea3706b60feb36907c0  .claude/skills/forge-project/scripts/checks.sh
 816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 b75a917026663c3b558c44ce50333b490d9fbc9fd965edf6ef0c660c709d3c97  .claude/skills/forge-project/scripts/lib.sh
@@ -6199,7 +6221,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-c9c5a8d7d1f9ef4d8fef88892d8531403c9e713d265d6dec766457672403faba  .forge/check.sh
+0113546a015c1b2b6010e870764954479f00ec89841b8c7dcea42c4c0ed42e51  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
