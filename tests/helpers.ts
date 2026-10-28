@@ -88,6 +88,13 @@ if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
   process.env.FORGE_TEST_UVX_SHIM = shim;
   process.env.PATH = `${shim}:${process.env.PATH}`;
 }
+/**
+ * The edit-time typecheck (§10.5) asks the Python types engine when it can; the tests give
+ * ty a stand-in, which the engine (ty server) cannot use: they check ty check's path unless
+ * they ask for the engine's (FORGE_EDIT_TYPECHECK_ENGINE=auto).
+ */
+process.env.FORGE_EDIT_TYPECHECK_ENGINE ??= "never";
+
 /** The environment of a run in which ty finds nothing (the sample's dependencies are not installed, and the test is not about ty). */
 export const TY_FINDS_NOTHING: Record<string, string> = { FORGE_TEST_TY_STAND_IN: join(process.env.FORGE_TEST_UVX_SHIM ?? "", "ty-finds-nothing") };
 

@@ -161,6 +161,40 @@ forge_ty_untyped_compute() {
   uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$@" 2>/dev/null
 }
 
+# forge_typecheck_engine <file>: the edit-time typecheck of <file> (a Python file of a
+# check run by ty) answered by the running types engine (§10.5): the diagnostics of the
+# file now and of its base copy (the turn's start, else HEAD: base_file) from ty server,
+# compared by their text without the location (code moved within the file keeps its
+# errors); an error counts only as many times as the file now has more of it than its
+# base. Prints "forge:<id>" and the errors that count (warnings too with c_warn); 0 none,
+# 1 some, 2 the engine could not answer (why in $FORGE_TMP/te.why: ty check runs instead).
+forge_typecheck_engine() {
+  if [ "${FORGE_EDIT_TYPECHECK_ENGINE:-auto}" = never ]; then printf 'FORGE_EDIT_TYPECHECK_ENGINE=never' > "$FORGE_TMP/te.why"; return 2; fi
+  _te_has=0
+  for _te_l in $FORGE_TYPES_LANGS; do [ "$_te_l" = python ] && _te_has=1; done
+  if [ "$_te_has" = 0 ]; then printf 'no Python types engine in this setup' > "$FORGE_TMP/te.why"; return 2; fi
+  forge_types_up python > "$FORGE_TMP/te.why" 2>&1 || return 2
+  _te_q=$FORGE_TMP/te.q
+  rm -rf "$_te_q" && mkdir -p "$_te_q" || return 2
+  _te_b=$FORGE_TMP/te.base/$1
+  base_file "$1" "$_te_b" || _te_b=''
+  printf '%s\t%s\n' "$1" "$_te_b" > "$_te_q/req"
+  if ! forge_types_ask python "$_te_q" diag > "$_te_q/answer" || grep -q '^error	' "$_te_q/answer"; then
+    { printf 'the types engine did not answer'; grep '^error	' "$_te_q/answer" | head -n 1 | sed 's/^error	/: /'; } > "$FORGE_TMP/te.why"
+    return 2
+  fi
+  awk -F '\t' -v warn="${c_warn:-0}" '
+    function key(d) { sub(/^[^ ]*:[0-9]+:[0-9]+: /, "", d); return d }
+    $1 != "now" && $1 != "base" { next }
+    $2 !~ /^[^ ]*:[0-9]+:[0-9]+: error/ && !(warn == 1 && $2 ~ /^[^ ]*:[0-9]+:[0-9]+: warning/) { next }
+    $1 == "base" { base[key($2)]++; next }
+    { k = key($2); if (base[k] > 0) base[k]--; else print $2 }' "$_te_q/answer" > "$FORGE_TMP/te.new"
+  [ -s "$FORGE_TMP/te.new" ] || return 0
+  printf 'forge:%s\n' "$c_id"
+  first_lines 19 < "$FORGE_TMP/te.new"
+  return 1
+}
+
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
 # and fails when it cannot start. Registers the hook's session, if any.
@@ -170,8 +204,11 @@ forge_types_up() {
   case $1 in
     # the untyped packages it checks as Any are part of what it runs with: a changed list restarts it
     python)
-      _tu_any=$(forge_ty_untyped_print | forge_types_untyped_filter)
-      _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV any:$(printf '%s' "$_tu_any" | forge_sha256 | cut -c 1-12)" ;;
+      # the questions' list leaves out the packages the rules ask about; the diagnostics' is the whole list (ty check's)
+      forge_ty_untyped
+      _tu_all=$FORGE_TY_UNTYPED_LIST
+      _tu_any=$(printf '%s\n' "$_tu_all" | forge_types_untyped_filter)
+      _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV any:$(printf '%s\n--\n%s' "$_tu_any" "$_tu_all" | forge_sha256 | cut -c 1-12)" ;;
     # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
     typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
@@ -203,7 +240,7 @@ forge_types_up() {
       _tu_py=''
       _tu_prefix=''
       if forge_ty_env && [ -n "$FORGE_TY_PASS" ]; then _tu_py=$FORGE_TY_PY; _tu_prefix=$FORGE_TY_PASS; fi
-      set -- env FORGE_TY_PYTHON="$_tu_py" FORGE_TY_PREFIX="$_tu_prefix" FORGE_TY_ANY="$_tu_any" uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+      set -- env FORGE_TY_PYTHON="$_tu_py" FORGE_TY_PREFIX="$_tu_prefix" FORGE_TY_ANY="$_tu_any" FORGE_TY_ANY_ALL="$_tu_all" uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a

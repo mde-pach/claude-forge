@@ -882,20 +882,36 @@ forge_lint_fixes() {
 forge_typecheck() {
   _ft_i=1
   _ft_rc=0
+  _ft_cs=''
   while [ "$_ft_i" -le "$FORGE_NCHECKS" ]; do
     forge_check_meta_"$_ft_i"
     if [ "$c_stage" = typecheck ] && forge_scope_"$_ft_i" "$1" && ! forge_missing_tool >/dev/null; then
+      # ty: the types engine answers for the edited file (§10.5); ty check when it cannot
+      _ft_note=''
+      if [ "$c_tools" = ty ]; then
+        forge_typecheck_engine "$1"
+        case $? in
+          0) _ft_i=$((_ft_i + 1)); continue ;;
+          1) _ft_rc=1; _ft_i=$((_ft_i + 1)); continue ;;
+        esac
+        _ft_note="checked by ty check: $(cat "$FORGE_TMP/te.why" 2>/dev/null)"
+      fi
+      # the changed set (the turn's, as the Stop check computes it), once
+      if [ -z "$_ft_cs" ]; then forge_change_set; _ft_cs=1; fi
       if ! forge_exec_check "forge_check_run_$_ft_i" "$c_timeout"; then
-        # only errors in changed files wake Claude
+        # only errors in changed files wake Claude, and only those the change added (§10.1 step 4)
         case $(forge_diagnostics "$FORGE_TMP/out" file) in
           other|warnings) ;;
           changed)
-            printf 'forge:%s\n' "$c_id"
-            forge_diagnostics "$FORGE_TMP/out" file print | first_lines 19
-            _ft_rc=1 ;;
+            forge_typecheck_compare "forge_check_run_$_ft_i" > "$FORGE_TMP/tc.report" || {
+              cat "$FORGE_TMP/tc.report"
+              [ -z "$_ft_note" ] || printf '(%s)\n' "$_ft_note"
+              _ft_rc=1
+            } ;;
           *)
             printf 'forge:%s\n' "$c_id"
             first_lines 19 < "$FORGE_TMP/out"
+            [ -z "$_ft_note" ] || printf '(%s)\n' "$_ft_note"
             _ft_rc=1 ;;
         esac
       fi

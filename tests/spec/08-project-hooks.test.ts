@@ -78,7 +78,12 @@ function withStub(name: string, body: string, fn: () => void) {
  * of when typecheck.sh runs (its lock, headless sessions), where the tool's own output
  * is not under test: they do not depend on how the real one judges the sample.
  */
-const FAILING_TYPECHECK = 'sleep 1; echo "app/main.py:1:1 - error: stand-in type error"; exit 1';
+/**
+ * A stand-in ty that fails on the tests' edits of app/main.py (a BROKEN line, X = 1), not
+ * on the file as committed: the edit-time typecheck reports only what the edit added,
+ * comparing with the same run in the base tree (§10.1 step 4).
+ */
+const FAILING_TYPECHECK = 'sleep 1; if grep -qE "^(BROKEN|X = 1)" app/main.py 2>/dev/null; then echo "app/main.py:1:1 - error: stand-in type error"; exit 1; fi; exit 0';
 /** Runs <fn> with the repository's .venv/bin/ruff replaced by a wrapper around the real one (<body> runs first), restored afterwards. */
 function withRuffWrapper(body: string, fn: () => void) {
   const real = join(repo, ".venv/bin/ruff");
@@ -766,7 +771,7 @@ describe("PostToolUse", () => {
         const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
         expect(r.stdout).toContain("second=0");
         expect(r.stdout).toContain("first=2");
-        expect(r.stderr).toContain("forge:python/typecheck\napp/main.py:1:1 - error: stand-in type error");
+        expect(r.stderr).toContain("forge:python/typecheck failed\napp/main.py:1:1 - error: stand-in type error");
         expect(existsSync(join(stateDir(repo), "typecheck.lock"))).toBe(false);
       }),
     T,
@@ -1761,7 +1766,7 @@ describe("errors in unchanged files", () => {
       put(r, "src/ok.ts", 'export const ok: number = "no";\n');
       const loud = hook("typecheck.sh", edit, {}, r);
       expect(loud.status).toBe(2);
-      expect(loud.stderr).toContain("forge:typescript/typecheck\nsrc/ok.ts(1,14): error TS2322");
+      expect(loud.stderr).toContain("forge:typescript/typecheck failed\nsrc/ok.ts(1,14): error TS2322");
       expect(loud.stderr).not.toContain("legacy");
     },
     T,

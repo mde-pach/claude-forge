@@ -1,4 +1,5 @@
 /** The files a plan writes (§7, §8): the plugin's hooks and scripts, check.sh, the ast-grep rules, helpers and context files. */
+import { checkTools } from "../core/tools.js";
 import { pluginRoot } from "../core/paths.js";
 import {
   DEFAULT_ENGINE_SETTINGS,
@@ -82,8 +83,14 @@ export function projectFiles(
       .filter((a) => a.target.mode === mode)
       .map((a) => a.rule.id)
       .join("|");
-  // the types engines the active ast-grep rules use (§15.2)
-  const types = [...new Set(astgrep.map((a) => typesLanguage(a.rule, a.target)).filter((l): l is TypesLanguage => !!l))].sort();
+  // the types engines the active ast-grep rules use (§15.2), and Python's when a check runs ty:
+  // its engine answers the edit-time typecheck (§10.5)
+  const types = [
+    ...new Set([
+      ...astgrep.map((a) => typesLanguage(a.rule, a.target)).filter((l): l is TypesLanguage => !!l),
+      ...(checks.some((c) => checkTools(c.target).includes("ty")) ? (["python"] as const) : []),
+    ]),
+  ].sort();
   // forge_role knows the roles the active rules and the engine's helpers name
   const rendered: Roles = new Map([...roles.all].filter(([name]) => roles.used.has(name) || ENGINE_ROLES.includes(name)));
   // the packages the active where conditions ask about: the types engine sees them as they are (§15.2)

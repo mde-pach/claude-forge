@@ -94,12 +94,13 @@ printf '%s\n' "$$" > "$lock/pid"
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-tc.XXXXXX") || { rm -rf "$lock"; exit 0; }
 trap 'rm -rf "$FORGE_TMP" "$lock"' EXIT; trap 'exit 143' HUP INT TERM
 
-# the changed set, as the Stop hook computes it: what changed during this turn
-# (the turn snapshot), or every uncommitted change before the first prompt
+# the base: the turn snapshot, or every uncommitted change before the first prompt;
+# forge_typecheck computes the changed set itself when ty check (not the types engine) runs
 snap=$(turn_dir)
-if [ -f "$snap/head" ]; then mode=--turn; FORGE_ARG=$snap; else mode=--changed; fi
+FORGE_SNAP=''
+FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
+if [ -f "$snap/head" ]; then mode=--turn; FORGE_ARG=$snap; FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); else mode=--changed; fi
 FORGE_PLAIN_ADDED=1
-forge_change_set
 if forge_typecheck "$file" > "$FORGE_TMP/report" 2>&1; then exit 0; fi
 first_lines 20 < "$FORGE_TMP/report" >&2
 exit 2

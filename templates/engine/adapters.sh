@@ -281,7 +281,8 @@ forge_tool_codes() {
   IFS='
 '
   for _tk_l in $FORGE_TOOL_CODES; do
-    case $_tk_l in "$1	"*) _tk_want="$_tk_want${_tk_want:+ }${_tk_l#*	}" ;; esac
+    # the code, the line's second field
+    case $_tk_l in "$1	"*) _tk_r=${_tk_l#*	}; _tk_want="$_tk_want${_tk_want:+ }${_tk_r%%	*}" ;; esac
   done
   IFS=$_tk_ifs
   [ -n "$_tk_want" ] || return 0

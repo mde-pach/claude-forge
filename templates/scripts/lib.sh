@@ -321,18 +321,20 @@ forge_fact() {
 forge_fact_flat() {
   FORGE_FLAT=''
   _fl_s=$1
-  case $_fl_s in *'\'*|*'
-'*|*'	'*) ;; *) FORGE_FLAT=$_fl_s; return 0 ;; esac
-  while [ -n "$_fl_s" ]; do
-    _fl_c=${_fl_s%"${_fl_s#?}"}
-    _fl_s=${_fl_s#?}
-    case $_fl_c in
-      '\') FORGE_FLAT="$FORGE_FLAT\\\\" ;;
+  # a run of plain characters at a time, then the special one escaped
+  while :; do
+    _fl_p=${_fl_s%%[\\'
+'	]*}
+    FORGE_FLAT=$FORGE_FLAT$_fl_p
+    [ "$_fl_p" != "$_fl_s" ] || return 0
+    _fl_s=${_fl_s#"$_fl_p"}
+    case $_fl_s in
+      '\'*) FORGE_FLAT="$FORGE_FLAT\\\\" ;;
       '
-') FORGE_FLAT="$FORGE_FLAT\\n" ;;
-      '	') FORGE_FLAT="$FORGE_FLAT\\t" ;;
-      *) FORGE_FLAT="$FORGE_FLAT$_fl_c" ;;
+'*) FORGE_FLAT="$FORGE_FLAT\\n" ;;
+      *) FORGE_FLAT="$FORGE_FLAT\\t" ;;
     esac
+    _fl_s=${_fl_s#?}
   done
 }
 

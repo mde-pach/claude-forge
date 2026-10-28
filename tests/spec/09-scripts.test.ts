@@ -121,17 +121,29 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     const runs = () => (sh("cat", [join(base, "runs")]).stdout.match(/run/g) ?? []).length;
     for (let i = 0; i < 3; i++) expect(libRun([...argv], "{}", call, repo)).toBe("value one|");
     expect(runs()).toBe(1);
-    const facts = sh("sh", ["-c", `ls "${base}"/st/*/facts`]).stdout.split("\n").filter(Boolean);
+    const facts = sh("sh", ["-c", `ls "${base}"/st/*/facts`])
+      .stdout.split("\n")
+      .filter(Boolean);
     expect(facts.filter((f) => f.startsWith("demo.") && f !== "demo.index")).toHaveLength(1);
-    expect(sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`]).stdout.trim().split("\n")).toHaveLength(1);
+    expect(
+      sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`])
+        .stdout.trim()
+        .split("\n"),
+    ).toHaveLength(1);
     // what it depends on changes: asked again, and its record replaced, not added to
     writeFileSync(join(base, "dep"), "y\n");
     Bun.sleepSync(1100);
     expect(libRun([...argv], "{}", call, repo)).toBe("value one|");
     expect(runs()).toBe(2);
-    const after = sh("sh", ["-c", `ls "${base}"/st/*/facts`]).stdout.split("\n").filter((f) => f.startsWith("demo.") && f !== "demo.index");
+    const after = sh("sh", ["-c", `ls "${base}"/st/*/facts`])
+      .stdout.split("\n")
+      .filter((f) => f.startsWith("demo.") && f !== "demo.index");
     expect(after).toHaveLength(1);
-    expect(sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`]).stdout.trim().split("\n")).toHaveLength(1);
+    expect(
+      sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`])
+        .stdout.trim()
+        .split("\n"),
+    ).toHaveLength(1);
   });
 
   /**

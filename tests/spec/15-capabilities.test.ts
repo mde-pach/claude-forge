@@ -290,6 +290,64 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
   );
 });
 
+/**
+ * The edit-time typecheck (§10.5) of a Python file is answered by the running types engine:
+ * ty server's diagnostics of the file now and of its base copy, so a cold `ty check` does not
+ * run on every edit, and only the errors the edit added wake Claude; errors the file already
+ * had stay silent, here as at Stop. ty check, compared with the base tree, answers when the
+ * engine cannot, and says so.
+ * @rule python/typecheck
+ */
+describe.if(hasUv)("Python: the edit-time typecheck, answered by the types engine", () => {
+  let repo = "";
+  const LEGACY = 'X: int = "old"\n\n\ndef f() -> int:\n    return 1\n';
+  beforeAll(() => {
+    repo = project("edit-typecheck", "fastapi-app", (dir) => {
+      writeFileSync(join(dir, "app/legacy.py"), LEGACY);
+    });
+  }, T);
+  afterAll(() => stopEngines(repo));
+  const engine = { FORGE_EDIT_TYPECHECK_ENGINE: "auto" };
+  const typecheck = (env: Record<string, string>) => hook(repo, "typecheck.sh", edit("app/legacy.py"), env);
+
+  test(
+    "an edit adding no error is silent though the file has one, and an error the edit adds is the only one reported; the engine answered, ty check did not run",
+    () => {
+      put(repo, "app/legacy.py", `${LEGACY}# x\n`);
+      const quiet = typecheck(engine);
+      expect({ status: quiet.status, stderr: quiet.stderr }).toEqual({ status: 0, stderr: "" });
+      put(repo, "app/legacy.py", `${LEGACY}Y: str = 1\n`);
+      const loud = typecheck(engine);
+      expect(loud.status).toBe(2);
+      expect(loud.stderr).toContain("forge:python/typecheck\napp/legacy.py:6:");
+      expect(loud.stderr).toContain("error[invalid-assignment]");
+      expect(loud.stderr).not.toContain("app/legacy.py:1:");
+      expect(loud.stderr).not.toContain("checked by ty check");
+      expect(readFileSync(join(stateDir(repo), "types", "python", "log"), "utf8")).toContain("diagnosed 1 file(s)");
+      put(repo, "app/legacy.py", LEGACY);
+    },
+    T,
+  );
+
+  test(
+    "without the engine, ty check answers, compared with the base tree: the same errors stay silent, and the report says the engine did not answer",
+    () => {
+      const cold = { FORGE_EDIT_TYPECHECK_ENGINE: "never" };
+      put(repo, "app/legacy.py", `${LEGACY}# x\n`);
+      const quiet = typecheck(cold);
+      expect({ status: quiet.status, stderr: quiet.stderr }).toEqual({ status: 0, stderr: "" });
+      put(repo, "app/legacy.py", `${LEGACY}Y: str = 1\n`);
+      const loud = typecheck(cold);
+      expect(loud.status).toBe(2);
+      expect(loud.stderr).toContain("forge:python/typecheck failed\napp/legacy.py:6:");
+      expect(loud.stderr).not.toContain("app/legacy.py:1:");
+      expect(loud.stderr).toContain("(checked by ty check: FORGE_EDIT_TYPECHECK_ENGINE=never)");
+      put(repo, "app/legacy.py", LEGACY);
+    },
+    T,
+  );
+});
+
 /** @rule python/sqlalchemy/no-query-api */
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   let repo = "";
