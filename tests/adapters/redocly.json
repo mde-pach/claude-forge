@@ -1,0 +1,29 @@
+{
+  "tool": "redocly",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "2.62.1"
+  ],
+  "files": {
+    "clean.yaml": "openapi: 3.1.0\ninfo:\n  title: t\n  version: \"1\"\n  description: d\n  license: {name: MIT, url: https://opensource.org/licenses/MIT}\n  contact: {name: x, url: https://example.com, email: a@example.com}\nservers:\n  - url: https://api.example.com\ntags:\n  - {name: u, description: users}\nsecurity: []\npaths:\n  /users:\n    get:\n      summary: list\n      description: list users\n      operationId: listUsers\n      tags: [u]\n      responses:\n        \"200\": {description: ok}\n        \"400\": {description: bad}\n",
+    "bad.yaml": "openapi: 3.0.3\ninfo: {title: t, version: \"1\"}\npaths:\n  /users:\n    get:\n      responses:\n        \"200\":\n          $ref: '#/components/responses/Nope'\n"
+  },
+  "calls": [
+    {
+      "call": "lint clean.yaml",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "lint bad.yaml",
+      "exit": [
+        1
+      ],
+      "out": "^::error title=no-empty-servers,file=bad\\.yaml,line=1,col=1"
+    }
+  ],
+  "usageProbe": "lint clean.yaml --definitely-not-an-option"
+}

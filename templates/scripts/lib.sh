@@ -335,22 +335,29 @@ forge_facts_dir() {
   [ -d "$FORGE_FACTS" ] || (umask 077 && mkdir -p "$FORGE_FACTS") 2>/dev/null
 }
 
-# astgrep <args>: pinned ast-grep through bunx (bun repos) or uvx.
-# Exit status: 0 no finding, 1 findings, other = could not run.
-astgrep() {
+# forge_pinned_ast_grep <args>: Forge's pinned ast-grep (forge_pinned: `forge_do ast-grep
+# scan …`) through bunx (bun repos) or uvx, retried offline when uvx could not fetch it.
+# Exit status: 0 no finding, 1 findings, 2 a usage error (its line on stderr), other = could
+# not run.
+forge_pinned_ast_grep() {
   if { [ -f bun.lock ] || [ -f bun.lockb ]; } && command -v bunx >/dev/null 2>&1; then
     astgrep_bunx "$@"
   elif command -v uvx >/dev/null 2>&1; then
-    uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    _ag_err=${FORGE_TMP:-${TMPDIR:-/tmp}}/ag.err.$$
+    uvx -q --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2> "$_ag_err"
     _rc=$?
-    if [ "$_rc" -gt 1 ]; then
-      uvx -q --offline --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+    if [ "$_rc" -gt 1 ] && ! grep -q '^For more information, try' "$_ag_err"; then
+      uvx -q --offline --from "ast-grep-cli==$FORGE_AST_GREP_VERSION" ast-grep "$@"
       _rc=$?
+    else
+      cat "$_ag_err" >&2
     fi
+    rm -f "$_ag_err"
     return "$_rc"
   elif command -v bunx >/dev/null 2>&1; then
     astgrep_bunx "$@"
   else
+    printf 'forge: bunx or uvx is needed to run ast-grep\n' >&2
     return 127
   fi
 }
@@ -364,7 +371,7 @@ astgrep_bunx() {
       || bunx -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep --version >/dev/null 2>&1
     _ag_bunx=1
   fi
-  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@" 2>/dev/null
+  bunx --no-install -p "@ast-grep/cli@$FORGE_AST_GREP_VERSION" ast-grep "$@"
 }
 
 # first_lines <n>: keep the first n lines of stdin.

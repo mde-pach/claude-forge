@@ -1,0 +1,30 @@
+{
+  "tool": "actionlint",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "1.7.12"
+  ],
+  "files": {
+    "cfg.yaml": "",
+    ".github/workflows/ok.yml": "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n",
+    ".github/workflows/bad.yml": "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ${{ github.nope }}\n"
+  },
+  "calls": [
+    {
+      "call": "lint cfg.yaml .github/workflows/ok.yml",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "lint cfg.yaml .github/workflows/bad.yml",
+      "exit": [
+        1
+      ],
+      "out": "^\\.github/workflows/bad\\.yml:6:23: expression: property \"nope\" is not defined"
+    }
+  ],
+  "usageProbe": "lint cfg.yaml -definitely-not-an-option .github/workflows/ok.yml"
+}

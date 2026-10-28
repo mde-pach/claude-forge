@@ -1,0 +1,47 @@
+{
+  "tool": "osv-scanner",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "2.7.0"
+  ],
+  "files": {
+    "osv.toml": "",
+    "clean/package-lock.json": "{\"name\":\"x\",\"version\":\"1.0.0\",\"lockfileVersion\":3,\"requires\":true,\"packages\":{\"\":{\"name\":\"x\",\"version\":\"1.0.0\",\"dependencies\":{\"is-number\":\"7.0.0\"}},\"node_modules/is-number\":{\"version\":\"7.0.0\",\"resolved\":\"https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz\",\"integrity\":\"sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==\"}}}",
+    "vuln/package-lock.json": "{\"name\":\"x\",\"version\":\"1.0.0\",\"lockfileVersion\":3,\"requires\":true,\"packages\":{\"\":{\"name\":\"x\",\"version\":\"1.0.0\",\"dependencies\":{\"lodash\":\"4.17.15\"}},\"node_modules/lodash\":{\"version\":\"4.17.15\",\"resolved\":\"https://registry.npmjs.org/lodash/-/lodash-4.17.15.tgz\",\"integrity\":\"sha512-8xOcRHvCjnocdS5cpwJQoeMCXnBUmLrBSIQ6Hq09bU2UT/uJgOvwy2UCXfBWW1oX3UsmTvN3D+eDxgTNjaRNWlA==\"}}}",
+    "empty/package-lock.json": "{\"name\":\"x\",\"lockfileVersion\":3,\"packages\":{}}",
+    "bad/package-lock.json": "not json {\n"
+  },
+  "calls": [
+    {
+      "call": "scan osv.toml -L clean/package-lock.json",
+      "exit": [
+        0
+      ],
+      "out": "No issues found"
+    },
+    {
+      "call": "scan osv.toml -L vuln/package-lock.json",
+      "exit": [
+        1
+      ],
+      "out": "\\| https://osv\\.dev/GHSA-[a-z0-9-]+.*\\| npm \\| lodash \\| 4\\.17\\.15 \\|"
+    },
+    {
+      "call": "scan osv.toml -L empty/package-lock.json",
+      "exit": [
+        128
+      ],
+      "out": "No package sources found"
+    },
+    {
+      "call": "scan osv.toml -L bad/package-lock.json",
+      "exit": [
+        127
+      ],
+      "out": "extraction failed on specified lockfile"
+    }
+  ],
+  "usageProbe": "scan osv.toml -L clean/package-lock.json --definitely-not-an-option"
+}

@@ -191,6 +191,25 @@ forge_release() {
   return 1
 }
 
+# forge_pinned <tool> <args>: runs Forge's pinned <tool> (§16.2 runner): its launcher
+# forge_pinned_<tool> ("-" as "_", defined by the module that uses the tool: uvx, bunx), else
+# its pinned release binary (forge_release_bin). 127, with why on stderr, when it cannot be had.
+forge_pinned() {
+  _pn_t=$1
+  _pn_n=$1
+  shift
+  _pn_fn=''
+  while :; do
+    case $_pn_n in
+      *-*) _pn_fn="$_pn_fn${_pn_n%%-*}_"; _pn_n=${_pn_n#*-} ;;
+      *) _pn_fn="$_pn_fn$_pn_n"; break ;;
+    esac
+  done
+  if command -v "forge_pinned_$_pn_fn" >/dev/null 2>&1; then "forge_pinned_$_pn_fn" "$@"; return; fi
+  _pn_bin=$(forge_release_bin "$_pn_t") || { printf 'forge: %s\n' "$_pn_bin" >&2; return 127; }
+  "$_pn_bin" "$@"
+}
+
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
   forge_tool_lookup "$1"

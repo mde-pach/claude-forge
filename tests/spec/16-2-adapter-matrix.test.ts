@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { adapterOf, rangeOf } from "../../src/adapters";
 import type { ToolAdapter } from "../../src/adapters";
 import { compareVersions } from "../../src/core/versions";
-import { renderEngine, renderLib, resolveEngine } from "../../src/render";
+import { renderEngine, renderLib } from "../../src/render";
 import { git, hasBun, hasUv, ROOT, sh, TOOLS_CACHE } from "../helpers";
 
 const T = 600_000;
@@ -61,7 +61,7 @@ function install(m: Matrix, version: string): { link?: [string, string]; path?: 
     if (!existsSync(join(dir, "node_modules", ".bin"))) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "package.json"), '{"name":"m","private":true}\n');
-      const r = sh("bun", ["add", "--exact", `${i.npm}@${version}`, ...(i.with ?? [])], { cwd: dir });
+      const r = sh("bun", ["add", "--exact", `${i.npm}@${version}`, ...(i.with ?? []).map((w) => w.replaceAll("{version}", version))], { cwd: dir });
       if (r.status !== 0) throw new Error(`bun add ${i.npm}@${version}: ${r.stderr}`);
       // the project's tool runs on Node, as in a project without bun.lock
       rmSync(join(dir, "bun.lock"), { force: true });
@@ -72,7 +72,8 @@ function install(m: Matrix, version: string): { link?: [string, string]; path?: 
     if (!existsSync(join(dir, ".venv", "bin", "python"))) {
       mkdirSync(dir, { recursive: true });
       let r = sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]);
-      if (r.status === 0) r = sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), `${i.pypi}==${version}`, ...(i.with ?? [])]);
+      if (r.status === 0)
+        r = sh("uv", ["pip", "install", "-q", "--python", join(dir, ".venv", "bin", "python"), `${i.pypi}==${version}`, ...(i.with ?? []).map((w) => w.replaceAll("{version}", version))]);
       if (r.status !== 0) {
         rmSync(dir, { recursive: true, force: true });
         throw new Error(`uv pip install ${i.pypi}==${version}: ${r.stderr}`);
@@ -112,9 +113,10 @@ function project(m: Matrix, version: string) {
   }
   if (inst.link) symlinkSync(inst.link[0], join(dir, inst.link[1]));
   const script = join(dir, ".git", "engine.sh");
-  writeFileSync(script, [renderLib(), "IFS='\n'", renderEngine([], resolveEngine(["forge_do", "forge_tool_report"]), { untypedPackages: "source" })].join("\n"));
+  writeFileSync(script, [renderLib(), "IFS='\n'", renderEngine([], undefined, { untypedPackages: "source" })].join("\n"));
   const state = mkdtempSync(join(tmpdir(), "forge-matrix-state-"));
-  const env = { FORGE_STATE_HOME: state, ...(inst.path ? { PATH: `${inst.path}:${process.env.PATH}` } : {}) };
+  // a short TMPDIR: tflint's plugins listen on a Unix socket there, whose path macOS caps at 104 bytes
+  const env = { FORGE_STATE_HOME: state, TMPDIR: "/tmp", ...(inst.path ? { PATH: `${inst.path}:${process.env.PATH}` } : {}) };
   if (m.setup) {
     const r = sh("sh", ["-c", m.setup], { cwd: dir, env });
     if (r.status !== 0) throw new Error(`setup of ${m.tool} ${version}: ${r.stderr || r.stdout}`);
@@ -159,8 +161,12 @@ test("every adapter has a matrix, and each matrix runs every operation of its ad
     const called = new Set(m.calls.map((c) => c.call.split(/\s+/)[0]!));
     for (const op of opsOf(a)) if (!called.has(op) && !m.untested?.[op]) missing.push(`${m.tool} ${op}: no call`);
     if (!a.pinned && m.versions.at(-1) !== a.verified) missing.push(`${m.tool}: matrix ends at ${m.versions.at(-1)}, verified is ${a.verified}`);
-    if (!a.pinned && m.versions[0] !== a.ranges[0]!.from) missing.push(`${m.tool}: matrix starts at ${m.versions[0]}, the first range at ${a.ranges[0]!.from}`);
-    for (const r of a.ranges.slice(1)) if (!m.versions.includes(r.from)) missing.push(`${m.tool}: boundary ${r.from} not in the matrix`);
+    // the first release of each range that can do something, and a release of each range that can do nothing (it says so)
+    for (const r of a.ranges) {
+      const can = Object.values(r.ops).some((o) => o !== null);
+      if (can && !a.pinned && !m.versions.includes(r.from)) missing.push(`${m.tool}: ${r.from}, where a range starts, is not in the matrix`);
+      if (!can && !m.versions.some((v) => rangeOf(a, v) === r)) missing.push(`${m.tool}: no release of ${r.from}-${r.to} in the matrix`);
+    }
   }
   expect(missing).toEqual([]);
 });

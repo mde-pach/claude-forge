@@ -36,9 +36,11 @@ forge_osv() {
 # with the reason in $FORGE_TMP/osv.why when it cannot scan (offline: exit 127).
 forge_osv_scan() {
   case ${1##*/} in requirements*.txt) set -- "requirements.txt:$1" ;; esac
-  "$_ov_bin" scan source --config "$FORGE_TMP/osv.toml" --format markdown -L "$1" > "$FORGE_TMP/osv.md" 2> "$FORGE_TMP/osv.err"
+  forge_do osv-scanner scan "$FORGE_TMP/osv.toml" -L "$1" > "$FORGE_TMP/osv.md" 2> "$FORGE_TMP/osv.err"
+  # 0 no vulnerability, 1 vulnerabilities, 128 no package in the lock file (nothing to be
+  # vulnerable); 127 any other error (unreadable lock file, api.osv.dev unreachable)
   case $? in
-    0|1) ;;
+    0|1|128) ;;
     *) grep -v '^[[:space:]]*$' "$FORGE_TMP/osv.err" | tail -n 1 > "$FORGE_TMP/osv.why"; return 1 ;;
   esac
   # | https://osv.dev/<id>[<br/>…] | CVSS | Ecosystem | Package | Version | Fixed Version | Source |

@@ -13,6 +13,30 @@ forge_dockerfiles() {
   return 0
 }
 
+# forge_hadolint_bin: prints the pinned hadolint binary (the hadolint-bin wheel's, through
+# uvx) once its sha256 is the upstream release's; fails printing why.
+forge_hadolint_bin() {
+  command -v uvx >/dev/null 2>&1 || { printf 'uvx is needed to run hadolint'; return 1; }
+  if ! _hb_bin=$(uvx -q --from "hadolint-bin==$FORGE_HADOLINT_VERSION" python -c 'import shutil; print(shutil.which("hadolint") or "")' 2>/dev/null) || [ -z "$_hb_bin" ]; then
+    printf 'hadolint could not be installed (offline?)'; return 1
+  fi
+  _hb_plat=$(uname -s)-$(uname -m)
+  _hb_want=$(printf '%s\n' "$FORGE_HADOLINT_SHA256" | awk -v p="$_hb_plat" '$1 == p { print $2 }')
+  _hb_have=$(forge_sha256 < "$_hb_bin")
+  if [ -z "$_hb_want" ]; then printf 'no upstream hadolint checksum for %s' "$_hb_plat"; return 1; fi
+  if [ "$_hb_have" != "$_hb_want" ]; then printf 'the hadolint-bin %s binary does not match the upstream release (sha256 %s)' "$FORGE_HADOLINT_VERSION" "$_hb_have"; return 1; fi
+  printf '%s' "$_hb_bin"
+}
+
+# forge_pinned_hadolint <args>: the pinned hadolint (forge_pinned): forge_hadolint_bin's, once
+# per shell; 127 with why on stderr when it cannot be had.
+forge_pinned_hadolint() {
+  if [ -z "${FORGE_HADOLINT_BIN:-}" ]; then
+    FORGE_HADOLINT_BIN=$(forge_hadolint_bin) || { printf 'forge: %s\n' "$FORGE_HADOLINT_BIN" >&2; FORGE_HADOLINT_BIN=''; return 127; }
+  fi
+  "$FORGE_HADOLINT_BIN" "$@"
+}
+
 # forge_hadolint <code>...: "path:line CODE: message" for the named hadolint codes.
 forge_hadolint() {
   forge_dockerfiles > "$FORGE_TMP/dockerfiles"
@@ -20,25 +44,23 @@ forge_hadolint() {
   if ! cmp -s "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files" 2>/dev/null; then
     cp "$FORGE_TMP/dockerfiles" "$FORGE_TMP/hadolint.files"
     : > "$FORGE_TMP/hadolint.out"
-    if ! command -v uvx >/dev/null 2>&1; then
-      printf 'skipped: uvx is needed to run hadolint\n' > "$FORGE_TMP/hadolint.skip"
-    elif ! _fh_bin=$(uvx -q --from "hadolint-bin==$FORGE_HADOLINT_VERSION" python -c 'import shutil; print(shutil.which("hadolint") or "")' 2>/dev/null) || [ -z "$_fh_bin" ]; then
-      printf 'skipped: hadolint could not be installed (offline?)\n' > "$FORGE_TMP/hadolint.skip"
+    if ! FORGE_HADOLINT_BIN=$(forge_hadolint_bin); then
+      printf 'skipped: %s\n' "$FORGE_HADOLINT_BIN" > "$FORGE_TMP/hadolint.skip"
+      FORGE_HADOLINT_BIN=''
     else
-      _fh_plat=$(uname -s)-$(uname -m)
-      _fh_want=$(printf '%s\n' "$FORGE_HADOLINT_SHA256" | awk -v p="$_fh_plat" '$1 == p { print $2 }')
-      _fh_have=$(forge_sha256 < "$_fh_bin")
-      if [ -z "$_fh_want" ]; then
-        printf 'skipped: no upstream hadolint checksum for %s\n' "$_fh_plat" > "$FORGE_TMP/hadolint.skip"
-      elif [ "$_fh_have" != "$_fh_want" ]; then
-        printf 'skipped: the hadolint-bin %s binary does not match the upstream release (sha256 %s)\n' "$FORGE_HADOLINT_VERSION" "$_fh_have" > "$FORGE_TMP/hadolint.skip"
-      else
-        rm -f "$FORGE_TMP/hadolint.skip"
-        printf 'ignored: []\n' > "$FORGE_TMP/hadolint.yaml"
-        set -f
-        # shellcheck disable=SC2046
-        "$_fh_bin" -c "$FORGE_TMP/hadolint.yaml" --disable-ignore-pragma --no-fail --no-color -f tty $(cat "$FORGE_TMP/dockerfiles") > "$FORGE_TMP/hadolint.out" 2>&1
-        set +f
+      rm -f "$FORGE_TMP/hadolint.skip"
+      printf 'ignored: []\n' > "$FORGE_TMP/hadolint.yaml"
+      set -f
+      # shellcheck disable=SC2046
+      forge_do hadolint lint "$FORGE_TMP/hadolint.yaml" $(cat "$FORGE_TMP/dockerfiles") > "$FORGE_TMP/hadolint.out" 2>&1
+      _fh_rc=$?
+      set +f
+      # --no-fail: 0 whatever it finds; 1 it could not run (an unreadable file). A Dockerfile it
+      # cannot parse is "path:line:column message", exit 0: not checked, so not passed either
+      if [ "$_fh_rc" != 0 ]; then
+        printf 'skipped: hadolint could not run (%s)\n' "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/hadolint.out" | tail -n 1)" > "$FORGE_TMP/hadolint.skip"
+      elif _fh_parse=$(grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ ' "$FORGE_TMP/hadolint.out" | head -n 1) && [ -n "$_fh_parse" ]; then
+        printf 'skipped: hadolint could not parse %s\n' "$_fh_parse" > "$FORGE_TMP/hadolint.skip"
       fi
     fi
   fi

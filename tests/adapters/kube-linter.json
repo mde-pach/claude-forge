@@ -1,0 +1,31 @@
+{
+  "tool": "kube-linter",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "0.8.3"
+  ],
+  "files": {
+    "kl.yaml": "checks:\n  doNotAutoAddDefaults: true\n  include:\n    - latest-tag\n    - privileged-container\n",
+    "ok.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: c}\ndata: {a: b}\n",
+    "bad.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: d}\nspec:\n  selector: {matchLabels: {app: d}}\n  template:\n    metadata: {labels: {app: d}}\n    spec:\n      containers:\n        - name: c\n          image: nginx:latest\n          securityContext: {privileged: true}\n"
+  },
+  "calls": [
+    {
+      "call": "lint kl.yaml ok.yaml",
+      "exit": [
+        0
+      ],
+      "out": "No lint errors found"
+    },
+    {
+      "call": "lint kl.yaml bad.yaml",
+      "exit": [
+        1
+      ],
+      "out": "container \"c\" is privileged"
+    }
+  ],
+  "usageProbe": "lint kl.yaml ok.yaml --definitely-not-an-option"
+}

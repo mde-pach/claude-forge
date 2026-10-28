@@ -1,0 +1,29 @@
+{
+  "tool": "zizmor",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "1.30.1"
+  ],
+  "files": {
+    ".github/workflows/clean.yml": "on: push\npermissions: {}\njobs:\n  a:\n    name: a\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo hi\n",
+    ".github/workflows/inj.yml": "on: pull_request_target\npermissions: {}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: echo \"${{ github.event.pull_request.title }}\"\n"
+  },
+  "calls": [
+    {
+      "call": "lint .github/workflows/clean.yml",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "lint .github/workflows/inj.yml",
+      "exit": [
+        14
+      ],
+      "out": "^::error file=\\.github/workflows/inj\\.yml,line=8,title=template-injection::"
+    }
+  ],
+  "usageProbe": "lint .github/workflows/clean.yml --definitely-not-an-option"
+}

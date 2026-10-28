@@ -38,6 +38,16 @@ FORGE_SQUAWK_VERSION="@@SQUAWK_VERSION@@"
 
 FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
 
+# forge_pinned_squawk <args>: Forge's pinned Squawk (forge_pinned): through bunx, else uvx.
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
+forge_pinned_squawk() {
+  if command -v bunx >/dev/null 2>&1; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" "$@"
+  else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk "$@"
+  fi
+}
+
 # forge_squawk [--stdin-filepath <path>] [file...]: the pinned Squawk through bunx or uvx,
 # on the files (or stdin, reported as <path>); gcc-style output in $FORGE_TMP/squawk. Exit
 # status 0 when Squawk ran (with or without findings). The project cannot silence it: Squawk
@@ -45,9 +55,6 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 # excluded_paths do not apply) on copies of the SQL whose "squawk-ignore" comments are
 # rewritten into plain comments (same lines and columns), from the copies' directory so the
 # reported paths are the repository's.
-# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
-# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
-# runs at the same time then kill each other's install.
 forge_squawk() {
   _sq_src=$FORGE_TMP/squawk.src
   rm -rf "$_sq_src"; mkdir -p "$_sq_src" || return 2
@@ -59,14 +66,11 @@ forge_squawk() {
       mkdir -p "$_sq_src/$(dirname "$_sq_f")" && forge_squawk_unignore < "$_sq_f" > "$_sq_src/$_sq_f" || return 2
     done
   fi
-  if command -v bunx >/dev/null 2>&1; then
-    ( cd "$_sq_src" && if [ -f .stdin ]; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
-  elif command -v uvx >/dev/null 2>&1; then
-    ( cd "$_sq_src" && if [ -f .stdin ]; then uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
-  else
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
     return 2
   fi
+  ( cd "$_sq_src" && if [ -f .stdin ]; then forge_do squawk lint "$FORGE_TMP/squawk.toml" "$@" < .stdin; else forge_do squawk lint "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   _sq_rc=$?
   # Squawk exits 1 whenever it warns, which is almost always
   [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"

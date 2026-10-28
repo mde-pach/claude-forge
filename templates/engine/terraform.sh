@@ -77,11 +77,12 @@ forge_tflint() {
   while IFS= read -r _tl_d; do
     # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
     # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
-    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    ( TMPDIR=/tmp; export TMPDIR; forge_do tflint lint "$_tl_d" --config "$FORGE_TMP/tflint.hcl" ) > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
-    elif grep -q '^Failed to\|^Error:' "$FORGE_TMP/tfl.out"; then
+    # anything else it printed (a file or config it cannot parse: "path:l:c: error - …") is a run that could not lint
+    elif grep -q '^Failed to\|^Error:\|: error - ' "$FORGE_TMP/tfl.out"; then
       printf 'forge:%s skipped: tflint could not run in %s (%s)\n' "$c_id" "$_tl_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.out" | tail -n 1)"
     fi
   done < "$FORGE_TMP/tfl.dirs"
@@ -116,8 +117,7 @@ forge_trivy_config() {
     done < "$FORGE_TMP/tv.changed"
     for _tr_side in now "then"; do
       [ "$_tr_side" = now ] && _tr_dir=$_tr_d || _tr_dir=$_tr_b
-      "$_tr_bin" config --quiet --cache-dir "$_tr_cache" --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update \
-        --ignorefile "$FORGE_TMP/trivy.ignore" --format template --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
+      forge_do trivy scan --cache-dir "$_tr_cache" --ignorefile "$FORGE_TMP/trivy.ignore" --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
         || { printf 'forge:%s skipped: trivy could not scan %s (%s)\n' "$c_id" "$_tr_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/trivy.err" | tail -n 1)"; continue 2; }
     done
     awk -F '\t' -v d="$_tr_d" 'FILENAME == ARGV[1] { old[$2 "\t" $3] = 1; next }

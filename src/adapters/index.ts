@@ -5,13 +5,49 @@
  * cannot. The generated engine carries the same table (templates/engine/adapters.sh).
  */
 import { compareVersions } from "../core/versions.js";
+import { ACTIONLINT } from "./actionlint.js";
+import { AST_GREP } from "./ast-grep.js";
+import { EDITORCONFIG_CHECKER } from "./editorconfig-checker.js";
+import { GITLEAKS } from "./gitleaks.js";
+import { HADOLINT } from "./hadolint.js";
+import { KUBE_LINTER } from "./kube-linter.js";
+import { KUBECONFORM } from "./kubeconform.js";
+import { LOCKFILE_LINT } from "./lockfile-lint.js";
+import { OASDIFF } from "./oasdiff.js";
+import { OSV_SCANNER } from "./osv-scanner.js";
+import { REDOCLY } from "./redocly.js";
+import { SPECTRAL } from "./spectral.js";
+import { SQUAWK } from "./squawk.js";
+import { TFLINT } from "./tflint.js";
+import { TRIVY } from "./trivy.js";
+import { ZIZMOR } from "./zizmor.js";
 import { RUFF } from "./ruff.js";
 import { TY } from "./ty.js";
 import type { AdapterRange, ToolAdapter } from "./types.js";
 
 export type { AdapterRange, ToolAdapter } from "./types.js";
 
-export const ADAPTERS: ToolAdapter[] = [RUFF, TY];
+/** The project's tools, then Forge's pinned ones. */
+export const ADAPTERS: ToolAdapter[] = [
+  RUFF,
+  TY,
+  ACTIONLINT,
+  AST_GREP,
+  EDITORCONFIG_CHECKER,
+  GITLEAKS,
+  HADOLINT,
+  KUBE_LINTER,
+  KUBECONFORM,
+  LOCKFILE_LINT,
+  OASDIFF,
+  OSV_SCANNER,
+  REDOCLY,
+  SPECTRAL,
+  SQUAWK,
+  TFLINT,
+  TRIVY,
+  ZIZMOR,
+];
 
 export function adapterOf(tool: string): ToolAdapter | undefined {
   return ADAPTERS.find((a) => a.tool === tool);

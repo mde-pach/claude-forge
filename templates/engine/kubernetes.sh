@@ -80,8 +80,15 @@ forge_kube_linter() {
   { printf 'checks:\n  doNotAutoAddDefaults: true\n  include:\n'; for _kl_c in "$@"; do printf '    - %s\n' "$_kl_c"; done; } > "$FORGE_TMP/kl.yaml"
   set -f
   # shellcheck disable=SC2046
-  "$_kl_bin" lint --config "$FORGE_TMP/kl.yaml" --format plain --with-color=false $(cat "$FORGE_TMP/kl.files") > "$FORGE_TMP/kl.out" 2>&1
+  forge_do kube-linter lint "$FORGE_TMP/kl.yaml" $(cat "$FORGE_TMP/kl.files") > "$FORGE_TMP/kl.out" 2>&1
+  _kl_r=$?
   set +f
+  # 1 is findings ("Error: found <n> lint errors") or a run that could not lint (a bad config,
+  # a check this release does not know): the latter is reported skipped, never passed
+  if [ "$_kl_r" != 0 ] && ! grep -q 'Error: found [0-9]* lint errors' "$FORGE_TMP/kl.out"; then
+    printf 'forge:%s skipped: kube-linter could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kl.out" | sed 's/\x1b\[[0-9;]*m//g' | tail -n 1)"
+    return "$_kl_rc"
+  fi
   awk -v r1="$(pwd)/" -v r2="$(pwd -P)/" '
     BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*m" }
     FILENAME == ARGV[1] { want[$0] = 1; next }
@@ -97,8 +104,8 @@ forge_kube_linter() {
   return "$_kl_rc"
 }
 
-# kubeconform's schemas: Kubernetes' own (default) and the CRDs catalog, cached across runs.
-FORGE_KUBECONFORM_CRDS='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+# kubeconform's schemas: Kubernetes' own (default) and the CRDs catalog (its adapter's
+# validate operation, src/adapters/kubeconform.ts), cached across runs.
 
 # forge_kubeconform <label> <file>...: the pinned kubeconform in strict mode (no unknown
 # field) on the files ("-" for stdin), against the schemas of Kubernetes (its newest) and the
@@ -111,7 +118,12 @@ forge_kubeconform() {
   _kc_label=$1; shift
   _kc_cache=${XDG_CACHE_HOME:-$HOME/.cache}/forge/kubeconform
   mkdir -p "$_kc_cache" 2>/dev/null || _kc_cache=$FORGE_TMP
-  "$_kc_bin" -strict -output json -cache "$_kc_cache" -schema-location default -schema-location "$FORGE_KUBECONFORM_CRDS" "$@" > "$FORGE_TMP/kc.json" 2> "$FORGE_TMP/kc.err"
+  forge_do kubeconform validate "$_kc_cache" "$@" > "$FORGE_TMP/kc.json" 2> "$FORGE_TMP/kc.err"
+  # invalid documents exit 1 with their JSON; an exit with no JSON could not validate
+  if [ "$?" != 0 ] && ! grep -q '"status"' "$FORGE_TMP/kc.json"; then
+    printf 'forge:%s skipped: %s: kubeconform could not run (%s)\n' "$c_id" "$_kc_label" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kc.err" | tail -n 1)"
+    return 0
+  fi
   awk -v id="$c_id" -v label="$_kc_label" '
     function flush() {
       if (status == "statusInvalid") { print label ": " kind " " name ": " msg; bad = 1 }

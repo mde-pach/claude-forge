@@ -1,0 +1,38 @@
+{
+  "tool": "squawk",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "2.70.0"
+  ],
+  "files": {
+    "squawk.toml": "",
+    "m/ok.sql": "SELECT 1;\n",
+    "m/bad.sql": "CREATE INDEX idx ON t (a);\n",
+    "m/req.sql": "ALTER TABLE t ADD COLUMN c int NOT NULL;\n"
+  },
+  "calls": [
+    {
+      "call": "lint squawk.toml m/ok.sql",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "lint squawk.toml m/bad.sql",
+      "exit": [
+        1
+      ],
+      "out": "^m/bad\\.sql:0:0: warning: require-concurrent-index-creation "
+    },
+    {
+      "call": "lint squawk.toml m/req.sql",
+      "exit": [
+        1
+      ],
+      "out": "^m/req\\.sql:0:14: warning: adding-required-field "
+    }
+  ],
+  "usageProbe": "lint squawk.toml m/ok.sql --definitely-not-an-option"
+}
