@@ -1,5 +1,47 @@
 # @module python
-# Python libraries and packaging: public names and type stubs, uv's release cooldown.
+# Python libraries and packaging: public names and type stubs, uv's release cooldown; the
+# project's ruff as check commands run it.
+
+# forge_ruff <args>: the project's ruff (tool ruff), as check commands name it (`ruff`).
+# A command this ruff rejects as usage (exit 2 with its argument parser's "For more
+# information, try '--help'."; an option or value it does not know) is not a finding.
+# Ruff before 0.2.0 has no `concise` output format, and its default `text` format is the
+# same one line per diagnostic: a command naming `concise` that it rejects runs again with
+# `text`. One it still rejects makes the check print "forge:<id> skipped: ruff <version>
+# does not accept this command (ruff <args>): <error>" and pass; formatting a base copy
+# (stdin, `-`) fails instead, so the copy is not used. A current ruff runs once, as given.
+forge_ruff() {
+  _rf_err=$(mktemp "${FORGE_TMP:-${TMPDIR:-/tmp}}/ruff-err.XXXXXX") || { forge_exec_tool ruff "$@"; return; }
+  forge_exec_tool ruff "$@" 2> "$_rf_err"
+  _rf_rc=$?
+  if [ "$_rf_rc" -eq 2 ] && grep -q "^For more information, try '--help'" "$_rf_err" && grep -q concise "$_rf_err"; then
+    _rf_n=$#
+    _rf_prev=''
+    for _rf_a in "$@"; do
+      if [ "$_rf_prev" = --output-format ] && [ "$_rf_a" = concise ]; then _rf_a=text
+      elif [ "$_rf_a" = --output-format=concise ]; then _rf_a=--output-format=text
+      fi
+      set -- "$@" "$_rf_a"
+      _rf_prev=$_rf_a
+    done
+    shift "$_rf_n"
+    forge_exec_tool ruff "$@" 2> "$_rf_err"
+    _rf_rc=$?
+  fi
+  if [ "$_rf_rc" -eq 2 ] && grep -q "^For more information, try '--help'" "$_rf_err"; then
+    _rf_stdin=0
+    for _rf_a in "$@"; do [ "$_rf_a" != - ] || _rf_stdin=1; done
+    if [ -n "${c_id:-}" ] && [ "$_rf_stdin" = 0 ]; then
+      printf 'forge:%s skipped: ruff %s does not accept this command (ruff %s): %s\n' "$c_id" \
+        "$(forge_exec_tool ruff --version 2>/dev/null | awk '{ print $2; exit }')" "$(IFS=' '; printf '%s' "$*")" "$(grep '^error:' "$_rf_err" | head -n 1 | sed 's/^error: //')"
+      rm -f "$_rf_err"
+      return 0
+    fi
+  fi
+  cat "$_rf_err" >&2
+  rm -f "$_rf_err"
+  return "$_rf_rc"
+}
 
 # forge_py_public <file>: the public names of a Python module, one per line: the
 # entries of __all__ when it has one, else its top-level def and class names

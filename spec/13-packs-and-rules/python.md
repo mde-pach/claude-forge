@@ -3,9 +3,9 @@
 | Rule | Targets |
 |---|---|
 | `python/format` | `check` format: `run: ruff format --check .`, `changed_run: ruff format {files}`, `format_stdin: ruff format --stdin-filename {file} -` |
-| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`) |
+| `python/lint` | `check` lint: `run: ruff check .`, `changed_run: ruff check --output-format concise {files}`, `fix_run: ruff check --fix --fixable I,UP --exit-zero --show-fixes {files}` (sorted imports and pyupgrade, when the project selects them; never F401 / F841), `config_files: ["**/pyproject.toml"]` (`RUF200`) |
 | `python/valid-pyproject` | `tool` ruff `RUF200` (`[project]` fields typed as PEP 621 says; a changed `pyproject.toml` is linted by `python/lint`'s `config_files`) |
-| `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2) |
+| `python/typecheck` | `check` typecheck: `run: ty check --output-format concise` (Forge's pinned ty, §15.2, on the project's Python environment, §9.1); errors the base already has are not the change's (§10.1 step 4) |
 | `python/no-explicit-any` | `tool` ruff `ANN401` (ty has no equivalent) |
 | `python/no-bare-except` | `tool` ruff `E722` |
 | `python/no-unscoped-ignore` | `tool` ty `blanket-ignore-comment`; `tool` ruff `PGH003` |

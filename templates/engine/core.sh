@@ -534,6 +534,106 @@ forge_attribute_level() {
   esac
 }
 
+# forge_typecheck_compare <fn>: a failed typecheck run (<fn>, output in $FORGE_TMP/out)
+# with errors in changed files, compared with the base (§10.1 step 4): the same run in the
+# base tree (forge_base_tree). Diagnostics are compared by their text, the location left
+# out ("path:12:5: error[x] msg" is "error[x] msg"): of an error in a changed file, only as
+# many count as the run now reports more of that text than the base did, in the whole
+# project (code moved between files brings its errors along), those on added lines first.
+# The others were there before the change. Prints "forge:<id> failed" and the errors that
+# count, or "forge:<id> ok for the changed files (…)" when none does. When the base cannot
+# be checked (no base tree, the run there stopped, or it failed naming no file), every
+# error in the changed files counts, with why.
+forge_typecheck_compare() {
+  forge_diagnostics "$FORGE_TMP/out" file print > "$FORGE_TMP/tc.now"
+  mv "$FORGE_TMP/out" "$FORGE_TMP/tc.out"
+  : > "$FORGE_TMP/tc.base"
+  _tc_why=''
+  rm -rf "$FORGE_TMP/base-tree"
+  if ! forge_base_tree "$FORGE_TMP/base-tree"; then
+    _tc_why=$(cat "$FORGE_TMP/base-tree.why" 2>/dev/null)
+    [ -n "$_tc_why" ] || _tc_why='the copy of the tree could not be made'
+  else
+    _tc_fn=$1
+    forge_exec_check forge_typecheck_in_base "$c_timeout"
+    case $? in
+      0) ;;
+      124)
+        _tc_why="the run there was stopped after ${FORGE_EXEC_LIMIT}s"
+        [ "$FORGE_EXEC_WHY" != budget ] || _tc_why="$_tc_why, when the Stop hook's time budget ran out" ;;
+      *)
+        if [ "$(cd "$FORGE_TMP/base-tree" && forge_diagnostics "$FORGE_TMP/out" file)" = none ]; then
+          _tc_why='the run there failed naming no file'
+        else
+          forge_diag_keys < "$FORGE_TMP/out" > "$FORGE_TMP/tc.base"
+        fi ;;
+    esac
+  fi
+  rm -rf "$FORGE_TMP/base-tree"
+  mv "$FORGE_TMP/tc.out" "$FORGE_TMP/out"
+  if [ -n "$_tc_why" ]; then
+    printf 'forge:%s failed (its errors in the changed files could not be compared with the base: %s; all of them count)\n' "$c_id" "$_tc_why"
+    first_lines 15 < "$FORGE_TMP/tc.now"
+    return 1
+  fi
+  forge_diag_keys < "$FORGE_TMP/out" > "$FORGE_TMP/tc.all"
+  forge_diag_keys < "$FORGE_TMP/tc.now" > "$FORGE_TMP/tc.keys"
+  # tc.cmp: "new<TAB><line>" per error that counts, then "old<TAB><count>"
+  awk -F '\t' '
+    FILENAME == ARGV[1] { base[$3]++; next }
+    FILENAME == ARGV[2] { now[$3]++; next }
+    {
+      n++; key[n] = $3; onadd[n] = $1; line[n] = $0; sub(/^[^\t]*\t[^\t]*\t[^\t]*\t/, "", line[n])
+    }
+    END {
+      for (k in now) left[k] = now[k] - base[k]
+      # the errors on added lines are the new ones first, then the others in order
+      for (pass = 1; pass >= 0; pass--)
+        for (i = 1; i <= n; i++) if (onadd[i] == pass && left[key[i]] > 0) { left[key[i]]--; keep[i] = 1 }
+      for (i = 1; i <= n; i++) if (keep[i]) print "new\t" line[i]; else old++
+      print "old\t" old + 0
+    }' "$FORGE_TMP/tc.base" "$FORGE_TMP/tc.all" "$FORGE_TMP/tc.keys" > "$FORGE_TMP/tc.cmp"
+  _tc_old=$(awk -F '\t' '$1 == "old" { print $2 }' "$FORGE_TMP/tc.cmp")
+  if ! grep -q '^new	' "$FORGE_TMP/tc.cmp"; then
+    printf 'forge:%s ok for the changed files (their %s error(s) were already there before this change: sh .forge/check.sh --all)\n' "$c_id" "$_tc_old"
+    return 0
+  fi
+  printf 'forge:%s failed\n' "$c_id"
+  sed -n 's/^new	//p' "$FORGE_TMP/tc.cmp" | first_lines 15
+  [ "$_tc_old" = 0 ] || printf '(%s other error(s) in the changed files were already there before this change)\n' "$_tc_old"
+  return 1
+}
+
+# forge_typecheck_in_base: check function $_tc_fn in the base tree (forge_typecheck_compare).
+forge_typecheck_in_base() {
+  cd "$FORGE_TMP/base-tree" || return 1
+  "$_tc_fn"
+}
+
+# forge_diag_keys: for each diagnostic line of stdin (a location first: "path:12:5: …",
+# "path(12,5): …", "--> path:12:5"), "<1 when on an added line, else 0><TAB><path><TAB>
+# <its text after the location><TAB><the line>" ("path:12:5: error[x] msg" gives the text
+# ": error[x] msg"); other lines are left out.
+forge_diag_keys() {
+  awk -v r1="$(pwd)" -v r2="$(pwd -P)" '
+    BEGIN { ansi = sprintf("%c", 27) "\\[[0-9;]*[A-Za-z]" }
+    FILENAME == ARGV[1] { if ($2 == "*") whole[$1] = 1; else ad[$1 "\t" $2] = 1; next }
+    {
+      line = $0
+      gsub(ansi, "", line)
+      sub(/^[[:space:]]*(-->[[:space:]]*)?/, "", line)
+      if (!match(line, /^[^[:space:]:(]+([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)/)) next
+      p = substr(line, 1, RLENGTH); text = substr(line, RLENGTH + 1)
+      loc = p; sub(/^[^[:space:]:(]+[(:]/, "", loc); ln = loc + 0
+      sub(/([(][0-9]+,[0-9]+[)]|:[0-9]+(:[0-9]+)?)$/, "", p)
+      if (index(p, r1 "/") == 1) p = substr(p, length(r1) + 2)
+      else if (index(p, r2 "/") == 1) p = substr(p, length(r2) + 2)
+      sub(/^\.\//, "", p)
+      gsub(/\t/, " ", text)
+      print (((p in whole) || ((p "\t" ln) in ad)) ? 1 : 0) "\t" p "\t" text "\t" $0
+    }' "$FORGE_TMP/added" -
+}
+
 # forge_run_check <n>: one check under check.sh ($mode and forge_change_set's files).
 # --changed and --turn run the {files} form on the changed files when there is one;
 # --since and --all run the whole-project form (read-only, as CI should).
@@ -602,6 +702,11 @@ forge_run_check() {
         fi
         return 0 ;;
       changed)
+        # a typecheck's errors in the changed files that the base already has are not this change's
+        if [ "$c_stage" = typecheck ]; then
+          forge_typecheck_compare "$_fc_fn"
+          return
+        fi
         printf 'forge:%s failed\n' "$c_id"
         forge_diagnostics "$FORGE_TMP/out" "$_fc_level" print | first_lines 15
         return 1 ;;

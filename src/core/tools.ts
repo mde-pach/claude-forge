@@ -33,7 +33,11 @@ export const PROJECT_TOOLS = [
   "eslint",
   "oxlint",
 ] as const;
-/** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
+/**
+ * Tools resolved from the project's Python environment (the others from node_modules/.bin):
+ * .venv/bin, else the environment lib.sh's forge_py_env finds (VIRTUAL_ENV, uv, Poetry, the
+ * interpreter on PATH).
+ */
 export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sqlfluff"]);
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;

@@ -92,7 +92,8 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
   const wrappers = PROJECT_TOOLS.filter((t) => used.has(t) && !t.includes("-"));
   if (wrappers.length) {
     out.push("# Project tools used in check commands, resolved through tool().");
-    for (const t of wrappers) out.push(`${t}() { forge_exec_tool ${t} "$@"; }`);
+    // ruff through forge_ruff: the output formats of older releases, their usage errors (§13)
+    for (const t of wrappers) out.push(t === "ruff" ? 'ruff() { forge_ruff "$@"; }' : `${t}() { forge_exec_tool ${t} "$@"; }`);
   }
   if (used.has("ty")) out.push("# ty is Forge's own, pinned (§15.2).", 'ty() { forge_ty "$@"; }');
   const resolved = RESOLVED_TOOLS.filter((t) => used.has(t));

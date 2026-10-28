@@ -54,13 +54,15 @@ json_escape() {
 }
 
 # tool <name>: prints the command that runs the project's own <name>, or nothing if absent.
+# A Python tool (FORGE_PYTHON_TOOLS) not in .venv is the one of the project's Python
+# environment elsewhere (forge_py_tool).
 tool() {
   if [ -f bun.lock ] || [ -f bun.lockb ]; then
     if [ -x "node_modules/.bin/$1" ] && command -v bun >/dev/null 2>&1; then
       printf 'bun run --bun %s' "$1"
     fi
   elif [ -f uv.lock ]; then
-    if [ -x ".venv/bin/$1" ]; then printf '.venv/bin/%s' "$1"; fi
+    if [ -x ".venv/bin/$1" ]; then printf '.venv/bin/%s' "$1"; else forge_py_tool "$1"; fi
   elif [ -x "node_modules/.bin/$1" ]; then
     printf 'node_modules/.bin/%s' "$1"
   elif [ -x ".venv/bin/$1" ]; then
@@ -68,9 +70,129 @@ tool() {
   elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
     # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
     _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
-    case $_tw in ''|bun\ *) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
+    case $_tw in ''|bun\ *|/*) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
+  else
+    forge_py_tool "$1"
   fi
 }
+
+# The project tools that live in a Python environment (src/core/tools.ts PYTHON_TOOLS).
+FORGE_PYTHON_TOOLS='@@PYTHON_TOOLS@@'
+
+# forge_py_tool <name>: the project's Python tool <name> in its environment outside
+# .venv (forge_py_env): <name> in the environment's scripts directories, or, for python,
+# its interpreter. Prints nothing when it is not there, or <name> is not a Python tool.
+forge_py_tool() {
+  case " $FORGE_PYTHON_TOOLS " in *" $1 "*) ;; *) return 0 ;; esac
+  forge_py_env || return 0
+  if [ "$1" = python ]; then printf '%s' "$FORGE_PY"; return 0; fi
+  _pt_ifs=$IFS
+  IFS='
+'
+  for _pt_d in $FORGE_PY_BIN; do
+    if [ -f "$_pt_d/$1" ] && [ -x "$_pt_d/$1" ]; then IFS=$_pt_ifs; printf '%s/%s' "$_pt_d" "$1"; return 0; fi
+  done
+  IFS=$_pt_ifs
+  return 0
+}
+
+# forge_py_env: the project's Python environment when it is not the repository's .venv
+# (which the callers look at first): FORGE_PY, its interpreter, FORGE_PY_PREFIX, its
+# sys.prefix (the environment's directory), and FORGE_PY_BIN, the directories of its
+# scripts (one per line). Fails when there is none. In order:
+#   - an activated virtual environment ($VIRTUAL_ENV);
+#   - uv's project environment ($UV_PROJECT_ENVIRONMENT); in a uv.lock project, nothing
+#     else: uv installs a project nowhere else;
+#   - Poetry's own environment of the project (a poetry.lock project): the one Poetry
+#     names <name>-<hash of the path>-py<X.Y> under its virtualenvs directory
+#     ($POETRY_VIRTUALENVS_PATH, virtualenvs.path in poetry.toml or Poetry's
+#     config.toml, else $POETRY_CACHE_DIR or the platform's cache directory +
+#     /virtualenvs), found without running Poetry;
+#   - the interpreter on PATH (python3, else python): the dependencies installed into
+#     it (pip, Poetry with virtualenvs.create false, a Docker image) and its scripts
+#     directory (not the user scripts one, ~/.local/bin, where pipx puts global tools).
+# Looked up once per directory and shell.
+forge_py_env() {
+  if [ "${_pe_at:-}" = "$(pwd)" ]; then [ -n "$FORGE_PY" ]; return; fi
+  _pe_at=$(pwd)
+  FORGE_PY=''
+  FORGE_PY_PREFIX=''
+  FORGE_PY_BIN=''
+  for _pe_d in "${VIRTUAL_ENV:-}" "${UV_PROJECT_ENVIRONMENT:-}"; do
+    [ -n "$_pe_d" ] || continue
+    case $_pe_d in /*) ;; *) _pe_d=$_pe_at/$_pe_d ;; esac
+    for _pe_n in python python3; do
+      if [ -x "$_pe_d/bin/$_pe_n" ]; then FORGE_PY=$_pe_d/bin/$_pe_n; FORGE_PY_PREFIX=$_pe_d; FORGE_PY_BIN=$_pe_d/bin; return 0; fi
+    done
+  done
+  [ ! -f uv.lock ] || return 1
+  for _pe_n in python3 python; do
+    _pe_p=$(command -v "$_pe_n" 2>/dev/null) || continue
+    case $_pe_p in /*) ;; *) continue ;; esac
+    _pe_out=$("$_pe_p" -c "$FORGE_PY_FIND" 2>/dev/null) || continue
+    FORGE_PY=$(printf '%s\n' "$_pe_out" | sed -n 1p)
+    FORGE_PY_PREFIX=$(printf '%s\n' "$_pe_out" | sed -n 2p)
+    FORGE_PY_BIN=$(printf '%s\n' "$_pe_out" | sed 1,2d)
+    [ -n "$FORGE_PY" ] && return 0
+  done
+  return 1
+}
+
+# FORGE_PY_FIND: run by the interpreter on PATH in the project's directory (forge_py_env):
+# prints the project's interpreter, its sys.prefix, then its scripts directories: Poetry's
+# environment of the project (a poetry.lock project), else this interpreter.
+FORGE_PY_FIND='import base64, glob, hashlib, os, re, sys, sysconfig
+def done(py, prefix, dirs):
+    print(py)
+    print(prefix)
+    for d in dirs:
+        print(d)
+    sys.exit(0)
+if os.path.isfile("poetry.lock"):
+    name, section = None, None
+    try:
+        text = open("pyproject.toml").read()
+    except OSError:
+        text = ""
+    for line in text.splitlines():
+        m = re.match(r"\s*\[([^\]]+)\]", line)
+        if m:
+            section = m.group(1).strip()
+            continue
+        m = re.match(r"\s*name\s*=\s*[\"\x27]([^\"\x27]+)", line)
+        if m and section in ("tool.poetry", "project") and name is None:
+            name = m.group(1)
+    if name:
+        cache = os.environ.get("POETRY_CACHE_DIR") or (os.path.expanduser("~/Library/Caches/pypoetry") if sys.platform == "darwin" else os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "pypoetry"))
+        config = os.environ.get("POETRY_CONFIG_DIR") or (os.path.expanduser("~/Library/Application Support/pypoetry") if sys.platform == "darwin" else os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "pypoetry"))
+        where = os.environ.get("POETRY_VIRTUALENVS_PATH")
+        for f in ("poetry.toml", os.path.join(config, "config.toml")):
+            if where:
+                break
+            section = None
+            try:
+                lines = open(f).read().splitlines()
+            except OSError:
+                lines = []
+            for line in lines:
+                m = re.match(r"\s*\[([^\]]+)\]", line)
+                if m:
+                    section = m.group(1).strip()
+                    continue
+                m = re.match(r"\s*(virtualenvs\.)?path\s*=\s*[\"\x27]([^\"\x27]+)", line)
+                if m and (section == "virtualenvs" or (section is None and m.group(1))):
+                    where = m.group(2).replace("{cache-dir}", cache)
+                    break
+        where = os.path.expanduser(where or os.path.join(cache, "virtualenvs"))
+        digest = base64.urlsafe_b64encode(hashlib.sha256(os.path.normcase(os.path.realpath(os.getcwd())).encode()).digest()).decode()[:8]
+        names = {re.sub(r"[ $`!*@\"\\\r\n\t]", "_", name.lower())[:42], re.sub(r"[-_.]+", "-", name).lower()[:42]}
+        for n in sorted(names):
+            for env in sorted(glob.glob(os.path.join(where, glob.escape(n + "-" + digest) + "-py*")), key=os.path.getmtime, reverse=True):
+                for py in ("python", "python3"):
+                    if os.access(os.path.join(env, "bin", py), os.X_OK):
+                        done(os.path.join(env, "bin", py), env, [os.path.join(env, "bin")])
+done(sys.executable, sys.prefix, [sysconfig.get_path("scripts")])
+'
 
 # astgrep <args>: pinned ast-grep through bunx (bun repos) or uvx.
 # Exit status: 0 no finding, 1 findings, other = could not run.

@@ -1,9 +1,10 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix } from "node:path";
-import { TY_COMMAND } from "./core/tools.js";
+import { PYTHON_TOOLS, TY_COMMAND } from "./core/tools.js";
 import { toolExamples } from "./examples.js";
-import { run } from "./util.js";
+import { renderLib } from "./render/template.js";
+import { run, runScript } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
 export interface AuditResult {
@@ -21,7 +22,27 @@ export interface AuditResult {
 /** The project's own binary for a tool, or undefined. */
 export function projectBinary(repo: string, tool: string): string | undefined {
   for (const p of [join(repo, "node_modules", ".bin", tool), join(repo, ".venv", "bin", tool)]) if (existsSync(p)) return p;
-  return undefined;
+  // a Python tool outside .venv: in the project's environment elsewhere, as the hooks find it
+  return PYTHON_TOOLS.has(tool) ? (shellTool(repo, `forge_py_tool ${tool}`) ?? undefined) : undefined;
+}
+
+const shellTools = new Map<string, string | null>();
+/** What a lib.sh function prints in <repo> (one line), or null: the hooks' own lookup, so both agree. */
+function shellTool(repo: string, call: string): string | null {
+  const key = `${repo}\0${call}\0${process.env.PATH ?? ""}\0${process.env.VIRTUAL_ENV ?? ""}`;
+  if (!shellTools.has(key)) {
+    const r = runScript(`${renderLib()}\n${call}\n`, { cwd: repo });
+    const out = r.status === 0 ? r.stdout.trim() : "";
+    shellTools.set(key, out || null);
+  }
+  return shellTools.get(key)!;
+}
+
+/** `--python <the environment's sys.prefix>` for ty when it would not find the project's environment itself (forge_ty_python in the hooks). */
+function tyPython(repo: string): string[] {
+  if (existsSync(join(repo, ".venv")) || process.env.VIRTUAL_ENV) return [];
+  const py = shellTool(repo, 'forge_py_env && printf "%s" "$FORGE_PY_PREFIX"');
+  return py ? ["--python", py] : [];
 }
 
 const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescript: ".ts", tsx: ".tsx", yaml: ".yaml", any: ".txt" };
@@ -109,7 +130,7 @@ const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
 function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[]): ToolRun {
   if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
   if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
-  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", "--output-format", "gitlab", ...rels], { cwd: repo });
+  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", ...tyPython(repo), "--output-format", "gitlab", ...rels], { cwd: repo });
 }
 
 /** Runs the project's tool on one example with machine-readable output where the tool has it. */
@@ -270,7 +291,10 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
     return {
       ...base,
       status: "skipped",
-      detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)`,
+      detail:
+        t.tool === "ty"
+          ? "uvx is not installed (Forge runs its pinned ty through it)"
+          : `${t.tool} is configured but not installed (node_modules/.bin, .venv/bin${PYTHON_TOOLS.has(t.tool) ? " or the project's Python environment" : ""})`,
     };
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");

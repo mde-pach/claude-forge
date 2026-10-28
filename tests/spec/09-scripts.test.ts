@@ -10,15 +10,17 @@
  * BusyBox.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { renderGuardRules, renderLib, template } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import type { Rule } from "../../src/types";
 import { sh } from "../helpers";
 
 const shells = availableShells();
+const hasPython3 = sh("sh", ["-c", "command -v python3"]).status === 0;
 const lib = mkdtempSync(join(tmpdir(), "forge-lib-"));
 writeFileSync(join(lib, "lib.sh"), renderLib());
 
@@ -55,6 +57,57 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     mkdirSync(join(uvRepo, ".venv/bin"), { recursive: true });
     writeFileSync(join(uvRepo, ".venv/bin/ruff"), "#!/bin/sh\n", { mode: 0o755 });
     expect(libRun([...argv], "{}", "tool ruff; printf '|'; tool pytest", uvRepo)).toBe(".venv/bin/ruff|");
+  });
+
+  /**
+   * Projects install their Python tools elsewhere than .venv: an activated virtual
+   * environment, uv's UV_PROJECT_ENVIRONMENT, Poetry's own environments, or the
+   * interpreter itself (pip, Poetry without virtualenvs, a Docker image). The tool is the
+   * one of that environment; one elsewhere on PATH (a global install) is not the project's.
+   */
+  test("tool finds a Python tool of the project's environment outside .venv, never one elsewhere on PATH", () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-pyenv-")));
+    const exe = (p: string, body = "") => {
+      mkdirSync(dirname(join(base, p)), { recursive: true });
+      writeFileSync(join(base, p), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    };
+    // an interpreter on PATH whose scripts directory holds ruff; a global ruff and pytest elsewhere on PATH
+    exe("interp/python3", `printf '%s\\n%s\\n%s\\n' "$0" "${base}" "${base}/scripts"`);
+    exe("scripts/ruff");
+    exe("global/ruff");
+    exe("global/pytest");
+    exe("venv/bin/python");
+    exe("venv/bin/pytest");
+    const repo = join(base, "repo");
+    mkdirSync(repo);
+    const path = `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/interp:${base}/global:$PATH"`;
+    const all = "tool ruff; printf '|'; tool pytest; printf '|'; tool python; printf '|'; tool tsc";
+    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe(`${base}/scripts/ruff||${base}/interp/python3|`);
+    expect(libRun([...argv], "{}", `${path}; VIRTUAL_ENV="${base}/venv"; ${all}`, repo)).toBe(`|${base}/venv/bin/pytest|${base}/venv/bin/python|`);
+    // a uv project's environment is .venv or UV_PROJECT_ENVIRONMENT, nothing else
+    writeFileSync(join(repo, "uv.lock"), "");
+    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe("|||");
+    expect(libRun([...argv], "{}", `${path}; UV_PROJECT_ENVIRONMENT="${base}/venv"; tool pytest`, repo)).toBe(`${base}/venv/bin/pytest`);
+  });
+
+  /** Poetry keeps a project's environment in its cache, named after the project and a hash of its path. */
+  test.if(hasPython3)("tool finds a Python tool in Poetry's environment of the project, without running Poetry", () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-poetry-")));
+    const repo = join(base, "repo");
+    mkdirSync(repo);
+    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "My_Cool.App"\nversion = "0.1.0"\n');
+    writeFileSync(join(repo, "poetry.lock"), "");
+    const hash = createHash("sha256").update(repo).digest("base64url").slice(0, 8);
+    const env = join(base, "envs", `my-cool-app-${hash}-py3.12`);
+    mkdirSync(join(env, "bin"), { recursive: true });
+    for (const t of ["python", "ruff"]) writeFileSync(join(env, "bin", t), "#!/bin/sh\n", { mode: 0o755 });
+    // another project's environment of the same name
+    mkdirSync(join(base, "envs", "my-cool-app-AAAAAAAA-py3.12", "bin"), { recursive: true });
+    expect(libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; export POETRY_VIRTUALENVS_PATH="${base}/envs"; tool ruff; printf '|'; tool python`, repo)).toBe(
+      `${env}/bin/ruff|${env}/bin/python`,
+    );
+    writeFileSync(join(repo, "poetry.toml"), `[virtualenvs]\npath = "${base}/envs"\n`);
+    expect(libRun([...argv], "{}", "unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT POETRY_VIRTUALENVS_PATH; tool ruff", repo)).toBe(`${env}/bin/ruff`);
   });
 });
 

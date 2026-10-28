@@ -15,8 +15,24 @@ FORGE_ENGINE_PYTHON='@@ENGINE_PYTHON@@'
 FORGE_TYPES_REV='@@TYPES_REV@@'
 
 # forge_ty <args>: Forge's pinned ty (§15.2), on the engine's Python, with the project's
-# environment (.venv) and configuration ([tool.ty], ty.toml).
-forge_ty() { uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"; }
+# environment and configuration ([tool.ty], ty.toml). ty finds .venv and $VIRTUAL_ENV
+# itself; any other environment of the project (forge_py_env: uv's, Poetry's, the
+# interpreter on PATH) is given to `ty check` as --python <its sys.prefix>: under uvx,
+# the python ty would find on PATH is uvx's own.
+forge_ty() {
+  if [ "${1:-}" = check ] && forge_ty_python; then
+    shift
+    set -- check --python "$FORGE_PY_PREFIX" "$@"
+  fi
+  uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"
+}
+
+# forge_ty_python: the project's Python environment must be given to ty (FORGE_PY,
+# FORGE_PY_PREFIX): there
+# is no .venv here and no $VIRTUAL_ENV, and forge_py_env finds one.
+forge_ty_python() {
+  [ ! -d .venv ] && [ -z "${VIRTUAL_ENV:-}" ] && forge_py_env
+}
 
 # forge_types_up <lang>: the language's daemon runs, with the pinned engine (started
 # when it does not: by the first hook that needs it, or by SessionStart). Prints why
@@ -52,7 +68,12 @@ forge_types_up() {
   mkdir -p "$_tu_d/sessions" && mkfifo "$_tu_d/in" "$_tu_d/started" || { rm -rf "$_tu_d.lock"; printf 'cannot create %s\n' "$_tu_d"; return 1; }
   printf '%s\n' "$_tu_want" > "$_tu_d/want"
   case $1 in
-    python) set -- uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
+    python)
+      # the project's environment when ty would not find it (forge_ty)
+      _tu_py=''
+      _tu_prefix=''
+      if forge_ty_python; then _tu_py=$FORGE_PY; _tu_prefix=$FORGE_PY_PREFIX; fi
+      set -- env FORGE_TY_PYTHON="$_tu_py" FORGE_TY_PREFIX="$_tu_prefix" uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" python "$(pwd -P)/.forge/helpers/types_python.py" "$(pwd -P)" "$_tu_d" ;;
     typescript) set -- bun "$(pwd -P)/.forge/helpers/types_typescript.mjs" "$(pwd -P)" "$_tu_d" ;;
   esac
   # the engine detaches and says "ready ..." or "failed ..." on the started FIFO; a

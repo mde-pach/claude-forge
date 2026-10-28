@@ -2837,7 +2837,7 @@ trap 'forge_types_down; rm -rf "$FORGE_TMP"' EXIT; trap 'forge_kill_jobs; exit 1
 
 # ---- generated checks
 # Project tools used in check commands, resolved through tool().
-ruff() { forge_exec_tool ruff "$@"; }
+ruff() { forge_ruff "$@"; }
 alembic() { forge_exec_tool alembic "$@"; }
 pytest() { forge_exec_tool pytest "$@"; }
 python() { forge_exec_tool python "$@"; }
@@ -3885,10 +3885,10 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "37a1baa7d9e997c51495e2a0b669b67e84dd8914edbe362e67c60151c5005c30",
+    ".claude/skills/forge-project/scripts/checks.sh": "29e9b1fe846d3b3cd308b4fb63ee08479b8a52324ed49762b0f4637514da4123",
     ".claude/skills/forge-project/scripts/guard.rules": "816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
-    ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
+    ".claude/skills/forge-project/scripts/lib.sh": "a5d79a30288ed582b2716e8a278b7880a5ee5a95645eb2b4b5a2579a3b8a8a8c",
     ".claude/skills/forge-project/scripts/post-edit.sh": "0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971",
     ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
     ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
@@ -3979,13 +3979,13 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "009881a41ce861b64589a028cd6b2f630f52ef24079944996eac27b29a5da603",
+    ".forge/check.sh": "5927bbb697cc2e31c4ef2726b7f950f1d4249fac5c52df17e84610488a9b03c5",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/pytest_filterwarnings.py": "27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8",
     ".forge/helpers/ratchet.py": "59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf",
-    ".forge/helpers/types_python.py": "d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab",
+    ".forge/helpers/types_python.py": "d6b93980097ca70fe49e12c6a6c451c4f8bb9eaed9da3c7447b82abebc7d1e7f",
     ".git/hooks/pre-commit": "28ea2df956dc678bbee859b9347c3e7881b362aa30b2f19271c3cffc21e89fe6"
   },
   "settings": [
@@ -4140,10 +4140,10 @@ f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-37a1baa7d9e997c51495e2a0b669b67e84dd8914edbe362e67c60151c5005c30  .claude/skills/forge-project/scripts/checks.sh
+29e9b1fe846d3b3cd308b4fb63ee08479b8a52324ed49762b0f4637514da4123  .claude/skills/forge-project/scripts/checks.sh
 816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
-83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
+a5d79a30288ed582b2716e8a278b7880a5ee5a95645eb2b4b5a2579a3b8a8a8c  .claude/skills/forge-project/scripts/lib.sh
 0c6d6e004f93f8893156f6a394cf676a77bf34fce631b0923caa01d031e41971  .claude/skills/forge-project/scripts/post-edit.sh
 25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
 99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
@@ -4234,13 +4234,13 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-009881a41ce861b64589a028cd6b2f630f52ef24079944996eac27b29a5da603  .forge/check.sh
+5927bbb697cc2e31c4ef2726b7f950f1d4249fac5c52df17e84610488a9b03c5  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 27f6cba3d85b5937173183bdb3cf492777a9e103373503a222da708f0a811fe8  .forge/helpers/pytest_filterwarnings.py
 59f8939c4dea3268d17724b6496635f1443727b1c03d9ce712b6cfbf1218dadf  .forge/helpers/ratchet.py
-d6744059d9494959e19831d55de04fac62d660d097eb086dbe3e0a5b57747eab  .forge/helpers/types_python.py
+d6b93980097ca70fe49e12c6a6c451c4f8bb9eaed9da3c7447b82abebc7d1e7f  .forge/helpers/types_python.py
 
 ===== .git/hooks/pre-commit
 #!/bin/sh

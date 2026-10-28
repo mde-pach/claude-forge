@@ -35,6 +35,10 @@ ROOT = os.path.realpath(sys.argv[1])
 STATE = sys.argv[2]
 IDLE = int(os.environ.get("FORGE_TYPES_IDLE", "1800"))
 TY = os.path.join(os.path.dirname(sys.executable), "ty")
+# the project's interpreter when ty would not find its environment itself (no .venv, no
+# VIRTUAL_ENV: forge_ty_python); given to ty server as the active environment
+PROJECT_PYTHON = os.environ.get("FORGE_TY_PYTHON", "")
+PROJECT_PREFIX = os.environ.get("FORGE_TY_PREFIX", "")
 LOG = open(os.path.join(STATE, "log"), "a", buffering=1)
 
 
@@ -130,9 +134,14 @@ class Server:
                 continue
             msg = json.loads(out.read(length))
             if "method" in msg and "id" in msg:
-                # a request from the server (configuration, registrations): answer with defaults
+                # a request from the server (configuration, registrations): answer with defaults,
+                # and the project's environment when ty cannot find it
                 items = (msg.get("params") or {}).get("items")
-                self.send({"jsonrpc": "2.0", "id": msg["id"], "result": [None] * len(items) if items else None})
+                if items and msg.get("method") == "workspace/configuration":
+                    result = [self.settings() if (item or {}).get("section") == "ty" else None for item in items]
+                else:
+                    result = [None] * len(items) if items else None
+                self.send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
             elif "id" in msg:
                 slot = self.waiting.pop(msg["id"], None)
                 if slot:
@@ -153,6 +162,12 @@ class Server:
             return slot.response.get("result")
 
         return wait
+
+    def settings(self):
+        """ty's workspace settings: the project's interpreter as the active environment, if given."""
+        if not (PROJECT_PYTHON and PROJECT_PREFIX):
+            return None
+        return {"pythonExtension": {"activeEnvironment": {"executable": {"uri": uri(PROJECT_PYTHON), "sysPrefix": PROJECT_PREFIX}}}}
 
     def notify(self, method, params):
         self.send({"jsonrpc": "2.0", "method": method, "params": params})

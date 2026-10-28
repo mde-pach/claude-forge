@@ -734,7 +734,8 @@ describe("errors in unchanged files", () => {
         const ok = check();
         expect(ok.stdout).not.toContain("forge:python/typecheck failed");
         expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
-        stub("ty-stand-in", `${warn("app/main.py")}; echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
+        // (in the base, without app/new.py, only the warning: the error is the change's)
+        stub("ty-stand-in", `${warn("app/main.py")}; [ ! -f app/new.py ] || echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
         const bad = check();
         expect(bad.stdout).toContain("forge:python/typecheck failed\napp/new.py:1:5: error[invalid-assignment] Type mismatch");
         // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
@@ -1652,7 +1653,8 @@ describe("project tools whose name is not a shell function name", () => {
     expect(renderChecks([{ rule, target }])).not.toContain("vue-tsc()");
     expect(runCheckExample(rule, target, example, "match", [])).toEqual({ outcome: "skip", detail: "vue-tsc not available" });
     const bin = mkdtempSync(join(tmpdir(), "forge-vue-tsc-"));
-    writeFileSync(join(bin, "vue-tsc"), "#!/bin/sh\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n");
+    // (a type error in the file the change adds: the base, without it, has none)
+    writeFileSync(join(bin, "vue-tsc"), "#!/bin/sh\n[ -f src/Counter.vue ] || exit 0\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n");
     chmodSync(join(bin, "vue-tsc"), 0o755);
     expect(runCheckExample(rule, target, example, "match", [bin]).outcome).toBe("pass");
   });
@@ -2127,6 +2129,102 @@ test.if(hasBun)(
     ] as const) {
       expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
       expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
+    }
+  },
+  T,
+);
+
+/**
+ * A typecheck run is whole-project, and a file the change touches may already have
+ * errors (a project that is not clean for ty): outside `--all`, an error in a changed
+ * file counts only when the change brought it, compared by its text with the same run
+ * in the base tree (§10.1 step 4).
+ * @rule python/typecheck
+ */
+describe("typecheck errors the base already has", () => {
+  // a ty stand-in: one error per line marked "BAD <word>", in every .py file under the
+  // directory it runs in (the repository, or the base tree, which has no .git)
+  const marked = [
+    "o=$(mktemp)",
+    "find . -name '*.py' -not -path './.venv/*' -not -path './.forge/*' | sed 's|^\\./||' | sort | while read -r f; do",
+    '  grep -n "BAD " "$f" | sed "s|^\\([0-9]*\\):.*BAD \\([a-z]*\\).*|$f:\\1:1: error[bad] Bad: \\2|"',
+    'done > "$o"; cat "$o"; [ ! -s "$o" ]; s=$?; rm -f "$o"; exit $s',
+  ].join("\n");
+
+  test(
+    "an error already in a changed file passes with a note; one more of the same text fails, naming only the added one; code moved to another file brings its errors along",
+    () => {
+      put(repo, "app/legacy.py", "A = 1  # BAD alpha\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "legacy", "--no-verify");
+      stub("ty-stand-in", marked);
+      try {
+        put(repo, "app/legacy.py", "A = 1  # BAD alpha\nB = 2\n");
+        const ok = check();
+        expect(ok.stdout).not.toContain("forge:python/typecheck failed");
+        expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (their 1 error(s) were already there before this change");
+        put(repo, "app/legacy.py", "A = 1  # BAD alpha\nC = 3  # BAD alpha\n");
+        const bad = check();
+        expect(bad.status).toBe(1);
+        expect(bad.stdout).toContain("forge:python/typecheck failed\napp/legacy.py:2:1: error[bad] Bad: alpha\n(1 other error(s) in the changed files were already there before this change)");
+        expect(bad.stdout).not.toContain("app/legacy.py:1:1");
+        put(repo, "app/legacy.py", "B = 2\n");
+        put(repo, "app/moved.py", "A = 1  # BAD alpha\n");
+        expect(check().stdout).toContain("forge:python/typecheck ok for the changed files (their 1 error(s) were already there before this change");
+        put(repo, "app/moved.py", "A = 1  # BAD beta\n");
+        expect(check().stdout).toContain("forge:python/typecheck failed\napp/moved.py:1:1: error[bad] Bad: beta");
+      } finally {
+        stub("ty-stand-in", "exit 0");
+        reset();
+        git(repo, "reset", "-q", "--hard", "HEAD~1");
+      }
+    },
+    T,
+  );
+});
+
+/**
+ * Check commands name `ruff`; the project's own may be an older release (a Docker image
+ * pinning ruff 0.1): its `text` output stands in for `concise`, which it does not have, and
+ * a command it rejects as usage is reported skipped, never as a finding in the code.
+ * @rule python/lint
+ */
+test(
+  "an older ruff: lint findings still come out; a command it rejects is skipped, not a failure",
+  () => {
+    const ruff = join(repo, ".venv", "bin", "ruff");
+    const real = existsSync(ruff) ? realpathSync(ruff) : "";
+    const fake = (version: string, rejects: string, error: string) => {
+      rmSync(ruff, { force: true });
+      stub(
+        "ruff",
+        [
+          `case "$*" in --version) echo "ruff ${version}"; exit 0 ;; esac`,
+          `case "$*" in *${rejects}*) printf "error: ${error}\\n\\nFor more information, try '--help'.\\n" >&2; exit 2 ;; esac`,
+          '[ "$1" = check ] || exit 0',
+          'for a; do case $a in *.py) if grep -q "^import os$" "$a"; then echo "$a:1:8: F401 [*] \\`os\\` imported but unused"; found=1; fi ;; esac; done',
+          '[ -z "$found" ]',
+        ].join("\n"),
+      );
+    };
+    try {
+      put(repo, "app/new.py", "import os\n");
+      // ruff 0.1 has no "concise" output format: its text format is used instead
+      fake("0.1.5", "concise", "invalid value 'concise' for '--output-format <OUTPUT_FORMAT>'");
+      const old = check();
+      expect(old.stdout).toContain("forge:python/lint failed\napp/new.py:1:8: F401");
+      expect(old.stdout).not.toContain("invalid value");
+      // a ruff that rejects the command: skipped, with its version and error
+      fake("0.0.200", "--output-format", "unexpected argument '--output-format' found");
+      const rejected = check();
+      expect(rejected.stdout).not.toContain("forge:python/lint failed");
+      expect(rejected.stdout).toContain(
+        "forge:python/lint skipped: ruff 0.0.200 does not accept this command (ruff check --output-format concise app/new.py): unexpected argument '--output-format' found",
+      );
+    } finally {
+      rmSync(ruff, { force: true });
+      if (real) symlinkSync(real, ruff);
+      reset();
     }
   },
   T,
