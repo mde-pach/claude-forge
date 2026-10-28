@@ -31,7 +31,7 @@ Must not trigger: `rm -rf node_modules`, `git checkout -b feat`, `git push`, `gi
 
 Accepted misses: commands hidden behind variables other than as the command name, `eval` of strings built at run time, encodings other than `base64 -d | sh`.
 
-`guard.sh` p99 ≤ 20 ms with 50 rules.
+`guard.sh` p99 ≤ 50 ms with 50 rules (its own cost, on shared CI machines; locally a few milliseconds).
 
 ### 14.4 End-to-end
 

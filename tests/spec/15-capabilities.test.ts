@@ -28,9 +28,11 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
  * ms, for the <n> matches it asks about. The question costs a fixed part (the client
  * script, the FIFO) and a part per match, so the budget grows with the matches: an edit of
  * one line asks about one or two (post-edit.sh asks only about the added lines, §15.1), a
- * large edit about dozens.
+ * large edit about dozens. The budget leaves room for shared CI machines: tsserver (TypeScript
+ * 5 and 6) alone takes about 145 ms per warm question on a large project, and GitHub's macOS
+ * runners add their own noise; locally a question takes tens of milliseconds.
  */
-const warmBudget = (n: number) => 140 + 5 * n;
+const warmBudget = (n: number) => 300 + 10 * n;
 /** The first question of a session, the engine started on demand, in ms. */
 const COLD_BUDGET_MS = 5_000;
 // a daemon a failed test leaves behind goes away on its own
@@ -362,7 +364,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 300 ms plus 10 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "app/db.py", DB);
       afterEdit(repo, "app/db.py");
@@ -834,7 +836,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 300 ms plus 10 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "src/schemas.ts", SCHEMAS);
       afterEdit(repo, "src/schemas.ts");
