@@ -257,7 +257,9 @@ for p in sys.path:
 # every time.
 forge_fact() {
   _ff_name=$1
-  _ff_key=$2
+  # the key on one line (the index and the record are read line by line)
+  forge_fact_flat "$2"
+  _ff_key=$FORGE_FLAT
   shift 2
   FORGE_FACT=''
   _ff_rec=''
@@ -297,12 +299,41 @@ forge_fact() {
   FORGE_FACT=$(sed -n 's/^value	//p' "$_ff_new")
   if [ "$_ff_keep" = 1 ]; then
     _ff_id=$$
+    # the records this one supersedes (the same key) go, the index keeps the 50 newest keys
+    _ff_old=''
+    if [ -f "$FORGE_FACTS/$_ff_name.index" ]; then
+      while IFS='	' read -r _ff_i _ff_k; do
+        if [ "$_ff_k" = "$_ff_key" ] && [ "$_ff_i" != "$_ff_id" ]; then _ff_old="$_ff_old $FORGE_FACTS/$_ff_name.$_ff_i"; fi
+      done < "$FORGE_FACTS/$_ff_name.index"
+    fi
     touch -r "$_ff_new.stamp" "$_ff_new" 2>/dev/null && mv -f "$_ff_new" "$FORGE_FACTS/$_ff_name.$_ff_id" \
-      && { awk -F '\t' -v k="$_ff_key" '$2 != k' "$FORGE_FACTS/$_ff_name.index" 2>/dev/null | tail -n 49; printf '%s\t%s\n' "$_ff_id" "$_ff_key"; } > "$_ff_new.index" \
+      && { FORGE_FF_KEY=$_ff_key awk -F '\t' '$2 != ENVIRON["FORGE_FF_KEY"]' "$FORGE_FACTS/$_ff_name.index" 2>/dev/null | tail -n 49; printf '%s\t%s\n' "$_ff_id" "$_ff_key"; } > "$_ff_new.index" \
       && mv -f "$_ff_new.index" "$FORGE_FACTS/$_ff_name.index"
+    # shellcheck disable=SC2086
+    [ -z "$_ff_old" ] || rm -f $_ff_old
   fi
   rm -f "$_ff_new" "$_ff_new.stamp" "$_ff_new.index"
   return 0
+}
+
+# forge_fact_flat <text>: FORGE_FLAT, <text> on one line: backslashes doubled, newlines as
+# \n and tabs as \t (one text, one flat form); builtins only.
+forge_fact_flat() {
+  FORGE_FLAT=''
+  _fl_s=$1
+  case $_fl_s in *'\'*|*'
+'*|*'	'*) ;; *) FORGE_FLAT=$_fl_s; return 0 ;; esac
+  while [ -n "$_fl_s" ]; do
+    _fl_c=${_fl_s%"${_fl_s#?}"}
+    _fl_s=${_fl_s#?}
+    case $_fl_c in
+      '\') FORGE_FLAT="$FORGE_FLAT\\\\" ;;
+      '
+') FORGE_FLAT="$FORGE_FLAT\\n" ;;
+      '	') FORGE_FLAT="$FORGE_FLAT\\t" ;;
+      *) FORGE_FLAT="$FORGE_FLAT$_fl_c" ;;
+    esac
+  done
 }
 
 # forge_fact_read <record>: sets FORGE_FACT from a record still valid (its key is

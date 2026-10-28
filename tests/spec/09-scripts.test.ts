@@ -103,6 +103,38 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
   });
 
   /**
+   * A fact (§9.4) is kept under its key, whatever the key holds: one with newlines or tabs
+   * (the ty untyped list's: the interpreter's version and site directories) is found again
+   * by the next call, which runs nothing, and a recomputed fact replaces its record instead
+   * of adding one.
+   */
+  test("a fact with a multi-line key is reused by the next call, and its index and records do not grow", () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-fact-")));
+    const repo = join(base, "repo");
+    mkdirSync(repo);
+    sh("git", ["init", "-q", repo]);
+    writeFileSync(join(base, "dep"), "x\n");
+    backdate(base);
+    const ask = `ask() { echo run >> "${base}/runs"; printf 'watch %s\\nvalue one\\n' "${base}/dep"; }`;
+    const key = "version 3.10\nsite /usr/lib/python3.10/site-packages\tand \\n literal";
+    const call = `${ask}; FORGE_STATE_HOME="${base}/st"; forge_fact demo "$(printf '${key}')" ask && printf '%s|' "$FORGE_FACT"`;
+    const runs = () => (sh("cat", [join(base, "runs")]).stdout.match(/run/g) ?? []).length;
+    for (let i = 0; i < 3; i++) expect(libRun([...argv], "{}", call, repo)).toBe("value one|");
+    expect(runs()).toBe(1);
+    const facts = sh("sh", ["-c", `ls "${base}"/st/*/facts`]).stdout.split("\n").filter(Boolean);
+    expect(facts.filter((f) => f.startsWith("demo.") && f !== "demo.index")).toHaveLength(1);
+    expect(sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`]).stdout.trim().split("\n")).toHaveLength(1);
+    // what it depends on changes: asked again, and its record replaced, not added to
+    writeFileSync(join(base, "dep"), "y\n");
+    Bun.sleepSync(1100);
+    expect(libRun([...argv], "{}", call, repo)).toBe("value one|");
+    expect(runs()).toBe(2);
+    const after = sh("sh", ["-c", `ls "${base}"/st/*/facts`]).stdout.split("\n").filter((f) => f.startsWith("demo.") && f !== "demo.index");
+    expect(after).toHaveLength(1);
+    expect(sh("sh", ["-c", `cat "${base}"/st/*/facts/demo.index`]).stdout.trim().split("\n")).toHaveLength(1);
+  });
+
+  /**
    * Poetry decides where a project's environment is (its name hash, virtualenvs.path,
    * in-project, create = false): Forge asks it (`poetry env info -p`) instead of
    * recomputing its convention, and keeps the answer in the state until Poetry's inputs or
