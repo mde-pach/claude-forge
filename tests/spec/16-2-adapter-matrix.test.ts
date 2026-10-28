@@ -311,105 +311,108 @@ test("every adapter has a matrix, and each matrix runs every operation of its ad
   expect(missing).toEqual([]);
 });
 
-for (const m of MATRICES) {
+/** The title of a release of a matrix: its version, and why it does not run here when it does not. */
+function releaseTitle(m: Matrix, version: string): string {
   const why = runnable(m);
-  describe(m.tool, () => {
-    // after the tool's releases: their installs go (the shared store stays), and the matrix's size is noted
-    afterAll(() => {
-      if (!OPT_IN) return;
-      if (!KEEP) for (const d of [...m.versions.map((v) => `${m.tool}-${v}`), `.store-${m.tool}`]) rmSync(join(MATRIX_DIR, d), { recursive: true, force: true });
-      sizes.push({ after: m.tool, mb: matrixMB() });
-    });
-    for (const version of m.versions) {
-      const runs = !why && (OPT_IN || isCached(m, version));
-      const title = runs ? version : `${version} (${why ? `needs ${why}` : "not installed: FORGE_ADAPTER_MATRIX=1 installs and runs it"})`;
-      describe.if(runs)(title, () => {
-        const a = adapterOf(m.tool)!;
-        let p: ReturnType<typeof project>;
-        beforeAll(() => {
-          p = project(m, version);
-          if (OPT_IN) sizes.push({ after: `${m.tool} ${version}`, mb: matrixMB() });
-        }, T);
-        afterAll(() => p?.cleanup());
-
-        test(
-          "its version is read, and every operation of its range runs without a usage error and exits and prints as its callers read it (a release no range covers says so)",
-          () => {
-            if (!a.pinned) expect(p.run(`forge_tool_version ${m.tool}`).out.trim()).toBe(version);
-            const range = rangeOf(a, version);
-            if (!range) {
-              const op = m.calls[0]!.call.split(/\s+/)[0]!;
-              expect(p.run(`forge_do ${m.tool} ${m.calls[0]!.call}`).notes).toContain(`not enforced: no Forge adapter covers ${m.tool} ${version}`);
-              expect(op).toBeDefined();
-              return;
-            }
-            const failures: string[] = [];
-            for (const c of m.calls) {
-              if (c.from && compareVersions(version, c.from) < 0) continue;
-              if (c.to && compareVersions(version, c.to) >= 0) continue;
-              const op = c.call.split(/\s+/)[0]!;
-              if (c.write) p.put(c.write);
-              // a release that cannot do the operation needs no setup for it (pnpm 8.0.0 cannot even fetch on Node 24)
-              if (c.before && typeof range.ops[op] === "string") {
-                // the setup install reaches the registry: one retry, and its last lines when it fails
-                const setup = `( _o=$(command ${m.tool} ${c.before} 2>&1); _r=$?; [ "$_r" = 0 ] || printf '%s\\n' "$_o" | tail -n 3; exit "$_r" )`;
-                let b = p.run(setup, undefined, c.cwd);
-                if (b.rc !== 0) b = p.run(setup, undefined, c.cwd);
-                if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}: ${b.out.trim().split("\n").join(" | ")}`);
-              }
-              const r = p.run(`forge_do ${m.tool} ${c.call}`, c.input, c.cwd);
-              if (range.ops[op] === null) {
-                if (!r.notes.includes(`not enforced: ${m.tool} ${version} cannot ${op}`)) failures.push(`${op}: expected "cannot", got ${JSON.stringify(r.notes)}`);
-                continue;
-              }
-              if (r.notes) failures.push(`${c.call}: note ${JSON.stringify(r.notes.trim())}`);
-              if (!c.exit.includes(r.rc)) failures.push(`${c.call}: exit ${r.rc}, expected ${c.exit.join(" or ")}: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
-              if (c.out && !new RegExp(c.out, "m").test(r.out)) failures.push(`${c.call}: output does not match /${c.out}/: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
-            }
-            expect(failures).toEqual([]);
-          },
-          T,
-        );
-
-        // a probe on a release that can run its operation, and that rejects unknown options (usageFrom)
-        const probeOp = m.usageProbe?.split(/\s+/)[0];
-        const probeRange = rangeOf(a, version);
-        test.if(!!m.usageProbe && !!probeRange && typeof probeRange.ops[probeOp!] === "string" && (!m.usageFrom || compareVersions(version, m.usageFrom) >= 0))(
-          "a command line the release rejects is skipped with its error, never a finding",
-          () => {
-            const r = p.run(`forge_do ${m.tool} ${m.usageProbe}`);
-            expect(r.notes).toContain(`forge:adapter/${m.tool} skipped: ${m.tool} ${a.pinned ?? version} rejected the command`);
-            expect(r.rc).toBe(0);
-          },
-          T,
-        );
-      });
-    }
-  });
+  if (!why && (OPT_IN || isCached(m, version))) return version;
+  return `${version} (${why ? `needs ${why}` : "not installed: FORGE_ADAPTER_MATRIX=1 installs and runs it"})`;
 }
 
-describe("newest releases", () => {
-  const minor = (v: string) => v.split(".").slice(0, 2).join(".");
-  for (const m of MATRICES) {
-    const i = m.install;
-    if (!("npm" in i) && !("pypi" in i)) continue;
-    test(`${m.tool}'s newest release is one the adapter was proven on (a newer minor needs the matrix extended)`, async () => {
-      let latest: string;
-      try {
-        const url = "npm" in i ? `https://registry.npmjs.org/${i.npm}/latest` : `https://pypi.org/pypi/${i.pypi}/json`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-        const body = (await res.json()) as { version?: string; info?: { version: string } };
-        latest = body.version ?? body.info!.version;
-        // a prerelease under the latest tag (prisma 8.0.0-rc) is not a release
-        if (latest.includes("-")) return;
-      } catch {
-        return; // offline: nothing to compare with
-      }
-      const a = adapterOf(m.tool)!;
-      expect({ tool: m.tool, latest, verified: a.verified, covered: compareVersions(minor(latest), minor(a.verified)) <= 0 }).toMatchObject({ covered: true });
-    });
-  }
+/** Each tool, each release of its matrix: the operations as its callers read them, and a usage probe. */
+describe.each(MATRICES.map((m) => [m.tool, m] as const))("%s", (_tool, m) => {
+  // after the tool's releases: their installs and the tool's store go, and the matrix's size is noted
+  afterAll(() => {
+    if (!OPT_IN) return;
+    if (!KEEP) for (const d of [...m.versions.map((v) => `${m.tool}-${v}`), `.store-${m.tool}`]) rmSync(join(MATRIX_DIR, d), { recursive: true, force: true });
+    sizes.push({ after: m.tool, mb: matrixMB() });
+  });
+
+  describe.each(m.versions.map((v) => [releaseTitle(m, v), v] as const))("%s", (_title, version) => {
+    const runs = !runnable(m) && (OPT_IN || isCached(m, version));
+    const a = adapterOf(m.tool)!;
+    let p: ReturnType<typeof project>;
+    beforeAll(() => {
+      if (!runs) return;
+      p = project(m, version);
+      if (OPT_IN) sizes.push({ after: `${m.tool} ${version}`, mb: matrixMB() });
+    }, T);
+    afterAll(() => p?.cleanup());
+
+    test.if(runs)(
+      "its version is read, and every operation of its range runs without a usage error and exits and prints as its callers read it (a release no range covers says so)",
+      () => {
+        if (!a.pinned) expect(p.run(`forge_tool_version ${m.tool}`).out.trim()).toBe(version);
+        const range = rangeOf(a, version);
+        if (!range) {
+          const op = m.calls[0]!.call.split(/\s+/)[0]!;
+          expect(p.run(`forge_do ${m.tool} ${m.calls[0]!.call}`).notes).toContain(`not enforced: no Forge adapter covers ${m.tool} ${version}`);
+          expect(op).toBeDefined();
+          return;
+        }
+        const failures: string[] = [];
+        for (const c of m.calls) {
+          if (c.from && compareVersions(version, c.from) < 0) continue;
+          if (c.to && compareVersions(version, c.to) >= 0) continue;
+          const op = c.call.split(/\s+/)[0]!;
+          if (c.write) p.put(c.write);
+          // a release that cannot do the operation needs no setup for it (pnpm 8.0.0 cannot even fetch on Node 24)
+          if (c.before && typeof range.ops[op] === "string") {
+            // the setup install reaches the registry: one retry, and its last lines when it fails
+            const setup = `( _o=$(command ${m.tool} ${c.before} 2>&1); _r=$?; [ "$_r" = 0 ] || printf '%s\\n' "$_o" | tail -n 3; exit "$_r" )`;
+            let b = p.run(setup, undefined, c.cwd);
+            if (b.rc !== 0) b = p.run(setup, undefined, c.cwd);
+            if (b.rc !== 0) failures.push(`${m.tool} ${c.before}: exit ${b.rc}: ${b.out.trim().split("\n").join(" | ")}`);
+          }
+          const r = p.run(`forge_do ${m.tool} ${c.call}`, c.input, c.cwd);
+          if (range.ops[op] === null) {
+            if (!r.notes.includes(`not enforced: ${m.tool} ${version} cannot ${op}`)) failures.push(`${op}: expected "cannot", got ${JSON.stringify(r.notes)}`);
+            continue;
+          }
+          if (r.notes) failures.push(`${c.call}: note ${JSON.stringify(r.notes.trim())}`);
+          if (!c.exit.includes(r.rc)) failures.push(`${c.call}: exit ${r.rc}, expected ${c.exit.join(" or ")}: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
+          if (c.out && !new RegExp(c.out, "m").test(r.out)) failures.push(`${c.call}: output does not match /${c.out}/: ${r.out.trim().split("\n").slice(0, 4).join(" | ")}`);
+        }
+        expect(failures).toEqual([]);
+      },
+      T,
+    );
+
+    // a probe on a release that can run its operation, and that rejects unknown options (usageFrom)
+    const probeOp = m.usageProbe?.split(/\s+/)[0];
+    const probeRange = rangeOf(a, version);
+    test.if(runs && !!m.usageProbe && !!probeRange && typeof probeRange.ops[probeOp!] === "string" && (!m.usageFrom || compareVersions(version, m.usageFrom) >= 0))(
+      "a command line the release rejects is skipped with its error, never a finding",
+      () => {
+        const r = p.run(`forge_do ${m.tool} ${m.usageProbe}`);
+        expect(r.notes).toContain(`forge:adapter/${m.tool} skipped: ${m.tool} ${a.pinned ?? version} rejected the command`);
+        expect(r.rc).toBe(0);
+      },
+      T,
+    );
+  });
 });
+
+/** npm and PyPI tools: their newest release is not past what the adapter was proven on (a newer minor extends the matrix). */
+const minor = (v: string) => v.split(".").slice(0, 2).join(".");
+test.each(MATRICES.filter((m) => "npm" in m.install || "pypi" in m.install).map((m) => [m.tool, m] as const))(
+  "%s's newest release is one the adapter was proven on (a newer minor needs the matrix extended)",
+  async (_tool, m) => {
+    const i = m.install as { npm?: string; pypi?: string };
+    let latest: string;
+    try {
+      const url = i.npm ? `https://registry.npmjs.org/${i.npm}/latest` : `https://pypi.org/pypi/${i.pypi}/json`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      const body = (await res.json()) as { version?: string; info?: { version: string } };
+      latest = body.version ?? body.info!.version;
+      // a prerelease under the latest tag (prisma 8.0.0-rc) is not a release
+      if (latest.includes("-")) return;
+    } catch {
+      return; // offline: nothing to compare with
+    }
+    const a = adapterOf(m.tool)!;
+    expect({ tool: m.tool, latest, verified: a.verified, covered: compareVersions(minor(latest), minor(a.verified)) <= 0 }).toMatchObject({ covered: true });
+  },
+);
 
 test.if(OPT_IN)(`the matrix stays within its disk budget (${BUDGET_MB} MB, FORGE_ADAPTER_MATRIX_BUDGET_MB)`, () => {
   const peak = sizes.reduce((x, y) => (y.mb > x.mb ? y : x), { after: "start", mb: 0 });
