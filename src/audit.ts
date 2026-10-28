@@ -51,13 +51,16 @@ function shellTool(repo: string, call: string, prelude = ""): string | null {
  * forge status ask the same as the hooks' `ty check`.
  */
 export function tyPrelude(settings: EngineSettings): string {
-  return `${renderEngine(["python"], resolveEngine(["forge_ty_args"]), settings)}\nFORGE_TY_UNTYPED_HELPER=${shQuote(join(packageRoot(), "templates", "helpers", UNTYPED_HELPER))}`;
+  return `${renderEngine(["python"], resolveEngine(["forge_ty_args_print", "forge_ty_untyped_print"]), settings)}\nFORGE_TY_UNTYPED_HELPER=${shQuote(join(packageRoot(), "templates", "helpers", UNTYPED_HELPER))}`;
 }
 
-/** An adapter operation's arguments (§16.2) with the caller's in place of {args}, or after them. */
+/** An adapter operation's arguments (§16.2): the caller's in place of {1}, {2}… (by rank) and {args} (the others), or after them. */
 export function opArgs(template: string, args: string[]): string[] {
   const words = template.split(" ").filter(Boolean);
-  return words.includes("{args}") ? words.flatMap((w) => (w === "{args}" ? args : [w])) : [...words, ...args];
+  const used = new Set(words.flatMap((w) => (/^\{[1-9]\}$/.test(w) ? [Number(w[1]) - 1] : [])));
+  const rest = args.filter((_, i) => !used.has(i));
+  const out = words.flatMap((w) => (w === "{args}" ? rest : /^\{[1-9]\}$/.test(w) ? [args[Number(w[1]) - 1] ?? ""] : [w]));
+  return words.includes("{args}") ? out : [...out, ...rest];
 }
 
 /**
@@ -80,13 +83,13 @@ export function toolFacts(repo: string, tool: string, codes: string[], settings:
 
 /** The arguments `ty check` gets in <repo> (forge_ty_args): the project's environment when ty would not find it, the untyped packages as Any. */
 export function tyArgs(repo: string, settings: EngineSettings): string[] {
-  const out = shellTool(repo, "forge_ty_args", tyPrelude(settings));
+  const out = shellTool(repo, "forge_ty_args_print", tyPrelude(settings));
   return out ? out.split("\n") : [];
 }
 
 /** The installed packages without typing that ty checks as Any in <repo> (forge_ty_untyped, §15.2). */
 export function untypedPackages(repo: string, settings: EngineSettings): string[] {
-  const out = shellTool(repo, "forge_ty_untyped", tyPrelude(settings));
+  const out = shellTool(repo, "forge_ty_untyped_print", tyPrelude(settings));
   return out ? out.split("\n") : [];
 }
 

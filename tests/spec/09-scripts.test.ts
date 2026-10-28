@@ -10,7 +10,7 @@
  * BusyBox.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { renderEngine, renderGuardRules, renderLib, resolveEngine, template } from "../../src/render";
@@ -21,6 +21,20 @@ import { sh } from "../helpers";
 const shells = availableShells();
 const lib = mkdtempSync(join(tmpdir(), "forge-lib-"));
 writeFileSync(join(lib, "lib.sh"), renderLib());
+
+/**
+ * Backdates every file and directory under <dir> by a minute: a fact (§9.4) about a path
+ * modified in the same clock tick is not kept, and a shell's `test -nt` may compare whole
+ * seconds, so fixtures written just before are made older than the facts about them.
+ */
+function backdate(dir: string): void {
+  const t = new Date(Date.now() - 60_000);
+  for (const e of readdirSync(dir, { recursive: true }) as string[]) {
+    const p = join(dir, e);
+    if (!lstatSync(p).isSymbolicLink()) utimesSync(p, t, t);
+  }
+  utimesSync(dir, t, t);
+}
 
 /** Runs `snippet` after sourcing lib.sh, with $FORGE_INPUT set to `input`. */
 function libRun(argv: string[], input: string, snippet: string, cwd = lib): string {
@@ -118,6 +132,7 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     writeFileSync(join(base, "interp", "bin", "ruff"), "#!/bin/sh\n", { mode: 0o755 });
     const path = `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/pbin:${base}/interp/bin:$PATH"`;
     const calls = () => (sh("cat", [join(base, "calls")]).stdout.match(/env info/g) ?? []).length;
+    backdate(base);
     expect(libRun([...argv], "{}", `${path}; tool ruff; printf '|'; tool python`, repo)).toBe(`${env}/bin/ruff|${env}/bin/python`);
     expect(calls()).toBe(1);
     // another shell: Poetry's answer is reused
@@ -146,7 +161,7 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
   test("ty gets --python <sys.prefix> exactly when it would not find the project's environment: .venv, VIRTUAL_ENV, its config, uv, Poetry in-project and external, the interpreter on PATH", () => {
     const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-tyenv-")));
     const script = join(base, "ty-args.sh");
-    writeFileSync(script, [renderLib(), "IFS='\n'", renderEngine(["python"], resolveEngine(["forge_ty_args"]), { untypedPackages: "source" }), "forge_ty_args"].join("\n"));
+    writeFileSync(script, [renderLib(), "IFS='\n'", renderEngine(["python"], resolveEngine(["forge_ty_args_print"]), { untypedPackages: "source" }), "forge_ty_args_print"].join("\n"));
     const exe = (p: string, body = "") => {
       mkdirSync(dirname(join(base, p)), { recursive: true });
       writeFileSync(join(base, p), `#!/bin/sh\n${body}\n`, { mode: 0o755 });

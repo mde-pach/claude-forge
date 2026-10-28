@@ -71,7 +71,8 @@ const COMMAND_POSITION_ONLY = new Set<string>(["npm", "pnpm", "yarn"]);
 export function toolsInCommand(cmd: string): string[] {
   const found: { tool: string; at: number }[] = [];
   for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
-    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
+    // a tool an adapter drives is also named by `forge_do <tool>` (§16.1)
+    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s|\\bforge_do\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
     const m = new RegExp(`${lead}${tool}(?=$|[\\s;&|)\`])`, "m").exec(cmd);
     if (m) found.push({ tool, at: m.index });
   }

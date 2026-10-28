@@ -223,7 +223,7 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
   test(
     "the list is the environment's untyped modules (namespace packages by portion), not those with py.typed, .pyi files or a stubs package, nor modules ty resolves without the environment (its standard library stubs, the project's own code)",
     () => {
-      const r = shell("forge_ty_untyped");
+      const r = shell("forge_ty_untyped_print");
       expect(r.status).toBe(0);
       const names = r.stdout.trim().split("\n");
       expect(names).toEqual(expect.arrayContaining(["alpha", "ns.plainpart", "six"]));
@@ -254,7 +254,7 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
     "ty check gets them as replace-imports-with-any, added to the project's own list: the untyped model checks, the project's Any stays",
     () => {
       expect(sh("sh", [".forge/check.sh", "--all"], { cwd: repo, env: ENV }).stdout).not.toContain("invalid-assignment");
-      const args = shell("forge_ty_args").stdout;
+      const args = shell("forge_ty_args_print").stdout;
       expect(args).toContain('analysis.replace-imports-with-any = ["');
       expect(args).toContain('"alpha", "alpha.**"');
       // inferred from its source, the model's attribute is a Column; beta.B().x = "s" stays accepted (the project's own Any)
@@ -262,7 +262,7 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
       expect(source.stdout).toContain("app/models.py:6:");
       expect(source.stdout).toContain("invalid-assignment");
       expect(source.stdout).not.toContain("app/models.py:8:");
-      expect(shell("FORGE_TY_UNTYPED=source; forge_ty_args").stdout).not.toContain("replace-imports-with-any");
+      expect(shell("FORGE_TY_UNTYPED=source; forge_ty_args_print").stdout).not.toContain("replace-imports-with-any");
     },
     T,
   );
@@ -276,12 +276,12 @@ describe.if(hasUv)("Python: installed packages without typing are Any to ty", ()
       const pid = daemonPid(repo, "python");
       const before = factTimes();
       Bun.sleepSync(1100);
-      expect(shell("forge_ty_untyped").stdout).toContain("alpha");
+      expect(shell("forge_ty_untyped_print").stdout).toContain("alpha");
       expect(factTimes()).toEqual(before);
       // alpha 1.1 ships py.typed
       pkg("alpha/py.typed");
       sh("mv", [join(repo, SITE, "alpha-1.0.dist-info"), join(repo, SITE, "alpha-1.1.dist-info")]);
-      expect(shell("forge_ty_untyped").stdout.split("\n")).not.toContain("alpha");
+      expect(shell("forge_ty_untyped_print").stdout.split("\n")).not.toContain("alpha");
       // the engine answers with the new list: get_logger() is a Logger again
       expect(afterEdit(repo, "app/log.py")).toContain("forge:python/log-exception app/log.py:8:");
       expect(daemonPid(repo, "python")).not.toBe(pid);

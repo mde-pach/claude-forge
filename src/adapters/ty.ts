@@ -10,6 +10,7 @@ export const TY: ToolAdapter = {
   tool: "ty",
   pinned: TY_VERSION,
   verified: TY_VERSION,
+  runner: "forge_ty",
   usage: { exit: 2, pattern: "^For more information, try .--help." },
   ranges: [
     {

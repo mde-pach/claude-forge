@@ -30,38 +30,49 @@ FORGE_TYPES_PACKAGES='@@TYPES_PACKAGES@@'
 forge_ty() {
   if [ "${1:-}" = check ]; then
     shift
+    forge_ty_args
     _ty_ifs=$IFS
     IFS='
 '
-    # shellcheck disable=SC2046
-    set -- check $(forge_ty_args) "$@"
+    # shellcheck disable=SC2086
+    set -- check $FORGE_TY_ARGV "$@"
     IFS=$_ty_ifs
   fi
   uvx -q --python "$FORGE_ENGINE_PYTHON" --from "ty==$FORGE_TY_VERSION" ty "$@"
 }
 
-# forge_ty_args: the arguments `ty check` needs here, one per line: --python <sys.prefix>
-# when ty would not find the project's environment itself (forge_ty_env), and -c
-# analysis.replace-imports-with-any=[…] with the untyped packages (forge_ty_untyped).
+# forge_ty_args: FORGE_TY_ARGV, the arguments `ty check` needs here, one per line: --python
+# <sys.prefix> when ty would not find the project's environment itself (forge_ty_env), and
+# -c analysis.replace-imports-with-any = […] with the untyped packages (forge_ty_untyped).
+# With the facts unchanged, shell builtins only. forge_ty_args_print prints them.
 forge_ty_args() {
+  FORGE_TY_ARGV=''
   # in the base tree (forge_typecheck_in_base): the arguments of the same directory of the working tree
   if [ -n "${FORGE_BASE_AT:-}" ]; then
     _ta_here=$(pwd -P)
     case $_ta_here in
-      "$FORGE_BASE_AT"|"$FORGE_BASE_AT"/*) ( cd "$FORGE_BASE_OF${_ta_here#"$FORGE_BASE_AT"}" && FORGE_BASE_AT='' forge_ty_args ); return ;;
+      "$FORGE_BASE_AT"|"$FORGE_BASE_AT"/*) FORGE_TY_ARGV=$(cd "$FORGE_BASE_OF${_ta_here#"$FORGE_BASE_AT"}" && FORGE_BASE_AT='' forge_ty_args_print); return 0 ;;
     esac
   fi
   forge_ty_env || return 0
-  [ -z "$FORGE_TY_PASS" ] || printf -- '--python\n%s\n' "$FORGE_TY_PASS"
-  _ta_any=$(forge_ty_untyped | forge_ty_any_value)
-  [ -z "$_ta_any" ] || printf -- '-c\nanalysis.replace-imports-with-any = %s\n' "$_ta_any"
+  [ -z "$FORGE_TY_PASS" ] || FORGE_TY_ARGV="--python
+$FORGE_TY_PASS"
+  forge_ty_untyped
+  _ta_any=''
+  _ta_ifs=$IFS
+  IFS='
+'
+  for _ta_m in $FORGE_TY_UNTYPED_LIST; do _ta_any="${_ta_any:+$_ta_any, }\"$_ta_m\", \"$_ta_m.**\""; done
+  IFS=$_ta_ifs
+  # ty adds it to a list the project's config already sets: the project's entries stay
+  [ -z "$_ta_any" ] || FORGE_TY_ARGV="${FORGE_TY_ARGV:+$FORGE_TY_ARGV
+}-c
+analysis.replace-imports-with-any = [$_ta_any]"
+  return 0
 }
-
-# forge_ty_any_value: the module names of stdin as ty's replace-imports-with-any value,
-# each with its submodules: ["a", "a.**", …]. Nothing when there is none. ty adds it to
-# a list the project's config already sets: the project's entries stay.
-forge_ty_any_value() {
-  awk 'NF { s = s (s == "" ? "" : ", ") "\"" $0 "\", \"" $0 ".**\"" } END { if (s != "") print "[" s "]" }'
+forge_ty_args_print() {
+  forge_ty_args
+  [ -z "$FORGE_TY_ARGV" ] || printf '%s\n' "$FORGE_TY_ARGV"
 }
 
 # forge_types_untyped_filter: the untyped modules of stdin the types engine gets as Any: not
@@ -76,12 +87,14 @@ forge_types_untyped_filter() {
 # environment forge_py_env finds (uv's, Poetry's, the interpreter on PATH), which ty
 # must be given: under uvx, the python it would find on PATH is uvx's own. Sets
 # FORGE_TY_PY (its interpreter) and FORGE_TY_PASS (the sys.prefix to give ty, or "").
-# Fails when there is none.
+# Fails when there is none. Its config's environment.python is a fact (forge_fact).
 forge_ty_env() {
   FORGE_TY_PY=''
   FORGE_TY_PASS=''
-  _te_cfg=$(forge_toml_get ty.toml environment python)
-  [ -n "$_te_cfg" ] || _te_cfg=$(forge_toml_get pyproject.toml tool.ty.environment python)
+  _te_cfg=''
+  if [ -f ty.toml ] || [ -f pyproject.toml ]; then
+    forge_fact ty-environment "$PWD" forge_ty_config_python && _te_cfg=$FORGE_FACT
+  fi
   if [ -n "$_te_cfg" ]; then _te_d=$_te_cfg
   elif [ -n "${VIRTUAL_ENV:-}" ]; then _te_d=$VIRTUAL_ENV
   elif [ -d .venv ]; then _te_d=.venv
@@ -98,27 +111,46 @@ forge_ty_env() {
   return 1
 }
 
-# forge_ty_untyped: the top-level modules (or namespace package portions) installed in
-# the environment ty checks with (forge_ty_env) that ship no typing, one per line, which
-# ty is told to check as Any (FORGE_TY_UNTYPED any). Left out: modules ty resolves
-# without that environment (its bundled standard library stubs, the project's own
-# code). Computed by .forge/helpers/untyped_python.py (FORGE_TY_UNTYPED_HELPER) and kept
-# as a fact until the environment's site-packages, ty's search roots, the project's ty
-# configuration or Forge's pins change: a package upgraded to one that ships typing
-# leaves the list by itself. Prints nothing when switched off or without an environment.
+# forge_ty_config_python: environment.python of ty's config (ty.toml, else [tool.ty]); watched: both files.
+forge_ty_config_python() {
+  printf 'watch %s\nwatch %s\n' "$PWD/ty.toml" "$PWD/pyproject.toml"
+  _tp=$(forge_toml_get ty.toml environment python)
+  [ -n "$_tp" ] || _tp=$(forge_toml_get pyproject.toml tool.ty.environment python)
+  [ -z "$_tp" ] || printf '%s\n' "$_tp"
+}
+
+# forge_ty_untyped: FORGE_TY_UNTYPED_LIST, the top-level modules (or namespace package
+# portions) installed in the environment ty checks with (forge_ty_env) that ship no typing,
+# one per line, which ty is told to check as Any (FORGE_TY_UNTYPED any). Left out: modules ty
+# resolves without that environment (its bundled standard library stubs, the project's own
+# code). Computed by .forge/helpers/untyped_python.py (FORGE_TY_UNTYPED_HELPER) and kept as
+# a fact until the environment's site-packages, ty's search roots, the project's ty
+# configuration, the helper or Forge's pins change: a package upgraded to one that ships
+# typing leaves the list by itself. Empty when switched off or without an environment.
+# forge_ty_untyped_print prints it.
 forge_ty_untyped() {
+  FORGE_TY_UNTYPED_LIST=''
   [ "$FORGE_TY_UNTYPED" = any ] || return 0
   forge_ty_env || return 0
   _tn_py=$FORGE_TY_PY
-  _tn_sites=$(forge_py_sites "$_tn_py") || return 0
+  forge_py_sites "$_tn_py" || return 0
+  _tn_sites=$FORGE_FACT
   _tn_h=${FORGE_TY_UNTYPED_HELPER:-.forge/helpers/untyped_python.py}
+  case $_tn_h in /*) ;; *) _tn_h=$PWD/$_tn_h ;; esac
   [ -f "$_tn_h" ] || return 0
-  forge_fact ty-untyped "$FORGE_TY_VERSION $FORGE_ENGINE_PYTHON $_tn_py $_tn_sites $(cksum < "$_tn_h") $(cksum ty.toml pyproject.toml 2>/dev/null)" forge_ty_untyped_compute "$_tn_h" "$_tn_sites"
+  forge_fact ty-untyped "$PWD $FORGE_TY_VERSION $FORGE_ENGINE_PYTHON $_tn_h $_tn_py $_tn_sites" forge_ty_untyped_compute "$_tn_h" "$_tn_sites" || return 0
+  FORGE_TY_UNTYPED_LIST=$FORGE_FACT
+}
+forge_ty_untyped_print() {
+  forge_ty_untyped
+  [ -z "$FORGE_TY_UNTYPED_LIST" ] || printf '%s\n' "$FORGE_TY_UNTYPED_LIST"
 }
 
-# forge_ty_untyped_compute <helper> <sites>: runs the helper on the pinned ty's Python
-# (the "watch" lines it prints are the directories its answer depends on, forge_fact).
+# forge_ty_untyped_compute <helper> <sites>: runs the helper on the pinned ty's Python; the
+# "watch" lines (the helper, the ty config, and the directories the helper names) are what
+# the answer depends on (forge_fact).
 forge_ty_untyped_compute() {
+  printf 'watch %s\nwatch %s\nwatch %s\n' "$1" "$PWD/ty.toml" "$PWD/pyproject.toml"
   _uc_v=$(printf '%s\n' "$2" | sed -n 's/^version //p')
   _uc_ifs=$IFS
   IFS='
@@ -138,7 +170,7 @@ forge_types_up() {
   case $1 in
     # the untyped packages it checks as Any are part of what it runs with: a changed list restarts it
     python)
-      _tu_any=$(forge_ty_untyped | forge_types_untyped_filter)
+      _tu_any=$(forge_ty_untyped_print | forge_types_untyped_filter)
       _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV any:$(printf '%s' "$_tu_any" | forge_sha256 | cut -c 1-12)" ;;
     # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
     typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;

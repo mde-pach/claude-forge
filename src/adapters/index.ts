@@ -46,9 +46,21 @@ export function adapterUses(commands: { rule: string; command: string }[]): stri
   return [...out].join("\n");
 }
 
-/** tool, pinned version (Forge's own tools), the version proven last, the usage-error exit status and pattern; one line each. */
+/**
+ * tool, pinned version (Forge's own tools), the version proven last, the usage-error exit
+ * status and pattern, the runner, the pick function, the version arguments; one line each,
+ * "-" for an empty field (the engine splits on tabs, which collapse).
+ */
 export function adapterMeta(): string {
-  return ADAPTERS.map((a) => [a.tool, a.pinned ?? "", a.verified, String(a.usage.exit), a.usage.pattern].join("\t")).join("\n");
+  const f = (v: string | undefined) => (v ? v : "-");
+  return ADAPTERS.map((a) =>
+    [a.tool, f(a.pinned), a.verified, f(a.usage ? String(a.usage.exit) : ""), f(a.usage?.pattern), a.runner ?? "project", f(a.pick), a.versionArgs ?? "--version"].join("\t"),
+  ).join("\n");
+}
+
+/** The regular expression of a check command that runs <a> directly (§16.1). */
+export function directPattern(a: ToolAdapter): RegExp {
+  return new RegExp(a.direct ?? `(^|[\\s;&|(\`!]|\\$\\()${a.tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "m");
 }
 
 /**

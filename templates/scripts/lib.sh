@@ -53,47 +53,84 @@ json_escape() {
   }'
 }
 
-# tool <name>: prints the command that runs the project's own <name>, or nothing if absent.
-# A Python tool (FORGE_PYTHON_TOOLS) not in .venv is the one of the project's Python
-# environment elsewhere (forge_py_tool).
+# tool <name>: prints the command that runs the project's own <name>, or nothing if absent
+# (forge_tool_lookup).
 tool() {
+  forge_tool_lookup "$1"
+  printf '%s' "$FORGE_TOOL_CMD"
+}
+
+# forge_tool_lookup <name>: FORGE_TOOL_CMD, the command that runs the project's own <name>
+# ("" when absent), and FORGE_TOOL_BIN, its file. A Python tool (FORGE_PYTHON_TOOLS) not in
+# .venv is the one of the project's Python environment elsewhere (forge_py_tool_lookup).
+# Shell builtins only (no process) outside a workspace package.
+forge_tool_lookup() {
+  FORGE_TOOL_CMD=''
+  FORGE_TOOL_BIN=''
   if [ -f bun.lock ] || [ -f bun.lockb ]; then
     if [ -x "node_modules/.bin/$1" ] && command -v bun >/dev/null 2>&1; then
-      printf 'bun run --bun %s' "$1"
+      FORGE_TOOL_CMD="bun run --bun $1"
+      FORGE_TOOL_BIN=node_modules/.bin/$1
     fi
   elif [ -f uv.lock ]; then
-    if [ -x ".venv/bin/$1" ]; then printf '.venv/bin/%s' "$1"; else forge_py_tool "$1"; fi
+    if [ -x ".venv/bin/$1" ]; then FORGE_TOOL_CMD=.venv/bin/$1; FORGE_TOOL_BIN=$FORGE_TOOL_CMD; else forge_py_tool_lookup "$1"; fi
   elif [ -x "node_modules/.bin/$1" ]; then
-    printf 'node_modules/.bin/%s' "$1"
+    FORGE_TOOL_CMD=node_modules/.bin/$1
+    FORGE_TOOL_BIN=$FORGE_TOOL_CMD
   elif [ -x ".venv/bin/$1" ]; then
-    printf '.venv/bin/%s' "$1"
-  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$(pwd)" ]; then
+    FORGE_TOOL_CMD=.venv/bin/$1
+    FORGE_TOOL_BIN=$FORGE_TOOL_CMD
+  elif [ -n "${FORGE_WS_ROOT:-}" ] && [ "$FORGE_WS_ROOT" != "$PWD" ]; then
     # in a workspace package: the root's install (hoisted by bun, npm and Yarn; uv's .venv)
     _tw=$(cd "$FORGE_WS_ROOT" && FORGE_WS_ROOT='' tool "$1")
-    case $_tw in ''|bun\ *|/*) printf '%s' "$_tw" ;; *) printf '%s/%s' "$FORGE_WS_ROOT" "$_tw" ;; esac
+    case $_tw in ''|bun\ *|/*) FORGE_TOOL_CMD=$_tw ;; *) FORGE_TOOL_CMD=$FORGE_WS_ROOT/$_tw ;; esac
+    case $FORGE_TOOL_CMD in "bun run --bun "*) FORGE_TOOL_BIN=$FORGE_WS_ROOT/node_modules/.bin/$1 ;; *) FORGE_TOOL_BIN=$FORGE_TOOL_CMD ;; esac
   else
-    forge_py_tool "$1"
+    forge_py_tool_lookup "$1"
   fi
 }
 
 # The project tools that live in a Python environment (src/core/tools.ts PYTHON_TOOLS).
 FORGE_PYTHON_TOOLS='@@PYTHON_TOOLS@@'
 
-# forge_py_tool <name>: the project's Python tool <name> in its environment outside
-# .venv (forge_py_env): <name> in the environment's scripts directories, or, for python,
-# its interpreter. Prints nothing when it is not there, or <name> is not a Python tool.
+# forge_py_tool <name>: prints the project's Python tool <name> in its environment outside
+# .venv (forge_py_tool_lookup).
 forge_py_tool() {
+  forge_py_tool_lookup "$1"
+  printf '%s' "$FORGE_TOOL_CMD"
+}
+
+# forge_py_tool_lookup <name>: FORGE_TOOL_CMD (and FORGE_TOOL_BIN), the project's Python
+# tool <name> in its environment outside .venv (forge_py_env): <name> in the environment's
+# scripts directories, or, for python, its interpreter; "" when it is not there, or <name> is
+# not a Python tool.
+forge_py_tool_lookup() {
+  FORGE_TOOL_CMD=''
+  FORGE_TOOL_BIN=''
   case " $FORGE_PYTHON_TOOLS " in *" $1 "*) ;; *) return 0 ;; esac
   forge_py_env || return 0
-  if [ "$1" = python ]; then printf '%s' "$FORGE_PY"; return 0; fi
+  if [ "$1" = python ]; then FORGE_TOOL_CMD=$FORGE_PY; FORGE_TOOL_BIN=$FORGE_PY; return 0; fi
   _pt_ifs=$IFS
   IFS='
 '
   for _pt_d in $FORGE_PY_BIN; do
-    if [ -f "$_pt_d/$1" ] && [ -x "$_pt_d/$1" ]; then IFS=$_pt_ifs; printf '%s/%s' "$_pt_d" "$1"; return 0; fi
+    if [ -f "$_pt_d/$1" ] && [ -x "$_pt_d/$1" ]; then FORGE_TOOL_CMD=$_pt_d/$1; FORGE_TOOL_BIN=$FORGE_TOOL_CMD; break; fi
   done
   IFS=$_pt_ifs
   return 0
+}
+
+# forge_path_lookup <name>: FORGE_FOUND, the first executable <name> on PATH ("" when none);
+# shell builtins only.
+forge_path_lookup() {
+  FORGE_FOUND=''
+  _pl_ifs=$IFS
+  IFS=:
+  for _pl_d in $PATH; do
+    if [ -n "$_pl_d" ] && [ -f "$_pl_d/$1" ] && [ -x "$_pl_d/$1" ]; then FORGE_FOUND=$_pl_d/$1; break; fi
+  done
+  IFS=$_pl_ifs
+  case $FORGE_FOUND in /*) ;; ?*) FORGE_FOUND=$PWD/$FORGE_FOUND ;; esac
 }
 
 # forge_py_env: the project's Python environment when it is not the repository's .venv
@@ -110,10 +147,10 @@ forge_py_tool() {
 #     it (pip, Poetry with virtualenvs.create false, a Docker image) and its scripts
 #     directory (not the user scripts one, ~/.local/bin, where pipx puts global tools).
 # Looked up once per directory and shell; what needs a process (Poetry's answer, the
-# interpreter's prefix) is a fact cached in the state (forge_fact).
+# interpreter's prefix) is a fact (forge_fact): an unchanged environment costs no process.
 forge_py_env() {
-  if [ "${_pe_at:-}" = "$(pwd)" ]; then [ -n "$FORGE_PY" ]; return; fi
-  _pe_at=$(pwd)
+  if [ "${_pe_at:-}" = "$PWD" ]; then [ -n "$FORGE_PY" ]; return; fi
+  _pe_at=$PWD
   FORGE_PY=''
   FORGE_PY_PREFIX=''
   FORGE_PY_BIN=''
@@ -125,23 +162,38 @@ forge_py_env() {
     done
   done
   [ ! -f uv.lock ] || return 1
-  if [ -f poetry.lock ] && _pe_poetry=$(command -v poetry 2>/dev/null); then
-    _pe_d=$(forge_fact poetry-env "$_pe_poetry $(env | grep '^POETRY_' | sort) $(cksum pyproject.toml poetry.toml 2>/dev/null)" forge_poetry_env "$_pe_poetry")
-    case $_pe_d in
-      /*)
-        for _pe_n in python python3; do
-          if [ -x "$_pe_d/bin/$_pe_n" ]; then FORGE_PY=$_pe_d/bin/$_pe_n; FORGE_PY_PREFIX=$_pe_d; FORGE_PY_BIN=$_pe_d/bin; return 0; fi
-        done ;;
-    esac
+  if [ -f poetry.lock ]; then
+    forge_path_lookup poetry
+    # Poetry's own settings that move its environments (the others live in the files it reads, watched)
+    if [ -n "$FORGE_FOUND" ] && forge_fact poetry-env "$PWD $FORGE_FOUND ${POETRY_VIRTUALENVS_PATH-}|${POETRY_VIRTUALENVS_CREATE-}|${POETRY_VIRTUALENVS_IN_PROJECT-}|${POETRY_CACHE_DIR-}|${POETRY_CONFIG_DIR-}|${POETRY_HOME-}" forge_poetry_env "$FORGE_FOUND"; then
+      case $FORGE_FACT in
+        /*)
+          for _pe_n in python python3; do
+            if [ -x "$FORGE_FACT/bin/$_pe_n" ]; then FORGE_PY=$FORGE_FACT/bin/$_pe_n; FORGE_PY_PREFIX=$FORGE_FACT; FORGE_PY_BIN=$FORGE_FACT/bin; return 0; fi
+          done ;;
+      esac
+    fi
   fi
   for _pe_n in python3 python; do
-    _pe_p=$(command -v "$_pe_n" 2>/dev/null) || continue
-    case $_pe_p in /*) ;; *) continue ;; esac
+    forge_path_lookup "$_pe_n"
+    [ -n "$FORGE_FOUND" ] || continue
     # the interpreter's own answer, until it (or the pyenv version selecting it) changes
-    _pe_out=$(forge_fact python-env "$_pe_p $(ls -lL "$_pe_p" 2>/dev/null) ${PYENV_VERSION:-} $(cat .python-version 2>/dev/null)" "$_pe_p" -c "$FORGE_PY_FIND") || continue
-    FORGE_PY=$(printf '%s\n' "$_pe_out" | sed -n 1p)
-    FORGE_PY_PREFIX=$(printf '%s\n' "$_pe_out" | sed -n 2p)
-    FORGE_PY_BIN=$(printf '%s\n' "$_pe_out" | sed 1,2d)
+    forge_fact python-env "$FORGE_FOUND ${PYENV_VERSION-}" forge_py_find "$FORGE_FOUND" || continue
+    _pe_i=0
+    FORGE_PY_BIN=''
+    _pe_ifs=$IFS
+    IFS='
+'
+    for _pe_l in $FORGE_FACT; do
+      _pe_i=$((_pe_i + 1))
+      case $_pe_i in
+        1) FORGE_PY=$_pe_l ;;
+        2) FORGE_PY_PREFIX=$_pe_l ;;
+        *) FORGE_PY_BIN="${FORGE_PY_BIN:+$FORGE_PY_BIN
+}$_pe_l" ;;
+      esac
+    done
+    IFS=$_pe_ifs
     [ -n "$FORGE_PY" ] && return 0
   done
   return 1
@@ -149,30 +201,38 @@ forge_py_env() {
 
 # forge_poetry_env <poetry>: the environment Poetry uses for the project in this
 # directory, as Poetry says (`poetry env info -p`), or "none" (no environment yet, or
-# Poetry installs into the interpreter: virtualenvs.create false). Poetry's
-# virtualenvs directory (`poetry config virtualenvs.path`) is watched, so an
-# environment created or replaced there is asked for again (forge_fact).
+# Poetry installs into the interpreter: virtualenvs.create false). Watched: the files Poetry
+# reads the project's settings from (pyproject.toml, poetry.toml), the poetry executable, and
+# its virtualenvs directory (`poetry config virtualenvs.path`) with its envs.toml: an
+# environment created, replaced or switched there is asked for again (forge_fact). A change
+# to Poetry's global config.toml alone is seen once one of those changes.
 forge_poetry_env() {
-  _pv_where=$("$1" -n config virtualenvs.path 2>/dev/null) && [ -n "$_pv_where" ] && printf 'watchl %s\n' "$_pv_where"
+  printf 'watch %s\nwatch %s\nwatch %s\n' "$PWD/pyproject.toml" "$PWD/poetry.toml" "$1"
+  _pv_where=$("$1" -n config virtualenvs.path 2>/dev/null) && [ -n "$_pv_where" ] && printf 'watch %s\nwatch %s\n' "$_pv_where" "$_pv_where/envs.toml"
   _pv_env=$("$1" -n env info -p 2>/dev/null)
   case $_pv_env in /*) printf '%s\n' "$_pv_env" ;; *) printf 'none\n' ;; esac
 }
 
-# FORGE_PY_FIND: run by the interpreter on PATH (forge_py_env): prints the interpreter, its
-# sys.prefix, then its scripts directories.
-FORGE_PY_FIND='import sys, sysconfig
+# forge_py_find <python>: the interpreter, its sys.prefix, then its scripts directories;
+# watched: the interpreter and .python-version (pyenv's choice).
+forge_py_find() {
+  printf 'watch %s\nwatch %s\n' "$1" "$PWD/.python-version"
+  "$1" -c 'import sys, sysconfig
 print(sys.executable)
 print(sys.prefix)
 print(sysconfig.get_path("scripts"))
 '
-
-# forge_py_sites <python>: "version <X.Y>" and "site <dir>" per site-packages directory
-# of the interpreter's environment, in import order (what ty reads: the user site and
-# PYTHONPATH left out), cached until the interpreter changes.
-forge_py_sites() {
-  forge_fact python-sites "$1 $(ls -lL "$1" 2>/dev/null)" "$1" -I -c "$FORGE_PY_SITES"
 }
-FORGE_PY_SITES='import os, sys
+
+# forge_py_sites <python>: FORGE_FACT, "version <X.Y>" and "site <dir>" per site-packages
+# directory of the interpreter's environment, in import order (what ty reads: the user site
+# and PYTHONPATH left out); kept until the interpreter changes.
+forge_py_sites() {
+  forge_fact python-sites "$1" forge_py_sites_ask "$1"
+}
+forge_py_sites_ask() {
+  printf 'watch %s\n' "$1"
+  "$1" -I -c 'import os, sys
 print("version %d.%d" % sys.version_info[:2])
 seen = set()
 for p in sys.path:
@@ -180,43 +240,86 @@ for p in sys.path:
         seen.add(p)
         print("site " + p)
 '
+}
 
-# ---- facts: what a tool or environment says about itself, asked once and cached in the
+# ---- facts: what a tool or environment says about itself, asked once and kept in the
 # state (<state>/facts/, outside the repository) until what it depends on changes.
 
-# forge_fact <name> <key> <command> [args]: the value lines <command> prints, from the
-# cache when <key> (with the current directory) and every directory it watches are
-# unchanged. <command> may print "watch <dir>" (its entry names count) and "watchl
-# <dir>" (names, sizes and times count) lines among its value: a change there asks it
-# again. A failing command is not cached. Without a state directory (outside a git
-# repository) the command runs every time.
+# forge_fact <name> <key> <command> [args]: sets FORGE_FACT to the value lines <command>
+# prints, kept for <key>. <command> also prints "watch <path>" lines, the files and
+# directories its answer depends on: the answer is reused while all of them are older than
+# it (a directory changes when an entry was added, removed or renamed: a package installed
+# or upgraded; one modified in the same clock tick as the answer counts as changed) and none
+# that did not exist appeared. Reusing it costs no process: the record
+# is found and read, and the paths compared (test -nt, -e), with shell builtins. A failing
+# command is not kept, nor an answer about a path modified while it was computed (asked
+# again next time). Without a state directory (outside a git repository), the command runs
+# every time.
 forge_fact() {
   _ff_name=$1
   _ff_key=$2
   shift 2
-  _ff_f=''
-  if forge_facts_dir; then
-    _ff_f=$FORGE_FACTS/$_ff_name-$(printf '%s\n%s\n' "$(pwd -P)" "$_ff_key" | forge_sha256 | cut -c 1-16)
-    if [ -f "$_ff_f" ] && [ "$(sed -n 1p "$_ff_f")" = "fp $(sed 1d "$_ff_f" | forge_fact_fp)" ]; then
-      sed '1d; /^watchl\{0,1\} /d' "$_ff_f"
-      return 0
-    fi
+  FORGE_FACT=''
+  _ff_rec=''
+  if forge_facts_dir && [ -f "$FORGE_FACTS/$_ff_name.index" ]; then
+    while IFS='	' read -r _ff_id _ff_k; do
+      if [ "$_ff_k" = "$_ff_key" ]; then _ff_rec=$FORGE_FACTS/$_ff_name.$_ff_id; fi
+    done < "$FORGE_FACTS/$_ff_name.index"
+    if [ -n "$_ff_rec" ] && [ -f "$_ff_rec" ] && forge_fact_read "$_ff_rec"; then return 0; fi
   fi
-  _ff_out=$("$@") || return 1
-  if [ -n "$_ff_f" ]; then
-    { printf 'fp %s\n' "$(printf '%s\n' "$_ff_out" | forge_fact_fp)"; printf '%s\n' "$_ff_out"; } > "$_ff_f.$$" 2>/dev/null && mv -f "$_ff_f.$$" "$_ff_f" 2>/dev/null
+  if [ -z "${FORGE_FACTS:-}" ] || ! [ -d "$FORGE_FACTS" ]; then
+    _ff_out=$("$@") || return 1
+    FORGE_FACT=$(printf '%s\n' "$_ff_out" | grep -v '^watch ')
+    return 0
   fi
-  printf '%s\n' "$_ff_out" | sed '/^watchl\{0,1\} /d'
+  _ff_new=$FORGE_FACTS/.$_ff_name.$$
+  : > "$_ff_new.stamp"
+  _ff_out=$("$@") || { rm -f "$_ff_new.stamp"; return 1; }
+  # the record: its key, the paths it depends on (absent ones as such), its value
+  _ff_keep=1
+  {
+    printf 'key\t%s\n' "$_ff_key"
+    printf '%s\n' "$_ff_out" | while IFS= read -r _ff_l; do
+      case $_ff_l in
+        "watch "*)
+          _ff_p=${_ff_l#watch }
+          if [ -e "$_ff_p" ]; then printf 'watch\t%s\n' "$_ff_p"; else printf 'absent\t%s\n' "$_ff_p"; fi ;;
+        *) printf 'value\t%s\n' "$_ff_l" ;;
+      esac
+    done
+  } > "$_ff_new"
+  # a path changed during the computation (or in the same clock tick): not kept
+  while IFS='	' read -r _ff_t _ff_p; do
+    if [ "$_ff_t" = watch ] && ! [ "$_ff_new.stamp" -nt "$_ff_p" ]; then _ff_keep=0; fi
+  done < "$_ff_new"
+  FORGE_FACT=$(sed -n 's/^value	//p' "$_ff_new")
+  if [ "$_ff_keep" = 1 ]; then
+    _ff_id=$$
+    touch -r "$_ff_new.stamp" "$_ff_new" 2>/dev/null && mv -f "$_ff_new" "$FORGE_FACTS/$_ff_name.$_ff_id" \
+      && { awk -F '\t' -v k="$_ff_key" '$2 != k' "$FORGE_FACTS/$_ff_name.index" 2>/dev/null | tail -n 49; printf '%s\t%s\n' "$_ff_id" "$_ff_key"; } > "$_ff_new.index" \
+      && mv -f "$_ff_new.index" "$FORGE_FACTS/$_ff_name.index"
+  fi
+  rm -f "$_ff_new" "$_ff_new.stamp" "$_ff_new.index"
+  return 0
 }
 
-# forge_fact_fp: the fingerprint of the directories that stdin's "watch"/"watchl" lines name.
-forge_fact_fp() {
-  while IFS= read -r _fp_l; do
-    case $_fp_l in
-      "watch "*) printf '%s\n' "$_fp_l"; ls -A "${_fp_l#watch }" 2>/dev/null ;;
-      "watchl "*) printf '%s\n' "$_fp_l"; ls -lA "${_fp_l#watchl }" 2>/dev/null ;;
+# forge_fact_read <record>: sets FORGE_FACT from a record still valid (its key is
+# $_ff_key, every watched path older than it, no absent one present); builtins only.
+forge_fact_read() {
+  _fr_v=''
+  _fr_ok=0
+  while IFS='	' read -r _fr_t _fr_x; do
+    case $_fr_t in
+      key) [ "$_fr_x" = "$_ff_key" ] && _fr_ok=1 ;;
+      # not strictly older than the record: changed after it, or in the same clock tick (a shell comparing whole seconds)
+      watch) [ "$1" -nt "$_fr_x" ] || return 1 ;;
+      absent) [ -e "$_fr_x" ] && return 1 ;;
+      value) _fr_v="${_fr_v:+$_fr_v
+}$_fr_x" ;;
     esac
-  done | forge_sha256
+  done < "$1"
+  [ "$_fr_ok" = 1 ] || return 1
+  FORGE_FACT=$_fr_v
 }
 
 # forge_facts_dir: FORGE_FACTS, the facts' directory in this repository's state (created

@@ -193,7 +193,8 @@ forge_release() {
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
-  _fx_cmd=$(tool "$1")
+  forge_tool_lookup "$1"
+  _fx_cmd=$FORGE_TOOL_CMD
   [ -n "$_fx_cmd" ] || { printf 'forge: %s not installed\n' "$1" >&2; return 127; }
   shift
   _fx_ifs=$IFS
