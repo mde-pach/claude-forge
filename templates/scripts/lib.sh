@@ -290,6 +290,8 @@ forge_fact() {
   } > "$_ff_new"
   # a path changed during the computation (or in the same clock tick): not kept
   while IFS='	' read -r _ff_t _ff_p; do
+    # -nt is not in POSIX test, but in every shell Forge runs on (dash, bash, BusyBox ash; §9.4)
+    # shellcheck disable=SC3013
     if [ "$_ff_t" = watch ] && ! [ "$_ff_new.stamp" -nt "$_ff_p" ]; then _ff_keep=0; fi
   done < "$_ff_new"
   FORGE_FACT=$(sed -n 's/^value	//p' "$_ff_new")
@@ -305,6 +307,7 @@ forge_fact() {
 
 # forge_fact_read <record>: sets FORGE_FACT from a record still valid (its key is
 # $_ff_key, every watched path older than it, no absent one present); builtins only.
+# shellcheck disable=SC3013
 forge_fact_read() {
   _fr_v=''
   _fr_ok=0
