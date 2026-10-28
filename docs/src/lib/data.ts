@@ -5,7 +5,8 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { marked } from "marked";
 import { loadPacks } from "../../../src/packs";
-import { checkTools } from "../../../src/render";
+import { checkTools } from "../../../src/core/tools";
+import { enforcedBy, kindOf } from "../../../src/targets/index";
 import type { Pack, Rule, Target } from "../../../src/types";
 import { readResults, readSpec, summarize, type Results, type SpecNode, type SpecSection, type Status, type TestResult } from "./spec";
 
@@ -73,37 +74,22 @@ export function leaf(id: string): string {
   return id.split("/").pop()!;
 }
 
+/** A target's short label on rule cards ("guard deny", "check · lint"), from its kind. */
 export function targetLabel(t: Target): string {
-  switch (t.target) {
-    case "tool":
-      return `${t.tool} audit`;
-    case "ast-grep":
-      return `ast-grep ${t.mode}`;
-    case "permission":
-      return `permission ${t.decision}`;
-    case "guard":
-      return `guard ${t.decision}`;
-    case "sandbox":
-      return "sandbox";
-    case "check":
-      return `check · ${t.stage}`;
-    case "grep":
-      return `grep ${t.mode}`;
-  }
+  return kindOf(t).label(t);
 }
 
-export function enforcedBy(rule: Rule): string[] {
-  return [...new Set(rule.enforce.map(targetLabel))];
-}
-
+export { enforcedBy };
 export { checkTools };
 export type { Pack, Rule, Target, Status, TestResult, SpecNode, SpecSection, Results };
 
 /** Fails the build when a CI result cannot be placed on a test in tests/spec (the docs would be lying by omission). */
 export function assertResultsMatch(sections: SpecSection[], r: Results): void {
   const known = new Set<string>();
-  const visit = (file: string, nodes: SpecNode[]) => nodes.forEach((n) => (n.kind === "test" ? known.add(`${file}:${n.line}`) : visit(file, n.children)));
-  sections.forEach((s) => visit(s.file, s.children));
+  const visit = (file: string, nodes: SpecNode[]) => {
+    for (const n of nodes) n.kind === "test" ? known.add(`${file}:${n.line}`) : visit(file, n.children);
+  };
+  for (const s of sections) visit(s.file, s.children);
   const unmatched = [...r.byLocation.keys()].filter((k) => !known.has(k));
   if (unmatched.length) throw new Error(`forge docs: test results without a matching test in tests/spec: ${unmatched.slice(0, 10).join(", ")}`);
 }
@@ -119,8 +105,13 @@ export interface PlacedTest {
 
 function findTests(sections: SpecSection[], keep: (t: Extract<SpecNode, { kind: "test" }>) => boolean): { file: string; node: Extract<SpecNode, { kind: "test" }> }[] {
   const out: { file: string; node: Extract<SpecNode, { kind: "test" }> }[] = [];
-  const visit = (file: string, nodes: SpecNode[]) => nodes.forEach((n) => (n.kind === "test" ? keep(n) && out.push({ file, node: n }) : visit(file, n.children)));
-  sections.forEach((s) => visit(s.file, s.children));
+  const visit = (file: string, nodes: SpecNode[]) => {
+    for (const n of nodes) {
+      if (n.kind !== "test") visit(file, n.children);
+      else if (keep(n)) out.push({ file, node: n });
+    }
+  };
+  for (const s of sections) visit(s.file, s.children);
   return out;
 }
 
@@ -132,10 +123,7 @@ export function placedStatus(results: Results, tests: PlacedTest[]): Status | "n
 /** The rule's per-rule tests (its own case), then every test tagged @rule <id>. */
 export function ruleTests(sections: SpecSection[], rule: Rule): PlacedTest[] {
   const perRule = rule.enforce.some((t) => t.target === "tool") ? PER_RULE : PER_RULE.slice(0, 1);
-  return [
-    ...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })),
-    ...findTests(sections, (t) => t.rules.includes(rule.id)),
-  ];
+  return [...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })), ...findTests(sections, (t) => t.rules.includes(rule.id))];
 }
 
 /** The pack's context test (its own case), then every test tagged @pack <id>. */

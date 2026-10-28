@@ -7,7 +7,8 @@ repo_root || exit 0
 IFS='
 '
 
-@@CHECKS@@
+# the generated checks and the engine modules they use (forge apply writes them next to this script)
+. "$dir/checks.sh"
 
 branch=$(git branch --show-current 2>/dev/null)
 [ -n "$branch" ] || branch="(detached $(git rev-parse --short HEAD 2>/dev/null))"

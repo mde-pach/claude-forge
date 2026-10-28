@@ -127,7 +127,7 @@ function parseJUnit(xml: string): Case[] {
   const cases: Case[] = [];
   const stack: string[] = [];
   const re = /<testsuite\b[^>]*?(\/?)>|<\/testsuite>|<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g;
-  for (let m; (m = re.exec(xml)); ) {
+  for (let m = re.exec(xml); m; m = re.exec(xml)) {
     const tag = m[0];
     if (tag.startsWith("<testsuite")) {
       if (!m[1]) stack.push(attr(tag, "name") ?? "");
@@ -184,10 +184,8 @@ async function prepare(): Promise<void> {
   }
   // first runs of bunx/uvx install into shared caches: once here, not racing in the shards
   const warm: [string, string[]][] = [];
-  if (hasBun)
-    warm.push(["bunx", ["-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["bunx", [`squawk-cli@${SQUAWK_VERSION}`, "--version"]]);
-  if (hasUv)
-    warm.push(["uvx", ["-q", "--from", `ast-grep-cli==${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["uvx", ["-q", "--from", `squawk-cli==${SQUAWK_VERSION}`, "squawk", "--version"]]);
+  if (hasBun) warm.push(["bunx", ["-p", `@ast-grep/cli@${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["bunx", [`squawk-cli@${SQUAWK_VERSION}`, "--version"]]);
+  if (hasUv) warm.push(["uvx", ["-q", "--from", `ast-grep-cli==${AST_GREP_VERSION}`, "ast-grep", "--version"]], ["uvx", ["-q", "--from", `squawk-cli==${SQUAWK_VERSION}`, "squawk", "--version"]]);
   await Promise.all(warm.map(([c, a]) => run(c, a)));
 }
 
@@ -268,7 +266,10 @@ async function runShard(s: Shard, env: Record<string, string | undefined>): Prom
   if (shardTmps.includes(tmp)) removing.push(rm(tmp, { recursive: true, force: true }).catch(() => {}));
   if (process.env.FORGE_PROF_DIR) {
     if (existsSync(out)) writeFileSync(join(process.env.FORGE_PROF_DIR, `shard-s${no}.xml`), readFileSync(out));
-    appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `s${no}\t${s.file}\t${s.names?.length ?? "all"}\t${s.cost.toFixed(1)}\t${((t0 - started) / 1000).toFixed(2)}\t${wall.toFixed(2)}\t${r.status}\n`);
+    appendFileSync(
+      join(process.env.FORGE_PROF_DIR, "shards.tsv"),
+      `s${no}\t${s.file}\t${s.names?.length ?? "all"}\t${s.cost.toFixed(1)}\t${((t0 - started) / 1000).toFixed(2)}\t${wall.toFixed(2)}\t${r.status}\n`,
+    );
   }
   let cases = existsSync(out) ? parseJUnit(readFileSync(out, "utf8")) : [];
   if (s.names) {
@@ -290,7 +291,15 @@ const prepared = performance.now();
 if (process.env.FORGE_PROF_DIR) appendFileSync(join(process.env.FORGE_PROF_DIR, "shards.tsv"), `prepare\t-\t-\t-\t0\t${((prepared - started) / 1000).toFixed(2)}\t0\n`);
 // every shard, many at a time; tests that need a quiet machine skip themselves (helpers.ts othersRunning)
 const quietList = join(work, "quiet");
-const quietFiles = () => (existsSync(quietList) ? new Set(readFileSync(quietList, "utf8").split("\n").filter(Boolean).map((f) => relative(ROOT, f))) : new Set<string>());
+const quietFiles = () =>
+  existsSync(quietList)
+    ? new Set(
+        readFileSync(quietList, "utf8")
+          .split("\n")
+          .filter(Boolean)
+          .map((f) => relative(ROOT, f)),
+      )
+    : new Set<string>();
 // Those tests run again, alone. Once every shard of their file has ended, the run of the
 // tests it skipped starts, so its beforeAll prepares during the parallel phase; its tests
 // wait for their go (FORGE_TEST_GO), given once the parallel phase has ended and every
@@ -313,7 +322,11 @@ const results = await pool(shards, jobs, async (s) => {
     const skipped = ended.flatMap((e) => (e.s.file === s.file ? e.cases.filter((c) => c.skipped) : []));
     const go = join(work, `go-${quiet.length}`);
     if (skipped.length) {
-      const q: (typeof quiet)[number] = { file: s.file, go, run: runShard({ file: s.file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, { ...shardEnv(), FORGE_TEST_PHASE: "quiet", FORGE_TEST_GO: go }) };
+      const q: (typeof quiet)[number] = {
+        file: s.file,
+        go,
+        run: runShard({ file: s.file, names: [...new Set(skipped.map((c) => c.full))], cost: 0 }, { ...shardEnv(), FORGE_TEST_PHASE: "quiet", FORGE_TEST_GO: go }),
+      };
       void q.run.then(() => (q.ended = true));
       quiet.push(q);
     }
@@ -347,7 +360,12 @@ try {
     writeFileSync(
       seedPath,
       JSON.stringify(
-        Object.fromEntries(files.map((f) => [f, { overhead: round(next[f]!.overhead), overheadMax: round(next[f]!.overheadMax!), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) }])),
+        Object.fromEntries(
+          files.map((f) => [
+            f,
+            { overhead: round(next[f]!.overhead), overheadMax: round(next[f]!.overheadMax!), tests: Object.fromEntries(Object.entries(next[f]!.tests).map(([k, v]) => [k, round(v)])) },
+          ]),
+        ),
         null,
         1,
       ) + "\n",
@@ -367,7 +385,10 @@ if (junit) {
       return `  <testsuite name="${file}" file="${file}" tests="${cs.length}" failures="${cs.filter((c) => c.failed).length}" skipped="${cs.filter((c) => c.skipped).length}" time="${cs.reduce((a, c) => a + c.time, 0).toFixed(3)}">\n${cs.map((c) => `    ${c.xml}`).join("\n")}\n  </testsuite>`;
     });
   mkdirSync(join(junit, ".."), { recursive: true });
-  writeFileSync(junit, `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="${all.length}" failures="${fail}" skipped="${skip}" time="${((performance.now() - started) / 1000).toFixed(3)}">\n${suites.join("\n")}\n</testsuites>\n`);
+  writeFileSync(
+    junit,
+    `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="bun test" tests="${all.length}" failures="${fail}" skipped="${skip}" time="${((performance.now() - started) / 1000).toFixed(3)}">\n${suites.join("\n")}\n</testsuites>\n`,
+  );
 }
 await Promise.all(removing);
 for (const d of [work, ...shardTmps]) rmSync(d, { recursive: true, force: true });

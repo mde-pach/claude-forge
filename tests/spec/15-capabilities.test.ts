@@ -19,7 +19,7 @@ import { renderChecks, renderLib } from "../../src/render";
 import { validate } from "../../src/schemas";
 import { loadRuleFile } from "../../src/packs";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
-import { commitAll, fakeClaude, fixture, forge, git, hasBun, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -28,9 +28,11 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
  * ms, for the <n> matches it asks about. The question costs a fixed part (the client
  * script, the FIFO) and a part per match, so the budget grows with the matches: an edit of
  * one line asks about one or two (post-edit.sh asks only about the added lines, §15.1), a
- * large edit about dozens.
+ * large edit about dozens. The budget leaves room for shared CI machines: tsserver (TypeScript
+ * 5 and 6) alone takes about 145 ms per warm question on a large project, and GitHub's macOS
+ * runners add their own noise; locally a question takes tens of milliseconds.
  */
-const warmBudget = (n: number) => 140 + 5 * n;
+const warmBudget = (n: number) => 300 + 10 * n;
 /** The first question of a session, the engine started on demand, in ms. */
 const COLD_BUDGET_MS = 5_000;
 // a daemon a failed test leaves behind goes away on its own
@@ -104,7 +106,10 @@ function project(key: string, sample: string | undefined, setup: (dir: string) =
 function typeQuestion(repo: string, lang: "python" | "typescript", file: string, limit = Infinity): { asked: number; kept: number; ms: number } {
   const tmp = mkdtempSync(join(tmpdir(), "forge-tq-"));
   const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; astgrep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
-  const typed = scan.stdout.split("\n").filter((l) => l.includes('"forge_where"')).slice(0, limit);
+  const typed = scan.stdout
+    .split("\n")
+    .filter((l) => l.includes('"forge_where"'))
+    .slice(0, limit);
   writeFileSync(join(tmp, "matches"), typed.map((l) => `${l}\n`).join(""));
   const script = join(tmp, "q.sh");
   writeFileSync(script, [renderLib(), "IFS='\n'", renderChecks([], [], [lang]), `FORGE_STATE='${stateDir(repo)}'`, 'forge_types_filter "$1"'].join("\n"));
@@ -185,14 +190,14 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   afterAll(() => stopEngines(repo));
 
   /** Files are written as Claude's Edit would, then post-edit.sh runs on them: that is how the engine learns of a change (§15.3). */
-  const DB = "from sqlalchemy.orm import Session as DbSession\n\n__all__ = [\"DbSession\"]\n";
+  const DB = 'from sqlalchemy.orm import Session as DbSession\n\n__all__ = ["DbSession"]\n';
   const REPO = [
     "from sqlalchemy import create_engine",
     "from sqlalchemy.orm import Session as S, sessionmaker",
     "",
     "from app.db import DbSession",
     "",
-    "SessionLocal = sessionmaker(create_engine(\"sqlite://\"))",
+    'SessionLocal = sessionmaker(create_engine("sqlite://"))',
     "",
     "",
     "class AppSession(S):",
@@ -331,11 +336,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   test(
     "a metavariable bound to code that is not an expression (a parameter's name) is reported not checked, and the file's other matches are still answered",
     () => {
-      put(
-        repo,
-        "app/params.py",
-        ["from sqlalchemy.orm import Session", "", "", "def first(db: Session):", "    return db.query(int).first()", ""].join("\n"),
-      );
+      put(repo, "app/params.py", ["from sqlalchemy.orm import Session", "", "", "def first(db: Session):", "    return db.query(int).first()", ""].join("\n"));
       const ctx = afterEdit(repo, "app/params.py");
       expect(ctx).toContain("forge:forge/types local/param-session was not checked: app/params.py:4: $P is bound to `db`, which is not an expression");
       expect(ctx).toContain("forge:python/sqlalchemy/no-query-api app/params.py:5:");
@@ -363,7 +364,7 @@ describe.if(hasUv)("Python: the receiver's type, through ty", () => {
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 300 ms plus 10 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "app/db.py", DB);
       afterEdit(repo, "app/db.py");
@@ -543,7 +544,7 @@ const PARAM_TS = [
   "enforce:",
   "  - target: ast-grep",
   "    mode: forbid",
-  '    rule: {kind: required_parameter, has: {field: pattern, pattern: $P}}',
+  "    rule: {kind: required_parameter, has: {field: pattern, pattern: $P}}",
   "    where:",
   "      P: {type: {package: zod, name: ZodString}}",
   "",
@@ -666,13 +667,13 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
           'import { createClient } from "redis";',
           'import { create } from "zustand";',
           "",
-          "const users = pgTable(\"users\", { id: serial(\"id\") });",
+          'const users = pgTable("users", { id: serial("id") });',
           "const useCount = create<{ n: number }>()(() => ({ n: 1 }));",
           'const db = drizzle("postgres://localhost/app");',
           "const client = createClient();",
           "",
           "export function all() {",
-          "  return [useCount(), db.delete(users), client.keys(\"*\")];",
+          '  return [useCount(), db.delete(users), client.keys("*")];',
           "}",
           "",
         ].join("\n"),
@@ -769,7 +770,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
         repo,
         "src/own.ts",
         [
-          '// @ts-expect-error: no such package',
+          "// @ts-expect-error: no such package",
           'import { useForm as missing } from "no-such-package";',
           'import * as rhf from "react-hook-form";',
           "",
@@ -804,7 +805,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
         [
           'import type { ElementRef } from "react";',
           "",
-          "export type Box = ElementRef<\"div\">;",
+          'export type Box = ElementRef<"div">;',
           "/** @deprecated use total() */",
           "export function sum(a: number, b: number): number {",
           "  return a + b;",
@@ -821,7 +822,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
           "export const s = sum(1, 2);",
           "connect({ timeout: 5 });",
           "connect({ timeoutMs: 5 });",
-          "export const f = [format(1), format(\"1\")];",
+          'export const f = [format(1), format("1")];',
           "",
         ].join("\n"),
       );
@@ -835,7 +836,7 @@ describe.each(TOOL_VERSIONS.typescriptEngines.map((v) => [v]))("TypeScript %s: t
   );
 
   test.skipIf(othersRunning(import.meta.path))(
-    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 140 ms plus 5 ms per match it asks about: 1, 10, or the whole file",
+    "once the engine runs, an edit's type question (client, FIFO and engine) takes under 300 ms plus 10 ms per match it asks about: 1, 10, or the whole file",
     () => {
       put(repo, "src/schemas.ts", SCHEMAS);
       afterEdit(repo, "src/schemas.ts");
@@ -990,6 +991,6 @@ test("a where condition asks a type (§15.1), a declared name (§15.6), as one s
 test("a Python rule asking deprecated is rejected when it is loaded", () => {
   const dir = mkdtempSync(join(tmpdir(), "forge-dep-"));
   const file = join(dir, "x.yaml");
-  writeFileSync(file, 'id: local/x\ndescription: d\nscope: {language: python}\nenforce: [{target: ast-grep, mode: forbid, rule: {kind: identifier, pattern: $N}, where: {N: {deprecated: true}}}]\n');
+  writeFileSync(file, "id: local/x\ndescription: d\nscope: {language: python}\nenforce: [{target: ast-grep, mode: forbid, rule: {kind: identifier, pattern: $N}, where: {N: {deprecated: true}}}]\n");
   expect(() => loadRuleFile(file, "local")).toThrow("where deprecated is answered for TypeScript only");
 });

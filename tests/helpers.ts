@@ -3,7 +3,7 @@ import { appendFileSync, chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnCaptured } from "../src/util";
-import { renderEngine, renderLib, type TypesLanguage } from "../src/render";
+import { engineModules, renderChecks, renderEngineModule, renderLib, type TypesLanguage } from "../src/render";
 import { selfTest, type TestReport } from "../src/selftest";
 
 export const ROOT = join(import.meta.dir, "..");
@@ -72,11 +72,11 @@ if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
       "#!/bin/sh",
       "stand_in() {",
       '  while [ "$#" -gt 0 ]; do',
-      '    a=$1; shift',
+      "    a=$1; shift",
       '    case $a in ty==*) [ "${1:-}" = ty ] && { shift; exec "$stand" "$@"; } ;; esac',
       "  done",
       "}",
-      'stand=${FORGE_TEST_TY_STAND_IN:-.venv/bin/ty-stand-in}',
+      "stand=${FORGE_TEST_TY_STAND_IN:-.venv/bin/ty-stand-in}",
       '[ -x "$stand" ] && stand_in "$@"',
       `exec "${REAL_UVX}" "$@"`,
       "",
@@ -248,15 +248,20 @@ function walk(dir: string, base: string, out: string[]): void {
 
 /** Every file forge writes in a project (owned, settings, pre-commit), as one text. */
 /**
- * Text Forge copies from its templates as it is, whatever the plan: engine.sh (its pins
- * filled in; per set of types engines), lib.sh, the hook scripts and helpers written
+ * Text Forge copies from its templates as it is, whatever the plan: each engine module (its
+ * pins filled in; per set of types engines), lib.sh, the hook scripts and helpers written
  * unchanged. A snapshot shows each as one marker line, so it holds what the plan decides
  * (generated checks, rules, settings, context) and a template edit does not rewrite it.
  */
 function verbatimBlocks(): [string, string][] {
   const out: [string, string][] = [];
-  for (const types of [[], ["python"], ["typescript"], ["python", "typescript"], ["typescript", "python"]] as TypesLanguage[][])
-    out.push([renderEngine(types), `@@ templates/scripts/engine.sh${types.length ? ` (types: ${types.join(" ")})` : ""} @@`]);
+  // each engine module as one line: a snapshot shows which modules a project gets
+  for (const m of engineModules())
+    for (const types of [[], ["python"], ["typescript"], ["python", "typescript"], ["typescript", "python"]] as TypesLanguage[][]) {
+      const text = renderEngineModule(m.name, types);
+      if (types.length && text === renderEngineModule(m.name)) continue;
+      out.push([text, `@@ templates/engine/${m.name}.sh${types.length ? ` (types: ${types.join(" ")})` : ""} @@`]);
+    }
   out.push([renderLib().trimEnd(), "@@ templates/scripts/lib.sh @@"]);
   for (const dir of ["scripts", "helpers"])
     for (const f of readdirSync(join(ROOT, "templates", dir))) {
@@ -393,7 +398,12 @@ function ensureSystemTools(): void {
   const t = SYSTEM_TOOL_VERSIONS.terraform;
   const h = SYSTEM_TOOL_VERSIONS.helm;
   const fetch = [
-    ["terraform", `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`, `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`, "unzip -o -q asset terraform"],
+    [
+      "terraform",
+      `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_${os}_${arch}.zip`,
+      `https://releases.hashicorp.com/terraform/${t}/terraform_${t}_SHA256SUMS`,
+      "unzip -o -q asset terraform",
+    ],
     ["helm", `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz`, `https://get.helm.sh/helm-v${h}-${os}-${arch}.tar.gz.sha256sum`, `tar -xzf asset && mv ${os}-${arch}/helm helm`],
     [
       "yarn",
@@ -462,7 +472,13 @@ export function ensureNodeTools(name: string, pkgs: string[]): string {
 }
 
 /** The Angular compiler with the framework packages a component imports (typescript/angular/typecheck). */
-export const ANGULAR_TOOLS = [`@angular/compiler-cli@${TOOL_VERSIONS.angular}`, `@angular/compiler@${TOOL_VERSIONS.angular}`, `@angular/core@${TOOL_VERSIONS.angular}`, `typescript@${TOOL_VERSIONS.typescriptForAngular}`, "rxjs@7.8.2"];
+export const ANGULAR_TOOLS = [
+  `@angular/compiler-cli@${TOOL_VERSIONS.angular}`,
+  `@angular/compiler@${TOOL_VERSIONS.angular}`,
+  `@angular/core@${TOOL_VERSIONS.angular}`,
+  `typescript@${TOOL_VERSIONS.typescriptForAngular}`,
+  "rxjs@7.8.2",
+];
 
 /**
  * The project tools of pack check examples beyond Biome and tsc, each set in a directory of
@@ -561,9 +577,22 @@ export function processesNaming(text: string): string[] {
 export function packsSelfTest(): TestReport {
   ensureTools();
   ensureVueTools();
-  const toolBins = [join(TOOLS_CACHE, "node_modules/.bin"), join(TOOLS_CACHE, ".venv/bin"), join(TOOLS_CACHE, ".venv-sqlfluff/bin"), join(TOOLS_CACHE, "vue/node_modules/.bin"), ...ensureExampleTools(), SYSTEM_TOOLS_BIN, ...(process.env.PATH ?? "").split(":")];
+  const toolBins = [
+    join(TOOLS_CACHE, "node_modules/.bin"),
+    join(TOOLS_CACHE, ".venv/bin"),
+    join(TOOLS_CACHE, ".venv-sqlfluff/bin"),
+    join(TOOLS_CACHE, "vue/node_modules/.bin"),
+    ...ensureExampleTools(),
+    SYSTEM_TOOLS_BIN,
+    ...(process.env.PATH ?? "").split(":"),
+  ];
   const dir = fixture("packs-selftest", (d) => {
     writeFileSync(join(d, "report.json"), JSON.stringify(selfTest(join(ROOT, "packs"), undefined, { toolBins })));
   });
   return JSON.parse(readFileSync(join(dir, "report.json"), "utf8")) as TestReport;
+}
+
+/** lib.sh, then the generated checks of no check with every engine module: for running any engine helper directly. */
+export function fullEngine(): string {
+  return [renderLib(), "IFS='\n'", renderChecks([], [], [], undefined, "all")].join("\n");
 }

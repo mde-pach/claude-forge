@@ -163,10 +163,16 @@ export function readSpecFile(path: string, root: string): SpecSection {
   const file = relative(root, path);
   return {
     file,
-    slug: file.split("/").pop()!.replace(/\.test\.ts$/, ""),
+    slug: file
+      .split("/")
+      .pop()!
+      .replace(/\.test\.ts$/, ""),
     number: m[1]!,
     title: m[2]!,
-    intro: lines.slice(tag + 1).join("\n").trim(),
+    intro: lines
+      .slice(tag + 1)
+      .join("\n")
+      .trim(),
     children: walk(sf.statements, sf),
   };
 }
@@ -278,7 +284,10 @@ export interface SpecUse {
 
 /** Selects the nodes a <Spec> usage shows. */
 export function selectNodes(section: SpecSection, use: Omit<SpecUse, "page" | "file">): SpecNode[] {
-  if (use.test !== undefined) return allTests(section.children).filter((t) => t.test.title === use.test).map((t) => t.test);
+  if (use.test !== undefined)
+    return allTests(section.children)
+      .filter((t) => t.test.title === use.test)
+      .map((t) => t.test);
   if (use.describe !== undefined) return section.children.filter((n) => n.kind === "describe" && n.title === use.describe);
   if (use.top) return section.children.filter((n) => n.kind === "test");
   return section.children;

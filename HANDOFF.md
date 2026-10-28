@@ -1,6 +1,6 @@
 # Forge — hand-off notes
 
-Build state of Forge against `SPECS.md` (v0.5), as of 2026-10-21 (fifth session). Read the spec first, then this file.
+Build state of Forge against the specification (`SPECS.md`, the index of `spec/`, v0.5), as of 2026-10-21 (fifth session); the source layout below as of the 2026-10-28 refactor. Read the spec first, then this file. How to add a rule, pack, target kind, engine helper, guard check or file role: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Toolchain
 
@@ -19,10 +19,15 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 
 | Area | Files |
 |---|---|
-| Types, strict YAML, JSON Schemas, **pack tree loader** (`loadPacks` walks nested directories; ids are paths; `lineage()`), detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts` |
-| Generator: activation down the tree (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), local overrides, disable, tool presence, ast-grep fallback | `src/plan.ts` |
-| Renderers, settings (JSONC), lock, audit, `forge test`, CLI (`USAGE` in `src/usage.ts`) | `src/render.ts`, `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest.ts`, `src/cli.ts` |
-| Hook runtime and check engine | `templates/scripts/*.sh` |
+| Shared foundations: files, globs and shell case patterns, versions, owned paths, tool lists, the vocabulary the types and schemas derive from | `src/core/{fs,globs,versions,paths,tools,vocabulary}.ts` |
+| Types, strict YAML, JSON Schemas (enums from the vocabulary, checked against the types at compile time), **pack tree loader** (`loadPacks` walks nested directories; ids are paths; `lineage()`), detection | `src/types.ts`, `src/yaml.ts`, `src/schemas.ts`, `src/packs.ts`, `src/examples.ts` |
+| **Target kinds**: one module per kind (schema fragment, validation, plan contribution, status wording, docs lifecycle, self-test); `TARGETS` lists them | `src/targets/{tool,ast-grep,permission,guard,sandbox,check,grep}.ts`, `src/targets/index.ts` |
+| Generator, in phases: active packs (child only under an active parent; `add` brings ancestors; `remove` drops the subtree), placement (workspaces, version gates, where checks run), rule selection (local overrides, disable, roles), targets, files | `src/plan/{active-packs,placement,rules,files,index}.ts` |
+| Renderers: checks fragment and check.sh, engine assembly, guard.rules, ast-grep, helpers, roles, plugin | `src/render/*.ts` |
+| Settings (JSONC), lock, audit, self-test (`forge test`, `bun run test:packs`) | `src/settings.ts`, `src/lock.ts`, `src/audit.ts`, `src/selftest/{index,runners}.ts` |
+| CLI: one module per command, shared I/O, changes, reports (`USAGE` in `src/usage.ts`) | `src/cli.ts` (entry), `src/cli/**` |
+| Hook runtime | `templates/scripts/*.sh` |
+| Check engine: one module per concern, each project gets the ones its checks call (§8.1) | `templates/engine/*.sh` |
 | Packs: 22 packs, 186 rules, as a tree (`safety`; `python/{uv,fastapi,pydantic,pytest,sqlalchemy/alembic}`; `typescript/{bun,react,nextjs/react,astro/react,prisma,zod,vitest,playwright}`; `github-actions`; `docker/compose`) | `packs/**` |
 | **Executable specification**: one file per spec section, normative test titles | `tests/spec/*.test.ts`, `tests/helpers.ts`, samples in `tests/generator/{fastapi-app,nextjs-prisma-app,astro-app,eslint-app}` |
 | **Docs site**: pack pages from `packs/` (facts, a rules × lifecycle-steps matrix, context, tests, and per rule: file-pattern chips, lifecycle derived from its targets, red/green example panels, how it is enforced, its tests); guide and lifecycle pages in MDX that place the remaining tests with the `Spec` component; CLI page from `USAGE`; schemas from `src/schemas.ts`. No separate specification section: every test is shown where it applies, and `99-internals` fails if one is shown nowhere. The build fails if a CI result cannot be placed on a test | `docs/` (`src/lib/{spec,lifecycle,data}.ts`, `src/components/{Spec,SpecNodes,TestList,RuleCard,Results}.astro`, `{Lifecycle,StatusBadge}.tsx`, `src/pages/**`, `src/content/docs/**`) |
@@ -129,7 +134,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 - Results are matched by file and **title line** (the line bun's JUnit reporter gives).
 - A test that needs a tool which may be missing uses `test.if(...)`, so the site shows it as skipped rather than passed. Where the tool's own output is not what is tested, a stand-in in the sample's `.venv` (or on PATH) is better: it runs everywhere and can log its arguments for the test to assert.
 - Tests sharing a sample repository must not depend on each other: in `08-project-hooks` `reset()` runs after every test (also removing ignored files such as `.forge/state/`), tools put into `.venv` are removed in a `finally` (`withStub`, `withRealBasedpyright`), and each test uses its own session ids. `bun test --randomize` should pass.
-- A rule's lifecycle on the site is derived from its targets in `docs/src/lib/lifecycle.ts`, mirroring `src/plan.ts` and the hook scripts; change both together.
+- A rule's lifecycle on the site comes from its targets' kinds (`lifecycle` in `src/targets/<kind>.ts`, next to the kind's `plan`): `docs/src/lib/lifecycle.ts` only re-exports it.
 
 ## How the generated checks work
 
@@ -142,7 +147,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 ## Deliberate departures from the spec
 
 - **ast-grep invocation.** `bunx @ast-grep/cli@X ast-grep` fails. The working form is `bunx -p @ast-grep/cli@X ast-grep`.
-- **guard.sh matching.** It uses one awk pass with the same POSIX ERE instead of one `grep -Eq` per rule, to meet the 20 ms p99.
+- **guard.sh matching.** It uses one awk pass with the same POSIX ERE instead of one `grep -Eq` per rule, to meet the p99 budget (20 ms at first, 50 ms since shared CI runners made it flaky).
 - **guard.rules format.** It has a 4th tab-separated column holding the rule description, used for `permissionDecisionReason`.
 - **TypeScript parsing.** `scope.language: typescript` compiles to ast-grep `language: Tsx`, with `languageGlobs: {tsx: ["*.ts","*.mts","*.cts"]}` in sgconfig. One rule file then covers `.ts` and `.tsx`.
 - **Exclusion globs.** `scope.files` entries starting with `!` become ast-grep `ignores`. They are needed for "non-test files" rules.
@@ -179,7 +184,7 @@ Everything in §3–§14 is implemented. §14.1–§14.3 and everything else lis
 - **Errors in unchanged files (§8.1, §10.1 step 5).** A whole-project `lint`/`typecheck` run under `--changed`, and `typecheck.sh`, count only error diagnostics that name a file of the changed set (`git status`). Attribution is by path, parsed from the tools' plain output in awk (`forge_diagnostics` in `engine.sh`). Known limits: paths containing spaces are not recognised, and a tool that prints no file path (config error, crash) fails as before. **basedpyright's native baseline is deliberately not used**: `--writebaseline` writes `.basedpyright/baseline.json`, a project-owned file, and a baseline kept under `.forge/state/` would have to be regenerated whenever the tree changes outside Claude's turn; path attribution is tool-agnostic, stateless and also covers tsc and whole-project lint runs.
 - **Integrity manifest (§10.1 step 1, §12).** `.forge/manifest.sha256` is in sha256sum format, but its JSON entries hold the hash of the whitespace-stripped content, so `sha256sum -c` alone verifies only the non-JSON lines; `check.sh` hashes every file itself (sha256sum, shasum or openssl). Stripping removes whitespace inside JSON strings too, so a change that only adds or removes spaces inside a string value is not detected — accepted, since no generated string's meaning depends on its spaces.
 - **Formatting generated JSON.** Only Biome is used to format, and only when the project has it installed (`node_modules/.bin/biome`). A `.claude/settings.json` that already exists is never reformatted; appended entries follow its indentation (tabs or N spaces), but Biome may still prefer a different layout for the lines Forge added (e.g. collapsing a short array).
-- **Guard latency (§14.3)** is measured as the guard's own cost: p99 of `guard.sh` minus p99 of an empty `sh` script, interleaved, plus a median ≤ 20 ms for the whole call. On GitHub's macOS runners, bare process start-up alone produced a p99 of 80 ms in the first CI run; locally the guard adds ~2 ms (p99 < 6 ms) to a shell start. A later macOS run measured 33 ms for the same rule set that passed before and that measures the same locally with the old and new guards, so the measurement now takes the best of up to three rounds (noise only adds time); the 20 ms bound is unchanged.
+- **Guard latency (§14.3)** is measured as the guard's own cost: p99 of `guard.sh` minus p99 of an empty `sh` script, interleaved, plus a median ≤ 50 ms for the whole call (20 ms until 2026-10-28; GitHub's macOS runners made that flaky). On GitHub's macOS runners, bare process start-up alone produced a p99 of 80 ms in the first CI run; locally the guard adds ~2 ms (p99 < 6 ms) to a shell start. A later macOS run measured 33 ms for the same rule set that passed before and that measures the same locally with the old and new guards, so the measurement now takes the best of up to three rounds (noise only adds time); the 20 ms bound is unchanged.
 
 - **Roadmap rules, differences from the proposal.**
   - The bare `@ts-expect-error` check is its own rule (`typescript/ts-expect-error-reason`), not part of `no-ts-ignore`: a rule's examples are shared by all its targets, and Biome's `noTsIgnore` does not report a bare `@ts-expect-error`.

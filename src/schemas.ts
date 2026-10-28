@@ -1,4 +1,7 @@
 import Ajv2020 from "ajv/dist/2020.js";
+import { TARGET_KINDS, TARGETS } from "./targets/index.js";
+import type { LockFile, PackFile, ProjectConfig, RuleFile } from "./types.js";
+import { ECOSYSTEMS, HOOK_MANAGERS, LANGUAGES, LEVELS } from "./core/vocabulary.js";
 
 const SEGMENT = "[a-z][a-z0-9-]*";
 /** Pack ids are paths in the pack tree: "python", "python/sqlalchemy/alembic". */
@@ -18,7 +21,7 @@ export const packSchema = {
   properties: {
     id: { type: "string", pattern: ID },
     description: { type: "string", minLength: 1 },
-    level: { enum: ["user", "project"] },
+    level: { enum: LEVELS },
     requires: { type: "array", items: { type: "string", pattern: ID }, uniqueItems: true },
     detect: {
       type: "object",
@@ -32,14 +35,14 @@ export const packSchema = {
             additionalProperties: false,
             required: ["ecosystem", "name"],
             properties: {
-              ecosystem: { enum: ["pypi", "npm"] },
+              ecosystem: { enum: ECOSYSTEMS },
               name: { type: "string", minLength: 1 },
               version: { type: "string", minLength: 1 },
             },
           },
         },
         /** The project is a library published to that ecosystem (packs.ts, isPyLibrary / isNpmLibrary). */
-        library_any: { type: "array", items: { enum: ["pypi", "npm"] }, uniqueItems: true },
+        library_any: { type: "array", items: { enum: ECOSYSTEMS }, uniqueItems: true },
         /** Active in every repository (a root pack not tied to a language). */
         always: { const: true },
         /** A file matching one of files has a line matching pattern (a regular expression): a literal value in a literal config file. */
@@ -93,8 +96,18 @@ const typeSpec = {
   // where the type is declared: a package or a module, never only a name
   anyOf: [{ required: ["package"] }, { required: ["module"] }],
   properties: {
-    package: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
-    module: { oneOf: [{ type: "string", minLength: 1 }, { type: "array", minItems: 1, items: { type: "string", minLength: 1 } }] },
+    package: {
+      oneOf: [
+        { type: "string", minLength: 1 },
+        { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+      ],
+    },
+    module: {
+      oneOf: [
+        { type: "string", minLength: 1 },
+        { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+      ],
+    },
     name: {
       oneOf: [
         { type: "string", pattern: "^[A-Za-z_$][A-Za-z0-9_$]*$" },
@@ -116,139 +129,13 @@ const whereCondition = {
   ],
 } as const;
 
+/** A target (§6.2): its kind, then the fields its kind's schema allows. */
 const target = {
   type: "object",
   required: ["target"],
-  properties: { target: { enum: ["tool", "ast-grep", "permission", "guard", "sandbox", "check", "grep"] } },
-  allOf: [
-    {
-      if: { properties: { target: { const: "tool" } } },
-      then: {
-        additionalProperties: false,
-        required: ["tool", "expects", "snippet"],
-        properties: {
-          target: true,
-          tool: { enum: ["biome", "ruff", "ty", "tsc", "eslint"] },
-          expects: { type: "string", minLength: 1 },
-          snippet: { type: "string", minLength: 1 },
-        },
-      },
-    },
-    {
-      if: { properties: { target: { const: "ast-grep" } } },
-      then: {
-        additionalProperties: false,
-        required: ["mode", "rule"],
-        properties: {
-          target: true,
-          mode: { enum: ["forbid", "no-increase", "no-decrease", "advise"] },
-          rule: { type: "object", minProperties: 1 },
-          constraints: { type: "object" },
-          utils: { type: "object" },
-          where: { type: "object", minProperties: 1, propertyNames: { pattern: "^[A-Z][A-Z0-9_]*$" }, additionalProperties: { $ref: "#/$defs/where" } },
-          // packages (type stubs) the types engine needs to see the types the where names
-          needs: {
-            type: "array",
-            minItems: 1,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["ecosystem", "name"],
-              properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 } },
-            },
-          },
-        },
-        allOf: [
-          // engine capabilities decide on single matches: counted modes are not supported yet
-          { if: { required: ["where"] }, then: { properties: { mode: { enum: ["forbid", "advise"] } } } },
-          { if: { required: ["needs"] }, then: { required: ["where"] } },
-        ],
-      },
-    },
-    {
-      if: { properties: { target: { const: "grep" } } },
-      then: {
-        additionalProperties: false,
-        required: ["mode", "pattern"],
-        properties: {
-          target: true,
-          mode: { enum: ["forbid", "no-increase", "no-decrease", "advise"] },
-          pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
-          ignore_case: { type: "boolean" },
-        },
-      },
-    },
-    {
-      if: { properties: { target: { const: "permission" } } },
-      then: {
-        additionalProperties: false,
-        required: ["decision", "rule"],
-        properties: {
-          target: true,
-          decision: { enum: ["deny", "ask"] },
-          rule: { type: "string", pattern: "^[A-Za-z]+(\\(.+\\))?$" },
-        },
-      },
-    },
-    {
-      if: { properties: { target: { const: "guard" } } },
-      then: {
-        additionalProperties: false,
-        required: ["decision", "pattern"],
-        properties: {
-          target: true,
-          decision: { enum: ["deny", "ask"] },
-          pattern: { type: "string", minLength: 1, pattern: "^[^\\t\\n]+$" },
-          check: { enum: ["ephemeral-exec"] },
-        },
-        // a built-in check decides which matching commands to ask about: a deny would refuse them all
-        if: { required: ["check"] },
-        then: { properties: { decision: { const: "ask" } } },
-      },
-    },
-    {
-      if: { properties: { target: { const: "sandbox" } } },
-      then: {
-        additionalProperties: false,
-        required: ["path", "value"],
-        properties: {
-          target: true,
-          path: { type: "string", pattern: "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$" },
-          value: true,
-        },
-      },
-    },
-    {
-      if: { properties: { target: { const: "check" } } },
-      then: {
-        additionalProperties: false,
-        required: ["stage", "run"],
-        properties: {
-          target: true,
-          stage: { enum: ["format", "lint", "codegen", "typecheck", "migration", "test"] },
-          run: { type: "string", minLength: 1 },
-          changed_run: { type: "string", minLength: 1 },
-          fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },
-          format_stdin: { type: "string", minLength: 1, pattern: "\\{file\\}" },
-          rerun: { type: "string", minLength: 1, pattern: "\\{files\\}" },
-          when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
-          // lint only: the tool's config files it also lints (ruff's RUF200 on pyproject.toml), in the check's scope
-          config_files: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
-          requires_local_db: { type: "boolean" },
-          // the check's warnings block like errors (the run fails on them: oxlint --deny-warnings)
-          fail_on_warnings: { const: true },
-          timeout: { type: "integer", minimum: 1, maximum: 600 },
-        },
-        allOf: [
-          // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
-          { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
-          { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
-          { if: { required: ["config_files"] }, then: { properties: { stage: { const: "lint" } } } },
-        ],
-      },
-    },
-  ],
-} as const;
+  properties: { target: { enum: TARGET_KINDS } },
+  allOf: TARGET_KINDS.map((k) => ({ if: { properties: { target: { const: k } } }, then: TARGETS[k].schema })),
+};
 
 /** A string (code in the rule's scope) or a fixture: files committed at HEAD, then the files of the change. */
 const files = { type: "object", minProperties: 1, additionalProperties: { type: "string" }, propertyNames: { pattern: "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$" } } as const;
@@ -289,7 +176,7 @@ export const ruleSchema = {
       additionalProperties: false,
       required: ["language"],
       properties: {
-        language: { enum: ["python", "typescript", "tsx", "yaml", "any"] },
+        language: { enum: LANGUAGES },
         files: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
       },
     },
@@ -309,7 +196,7 @@ export const ruleSchema = {
             additionalProperties: false,
             required: ["ecosystem", "name", "version"],
             properties: {
-              ecosystem: { enum: ["pypi", "npm"] },
+              ecosystem: { enum: ECOSYSTEMS },
               name: { type: "string", minLength: 1 },
               version: { type: "string", pattern: "^[0-9][0-9A-Za-z.+-]*$" },
             },
@@ -331,7 +218,7 @@ export const ruleSchema = {
             type: "object",
             additionalProperties: false,
             required: ["ecosystem", "name", "version"],
-            properties: { ecosystem: { enum: ["pypi", "npm"] }, name: { type: "string", minLength: 1 }, version: { type: "string", minLength: 1 } },
+            properties: { ecosystem: { enum: ECOSYSTEMS }, name: { type: "string", minLength: 1 }, version: { type: "string", minLength: 1 } },
           },
         },
       },
@@ -431,7 +318,7 @@ export const lockSchema = {
         required: ["file", "kind", "created", "hash"],
         properties: {
           file: { type: "string", minLength: 1 },
-          kind: { enum: ["pre-commit", "husky", "lefthook", "hooks"] },
+          kind: { enum: HOOK_MANAGERS },
           created: { type: "boolean" },
           hash: { type: "string", pattern: SHA256 },
         },
@@ -448,7 +335,31 @@ const validators = {
   lock: ajv.compile(lockSchema),
 };
 
-export function validate(kind: keyof typeof validators, data: unknown, source: string): void {
+/** What each schema validates, as its TypeScript type. */
+interface Validated {
+  pack: PackFile;
+  rule: RuleFile;
+  project: ProjectConfig;
+  lock: LockFile;
+}
+
+/** The top-level property names of a schema. */
+type SchemaKeys<S> = S extends { properties: infer P } ? keyof P : never;
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+/**
+ * The schemas and the types name the same fields: a field added to one and not the other
+ * fails the typecheck here.
+ */
+const schemasMatchTypes: [
+  Same<SchemaKeys<typeof packSchema>, keyof PackFile>,
+  Same<SchemaKeys<typeof ruleSchema>, keyof RuleFile>,
+  Same<SchemaKeys<typeof projectConfigSchema>, keyof ProjectConfig>,
+  Same<SchemaKeys<typeof lockSchema>, keyof LockFile>,
+] = [true, true, true, true];
+void schemasMatchTypes;
+
+/** Validates data against a schema, and narrows it to that schema's type; throws with every error found. */
+export function validate<K extends keyof Validated>(kind: K, data: unknown, source: string): asserts data is Validated[K] {
   const v = validators[kind];
   if (!v(data)) {
     const msgs = (v.errors ?? [])

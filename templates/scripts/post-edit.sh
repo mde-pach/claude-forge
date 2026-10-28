@@ -50,7 +50,8 @@ else
 fi
 [ -s "$FORGE_TMP/changed" ] || { [ -s "$FORGE_TMP/report" ] || exit 0; }
 
-@@CHECKS@@
+# the generated checks and the engine modules they use (forge apply writes them next to this script)
+. "$dir/checks.sh"
 
 FORGE_FORBID='@@FORBID@@'
 

@@ -1,12 +1,17 @@
-export type Level = "user" | "project";
-export type Language = "python" | "typescript" | "tsx" | "yaml" | "any";
-export type Decision = "deny" | "ask";
-export type Stage = "format" | "lint" | "codegen" | "typecheck" | "migration" | "test";
-export type ToolName = "biome" | "ruff" | "ty" | "tsc" | "eslint";
-export type AstGrepMode = "forbid" | "no-increase" | "no-decrease" | "advise";
+import type { AuditedTool } from "./core/tools.js";
+import type { DECISIONS, ECOSYSTEMS, GUARD_CHECKS, HOOK_MANAGERS, LANGUAGES, LEVELS, MODES, STAGES } from "./core/vocabulary.js";
+
+export type Level = (typeof LEVELS)[number];
+export type Language = (typeof LANGUAGES)[number];
+export type Decision = (typeof DECISIONS)[number];
+export type Stage = (typeof STAGES)[number];
+/** A tool a `tool` target audits. */
+export type ToolName = AuditedTool;
+export type AstGrepMode = (typeof MODES)[number];
+export type Ecosystem = (typeof ECOSYSTEMS)[number];
 
 export interface DepSpec {
-  ecosystem: "pypi" | "npm";
+  ecosystem: Ecosystem;
   name: string;
   version?: string;
 }
@@ -17,7 +22,7 @@ export interface PackDetect {
   always?: true;
   files_any?: string[];
   deps_any?: DepSpec[];
-  library_any?: ("pypi" | "npm")[];
+  library_any?: Ecosystem[];
   /** A file matching one of `files` has a line matching `pattern` (a literal value in a literal config file). */
   content_any?: { files: string[]; pattern: string }[];
   /** A .yaml / .yml file whose first document is a mapping with all these top-level keys (Kubernetes: apiVersion, kind). */
@@ -65,7 +70,7 @@ export interface AstGrepTarget {
   /** Engine capabilities on metavariables (§15.1): a match counts only when they hold. */
   where?: Record<string, WhereCondition>;
   /** Packages the types engine needs installed to see the types the where names (stubs: django-stubs); without them the rule is not enforced. */
-  needs?: { ecosystem: "pypi" | "npm"; name: string }[];
+  needs?: { ecosystem: Ecosystem; name: string }[];
 }
 
 /**
@@ -93,7 +98,7 @@ export interface PermissionTarget {
   rule: string;
 }
 /** Built-in guard checks (guard_check_<name> in guard.sh): they decide on the parsed command. */
-export type GuardCheck = "ephemeral-exec";
+export type GuardCheck = (typeof GUARD_CHECKS)[number];
 export interface GuardTarget {
   target: "guard";
   decision: Decision;
@@ -190,6 +195,11 @@ export interface SettingsEntry {
   value: unknown;
 }
 
+/** A settings entry a plan wants (§8.3): `append` adds `value` to an array at `path`; otherwise the scalar is set if absent. */
+export interface DesiredEntry extends SettingsEntry {
+  append: boolean;
+}
+
 export interface Lock {
   forge_version: string;
   claude_code_min: string;
@@ -205,9 +215,44 @@ export interface Lock {
 /** Forge's marked block in a file it does not own: the pre-commit check in a hook manager (§10.3). */
 export interface LockBlock {
   file: string;
-  kind: "pre-commit" | "husky" | "lefthook" | "hooks";
+  kind: (typeof HOOK_MANAGERS)[number];
   /** Forge created the file: remove deletes it when nothing else is left. */
   created: boolean;
   /** blockHash() of the block as written. */
   hash: string;
 }
+
+/** What forge apply makes of an active rule here (§3.1 status). */
+export interface RuleStatus {
+  rule: Rule;
+  /** Where the rule is enforced in this project. */
+  enforced: string[];
+  /** "not enforced here: …" notes. */
+  notEnforced: string[];
+  /** Tool targets whose tool is present: audited (§11). */
+  audits: ToolTarget[];
+  astgrep?: AstGrepTarget;
+}
+
+/** A tool diagnostic an active pack switches off (pack.yaml tool_off), with the rules whose targets asked for it. */
+export interface SwitchedOff {
+  pack: string;
+  tool: string;
+  expects: string;
+  reason: string;
+  rules: string[];
+}
+
+/** The outcome of running rules' examples (forge test, the pack self-test). */
+export interface TestReport {
+  failures: string[];
+  notes: string[];
+  counts: Record<string, number>;
+}
+
+/** A rule file as written (validated against the rule schema), before loading adds where it comes from. */
+export type RuleFile = Omit<Rule, "file" | "hash" | "origin" | "pack">;
+/** A pack.yaml as written (validated against the pack schema), before loading adds its place in the tree. */
+export type PackFile = Omit<Pack, "dir" | "parent" | "children" | "context" | "initDir" | "rules" | "requires"> & { requires?: string[] };
+/** A lock file as written: blocks only when there is one. */
+export type LockFile = Omit<Lock, "blocks"> & { blocks?: LockBlock[] };

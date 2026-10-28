@@ -37,7 +37,13 @@ function role(name: string, files: Record<string, string>, config?: Parameters<t
 }
 function source(name: string, files: Record<string, string>): string[] {
   const d = dir(files);
-  return [...new Set(resolveRoles({ repo: d, files: Object.keys(files) }).get(name)!.patterns.map((p) => p.source))];
+  return [
+    ...new Set(
+      resolveRoles({ repo: d, files: Object.keys(files) })
+        .get(name)!
+        .patterns.map((p) => p.source),
+    ),
+  ];
 }
 function rule(fields: Partial<Rule>): Rule {
   return { id: "local/x", description: "X.", scope: { language: "python" }, enforce: [], file: "x.yaml", hash: "0", origin: "local", pack: "local", ...fields } as Rule;
@@ -78,8 +84,8 @@ describe("roles in rules", () => {
   });
 
   test("a rule naming an unknown role is rejected when it is loaded", () => {
-    const d = dir({ "x.yaml": "id: local/x\ndescription: X.\nscope: {language: python, files: [\"@pytest-files\"]}\nenforce:\n  - {target: grep, mode: forbid, pattern: x}\n" });
-    expect(() => loadRuleFile(join(d, "x.yaml"), "local")).toThrow('unknown file role @pytest-files');
+    const d = dir({ "x.yaml": 'id: local/x\ndescription: X.\nscope: {language: python, files: ["@pytest-files"]}\nenforce:\n  - {target: grep, mode: forbid, pattern: x}\n' });
+    expect(() => loadRuleFile(join(d, "x.yaml"), "local")).toThrow("unknown file role @pytest-files");
   });
 
   /** A role in a check command is an unquoted word; quoted text is the command's own (a CSS at-rule, an e-mail address). */
@@ -100,13 +106,20 @@ describe("roles in rules", () => {
     ).rule;
     expect(r.enforce[0]).toMatchObject({ where: { C: { type: { module: ["@cloudflare/workers-types", "apps/api/worker-configuration"] } } } });
     expect(() =>
-      applyRoles(rule({ scope: { language: "typescript" }, enforce: [{ target: "ast-grep", mode: "forbid", rule: { pattern: "$C" }, where: { C: { type: { module: "@ts-tests" } } } }] }), defaultRoles()),
+      applyRoles(
+        rule({ scope: { language: "typescript" }, enforce: [{ target: "ast-grep", mode: "forbid", rule: { pattern: "$C" }, where: { C: { type: { module: "@ts-tests" } } } }] }),
+        defaultRoles(),
+      ),
     ).toThrow("must be files, not globs");
   });
 
   test("a rule whose files are a role with no pattern is not enforced, and says how to set the role; it never runs on other files", () => {
     const repo = sampleRepo("fastapi-app");
-    put(repo, ".forge/rules/ds.yaml", "id: python/ds\ndescription: X.\nscope: {language: any, files: [\"@typeorm-datasource\"]}\nenforce:\n  - {target: grep, mode: forbid, pattern: x}\nexamples: {match: [x], no_match: [y]}\n");
+    put(
+      repo,
+      ".forge/rules/ds.yaml",
+      'id: python/ds\ndescription: X.\nscope: {language: any, files: ["@typeorm-datasource"]}\nenforce:\n  - {target: grep, mode: forbid, pattern: x}\nexamples: {match: [x], no_match: [y]}\n',
+    );
     const p = plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) });
     const st = p.active.find((a) => a.rule.id === "python/ds")!;
     expect(st.enforced).toEqual([]);
@@ -145,7 +158,12 @@ describe("defaults from the tool's config", () => {
   /** @rule typescript/angular/typecheck */
   test("angular.json's build tsConfig of each project names @angular-tsconfig, else Angular CLI's tsconfig.app.json", () => {
     expect(role("angular-tsconfig", {})).toEqual(["**/tsconfig.app.json"]);
-    const angular = { projects: { shop: { architect: { build: { options: { tsConfig: "tsconfig.app.json" } } } }, admin: { root: "projects/admin", targets: { build: { options: { tsConfig: "projects/admin/tsconfig.app.json" } } } } } };
+    const angular = {
+      projects: {
+        shop: { architect: { build: { options: { tsConfig: "tsconfig.app.json" } } } },
+        admin: { root: "projects/admin", targets: { build: { options: { tsConfig: "projects/admin/tsconfig.app.json" } } } },
+      },
+    };
     expect(role("angular-tsconfig", { "angular.json": JSON.stringify(angular) })).toEqual(["tsconfig.app.json", "projects/admin/tsconfig.app.json"]);
   });
 
@@ -159,13 +177,9 @@ describe("defaults from the tool's config", () => {
 
   test("@sql-migrations has each tool's default; Flyway's filesystem locations replace Flyway's, and sqitch and Atlas count only with their config file", () => {
     expect(role("sql-migrations", {})).toEqual(["db/migration/**/*.sql", "supabase/migrations/*.sql", "db/migrations/*.sql"]);
-    expect(role("sql-migrations", { "flyway.conf": "flyway.locations=filesystem:sql\n", "sqitch.plan": "%project=x\n", "atlas.hcl": 'env "dev" {\n  migration {\n    dir = "file://db/atlas"\n  }\n}\n' })).toEqual([
-      "sql/**/*.sql",
-      "supabase/migrations/*.sql",
-      "db/migrations/*.sql",
-      "deploy/**/*.sql",
-      "db/atlas/*.sql",
-    ]);
+    expect(
+      role("sql-migrations", { "flyway.conf": "flyway.locations=filesystem:sql\n", "sqitch.plan": "%project=x\n", "atlas.hcl": 'env "dev" {\n  migration {\n    dir = "file://db/atlas"\n  }\n}\n' }),
+    ).toEqual(["sql/**/*.sql", "supabase/migrations/*.sql", "db/migrations/*.sql", "deploy/**/*.sql", "db/atlas/*.sql"]);
   });
 
   test("@esm-modules: .mts and .mjs, and the .ts/.js files under a package.json with type: module, less a nested CommonJS package", () => {

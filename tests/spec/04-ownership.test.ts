@@ -81,8 +81,12 @@ describe("the lock", () => {
       expect(manifest).not.toContain("forge.lock.json");
       expect(manifest).not.toContain("manifest.sha256");
       // other entries verify with the standard tool; JSON entries hash without whitespace, helper scripts without what formatters change
-      const plain = manifest.split("\n").filter((l) => l && !l.endsWith(".json") && !l.includes("  .forge/helpers/")).join("\n") + "\n";
-      const c = sh("sh", ["-c", 'command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet'], { cwd: r, input: plain });
+      const plain =
+        manifest
+          .split("\n")
+          .filter((l) => l && !l.endsWith(".json") && !l.includes("  .forge/helpers/"))
+          .join("\n") + "\n";
+      const c = sh("sh", ["-c", "command -v sha256sum >/dev/null && sha256sum -c --quiet || shasum -a 256 -c --quiet"], { cwd: r, input: plain });
       expect(c.status).toBe(0);
       expect(readFileSync(join(r, ".forge/check.sh"), "utf8")).not.toMatch(/awk[^\n]*forge\.lock\.json/);
     },
@@ -113,7 +117,10 @@ describe("the lock", () => {
       craft(lock, victim);
       writeFileSync(lockFile, JSON.stringify(lock, null, 2) + "\n");
       const index = readFileSync(join(repo, "src/index.ts"), "utf8");
-      for (const args of [["remove", "--yes"], ["apply", "--yes", "--force"]]) {
+      for (const args of [
+        ["remove", "--yes"],
+        ["apply", "--yes", "--force"],
+      ]) {
         const r = forge(args, repo);
         expect(r.status).toBe(1);
         expect(r.stderr).toContain("forge: .forge/forge.lock.json: refused:");
@@ -378,4 +385,3 @@ describe("formatters and Forge's JSON", () => {
     T,
   );
 });
-

@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, TOOLS_CACHE } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -184,7 +184,16 @@ describe("asks nobody can answer", () => {
     return sh("sh", [join(SCRIPTS, script)], {
       cwd: ts,
       input: hookJson({ cwd: ts, permission_mode: "default", ...fields }),
-      env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "it is routine", FAKE_DECISION: "allow", CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "", ...env },
+      env: {
+        PATH: `${bin}:${process.env.PATH}`,
+        FAKE_LOG: log(),
+        FAKE_REASON: "it is routine",
+        FAKE_DECISION: "allow",
+        CLAUDE_CODE_ENTRYPOINT: "sdk-cli",
+        FORGE_ASK_REVIEW: "",
+        FORGE_REVIEWER: "",
+        ...env,
+      },
     });
   }
   const npm = { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "npm install left-pad" } };
@@ -224,7 +233,15 @@ describe("asks nobody can answer", () => {
       run("guard.sh", { ...npm, transcript_path: "/secret/transcript.jsonl" }, {});
       const call = readFileSync(log(), "utf8");
       expect(call).toContain("FORGE_REVIEWER=1\nARG:-p\n");
-      for (const arg of ["--tools\nARG:Read,Grep,Glob", "--permission-mode\nARG:dontAsk", "--settings\nARG:{\"disableAllHooks\":true}", "--setting-sources\nARG:\n", "--strict-mcp-config", "--no-session-persistence", "--json-schema"])
+      for (const arg of [
+        "--tools\nARG:Read,Grep,Glob",
+        "--permission-mode\nARG:dontAsk",
+        '--settings\nARG:{"disableAllHooks":true}',
+        "--setting-sources\nARG:\n",
+        "--strict-mcp-config",
+        "--no-session-persistence",
+        "--json-schema",
+      ])
         expect(call).toContain(arg);
       expect(call).toContain('Input: {"command":"npm install left-pad"}');
       expect(call).toContain("Forge flagged it with rule typescript/bun/no-other-pm.");
@@ -239,14 +256,18 @@ describe("asks nobody can answer", () => {
     () => {
       const g = mkdtempSync(join(tmpdir(), "forge-guard-review-"));
       for (const f of ["guard.sh", "review.sh", "lib.sh"]) writeFileSync(join(g, f), readFileSync(join(ts, SCRIPTS, f)));
-      writeFileSync(
-        join(g, "guard.rules"),
-        "safety/ephemeral-exec\task\tnpx\tPackages fetched on the fly.\tephemeral-exec\tIs that exact package legitimate?\n",
-      );
+      writeFileSync(join(g, "guard.rules"), "safety/ephemeral-exec\task\tnpx\tPackages fetched on the fly.\tephemeral-exec\tIs that exact package legitimate?\n");
       rmSync(log(), { force: true });
       const out = sh("sh", [join(g, "guard.sh")], {
         cwd: ts,
-        input: hookJson({ cwd: ts, session_id: "s-review", permission_mode: "default", hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git stash && npx some-typo; git stash pop" } }),
+        input: hookJson({
+          cwd: ts,
+          session_id: "s-review",
+          permission_mode: "default",
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          tool_input: { command: "git stash && npx some-typo; git stash pop" },
+        }),
         env: { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log(), FAKE_REASON: "unknown name", FAKE_DECISION: "deny", CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
       }).stdout;
       expect(decision(out).permissionDecision).toBe("deny");
@@ -325,10 +346,14 @@ describe("asks nobody can answer", () => {
     ["FORGE_ASK_REVIEW=never", { FORGE_ASK_REVIEW: "never" }, {}],
     ["dontAsk mode (the user chose to deny asks)", {}, { permission_mode: "dontAsk" }],
     ["inside a review (FORGE_REVIEWER set)", { FORGE_REVIEWER: "1" }, {}],
-  ])("no review for %s: the guard keeps its ask", (_label, env, fields) => {
-    expect(decision(run("guard.sh", { ...npm, ...fields }, env).stdout).permissionDecision).toBe("ask");
-    expect(existsSync(log())).toBe(false);
-  }, T);
+  ])(
+    "no review for %s: the guard keeps its ask",
+    (_label, env, fields) => {
+      expect(decision(run("guard.sh", { ...npm, ...fields }, env).stdout).permissionDecision).toBe("ask");
+      expect(existsSync(log())).toBe(false);
+    },
+    T,
+  );
 
   test(
     "FORGE_ASK_REVIEW=always reviews even when a human could answer",
@@ -400,7 +425,9 @@ describe("files changed by Bash", () => {
       expect(hook("post-edit.sh", bash("toolu_b2", { session_id: "b-2" })).stdout).toBe("");
       hook("bash-snapshot.sh", bash("toolu_b3", { session_id: "b-2" }));
       put(repo, "app/main.py", readFileSync(join(repo, "app/main.py"), "utf8") + "\n\ndef q():\n    return declarative_base(2)\n");
-      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain("forge:python/sqlalchemy/no-declarative-base app/main.py:");
+      expect(JSON.parse(hook("post-edit.sh", bash("toolu_b3", { session_id: "b-2" })).stdout).hookSpecificOutput.additionalContext).toContain(
+        "forge:python/sqlalchemy/no-declarative-base app/main.py:",
+      );
       reset();
     },
     T,
@@ -411,8 +438,7 @@ describe("files changed by Bash", () => {
     "a Bash command that fails or is interrupted after writing files is checked like one that succeeded (PostToolUseFailure)",
     () =>
       withRealTy(() => {
-        const failed = (id: string, extra: Record<string, unknown> = {}) =>
-          bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
+        const failed = (id: string, extra: Record<string, unknown> = {}) => bash(id, { hook_event_name: "PostToolUseFailure", error: "Exit code 3", is_interrupt: false, ...extra });
         hook("bash-snapshot.sh", bash("toolu_f1"));
         put(repo, "app/partial_a.py", "def f():\n    return declarative_base(1)\n");
         put(repo, "app/partial_b.py", 'X: int = "no"\n');
@@ -425,9 +451,7 @@ describe("files changed by Bash", () => {
         expect(readdirSync(join(stateDir(repo), "bash")).filter((f) => f.startsWith("toolu_f1"))).toEqual([]);
         hook("bash-snapshot.sh", bash("toolu_f2"));
         put(repo, "app/interrupted.py", "def g():\n    return declarative_base(2)\n");
-        expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain(
-          "app/interrupted.py:2:12",
-        );
+        expect(JSON.parse(hook("post-edit.sh", failed("toolu_f2", { error: "Interrupted", is_interrupt: true })).stdout).hookSpecificOutput.additionalContext).toContain("app/interrupted.py:2:12");
       }),
     T,
   );
@@ -640,19 +664,23 @@ describe("PostToolUse", () => {
   test(
     "an advise rule's match is returned after the edit, and check.sh does not fail on it",
     () => {
-      put(repo, ".forge/rules/demo-advise.yaml", [
-        "id: local/demo-advise",
-        "description: Calls to httpx.get get advice.",
-        "scope: {language: python}",
-        "enforce:",
-        "  - target: ast-grep",
-        "    mode: advise",
-        "    rule: {pattern: httpx.get($U)}",
-        "examples:",
-        "  match: ['httpx.get(url)']",
-        "  no_match: ['httpx.post(url)']",
-        "",
-      ].join("\n"));
+      put(
+        repo,
+        ".forge/rules/demo-advise.yaml",
+        [
+          "id: local/demo-advise",
+          "description: Calls to httpx.get get advice.",
+          "scope: {language: python}",
+          "enforce:",
+          "  - target: ast-grep",
+          "    mode: advise",
+          "    rule: {pattern: httpx.get($U)}",
+          "examples:",
+          "  match: ['httpx.get(url)']",
+          "  no_match: ['httpx.post(url)']",
+          "",
+        ].join("\n"),
+      );
       try {
         expect(forge(["apply", "--yes"], repo).status).toBe(0);
         put(repo, "app/preview.py", "import httpx\n\n\ndef preview(url: str) -> str:\n    return httpx.get(url).text\n");
@@ -678,19 +706,23 @@ describe("PostToolUse", () => {
   test(
     "a grep advise rule's match on an added line is returned after the edit, and check.sh does not fail on it",
     () => {
-      put(repo, ".forge/rules/demo-grep-advise.yaml", [
-        "id: local/demo-grep-advise",
-        "description: Unescaped output gets advice.",
-        "scope: {language: any, files: ['**/*.html']}",
-        "enforce:",
-        "  - target: grep",
-        "    mode: advise",
-        "    pattern: '\\|[[:space:]]*safe'",
-        "examples:",
-        "  match: ['{{ body|safe }}']",
-        "  no_match: ['{{ body }}']",
-        "",
-      ].join("\n"));
+      put(
+        repo,
+        ".forge/rules/demo-grep-advise.yaml",
+        [
+          "id: local/demo-grep-advise",
+          "description: Unescaped output gets advice.",
+          "scope: {language: any, files: ['**/*.html']}",
+          "enforce:",
+          "  - target: grep",
+          "    mode: advise",
+          "    pattern: '\\|[[:space:]]*safe'",
+          "examples:",
+          "  match: ['{{ body|safe }}']",
+          "  no_match: ['{{ body }}']",
+          "",
+        ].join("\n"),
+      );
       try {
         expect(forge(["apply", "--yes"], repo).status).toBe(0);
         put(repo, "app/templates/page.html", "<p>{{ title }}</p>\n<div>{{ body|safe }}</div>\n");
@@ -866,7 +898,11 @@ describe("test edits", () => {
       git(repo, "add", t);
       git(repo, "commit", "-qm", "tests", "--no-verify");
       hook("turn-start.sh", { session_id: "s-eq", hook_event_name: "UserPromptSubmit", prompt: "Fix it." });
-      const out = hook("test-edit.sh", { session_id: "s-eq", hook_event_name: "PreToolUse", tool_name: "Edit", tool_use_id: "tu-eq", tool_input: { file_path: join(repo, t), old_string: "== 100", new_string: "== 90" } }, human).stdout;
+      const out = hook(
+        "test-edit.sh",
+        { session_id: "s-eq", hook_event_name: "PreToolUse", tool_name: "Edit", tool_use_id: "tu-eq", tool_input: { file_path: join(repo, t), old_string: "== 100", new_string: "== 90" } },
+        human,
+      ).stdout;
       expect(ask(out).permissionDecisionReason).toContain('test_rate=fee.py "test_total" (changed)');
       finish();
     },
@@ -877,13 +913,22 @@ describe("test edits", () => {
     "nobody being there, the reviewer answers whether the change is required by the user's request for the turn, which turn-start.sh saved",
     () => {
       const bin = mkdtempSync(join(tmpdir(), "forge-fake-claude-"));
-      writeFileSync(join(bin, "claude"), '#!/bin/sh\nfor a in "$@"; do printf "ARG:%s\\n" "$a"; done > "$FAKE_LOG"\nprintf \'{"structured_output":{"decision":"allow","reason":"the request reverses the total"}}\\n\'\n');
+      writeFileSync(
+        join(bin, "claude"),
+        '#!/bin/sh\nfor a in "$@"; do printf "ARG:%s\\n" "$a"; done > "$FAKE_LOG"\nprintf \'{"structured_output":{"decision":"allow","reason":"the request reverses the total"}}\\n\'\n',
+      );
       chmodSync(join(bin, "claude"), 0o755);
       const log = join(bin, "log");
       start("s-te2", "Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
       expect(readFileSync(join(stateDir(repo), "s-te2.prompt"), "utf8")).toBe("Totals now exclude the 10 EUR fee: update the behaviour and its tests.");
       const out = ask(
-        call("s-te2", "PreToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" }),
+        call(
+          "s-te2",
+          "PreToolUse",
+          "Edit",
+          { old_string: "== 100", new_string: "== 90" },
+          { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: log, CLAUDE_CODE_ENTRYPOINT: "sdk-cli", FORGE_ASK_REVIEW: "", FORGE_REVIEWER: "" },
+        ),
       );
       expect(out.permissionDecision).toBe("allow");
       const prompt = readFileSync(log, "utf8");
@@ -943,7 +988,7 @@ describe("test edits", () => {
       call("s-te5", "PostToolUse", "Edit", { old_string: "== 100", new_string: "== 90" }, human, "tu-rev");
       expect(readFileSync(join(stateDir(repo), "s-te5.turn/touched"), "utf8")).toBe("tests/test_cart.py\n");
       const engine = join(mkdtempSync(join(tmpdir(), "forge-engine-")), "engine.sh");
-      writeFileSync(engine, renderChecks([]));
+      writeFileSync(engine, renderChecks([], [], [], undefined, "all"));
       const related = (mode: string) =>
         sh("sh", ["-c", `. "$1"; mode=$2; FORGE_ARG=$3; forge_related_py_tests app/main.py`, "x", engine, mode, join(stateDir(repo), "s-te5.turn")], { cwd: repo }).stdout;
       expect(related("--turn")).toContain("tests/test_cart.py\n");
@@ -1104,7 +1149,10 @@ describe("Stop", () => {
     "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
     () => {
       // fails only with the turn's change: at the start of the turn the test passed
-      stubTool("pytest", 'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1');
+      stubTool(
+        "pytest",
+        'i=0; while [ $i -lt 60 ]; do echo "tests/test_main.py:1: PytestWarning: noise $i"; i=$((i + 1)); done; grep -q turn-change app/main.py || exit 0; echo "FAILED tests/test_main.py::test_health - assert 500 == 200"; exit 1',
+      );
       try {
         hook("turn-start.sh", { session_id: "t-12" });
         put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
@@ -1470,7 +1518,11 @@ describe("failing tests at the start of the turn", () => {
     stubTool("pytest", `printf '%s|%s|%s\\n' "$(pwd)" "$*" "$(grep -c turn-change app/main.py)" >> "${log()}"; ${body}; exit 1`);
   }
   const change = () => put(repo, "app/main.py", 'async def health() -> dict[str, str]:\n    return {"status": "ok"}  # turn-change\n');
-  const runs = () => readFileSync(log(), "utf8").trimEnd().split("\n").map((l) => l.split("|"));
+  const runs = () =>
+    readFileSync(log(), "utf8")
+      .trimEnd()
+      .split("\n")
+      .map((l) => l.split("|"));
 
   test(
     "only the failing test files are run again, in a copy of the tree as it was at the start of the turn; the working tree, index, stash and worktrees are left alone",
@@ -1711,4 +1763,3 @@ describe("errors in unchanged files", () => {
     T,
   );
 });
-

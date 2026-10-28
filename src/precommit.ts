@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse as parseYaml } from "yaml";
 import { run, sha256 } from "./util.js";
+import type { HOOK_MANAGERS } from "./core/vocabulary.js";
 
 // ---------------------------------------------------------------- pre-commit through a hook manager (§10.3)
 
@@ -10,7 +11,7 @@ export const CHECK = "sh .forge/check.sh --changed";
 export const BEGIN = "# forge: begin (forge remove deletes this block)";
 export const END = "# forge: end";
 
-export type ManagerKind = "pre-commit" | "husky" | "lefthook" | "hooks";
+export type ManagerKind = (typeof HOOK_MANAGERS)[number];
 
 export interface HookManager {
   kind: ManagerKind;
@@ -74,7 +75,12 @@ export function blockHash(text: string): string | undefined {
   const start = lines.findIndex((l) => isMarker(l, BEGIN));
   if (start < 0) return undefined;
   const end = lines.findIndex((l, i) => i > start && isMarker(l, END));
-  return sha256(lines.slice(start, end < 0 ? undefined : end + 1).map((l) => l.trim()).join("\n"));
+  return sha256(
+    lines
+      .slice(start, end < 0 ? undefined : end + 1)
+      .map((l) => l.trim())
+      .join("\n"),
+  );
 }
 
 /** The text with LF line ends, and a function giving a result back the file's own line ends (CRLF when it uses them). */

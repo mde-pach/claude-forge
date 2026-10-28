@@ -48,7 +48,11 @@ describe("a Python library", () => {
   });
   test("a manage.py makes only its own workspace package a Django site", () => {
     const repo = mkdtempSync(join(tmpdir(), "forge-pylib-"));
-    put(repo, "pyproject.toml", '[project]\nname = "acme"\nclassifiers = ["Programming Language :: Python :: 3"]\n\n[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n\n[tool.uv.workspace]\nmembers = ["sites/*"]\n');
+    put(
+      repo,
+      "pyproject.toml",
+      '[project]\nname = "acme"\nclassifiers = ["Programming Language :: Python :: 3"]\n\n[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n\n[tool.uv.workspace]\nmembers = ["sites/*"]\n',
+    );
     put(repo, "sites/web/pyproject.toml", '[project]\nname = "web"\nclassifiers = ["Framework :: Django"]\n\n[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n');
     put(repo, "sites/web/manage.py", "");
     const facts = readProjectFacts(repo, () => ["pyproject.toml", "sites/web/pyproject.toml", "sites/web/manage.py"]);
@@ -103,9 +107,17 @@ function djangoRepo(): string {
   const repo = mkdtempSync(join(tmpdir(), "forge-django-"));
   git(repo, "init", "-q", "-b", "main");
   put(repo, "pyproject.toml", '[project]\nname = "shop"\nversion = "0.1.0"\nrequires-python = ">=3.12"\ndependencies = ["django>=5.2"]\n');
-  put(repo, "src/manage.py", 'import os\nimport sys\n\nif __name__ == "__main__":\n    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "proj.settings")\n    from django.core.management import execute_from_command_line\n\n    execute_from_command_line(sys.argv)\n');
+  put(
+    repo,
+    "src/manage.py",
+    'import os\nimport sys\n\nif __name__ == "__main__":\n    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "proj.settings")\n    from django.core.management import execute_from_command_line\n\n    execute_from_command_line(sys.argv)\n',
+  );
   put(repo, "src/proj/__init__.py", "");
-  put(repo, "src/proj/settings.py", 'SECRET_KEY = "test"\nINSTALLED_APPS = ["shop"]\nDATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "/nonexistent/db.sqlite3"}}\nDEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"\n');
+  put(
+    repo,
+    "src/proj/settings.py",
+    'SECRET_KEY = "test"\nINSTALLED_APPS = ["shop"]\nDATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "/nonexistent/db.sqlite3"}}\nDEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"\n',
+  );
   put(repo, "src/shop/__init__.py", "");
   put(repo, "src/shop/migrations/__init__.py", "");
   put(repo, "src/shop/models.py", "from django.db import models\n");

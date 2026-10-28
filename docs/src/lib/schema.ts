@@ -5,8 +5,21 @@
 import type { Effect, LifecycleEvent } from "./lifecycle";
 
 export type Piece =
-  | "apply" | "context" | "session-start" | "turn-start" | "guard" | "permission" | "sandbox"
-  | "post-edit" | "typecheck" | "stop" | "notify" | "commit" | "ci" | "review" | "bash-snapshot";
+  | "apply"
+  | "context"
+  | "session-start"
+  | "turn-start"
+  | "guard"
+  | "permission"
+  | "sandbox"
+  | "post-edit"
+  | "typecheck"
+  | "stop"
+  | "notify"
+  | "commit"
+  | "ci"
+  | "review"
+  | "bash-snapshot";
 
 export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> = {
   apply: { label: "forge apply", at: "Forge CLI" },
@@ -29,11 +42,16 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
 /** The Forge piece an event of the docs lifecycle model happens in. */
 export function pieceOf(e: LifecycleEvent): Piece {
   switch (e.step) {
-    case "apply": return "apply";
-    case "session": return "context";
-    case "tool": return e.via ?? "guard";
-    case "edit": return e.effect === "wakes" ? "typecheck" : "post-edit";
-    default: return e.step;
+    case "apply":
+      return "apply";
+    case "session":
+      return "context";
+    case "tool":
+      return e.via ?? "guard";
+    case "edit":
+      return e.effect === "wakes" ? "typecheck" : "post-edit";
+    default:
+      return e.step;
   }
 }
 
@@ -69,9 +87,24 @@ export const FLOW: Row[] = [
   { ev: "PermissionRequest", sub: "a permission decision is needed", pieces: ["permission", "review"] },
   { ev: "PermissionDenied", sub: "auto mode denied the call" },
   { ev: "tool executes", sub: "built in · Bash runs in the sandbox", kind: "native", pieces: ["sandbox"], core: true },
-  { pair: [["Elicitation", "MCP asks you"], ["ElicitationResult", "you answered"]] },
-  { pair: [["SubagentStart", "subagent spawned"], ["SubagentStop", "subagent done"]] },
-  { pair: [["TaskCreated", "task created"], ["TaskCompleted", "task completed"]] },
+  {
+    pair: [
+      ["Elicitation", "MCP asks you"],
+      ["ElicitationResult", "you answered"],
+    ],
+  },
+  {
+    pair: [
+      ["SubagentStart", "subagent spawned"],
+      ["SubagentStop", "subagent done"],
+    ],
+  },
+  {
+    pair: [
+      ["TaskCreated", "task created"],
+      ["TaskCompleted", "task completed"],
+    ],
+  },
   { ev: "PostToolUse", sub: "after the tool succeeds", pieces: ["post-edit", "typecheck"], core: true },
   { ev: "PostToolUseFailure", sub: "after the tool fails · Bash may have changed files", pieces: ["post-edit", "typecheck"] },
   { ev: "PostToolBatch", sub: "parallel calls resolved" },
@@ -81,14 +114,39 @@ export const FLOW: Row[] = [
   { ev: "StopFailure", sub: "turn ended by an API error" },
   { ev: "TeammateIdle", sub: "agent-team teammate goes idle" },
   { close: "turn" },
-  { pair: [["PreCompact", "before compaction"], ["PostCompact", "then SessionStart"]] },
+  {
+    pair: [
+      ["PreCompact", "before compaction"],
+      ["PostCompact", "then SessionStart"],
+    ],
+  },
   { ev: "SessionEnd", sub: "clear · resume · logout · exit", core: true },
   { zone: "Any time · outside the flow" },
   { ev: "Notification", sub: "Claude needs your attention", pieces: ["notify"] },
-  { pair: [["MessageDisplay", "assistant text streams"], ["ConfigChange", "settings changed"]] },
-  { pair: [["PreModelSwitch", "before a model switch"], ["PostModelSwitch", "after a model switch"]] },
-  { pair: [["CwdChanged", "working dir changed"], ["DirectoryAdded", "directory added"]] },
-  { pair: [["FileChanged", "watched file changed"], ["WorktreeCreate", "worktree created"]] },
+  {
+    pair: [
+      ["MessageDisplay", "assistant text streams"],
+      ["ConfigChange", "settings changed"],
+    ],
+  },
+  {
+    pair: [
+      ["PreModelSwitch", "before a model switch"],
+      ["PostModelSwitch", "after a model switch"],
+    ],
+  },
+  {
+    pair: [
+      ["CwdChanged", "working dir changed"],
+      ["DirectoryAdded", "directory added"],
+    ],
+  },
+  {
+    pair: [
+      ["FileChanged", "watched file changed"],
+      ["WorktreeCreate", "worktree created"],
+    ],
+  },
   { pair: [["WorktreeRemove", "worktree removed"]] },
   { zone: "Outside Claude Code · git and CI" },
   { ev: "git commit", sub: "pre-commit hook", kind: "outside", pieces: ["commit"] },
@@ -96,13 +154,18 @@ export const FLOW: Row[] = [
 ];
 
 /** Every hook event name in FLOW (the Forge CLI, built-in steps, git and CI excluded). */
-export const HOOK_EVENTS: string[] = FLOW.flatMap((r) =>
-  "ev" in r ? (r.kind ? [] : [r.ev]) : "pair" in r ? r.pair.map((p) => p[0]) : [],
-);
+export const HOOK_EVENTS: string[] = FLOW.flatMap((r) => ("ev" in r ? (r.kind ? [] : [r.ev]) : "pair" in r ? r.pair.map((p) => p[0]) : []));
 
 const RANK: Effect[] = ["blocks", "asks", "wakes", "feedback", "fixes", "audits", "informs", "inactive"];
 const SHORT: Record<Effect, string> = {
-  blocks: "BLOCKS", asks: "ASKS", wakes: "WAKES", feedback: "TELLS", fixes: "FIXES", audits: "AUDITS", informs: "INFORMS", inactive: "SKIPPED",
+  blocks: "BLOCKS",
+  asks: "ASKS",
+  wakes: "WAKES",
+  feedback: "TELLS",
+  fixes: "FIXES",
+  audits: "AUDITS",
+  informs: "INFORMS",
+  inactive: "SKIPPED",
 };
 
 export interface Lit {
@@ -161,8 +224,7 @@ export function schemaHtml(o: SchemaOptions): { html: string; retry: boolean } {
     return `<span class="${cls}"${l ? ` data-effect="${l.effect}"` : ""} title="${title}"><code>${esc(PIECES[p].label)}</code>${badge}</span>`;
   };
   const row = (r: Row): string => {
-    if ("pair" in r)
-      return `<div class="fs-row fs-pair">${r.pair.map(([n, sub]) => `<div class="fs-ev fs-small"><b>${esc(n)}</b><span>${esc(sub)}</span></div>`).join("")}</div>`;
+    if ("pair" in r) return `<div class="fs-row fs-pair">${r.pair.map(([n, sub]) => `<div class="fs-ev fs-small"><b>${esc(n)}</b><span>${esc(sub)}</span></div>`).join("")}</div>`;
     if (!("ev" in r)) return "";
     const ps = (r.pieces ?? []).filter((x) => o.lit.has(x) || PIECES[x].infra || o.showAllPieces || !shown(r));
     return `<div class="fs-row"><div class="fs-ev fs-${r.kind ?? "hook"}"><b>${esc(r.ev)}</b><span>${esc(r.sub)}</span></div><div class="fs-pieces">${ps.map(piece).join("")}</div></div>`;
@@ -175,19 +237,34 @@ export function schemaHtml(o: SchemaOptions): { html: string; retry: boolean } {
     if (!hidden.length) return;
     const n = names(hidden);
     const list = n.length > 3 ? `${n.slice(0, 3).join(", ")}, …` : n.join(", ");
-    out.push(`<details class="fs-more"><summary><span class="fs-open"><span class="fs-count">+${n.length}</span> ${esc(list)}</span><span class="fs-close">Hide ${n.length > 1 ? `these ${n.length} events` : "this event"}</span></summary>${hidden.map(row).join("")}</details>`);
+    out.push(
+      `<details class="fs-more"><summary><span class="fs-open"><span class="fs-count">+${n.length}</span> ${esc(list)}</span><span class="fs-close">Hide ${n.length > 1 ? `these ${n.length} events` : "this event"}</span></summary>${hidden.map(row).join("")}</details>`,
+    );
     hidden = [];
   };
   for (const r of FLOW) {
-    if ("zone" in r) { flush(); out.push(`<div class="fs-zone">${esc(r.zone)}</div>`); continue; }
+    if ("zone" in r) {
+      flush();
+      out.push(`<div class="fs-zone">${esc(r.zone)}</div>`);
+      continue;
+    }
     if ("open" in r) {
       flush();
       const lane = LANES[r.open];
-      out.push(`<div class="fs-lane fs-lane-${r.open}${r.open === "retry" && retry ? " fs-lane-on" : ""}"><span class="fs-key" title="${esc(lane.text)}">${lane.key}</span>${r.label ? `<div class="fs-lane-t">${esc(r.label)}</div>` : ""}`);
+      out.push(
+        `<div class="fs-lane fs-lane-${r.open}${r.open === "retry" && retry ? " fs-lane-on" : ""}"><span class="fs-key" title="${esc(lane.text)}">${lane.key}</span>${r.label ? `<div class="fs-lane-t">${esc(r.label)}</div>` : ""}`,
+      );
       continue;
     }
-    if ("close" in r) { flush(); out.push(`</div>`); continue; }
-    if (shown(r)) { flush(); out.push(row(r)); } else hidden.push(r);
+    if ("close" in r) {
+      flush();
+      out.push(`</div>`);
+      continue;
+    }
+    if (shown(r)) {
+      flush();
+      out.push(row(r));
+    } else hidden.push(r);
   }
   flush();
   return { html: `<div class="fs">${out.join("")}</div>`, retry };

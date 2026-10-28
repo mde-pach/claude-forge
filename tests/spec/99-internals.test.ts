@@ -7,12 +7,13 @@
  * site reads this test suite and its JUnit results faithfully.
  */
 import { describe, expect, test } from "bun:test";
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { allTests, autoPlaced, countTests, parseJUnit, readSpec, selectNodes, specUses, summarize } from "../../docs/src/lib/spec";
 import { loadPacks } from "../../src/packs";
-import { globMatch } from "../../src/packs";
-import { globToCase, toolsInCommand } from "../../src/render";
+import { globMatch, globToCase } from "../../src/core/globs";
+import { toolsInCommand } from "../../src/core/tools";
+import { GUARD_CHECKS } from "../../src/core/vocabulary";
 import { ROOT, sh } from "../helpers";
 
 describe("globs", () => {
@@ -58,6 +59,57 @@ test("tools are found in check commands, not in paths or package names", () => {
   expect(toolsInCommand("astro check")).toEqual(["astro"]);
 });
 
+/** The modules of src/ and the src/ modules each one imports (relative imports, type-only ones included). */
+function srcImports(): Map<string, string[]> {
+  const src = join(ROOT, "src");
+  const files = readdirSync(src, { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith(".ts"));
+  const graph = new Map<string, string[]>();
+  for (const f of files) {
+    const text = readFileSync(join(src, f), "utf8");
+    const deps = [...text.matchAll(/\bfrom\s+"(\.\.?\/[^"]+)"/g)].map((m) => {
+      const target = join(dirname(join(src, f)), m[1]!.replace(/\.js$/, ""));
+      return relative(src, existsSync(`${target}.ts`) ? `${target}.ts` : join(target, "index.ts"));
+    });
+    graph.set(f, [...new Set(deps)]);
+  }
+  return graph;
+}
+
+/** Every import cycle, as the modules it goes through (each cycle once, from its smallest module). */
+function importCycles(graph: Map<string, string[]>): string[][] {
+  const cycles = new Map<string, string[]>();
+  const visit = (f: string, path: string[]) => {
+    const at = path.indexOf(f);
+    if (at >= 0) {
+      const cycle = path.slice(at);
+      const start = cycle.indexOf([...cycle].sort()[0]!);
+      const norm = [...cycle.slice(start), ...cycle.slice(0, start)];
+      cycles.set(norm.join(" -> "), norm);
+      return;
+    }
+    for (const d of graph.get(f) ?? []) visit(d, [...path, f]);
+  };
+  for (const f of graph.keys()) visit(f, []);
+  return [...cycles.values()];
+}
+
+describe("source layout", () => {
+  /** A module that imports one that imports it back cannot be read, tested or moved alone. */
+  test("src has no import cycles", () => {
+    const graph = srcImports();
+    expect(graph.size).toBeGreaterThan(10);
+    expect(importCycles(graph).map((c) => c.join(" -> "))).toEqual([]);
+  });
+
+  /** A guard target names its check (§9.2); guard.sh runs guard_check_<name>, so each name the schema allows needs that function. */
+  test("every built-in guard check the schema allows has its function in guard.sh", () => {
+    const guard = readFileSync(join(ROOT, "templates/scripts/guard.sh"), "utf8");
+    for (const name of GUARD_CHECKS) expect(guard).toContain(`guard_check_${name.replaceAll("-", "_")}() {`);
+  });
+});
+
 describe("the documentation is the test suite", () => {
   test("every test is shown in the documentation: placed on a page with <Spec>, or on the page of a rule or pack it covers", () => {
     const sections = readSpec(ROOT);
@@ -88,7 +140,12 @@ describe("the documentation is the test suite", () => {
 
   test("every spec file has an @spec header, and the docs extractor finds its tests at the lines bun reports", () => {
     const sections = readSpec(ROOT);
-    expect(sections.map((s) => s.file).sort()).toEqual(readdirSync(join(ROOT, "tests/spec")).filter((f) => f.endsWith(".test.ts")).map((f) => `tests/spec/${f}`).sort());
+    expect(sections.map((s) => s.file).sort()).toEqual(
+      readdirSync(join(ROOT, "tests/spec"))
+        .filter((f) => f.endsWith(".test.ts"))
+        .map((f) => `tests/spec/${f}`)
+        .sort(),
+    );
     for (const s of sections) {
       expect(s.title.length).toBeGreaterThan(0);
       expect(countTests(s.children)).toBeGreaterThan(0);

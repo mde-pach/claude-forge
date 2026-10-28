@@ -46,8 +46,14 @@ function sidebar(): SidebarItem[] {
     {
       label: "Packs",
       items: [
-        ...packItems(all, roots.filter((p) => p.level === "project").map((p) => p.id)),
-        ...packItems(all, roots.filter((p) => p.level === "user").map((p) => p.id)),
+        ...packItems(
+          all,
+          roots.filter((p) => p.level === "project").map((p) => p.id),
+        ),
+        ...packItems(
+          all,
+          roots.filter((p) => p.level === "user").map((p) => p.id),
+        ),
         { label: "All rules", link: "/packs/rules/" },
       ],
     },

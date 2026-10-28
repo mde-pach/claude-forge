@@ -1,0 +1,9 @@
+# shellcheck for templates/scripts and templates/engine (POSIX sh): bun run lint
+shell=sh
+# The generated scripts are assembled from several templates (lib.sh, the generated
+# checks, engine.sh, the hook script): a variable set in one is read in another.
+disable=SC2154,SC2034
+# Word lists are newline-separated and split with IFS set to a newline on purpose.
+disable=SC2046
+# ls | grep lists Forge's own state files, whose names Forge chooses.
+disable=SC2010

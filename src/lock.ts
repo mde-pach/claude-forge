@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { hookManager, preCommitPath } from "./precommit.js";
+import { OWNED, SETTINGS_FILES } from "./core/paths.js";
 import { validate } from "./schemas.js";
 import { CLAUDE_CODE_MIN, FORGE_VERSION } from "./util.js";
 import type { Level, Lock, LockBlock, SettingsEntry } from "./types.js";
@@ -20,18 +21,12 @@ export function readLock(base: string, lockPath: string, level: Level): Lock | u
     throw new Error(`${lockPath}: not valid JSON (${(e as Error).message}); fix it or delete it`);
   }
   validate("lock", data, lockPath);
-  const lock = data as Omit<Lock, "blocks"> & { blocks?: LockBlock[] };
+  const lock = data;
   const bad = lockPathProblems(base, level, lock);
   if (bad.length) throw new Error(`${lockPath}: refused: ${bad.join("; ")}`);
   return { ...lock, blocks: lock.blocks ?? [] };
 }
 
-/** Owned paths (§4) by level: a lock file entry must be one of them. */
-const OWNED: Record<Level, RegExp[]> = {
-  project: [/^\.forge\/[^]+$/, /^\.claude\/skills\/forge-project\/[^]+$/, /^\.claude\/rules\/forge-[^/]+\.md$/],
-  user: [/^\.claude\/skills\/forge-user\/[^]+$/],
-};
-const SETTINGS: Record<Level, string[]> = { project: [".claude/settings.json", ".claude/settings.local.json"], user: [".claude/settings.json"] };
 /** The files hookManager() can name for each kind (the core.hooksPath one is asked of git). */
 const BLOCK_FILES: Record<Exclude<LockBlock["kind"], "hooks">, string[]> = {
   "pre-commit": [".pre-commit-config.yaml"],
@@ -66,14 +61,11 @@ export function resolvesInside(base: string, p: string): boolean {
 function lockPathProblems(base: string, level: Level, lock: Omit<Lock, "blocks"> & { blocks?: LockBlock[] }): string[] {
   const out: string[] = [];
   // user level: ~/.claude may itself be a link (to a dotfiles repository); paths stay inside it
-  const inside = (p: string) =>
-    plainRelative(p) && (level === "project" ? resolvesInside(base, p) : p.startsWith(".claude/") && resolvesInside(join(base, ".claude"), p.slice(".claude/".length)));
+  const inside = (p: string) => plainRelative(p) && (level === "project" ? resolvesInside(base, p) : p.startsWith(".claude/") && resolvesInside(join(base, ".claude"), p.slice(".claude/".length)));
   // the hook Forge creates without a hook manager is git's own (in a worktree, outside the checkout)
   const hook = level === "project" ? preCommitPath(base) : undefined;
-  for (const p of Object.keys(lock.files))
-    if (p !== hook && !(OWNED[level].some((re) => re.test(p)) && inside(p))) out.push(`files: ${JSON.stringify(p)} is not a path forge owns`);
-  for (const s of lock.settings)
-    if (!SETTINGS[level].includes(s.file) || !inside(s.file)) out.push(`settings: ${JSON.stringify(s.file)} is not a settings file forge appends to`);
+  for (const p of Object.keys(lock.files)) if (p !== hook && !(OWNED[level].some((re) => re.test(p)) && inside(p))) out.push(`files: ${JSON.stringify(p)} is not a path forge owns`);
+  for (const s of lock.settings) if (!SETTINGS_FILES[level].includes(s.file) || !inside(s.file)) out.push(`settings: ${JSON.stringify(s.file)} is not a settings file forge appends to`);
   for (const b of lock.blocks ?? []) {
     const allowed = level === "project" && (b.kind === "hooks" ? hookManager(base)?.kind === "hooks" && hookManager(base)?.file === b.file : BLOCK_FILES[b.kind].includes(b.file));
     if (!allowed || !inside(b.file)) out.push(`blocks: ${JSON.stringify(b.file)} is not a ${b.kind} hook file forge adds its block to`);
@@ -95,8 +87,6 @@ export function renderLock(rules: Record<string, string>, files: Record<string, 
   };
   return JSON.stringify(lock, null, 2) + "\n";
 }
-
-export const MANIFEST_PATH = ".forge/manifest.sha256";
 
 /**
  * .forge/manifest.sha256: "<sha256>  <path>" per owned file under .forge/ and

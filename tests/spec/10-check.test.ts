@@ -12,9 +12,31 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, readdirSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, linkTools, linkTs5, put, ROOT, sampleRepo, sh, TOOL_VERSIONS, TOOLS_CACHE, TY_FINDS_NOTHING, shScript } from "../helpers";
+import {
+  ROOT,
+  TOOLS_CACHE,
+  TOOL_VERSIONS,
+  TY_FINDS_NOTHING,
+  applied,
+  commitAll,
+  copyRepo,
+  ensureTools,
+  fixture,
+  forge,
+  fullEngine,
+  git,
+  hasBun,
+  hasUv,
+  linkTools,
+  linkTs5,
+  put,
+  sampleRepo,
+  sh,
+  shScript,
+} from "../helpers";
 import { loadPacks } from "../../src/packs";
-import { checkTools, renderChecks, renderCheckScript, renderLib, renderSgConfig } from "../../src/render";
+import { checkTools } from "../../src/core/tools";
+import { renderCheckScript, renderChecks, renderEngine, renderLib, renderSgConfig } from "../../src/render";
 import { ownedHash, RELEASE_BINARIES } from "../../src/util";
 import { insertBlock, removeBlock } from "../../src/precommit";
 import { runCheckExample } from "../../src/selftest";
@@ -50,11 +72,15 @@ beforeAll(() => {
 }, T);
 
 describe("steps", () => {
-  test("a clean tree passes silently", () => {
-    const r = check();
-    expect(r.status).toBe(0);
-    expect(r.stdout.split("\n").filter((l) => l && !l.includes("skipped"))).toEqual([]);
-  }, T);
+  test(
+    "a clean tree passes silently",
+    () => {
+      const r = check();
+      expect(r.status).toBe(0);
+      expect(r.stdout.split("\n").filter((l) => l && !l.includes("skipped"))).toEqual([]);
+    },
+    T,
+  );
 
   test(
     "1. integrity: an owned file that differs from the lock fails, and so does a stray file in Forge's directories",
@@ -294,8 +320,21 @@ forge_run_check 1; echo "rc=$?"`,
    */
   /** @rule typescript/vitest/run python/pytest/run */
   test.each([
-    ["Vitest", VITEST_OUT, ["      Tests  1 failed | 27 passed (28)", " FAIL  |better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode", "Error: connect ECONNREFUSED 127.0.0.1:5432", " ❯ getPostgres src/test-utils/test-instance.ts:68:4"]],
-    ["pytest", PYTEST_OUT, ["FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused", "E       psycopg.OperationalError: connection refused", "tests/test_db.py:5: OperationalError"]],
+    [
+      "Vitest",
+      VITEST_OUT,
+      [
+        "      Tests  1 failed | 27 passed (28)",
+        " FAIL  |better-auth| src/plugins/oauth-proxy/oauth-proxy.test.ts > oauth-proxy > should work with database mode",
+        "Error: connect ECONNREFUSED 127.0.0.1:5432",
+        " ❯ getPostgres src/test-utils/test-instance.ts:68:4",
+      ],
+    ],
+    [
+      "pytest",
+      PYTEST_OUT,
+      ["FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused", "E       psycopg.OperationalError: connection refused", "tests/test_db.py:5: OperationalError"],
+    ],
   ])(
     "a failing %s run shows the failure first (summary, failing tests and their errors), then the rest of its output, warnings included, within 25 lines",
     (_name, output, failure) => {
@@ -343,7 +382,10 @@ ${PYTEST_OUT}
 E   psycopg.OperationalError: connection to server at "127.0.0.1", port 6379 failed: Connection refused
 ERROR tests/test_cache.py::test_get - TimeoutError
 `;
-      const r = engine(`printf '%s\\n' "$OUT" | forge_failed_tests > "$FORGE_TMP/ids"; cat "$FORGE_TMP/ids"; echo; forge_test_files < "$FORGE_TMP/ids"; echo; printf '%s\\n' "$OUT" | forge_env_errors`, { OUT: out });
+      const r = engine(
+        `printf '%s\\n' "$OUT" | forge_failed_tests > "$FORGE_TMP/ids"; cat "$FORGE_TMP/ids"; echo; forge_test_files < "$FORGE_TMP/ids"; echo; printf '%s\\n' "$OUT" | forge_env_errors`,
+        { OUT: out },
+      );
       expect(r.stdout).toBe(
         [
           "tests/test_cache.py::test_get",
@@ -412,11 +454,10 @@ FAILED tests/test_db.py::test_db - psycopg.OperationalError: connection refused
 ========================= 1 failed, 2 passed in 0.12s ==========================
 `;
 
-/** Runs a snippet with lib.sh and engine.sh loaded, as check.sh has them, in a fresh temporary directory. */
+/** Runs a snippet with lib.sh and the whole engine loaded, as check.sh has them, in a fresh temporary directory. */
 function engine(snippet: string, env: Record<string, string> = {}, cwd = repo) {
-  const dir = join(import.meta.dir, "../../templates/scripts");
   const tmp = mkdtempSync(join(tmpdir(), "forge-engine-"));
-  return shScript(`IFS='\n'\nFORGE_TMP=${tmp}\n${readFileSync(join(dir, "lib.sh"), "utf8")}\n${readFileSync(join(dir, "engine.sh"), "utf8")}\n${snippet}`, { cwd, env });
+  return shScript(`IFS='\n'\nFORGE_TMP=${tmp}\n${renderLib()}\n${renderEngine()}\n${snippet}`, { cwd, env });
 }
 
 describe("local database detection", () => {
@@ -429,8 +470,7 @@ describe("local database detection", () => {
     ["postgresql://u:p@db.example.com:5432/db", false],
     ["postgresql://u:p@10.0.0.5/db", false],
   ])("DATABASE_URL=%s is local: %p", (url, local) => {
-    const engine = readFileSync(join(import.meta.dir, "../../templates/scripts/engine.sh"), "utf8");
-    const r = shScript(`tool() { :; }; ${engine}\nforge_local_db && echo local || echo remote`, { env: { DATABASE_URL: url }, cwd: "/" });
+    const r = shScript(`tool() { :; }; ${renderEngine()}\nforge_local_db && echo local || echo remote`, { env: { DATABASE_URL: url }, cwd: "/" });
     expect(r.stdout.trim()).toBe(local ? "local" : "remote");
   });
 });
@@ -438,7 +478,7 @@ describe("local database detection", () => {
 /** What installing a hook manager in a clone does to git: its hook in .git/hooks, or Husky's core.hooksPath. */
 function installManager(r: string, file: string): void {
   if (file === ".husky/pre-commit") git(r, "config", "core.hooksPath", ".husky/_");
-  else if (file.startsWith("lefthook")) put(r, ".git/hooks/pre-commit", "#!/bin/sh\n# lefthook\nlefthook run pre-commit \"$@\"\n");
+  else if (file.startsWith("lefthook")) put(r, ".git/hooks/pre-commit", '#!/bin/sh\n# lefthook\nlefthook run pre-commit "$@"\n');
   else put(r, ".git/hooks/pre-commit", "#!/usr/bin/env bash\n# File generated by pre-commit: https://pre-commit.com\n");
 }
 
@@ -465,7 +505,12 @@ describe("pre-commit", () => {
    * the rest of the file is left as it was, and `remove` takes the block out.
    */
   test.each([
-    [".pre-commit-config.yaml", "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.6.0\n    hooks:\n      - id: ruff\n", "entry: sh .forge/check.sh --changed", "pre-commit install"],
+    [
+      ".pre-commit-config.yaml",
+      "repos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.6.0\n    hooks:\n      - id: ruff\n",
+      "entry: sh .forge/check.sh --changed",
+      "pre-commit install",
+    ],
     ["lefthook.yml", "pre-commit:\n  commands:\n    lint:\n      run: npm run lint\n", "run: sh .forge/check.sh --changed", "lefthook install"],
     [".husky/pre-commit", "npx lint-staged\n", "sh .forge/check.sh --changed || exit 1", "npx husky"],
   ])(
@@ -483,7 +528,9 @@ describe("pre-commit", () => {
       expect(existsSync(join(r, ".git/hooks/pre-commit"))).toBe(false);
       expect(JSON.parse(readFileSync(join(r, ".forge/forge.lock.json"), "utf8")).blocks).toEqual([expect.objectContaining({ file, created: false })]);
       // the manager is not installed in this fresh clone: git does not run its config
-      expect(forge(["status"], r).stdout).toContain(`Pre-commit: ${file} runs the check (forge), but ${file.replace(/\/pre-commit$/, "")} is not installed in this clone, so commits are not checked. To activate: ${activate}`);
+      expect(forge(["status"], r).stdout).toContain(
+        `Pre-commit: ${file} runs the check (forge), but ${file.replace(/\/pre-commit$/, "")} is not installed in this clone, so commits are not checked. To activate: ${activate}`,
+      );
       expect(JSON.parse(forge(["status", "--json"], r).stdout).pre_commit).toEqual({ installed: false, file, forge: true, activate: expect.stringContaining(activate) });
       installManager(r, file);
       expect(forge(["status"], r).stdout).toContain(`Pre-commit: ${file} (forge)\n`);
@@ -571,7 +618,9 @@ describe("pre-commit", () => {
       const a = forge(["apply", "--yes"], r);
       expect(a.status).toBe(0);
       expect(readFileSync(join(r, ".husky/pre-commit"), "utf8")).toBe("npx lint-staged\n");
-      expect(a.stdout).toContain('forge: pre-commit: not installed, so commits are not checked; run forge apply interactively (or with --pre-commit) to add "sh .forge/check.sh --changed" to .husky/pre-commit');
+      expect(a.stdout).toContain(
+        'forge: pre-commit: not installed, so commits are not checked; run forge apply interactively (or with --pre-commit) to add "sh .forge/check.sh --changed" to .husky/pre-commit',
+      );
       expect(git(r, "status", "--porcelain", ".husky").stdout).toBe("");
     },
     T,
@@ -601,7 +650,11 @@ describe("pre-commit", () => {
    * else in a YAML config is refused.
    */
   test.each([
-    ["pre-commit", "- repo: https://github.com/astral-sh/ruff-pre-commit\n  rev: v0.6.0\n  hooks:\n    - id: ruff\n", { repos: [{ repo: "https://github.com/astral-sh/ruff-pre-commit", rev: "v0.6.0", hooks: [{ id: "ruff" }] }] }],
+    [
+      "pre-commit",
+      "- repo: https://github.com/astral-sh/ruff-pre-commit\n  rev: v0.6.0\n  hooks:\n    - id: ruff\n",
+      { repos: [{ repo: "https://github.com/astral-sh/ruff-pre-commit", rev: "v0.6.0", hooks: [{ id: "ruff" }] }] },
+    ],
     ["lefthook", "    lint:\n      run: eslint\n", { "pre-commit": { commands: { lint: { run: "eslint" } } } }],
   ] as const)("%s: entries added under the parent keys Forge created survive remove", (kind, added, expected) => {
     const created = insertBlock(kind, undefined)!;
@@ -616,7 +669,7 @@ describe("pre-commit", () => {
 
   test("a shell hook gets the check before the first exec/exit at the top level, not one inside an if, case or function", () => {
     const at = (text: string) => insertBlock("husky", text)!.split("\n").indexOf("sh .forge/check.sh --changed || exit 1");
-    expect(at("if [ -n \"$CI\" ]; then\nexit 0\nfi\nnpx lint-staged\n")).toBe(5);
+    expect(at('if [ -n "$CI" ]; then\nexit 0\nfi\nnpx lint-staged\n')).toBe(5);
     expect(at("case $1 in\n  x) exit 0 ;;\nesac\nf() {\nexit 1\n}\nexec npx lint-staged\n")).toBe(7);
     expect(at("echo 'if you see this'\nexit 0\n")).toBe(2);
   });
@@ -764,7 +817,7 @@ describe("errors in unchanged files", () => {
    */
   /** @rule typescript/typecheck */
   test.if(hasBun)(
-    "with tsc 5 and \"pretty\": true (coloured diagnostics), an unchanged file's error still does not block",
+    'with tsc 5 and "pretty": true (coloured diagnostics), an unchanged file\'s error still does not block',
     () => {
       const r = legacyRepo();
       linkTs5(r);
@@ -830,7 +883,11 @@ describe("errors in unchanged files", () => {
       ensureTools();
       const r = sampleRepo("fastapi-app");
       linkTools(r, "python");
-      put(r, ".forge/rules/lint-all.yaml", "id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: \"ruff check --output-format concise .\"}\n");
+      put(
+        r,
+        ".forge/rules/lint-all.yaml",
+        'id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: "ruff check --output-format concise ."}\n',
+      );
       put(r, "app/legacy.py", "import os\n");
       commitAll(r, "legacy");
       expect(forge(["apply", "--yes"], r).status).toBe(0);
@@ -847,7 +904,6 @@ describe("errors in unchanged files", () => {
     T,
   );
 });
-
 
 /**
  * In a monorepo whose TypeScript config lives in a workspace package
@@ -960,7 +1016,10 @@ describe("failing tests at the start of the turn in a workspace package", () => 
       expect(out.stdout).toContain(
         "forge:typescript/vitest/run 1 failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n  packages/core/src/index.test.ts > greets\n",
       );
-      const runs = readFileSync(log, "utf8").trimEnd().split("\n").map((l) => l.split("|"));
+      const runs = readFileSync(log, "utf8")
+        .trimEnd()
+        .split("\n")
+        .map((l) => l.split("|"));
       expect(runs.length).toBe(2);
       expect(runs[1]![0]).not.toStartWith(r);
       expect(runs[1]![0]).toEndWith("/packages/core");
@@ -985,7 +1044,10 @@ describe("failing tests at the start of the turn in a workspace package", () => 
       };
       stub("packages/core", "exit 0");
       // the app's test sees core through the link pnpm makes; Vite writes its cache in node_modules/.vite
-      stub("packages/app", 'mkdir -p node_modules/.vite && echo run >> node_modules/.vite/results\ngrep -q turn-change node_modules/@mono/core/src/index.ts || exit 0\necho " FAIL  src/app.test.ts > uses core"; exit 1');
+      stub(
+        "packages/app",
+        'mkdir -p node_modules/.vite && echo run >> node_modules/.vite/results\ngrep -q turn-change node_modules/@mono/core/src/index.ts || exit 0\necho " FAIL  src/app.test.ts > uses core"; exit 1',
+      );
       mkdirSync(join(r, "packages/app/node_modules/@mono"), { recursive: true });
       symlinkSync("../../../core", join(r, "packages/app/node_modules/@mono/core"));
       const snap = ".forge/state/t.turn";
@@ -1165,7 +1227,12 @@ describe("config ratchet", () => {
       const out = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
       expect(out.status).toBe(1);
       expect(out.stdout).toContain("forge:typescript/config-ratchet failed\nbiome.json: linter.rules.suspicious.noExplicitAny error -> off");
-      put(r, "forge.yaml", readFileSync(join(r, "forge.yaml"), "utf8") + 'accept:\n  - rule: typescript/config-ratchet\n    change: "biome.json: linter.rules.suspicious.noExplicitAny error -> off"\n    reason: migrating a legacy module\n');
+      put(
+        r,
+        "forge.yaml",
+        readFileSync(join(r, "forge.yaml"), "utf8") +
+          'accept:\n  - rule: typescript/config-ratchet\n    change: "biome.json: linter.rules.suspicious.noExplicitAny error -> off"\n    reason: migrating a legacy module\n',
+      );
       expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("config-ratchet");
     },
     T,
@@ -1183,7 +1250,7 @@ describe("config ratchet", () => {
       expect(forge(["apply", "--yes"], r).status).toBe(0);
       commitAll(r, "forge");
       const py = readFileSync(join(r, "pyproject.toml"), "utf8");
-      put(r, "pyproject.toml", py.replace('dependencies = [', 'dependencies = ["httpx>=0.28", '));
+      put(r, "pyproject.toml", py.replace("dependencies = [", 'dependencies = ["httpx>=0.28", '));
       expect(sh("sh", [".forge/check.sh", "--changed"], { cwd: r }).stdout).not.toContain("config-ratchet");
       put(r, "pyproject.toml", py + '\n[tool.ruff.lint.per-file-ignores]\n"app/*" = ["E722"]\n');
       const out = sh("sh", [".forge/check.sh", "--changed"], { cwd: r });
@@ -1271,37 +1338,53 @@ describe("checks that need no tool", () => {
   const all = (r: string) => sh("sh", [".forge/check.sh", "--all"], { cwd: r });
 
   /** @rule typescript/no-ignore-deprecations typescript/vitest/no-workspace-file typescript/prisma/client-generator */
-  test("the Next.js sample passes them as committed", () => {
-    const out = all(nextRepo({})).stdout;
-    // the lint stage ran (every check of a stage runs, even after one fails)
-    expect(out).toContain("forge:typescript/format-lint");
-    expect(out).not.toContain("forge:typescript/no-ignore-deprecations");
-    expect(out).not.toContain("forge:typescript/vitest/no-workspace-file");
-    expect(out).not.toContain("forge:typescript/prisma/client-generator");
-  }, T);
+  test(
+    "the Next.js sample passes them as committed",
+    () => {
+      const out = all(nextRepo({})).stdout;
+      // the lint stage ran (every check of a stage runs, even after one fails)
+      expect(out).toContain("forge:typescript/format-lint");
+      expect(out).not.toContain("forge:typescript/no-ignore-deprecations");
+      expect(out).not.toContain("forge:typescript/vitest/no-workspace-file");
+      expect(out).not.toContain("forge:typescript/prisma/client-generator");
+    },
+    T,
+  );
 
   /** @rule typescript/no-ignore-deprecations */
-  test("a tsconfig that sets ignoreDeprecations fails, naming the file and line", () => {
-    const r = all(nextRepo({ "tsconfig.base.json": '{\n  "compilerOptions": {\n    "ignoreDeprecations": "6.0"\n  }\n}\n' }));
-    expect(r.status).toBe(1);
-    expect(r.stdout).toContain("forge:typescript/no-ignore-deprecations failed");
-    expect(r.stdout).toContain('tsconfig.base.json:3:    "ignoreDeprecations": "6.0"');
-  }, T);
+  test(
+    "a tsconfig that sets ignoreDeprecations fails, naming the file and line",
+    () => {
+      const r = all(nextRepo({ "tsconfig.base.json": '{\n  "compilerOptions": {\n    "ignoreDeprecations": "6.0"\n  }\n}\n' }));
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("forge:typescript/no-ignore-deprecations failed");
+      expect(r.stdout).toContain('tsconfig.base.json:3:    "ignoreDeprecations": "6.0"');
+    },
+    T,
+  );
 
   /** @rule typescript/vitest/no-workspace-file */
-  test("a vitest.workspace file fails", () => {
-    const r = all(nextRepo({ "vitest.workspace.ts": "export default [];\n" }));
-    expect(r.status).toBe(1);
-    expect(r.stdout).toContain("forge:typescript/vitest/no-workspace-file failed");
-  }, T);
+  test(
+    "a vitest.workspace file fails",
+    () => {
+      const r = all(nextRepo({ "vitest.workspace.ts": "export default [];\n" }));
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("forge:typescript/vitest/no-workspace-file failed");
+    },
+    T,
+  );
 
   /** @rule typescript/prisma/client-generator */
-  test("a schema with the prisma-client-js generator fails, naming the line", () => {
-    const r = all(nextRepo({ "prisma/legacy.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n' }));
-    expect(r.status).toBe(1);
-    expect(r.stdout).toContain("forge:typescript/prisma/client-generator failed");
-    expect(r.stdout).toContain('prisma/legacy.prisma:2:  provider = "prisma-client-js"');
-  }, T);
+  test(
+    "a schema with the prisma-client-js generator fails, naming the line",
+    () => {
+      const r = all(nextRepo({ "prisma/legacy.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n' }));
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("forge:typescript/prisma/client-generator failed");
+      expect(r.stdout).toContain('prisma/legacy.prisma:2:  provider = "prisma-client-js"');
+    },
+    T,
+  );
 });
 
 describe("migration linting", () => {
@@ -1429,7 +1512,13 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
       expect(sh(join(TOOLS_CACHE, ".venv-alembic/bin/alembic"), ["init", "-t", "async", "alembic"], { cwd: tpl }).status).toBe(0);
       put(r, "alembic/env.py", readFileSync(join(tpl, "alembic/env.py"), "utf8"));
       put(r, "alembic/script.py.mako", readFileSync(join(tpl, "alembic/script.py.mako"), "utf8"));
-      put(r, "alembic.ini", readFileSync(join(tpl, "alembic.ini"), "utf8").replace(/^sqlalchemy\.url = .*$/m, "sqlalchemy.url = postgresql+asyncpg://app:app@localhost:5432/app").replace(/^script_location = .*$/m, "script_location = %(here)s/alembic"));
+      put(
+        r,
+        "alembic.ini",
+        readFileSync(join(tpl, "alembic.ini"), "utf8")
+          .replace(/^sqlalchemy\.url = .*$/m, "sqlalchemy.url = postgresql+asyncpg://app:app@localhost:5432/app")
+          .replace(/^script_location = .*$/m, "script_location = %(here)s/alembic"),
+      );
       put(
         r,
         "alembic/versions/0001_users.py",
@@ -1546,7 +1635,9 @@ describe("advisory checks block once per turn", () => {
 });
 
 describe("project tools whose name is not a shell function name", () => {
-  const rule = loadPacks(join(ROOT, "packs")).get("typescript/vue")!.rules.find((r) => r.id === "typescript/vue/typecheck")!;
+  const rule = loadPacks(join(ROOT, "packs"))
+    .get("typescript/vue")!
+    .rules.find((r) => r.id === "typescript/vue/typecheck")!;
   const target = rule.enforce[0] as CheckTarget;
   const example = rule.examples!.match![0]!;
 
@@ -1574,7 +1665,7 @@ describe("project tools whose name is not a shell function name", () => {
  * kubectl) are found on PATH like the runtimes. Whatever cannot run is reported, never passed.
  */
 describe("pinned release binaries and system tools", () => {
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   function run(body: string, cwd: string, env: Record<string, string> = {}) {
     const script = join(cwd, "..", `t-${Math.random().toString(36).slice(2)}.sh`);
     writeFileSync(script, `${engine}\nc_id=demo/rule\nFORGE_TMP=$(mktemp -d)\n${body}\n`);
@@ -1604,7 +1695,9 @@ describe("pinned release binaries and system tools", () => {
       `zipped 2.0 ${platform} file://${r.dir}/zipped.zip ${shaOf(join(r.dir, "zipped.zip"))}`,
       `raw 3.0 ${platform} file://${r.src}/raw ${shaOf(join(r.src, "raw"))}`,
     ].join("\n");
-    const out = run(`FORGE_RELEASES='${table}'\nfor t in demo zipped raw; do b=$(forge_release_bin $t) && "$b"; done\nrm "${r.dir}/demo.tar.gz"\nforge_release demo B && "$B"`, r.cwd, { XDG_CACHE_HOME: r.cache });
+    const out = run(`FORGE_RELEASES='${table}'\nfor t in demo zipped raw; do b=$(forge_release_bin $t) && "$b"; done\nrm "${r.dir}/demo.tar.gz"\nforge_release demo B && "$B"`, r.cwd, {
+      XDG_CACHE_HOME: r.cache,
+    });
     expect(out.stdout).toBe("demo-ran\ndemo-ran\nraw-ran\ndemo-ran\n");
     expect(existsSync(join(r.cache, `forge/bin/demo-1.0-${platform}/demo`))).toBe(true);
     expect(existsSync(join(r.cache, `forge/bin/raw-3.0-${platform}/raw`))).toBe(true);
@@ -1613,7 +1706,11 @@ describe("pinned release binaries and system tools", () => {
   test("an asset that does not match its sha256, cannot be downloaded (offline) or does not exist for the platform makes the check skipped, never passed", () => {
     const r = release({ demo: "#!/bin/sh\necho demo-ran\n" });
     sh("tar", ["-czf", join(r.dir, "demo.tar.gz"), "demo"], { cwd: r.src });
-    const table = [`bad 1.0 ${platform} file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`, `gone 1.0 ${platform} file://${r.dir}/nothing.tar.gz ${"0".repeat(64)}`, `elsewhere 1.0 Plan9-mips file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`].join("\n");
+    const table = [
+      `bad 1.0 ${platform} file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`,
+      `gone 1.0 ${platform} file://${r.dir}/nothing.tar.gz ${"0".repeat(64)}`,
+      `elsewhere 1.0 Plan9-mips file://${r.dir}/demo.tar.gz ${"0".repeat(64)}`,
+    ].join("\n");
     const out = run(`FORGE_RELEASES='${table}'\nfor t in bad gone elsewhere; do forge_release $t B || echo "rc=$?"; done`, r.cwd, { XDG_CACHE_HOME: r.cache });
     expect(out.stdout).toBe(
       [
@@ -1649,14 +1746,15 @@ describe("pinned release binaries and system tools", () => {
     const sys = join(r.dir, "sys");
     mkdirSync(sys);
     const tested = new Set(["terraform", "tofu", "helm", "kustomize", "kubectl"]);
-    for (const d of ["/usr/bin", "/bin"])
-      for (const f of readdirSync(d)) if (!tested.has(f) && !existsSync(join(sys, f))) symlinkSync(join(d, f), join(sys, f));
+    for (const d of ["/usr/bin", "/bin"]) for (const f of readdirSync(d)) if (!tested.has(f) && !existsSync(join(sys, f))) symlinkSync(join(d, f), join(sys, f));
     const PATH = `${bin}:${sys}`;
-    const probe = "for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
+    const probe = 'for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo "has $t" || echo "no $(forge_tool_label $t)"; done';
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("no terraform\nno tofu\nno helm\nno kustomize or kubectl\nno kubectl\n");
     tool("terraform");
     tool("kubectl");
-    expect(run(`${probe}\nforge_terraform version\nforge_kustomize build .`, r.cwd, { PATH }).stdout).toBe("has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize build .\n");
+    expect(run(`${probe}\nforge_terraform version\nforge_kustomize build .`, r.cwd, { PATH }).stdout).toBe(
+      "has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize build .\n",
+    );
     put(r.cwd, "infra/main.tofu", "");
     expect(run(`${probe}\nforge_tf_bin`, r.cwd, { PATH }).stdout).toBe("no tofu\nno tofu\nno helm\nhas kustomize\nhas kubectl\ntofu");
     sh("rm", [join(r.cwd, "infra/main.tofu")]);
@@ -1677,13 +1775,17 @@ describe("pinned release binaries and system tools", () => {
     const r = release({});
     const bin = join(r.dir, "bin");
     const tool = (name: string, version: string) => {
-      put(bin, name, `#!/bin/sh
+      put(
+        bin,
+        name,
+        `#!/bin/sh
 echo "${version}"
-`);
+`,
+      );
       chmodSync(join(bin, name), 0o755);
     };
     const PATH = `${bin}:/usr/bin:/bin`;
-    const probe = "for t in npm pnpm yarn; do forge_has_tool $t && echo \"has $t\" || echo \"no $(forge_tool_label $t)\"; done";
+    const probe = 'for t in npm pnpm yarn; do forge_has_tool $t && echo "has $t" || echo "no $(forge_tool_label $t)"; done';
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("no npm\nno pnpm\nno yarn 2 or later\n");
     tool("npm", "11.4.2");
     tool("pnpm", "10.18.0");
@@ -1739,7 +1841,9 @@ echo "${version}"
 test(
   "git/large-files: a new file over 1 MiB fails the check unless Git LFS stores it; a file that did not grow is left alone",
   () => {
-    const rule = loadPacks(join(ROOT, "packs")).get("git")!.rules.find((r) => r.id === "git/large-files")!;
+    const rule = loadPacks(join(ROOT, "packs"))
+      .get("git")!
+      .rules.find((r) => r.id === "git/large-files")!;
     const target = rule.enforce[0] as CheckTarget;
     const big = "x".repeat(1200 * 1024);
     expect(runCheckExample(rule, target, { files: { "assets/dump.sql": big } }, "match", []).outcome).toBe("pass");
@@ -1772,7 +1876,8 @@ describe("Forge's own files and helper scopes", () => {
     commitAll(cwd, "head");
     return cwd;
   }
-  const rule = (id: string, files?: string[]) => ({ id, description: "D.", scope: { language: "any", ...(files ? { files } : {}) }, enforce: [], file: "x", hash: "", origin: "pack", pack: "demo" }) as unknown as Rule;
+  const rule = (id: string, files?: string[]) =>
+    ({ id, description: "D.", scope: { language: "any", ...(files ? { files } : {}) }, enforce: [], file: "x", hash: "", origin: "pack", pack: "demo" }) as unknown as Rule;
 
   test(".forge/ and .claude/skills/forge-project/ are never part of a change or of a helper's file list", () => {
     const cwd = repoWith({ "a.txt": "a\n" });
@@ -1844,36 +1949,50 @@ describe("registry lookups", () => {
     return runCheckExample(rule, rule.enforce[0] as CheckTarget, { files }, kind, [...(process.env.PATH ?? "").split(":")]).outcome;
   };
 
-  test.if(hasBun)("a package first published less than the cooldown (3 days) ago fails; an older one passes", () => {
-    withRegistry(() => {
-      const pkg = (name: string) => ({ "package.json": `{\n  "name": "shop",\n  "dependencies": {\n    "${name}": "^1.0.0"\n  }\n}\n` });
-      expect(outcome("supply-chain/new-npm-dep-exists", pkg("fresh-forge-pkg"), "match")).toBe("pass");
-      expect(outcome("supply-chain/new-npm-dep-exists", pkg("settled-forge-pkg"), "no_match")).toBe("pass");
-    });
-  }, T);
+  test.if(hasBun)(
+    "a package first published less than the cooldown (3 days) ago fails; an older one passes",
+    () => {
+      withRegistry(() => {
+        const pkg = (name: string) => ({ "package.json": `{\n  "name": "shop",\n  "dependencies": {\n    "${name}": "^1.0.0"\n  }\n}\n` });
+        expect(outcome("supply-chain/new-npm-dep-exists", pkg("fresh-forge-pkg"), "match")).toBe("pass");
+        expect(outcome("supply-chain/new-npm-dep-exists", pkg("settled-forge-pkg"), "no_match")).toBe("pass");
+      });
+    },
+    T,
+  );
 
-  test("a PyPI package first uploaded less than the cooldown ago, or with every release yanked, fails", () => {
-    withRegistry(() => {
-      const py = (name: string) => ({ "pyproject.toml": `[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["${name}>=1"]\n` });
-      expect(outcome("supply-chain/new-pypi-dep-exists", py("fresh-forge-pkg"), "match")).toBe("pass");
-      expect(outcome("supply-chain/new-pypi-dep-exists", py("yanked-forge-pkg"), "match")).toBe("pass");
-      expect(outcome("supply-chain/new-pypi-dep-exists", py("settled-forge-pkg"), "no_match")).toBe("pass");
-    });
-  }, T);
+  test(
+    "a PyPI package first uploaded less than the cooldown ago, or with every release yanked, fails",
+    () => {
+      withRegistry(() => {
+        const py = (name: string) => ({ "pyproject.toml": `[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["${name}>=1"]\n` });
+        expect(outcome("supply-chain/new-pypi-dep-exists", py("fresh-forge-pkg"), "match")).toBe("pass");
+        expect(outcome("supply-chain/new-pypi-dep-exists", py("yanked-forge-pkg"), "match")).toBe("pass");
+        expect(outcome("supply-chain/new-pypi-dep-exists", py("settled-forge-pkg"), "no_match")).toBe("pass");
+      });
+    },
+    T,
+  );
 
-  test("an unreachable registry makes the check skipped, never passed", () => {
-    const saved = process.env.FORGE_REGISTRY_PYPI;
-    process.env.FORGE_REGISTRY_PYPI = "http://127.0.0.1:9";
-    try {
-      const rule = rules().find((r) => r.id === "supply-chain/new-pypi-dep-exists")!;
-      const r = runCheckExample(rule, rule.enforce[0] as CheckTarget, { files: { "pyproject.toml": '[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["httpx"]\n' } }, "match", [...(process.env.PATH ?? "").split(":")]);
-      expect(r.outcome).toBe("skip");
-      expect(r.detail).toStartWith("registry unreachable");
-    } finally {
-      if (saved === undefined) delete process.env.FORGE_REGISTRY_PYPI;
-      else process.env.FORGE_REGISTRY_PYPI = saved;
-    }
-  }, T);
+  test(
+    "an unreachable registry makes the check skipped, never passed",
+    () => {
+      const saved = process.env.FORGE_REGISTRY_PYPI;
+      process.env.FORGE_REGISTRY_PYPI = "http://127.0.0.1:9";
+      try {
+        const rule = rules().find((r) => r.id === "supply-chain/new-pypi-dep-exists")!;
+        const r = runCheckExample(rule, rule.enforce[0] as CheckTarget, { files: { "pyproject.toml": '[project]\nname = "shop"\nversion = "0.1.0"\ndependencies = ["httpx"]\n' } }, "match", [
+          ...(process.env.PATH ?? "").split(":"),
+        ]);
+        expect(r.outcome).toBe("skip");
+        expect(r.detail).toStartWith("registry unreachable");
+      } finally {
+        if (saved === undefined) delete process.env.FORGE_REGISTRY_PYPI;
+        else process.env.FORGE_REGISTRY_PYPI = saved;
+      }
+    },
+    T,
+  );
 });
 
 /**
@@ -1896,7 +2015,13 @@ test("a failing codegen check stops check.sh before the typecheck; a passing one
   const write = (codegen: string) => {
     const owned = { ".forge/check.sh": script(codegen), ".forge/.gitignore": "state/\n", ".forge/ast-grep/sgconfig.yml": renderSgConfig() };
     for (const [p, text] of Object.entries(owned)) put(dir, p, text);
-    put(dir, ".forge/manifest.sha256", Object.entries(owned).map(([p, text]) => `${ownedHash(p, text)}  ${p}`).join("\n") + "\n");
+    put(
+      dir,
+      ".forge/manifest.sha256",
+      Object.entries(owned)
+        .map(([p, text]) => `${ownedHash(p, text)}  ${p}`)
+        .join("\n") + "\n",
+    );
   };
   git(dir, "init", "-q");
   write("printf 'The following stale files were detected:\\n  - src/gql/types.ts\\n'; false");
@@ -1920,8 +2045,15 @@ test("a failing codegen check stops check.sh before the typecheck; a passing one
  */
 test("prettier --check output is attributed by the files it names: a changed file counts, an unchanged one and the summary do not", () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
-  const out = ["Checking formatting...", "[warn] src/cart.ts", "[warn] src/legacy.ts", "[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)", "[error] > 1 | const = ;", "[warn] Code style issues found in 2 files. Run Prettier with --write to fix."].join("\n");
+  const engine = fullEngine();
+  const out = [
+    "Checking formatting...",
+    "[warn] src/cart.ts",
+    "[warn] src/legacy.ts",
+    "[error] src/broken.ts: SyntaxError: Variable declaration expected. (1:7)",
+    "[error] > 1 | const = ;",
+    "[warn] Code style issues found in 2 files. Run Prettier with --write to fix.",
+  ].join("\n");
   const attribute = (changed: string[]) => {
     writeFileSync(join(dir, "out"), `${out}\n`);
     const script = `${engine}\nFORGE_TMP=${dir}\nprintf '%s\\n' ${changed.map((c) => `'${c}'`).join(" ")} > "$FORGE_TMP/changed"\n: > "$FORGE_TMP/added"\nforge_diagnostics "$FORGE_TMP/out" file; forge_diagnostics "$FORGE_TMP/out" file print`;
@@ -1941,7 +2073,7 @@ test("prettier --check output is attributed by the files it names: a changed fil
  */
 test("ESLint's stylish output is attributed by file and line: an error on an added line counts, one on another line does not, and warnings count only with fail_on_warnings", () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "forge-attr-")));
-  const engine = [renderLib(), "IFS='\n'", renderChecks([])].join("\n");
+  const engine = fullEngine();
   const out = [
     `${dir}/src/a.ts`,
     "  4:9  error  'unused' is assigned a value but never used  @typescript-eslint/no-unused-vars",
@@ -1971,19 +2103,31 @@ test("ESLint's stylish output is attributed by file and line: an error on an add
  * `.vue` template blocks like one in a `.tsx` file.
  * @rule typescript/format-lint typescript/a11y
  */
-test.if(hasBun)("format-lint lints changed .vue, .svelte, .astro and .html files with Biome: an error in a template blocks", () => {
-  ensureTools();
-  const rule = loadPacks(join(ROOT, "packs")).get("typescript")!.rules.find((r) => r.id === "typescript/format-lint")!;
-  const target = rule.enforce[0] as CheckTarget;
-  const head = { "biome.json": JSON.stringify({ html: { experimentalFullSupportEnabled: true }, formatter: { enabled: false }, linter: { enabled: true, rules: { recommended: false, a11y: "error" } } }) };
-  const bins = [join(TOOLS_CACHE, "node_modules/.bin")];
-  for (const [path, bad, good] of [
-    ["src/components/Hero.vue", '<template>\n  <img src="/hero.png" />\n</template>\n', '<template>\n  <img src="/hero.png" alt="Sneakers" />\n</template>\n'],
-    ["src/lib/Hero.svelte", '<img src="/hero.png" />\n', '<img src="/hero.png" alt="Sneakers" />\n'],
-    ["src/pages/index.astro", '---\n---\n<img src="/hero.png" />\n', '---\n---\n<img src="/hero.png" alt="Sneakers" />\n'],
-    ["public/index.html", '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" /></body>\n</html>\n', '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" alt="Sneakers" /></body>\n</html>\n'],
-  ] as const) {
-    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
-    expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
-  }
-}, T);
+test.if(hasBun)(
+  "format-lint lints changed .vue, .svelte, .astro and .html files with Biome: an error in a template blocks",
+  () => {
+    ensureTools();
+    const rule = loadPacks(join(ROOT, "packs"))
+      .get("typescript")!
+      .rules.find((r) => r.id === "typescript/format-lint")!;
+    const target = rule.enforce[0] as CheckTarget;
+    const head = {
+      "biome.json": JSON.stringify({ html: { experimentalFullSupportEnabled: true }, formatter: { enabled: false }, linter: { enabled: true, rules: { recommended: false, a11y: "error" } } }),
+    };
+    const bins = [join(TOOLS_CACHE, "node_modules/.bin")];
+    for (const [path, bad, good] of [
+      ["src/components/Hero.vue", '<template>\n  <img src="/hero.png" />\n</template>\n', '<template>\n  <img src="/hero.png" alt="Sneakers" />\n</template>\n'],
+      ["src/lib/Hero.svelte", '<img src="/hero.png" />\n', '<img src="/hero.png" alt="Sneakers" />\n'],
+      ["src/pages/index.astro", '---\n---\n<img src="/hero.png" />\n', '---\n---\n<img src="/hero.png" alt="Sneakers" />\n'],
+      [
+        "public/index.html",
+        '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" /></body>\n</html>\n',
+        '<!doctype html>\n<html lang="en">\n  <body><img src="/hero.png" alt="Sneakers" /></body>\n</html>\n',
+      ],
+    ] as const) {
+      expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
+      expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
+    }
+  },
+  T,
+);

@@ -64,7 +64,8 @@ fi
 IFS='
 '
 
-@@CHECKS@@
+# the generated checks and the engine modules they use (forge apply writes them next to this script)
+. "$dir/checks.sh"
 
 # the first changed file in a typecheck's scope
 file=''
