@@ -33,7 +33,7 @@ export const DOCKER: ToolAdapter = {
   runner: "path",
   versionArgs: "compose version",
   verified: "5.6.1",
-  usage: { exit: 1, pattern: "^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument" },
+  usage: { exit: [1, 16], pattern: "^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument" },
   ranges: [
     {
       from: "2.0.0",

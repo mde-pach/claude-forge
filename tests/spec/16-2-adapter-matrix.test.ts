@@ -90,6 +90,8 @@ function peers(i: { with?: string[]; withFor?: Record<string, string[]> }, versi
  */
 function install(m: Matrix, version: string): { dir: string; link?: [string, string]; path?: string; inProject?: boolean } {
   const dir = join(TOOLS_CACHE, "adapters", `${m.tool}-${version}`);
+  // Forge's pin: the engine fetches it, nothing to install here
+  if ("pinned" in m.install) return { dir };
   if (existsSync(join(dir, ".complete"))) return installed(m, version, dir);
   mkdirSync(dirname(dir), { recursive: true });
   const lock = `${dir}.lock`;
