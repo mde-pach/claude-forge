@@ -716,7 +716,7 @@ npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	
 oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
 playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
 pnpm	-	12.16.1	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
-prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
+prettier	-	3.9.10	1,2	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
 prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
 pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
 sqlfluff	-	4.4.0	2	^Try .[^ ]+ [a-z-]+ (-h|--help). for help	project	-	--version	-
@@ -1068,12 +1068,15 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+  # (a tool may colour its error line, as many do in CI: the colour codes go before matching)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac \
+    && cat "$_do_out" "$_do_err" | sed "s/$(printf '\033')\[[0-9;]*m//g" | grep -qE "$_do_up"; then
     # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
     case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
-        _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
-        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
+        _do_esc=$(printf '\033')
+        _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
+        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -E "$_do_up" | head -n 1)
         forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(printf '%s' "$_do_why" | sed 's/^[Ee]rror: //')"
         rm -f "$_do_err" "$_do_out"
         return 0
@@ -4999,7 +5002,7 @@ npm	-	12.2.1	1	^(npm (error|ERR!) code EUNKNOWNCONFIG|Unknown command: )	path	-	
 oxlint	-	1.90.0	1	^Error: 	project	-	--version	-
 playwright	-	1.64.1	1	^error: unknown option 	project	-	--version	-
 pnpm	-	12.16.1	1,2	(ERROR[^A-Za-z]{1,8}Unknown options?: |^For more information, try .--help.)	path	-	--version	-
-prettier	-	3.9.10	1	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
+prettier	-	3.9.10	1,2	^\[error\] Invalid --[a-zA-Z-]+ value	project	-	--version	-
 prisma	-	7.10.1	1	^(! )?unknown or unexpected option: 	project	-	--version	-
 pytest	-	9.2.0	4	^(ERROR|UsageError): usage: 	project	-	--version	-
 sqlfluff	-	4.4.0	2	^Try .[^ ]+ [a-z-]+ (-h|--help). for help	project	-	--version	-
@@ -5351,12 +5354,15 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+  # (a tool may colour its error line, as many do in CI: the colour codes go before matching)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac \
+    && cat "$_do_out" "$_do_err" | sed "s/$(printf '\033')\[[0-9;]*m//g" | grep -qE "$_do_up"; then
     # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
     case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
-        _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
-        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
+        _do_esc=$(printf '\033')
+        _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
+        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -E "$_do_up" | head -n 1)
         forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(printf '%s' "$_do_why" | sed 's/^[Ee]rror: //')"
         rm -f "$_do_err" "$_do_out"
         return 0
@@ -5868,7 +5874,7 @@ forge_end "$fail"
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
     ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "ddc373098ce42a5304585caf13ffdee31aeff407dc104ea3706b60feb36907c0",
+    ".claude/skills/forge-project/scripts/checks.sh": "0ec73705731575e05ec22c7b921b953efcc32acff6bf526e6e816f72d85566ff",
     ".claude/skills/forge-project/scripts/guard.rules": "816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
     ".claude/skills/forge-project/scripts/lib.sh": "f659112eebe620af4592527827de0f19edb2a6c8ec8b56b7bb76d12b05b0d03d",
@@ -5962,7 +5968,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/python/taskgroup-except-star.yml": "4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60",
     ".forge/ast-grep/rules/python/typeis-over-typeguard.yml": "0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "39850a99135eef9f8d909b0b2f68ed78f3f6bc826a3743ffd55ce2fe2d5ddea7",
+    ".forge/check.sh": "5587cc828ae3cbfec5aedcada11136de6c16ecc4f1f3df8c03cd35e38821ca38",
     ".forge/helpers/fk_index.py": "12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
@@ -6127,7 +6133,7 @@ f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
 29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-ddc373098ce42a5304585caf13ffdee31aeff407dc104ea3706b60feb36907c0  .claude/skills/forge-project/scripts/checks.sh
+0ec73705731575e05ec22c7b921b953efcc32acff6bf526e6e816f72d85566ff  .claude/skills/forge-project/scripts/checks.sh
 816bea5f940b015f7c4f7645f47a4b6db02969eaee2747f583d8ea89af1e7c35  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
 f659112eebe620af4592527827de0f19edb2a6c8ec8b56b7bb76d12b05b0d03d  .claude/skills/forge-project/scripts/lib.sh
@@ -6221,7 +6227,7 @@ b767983a8b5ac3966b15b7fc7f89fba1e9c94115325f294d1887c3e41cf19727  .forge/ast-gre
 4f4806fe42c584f0222eb866ced97c6626fc229b1c115d6f709c891d0a21bd60  .forge/ast-grep/rules/python/taskgroup-except-star.yml
 0d6cf9bb8a4afebb3e0b7b2bc6748c845108f57005db63b70004c3b1a2a6d8af  .forge/ast-grep/rules/python/typeis-over-typeguard.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-39850a99135eef9f8d909b0b2f68ed78f3f6bc826a3743ffd55ce2fe2d5ddea7  .forge/check.sh
+5587cc828ae3cbfec5aedcada11136de6c16ecc4f1f3df8c03cd35e38821ca38  .forge/check.sh
 12e59e9b4be590d77ed8dd6bab82f644440679d5cffd82264bf4c568e4341c9e  .forge/helpers/fk_index.py
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py

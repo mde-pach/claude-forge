@@ -349,7 +349,8 @@ for (const m of MATRICES) {
               if (c.to && compareVersions(version, c.to) >= 0) continue;
               const op = c.call.split(/\s+/)[0]!;
               if (c.write) p.put(c.write);
-              if (c.before) {
+              // a release that cannot do the operation needs no setup for it (pnpm 8.0.0 cannot even fetch on Node 24)
+              if (c.before && typeof range.ops[op] === "string") {
                 // the setup install reaches the registry: one retry, and its last lines when it fails
                 const setup = `( _o=$(command ${m.tool} ${c.before} 2>&1); _r=$?; [ "$_r" = 0 ] || printf '%s\\n' "$_o" | tail -n 3; exit "$_r" )`;
                 let b = p.run(setup, undefined, c.cwd);

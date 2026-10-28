@@ -235,12 +235,15 @@ forge_do() {
       "$@" > "$_do_out" 2> "$_do_err" ;;
   esac
   _do_rc=$?
-  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac && cat "$_do_out" "$_do_err" | grep -qE "$_do_up"; then
+  # (a tool may colour its error line, as many do in CI: the colour codes go before matching)
+  if [ -n "$_do_ux" ] && case ",$_do_ux," in *",$_do_rc,"*) true ;; *) false ;; esac \
+    && cat "$_do_out" "$_do_err" | sed "s/$(printf '\033')\[[0-9;]*m//g" | grep -qE "$_do_up"; then
     # a command line this version rejects is not a finding (a base copy formatted on stdin fails instead)
     case $_do_op in *-stdin) ;; *)
       if [ -n "${c_id:-}" ]; then
-        _do_why=$(cat "$_do_err" "$_do_out" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
-        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | grep -E "$_do_up" | head -n 1)
+        _do_esc=$(printf '\033')
+        _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
+        [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -E "$_do_up" | head -n 1)
         forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(printf '%s' "$_do_why" | sed 's/^[Ee]rror: //')"
         rm -f "$_do_err" "$_do_out"
         return 0
