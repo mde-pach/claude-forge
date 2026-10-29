@@ -1,4 +1,4 @@
-//! `forge apply` on the generator samples (tests/generator/): golden snapshots of everything
+//! `forge apply` on the generator samples (fixtures/samples/): golden snapshots of everything
 //! it writes, idempotence, drift, dry runs, remove, and the migration from forge 0.5's layout.
 
 use std::path::{Path, PathBuf};
@@ -61,7 +61,7 @@ impl Sandbox {
     fn with_claude(sample: &str, version: &str) -> Sandbox {
         let tmp = tempfile::tempdir().unwrap();
         let repo = tmp.path().join(sample);
-        copy_dir(&repo_root().join("tests/generator").join(sample), &repo);
+        copy_dir(&repo_root().join("fixtures/samples").join(sample), &repo);
         git(&repo, &["init", "-q"]);
         let bin = tmp.path().join("bin");
         std::fs::create_dir_all(&bin).unwrap();
@@ -302,7 +302,9 @@ fn status_and_explain_report_the_plan() {
     assert!(out.contains("Enforced here:"), "{out}");
 }
 
-/// A repository forge 0.5 applied (tests/fixtures/old-layout, see make-old-layout.mjs).
+/// A repository forge 0.5 applied (tests/fixtures/old-layout): fixtures/samples/fastapi-app as the
+/// TypeScript Forge applied it, trimmed, with `.claude` and `.forge` stored as `dot-claude` and
+/// `dot-forge` so nothing there is read as live configuration.
 fn old_layout() -> Sandbox {
     let s = Sandbox::new("fastapi-app");
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/old-layout");

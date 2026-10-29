@@ -1,4 +1,4 @@
-//! Terraform and OpenTofu (`templates/engine/terraform.sh`): validate, tflint, trivy.
+//! Terraform and OpenTofu: validate, tflint, trivy.
 
 use std::collections::{BTreeSet, HashSet};
 use std::path::Path;

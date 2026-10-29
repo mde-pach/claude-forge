@@ -1,4 +1,4 @@
-//! GitHub Actions (`templates/engine/github-actions.sh`): zizmor, actionlint, and CI jobs that
+//! GitHub Actions: zizmor, actionlint, and CI jobs that
 //! disappear.
 
 use std::sync::LazyLock;

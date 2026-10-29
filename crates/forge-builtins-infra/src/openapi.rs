@@ -1,4 +1,4 @@
-//! OpenAPI (`templates/engine/openapi.sh`): linting, the linter-config ratchet, breaking changes,
+//! OpenAPI: linting, the linter-config ratchet, breaking changes,
 //! generated clients kept in sync.
 
 use std::sync::LazyLock;

@@ -34,7 +34,7 @@ impl Sample {
     fn new(name: &str) -> Sample {
         let tmp = tempfile::tempdir().unwrap();
         let repo = tmp.path().join(name);
-        copy_dir(&repo_root().join("tests/generator").join(name), &repo);
+        copy_dir(&repo_root().join("fixtures/samples").join(name), &repo);
         let bin = tmp.path().join("bin");
         std::fs::create_dir_all(&bin).unwrap();
         let claude = bin.join("claude");

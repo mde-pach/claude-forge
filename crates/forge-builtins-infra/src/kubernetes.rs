@@ -1,4 +1,4 @@
-//! Kubernetes and Helm (`templates/engine/kubernetes.sh`): kube-linter, helm lint and template
+//! Kubernetes and Helm: kube-linter, helm lint and template
 //! validated by kubeconform, chart versions.
 
 use std::collections::BTreeSet;

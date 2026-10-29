@@ -1,4 +1,4 @@
-//! Dockerfiles (`templates/engine/docker.sh`): hadolint and Forge's own Dockerfile checks.
+//! Dockerfiles: hadolint and Forge's own Dockerfile checks.
 
 use std::sync::LazyLock;
 
