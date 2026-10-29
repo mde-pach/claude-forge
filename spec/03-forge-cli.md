@@ -18,7 +18,7 @@
 | `forge remove` | Deletes exactly what the lock records: the files, the settings entries (each shared settings file's change shown and confirmed), Forge's block in a hook manager's file, and the lock (§7.6). A recorded file changed since the last apply is removed anyway, with a warning. A block whose markers were changed is left in place with instructions, and `remove` exits 1. No lock: `forge: no forge.lock; nothing to remove`, exit 1. |
 | `forge check [--changed \| --since <ref> \| --all \| --turn <dir>] [--json]` | Runs the active rules' checks (§10). `--all` is the default. Output is for people, notes included; `--json` prints the result as JSON. Exit 0 pass, 1 fail, 3 unverified, 4 advice only; 2 when the check could not run (not a git repository, a broken lock). |
 | `forge packs dump [--json] [--repo <dir>] [--cache-dir <dir>]` | Prints the loaded packs as JSON: the built-in ones, or with `--repo` the repository's local packs too. |
-| `forge packs lint [--repo <dir>] [--cache-dir <dir>]` | Prints the content lints' findings (§6.5); exits 1 when there are any. |
+| `forge packs lint [--repo <dir>] [--cache-dir <dir>]` | Prints the content lints' findings (§6.6); exits 1 when there are any. |
 | `forge hook <event>` | Hidden. Answers one Claude Code hook call: the hook input on stdin, the answer on stdout (§8). |
 | `forge internal <builtin> [args…]` | Hidden. Runs a builtin a check command calls (§6.4). |
 | `forge engine serve --config <file>` / `forge engine start --root <dir> --session <id>` | Hidden. The types engine daemon and its detached starter (§15.3). |
@@ -54,7 +54,7 @@ The installed binary is a launcher. Before any command it reads the repository's
 - Otherwise the launcher replaces itself (`exec`) with `<cache>/bin/forge-<version>` (§4.3), passing argv, stdin, stdout and the environment through, and sets `FORGE_LAUNCHED_VERSION=<version>` in the child's environment.
 - A binary started with `FORGE_LAUNCHED_VERSION` equal to the locked version never execs again. If its own version differs (a mislabelled cache entry), it runs in-process and leaves a note. A nested run in another repository with another pin still launches correctly, because the marker names a version.
 - When the pinned version is not in the cache:
-  - `forge hook session-start` starts a detached download (§18.4) and runs the installed version now;
+  - `forge hook session-start` starts a detached download (§18.3) and runs the installed version now;
   - `forge apply` downloads it, then execs it;
   - every other command and hook runs the installed version and never downloads.
 - Each case where the installed version runs instead of the pinned one leaves a note for the person in `<state>/<repo-id>/notes/` (one file per kind, replaced, so repeated hooks leave one note). The texts:
@@ -62,7 +62,7 @@ The installed binary is a launcher. Before any command it reads the repository's
   - `The cached Forge <locked> binary reports version <running>, so it ran as <running>. Delete it and run `forge apply` to download it again.`
   - `Could not start the cached Forge binary <path> (<error>), so the installed version ran instead.`
   - `<error>. The installed Forge version ran instead; fix forge.lock or run `forge apply`.` (an unreadable lock)
-- `forge status` and `forge apply` print and clear these notes (§3.6). The SessionStart hook also shows the "not downloaded yet" note to the person as its `systemMessage` (§8.2).
+- `forge status` and `forge apply` print and clear these notes (§3.6). The SessionStart hook also shows the "not downloaded yet" note to the person as its `systemMessage` (§8.4).
 
 ### 3.5 What `apply` reports
 
@@ -87,7 +87,8 @@ Drift lines: `<path> modified since the last apply`; `<path> is not a forge file
 ### Tests
 
 - Commands, flags, idempotence, drift, dry run, remove, Claude Code gate, migration: `crates/forge-cli/tests/apply.rs`.
-- Launcher decisions, exec, loop marker, notes: `crates/forge-launcher/src/lib.rs`, `src/note.rs`, `src/policy.rs` (unit); `crates/forge-launcher/tests/exec.rs`.
+- Usage errors (exit 2), consent without a terminal, `--local`, diff and re-added entries, init, user level, `status` text and `--json` keys and tool-version lines, explain: `crates/forge-cli/tests/spec_cli.rs`.
+- Launcher decisions, exec, loop marker, notes: `crates/forge-launcher/src/{lib,note,policy}.rs` (unit); `crates/forge-launcher/tests/exec.rs`.
 - Lock reading by the launcher: `crates/forge-launcher/src/lock.rs` (unit); `crates/forge-launcher/tests/lock_differential.rs`.
 - Repository root discovery: `crates/forge-home/src/lib.rs` (unit).
 - `forge check`: §10.

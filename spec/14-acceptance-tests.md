@@ -29,7 +29,7 @@ On a sample: an edited owned file makes `apply` stop without `--force`; `--dry-r
 
 ### 14.4 Budgets and agent text
 
-- Each hook's budget has a test (§8.5).
+- Each hook's budget has a test (§8.11).
 - Every agent-facing text the tests produce (rules files, findings, deny and ask reasons, Stop reasons) is checked for Forge's internals with `forge_core::internals::find` (§1, principle 6).
 
 ### 14.5 Generated spec tables

@@ -7,8 +7,8 @@ Packs form a tree: **language first, then package, then sub-package** (`typescri
 - The built-in packs are the repository's `packs/` directory, embedded in the binary at build time (`include_dir!`) and parsed at run time. The binary's version therefore pins the built-in set.
 - Local packs (`.forge/packs/`) and local rules (`.forge/rules/`) go through the same loader (§5.6).
 - The YAML reader is strict: anchors, aliases, custom tags and duplicate keys are rejected. Scalars follow YAML's core schema.
-- Each file is validated against its JSON Schema (`schemas/pack.schema.json`, `rule.schema.json`, `project.schema.json`, generated from the Rust model), then by checks a schema cannot express (§6.5). A file that fails is an error that stops the command, naming the file.
-- The content lints (§6.5) do not stop loading. `forge packs lint` reports them; the built-in packs must have none.
+- Each file is validated against its JSON Schema (`schemas/pack.schema.json`, `rule.schema.json`, `project.schema.json`, generated from the Rust model), then by checks a schema cannot express (§6.3). A file that fails is an error that stops the command, naming the file.
+- The content lints (§6.6) do not stop loading. `forge packs lint` reports them; the built-in packs must have none.
 - A parsed tree is cached under `<cache>/packs/` (MessagePack), keyed by a hash of its inputs and of the build. Built-in and local trees are cached separately. A missing, stale or corrupt entry is reparsed and rewritten; the cache never changes what is loaded.
 
 ### 5.2 Pack directory and `pack.yaml`
@@ -101,7 +101,7 @@ Facts are named values read from the repository's files, the same on every machi
 - An item with `when` is rendered when one of its `when.packs` is active (if given) and, in one place the pack applies to, every other condition holds: each `deps` entry declared in range, a file matching one of `files`, each `facts` entry equal to one of its values. A pack applies to the root and the packages it was detected in; a pack detected nowhere (added, required) is judged at the root alone.
 - An item whose `id` an earlier pack already rendered is left out: shared norms are written once (the `code` pack holds the norms the language packs share).
 - At user level there are no facts: only items without conditions, or with `packs` alone, can hold.
-- Context states norms, as facts about the project. It never claims that a tool enforces them (the `enforcement-claim` lint, §6.5), never names Forge's internals, and never enforces anything: enforcement is done by checks and hooks.
+- Context states norms, as facts about the project. It never claims that a tool enforces them (the `enforcement-claim` lint, §6.6), never names Forge's internals, and never enforces anything: enforcement is done by checks and hooks.
 
 ### 5.5 `forge.yaml`
 
@@ -136,6 +136,7 @@ python:
 
 - Strict YAML, schemas, layout, local packs and rules, the cache: `crates/forge-packs/tests/loading.rs`, `crates/forge-packs/tests/schemas.rs`, `crates/forge-packs/src/yaml.rs` (unit).
 - Lints: `crates/forge-packs/tests/lints.rs`, `crates/forge-packs/src/lint.rs` (unit).
-- Detection kinds, dependencies, workspaces, libraries, vendored directories: `crates/forge-detect/src/*.rs` (unit); the generator samples in `crates/forge-cli/tests/apply.rs`.
-- `python.pm` and `js.pm`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases` (unit).
+- Detection kinds, dependencies, `forge.yaml` add/remove and its warnings, workspaces, libraries and publishing evidence, vendored directories: `crates/forge-detect/tests/spec_inputs.rs`; `crates/forge-detect/src/*.rs` (unit); the generator samples in `crates/forge-cli/tests/apply.rs`.
+- `forge.yaml` validation, local packs' context, `tool_off`: `crates/forge-cli/tests/spec_cli.rs`.
+- `python.pm` and `js.pm`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases` (unit); `crates/forge-detect/tests/spec_inputs.rs::package_manager_facts`.
 - Context items and `when`: `crates/forge-render/tests/context.rs`, `crates/forge-render/tests/builtin_context.rs`.

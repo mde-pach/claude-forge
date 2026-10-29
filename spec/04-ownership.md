@@ -42,7 +42,7 @@ A relative or empty value of these variables is ignored. With none of them set, 
 ```
 <cache>/bin/forge-<version>              the Forge binaries the launcher runs (§3.4)
 <cache>/tools/<name>/<version>/          tools Forge provisions, sha256-checked (§17)
-<cache>/path/                            only uv and uvx: put on the agent's PATH (§17.5)
+<cache>/path/                            only uv and uvx: put on the agent's PATH (§17.6)
 <cache>/packs/                           the parsed-packs cache, built-in and local separately (§5.1)
 <cache>/engine/<repo-id>.sock            the types engine's socket (§15.3)
 <cache>/registry/, <cache>/infra/        cached answers of package registries and infra helpers
@@ -59,12 +59,13 @@ A relative or empty value of these variables is ignored. With none of them set, 
 
 ### 4.4 The agent and the per-user roots
 
-The agent has no reason to look into the cache or state roots, and nothing points it there. When it does, the PreToolUse hook denies the call with a neutral reason (§9.6). A path counts as internal when it is inside either root, as written (with `..` removed) or with symbolic links resolved, so a link in the repository pointing into the cache is caught. Hard links cannot be detected by path.
+The agent has no reason to look into the cache or state roots, and nothing points it there. When it does, the PreToolUse hook denies the call with a neutral reason (§9.3). A path counts as internal when it is inside either root, as written (with `..` removed) or with symbolic links resolved, so a link in the repository pointing into the cache is caught. Hard links cannot be detected by path.
+
+The refusal fires for the tools the hook entries match (§7.3): at project level Bash, Read, Edit, Write, Grep, Glob and NotebookEdit; at user level Bash only. MultiEdit is not in the project matcher, so it is not refused, and outside a Forge project only Bash commands are.
 
 ### Tests
 
-- Owned files, appended entries, refusal of drift and conflicts, remove: `crates/forge-cli/tests/apply.rs`.
-- Lock validation and refused paths: `crates/forge-render/src/lock.rs`, `crates/forge-render/src/changes.rs` (unit).
+- Owned files, appended entries, refusal of drift and conflicts, remove: `crates/forge-cli/tests/apply.rs`; entries the person already had kept unrecorded, a settings file Forge created deleted by `remove`, stale owned files deleted, refused locks: `crates/forge-cli/tests/spec_cli.rs`.
 - Settings files edited in place, the person's text kept, emptied containers pruned: `crates/forge-render/src/settings.rs` (unit).
 - Marked blocks: `crates/forge-render/src/precommit.rs` (unit).
 - Cache and state roots, repository ids, component checks, internal paths: `crates/forge-home/src/lib.rs` (unit).

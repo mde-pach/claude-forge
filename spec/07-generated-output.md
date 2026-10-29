@@ -55,7 +55,7 @@ User level:
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
 
 - The `user-` events answer from the user-level setup's own rules, so a project with both setups runs each once.
-- The 180 s timeouts leave room for a reviewer when nobody is there to answer an ask (§9.7); the usual answer takes milliseconds.
+- The 180 s timeouts leave room for a reviewer when nobody is there to answer an ask (§9.5); the usual answer takes milliseconds.
 - `onFailure: "block"` on the Bash guard makes a crash or a missing binary block the command (§2.3). The wrapper of §7.4 exits 0 when Forge is not installed, so a teammate without Forge is not blocked.
 
 ### 7.4 The hook wrapper
@@ -105,7 +105,8 @@ The user level writes no rules files; ast-grep, check and grep targets are proje
 
 - Golden snapshots of everything `apply` writes on the six generator samples, idempotence, no internals in rules files: `crates/forge-cli/tests/apply.rs`.
 - Rules files and `paths:` frontmatter, `when`, shared ids: `crates/forge-render/tests/context.rs`, `crates/forge-render/tests/builtin_context.rs`.
-- Hook entries: `crates/forge-render/src/hooks.rs::guard_entry` (unit).
+- Hook entries: `crates/forge-render/src/hooks.rs::guard_entry` (unit); `crates/forge-hooks/tests/spec_hooks.rs::hook_entries_wire_every_event`.
+- User level: `crates/forge-cli/tests/spec_cli.rs::user_level_setup`.
 - The wrapper's exact strings and its behaviour in sh, dash and `bash --posix` with Forge missing: `crates/forge-launcher/src/hook.rs` (unit), `crates/forge-launcher/tests/hook_shells.rs`.
 - Settings edits: `crates/forge-render/src/settings.rs` (unit).
 - The commit-time check's blocks: `crates/forge-render/src/precommit.rs` (unit). Git's hook created with `--yes`, recorded in the lock, removed by `remove`: `crates/forge-cli/tests/apply.rs`.
