@@ -101,7 +101,10 @@ pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
     // its notes are recorded for `forge status`. A builtin of a check command is run by the binary
     // that runs the check: no launch.
-    if !matches!(std::env::args().nth(1).as_deref(), Some("internal" | "engine")) {
+    if !matches!(
+        std::env::args().nth(1).as_deref(),
+        Some("internal" | "engine")
+    ) {
         let _notes =
             forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher());
     }

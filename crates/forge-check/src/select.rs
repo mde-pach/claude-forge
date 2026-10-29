@@ -31,7 +31,10 @@ pub fn project(
 ) -> Result<Selection, String> {
     let files = forge_detect::list_repo_files(root);
     let facts = forge_detect::read_project_facts(root, &files).map_err(|e| e.to_string())?;
-    let inputs = RoleInputs { repo: root, files: &files };
+    let inputs = RoleInputs {
+        repo: root,
+        files: &files,
+    };
     let roles = resolve_roles(Some(&inputs), config.and_then(|c| c.files.as_ref()))
         .map_err(|e| e.to_string())?;
     let p = plan(&PlanInput {

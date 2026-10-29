@@ -286,7 +286,12 @@ pub fn pin_differences(ctx: &Ctx) -> Vec<(String, String, String)> {
     let locked: std::collections::BTreeMap<String, String> = lock
         .tools
         .iter()
-        .map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_owned)))
+        .map(|(k, v)| {
+            (
+                k.clone(),
+                v.as_str().map_or_else(|| v.to_string(), str::to_owned),
+            )
+        })
         .collect();
     forge_tools::pin_differences(&locked)
 }

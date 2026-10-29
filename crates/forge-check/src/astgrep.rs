@@ -256,8 +256,12 @@ pub fn example_matches(c: &Compiled, code: &str) -> bool {
 pub trait TypeOracle: Send + Sync {
     /// For each match, whether the conditions hold (a match it cannot confirm does not stand),
     /// and the notes for the person: what it could not check, and why.
-    fn confirm(&self, root: &Path, rule: &Compiled, matches: &[AstMatch])
-    -> (Vec<bool>, Vec<forge_core::Note>);
+    fn confirm(
+        &self,
+        root: &Path,
+        rule: &Compiled,
+        matches: &[AstMatch],
+    ) -> (Vec<bool>, Vec<forge_core::Note>);
 }
 
 #[cfg(test)]

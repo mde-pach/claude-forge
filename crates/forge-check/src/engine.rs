@@ -80,13 +80,21 @@ pub fn engine_match(m: &AstMatch, conditions: &BTreeMap<String, Condition>) -> M
 }
 
 impl TypeOracle for EngineOracle {
-    fn confirm(&self, _root: &Path, rule: &Compiled, matches: &[AstMatch]) -> (Vec<bool>, Vec<Note>) {
+    fn confirm(
+        &self,
+        _root: &Path,
+        rule: &Compiled,
+        matches: &[AstMatch],
+    ) -> (Vec<bool>, Vec<Note>) {
         let Some(lang) = lang_of(rule.lang) else {
             return (
                 vec![false; matches.len()],
                 vec![
-                    Note::new(NoteKind::NotEnforced, "not checked: no types engine for its language")
-                        .for_rule(rule.id()),
+                    Note::new(
+                        NoteKind::NotEnforced,
+                        "not checked: no types engine for its language",
+                    )
+                    .for_rule(rule.id()),
                 ],
             );
         };

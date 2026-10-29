@@ -81,3 +81,23 @@ pub fn ensure_tools(names: &[String]) -> ProvisionReport {
     };
     p.ensure_all(names.iter().map(String::as_str))
 }
+
+#[cfg(test)]
+mod tests {
+    use forge_check::adapters::Adapter;
+    use forge_tools::Catalog;
+
+    /// The adapters' `pinned` versions (what the checker asks for) are the cache's pins (what
+    /// apply installs and the lock records): one table, checked here.
+    #[test]
+    fn adapter_pins_are_the_catalog_pins() {
+        let catalog = Catalog::builtin();
+        for a in Adapter::all().unwrap() {
+            let Some(pin) = &a.pinned else { continue };
+            let spec = catalog
+                .get(&a.tool)
+                .unwrap_or_else(|| panic!("{} is pinned but not in Forge's tool table", a.tool));
+            assert_eq!(spec.version, pin, "{}", a.tool);
+        }
+    }
+}

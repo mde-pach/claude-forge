@@ -59,10 +59,18 @@ impl ToolProbe for CheckerProbe {
     fn version(&self, repo: &Path, tool: &str) -> Option<String> {
         let name = picked(tool, repo, self.tools.as_ref());
         let a = Adapter::load(&name)?;
-        locate(&a, self.tools.as_ref(), repo, repo).ok().map(|(_, v)| v)
+        locate(&a, self.tools.as_ref(), repo, repo)
+            .ok()
+            .map(|(_, v)| v)
     }
 
-    fn audit(&self, repo: &Path, rule: &Rule, target: &ToolTarget, dir: &str) -> Option<AuditResult> {
+    fn audit(
+        &self,
+        repo: &Path,
+        rule: &Rule,
+        target: &ToolTarget,
+        dir: &str,
+    ) -> Option<AuditResult> {
         let mut r = audit_target(self.tools.as_ref(), repo, rule, target, dir);
         if !dir.is_empty() {
             r.dir = Some(dir.to_string());
@@ -107,10 +115,11 @@ impl ToolProbe for CheckerProbe {
                     .is_some_and(|a| a.target.where_.is_some())
         });
         if typed_python
+            && !out.iter().any(|t| t == "ty")
             && let Some(pin) = Adapter::load("ty").and_then(|a| a.pinned)
             && self.tools.pinned("ty", &pin).is_err()
         {
-            push(format!("ty {pin} (types engine)"));
+            out.push("ty (types engine)".into());
         }
         out
     }
@@ -193,8 +202,10 @@ impl ToolProbe for CheckerProbe {
 /// a Python rule asks for types: what `forge apply` installs.
 pub fn pinned_tools(plan: &Plan) -> Vec<String> {
     static WORDS: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"\bforge_(?:do|pinned)\s+([A-Za-z0-9_.-]+)|\bforge_([a-z_]+)|([A-Za-z0-9_.-]+)")
-            .expect("regex")
+        regex::Regex::new(
+            r"\bforge_(?:do|pinned)\s+([A-Za-z0-9_.-]+)|\bforge_([a-z_]+)|([A-Za-z0-9_.-]+)",
+        )
+        .expect("regex")
     });
     let pinned: Vec<String> = Adapter::all()
         .unwrap_or_default()
@@ -275,7 +286,9 @@ pub fn example_path(rule: &Rule, stem: &str) -> String {
         return format!("{stem}{ext}");
     };
     let re = |p: &str| regex::Regex::new(p).expect("regex");
-    let mut p = re(r"\{([^,}]*)[^}]*\}").replace_all(glob, "$1").into_owned();
+    let mut p = re(r"\{([^,}]*)[^}]*\}")
+        .replace_all(glob, "$1")
+        .into_owned();
     p = re(r"\.\*$").replace(&p, ext).into_owned();
     p = re(r"(^|/)\*\*/").replace_all(&p, "$1").into_owned();
     p = p.replace("**", stem).replace('*', stem).replace('?', "x");
@@ -298,8 +311,11 @@ pub fn example_path(rule: &Rule, stem: &str) -> String {
     p
 }
 
+/// A file stem no other audit uses (audits run in parallel); `n` is the example's rank.
 fn stem_of(n: usize) -> String {
-    format!("forge_audit_{}_{n}", std::process::id())
+    static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("forge_audit_{}_{seq}_{n}", std::process::id())
 }
 
 fn example_rel(rule: &Rule, path: Option<&str>, n: usize) -> String {
@@ -528,7 +544,12 @@ fn run_example(
             })
             .to_string();
             let _files = TempFiles::write(dir, &[(rel, code), (&cfg, &tsconfig)])?;
-            run(cmd, &build_args(words, &[cfg.clone()]), dir, None)
+            run(
+                cmd,
+                &build_args(words, std::slice::from_ref(&cfg)),
+                dir,
+                None,
+            )
         }
         _ => {
             let _files = TempFiles::write(dir, &[(rel, code)])?;
@@ -553,8 +574,8 @@ pub fn audit_target(
     } else {
         repo.join(dir)
     };
-    let result = |status: AuditStatus, detail: Option<String>, snippet: Option<String>| {
-        AuditResult {
+    let result =
+        |status: AuditStatus, detail: Option<String>, snippet: Option<String>| AuditResult {
             rule: rule.id.clone(),
             tool: name.to_string(),
             expects: t.expects.clone(),
@@ -562,8 +583,7 @@ pub fn audit_target(
             dir: None,
             detail,
             snippet,
-        }
-    };
+        };
     let Some(a) = Adapter::load(name) else {
         return result(
             AuditStatus::Unavailable,
@@ -582,9 +602,7 @@ pub fn audit_target(
                 } else {
                     ""
                 };
-                format!(
-                    "{name} is configured but not installed (node_modules/.bin, .venv/bin{py})"
-                )
+                format!("{name} is configured but not installed (node_modules/.bin, .venv/bin{py})")
             } else {
                 why
             };
@@ -739,7 +757,10 @@ mod tests {
 
     #[test]
     fn example_paths_are_in_scope() {
-        assert_eq!(example_path(&rule(&["app/**/*.py"], "python"), "s"), "app/s.py");
+        assert_eq!(
+            example_path(&rule(&["app/**/*.py"], "python"), "s"),
+            "app/s.py"
+        );
         assert_eq!(example_path(&rule(&[], "python"), "s"), "s.py");
         assert_eq!(
             example_path(&rule(&["src/**/*.{ts,tsx}"], "typescript"), "s"),
@@ -770,6 +791,9 @@ mod tests {
             stdout: r#"{"diagnostics": [{"category": "lint/x", "severity": "warning"}]}"#.into(),
             stderr: String::new(),
         };
-        assert_eq!(verdict(AuditedTool::Biome, "lint/x", &r), Ok(Verdict::Warning));
+        assert_eq!(
+            verdict(AuditedTool::Biome, "lint/x", &r),
+            Ok(Verdict::Warning)
+        );
     }
 }

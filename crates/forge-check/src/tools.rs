@@ -157,7 +157,10 @@ impl ToolResolver for LocalTools {
                 Err(e) => why = Some(e),
             }
         }
-        if let Some((_, pkg, exe)) = UVX_PACKAGES.iter().find(|(t, _, _)| *t == name)
+        // without Forge's cache, the machine's uvx (which may download: never with the cache,
+        // whose own downloads are allowed only where the person waits)
+        if self.pinned.is_none()
+            && let Some((_, pkg, exe)) = UVX_PACKAGES.iter().find(|(t, _, _)| *t == name)
             && let Some(uvx) = self.on_path("uvx")
         {
             return Ok(ToolCmd {

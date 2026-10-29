@@ -4,8 +4,8 @@
 use std::process::Command;
 
 use forge_home::Home;
-use forge_tools::catalog::UV_VERSION;
 use forge_tools::Provisioner;
+use forge_tools::catalog::UV_VERSION;
 
 fn enabled() -> bool {
     if std::env::var_os("FORGE_TEST_NETWORK").is_some_and(|v| v == "1") {
