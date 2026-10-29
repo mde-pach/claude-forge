@@ -15,7 +15,7 @@ cargo test --workspace --locked
 Generated files have a test that rewrites them:
 
 - `schemas/*.json` come from the loader's types: `UPDATE_SCHEMAS=1 cargo test -p forge-packs --test schemas`.
-- The model ids in the ai-models rules come from `packs/ai-models/models.tsv`: `UPDATE_MODELS=1 cargo test -p forge-packs --test models_tsv`.
+- The model ids in the ai-models rules come from `packs/ai-models/models.tsv`: `FORGE_BLESS=1 cargo test -p forge-packs --test models_tsv`.
 
 Tests that need the network or real tools are opt-in and run weekly in `.github/workflows/upstream.yml`: `FORGE_TEST_UPSTREAM=1` (newest npm/PyPI releases against the adapters), `FORGE_TEST_NETWORK=1` (real uv and pinned-tool downloads), `FORGE_TEST_INSTALL_TOOLS=1` (pack examples with the real pinned tools). Hook budgets: `FORGE_BUDGETS=1 cargo test --release -p forge-cli --test hook -- --ignored budgets`, on a quiet machine.
 

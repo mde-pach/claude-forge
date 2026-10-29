@@ -1,7 +1,7 @@
 //! The ai-models data file (packs/ai-models/models.tsv) rendered into the rules that need it.
 //! A rule line that follows a `# models.tsv: <kind>` comment holds the rendered value; this test
 //! fails while a rule differs from the data file, and rewrites the rules after an edit of the
-//! data file with `UPDATE_MODELS=1 cargo test -p forge-packs --test models_tsv`.
+//! data file with `FORGE_BLESS=1 cargo test -p forge-packs --test models_tsv`.
 //!
 //! Kinds:
 //! - `retired`: grep ERE, a quoted retired id (pydantic-ai / LiteLLM prefixes allowed);
@@ -155,7 +155,7 @@ fn rules_are_rendered_from_models_tsv() {
     let mut files = vec![];
     rule_files(&root(), &mut files);
     assert!(files.len() >= 4, "marked rule files: {files:?}");
-    let bless = std::env::var_os("UPDATE_MODELS").is_some();
+    let bless = std::env::var_os("FORGE_BLESS").is_some();
     let mut stale = vec![];
     for f in files {
         let text = std::fs::read_to_string(&f).unwrap();
@@ -170,6 +170,6 @@ fn rules_are_rendered_from_models_tsv() {
     }
     assert!(
         stale.is_empty(),
-        "rules differ from models.tsv (UPDATE_MODELS=1 rewrites them): {stale:?}"
+        "rules differ from models.tsv (FORGE_BLESS=1 rewrites them): {stale:?}"
     );
 }
