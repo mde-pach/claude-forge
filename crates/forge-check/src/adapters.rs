@@ -363,6 +363,54 @@ fn stamp(bin: &Path) -> String {
     )
 }
 
+/// How many versions the facts file keeps: the least recently used go first.
+const VERSIONS_KEPT: usize = 200;
+
+/// A use refreshes an entry's time only when it is older than this, so a hit rarely writes.
+const USE_GRANULARITY_SECS: u64 = 3600;
+
+/// One remembered version and when it was last used (seconds since the epoch).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, Deserialize)]
+struct VersionFact {
+    version: String,
+    used: u64,
+}
+
+type VersionFacts = BTreeMap<String, VersionFact>;
+
+/// The version of `key` in `facts`, its use recorded; `true` when `facts` changed.
+fn recall(facts: &mut VersionFacts, key: &str, now: u64) -> (Option<String>, bool) {
+    match facts.get_mut(key) {
+        Some(f) => {
+            let stale = now.saturating_sub(f.used) >= USE_GRANULARITY_SECS;
+            if stale {
+                f.used = now;
+            }
+            (Some(f.version.clone()), stale)
+        }
+        None => (None, false),
+    }
+}
+
+/// Remembers `version` for `key`, then keeps the [`VERSIONS_KEPT`] most recently used.
+fn remember(facts: &mut VersionFacts, key: String, version: String, now: u64) {
+    facts.insert(key, VersionFact { version, used: now });
+    if facts.len() > VERSIONS_KEPT {
+        let mut by_use: Vec<(u64, String)> =
+            facts.iter().map(|(k, f)| (f.used, k.clone())).collect();
+        by_use.sort();
+        for (_, k) in by_use.into_iter().take(facts.len() - VERSIONS_KEPT) {
+            facts.remove(&k);
+        }
+    }
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
 fn cached_version(
     bin: &Path,
     args: &str,
@@ -370,28 +418,29 @@ fn cached_version(
 ) -> Option<String> {
     let key = format!("{}|{args}", stamp(bin));
     let file = version_cache_file();
-    let mut map: BTreeMap<String, String> = file
+    // an older or unreadable file is an empty cache
+    let mut facts: VersionFacts = file
         .as_ref()
         .and_then(|f| std::fs::read_to_string(f).ok())
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default();
-    if let Some(v) = map.get(&key) {
-        return Some(v.clone());
-    }
-    let v = compute()?;
-    if let Some(f) = file {
-        map.insert(key, v.clone());
-        if map.len() > 200 {
-            let drop: Vec<String> = map.keys().take(map.len() - 200).cloned().collect();
-            for k in drop {
-                map.remove(&k);
-            }
+    let now = now_secs();
+    let (found, changed) = recall(&mut facts, &key, now);
+    let v = match found {
+        Some(v) if !changed => return Some(v),
+        Some(v) => v,
+        None => {
+            let v = compute()?;
+            remember(&mut facts, key, v.clone(), now);
+            v
         }
+    };
+    if let Some(f) = file {
         if let Some(d) = f.parent() {
             let _ = std::fs::create_dir_all(d);
         }
         let tmp = f.with_extension(format!("tmp.{}", std::process::id()));
-        if std::fs::write(&tmp, serde_json::to_string(&map).unwrap_or_default()).is_ok() {
+        if std::fs::write(&tmp, serde_json::to_string(&facts).unwrap_or_default()).is_ok() {
             let _ = std::fs::rename(&tmp, &f);
         }
     }
@@ -650,6 +699,33 @@ pub fn strip_ansi(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn version_facts_drop_the_least_recently_used() {
+        use super::{VERSIONS_KEPT, VersionFacts, recall, remember};
+        let mut facts = VersionFacts::new();
+        // the oldest entry, and its key sorts first: an alphabetical cap would drop it
+        remember(&mut facts, "a-used".into(), "2.0".into(), 50);
+        for i in 0..VERSIONS_KEPT - 1 {
+            remember(&mut facts, format!("z{i:03}"), "1.0".into(), 100 + i as u64);
+        }
+        assert_eq!(facts.len(), VERSIONS_KEPT);
+        // a use refreshes it (its time is older than the granularity)
+        let (v, changed) = recall(&mut facts, "a-used", 10_000);
+        assert_eq!((v.as_deref(), changed), (Some("2.0"), true));
+        // a use soon after does not rewrite the file
+        assert!(!recall(&mut facts, "a-used", 10_001).1);
+        remember(&mut facts, "b-new".into(), "3.0".into(), 10_002);
+        remember(&mut facts, "c-new".into(), "3.0".into(), 10_003);
+        assert_eq!(facts.len(), VERSIONS_KEPT);
+        // the two least recently used went; the used one and the new ones stay
+        assert!(
+            ["a-used", "b-new", "c-new", "z002"]
+                .iter()
+                .all(|k| facts.contains_key(*k))
+        );
+        assert!(!facts.contains_key("z000") && !facts.contains_key("z001"));
+    }
+
     use super::*;
 
     #[test]

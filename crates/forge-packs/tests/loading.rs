@@ -256,6 +256,31 @@ fn reserved_directories_are_not_packs() {
 }
 
 #[test]
+fn a_guard_check_takes_its_own_decision() {
+    let guard = |check: &str, decision: &str| {
+        let rule = format!(
+            "id: acme/guard\ndescription: Guarded.\nscope: {{language: any}}\nenforce:\n  - target: guard\n    decision: {decision}\n    check: {check}\n"
+        );
+        tree(&[("acme/pack.yaml", PACK), ("acme/rules/guard.yaml", &rule)])
+    };
+    for (check, right, wrong) in [
+        ("package-add", "ask", "deny"),
+        ("ephemeral-exec", "ask", "deny"),
+        ("python-pm", "deny", "ask"),
+    ] {
+        guard(check, right).unwrap_or_else(|e| panic!("{check} {right}: {e}"));
+        let err = guard(check, wrong).unwrap_err();
+        assert_eq!(err.kind, ErrorKind::Rule);
+        assert!(
+            err.message.contains(&format!(
+                "the {check} check's decision is {right}, not {wrong}"
+            )),
+            "{err}"
+        );
+    }
+}
+
+#[test]
 fn target_kind_checks() {
     let check = |run: &str| {
         let rule = format!(

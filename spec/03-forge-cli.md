@@ -17,13 +17,14 @@
 | `forge explain <rule-id>` | Prints the rule file, then whether it is disabled, version-gated, inactive or enforced here, and how; its audit result when it has `tool` targets. Outside a git repository it prints the rule file only. Unknown id: exit 1. |
 | `forge remove` | Deletes exactly what the lock records: the files, the settings entries (each shared settings file's change shown and confirmed), Forge's block in a hook manager's file, and the lock (§7.6). A recorded file changed since the last apply is removed anyway, with a warning. A block whose markers were changed is left in place with instructions, and `remove` exits 1. No lock: `forge: no forge.lock; nothing to remove`, exit 1. |
 | `forge check [--changed \| --since <ref> \| --all \| --turn <dir>] [--json]` | Runs the active rules' checks (§10). `--all` is the default. Output is for people, notes included; `--json` prints the result as JSON. Exit 0 pass, 1 fail, 3 unverified, 4 advice only; 2 when the check could not run (not a git repository, a broken lock). |
+| `forge test [--builtin] [--json]` | Runs the examples of the repository's local rules (its local packs, `.forge/packs/**`, and standalone rules, `.forge/rules/*.yaml`), or with `--builtin` the built-in packs', through the machinery of the pack-example tests (§14.1): each guard, ast-grep, grep and check target on the examples it takes. Prints `PASS`, `FAIL <label>: <why>` or `SKIP <label>: <note>` per example (`<label>`: `<rule> <target> <match\|no_match> example <n>`), then `<n> examples of <m> rules: <p> passed, <f> failed, <s> skipped`; `--json` prints one object per example (`rule`, `target`, `kind`, `index`, `verdict`: `pass`, `fail` with `why`, or `skip` with the `note`), then a summary object. A skipped example is one whose run left a note of a kind that says the rule did not run there (a missing tool, not enforced here, Forge's own failure, the environment): it is told from the result's structure, never from its text. Run by Claude Code (`CLAUDECODE` set), a skip's line has no reason: the note is recorded for `forge status`. Exit 1 when an example fails, else 0; 2 when the rules do not load. A repository without local rules prints `This repository has no local rules.` |
 | `forge packs dump [--json] [--repo <dir>] [--cache-dir <dir>]` | Prints the loaded packs as JSON: the built-in ones, or with `--repo` the repository's local packs too. |
 | `forge packs lint [--repo <dir>] [--cache-dir <dir>]` | Prints the content lints' findings (§6.6); exits 1 when there are any. |
 | `forge hook <event>` | Hidden. Answers one Claude Code hook call: the hook input on stdin, the answer on stdout (§8). |
 | `forge internal <builtin> [args…]` | Hidden. Runs a builtin a check command calls (§6.4). |
 | `forge engine serve --config <file>` / `forge engine start --root <dir> --session <id>` | Hidden. The types engine daemon and its detached starter (§15.3). |
 
-There is no `forge test` command. Pack examples run as Rust tests of Forge's own suite (§14.1); a project's local rules are validated when they load, by every command that loads packs.
+Local rules are also validated when they load, by every command that loads packs.
 
 ### 3.3 Flags of the setup commands
 
@@ -91,5 +92,6 @@ Drift lines: `<path> modified since the last apply`; `<path> is not a forge file
 - Launcher decisions, exec, loop marker, notes: `crates/forge-launcher/src/{lib,note,policy}.rs` (unit); `crates/forge-launcher/tests/exec.rs`.
 - Lock reading by the launcher: `crates/forge-launcher/src/lock.rs` (unit); `crates/forge-launcher/tests/lock_differential.rs`.
 - Repository root discovery: `crates/forge-home/src/lib.rs` (unit).
+- `forge test`: `crates/forge-cli/tests/forge_test.rs` (local rules and a local pack: pass, fail, skip, with and without `CLAUDECODE`), `crates/forge-cli/tests/check.rs::check_examples` (`--builtin --json`).
 - `forge check`: §10.
 - `forge packs lint`: `crates/forge-packs/tests/lints.rs`.

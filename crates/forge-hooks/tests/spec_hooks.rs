@@ -293,9 +293,9 @@ fn hook_entries_wire_every_event() {
             "SessionStart startup|resume|clear|compact session-start 10",
             "UserPromptSubmit - user-prompt-submit 10",
             "PreToolUse Bash pre-tool-use 180 block",
-            "PreToolUse Read|Edit|Write|Grep|Glob|NotebookEdit pre-tool-use 180",
-            "PostToolUse Edit|Write|Bash post-tool-use 60",
-            "PostToolUse Edit|Write|Bash post-tool-use-typecheck 300 rewake",
+            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob pre-tool-use 180",
+            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use 60",
+            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use-typecheck 300 rewake",
             "PostToolUseFailure Bash post-tool-use-failure 60",
             "PostToolUseFailure Bash post-tool-use-typecheck 300 rewake",
             "Stop - stop 600",
@@ -307,6 +307,7 @@ fn hook_entries_wire_every_event() {
         row(USER_HOOKS),
         [
             "PreToolUse Bash user-pre-tool-use 180 block",
+            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob user-pre-tool-use 180",
             "PermissionRequest - user-permission-request 180",
             "Notification permission_prompt|idle_prompt user-notification 5",
         ]

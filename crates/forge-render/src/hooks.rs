@@ -9,8 +9,8 @@
 //! | SessionStart       | `startup\|resume\|clear\|compact`            | `session-start`           | 10 s    |                  |
 //! | UserPromptSubmit   |                                              | `user-prompt-submit`      | 10 s    |                  |
 //! | PreToolUse         | `Bash`                                       | `pre-tool-use`            | 180 s   | `onFailure: block` |
-//! | PreToolUse         | `Read\|Edit\|Write\|Grep\|Glob\|NotebookEdit` | `pre-tool-use`            | 180 s   |                  |
-//! | PostToolUse        | `Edit\|Write\|Bash`                          | `post-tool-use`           | 60 s    |                  |
+//! | PreToolUse         | [`FILE_TOOLS`]                               | `pre-tool-use`            | 180 s   |                  |
+//! | PostToolUse        | [`EDITS_AND_BASH`]                           | `post-tool-use`           | 60 s    |                  |
 //! |                    |                                              | `post-tool-use-typecheck` | 300 s   | `asyncRewake`    |
 //! | PostToolUseFailure | `Bash`                                       | `post-tool-use-failure`   | 60 s    |                  |
 //! |                    |                                              | `post-tool-use-typecheck` | 300 s   | `asyncRewake`    |
@@ -18,8 +18,8 @@
 //! | PermissionRequest  |                                              | `permission-request`      | 180 s   |                  |
 //! | SessionEnd         |                                              | `session-end`             | 10 s    |                  |
 //!
-//! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`),
-//! PermissionRequest → `user-permission-request` (180 s), Notification
+//! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`), PreToolUse
+//! [`FILE_TOOLS`] → `user-pre-tool-use` (180 s: the internals refusal), PermissionRequest → `user-permission-request` (180 s), Notification
 //! `permission_prompt|idle_prompt` → `user-notification` (5 s). The `user-` events are the
 //! user-level setup's own (its rules, not the project's), so a project with both runs each once.
 //!
@@ -73,6 +73,12 @@ const USER_GUARD: HookCommand = HookCommand {
     ..cmd("user-pre-tool-use", 180)
 };
 
+/// Claude Code's tools that read, search or edit files (every one taking a path).
+pub const FILE_TOOLS: &str = "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob";
+
+/// Claude Code's tools that edit files, and Bash.
+pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
+
 pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "SessionStart",
@@ -91,12 +97,12 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
     },
     HookGroup {
         event: "PreToolUse",
-        matcher: Some("Read|Edit|Write|Grep|Glob|NotebookEdit"),
+        matcher: Some(FILE_TOOLS),
         commands: &[cmd("pre-tool-use", 180)],
     },
     HookGroup {
         event: "PostToolUse",
-        matcher: Some("Edit|Write|Bash"),
+        matcher: Some(EDITS_AND_BASH),
         commands: &[cmd("post-tool-use", 60), TYPECHECK],
     },
     HookGroup {
@@ -126,6 +132,11 @@ pub const USER_HOOKS: &[HookGroup] = &[
         event: "PreToolUse",
         matcher: Some("Bash"),
         commands: &[USER_GUARD],
+    },
+    HookGroup {
+        event: "PreToolUse",
+        matcher: Some(FILE_TOOLS),
+        commands: &[cmd("user-pre-tool-use", 180)],
     },
     HookGroup {
         event: "PermissionRequest",

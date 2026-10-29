@@ -31,7 +31,7 @@ User level: `~/.claude/skills/forge-user/` and `~/.claude/forge.lock.json`.
 - A pack's context is its `pack.yaml` `context:` list (§5.2); a `context.md` file is refused.
 - A guard target matches a parsed command (`command:`, `words:`, `check:`, §6.2); a raw `pattern` on the whole command text is no longer accepted.
 - Check commands call Forge's builtins as `forge_<name>` shell functions, which run `claude-forge internal <name>` (§6.4); the old engine's shell functions are gone.
-- `forge test` (which ran a project's local rules' examples) has no Rust counterpart yet; local rules are validated when they load.
+- `forge test` runs a project's local rules' examples as before (§3.2); a skipped example is read from the result's structure, no longer from the check's output text.
 
 ### 19.4 Behaviour changes worth knowing
 

@@ -4,11 +4,11 @@
 
 ### 14.1 Pack examples
 
-Every rule's `examples` run as tests, by target kind, so the built-in packs are their own golden suite:
+Every rule's `examples` run as tests, by target kind, so the built-in packs are their own golden suite. The machinery is `forge_guard::examples` and `forge_check::examples`, which `forge test` (§3.2) runs on a repository's local rules:
 
 - ast-grep and grep targets: every `match` example matches and every `no_match` example does not (`crates/forge-check/tests/pack_examples.rs`). A rule with a `where` (§15.1) proves its `match` examples here; the types engine tests run the rest.
 - guard targets: a `match` example gets one of the rule's decisions, a `no_match` example gets none, run in a directory holding the example's `files` (`crates/forge-guard/tests/examples.rs`).
-- check targets: a `match` example fails its check (or gives its advice), a `no_match` example passes (`crates/forge-cli/tests/check.rs::check_examples`); the domain builtins' examples run through the builtin itself (`crates/forge-builtins-code/tests/pack_examples.rs`, `crates/forge-builtins-data/tests/examples.rs`, `crates/forge-builtins-infra/tests/examples.rs`).
+- check targets: a `match` example fails its check (or gives its advice), a `no_match` example passes (`crates/forge-cli/tests/check.rs::check_examples`, which runs `forge test --builtin --json`, so every target kind's examples run there too); the domain builtins' examples run through the builtin itself (`crates/forge-builtins-code/tests/pack_examples.rs`, `crates/forge-builtins-data/tests/examples.rs`, `crates/forge-builtins-infra/tests/examples.rs`).
 - An example whose tool is not installed is counted as not run, from the run's structured notes, never as a pass.
 - Opt-in variables widen what runs: `FORGE_TEST_INSTALL_TOOLS=1` installs the pinned tools into Forge's cache before the code builtins' examples; `FORGE_TEST_TOOLS` picks fake tools (the default) or real ones for the infra builtins; `FORGE_TEST_NETWORK=1` runs the real-download tests of `crates/forge-tools/tests/network.rs`.
 - The built-in packs have no content-lint findings (`crates/forge-packs/tests/lints.rs`) and every builtin a check command calls is registered (`crates/forge-cli/src/check.rs::every_builtin_the_packs_call_is_registered`).

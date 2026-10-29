@@ -37,6 +37,15 @@ pub use policy::{Invocation, MissingAction, on_missing};
 /// Set on the exec'd process to the version the launcher exec'd.
 pub const LAUNCHED_ENV: &str = "FORGE_LAUNCHED_VERSION";
 
+/// Set to a non-empty value, Forge downloads nothing: no tool, and no pinned Forge version
+/// (the launcher then runs the installed one, as for a command that never downloads).
+pub const NO_DOWNLOAD_ENV: &str = "FORGE_NO_DOWNLOAD";
+
+/// Whether [`NO_DOWNLOAD_ENV`] turns downloads off in this process's environment.
+pub fn downloads_off() -> bool {
+    std::env::var_os(NO_DOWNLOAD_ENV).is_some_and(|v| !v.is_empty())
+}
+
 /// What to do with a lock, before any side effect.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decision {
@@ -116,6 +125,9 @@ pub struct LaunchInput<'a> {
     /// The repo, if we are inside one.
     pub repo: Option<&'a RepoRoot>,
     pub fetcher: &'a dyn Fetcher,
+    /// Whether a missing pinned version may be downloaded at all (not with
+    /// [`NO_DOWNLOAD_ENV`]); the policy then says when.
+    pub downloads: bool,
 }
 
 /// Runs the launcher. Returns only when this process should run the
@@ -158,6 +170,10 @@ pub fn launch(input: LaunchInput<'_>) -> Vec<Note> {
                     fetching,
                     fetch_error: fetch_error.map(|e| e.to_string()),
                 };
+            if !input.downloads {
+                let off = FetchError::Failed("downloads are turned off".into());
+                return note(unavailable(false, Some(off)));
+            }
             match on_missing(&inv) {
                 MissingAction::RunInstalled => return note(unavailable(false, None)),
                 MissingAction::FetchInBackground => {
@@ -189,6 +205,7 @@ pub fn launch_from_env(current_version: &str, fetcher: &dyn Fetcher) -> Vec<Note
         home: &home,
         repo: repo.as_ref(),
         fetcher,
+        downloads: !downloads_off(),
     })
 }
 
@@ -284,6 +301,58 @@ mod tests {
             cached,
         );
         assert!(matches!(d, Decision::Exec { .. }));
+    }
+
+    /// Counts its calls; never installs anything.
+    #[derive(Default)]
+    struct Counting(std::cell::Cell<usize>);
+
+    impl Fetcher for Counting {
+        fn fetch(&self, _: &Home, _: &str) -> Result<PathBuf, FetchError> {
+            self.0.set(self.0.get() + 1);
+            Err(FetchError::Failed("offline".into()))
+        }
+        fn fetch_in_background(&self, _: &Home, _: &str) -> Result<(), FetchError> {
+            self.0.set(self.0.get() + 1);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn downloads_off_never_fetches_the_pinned_version() {
+        let t = tempfile::tempdir().unwrap();
+        let base = t.path().canonicalize().unwrap();
+        let home = Home::new(base.join("cache"), base.join("state"));
+        let repo_dir = base.join("repo");
+        std::fs::create_dir_all(repo_dir.join(".git")).unwrap();
+        std::fs::write(repo_dir.join("forge.lock"), "forge = \"3.0.0\"\n").unwrap();
+        let repo = forge_home::find_repo_root(&repo_dir).unwrap().unwrap();
+        for (args, downloads, calls) in [
+            (&["forge", "apply"][..], true, 1),
+            (&["forge", "hook", "session-start"], true, 1),
+            (&["forge", "apply"], false, 0),
+            (&["forge", "hook", "session-start"], false, 0),
+        ] {
+            let fetcher = Counting::default();
+            let notes = launch(LaunchInput {
+                current_version: "1.0.0",
+                args: args.iter().map(OsString::from).collect(),
+                launched: None,
+                home: &home,
+                repo: Some(&repo),
+                fetcher: &fetcher,
+                downloads,
+            });
+            assert_eq!(fetcher.0.get(), calls, "{args:?} downloads={downloads}");
+            assert!(
+                matches!(&notes[..], [Note::VersionUnavailable { .. }]),
+                "{notes:?}"
+            );
+            if !downloads {
+                let text = notes[0].to_string();
+                assert!(text.contains("downloads are turned off"), "{text}");
+            }
+        }
     }
 
     #[test]

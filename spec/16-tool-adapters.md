@@ -5,7 +5,7 @@ Packs drive external tools, and tools change between releases: options, output f
 ### 16.1 What a rule says
 
 - A check command names an operation of a tool, never its command line: `forge_do <tool> <operation> [arguments]` (`forge_do ruff lint {files}`, `forge_do ruff format-check .`). The arguments are the rule's own (paths, `{files}`, `{file}`), never the tool's options.
-- A check command that runs an adapted tool itself is rejected when its pack or local rule loads: `invalid rule: run <tool> as "forge_do <tool> <operation>" (§16: its adapter knows how each release does it)`. Text inside single quotes is data and does not count. A package manager or runtime whose other uses are not adapted says which commands count as running it (`direct`): `bun` counts only as `bun install`, `add`, `remove`, `test` and the other package-manager commands, so `bun --no-install -e` stays allowed.
+- A check command that runs an adapted tool itself is rejected when its pack or local rule loads: `invalid rule: run <tool> as "forge_do <tool> <operation>" (§16: its adapter knows how each release does it)`. Text inside single quotes is data and does not count. A package manager or runtime whose other uses are not adapted says which commands count as running it (`direct`): `bun` counts only as `bun install`, `add`, `remove`, `test` and the other package-manager commands, so `bun --no-install -e` stays allowed. The loader reads the adapted tools and their `direct` patterns from the adapter files themselves (16.2) when Forge is built, so adding an adapter adds its check.
 - A `tool` target names the diagnostic code it expects (`expects: S307`), as the tool's current release names it (§11).
 
 ### 16.2 Adapter data files
@@ -43,7 +43,7 @@ When it cannot run the operation, `forge_do` exits 0 and leaves a note for the p
 - Notes never reach the agent. `forge check` prints them after the findings; the hooks record them for `forge status` (§8, §10).
 - A release newer than `verified` is driven as the newest range says, and reported (below): a new release neither switches a rule off nor passes unnoticed.
 
-**Versions are facts.** The version of a project or `PATH` tool is asked once per executable and kept in Forge's state (`<state>/facts/tool-versions.json`, §4) until the executable changes: its path, modification time and size, and those of the file it resolves to. The file keeps the 200 most recent entries.
+**Versions are facts.** The version of a project or `PATH` tool is asked once per executable and kept in Forge's state (`<state>/facts/tool-versions.json`, §4) until the executable changes: its path, modification time and size, and those of the file it resolves to. The file keeps the 200 most recently used entries, each with the time it was last used (refreshed at most once an hour, so a cache hit rarely writes); a file in another format is an empty cache.
 
 **Report for the person.** `forge apply` (`forge: tool versions (what they cannot do is not enforced):`) and `forge status` (`Tool versions:`; `--json`: `tool_versions`) print one line per finding about the installed tools the active checks run through `forge_do`. SessionStart prints nothing of it: it is the person's to fix.
 
@@ -593,7 +593,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 ### Tests
 
 - §16.1: `crates/forge-check/tests/spec_adapters.rs::a_check_running_an_adapted_tool_itself_is_rejected`, `crates/forge-packs/tests/loading.rs::target_kind_checks`.
-- §16.2: `crates/forge-check/src/adapters.rs (unit)` (`every_adapter_loads`, `ranges_and_ops`, `args_by_rank`, `versions`), `crates/forge-check/tests/spec_adapters.rs::ranges_are_consecutive_and_name_every_operation`, `::caller_arguments_by_rank`.
+- §16.2: `crates/forge-check/src/adapters.rs (unit)` (`every_adapter_loads`, `ranges_and_ops`, `args_by_rank`, `versions`, `version_facts_drop_the_least_recently_used`), `crates/forge-check/tests/spec_adapters.rs::ranges_are_consecutive_and_name_every_operation`, `::caller_arguments_by_rank`.
 - §16.3: `crates/forge-check/tests/spec_adapters.rs` (`a_release_newer_than_proven_is_driven_as_the_newest_range`, `a_release_that_cannot_is_not_enforced_and_passes`, `a_usage_error_is_a_note_never_a_finding`, `an_absent_tool_is_skipped_with_a_note`), `crates/forge-cli/tests/check.rs::forge_do_drives_a_fake_tool_and_notes_what_it_cannot`. The `Tool versions` report lines: (no test of their text: `forge status` with stand-in tools is not covered here). The version facts cache: (no test).
 - §16.4: `crates/forge-check/tests/spec_adapters.rs::spec_16_tables_are_generated_from_the_adapters`.
 - Each adapter against real releases of its tool: (no test: the TypeScript Forge's opt-in release matrix was not ported; adapters are proven by the pack examples on the tools installed where the tests run, `crates/forge-cli/tests/check.rs::check_examples`).

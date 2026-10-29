@@ -60,6 +60,19 @@ vocabulary!(
         PythonPm = "python-pm",
     }
 );
+
+impl GuardCheck {
+    /// The decision a guard target with this check takes, from what the check finds: a package
+    /// added or fetched to run may be the task's (the person, or a reviewer, decides: `ask`); pip
+    /// in a uv or unpackaged project always has the right command to use instead (`deny`, which
+    /// names it).
+    pub fn decision(self) -> Decision {
+        match self {
+            GuardCheck::EphemeralExec | GuardCheck::PackageAdd => Decision::Ask,
+            GuardCheck::PythonPm => Decision::Deny,
+        }
+    }
+}
 vocabulary!(
     /// Tools a `tool` target audits (§11).
     AuditedTool { Biome = "biome", Ruff = "ruff", Ty = "ty", Tsc = "tsc", Eslint = "eslint" }
@@ -330,6 +343,25 @@ pub struct Examples {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1))]
     pub deps: Option<Vec<DepSpec>>,
+}
+
+impl Examples {
+    /// Every example with its list and its place in it (from 1): `match` first.
+    pub fn listed(&self) -> Vec<(forge_core::examples::ExampleKind, usize, &Example)> {
+        use forge_core::examples::ExampleKind;
+        [
+            (ExampleKind::Match, &self.match_),
+            (ExampleKind::NoMatch, &self.no_match),
+        ]
+        .into_iter()
+        .flat_map(|(kind, list)| {
+            list.iter()
+                .flatten()
+                .enumerate()
+                .map(move |(i, e)| (kind, i + 1, e))
+        })
+        .collect()
+    }
 }
 
 /// Files of an example, by path.

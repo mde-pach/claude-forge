@@ -61,7 +61,7 @@ A relative or empty value of these variables is ignored. With none of them set, 
 
 The agent has no reason to look into the cache or state roots, and nothing points it there. When it does, the PreToolUse hook denies the call with a neutral reason (§9.3). A path counts as internal when it is inside either root, as written (with `..` removed) or with symbolic links resolved, so a link in the repository pointing into the cache is caught. Hard links cannot be detected by path.
 
-The refusal fires for the tools the hook entries match (§7.3): at project level Bash, Read, Edit, Write, Grep, Glob and NotebookEdit; at user level Bash only. MultiEdit is not in the project matcher, so it is not refused, and outside a Forge project only Bash commands are.
+The refusal fires for the tools the hook entries match (§7.3): Bash, Read, Edit, Write, MultiEdit, NotebookEdit, Grep and Glob, at project level and at user level alike, so a user-level setup refuses them outside any Forge project too.
 
 ### Tests
 

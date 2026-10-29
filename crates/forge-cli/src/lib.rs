@@ -11,6 +11,7 @@ pub mod check;
 mod hook;
 pub mod project;
 pub mod provisioning;
+pub mod test_cmd;
 
 #[derive(Parser)]
 #[command(
@@ -34,6 +35,8 @@ enum Command {
     },
     /// Checks the change (or the whole project) against the active rules.
     Check(check::CheckArgs),
+    /// Runs the examples of this repository's local rules (with --builtin, the built-in packs').
+    Test(test_cmd::TestArgs),
     /// Runs a builtin of a check command (`forge_<name>`).
     #[command(hide = true)]
     Internal(check::InternalArgs),
@@ -106,6 +109,7 @@ pub fn main() -> ExitCode {
     let cli = Cli::parse();
     let cli = match cli.command {
         Command::Check(args) => return check::run(args),
+        Command::Test(args) => return test_cmd::run(args),
         Command::Internal(args) => return check::internal(args),
         command => Cli { command },
     };
@@ -140,7 +144,9 @@ pub fn main() -> ExitCode {
         Command::Hook { event } => Ok(hook::run(&event, notes)),
         Command::Engine { command } => Ok(hook::engine(command)),
         Command::Project(c) => Ok(project::run(c)),
-        Command::Check(_) | Command::Internal(_) => unreachable!("handled above"),
+        Command::Check(_) | Command::Test(_) | Command::Internal(_) => {
+            unreachable!("handled above")
+        }
     };
     result.unwrap_or_else(|e| {
         eprintln!("forge: {e}");

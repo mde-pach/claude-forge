@@ -10,8 +10,9 @@ use forge_core::{Note, NoteKind};
 use forge_tools::forge_release::{BACKGROUND_ARG, ReleaseFetcher, run_background_fetch};
 use forge_tools::{PinnedTools, ProvisionReport, Provisioner};
 
-/// Set to a non-empty value, Forge downloads no tool (an offline machine, the tests).
-pub const ENV_NO_DOWNLOAD: &str = "FORGE_NO_DOWNLOAD";
+/// Set to a non-empty value, Forge downloads nothing: no tool, no pinned Forge version (an
+/// offline machine, the tests).
+pub const ENV_NO_DOWNLOAD: &str = forge_launcher::NO_DOWNLOAD_ENV;
 
 /// When this process is the background download child (`claude-forge __forge-fetch`), runs
 /// it and returns its exit code. Checked before the launcher, so the child never execs
@@ -30,7 +31,7 @@ pub fn fetcher() -> ReleaseFetcher {
 
 /// Whether downloads are turned off ([`ENV_NO_DOWNLOAD`]).
 pub fn downloads_off() -> bool {
-    std::env::var_os(ENV_NO_DOWNLOAD).is_some_and(|v| !v.is_empty())
+    forge_launcher::downloads_off()
 }
 
 fn provisioner() -> Option<Provisioner> {

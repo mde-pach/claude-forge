@@ -10,7 +10,7 @@ Each chapter ends with a **Tests** list. The table gathers them: the test files 
 |---|---|---|
 | §1 | [Principles](spec/01-principles.md) | `forge-core/src/{lib,internals}.rs` (unit); the agent-text checks of `forge-cli/tests/{apply,hook,check}.rs`, `forge-hooks/tests/events.rs`, `forge-guard/tests/corpus.rs` |
 | §2 | [Stack and platform](spec/02-stack-and-platform.md) | `forge-cli/tests/{apply,spec_cli}.rs` (Claude Code gate); `forge-launcher/tests/hook_shells.rs`; `forge-tools/src/{platform,catalog}.rs` (unit) |
-| §3 | [Forge CLI](spec/03-forge-cli.md) | `forge-cli/tests/{apply,spec_cli,e2e}.rs`; `forge-launcher/tests/{exec,lock_differential}.rs`; `forge-launcher/src/{lib,note,policy,lock}.rs` (unit); `forge-home/src/lib.rs` (unit) |
+| §3 | [Forge CLI](spec/03-forge-cli.md) | `forge-cli/tests/{apply,spec_cli,e2e,forge_test}.rs`; `forge-launcher/tests/{exec,lock_differential}.rs`; `forge-launcher/src/{lib,note,policy,lock}.rs` (unit); `forge-home/src/lib.rs` (unit) |
 | §4 | [Ownership and layout](spec/04-ownership.md) | `forge-cli/tests/{apply,spec_cli}.rs`; `forge-render/src/{settings,precommit}.rs` (unit); `forge-home/src/lib.rs` (unit) |
 | §5 | [Inputs](spec/05-inputs.md) | `forge-packs/tests/{loading,schemas,lints}.rs`; `forge-detect/tests/spec_inputs.rs`; `forge-detect/src/*.rs` (unit); `forge-render/tests/{context,builtin_context}.rs`; `forge-cli/tests/spec_cli.rs` |
 | §6 | [Rules](spec/06-rules.md) | `forge-packs/tests/{loading,schemas,lints}.rs`; `forge-check/tests/{spec_rules,spec_check,pack_examples}.rs`; `forge-guard/tests/{corpus,examples}.rs`; `forge-cli/src/check.rs` (unit); builtins: `forge-builtins-{code,data,infra}/tests/*` |
