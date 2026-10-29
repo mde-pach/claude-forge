@@ -29,11 +29,16 @@ SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mappe
 Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`; large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected). One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
 Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 
+===== .claude/rules/forge-python-uv.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
+
 ===== .claude/rules/forge-python.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Python project managed with uv. Tools run from `.venv/bin`. Type checking: ty (`[tool.ty]`); parameters and return types are annotated.
-Inside `async def`, the checks reject blocking calls (ruff ASYNC: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`). A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
+Parameters and return types are annotated.
+Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
 
@@ -6063,7 +6068,7 @@ forge_end "$fail"
 ===== .forge/forge.lock.json
 {
   "forge_version": "0.5.0",
-  "claude_code_min": "2.1.284",
+  "claude_code_min": "2.1.295",
   "rules": {
     "git/editorconfig": "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f",
     "git/generated-files": "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6",
@@ -6238,7 +6243,8 @@ forge_end "$fail"
     ".claude/rules/forge-python-pytest.md": "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a",
     ".claude/rules/forge-python-sqlalchemy-alembic.md": "dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d",
     ".claude/rules/forge-python-sqlalchemy.md": "45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e",
-    ".claude/rules/forge-python.md": "7915a21b1bb862c2f58f4413f7217aec6829112f542c033eec86390010151748",
+    ".claude/rules/forge-python-uv.md": "dfeecfb2197268dd67d8b071c05a6e5cad921f181da8d78bf5228b6f93688b2c",
+    ".claude/rules/forge-python.md": "de53525de5bec9988f79efe3f8da98c0a0d9ac6e26965f92f793f49b4c0d2979",
     ".claude/rules/forge-secrets.md": "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
@@ -6497,7 +6503,8 @@ cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d  .claude/rules/
 bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a  .claude/rules/forge-python-pytest.md
 dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d  .claude/rules/forge-python-sqlalchemy-alembic.md
 45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e  .claude/rules/forge-python-sqlalchemy.md
-7915a21b1bb862c2f58f4413f7217aec6829112f542c033eec86390010151748  .claude/rules/forge-python.md
+dfeecfb2197268dd67d8b071c05a6e5cad921f181da8d78bf5228b6f93688b2c  .claude/rules/forge-python-uv.md
+de53525de5bec9988f79efe3f8da98c0a0d9ac6e26965f92f793f49b4c0d2979  .claude/rules/forge-python.md
 f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658  .claude/rules/forge-secrets.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json

@@ -101,7 +101,7 @@ Detected by a packaging file at the root (`pyproject.toml`, `setup.py`, `setup.c
 
 Every banned-api rule shares ruff's `TID251`: each rule's examples import only its own module, so the audit tells them apart, and `forge status` merges their tables (§11).
 
-context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blocking calls in `async def`, `CancelledError` re-raised, `except*` around task groups; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
+context.md: annotated parameters and returns; no blocking calls in `async def`, `CancelledError` re-raised, `except*` around task groups; ignore comments name their rule; search for an existing helper (warn-once, logging, utils) before writing one.
 
 ### python/uv
 
@@ -112,6 +112,8 @@ context.md: uv and `.venv/bin`, ty, annotated parameters and returns; no blockin
 | `python/uv/dependency-groups` | `grep` forbid in `pyproject.toml`: a `dev-dependencies =` key (`[tool.uv]`; development dependencies go in `[dependency-groups]`, PEP 735) |
 | `python/uv/no-requirements-txt` | `permission` ask: `Write(**/requirements*.txt)`, `Edit(**/requirements*.txt)` (`uv export` through Bash is not asked) |
 | `python/uv/exclude-newer` | `check` lint: `forge_uv_cooldown`: `[tool.uv]` (or `uv.toml`) `exclude-newer` is a relative duration of at least 3 days (`"7 days"`, `P1W`) and `required-version` is `>=0.9.17`; `when_changed`: `pyproject.toml`, `uv.toml`, `uv.lock` |
+
+context.md: the project is managed with uv; dependencies added with `uv add` (`--dev` for tooling); tools run through the project's environment (`uv run <tool>`).
 
 ### python/fastapi
 
