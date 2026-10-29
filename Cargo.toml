@@ -44,6 +44,9 @@ saphyr = "0.3"
 forge-engine = { path = "crates/forge-engine" }
 forge-detect = { path = "crates/forge-detect" }
 forge-render = { path = "crates/forge-render" }
+forge-guard = { path = "crates/forge-guard" }
+tree-sitter = "0.27"
+tree-sitter-bash = "0.25"
 
 # Dependencies optimised in debug builds: the tests load every pack, which is slow unoptimised.
 [profile.dev.package."*"]
