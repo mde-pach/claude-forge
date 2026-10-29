@@ -7,6 +7,8 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
+mod check;
+
 #[derive(Parser)]
 #[command(
     name = "forge",
@@ -25,6 +27,11 @@ enum Command {
         #[command(subcommand)]
         command: PacksCommand,
     },
+    /// Checks the change (or the whole project) against the active rules.
+    Check(check::CheckArgs),
+    /// Runs a builtin of a check command (`forge_<name>`).
+    #[command(hide = true)]
+    Internal(check::InternalArgs),
     /// Runs a Claude Code hook (not implemented yet).
     #[command(hide = true)]
     Hook {
@@ -70,9 +77,17 @@ fn load(args: &LoadArgs) -> Result<forge_packs::PackSet, String> {
 pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one.
     // Its notes are recorded for `forge status`; downloading comes with provisioning.
-    let _notes =
-        forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &forge_launcher::NoFetcher);
+    // (a builtin of a check command is run by the binary that runs the check: no launch)
+    if std::env::args().nth(1).as_deref() != Some("internal") {
+        let _notes =
+            forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &forge_launcher::NoFetcher);
+    }
     let cli = Cli::parse();
+    let cli = match cli.command {
+        Command::Check(args) => return check::run(args),
+        Command::Internal(args) => return check::internal(args),
+        command => Cli { command },
+    };
     let result = match cli.command {
         Command::Packs {
             command:
@@ -102,6 +117,7 @@ pub fn main() -> ExitCode {
             }
         }),
         Command::Hook { .. } => Err("forge hook: not implemented yet".into()),
+        Command::Check(_) | Command::Internal(_) => unreachable!("handled above"),
     };
     result.unwrap_or_else(|e| {
         eprintln!("forge: {e}");

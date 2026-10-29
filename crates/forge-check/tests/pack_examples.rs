@@ -47,21 +47,34 @@ fn ast_grep_examples() {
         for (i, ex) in code(&r, "match").iter().enumerate() {
             examples += 1;
             if !astgrep::example_matches(&c, ex) {
-                failures.push(format!("{}: match example {} is missing: {ex:?}", r.id, i + 1));
+                failures.push(format!(
+                    "{}: match example {} is missing: {ex:?}",
+                    r.id,
+                    i + 1
+                ));
             }
         }
         if t.where_.is_none() {
             for (i, ex) in code(&r, "no_match").iter().enumerate() {
                 examples += 1;
                 if astgrep::example_matches(&c, ex) {
-                    failures.push(format!("{}: no_match example {} is noisy: {ex:?}", r.id, i + 1));
+                    failures.push(format!(
+                        "{}: no_match example {} is noisy: {ex:?}",
+                        r.id,
+                        i + 1
+                    ));
                 }
             }
         }
     }
     eprintln!("ast-grep: {rules_n} rules, {examples} examples");
     assert!(rules_n > 250, "{rules_n} ast-grep rules");
-    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 #[test]
@@ -84,17 +97,30 @@ fn grep_examples() {
         for (i, ex) in code(&r, "match").iter().enumerate() {
             examples += 1;
             if g.count(ex) == 0 {
-                failures.push(format!("{}: grep does not match match example {}: {ex:?}", r.id, i + 1));
+                failures.push(format!(
+                    "{}: grep does not match match example {}: {ex:?}",
+                    r.id,
+                    i + 1
+                ));
             }
         }
         for (i, ex) in code(&r, "no_match").iter().enumerate() {
             examples += 1;
             if g.count(ex) > 0 {
-                failures.push(format!("{}: grep matches no_match example {}: {ex:?}", r.id, i + 1));
+                failures.push(format!(
+                    "{}: grep matches no_match example {}: {ex:?}",
+                    r.id,
+                    i + 1
+                ));
             }
         }
     }
     eprintln!("grep: {rules_n} rules, {examples} examples");
     assert!(rules_n > 40);
-    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }

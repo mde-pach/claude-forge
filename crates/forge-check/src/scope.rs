@@ -22,11 +22,7 @@ pub fn is_excluded(path: &str) -> bool {
     {
         return true;
     }
-    path.split('/')
-        .rev()
-        .skip(1)
-        .any(|seg| DIRS.contains(&seg))
-        || DIRS.iter().any(|d| path == *d)
+    path.split('/').rev().skip(1).any(|seg| DIRS.contains(&seg)) || DIRS.contains(&path)
 }
 
 /// The glob as an anchored regular expression with shell `case` semantics.
@@ -59,7 +55,11 @@ fn glob_source(glob: &str) -> String {
             }
             '?' => out.push('.'),
             '[' => {
-                let close = g.iter().skip(i + 2).position(|&x| x == ']').map(|p| p + i + 2);
+                let close = g
+                    .iter()
+                    .skip(i + 2)
+                    .position(|&x| x == ']')
+                    .map(|p| p + i + 2);
                 match close {
                     Some(end) => {
                         let mut body: String = g[i + 1..end].iter().collect();
@@ -336,8 +336,17 @@ pub fn is_prose(path: &str) -> bool {
     static PROSE: std::sync::LazyLock<GlobList> = std::sync::LazyLock::new(|| {
         GlobList::new(
             &[
-                "*.md", "*.mdx", "*.rst", "*.markdown", "*.adoc", "docs/**", "doc/**",
-                "README*", "CHANGELOG*", "**/README*", "**/CHANGELOG*",
+                "*.md",
+                "*.mdx",
+                "*.rst",
+                "*.markdown",
+                "*.adoc",
+                "docs/**",
+                "doc/**",
+                "README*",
+                "CHANGELOG*",
+                "**/README*",
+                "**/CHANGELOG*",
             ]
             .map(String::from),
         )

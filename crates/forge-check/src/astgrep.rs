@@ -77,7 +77,14 @@ pub fn rule_config_value(rule: &Rule, target: &AstGrepTarget, lang: SupportLang)
     );
     doc.insert(
         "severity".into(),
-        Value::String(if target.mode == Mode::Advise { "warning" } else { "error" }.into()),
+        Value::String(
+            if target.mode == Mode::Advise {
+                "warning"
+            } else {
+                "error"
+            }
+            .into(),
+        ),
     );
     doc.insert("message".into(), Value::String(rule.description.clone()));
     doc.insert("rule".into(), Value::Object(target.rule.clone()));
@@ -97,8 +104,12 @@ pub fn compile(
     roles: &Roles,
     dirs: Option<&[String]>,
 ) -> Result<Compiled, String> {
-    let lang = language(rule.scope.language)
-        .ok_or_else(|| format!("{}: ast-grep targets need a concrete scope.language", rule.id))?;
+    let lang = language(rule.scope.language).ok_or_else(|| {
+        format!(
+            "{}: ast-grep targets need a concrete scope.language",
+            rule.id
+        )
+    })?;
     let value = rule_config_value(rule, target, lang);
     let ser: SerializableRuleConfig<SupportLang> =
         serde_json::from_value(value).map_err(|e| format!("{}: {e}", rule.id))?;
@@ -245,7 +256,12 @@ pub fn example_matches(c: &Compiled, code: &str) -> bool {
 pub trait TypeOracle: Send + Sync {
     /// For each match, whether the conditions hold; `Err` (with why, for the person) when the
     /// engine cannot answer.
-    fn confirm(&self, root: &Path, rule: &Compiled, matches: &[AstMatch]) -> Result<Vec<bool>, String>;
+    fn confirm(
+        &self,
+        root: &Path,
+        rule: &Compiled,
+        matches: &[AstMatch],
+    ) -> Result<Vec<bool>, String>;
 }
 
 #[cfg(test)]

@@ -87,7 +87,9 @@ impl std::fmt::Display for ChangeError {
                 f,
                 "no merge base for {r} and HEAD (fetch it: git fetch origin <branch>, or check out with fetch-depth: 0)"
             ),
-            ChangeError::NotARepository(p) => write!(f, "{} is not in a git repository", p.display()),
+            ChangeError::NotARepository(p) => {
+                write!(f, "{} is not in a git repository", p.display())
+            }
             ChangeError::Io(e) => f.write_str(e),
         }
     }
@@ -142,13 +144,13 @@ impl ChangeSet {
         if self.mode == Mode::All {
             return true;
         }
-        self.added
-            .get(path)
-            .is_some_and(|a| a.overlaps(start, end))
+        self.added.get(path).is_some_and(|a| a.overlaps(start, end))
     }
 
     pub fn is_changed(&self, path: &str) -> bool {
-        self.changed.binary_search_by(|p| p.as_str().cmp(path)).is_ok()
+        self.changed
+            .binary_search_by(|p| p.as_str().cmp(path))
+            .is_ok()
     }
 
     /// What the change is compared with, for messages to a person.
@@ -220,8 +222,14 @@ impl ChangeSet {
         }
         let all = if mode == Mode::All {
             let mut files: Vec<String> = split_z(
-                &git.run(&["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
-                    .unwrap_or_default(),
+                &git.run(&[
+                    "ls-files",
+                    "-z",
+                    "--cached",
+                    "--others",
+                    "--exclude-standard",
+                ])
+                .unwrap_or_default(),
             )
             .filter(|p| !is_excluded(p) && root.join(p).is_file())
             .collect();
@@ -361,7 +369,10 @@ pub fn added_lines(before: &str, after: &str) -> BTreeSet<u32> {
     let mut diff = Diff::compute(Algorithm::Myers, &input);
     diff.postprocess_lines(&input);
     let n = input.after.len() as u32;
-    (0..n).filter(|&i| diff.is_added(i)).map(|i| i + 1).collect()
+    (0..n)
+        .filter(|&i| diff.is_added(i))
+        .map(|i| i + 1)
+        .collect()
 }
 
 /// The lines of `after` that are removed or added against `before`, as `-text` / `+text`.
@@ -399,7 +410,14 @@ pub fn read_dirty(snap: &Path) -> HashMap<String, String> {
     text.lines()
         .filter_map(|l| {
             let (p, h) = l.split_once('\t')?;
-            Some((p.to_string(), if h.is_empty() { "-".into() } else { h.to_string() }))
+            Some((
+                p.to_string(),
+                if h.is_empty() {
+                    "-".into()
+                } else {
+                    h.to_string()
+                },
+            ))
         })
         .collect()
 }
