@@ -231,7 +231,7 @@ impl Policy<'_> {
     fn npm_cooldown(&mut self, seconds: Option<&str>) -> Res {
         let secs: f64 = seconds.and_then(|s| s.parse().ok()).unwrap_or(f64::NAN);
         let days = (secs / 86400.0).ceil();
-        if !(days > 0.0) {
+        if days.is_nan() || days <= 0.0 {
             return Err(Skip(
                 "the npm release cooldown check needs the cooldown in seconds".into(),
             ));
