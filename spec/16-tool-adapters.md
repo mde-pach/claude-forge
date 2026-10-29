@@ -5,7 +5,7 @@ Packs drive external tools, and tools change between releases: options, output f
 ### 16.1 What a rule says
 
 - A check command names an operation of a tool, never its command line: `forge_do <tool> <operation> [arguments]` (`forge_do ruff lint {files}`, `forge_do ruff format-check .`). The arguments are the rule's own (paths, `{files}`, `{file}`), never the tool's options.
-- A check command that runs an adapted tool itself is rejected when its pack or local rule loads: `invalid rule: run <tool> as "forge_do <tool> <operation>" (§16: its adapter knows how each release does it)`. Text inside single quotes is data and does not count. A package manager or runtime whose other uses are not adapted says which commands count as running it (`direct`): `bun` counts only as `bun install`, `add`, `remove`, `test` and the other package-manager commands, so `bun --no-install -e` stays allowed.
+- A check command that runs an adapted tool itself is rejected when its pack or local rule loads: `invalid rule: run <tool> as "forge_do <tool> <operation>" (§16: its adapter knows how each release does it)`. Text inside single quotes is data and does not count. A package manager or runtime whose other uses are not adapted says which commands count as running it (`direct`): `bun` counts only as `bun install`, `add`, `remove`, `test` and the other package-manager commands, so `bun --no-install -e` stays allowed. The loader reads the adapted tools and their `direct` patterns from the adapter files themselves (16.2) when Forge is built, so adding an adapter adds its check.
 - A `tool` target names the diagnostic code it expects (`expects: S307`), as the tool's current release names it (§11).
 
 ### 16.2 Adapter data files

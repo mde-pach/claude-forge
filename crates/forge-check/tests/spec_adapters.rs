@@ -268,6 +268,11 @@ fn a_check_running_an_adapted_tool_itself_is_rejected() {
         load_check(&format!("echo '{direct}'"))
             .unwrap_or_else(|e| panic!("{t}: quoted text refused: {e}"));
     }
+    // the loader's patterns are the adapters' own: bun's `direct` counts only its
+    // package-manager commands
+    assert!(Adapter::load("bun").unwrap().direct.is_some());
+    load_check("bun --no-install -e 'console.log(1)'").expect("bun as a runtime");
+    assert!(load_check("bun add left-pad").is_err());
 }
 
 // ---- forge_do with stand-in tools (§16.3)
