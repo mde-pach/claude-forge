@@ -16,12 +16,12 @@ const T = 120_000;
 
 describe("Claude Code version gate", () => {
   test(
-    "apply refuses Claude Code older than 2.1.284 and writes nothing",
+    "apply refuses Claude Code older than 2.1.295 and writes nothing",
     () => {
       const repo = sampleRepo("eslint-app");
       const r = forge(["apply", "--yes"], repo, fakeClaude("2.1.200"));
       expect(r.status).toBe(1);
-      expect(r.stderr).toContain("Claude Code 2.1.200 is too old; forge needs claude >= 2.1.284");
+      expect(r.stderr).toContain("Claude Code 2.1.200 is too old; forge needs claude >= 2.1.295");
       expect(existsSync(join(repo, ".forge"))).toBe(false);
     },
     T,
