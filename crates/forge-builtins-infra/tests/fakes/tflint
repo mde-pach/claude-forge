@@ -1,0 +1,34 @@
+#!/bin/sh
+# Fake tflint 0.64.0 for the pack examples: a few rules of the terraform ruleset's recommended
+# preset and one aws rule (when the config enables the aws plugin and TFLINT_PLUGIN_DIR holds
+# it), in the compact format of the real binary (captured; paths as "<chdir>/<file>"; --force:
+# exit 0 with issues).
+d=.; cfg=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    --chdir) d=$2; shift 2 ;;
+    --config) cfg=$2; shift 2 ;;
+    --format) shift 2 ;;
+    *) shift ;;
+  esac
+done
+aws=''
+if grep -q '^plugin "aws"' "$cfg"; then
+  v=$(grep -A2 '^plugin "aws"' "$cfg" | sed -n 's/^  version = "\(.*\)"$/\1/p')
+  p="$TFLINT_PLUGIN_DIR/github.com/terraform-linters/tflint-ruleset-aws/$v/tflint-ruleset-aws"
+  [ -e "$p" ] || { echo "Failed to initialize plugins; Plugin \"aws\" not found. Did you run \"tflint --init\"?"; exit 1; }
+  aws=1
+fi
+rp=''
+cat "$d"/*.tf | grep -q required_providers && rp=1
+out=$(cd "$d" && awk -v aws="$aws" -v rp="$rp" -v d="$d" '
+  function say(c, msg) { print d "/" FILENAME ":" FNR ":" c ": " msg }
+  /^variable "[a-z_]+" \{\}$/ { v = $0; sub(/^variable "/, "", v); sub(/".*$/, "", v); say(1, "Warning - `" v "` variable has no type (terraform_typed_variables)") }
+  /^  unused = / { say(3, "Warning - local.unused is declared but not used (terraform_unused_declarations)") }
+  /instance_type = "t2\.mega"/ && aws { say(19, "Error - \"t2.mega\" is an invalid value as instance_type (aws_instance_invalid_type)") }
+  /^resource "aws_/ && !rp { say(1, "Warning - Missing version constraint for provider \"aws\" in `required_providers` (terraform_required_providers)") }
+' *.tf)
+if [ -n "$out" ]; then
+  printf '%s issue(s) found:\n\n%s\n' "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "$out"
+fi
+exit 0

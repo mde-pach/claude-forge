@@ -1,0 +1,26 @@
+#!/bin/sh
+# Fake zizmor 1.30.1 for the pack examples: the audits they exercise, as GitHub annotations
+# (captured from the real binary); exit 0 clean, 14 with a high finding, 13 with warnings only.
+while [ $# -gt 0 ]; do
+  case $1 in --format) shift 2 ;; --*) shift ;; *) break ;; esac
+done
+echo ' INFO zizmor: zizmor v1.30.1' >&2
+rc=0
+for f in "$@"; do
+  out=$(awk -v f="$f" '
+    function ann(lvl, l, title, msg) { b = f; sub(/^.*\//, "", b); print "::" lvl " file=" f ",line=" l ",title=" title "::" b ":" l ": " msg }
+    /^on: pull_request_target/ { ann("error", NR, "dangerous-triggers", "use of fundamentally insecure workflow trigger: pull_request_target is almost always used insecurely") }
+    /uses: [^ ]+@/ { ref = $0; sub(/^.*@/, "", ref); sub(/[[:space:]].*$/, "", ref); if (ref !~ /^[0-9a-f]+$/ || length(ref) != 40) ann("error", NR, "unpinned-uses", "unpinned action reference: action is not pinned to a hash (required by blanket policy)") }
+    /run: .*\$\{\{ github\.event\./ { ann("error", NR, "template-injection", "code injection via template expansion: may expand into attacker-controllable code") }
+    /password: [a-z0-9]+$/ { ann("error", NR, "hardcoded-container-credentials", "hardcoded credential in GitHub Actions container configurations: container registry password is hard-coded") }
+    /toJSON\(secrets\)/ { ann("error", NR, "overprovisioned-secrets", "excessively provisioned secrets: injects the entire secrets context into the runner") }
+    /secrets: inherit/ { ann("warning", NR, "secrets-inherit", "secrets unconditionally inherited by called workflow: this reusable workflow") }
+    /npm install -g/ { ann("warning", NR, "adhoc-packages", "ad-hoc installation of packages: installs a package outside of a lockfile") }
+    /package-ecosystem:/ { eco = NR } /cooldown:/ { cool = 1 }
+    END { if (eco && !cool) ann("warning", eco, "dependabot-cooldown", "insufficient cooldown in Dependabot updates: missing cooldown configuration") }
+  ' "$f")
+  [ -n "$out" ] || continue
+  printf '%s\n' "$out"
+  case $out in *"::error "*) rc=14 ;; *) [ "$rc" = 14 ] || rc=13 ;; esac
+done
+exit "$rc"

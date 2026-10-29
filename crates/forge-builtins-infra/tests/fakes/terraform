@@ -1,0 +1,23 @@
+#!/bin/sh
+# Fake Terraform 1.9 for the pack examples (not installed where the outputs were captured:
+# formats from the terraform adapter's notes, src/adapters/terraform.ts): `validate -no-color`
+# reports a reference to an undeclared variable on stderr, exit 1.
+case $1 in
+  version|-version|--version) echo 'Terraform v1.9.8'; exit 0 ;;
+  validate) ;;
+  *) echo "Terraform has no command named \"$1\"." >&2; exit 1 ;;
+esac
+vars=$(cat ./*.tf | sed -n 's/^variable "\([a-z_]*\)".*/\1/p')
+bad=$(awk -v vars=" $(echo $vars) " '
+  match($0, /var\.[a-z_]+/) { v = substr($0, RSTART + 4, RLENGTH - 4); if (index(vars, " " v " ") == 0) { print FILENAME "\t" FNR "\t" v "\t" $0; exit } }
+' ./*.tf)
+arg=$(awk '/^resource "terraform_data"/ { on = 1; next } /^}/ { on = 0 } on && match($0, /^  [a-z_]+ /) { a = substr($0, 3, RLENGTH - 3); if (a != "input" && a != "triggers_replace") { print FILENAME "\t" FNR "\t" a "\t" $0; exit } }' ./*.tf)
+if [ -n "$arg" ]; then
+  f=$(printf '%s' "$arg" | cut -f 1 | sed 's|^\./||'); l=$(printf '%s' "$arg" | cut -f 2); a=$(printf '%s' "$arg" | cut -f 3); src=$(printf '%s' "$arg" | cut -f 4)
+  printf '\nError: Unsupported argument\n\n  on %s line %s, in resource "terraform_data" "build":\n   %s: %s\n\nAn argument named "%s" is not expected here.\n' "$f" "$l" "$l" "$src" "$a" >&2
+  exit 1
+fi
+if [ -z "$bad" ]; then echo 'Success! The configuration is valid.'; exit 0; fi
+f=$(printf '%s' "$bad" | cut -f 1 | sed 's|^\./||'); l=$(printf '%s' "$bad" | cut -f 2); v=$(printf '%s' "$bad" | cut -f 3); src=$(printf '%s' "$bad" | cut -f 4)
+printf '\nError: Reference to undeclared input variable\n\n  on %s line %s, in resource "terraform_data" "build":\n   %s: %s\n\nAn input variable with the name "%s" has not been declared. This variable can\nbe declared with a variable "%s" {} block.\n' "$f" "$l" "$l" "$src" "$v" "$v" >&2
+exit 1

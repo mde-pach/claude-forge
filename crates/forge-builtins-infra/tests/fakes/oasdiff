@@ -1,0 +1,35 @@
+#!/bin/sh
+# Fake oasdiff 1.33.0 for the pack examples: removed paths, a query parameter that became
+# required, a required property removed from a $ref'd response schema, in the singleline format
+# of the real binary (captured: removed paths name the base file); exit 1 with an ERR change,
+# 102 for a spec it cannot load.
+[ "$1" = --version ] && { echo 'oasdiff version 1.33.0'; exit 0; }
+[ "$1" = breaking ] || { echo "Error: unknown command \"$1\" for \"oasdiff\""; exit 100; }
+base=$2 rev=$3
+for s in "$base" "$rev"; do
+  [ -f "$s" ] || { echo "Error: failed to load spec from \"$s\": open $s: no such file or directory"; exit 102; }
+done
+paths() { awk '/^  \/[^:]*:/ { p = $1; sub(/:$/, "", p) } /^    (get|post|put|delete|patch):/ && p { m = $1; sub(/:$/, "", m); print toupper(m) " " p }' "$1"; }
+out=''
+add() { out="$out$1
+"; }
+for op in $(paths "$base" | tr ' ' '|'); do
+  m=${op%%|*} p=${op#*|}
+  paths "$rev" | grep -qx "$m $p" || add "error at $base, in API $m $p api path removed without deprecation [api-path-removed-without-deprecation]. "
+done
+if ! grep -q 'name: status, in: query, required: true' "$base" && grep -q 'name: status, in: query, required: true' "$rev"; then
+  add "error at $rev, in API GET /orders the \`query\` request parameter \`status\` became required [request-parameter-became-required]. "
+fi
+ref=$(sed -n 's/.*\$ref: "\.\/\([^"]*\)".*/\1/p' "$rev" | head -n 1)
+if [ -n "$ref" ]; then
+  was=$(sed -n 's/^required: \[\(.*\)\]$/\1/p' "$(dirname "$base")/$ref" | tr -d ' ' | tr ',' '\n')
+  now=$(sed -n 's/^required: \[\(.*\)\]$/\1/p' "$(dirname "$rev")/$ref" | tr -d ' ' | tr ',' '\n')
+  for p in $was; do
+    printf '%s\n' "$now" | grep -qx "$p" || add "error at $rev, in API GET /orders removed the required property \`$p\` from the response with the \`200\` status [response-required-property-removed]. "
+  done
+fi
+if [ -z "$out" ]; then echo 'No changes'; exit 0; fi
+n=$(printf '%s' "$out" | grep -c .)
+printf '%s changes: %s error, 0 warning, 0 info\n' "$n" "$n"
+printf '%s' "$out" | while IFS= read -r l; do printf '%s\n\n' "$l"; done
+exit 1
