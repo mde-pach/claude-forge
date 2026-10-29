@@ -544,6 +544,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "forge-builtins-data"
+version = "0.6.0-dev"
+dependencies = [
+ "forge-core",
+ "forge-packs",
+ "forge-tools",
+ "regex",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "forge-cli"
 version = "0.6.0-dev"
 dependencies = [
