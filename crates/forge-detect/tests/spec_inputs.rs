@@ -71,9 +71,12 @@ fn pack(id: &str, detect: &str) -> String {
     format!("id: {id}\ndescription: A local pack.\nlevel: project\ndetect: {detect}\n")
 }
 
+/// A `detect` block, the files of the project, whether the pack is detected.
+type DetectCase<'a> = (&'a str, &'a [(&'a str, &'a str)], bool);
+
 #[test]
 fn every_detect_kind() {
-    let cases: &[(&str, &[(&str, &str)], bool)] = &[
+    let cases: &[DetectCase] = &[
         ("{always: true}", &[], true),
         (
             "{files_any: [\"**/*.proto\"]}",

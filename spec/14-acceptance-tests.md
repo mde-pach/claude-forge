@@ -15,7 +15,7 @@ Every rule's `examples` run as tests, by target kind, so the built-in packs are 
 
 ### 14.2 Generator samples
 
-`tests/generator/` holds six sample repositories: `fastapi-app`, `nextjs-prisma-app`, `astro-app`, `eslint-app`, `docker-app`, `pnpm-workspace-app`. For each one (`crates/forge-cli/tests/apply.rs`):
+`fixtures/samples/` holds six sample repositories: `fastapi-app`, `nextjs-prisma-app`, `astro-app`, `eslint-app`, `docker-app`, `pnpm-workspace-app`. For each one (`crates/forge-cli/tests/apply.rs`):
 
 - `forge apply` output matches its golden snapshot (`crates/forge-cli/tests/snapshots/apply__<sample>.snap`): the rules files, the settings file and the lock;
 - a second `apply` prints `forge: up to date` and changes nothing;

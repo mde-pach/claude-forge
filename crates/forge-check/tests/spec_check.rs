@@ -208,7 +208,10 @@ fn a_failing_codegen_stage_stops_before_the_typecheck() {
 fn a_missing_tool_is_a_note_and_the_check_passes() {
     let d = repo(&[("a.py", "x = 1\n")]);
     put(d.path(), "a.py", "x = 2\n");
-    let mut c = checker(d.path(), vec![check_rule("acme/tests", "test", "vitest run")]);
+    let mut c = checker(
+        d.path(),
+        vec![check_rule("acme/tests", "test", "vitest run")],
+    );
     c.tools = std::sync::Arc::new(forge_check::tools::LocalTools {
         path: Some("/nonexistent".into()),
         ..Default::default()
@@ -274,7 +277,11 @@ fn a_spent_budget_is_a_note_not_a_failure() {
     assert!(o.report.findings.is_empty());
     let n = &o.report.notes[0];
     assert_eq!(n.kind, NoteKind::ForgeFailure);
-    assert!(n.text.starts_with("not checked: the run's time budget ran out"), "{n}");
+    assert!(
+        n.text
+            .starts_with("not checked: the run's time budget ran out"),
+        "{n}"
+    );
 }
 
 /// Lint diagnostics count on the added lines only (outside `--all`); the rest is a note.
@@ -315,7 +322,11 @@ fn lint_is_attributed_by_added_line() {
 fn warnings_count_only_with_fail_on_warnings() {
     let d = repo(&[("a.py", "a = 1\n")]);
     put(d.path(), "a.py", "a = 1\nb = 2\n");
-    let mut r = check_rule("acme/lint", "lint", "echo 'a.py:2:1: warning W1 meh'; exit 1");
+    let mut r = check_rule(
+        "acme/lint",
+        "lint",
+        "echo 'a.py:2:1: warning W1 meh'; exit 1",
+    );
     let o = checker(d.path(), vec![r.clone()])
         .check(Mode::Changed, &stop())
         .unwrap();
@@ -450,7 +461,10 @@ fn person_text_json_and_agent_text() {
         "scope": {"language": "python"},
         "enforce": [{"target": "grep", "mode": "forbid", "pattern": "eval\\("}],
     }));
-    let mut c = checker(d.path(), vec![forbid, check_rule("acme/tests", "test", "vitest")]);
+    let mut c = checker(
+        d.path(),
+        vec![forbid, check_rule("acme/tests", "test", "vitest")],
+    );
     c.tools = std::sync::Arc::new(forge_check::tools::LocalTools {
         path: Some("/nonexistent".into()),
         ..Default::default()

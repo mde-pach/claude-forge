@@ -14,13 +14,13 @@ fn spec_file() -> PathBuf {
 }
 
 fn platforms(keys: impl Iterator<Item = &'static str>) -> String {
-    keys.map(|k| format!("`{k}`")).collect::<Vec<_>>().join(", ")
+    keys.map(|k| format!("`{k}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn table() -> String {
-    let mut out = String::from(
-        "| Tool | Version | From | Checked against |\n|---|---|---|---|\n",
-    );
+    let mut out = String::from("| Tool | Version | From | Checked against |\n|---|---|---|---|\n");
     for t in TOOLS {
         let (from, checked) = match t.source {
             Source::Uv { base, assets }

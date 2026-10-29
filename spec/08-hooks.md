@@ -134,7 +134,7 @@ The Stop check runs the turn's checks (§10) and blocks with the findings: `{"de
 1. A Stop that is not a continuation of a blocked one (`stop_hook_active` false) starts a new block count.
 2. Nothing changed since the prompt (the tree hash equals the turn snapshot's): no check. Work the user left uncommitted before the turn never blocks Claude.
 3. A tree that already passed passes again without a check (`<turn>/pass`; without a turn snapshot, `<session>/last-pass`).
-4. A tree that already failed is not checked again: the block repeats the stored reason after "Nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):".
+4. A tree that already failed is not checked again. Claude has been shown its findings once and stopped again without changing anything, so it chose to leave them (the user may have asked for that code): the stop is let through, and the person gets the note "Claude stopped with the Stop check's findings left after being shown them once; run `forge check` to see them."
 5. Otherwise the checker runs on the turn's change (against the turn snapshot; without one, on every uncommitted change), with a 300 s budget.
    - Error findings: block. The reason holds errors first, then advice, at most 40 lines and 6000 characters. The tree as the checks left it (formatters may have run) is recorded as failed.
    - Advice only: block once; the same tree then passes.

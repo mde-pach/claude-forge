@@ -63,7 +63,10 @@ fn pytest_testpaths_and_python_files_replace_the_defaults() {
     let r = roles_of(
         &[
             ("pytest.ini", "[pytest]\ntestpaths = t\n"),
-            ("pyproject.toml", "[tool.pytest.ini_options]\ntestpaths = [\"x\"]\n"),
+            (
+                "pyproject.toml",
+                "[tool.pytest.ini_options]\ntestpaths = [\"x\"]\n",
+            ),
         ],
         None,
     );
@@ -83,7 +86,13 @@ fn alembic_config_moves_the_migrations_and_a_package_resource_is_a_note() {
         None,
     );
     assert_eq!(globs(&r, "alembic-migrations"), ["db/a/**", "db/b/**"]);
-    let r = roles_of(&[("alembic.ini", "[alembic]\nscript_location = app:migrations\n")], None);
+    let r = roles_of(
+        &[(
+            "alembic.ini",
+            "[alembic]\nscript_location = app:migrations\n",
+        )],
+        None,
+    );
     assert_eq!(
         globs(&r, "alembic-migrations"),
         ["alembic/versions/**", "migrations/versions/**"],
@@ -95,7 +104,10 @@ fn alembic_config_moves_the_migrations_and_a_package_resource_is_a_note() {
         r["alembic-migrations"].notes
     );
     let r = roles_of(
-        &[("pyproject.toml", "[tool.alembic]\nscript_location = \"migrations\"\n")],
+        &[(
+            "pyproject.toml",
+            "[tool.alembic]\nscript_location = \"migrations\"\n",
+        )],
         None,
     );
     assert_eq!(globs(&r, "alembic-migrations"), ["migrations/versions/**"]);
@@ -118,8 +130,14 @@ fn prisma_generator_outputs_and_package_json_schema() {
     );
     let r = roles_of(
         &[
-            ("package.json", r#"{"prisma": {"schema": "db/schema.prisma"}}"#),
-            ("db/schema.prisma", "datasource db {\n  provider = \"postgresql\"\n}\n"),
+            (
+                "package.json",
+                r#"{"prisma": {"schema": "db/schema.prisma"}}"#,
+            ),
+            (
+                "db/schema.prisma",
+                "datasource db {\n  provider = \"postgresql\"\n}\n",
+            ),
         ],
         None,
     );
@@ -146,7 +164,10 @@ fn angular_django_and_adr_configs() {
     );
     let r = roles_of(
         &[
-            ("pytest.ini", "[pytest]\nDJANGO_SETTINGS_MODULE = conf.settings\n"),
+            (
+                "pytest.ini",
+                "[pytest]\nDJANGO_SETTINGS_MODULE = conf.settings\n",
+            ),
             (".adr-dir", "architecture/decisions\n"),
         ],
         None,
@@ -177,7 +198,10 @@ fn sql_migrations_per_tool() {
             ),
             ("sqitch.plan", "%project=x\n"),
             ("sqitch.conf", "[core]\n\ttop_dir = migrations\n"),
-            ("atlas.hcl", "env \"dev\" {\n  migration {\n    dir = \"file://schema/migrations\"\n  }\n}\n"),
+            (
+                "atlas.hcl",
+                "env \"dev\" {\n  migration {\n    dir = \"file://schema/migrations\"\n  }\n}\n",
+            ),
         ],
         None,
     );
@@ -326,7 +350,12 @@ fn a_role_includes_another_with_its_exclusions() {
     let (g, _) = expand_globs(&["**/*.py".into(), "!@python-tests".into()], &r).unwrap();
     assert_eq!(
         g,
-        ["**/*.py", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py"]
+        [
+            "**/*.py",
+            "!**/test_*.py",
+            "!**/*_test.py",
+            "!**/conftest.py"
+        ]
     );
     assert!(expand_globs(&["!@env-files".into()], &r).is_err());
 }
@@ -348,11 +377,7 @@ fn roles_in_rules_become_their_patterns() {
     assert!(empty.is_empty());
     assert_eq!(
         out.scope.files.unwrap(),
-        [
-            "**/*.py",
-            "!alembic/versions/**",
-            "!migrations/versions/**"
-        ]
+        ["**/*.py", "!alembic/versions/**", "!migrations/versions/**"]
     );
     let Target::Check(c) = &out.enforce[0] else {
         panic!()

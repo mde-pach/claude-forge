@@ -143,7 +143,10 @@ fn json_lines_several_requests_per_connection() {
     assert_eq!(a["status"]["sessions"], 1);
     let b = ask("not json");
     assert!(
-        b["error"].as_str().unwrap().starts_with("unreadable request"),
+        b["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("unreadable request"),
         "{b}"
     );
     let c = ask(r#"{"op": "ping"}"#);
@@ -202,7 +205,11 @@ fn judge_drops_what_it_cannot_confirm_and_says_so() {
     assert_eq!(notes.len(), 1);
     assert_eq!(notes[0].kind, NoteKind::NotEnforced);
     assert_eq!(notes[0].rule.as_deref(), Some("p/b"));
-    assert!(notes[0].text.starts_with("not checked: a.py:3: $X is bound to"));
+    assert!(
+        notes[0]
+            .text
+            .starts_with("not checked: a.py:3: $X is bound to")
+    );
     // still loading: silent after an edit, a note at Stop (one per rule)
     let (keep, notes) = judge(Lang::Python, &ms, &Err(EngineError::Loading), true);
     assert_eq!((keep, notes.len()), (vec![false, false], 0));
@@ -266,9 +273,24 @@ fn where_conditions_are_checked_when_rules_load() {
     load("typescript", "forbid", "where: {S: {deprecated: true}}").unwrap();
     let rejected = [
         ("python", "no-increase", ty, "forbid or advise"),
-        ("python", "forbid", "where: {S: {type: {name: Session}}}", ""),
-        ("python", "forbid", "where: {S: {deprecated: true}}", "TypeScript only"),
-        ("typescript", "forbid", "where: {S: {deprecated: false}}", ""),
+        (
+            "python",
+            "forbid",
+            "where: {S: {type: {name: Session}}}",
+            "",
+        ),
+        (
+            "python",
+            "forbid",
+            "where: {S: {deprecated: true}}",
+            "TypeScript only",
+        ),
+        (
+            "typescript",
+            "forbid",
+            "where: {S: {deprecated: false}}",
+            "",
+        ),
         (
             "python",
             "forbid",

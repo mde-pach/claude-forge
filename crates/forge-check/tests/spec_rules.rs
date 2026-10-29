@@ -19,10 +19,7 @@ fn load_rule(yaml: &str) -> Result<(), String> {
     forge_packs::load(Some(dir.path()), opts)
         .map(|_| ())
         .map_err(|e| {
-            assert!(
-                matches!(e.kind, ErrorKind::Rule | ErrorKind::Schema),
-                "{e}"
-            );
+            assert!(matches!(e.kind, ErrorKind::Rule | ErrorKind::Schema), "{e}");
             e.to_string()
         })
 }
@@ -101,11 +98,23 @@ fn fields_that_would_do_nothing_are_refused() {
 #[test]
 fn the_schema_refuses_unknown_fields_and_values() {
     for (enforce, why) in [
-        ("  - {target: grep, mode: forbid, pattern: x, extra: 1}\n", "extra"),
-        ("  - {target: grep, mode: sometimes, pattern: x}\n", "sometimes"),
-        ("  - {target: guard, decision: deny, pattern: 'rm -rf'}\n", "pattern"),
+        (
+            "  - {target: grep, mode: forbid, pattern: x, extra: 1}\n",
+            "extra",
+        ),
+        (
+            "  - {target: grep, mode: sometimes, pattern: x}\n",
+            "sometimes",
+        ),
+        (
+            "  - {target: guard, decision: deny, pattern: 'rm -rf'}\n",
+            "pattern",
+        ),
         ("  - {target: check, stage: build, run: 'true'}\n", "build"),
-        ("  - {target: check, stage: test, run: 'true', timeout: 601}\n", "601"),
+        (
+            "  - {target: check, stage: test, run: 'true', timeout: 601}\n",
+            "601",
+        ),
     ] {
         let e = load_rule(&with(enforce)).expect_err(enforce);
         assert!(e.contains(why), "{enforce}: {e}");

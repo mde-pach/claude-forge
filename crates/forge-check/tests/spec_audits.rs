@@ -107,7 +107,10 @@ fn the_installed_release_decides_first() {
     home();
     let d = tempfile::tempdir().unwrap();
     ruff(d.path(), "0.15.0", false);
-    let a = audit(d.path(), &rule("ruff", "AIR303", "python", "eval(x)", "x = 1"));
+    let a = audit(
+        d.path(),
+        &rule("ruff", "AIR303", "python", "eval(x)", "x = 1"),
+    );
     assert_eq!(a.status, AuditStatus::Unavailable);
     assert_eq!(
         a.detail.as_deref(),
@@ -116,7 +119,10 @@ fn the_installed_release_decides_first() {
     assert!(a.snippet.is_none());
     let d = tempfile::tempdir().unwrap();
     ruff(d.path(), "0.1.0", false);
-    let a = audit(d.path(), &rule("ruff", "S307", "python", "eval(x)", "x = 1"));
+    let a = audit(
+        d.path(),
+        &rule("ruff", "S307", "python", "eval(x)", "x = 1"),
+    );
     assert_eq!(a.status, AuditStatus::Unavailable);
     assert_eq!(
         a.detail.as_deref(),
@@ -133,7 +139,10 @@ fn a_tool_not_installed_is_skipped() {
         return;
     }
     let d = tempfile::tempdir().unwrap();
-    let a = audit(d.path(), &rule("ruff", "S307", "python", "eval(x)", "x = 1"));
+    let a = audit(
+        d.path(),
+        &rule("ruff", "S307", "python", "eval(x)", "x = 1"),
+    );
     assert_eq!(a.status, AuditStatus::Skipped);
     assert_eq!(
         a.detail.as_deref(),

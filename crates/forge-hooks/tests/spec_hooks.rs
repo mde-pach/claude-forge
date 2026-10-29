@@ -656,15 +656,17 @@ fn the_block_reason_is_capped_and_a_new_prompt_resets_the_count() {
         std::fs::read_to_string(s.session().join("blocks")).unwrap(),
         "1"
     );
-    // the same tree again: the stored reason, the checks not re-run
-    let again = json_out(&s.run(&f, "stop", json!({"stop_hook_active": true})));
-    assert!(
-        again["reason"]
-            .as_str()
-            .unwrap()
-            .starts_with("Nothing changed in the working tree since this check failed")
-    );
+    // the same tree again: Claude saw the findings and left them; the stop goes through, the
+    // checks are not re-run, and the person is told
+    let again = s.run(&f, "stop", json!({"stop_hook_active": true}));
+    assert_eq!(again.stdout, "");
     assert_eq!(f.asked_stop.borrow().len(), 1);
+    // a new block in the same turn, then a new prompt resets the count
+    std::fs::write(s.root.join("app/main.py"), "x = eval('3')\n").unwrap();
+    assert_eq!(
+        json_out(&s.run(&f, "stop", json!({"stop_hook_active": true})))["decision"],
+        "block"
+    );
     s.run(&f, "user-prompt-submit", json!({"prompt": "again"}));
     assert!(!s.session().join("blocks").exists());
 }
