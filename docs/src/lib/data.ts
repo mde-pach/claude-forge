@@ -1,28 +1,38 @@
-// Everything the site shows comes from here: packs/ (via Forge's own loader),
-// tests/spec/ and the CI's JUnit results. Functions re-read on every call so
-// the dev server is always live.
-import { existsSync } from "node:fs";
+// Everything the site shows comes from here: the packs as Forge's own loader reads them
+// (`claude-forge packs dump --json`), its --help, and schemas/*.json. scripts/data.ts writes the
+// first two into docs/.data/ before every dev or build run. Functions re-read on every call so
+// the dev server follows a new dump.
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { marked } from "marked";
-import { loadPacks } from "../../../src/packs";
-import { checkTools } from "../../../src/core/tools";
-import { enforcedBy, kindOf } from "../../../src/targets/index";
-import type { Pack, Rule, Target } from "../../../src/types";
-import { readResults, readSpec, summarize, type Results, type SpecNode, type SpecSection, type Status, type TestResult } from "./spec";
+import type { CliHelp, Detect, Pack, Rule } from "./types";
 
-/** The repository root: the closest directory up from the working directory with packs/ and tests/spec/ (bundled pages cannot use import.meta.url). */
+/** The repository root: the closest directory up from the working directory with packs/ and Cargo.toml (bundled pages cannot use import.meta.url). */
 function findRoot(): string {
   for (let d = process.cwd(); ; d = dirname(d)) {
-    if (existsSync(join(d, "packs")) && existsSync(join(d, "tests", "spec"))) return d;
+    if (existsSync(join(d, "packs")) && existsSync(join(d, "Cargo.toml"))) return d;
     if (dirname(d) === d) throw new Error("forge docs: run from inside the repository");
   }
 }
 export const ROOT = findRoot();
+export const DATA = join(ROOT, "docs", ".data");
 export const REPO_URL = "https://github.com/mde-pach/claude-forge";
 
-export const packs = (): Map<string, Pack> => loadPacks(join(ROOT, "packs"));
-export const spec = (): SpecSection[] => readSpec(ROOT);
-export const results = (): Results => readResults(ROOT);
+function readData<T>(name: string): T {
+  const file = join(DATA, name);
+  if (!existsSync(file)) throw new Error(`forge docs: ${file} is missing; run \`bun run data\` in docs/ (it runs claude-forge packs dump --json)`);
+  return JSON.parse(readFileSync(file, "utf8")) as T;
+}
+
+/** Every pack by id, in the loader's order. */
+export function packs(): Map<string, Pack> {
+  return new Map(readData<Pack[]>("packs.json").map((p) => [p.id, p]));
+}
+
+export const cliHelp = (): CliHelp[] => readData<CliHelp[]>("cli.json");
+
+/** A schema of schemas/, parsed. */
+export const schema = (name: "pack" | "rule" | "forge"): unknown => JSON.parse(readFileSync(join(ROOT, "schemas", `${name}.schema.json`), "utf8"));
 
 /** A site URL under the configured base. */
 export function url(path: string): string {
@@ -33,36 +43,12 @@ export function url(path: string): string {
 export const packUrl = (id: string) => url(`packs/${id}/`);
 export const ruleAnchor = (id: string) => id.replaceAll("/", "-");
 
-// ---------------------------------------------------------------- markdown
-
 export function markdown(md: string): string {
   return marked.parse(md, { async: false });
 }
 
-/** Test titles: plain text with `code` spans. */
-export function inline(text: string): string {
-  const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc.replace(/`([^`]+)`/g, "<code>$1</code>");
-}
-
-// ---------------------------------------------------------------- rule results
-
-/** The per-rule tests run for every rule: its examples (packs spec) and, for tool targets, the audit proof. */
-const PER_RULE = ["%s: examples behave as declared", "%s: the examples prove each tool target: satisfied when the tool reports the diagnostic as an error, unsatisfied when it is off"];
-
-/** Results of the per-rule tests for one rule. */
-export function ruleResults(r: Results, ruleId: string): TestResult[] {
-  const names = new Set(PER_RULE.map((t) => t.replace("%s", ruleId)));
-  const out: TestResult[] = [];
-  for (const rs of r.byLocation.values()) for (const x of rs) if (names.has(x.name)) out.push(x);
-  return out;
-}
-
-export function ruleStatus(r: Results, ruleId: string): Status | "not run" {
-  return summarize(ruleResults(r, ruleId));
-}
-
-// ---------------------------------------------------------------- packs
+/** The rule file's text, as written in packs/. */
+export const ruleSource = (rule: Rule): string => readFileSync(join(ROOT, "packs", rule.file), "utf8");
 
 export function lineage(all: Map<string, Pack>, id: string): Pack[] {
   const out: Pack[] = [];
@@ -74,62 +60,32 @@ export function leaf(id: string): string {
   return id.split("/").pop()!;
 }
 
-/** A target's short label on rule cards ("guard deny", "check · lint"), from its kind. */
-export function targetLabel(t: Target): string {
-  return kindOf(t).label(t);
-}
+const values = (v: string | string[]) => (Array.isArray(v) ? v : [v]).join(" or ");
 
-export { enforcedBy };
-export { checkTools };
-export type { Pack, Rule, Target, Status, TestResult, SpecNode, SpecSection, Results };
-
-/** Fails the build when a CI result cannot be placed on a test in tests/spec (the docs would be lying by omission). */
-export function assertResultsMatch(sections: SpecSection[], r: Results): void {
-  const known = new Set<string>();
-  const visit = (file: string, nodes: SpecNode[]) => {
-    for (const n of nodes) n.kind === "test" ? known.add(`${file}:${n.line}`) : visit(file, n.children);
-  };
-  for (const s of sections) visit(s.file, s.children);
-  const unmatched = [...r.byLocation.keys()].filter((k) => !known.has(k));
-  if (unmatched.length) throw new Error(`forge docs: test results without a matching test in tests/spec: ${unmatched.slice(0, 10).join(", ")}`);
-}
-
-// ---------------------------------------------------------------- tests on rule and pack pages
-
-export interface PlacedTest {
-  file: string;
-  node: SpecNode;
-  /** Only this case of a parameterised test. */
-  instance?: string;
-}
-
-function findTests(sections: SpecSection[], keep: (t: Extract<SpecNode, { kind: "test" }>) => boolean): { file: string; node: Extract<SpecNode, { kind: "test" }> }[] {
-  const out: { file: string; node: Extract<SpecNode, { kind: "test" }> }[] = [];
-  const visit = (file: string, nodes: SpecNode[]) => {
-    for (const n of nodes) {
-      if (n.kind !== "test") visit(file, n.children);
-      else if (keep(n)) out.push({ file, node: n });
-    }
-  };
-  for (const s of sections) visit(s.file, s.children);
-  return out;
-}
-
-/** Combined CI status of placed tests (only their own case of a parameterised test). */
-export function placedStatus(results: Results, tests: PlacedTest[]): Status | "not run" {
-  return summarize(tests.flatMap((t) => (results.byLocation.get(`${t.file}:${t.node.line}`) ?? []).filter((r) => !t.instance || r.name.startsWith(t.instance))));
-}
-
-/** The rule's per-rule tests (its own case), then every test tagged @rule <id>. */
-export function ruleTests(sections: SpecSection[], rule: Rule): PlacedTest[] {
-  const perRule = rule.enforce.some((t) => t.target === "tool") ? PER_RULE : PER_RULE.slice(0, 1);
-  return [...findTests(sections, (t) => perRule.includes(t.title)).map((t) => ({ ...t, instance: `${rule.id}: ` })), ...findTests(sections, (t) => t.rules.includes(rule.id))];
-}
-
-/** The pack's context test (its own case), then every test tagged @pack <id>. */
-export function packTests(sections: SpecSection[], pack: Pack): PlacedTest[] {
+/** One chip per way the pack is detected, every kind of `detect` included. */
+export function detectChips(d: Detect | undefined): string[] {
+  if (!d) return [];
   return [
-    ...(pack.context !== undefined ? findTests(sections, (t) => t.title === "%s: context.md is at most 10 lines").map((t) => ({ ...t, instance: `${pack.id}: ` })) : []),
-    ...findTests(sections, (t) => t.packs.includes(pack.id)),
+    ...(d.always ? ["every project"] : []),
+    ...(d.files_any ?? []).map((f) => `file ${f}`),
+    ...(d.sources_any ?? []).map((f) => `source ${f}`),
+    ...(d.deps_any ?? []).map((x) => `${x.ecosystem} ${x.name}${x.version ? ` ${x.version}` : ""}`),
+    ...(d.library_any ?? []).map((e) => `publishes a ${e} library`),
+    ...(d.content_any ?? []).map((c) => `${c.files.join(", ")} containing /${c.pattern.length > 40 ? `${c.pattern.slice(0, 40)}…` : c.pattern}/`),
+    ...(d.yaml_keys?.length ? [`YAML with keys ${d.yaml_keys.join(", ")}`] : []),
+    ...Object.entries(d.facts_any ?? {}).map(([k, v]) => `${k}: ${values(v)}`),
   ];
 }
+
+/** A context item's condition, as chips ("deps zod >=4", "packs biome"). */
+export function whenChips(w: { deps?: { ecosystem: string; name: string; version?: string }[]; files?: string[]; facts?: Record<string, string | string[]>; packs?: string[] } | undefined): string[] {
+  if (!w) return [];
+  return [
+    ...(w.deps ?? []).map((x) => `${x.ecosystem} ${x.name}${x.version ? ` ${x.version}` : ""}`),
+    ...(w.files ?? []).map((f) => `file ${f}`),
+    ...Object.entries(w.facts ?? {}).map(([k, v]) => `${k}: ${values(v)}`),
+    ...(w.packs?.length ? [`with ${w.packs.join(" or ")}`] : []),
+  ];
+}
+
+export type { Pack, Rule };

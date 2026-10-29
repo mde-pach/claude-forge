@@ -1,31 +1,18 @@
 ---
-// One rule: what it is, when it acts (lifecycle), what triggers it, how it is enforced, its tests.
-import { readFileSync } from "node:fs";
-import { relative } from "node:path";
+// One rule: what it is, when it acts (lifecycle), what triggers it, how it is enforced.
 import { Code } from "@astrojs/starlight/components";
+import { stringify } from "yaml";
 import Lifecycle from "./Lifecycle";
 import LifecycleSchema from "./LifecycleSchema.astro";
-import StatusBadge from "./StatusBadge";
-import TestList from "./TestList.astro";
-import { checkTools, leaf, REPO_URL, ROOT, ruleAnchor, placedStatus, ruleResults, targetLabel, type PlacedTest, type Results, type Rule } from "../lib/data";
-import { ruleLifecycle } from "../lib/lifecycle";
-import { summarize } from "../lib/spec";
-import { toYaml } from "../../../src/yaml";
-import type { Example } from "../../../src/types";
+import { leaf, REPO_URL, ruleAnchor, ruleSource } from "../lib/data";
+import { ruleLifecycle, targetLabel } from "../lib/lifecycle";
+import type { Example, Rule } from "../lib/types";
 
 interface Props {
   rule: Rule;
-  results: Results;
-  /** This rule's tests not already listed in the pack's Specification section. */
-  tests: PlacedTest[];
-  /** How many of its tests are listed there instead. */
-  shared: number;
 }
-const { rule, results, tests, shared } = Astro.props;
-const rs = ruleResults(results, rule.id);
-const status = summarize(rs);
-const platforms = [...new Set(rs.map((r) => r.platform))].join(", ");
-const source = relative(ROOT, rule.file);
+const { rule } = Astro.props;
+const source = `packs/${rule.file}`;
 const files = rule.scope.files ?? [];
 const include = files.filter((f) => !f.startsWith("!"));
 const exclude = files.filter((f) => f.startsWith("!")).map((f) => f.slice(1));
@@ -72,7 +59,6 @@ const MODE: Record<string, string> = {
 <section class="forge-rule" id={ruleAnchor(rule.id)}>
   <header class="forge-rule-head">
     <h2 id={`${ruleAnchor(rule.id)}-title`}>{rule.id.split("/").pop()}</h2>
-    <StatusBadge status={status} detail={platforms ? `examples · ${platforms}` : "examples"} />
   </header>
   <p class="forge-rule-id"><code>{rule.id}</code></p>
   <p class="forge-rule-desc">{rule.description}</p>
@@ -135,7 +121,7 @@ const MODE: Record<string, string> = {
           return (
             <>
               <p><strong>ast-grep {t.mode}</strong>. {MODE[t.mode]}</p>
-              <Code code={toYaml({ rule: t.rule, ...(t.constraints ? { constraints: t.constraints } : {}), ...(t.utils ? { utils: t.utils } : {}) })} lang="yaml" />
+              <Code code={stringify({ rule: t.rule, ...(t.constraints ? { constraints: t.constraints } : {}), ...(t.utils ? { utils: t.utils } : {}), ...(t.where ? { where: t.where } : {}) })} lang="yaml" />
             </>
           );
         if (t.target === "grep")
@@ -149,15 +135,15 @@ const MODE: Record<string, string> = {
         if (t.target === "guard")
           return (
             <>
-              <p><strong>guard {t.decision}</strong>: POSIX ERE matched against the JSON-escaped Bash command.</p>
-              <Code code={t.pattern} lang="txt" />
+              <p><strong>guard {t.decision}</strong>{t.check ? <>: the built-in <code>{t.check}</code> check</> : ": matched against each simple command of the parsed Bash command line"}.</p>
+              {t.command !== undefined && <Code code={stringify({ command: t.command })} lang="yaml" />}
             </>
           );
         if (t.target === "sandbox")
           return <p><strong>sandbox</strong> <code>sandbox.{t.path}</code> = <code>{JSON.stringify(t.value)}</code></p>;
         return (
           <>
-            <p><strong>check · {t.stage}</strong>, tools {checkTools(t).map((x, i) => <>{i > 0 && ", "}<code>{x}</code></>)}</p>
+            <p><strong>check · {t.stage}</strong></p>
             <Code code={t.run} lang="sh" title="--all (CI)" />
             {t.changed_run && <Code code={t.changed_run} lang="sh" title="--changed (Stop, pre-commit, after an edit)" />}
             {t.fix_run && <Code code={t.fix_run} lang="sh" title="safe fixes, after an edit" />}
@@ -168,19 +154,7 @@ const MODE: Record<string, string> = {
       })
     }
     <p>Rule file: <a href={`${REPO_URL}/blob/main/${source}`}>{source}</a></p>
-    <Code code={readFileSync(rule.file, "utf8")} lang="yaml" />
+    <Code code={ruleSource(rule)} lang="yaml" />
   </details>
 
-  {
-    tests.length > 0 && (
-      <details class="forge-spec">
-        <summary>
-          <span>Tests · {tests.length}</span>
-          <StatusBadge status={placedStatus(results, tests)} />
-        </summary>
-        <TestList tests={tests} results={results} />
-      </details>
-    )
-  }
-  {shared > 0 && <p class="forge-note">{shared === 1 ? "One more test covers" : `${shared} more tests cover`} this rule with others: see <a href="#specification">Specification</a>.</p>}
 </section>

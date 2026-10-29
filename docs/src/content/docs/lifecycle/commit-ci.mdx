@@ -1,27 +1,27 @@
 ---
 title: Commit and CI
-description: The same check.sh in the pre-commit hook and in CI.
+description: The same checks in the pre-commit hook and in CI, through forge check.
 ---
 
-import Spec from "../../../components/Spec.astro";
+`claude-forge check` runs the active rules' checks outside a session. Its output is for people, notes included. Exit codes: 0 passed, 1 failed, 3 nothing failed but a check could not run (unverified), 4 only advice was found, 2 a usage or configuration error; `--json` prints the result as JSON.
 
 ## Pre-commit
 
-`forge apply` offers to run `sh .forge/check.sh --changed` before each commit. Without a hook manager it creates `.git/hooks/pre-commit`. With one (pre-commit, lefthook, husky, or `core.hooksPath`), it adds the check to the manager's config as a block between `# forge: begin` and `# forge: end`, and leaves the rest of the file as it was; `forge remove` takes the block out. When the check is not installed, `forge apply` and `forge status` say that commits are not checked, and how to install it.
-
-<Spec file="10-check" describe="pre-commit" />
+`forge apply` offers to run `claude-forge check --changed` before each commit. Without a hook manager it creates `.git/hooks/pre-commit`. With one (pre-commit, lefthook, Husky, or `core.hooksPath`), it adds the check to the manager's config as a block between `# forge: begin` and `# forge: end`, and leaves the rest of the file as it was; `forge remove` takes the block out. When the check is not installed, `forge apply` and `forge status` say that commits are not checked.
 
 ## CI
 
-On a pull request, run `sh .forge/check.sh --since origin/<default branch>`: it checks what the branch changed since its merge base, with the same added-lines rule as Stop, so code that was already on the default branch does not fail the pull request. The checkout needs the base branch's history (`actions/checkout` with `fetch-depth: 0`). On the default branch, run `sh .forge/check.sh --all`, which checks the whole project. Both need only `sh`, `git` and the project's own tools; `forge status` prints both lines.
+On a pull request, run `claude-forge check --since origin/<default branch>`: it checks what the branch changed since its merge base, with the same added-lines rule as Stop. The checkout needs the base branch's history (`fetch-depth: 0`). On the default branch, `claude-forge check --all` checks the whole project.
 
 ```yaml
 - uses: actions/checkout@<sha>
-  with: {fetch-depth: 0}
-- run: sh .forge/check.sh --since origin/${{ github.base_ref }}
+  with: {fetch-depth: 0, persist-credentials: false}
+- run: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh
+- run: claude-forge check --since "origin/$BASE_REF"
   if: github.event_name == 'pull_request'
-- run: sh .forge/check.sh --all
+  env: {BASE_REF: "${{ github.base_ref }}"}
+- run: claude-forge check --all
   if: github.event_name != 'pull_request'
 ```
 
-<Spec file="10-check" top />
+The installed launcher runs the version `forge.lock` records.

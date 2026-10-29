@@ -3,14 +3,12 @@ title: Status, diff and remove
 description: Inspect the setup, preview changes, and take it out again.
 ---
 
-import Spec from "../../../components/Spec.astro";
-
 ## Inspecting
 
-<Spec file="03-cli" describe="status, explain, diff" />
+- `forge status` lists the active packs and rules, how each rule is enforced here, drift since the last apply, missing tools, and the notes Forge kept for you (a check that could not run, what is not enforced, environment notes). `--json` prints one JSON object.
+- `forge explain <rule id>` prints the rule's file and where it is enforced here.
+- `forge diff` shows what `forge apply` would change, and exits 1 when anything differs.
 
 ## Removing
 
-`forge remove` deletes every file Forge owns and exactly the settings entries recorded in the lock.
-
-<Spec file="04-ownership" describe="remove" />
+`forge remove` deletes what the lock records: the rules files, exactly the settings entries Forge appended, the pre-commit hook or the hook manager block, and the lock itself. Your own settings entries stay.

@@ -3,8 +3,4 @@ title: User level
 description: What forge apply --user writes to ~/.claude, once per machine.
 ---
 
-import Spec from "../../../components/Spec.astro";
-
-`forge apply --user` writes a `forge-user` plugin under `~/.claude/skills/` — a guard on Bash commands and terminal notifications — and appends the [safety](../../packs/safety/) pack's permissions and sandbox settings to `~/.claude/settings.json`. These protect every project you open, whether or not it uses Forge.
-
-<Spec file="07-user-level" />
+`forge apply --user` appends the [safety](../../packs/safety/) pack's permissions and sandbox settings, and the hook entries for the user-level guard, to `~/.claude/settings.json`, and records them in the user-level lock. These protect every project you open, whether or not it uses Forge. `forge status --user` shows them, and `forge remove --user` takes out exactly what the lock records.

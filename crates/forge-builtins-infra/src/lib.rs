@@ -3,7 +3,7 @@
 //! `forge_chart_version`), Terraform and OpenTofu (`forge_tf_validate`, `forge_tflint`,
 //! `forge_trivy_config`), GitHub Actions (`forge_zizmor`, `forge_actionlint`, `forge_ci_jobs`) and
 //! OpenAPI (`forge_openapi_lint`, `forge_openapi_ratchet`, `forge_oasdiff`, `forge_openapi_sync`).
-//! Rust ports of `templates/engine/{docker,kubernetes,terraform,github-actions,openapi}.sh`.
+//! Ported from the shell engine of the TypeScript Forge (0.5).
 //!
 //! Each is a [`CheckBuiltin`] named after its shell function without `forge_`: it reads
 //! forge-core's [`BuiltinCtx`] and the checker's [`CheckCtx`] (the check's files, the file roles,

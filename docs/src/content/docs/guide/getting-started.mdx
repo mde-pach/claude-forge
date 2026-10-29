@@ -1,36 +1,22 @@
 ---
 title: Getting started
-description: Get the Forge CLI, install the user-level setup once, then apply Forge in each repository.
+description: Install the Forge binary, set up your user account once, then apply Forge in each repository.
 ---
 
-import Spec from "../../../components/Spec.astro";
+You need Claude Code **≥ 2.1.295** and `git`. Forge itself needs no Python, Node or Bun; the tools it pins (uv, ty, zizmor, hadolint, …) are downloaded into its cache, each checked against its sha256.
 
-You need Claude Code **≥ 2.1.295**, and Node ≥ 20 or Bun to run Forge itself. The generated hooks need `sh`, `git`, `grep`, `sed`, `awk`, and `bunx` or `uvx` for ast-grep.
+## Install
 
-## Get the CLI
-
-Forge is not published to npm yet (`bunx @maximedepachtere/forge` answers 404). Until it is, build it from a clone:
+Any one of:
 
 ```sh
-git clone https://github.com/mde-pach/claude-forge.git ~/src/claude-forge
-cd ~/src/claude-forge
-bun install
-bun run build        # writes dist/forge.js, a single Node script
+curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh
+uv tool install claude-forge
+npm install -g @maximedepachtere/claude-forge
+cargo install --locked --git https://github.com/mde-pach/claude-forge forge-cli
 ```
 
-Every command on this site is written `forge …`. Choose one way to make that name run the built script:
-
-```sh
-# a shell alias (add it to ~/.zshrc or ~/.bashrc)
-alias forge='node ~/src/claude-forge/dist/forge.js'
-
-# or a link on your PATH: bun link puts `forge` in ~/.bun/bin
-cd ~/src/claude-forge && bun link
-```
-
-Without either, write `node ~/src/claude-forge/dist/forge.js` wherever this site writes `forge`.
-
-Once the package is published, no clone is needed: `bunx @maximedepachtere/forge …` or `npx @maximedepachtere/forge …` run the same CLI, and stand in for `forge` everywhere.
+The binary is installed as both `claude-forge` and `forge`. The hook entries call `claude-forge`, so a Foundry `forge` on your PATH never runs in their place. The installed binary is a launcher: in a repository it runs the version `forge.lock` records, downloading it into the cache at `forge apply` or session start when needed.
 
 ## Once per machine
 
@@ -45,18 +31,16 @@ Forge shows what it appends to `~/.claude/settings.json` and asks before writing
 ```sh
 cd my-app
 forge apply
-git add .forge .claude && git commit -m "Add Forge"
+git add forge.lock .claude && git commit -m "Add Forge"
 ```
 
-Forge detects your stack, prints the changes it makes to `.claude/settings.json`, writes its files under `.forge/` and `.claude/`, and audits your tool configs. Commit the result: everyone who clones the repository gets the setup, with or without Forge installed. What happens next is the [lifecycle](../../lifecycle/).
+Forge detects your stack, writes `.claude/rules/forge-*.md` and the hook entries in `.claude/settings.json` (asking first), records it all in `forge.lock`, and audits your tool configs. Commit the result: everyone who clones the repository gets the same setup. A clone without Forge installed sees one message at session start saying the checks are off and how to install it; every other hook does nothing.
 
-- **Questions.** `forge apply` asks before changing a settings file and before creating a pre-commit hook. `forge apply --yes` answers yes to both; use it in scripts. Without a terminal and without `--yes`, a settings change stops apply with a message asking for `--yes`, and no hook is created. `--yes` never edits a hook manager's config (a file your team tracks); `--pre-commit` does.
-- **The pre-commit hook.** If you declined it, run `forge apply` again to be asked again, or `forge apply --yes` to create it. With a hook manager (Husky, lefthook, pre-commit, `core.hooksPath`), Forge adds the check to its config instead, as a marked block that `forge remove` takes out: answer yes at the prompt, or run `forge apply --pre-commit`. Commits are checked once the manager itself is installed in your clone (`pre-commit install`, `lefthook install`, Husky's `prepare` script); `forge status` tells you when it is not. If the repository already has its own `.git/hooks/pre-commit`, Forge never touches it: add `sh .forge/check.sh --changed` to it. `forge status` says whether commits are checked.
-- **A repository you don't own.** `forge apply --local` keeps the permission entries in `.claude/settings.local.json`.
-- **No pack detected.** If Forge finds no manifest it knows (no `package.json`, `pyproject.toml`, …), it still applies: the setup protects its own files and runs the integrity check, but has no rules, and `forge status` lists no packs. Add packs by name in [`forge.yaml`](../configuration/) (`packs: add: [python]`), then run `forge apply` again.
+- **Questions.** `forge apply` asks before changing a shared settings file and before creating a pre-commit hook. `--yes` answers yes to both; without a terminal and without `--yes`, a settings change stops apply with a message. `--yes` never edits a hook manager's config (a file your team tracks); `--pre-commit` does.
+- **The pre-commit hook.** Without a hook manager Forge creates `.git/hooks/pre-commit`, which runs `claude-forge check --changed`. With one (pre-commit, lefthook, Husky, `core.hooksPath`), it adds a marked block to its config, which `forge remove` takes out. A repository's own existing hook is never touched: add `claude-forge check --changed` to it. `forge status` says whether commits are checked.
+- **A repository you don't own.** `forge apply --local` keeps the settings entries in `.claude/settings.local.json`.
+- **An old layout.** A repository set up by the TypeScript Forge (0.5: `.forge/check.sh`, `.claude/skills/forge-project/`, `.forge/forge.lock.json`) is migrated by `forge apply`: it lists what it deletes and asks first.
 
 ## A new project
 
-`forge init` first creates the stack's tool configs that are missing (`ruff.toml`, `ty.toml`, `biome.json`, `tsconfig.json`), then applies:
-
-<Spec file="03-cli" describe="init" />
+`forge init` creates the stack's missing tool configs from the packs' templates (`ruff.toml`, `ty.toml`, `biome.json`, `tsconfig.json`), then applies.

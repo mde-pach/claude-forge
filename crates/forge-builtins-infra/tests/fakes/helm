@@ -1,6 +1,6 @@
 #!/bin/sh
 # Fake helm 3 for the pack examples (not installed where the outputs were captured: formats from
-# the helm adapter's notes, src/adapters/helm.ts): lint passes; template renders the chart's
+# the helm adapter's notes): lint passes; template renders the chart's
 # templates with .Release.Name and the values of values.yaml, and fails on a missing required value.
 case $1 in
   version) echo 'v3.15.4+gfa9efb0'; exit 0 ;;

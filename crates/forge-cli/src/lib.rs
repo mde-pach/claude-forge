@@ -63,7 +63,7 @@ struct LoadArgs {
 
 #[derive(Subcommand)]
 enum PacksCommand {
-    /// Prints the loaded packs (the shape of dist/packs.json).
+    /// Prints the loaded packs as JSON (what the docs site reads).
     Dump {
         /// Print JSON (the only format so far; accepted for scripts).
         #[arg(long)]

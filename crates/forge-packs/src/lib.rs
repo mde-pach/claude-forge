@@ -14,7 +14,7 @@
 //!
 //! Local packs add to the built-in ones: a local pack id may not be a built-in pack's id
 //! (an error), and a local pack may require built-in packs. Local rules keep their
-//! semantics (`src/plan/rules.ts`): one with the id of an active pack's rule replaces it
+//! semantics: one with the id of an active pack's rule replaces it
 //! ([`PackSet::select_rules`]).
 //!
 //! Loading parses, validates (`schemas/*.schema.json`, then each target kind's checks) and
@@ -275,7 +275,7 @@ impl PackSet {
     /// The rules of the active packs (in their order), with local rules applied at project
     /// level: a local rule replaces the pack rule with its id, and is kept when its pack is
     /// active or is no pack at all; one for a known pack that is not active is ignored, with
-    /// a warning. Sorted by id (`selectRules` in `src/plan/rules.ts`, before disables).
+    /// a warning. Sorted by id (before disables).
     pub fn select_rules<'a>(
         &'a self,
         active: &[&str],

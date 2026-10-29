@@ -1,4 +1,4 @@
-//! What `apply` would change (`src/cli/changes.ts`): files to write or delete, drift (an owned
+//! What `apply` would change: files to write or delete, drift (an owned
 //! file changed since the last apply) and conflicts (a file Forge would write that is not
 //! Forge's), settings entries to add or remove, pre-commit blocks, and the new lock. Also the
 //! migration from the TypeScript Forge's layout.

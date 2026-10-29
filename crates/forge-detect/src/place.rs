@@ -1,4 +1,4 @@
-//! Where things apply in a repository (§5.1, `src/plan/placement.ts`): which audited tools are
+//! Where things apply in a repository (§5.1): which audited tools are
 //! configured where, in which workspace packages a pack was detected, where a rule's version
 //! gate holds, and where a check runs.
 

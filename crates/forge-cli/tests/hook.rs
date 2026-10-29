@@ -42,7 +42,7 @@ impl Sandbox {
         let tmp = tempfile::tempdir().unwrap();
         let base = tmp.path().canonicalize().unwrap();
         let repo = base.join(sample);
-        copy_dir(&repo_root().join("tests/generator").join(sample), &repo);
+        copy_dir(&repo_root().join("fixtures/samples").join(sample), &repo);
         let bin = base.join("bin");
         std::fs::create_dir_all(&bin).unwrap();
         let claude = bin.join("claude");

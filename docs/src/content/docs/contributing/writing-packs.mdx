@@ -1,9 +1,7 @@
 ---
 title: Writing packs
-description: The pack tree, the rule file, and the pack self-test (bun run test:packs).
+description: The pack tree, the rule file, and how packs are tested.
 ---
-
-import Spec from "../../../components/Spec.astro";
 
 ## The pack tree
 
@@ -24,11 +22,23 @@ packs/
 
 | Path | |
 |---|---|
-| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys), `sources_any` (a source file of the project's own, outside vendored, generated and virtual-environment directories) |
+| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect`, `requires`, `context` and `tool_off` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys), `sources_any` (a source file of the project's own, outside vendored, generated and virtual-environment directories), `facts_any` (a project fact has one of the values: `python.pm: [poetry]`) |
 | `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
-| `context.md` | optional, ≤ 10 lines of facts for Claude |
 | `init/` | optional templates for `forge init` |
 | `<child>/` | sub-packs |
+
+## Context
+
+`context` in `pack.yaml` is a list of items Claude reads while the pack is active, each `{id?, text, when?}`. `when` limits an item to projects where it holds: `deps` (every dependency declared, in its range), `files` (a file matches), `facts` (`python.pm: uv`) and `packs` (one of these packs is active). Items with the same `id` are written once, so a norm shared by several packs lives in one place. The text is committed and shared, so it may depend only on the repository's content, and it never names Forge's internals (the content lints reject `.forge`, `forge.yaml`, cache paths and the like in agent-facing text).
+
+```yaml
+context:
+  - text: |
+      The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling).
+  - id: test-integrity
+    text: "Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.\n"
+    when: {packs: [python/pytest]}
+```
 
 ## The rule file
 
@@ -45,21 +55,18 @@ examples:
   no_match: [ … ]    # must not — include the near misses
 ```
 
-Targets, in order of preference: `tool` (your linter or type checker, audited: `biome`, `ruff`, `ty`, `tsc`, `eslint`; an ESLint target's `expects` is the rule's name, its `snippet` a `"rules": {…}` entry of the flat config), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target is a regex on the command, or a pre-filter regex plus a built-in `check` that parses the command (`ephemeral-exec` looks for the tool in `node_modules/.bin` or `.venv/bin`); its examples can then be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
+Targets, in order of preference: `tool` (your linter or type checker, audited: `biome`, `ruff`, `ty`, `tsc`, `eslint`; an ESLint target's `expects` is the rule's name, its `snippet` a `"rules": {…}` entry of the flat config), `ast-grep` (Python, TypeScript or YAML, by `scope.language`), `grep` (a POSIX regex per line, for comments, config text and `.astro` files), `permission`, `sandbox`, `guard`, `check`. A `guard` target matches the parsed command, never its raw text: `command: {name: git, sub: [push], flags_any: [--force, -f]}` (or a list of such matches; `words:` is a regex over one simple command's words, an escape hatch), or a built-in `check` (`ephemeral-exec`, `python-pm`); its examples can be `{command, files}`, run from a directory holding those files. A rule that asks can carry `review:`, the one question an independent reviewer answers in autonomous runs (it judges only that concern, not the rest of the command). The [lifecycle](../../lifecycle/) of a rule follows from its targets, and every rule's page shows it.
 
 `ast-grep` and `grep` targets in `advise` mode report a match on a line added during the turn to Claude after the edit, and never fail Stop, a commit or CI: for heuristics whose matches need judgement (a Django template's `|safe`).
 
-<Spec file="08-project-hooks" test="a grep advise rule's match on an added line is returned after the edit, and check.sh does not fail on it" />
 
 A lint `check` whose tool also lints its own config file (ruff's `RUF200` validates `pyproject.toml`) names it in `config_files: ["**/pyproject.toml"]`: a changed one joins the check's `{files}`, so its diagnostics are attributed like those of the code.
 
-<Spec file="10-check" test="4. a lint check's config_files are linted when they changed: an invalid pyproject.toml fails python/lint (ruff RUF200) on its line" />
 
-A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (in `templates/engine/<module>.sh`; a project gets the modules its checks call). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, each line the helper prints is a finding that blocks once per turn, after any failing check, and a Stop with nothing new passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`). `forge_once <helper>` does the same at Stop and fails pre-commit and CI on any finding (`forge_lockfile_updated`).
+A `check` can call the engine's helpers instead of a project tool: `forge_ratchet`, `forge_test_edits`, `forge_hadolint`, `forge_zizmor`, `forge_squawk_files`, … (built into the binary: `crates/forge-builtins-*`, `crates/forge-helpers`). A `run` string never calls `exit`: it is a shell function body, and its last command's status is the result. `forge_advise <helper>` makes a check **advisory**: at Stop only, each line the helper prints is a finding that blocks once per turn, after any failing check, and a Stop with nothing new passes (for advice Claude may have a reason not to follow, such as `forge_untested_change`). `forge_once <helper>` does the same at Stop and fails pre-commit and CI on any finding (`forge_lockfile_updated`).
 A rule about one version of a library carries a gate: `when: {deps: [{ecosystem: npm, name: express, version: ">=5"}]}` keeps it inactive (and listed by `forge status`) wherever Express 5 is not declared; `package.json`'s `packageManager` counts as a dependency on that package manager (`{ecosystem: npm, name: pnpm, version: ">=11"}`).
-<Spec file="05-inputs" describe="version gates" />
 
-A rule that names model ids (a retired model, the models that reject `budget_tokens`) never lists them itself: `packs/ai-models/models.tsv` is the one list, and a rule line after a `# models.tsv: <kind>` comment holds its rendering (`retired`, `rejects <feature>`, `advise`). After editing the data file, `bun scripts/models.ts` rewrites those lines; the pack test fails while a rule differs from the file.
+A rule that names model ids (a retired model, the models that reject `budget_tokens`) never lists them itself: `packs/ai-models/models.tsv` is the one list, and a rule line after a `# models.tsv: <kind>` comment holds its rendering (`retired`, `rejects <feature>`, `advise`). After editing the data file, `FORGE_BLESS=1 cargo test -p forge-packs --test models_tsv` rewrites those lines; the test fails while a rule differs from the file.
 
 A pack can also be detected as a library (`detect: {library_any: [pypi]}` or `[npm]`), for rules about a published API.
 
@@ -67,15 +74,13 @@ When a framework makes one of the tool rules Forge asks for harmful, its pack sw
 
 A tool with no PyPI or npm package runs from its GitHub release: a helper asks the engine for it with `forge_release <name> <var>`, which fetches the pinned binary once (checked against the sha256 Forge embeds for the platform) or prints the check's `skipped` line. Infrastructure CLIs the project installs itself (`terraform`, `tofu`, `helm`, `kustomize`, `kubectl`) and the package managers (`npm`, `pnpm`, `yarn`) are named in `run` like project tools and found on `PATH`, so a check whose tool is absent is reported skipped; `terraform` runs `tofu` in an OpenTofu project, and `yarn` counts only from Yarn 2 on (what a `.yarnrc.yml` project uses). A project tool whose name has a `-` is run as `forge_exec_tool <name>` (`forge_exec_tool graphql-codegen --check`).
 
-A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails check.sh stops there instead of reporting the typecheck errors stale generated code causes.
+A check that verifies generated code (`graphql-codegen --check`, `wrangler types --check`) takes `stage: codegen`: it runs after lint and before the typecheck, and when it fails the check stops there instead of reporting the typecheck errors stale generated code causes.
 
-<Spec file="10-check" describe="pinned release binaries and system tools" />
 
 ## Files by role
 
-A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `src/roles.ts`. Rule examples are written where Forge's defaults put the role's files.
+A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `crates/forge-packs/src/roles.rs`. Rule examples are written where Forge's defaults put the role's files.
 
-<Spec file="15-4-file-roles" describe="roles in rules" />
 
 ## Asking the engine: types
 
@@ -111,11 +116,10 @@ How it decides: the type checker infers the type of exactly the expression the m
 
 Finding the right `package`, `module` and `name`: go to the type's definition in your editor and read where it is declared. That file decides, and it is sometimes an internal package (Vitest's `expect` is declared in `@vitest/expect`, not `vitest`). Prefer `module` when one package ships several APIs with the same names (Zod 4's `ZodString` is in `zod/v4`, Zod 3's in `zod/v3`).
 
-Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against: none when the types are the standard library's (`{module: logging, name: Logger}`) or TypeScript's own (`{package: typescript, name: Map}`). `bun run test:packs` and `forge test` install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
+Examples of such a rule are whole files, imports included (a receiver whose type cannot be resolved is unknown, and does not match), and `examples.deps` lists the packages, exact versions, they are type-checked against: none when the types are the standard library's (`{module: logging, name: Logger}`) or TypeScript's own (`{package: typescript, name: Map}`). The engine tests (`cargo test -p forge-engine`) install them once into a cached project and run every example through the engine; ast-grep alone only checks that the `match` examples match the pattern.
 
 When the engine sees a library's types only through a stub package (Django through `django-stubs`, Celery through `celery-types`), say so on the target: `needs: [{ecosystem: pypi, name: django-stubs}]`. Where the project does not depend on it, the rule is reported not enforced, with what to add, instead of passing in silence; `examples.deps` must install it.
 
-<Spec file="05-inputs" test="a type rule whose stubs are not dependencies is not enforced, and status names them" />
 
 ### Declared names: what a name refers to
 
@@ -132,7 +136,7 @@ For a function, decorator or class used by name, ask what the name **refers to**
 
 `declared` takes the same `package`, `module`, `name` and `unknown` keys. The metavariable is bound to a name or an attribute (`load`, `np.load`, `cp.exec`); the checker goes to the definition of its last name through import aliases, namespace imports and re-exports, so `from numpy import load as read` then `read(…)` matches and a project function called `load` does not. No subclasses count, and a name the checker cannot resolve (an unresolved import, an attribute of `Any`) or an expression that is not a name (`pick()(…)`) is unknown. Find the `package`, `module` and `name` with your editor's go to definition on the name. A rule can mix both: `{declared: …}` on the callee and `{type: …}` on an argument.
 
-TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the examples project of `test:packs` lists the `@types/*` packages of `examples.deps` there.
+TypeScript projects declare the global types they use (`@types/node`, `@types/bun`) in `compilerOptions.types`; the engine tests' examples project lists the `@types/*` packages of `examples.deps` there.
 
 ### Deprecated uses
 
@@ -142,9 +146,9 @@ TypeScript projects declare the global types they use (`@types/node`, `@types/bu
 
 ## Examples are tests
 
-`bun run test:packs` (from a clone of Forge) validates every pack and rule against the schemas and runs every example; `bun run test:packs <dir>` does the same for another packs directory. The spec suite runs it in CI, and each rule's result appears on its pack page. (`forge test`, the published command, checks a project's local rules only.)
+Every example is a test. The workspace's tests (`cargo test --workspace`, from a clone of Forge) validate every built-in pack and rule against the schemas, run the content lints, and run every example through the code that enforces it: grep and ast-grep targets (`forge-check`), guard targets (`forge-guard`), builtin and helper checks (`forge-builtins-*`, `forge-helpers`), type-aware rules (`forge-engine`). An example whose tool is not installed counts as not run, never as passed; `FORGE_TEST_INSTALL_TOOLS=1` installs the pinned tools into Forge's cache first.
 
-A `check` rule's examples are **fixtures**: files written into a temporary repository, which `check.sh` (holding only that check) then examines as Stop would. `head` files are committed first; `files` are the change:
+A `check` rule's examples are **fixtures**: files written into a temporary repository, which the check then examines as Stop would. `head` files are committed first; `files` are the change:
 
 ```yaml
 examples:
@@ -155,21 +159,8 @@ examples:
     - files: {compose.yaml: "services:\n  db:\n    image: postgres:17\n"}
 ```
 
-Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples; a spec test proves them instead. An example whose tool is not installed is reported skipped, never passed.
+Only checks that need a whole project (test and migration runs, `astro check`, `ngc`, lock-file checks) may go without examples.
 
-The self-test cannot run a `tool` target: that needs the tool. The test suite does it instead, with the pinned Biome, TypeScript, ruff, ty and ESLint (with typescript-eslint, type-aware): for each `tool` target, the rule's examples must make the audit satisfied when the project's config reports the expected diagnostic as an error, and unsatisfied when that diagnostic is off. Every `match` example must therefore trigger every `tool` target of its rule; put all the variants a rule covers into each `match` example when the rule has several targets. A rule whose files are of several types (JSX and Vue, Svelte, Astro or HTML templates) gives an example per type as one file, `{files: {src/components/Hero.vue: "…"}}`: the audit writes it with that file type.
+For local packs and rules, `claude-forge packs lint --repo .` loads them with the built-in packs, validates them and reports the content lints' findings.
 
-<Spec file="13-packs" top />
-<Spec file="13-packs" describe="forge test catches broken packs" />
-<Spec file="13-packs" describe="permission matching used by forge test" />
-
-## Documenting behaviour
-
-Behaviour is documented by tests in `tests/spec/`, nowhere else:
-
-- a test title is the requirement, in the present tense; a `/** … */` comment above it explains;
-- `/** @rule <id> */` or `/** @pack <id> */` shows the test on that rule's or pack's page;
-- otherwise a docs page places it with the `Spec` component (a spec file, plus a `describe` title, a `test` title or `top`);
-- a test that is shown nowhere fails the suite (see [Internals](../internals/)).
-
-Run `bun run test` before sending a pack, and `bun run docs:dev` to see its page.
+Run `cargo test --workspace` before sending a pack, and `bun run dev` in `docs/` to see its page.

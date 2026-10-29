@@ -1,5 +1,5 @@
 # Yarn (Berry, 2 and later), the project's package manager, found on PATH (§16). Yarn 1 is
-# another tool: forge_has_tool treats it as absent (templates/engine/tools.sh), so no range
+# another tool: forge_has_tool treats it as absent, so no range
 # covers 0.x/1.x. Forge asks one thing of it: is yarn.lock in sync with the package.json files
 # (`typescript/yarn/lock-sync`), without running the packages' build scripts. The
 # scripts-ratchet check reads files (pm_policy.mjs) and never runs Yarn. What changed between

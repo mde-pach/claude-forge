@@ -588,8 +588,24 @@ fn biome(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
             jshow(Some(&was))
         ));
     }
+    // `preset` (Biome 2.6, replacing `recommended`): none < recommended < all
+    let rank = |v: Option<&Value>| match v.and_then(Value::as_str) {
+        Some("none") => 0,
+        Some("all") => 2,
+        _ => 1,
+    };
+    if ra.contains_key("preset") && rank(ra.get("preset")) < rank(rb.get("preset")) {
+        o.out(format!(
+            "linter.rules.preset {} -> {}",
+            jshow(Some(
+                rb.get("preset")
+                    .unwrap_or(&Value::String("recommended".into()))
+            )),
+            jshow(ra.get("preset"))
+        ));
+    }
     for (group, gb) in rb {
-        if group == "recommended" {
+        if group == "recommended" || group == "preset" {
             continue;
         }
         let ga = ra.get(group);
@@ -843,5 +859,23 @@ mod tests {
             l,
             ["biome.json: linter.rules.suspicious.noExplicitAny error -> off"]
         );
+    }
+
+    #[test]
+    fn biome_preset_lowered() {
+        let l = loosened(
+            "biome.json",
+            r#"{"linter":{"rules":{"preset":"recommended"}}}"#,
+            r#"{"linter":{"rules":{"preset":"none"}}}"#,
+            None,
+        );
+        assert_eq!(l, ["biome.json: linter.rules.preset recommended -> none"]);
+        let raised = loosened(
+            "biome.json",
+            r#"{"linter":{"rules":{"recommended":true}}}"#,
+            r#"{"linter":{"rules":{"preset":"all"}}}"#,
+            None,
+        );
+        assert!(raised.is_empty(), "{raised:?}");
     }
 }

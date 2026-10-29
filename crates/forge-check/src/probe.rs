@@ -1,6 +1,6 @@
 //! What the machine's tools can do, for the person (forge-render's [`ToolProbe`]): the version
 //! of each tool the checks drive, the tools they need that are missing, what the installed
-//! releases cannot do, and the tool targets' audits (`src/audit.ts`): the project's own tool run
+//! releases cannot do, and the tool targets' audits: the project's own tool run
 //! on the rule's examples, to see whether its config reports the rule's code as an error.
 //!
 //! Machine state: it goes to `forge apply` and `forge status`, never into the rules files.

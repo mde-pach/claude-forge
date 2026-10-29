@@ -1,4 +1,4 @@
-//! The checks packs call as helpers, in Rust: the original `templates/helpers/*.py` and `*.mjs`
+//! The checks packs call as helpers, in Rust: the TypeScript Forge's Python and JavaScript helpers
 //! ported so that Forge needs no Python, Bun or Node of its own.
 //!
 //! Each helper is a [`Builtin`] named after the helper's file stem: a pack's
