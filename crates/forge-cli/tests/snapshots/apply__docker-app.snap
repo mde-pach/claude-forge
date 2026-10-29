@@ -2,44 +2,49 @@
 source: crates/forge-cli/tests/apply.rs
 expression: s.snapshot()
 ---
+=== .claude/rules/forge-code.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 === .claude/rules/forge-docker-compose.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Docker Compose. `compose.yaml` holds the shared setup; `compose.override.yaml` (loaded automatically) holds local changes.
+Docker Compose. The base compose file (`compose.yaml`, or `docker-compose.yml`) holds the shared setup; its override file (`compose.override.yaml`, or `docker-compose.override.yml`, loaded automatically) holds local changes.
 `depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
 `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
 Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
-Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 (short syntax) bind to `127.0.0.1`: Docker-published ports bypass ufw and firewalld.
-docker compose runs outside Claude Code's sandbox, so these checks are a real boundary.
+Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
 === .claude/rules/forge-docker.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Docker. Multi-stage builds keep build tools out of the final stage; the checks require the final stage to run as a non-root `USER`.
+Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
 `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
 `ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
 Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
-Claude Code's sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`; docker commands then run outside the sandbox.
 === .claude/rules/forge-github-actions.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`); zizmor's unpinned-uses check rejects tags.
-Workflows set `permissions: {}` at the top and grant each job only what it needs (excessive-permissions).
-`actions/checkout` sets `persist-credentials: false` unless a later step pushes (artipacked).
-Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) inside `run:` are rejected (template-injection): pass them through `env:` and use the shell variable.
-`pull_request_target` and `workflow_run` run with secrets on untrusted code; zizmor's dangerous-triggers check rejects them.
+GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`), never a tag or branch, which can be moved.
+Workflows set `permissions: {}` at the top and grant each job only what it needs.
+`actions/checkout` sets `persist-credentials: false` unless a later step pushes.
+Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) are never expanded inside `run:`: pass them through `env:` and use the shell variable.
+`pull_request_target` and `workflow_run` run with secrets on untrusted code: do not add them.
+=== .claude/rules/forge-python-uv.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
 === .claude/rules/forge-python.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
-Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
-Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
+Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 === .claude/rules/forge-secrets.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
-Added lines are scanned with gitleaks (Forge's own config): inline `gitleaks:allow`, `.gitleaksignore` and a project `.gitleaks.toml` do not silence it.
+A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/settings.json
 {
@@ -56,7 +61,9 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
       "Edit(**/.mypy.ini)",
       "Edit(**/pyrightconfig.json)",
       "Write(**/setup.py)",
-      "Write(**/setup.cfg)"
+      "Write(**/setup.cfg)",
+      "Write(**/requirements*.txt)",
+      "Edit(**/requirements*.txt)"
     ]
   },
   "hooks": {
@@ -181,11 +188,11 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Written by forge apply. Do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
+rule_set = "3b4b6718af55f5953b0508b61c6f7662c030c285ec00074cf448a7c3cba96336"
 
 [rules]
 "docker/compose/config-valid" = "b87377426380c917a3d0496c579860b4167ae96f6df1e50de5fa1e7c5a454a8d"
-"docker/compose/datastore-loopback" = "43892d01fdec9ac491fb3882ad2a7438af2f84e859d033a538485cd7bbbac2c3"
+"docker/compose/datastore-loopback" = "aee19288b76804eb2b75ecb1cd5214c616b8a902ed9283c76c1308157ca46725"
 "docker/compose/healthy-depends" = "28a47bf2921dd7041a878ff5d7c089ce75a0711aefb88e00b599c51b95e5aa29"
 "docker/compose/no-docker-sock" = "544a4ff4105d0a67f445ec265dc00088b21f1d7100cd11e646829156d2c84214"
 "docker/compose/no-host-root-mounts" = "668048d320eab4bc13a818dd9b9f5d085d271025e7869ad4b09740c86ce959e4"
@@ -195,32 +202,32 @@ rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
 "docker/compose/no-version-key" = "91ec3635e4dd2da89e4a10a2a8aab160d3106d38a24389bb84ece0174e65d2b7"
 "docker/compose/pinned-images" = "13729d3fc187e8e27b993e53842a96e4d73ac1dde1f55502d32a9d501764f2cd"
 "docker/copy-not-add" = "5c3ab1b028c86b84d5ef86e0486b97cd9470fbb31056f788b6b8713ed5cfe83a"
-"docker/deps-before-copy" = "d81fc70ff3e8308b29453147ed7a4743413f6a6634e1e7f375fe170efe43bccb"
+"docker/deps-before-copy" = "f278c09be6735f572d46b9dee0c7bc26d8de3cc46d274b00a4e9c2e2f64442be"
 "docker/dockerignore" = "99f013f0c52289375c0f2552ab0ee5a4e7b8f56e399cd1d53de0a8dd85890540"
 "docker/exec-form" = "18e5e51155d61fe2a856c665a8015de70fe3fbbc5589131e75a3c9a2b469e012"
 "docker/hadolint-correctness" = "d2488c874b225a06573499c78087a73fbcea8d472ad7419606032c334305ca61"
-"docker/image-size" = "42c15d243a6cd2490ea83fc687c008505a604beb85a4a9c85fba4af5eceafd84"
+"docker/image-size" = "77db66bcc495f6e86181b39538e8251816f0727876440ba232855df381ca3872"
 "docker/locked-install" = "a5495533935cc356e8fced1905edd6270f4ee74ab11aa4962428532f94673280"
 "docker/no-secret-arg-env" = "82dbb6e788a6f4951d9acfe5bc05c62a0e90db51be84fe17c4121f2568f7a4f7"
 "docker/non-root-user" = "632b555a85749702d4547dea1ce0c84bf6c4382b03a6c004df5200c13b84edab"
 "docker/pin-base-image" = "4b3c4da19bfd220fc4bd457a6845ee83ae91c36a729a4309f4e69f8682c7cdc3"
 "docker/pipefail" = "a139fc92536169041f21e1e7a004f80fc8c4930adceec45f4e2b90709725d0e8"
 "docker/workdir" = "e93bb4f7873a3ad1bc8def88a259d8ec4d2bb461d58dc0ac924f5fb46eae09de"
-"git/editorconfig" = "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f"
-"git/generated-files" = "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6"
-"git/large-files" = "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5"
+"git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
+"git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
+"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
-"github-actions/actionlint" = "dae02b700cee685e90135c93ee84d2f1dd116d2b260cfe50089651ef8db42435"
-"github-actions/ci-ratchet" = "cc975df7ce4dcb81fe01ade6c982bbc80e182359e2103082cf13b63af2566592"
-"github-actions/no-removed-jobs" = "e01f20d069abe7bf7421a448629a96eb865def925d9529ed726bde39baa29a80"
+"github-actions/actionlint" = "ee9f962c4c2a715a7ece27fce32755e45ca383d223706c112a0080e9761c620e"
+"github-actions/ci-ratchet" = "e26870acb13fc4faf2f46cc2e06147a692fa37152f76bf70923574c326434d49"
+"github-actions/no-removed-jobs" = "4513460330a53c2eaba623a51b0dd2c81ef8157d76a63e936015e4846debad00"
 "github-actions/zizmor" = "152e740e0ec9b85f970fbea79835a9e78532541b357baaaea186aca86c09831a"
-"github-actions/zizmor-advice" = "7a7605e8752f8bc7f4846ccac20a52db9069fd8856f049b1f88885e8c5533b97"
+"github-actions/zizmor-advice" = "950753c377e62d0e935248143449674af6f92007a818690f9a346567ba17c680"
 "python/annotations-api" = "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a"
 "python/archive-extract" = "87b2c77b092c7876717df443ca40d5ad933a9f96790aa4475bfe0e51556574da"
 "python/aware-datetime" = "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b"
 "python/config-files" = "47fb25f5b890d22cfbebfdbaf84f73a27641a99e1fa78da0092c9906bcae7e49"
-"python/config-ratchet" = "fde5cb235c73ad800170c73f228bb004aa296f8ce1fb794c9ff2adfcb8cd7fbc"
+"python/config-ratchet" = "273656c77b1258c65a61b5d3b71bf2b2ef53cfcec17fa3c3a1ef3b69860eafa1"
 "python/contextmanager-finally" = "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55"
 "python/decimal-from-str" = "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262"
 "python/env-example" = "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd"
@@ -232,7 +239,7 @@ rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
 "python/jinja-autoescape" = "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52"
 "python/lazy-log-args" = "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221"
 "python/lint" = "ad100307284126a351d3c7863fb9ddd238faf8093eef8412683a9f97a1f905b4"
-"python/llm-client-timeout" = "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8"
+"python/llm-client-timeout" = "65fed6ef8f131d573aed25a4db8d58d73c9d35f05434df33477229b1a6c2178f"
 "python/log-exception" = "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81"
 "python/loop-closure" = "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa"
 "python/misplaced-bare-raise" = "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c"
@@ -259,11 +266,10 @@ rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
 "python/no-jump-in-finally" = "7a0cfb2d8894b112ab04f6b4bf01e7888e97640bb80c5462b12c03f61e120746"
 "python/no-mutable-defaults" = "9b431e94f8974c5ab1b937f224674196aa31520649925e40579908702af678a5"
 "python/no-nest-asyncio" = "42bd48664c16e28b8b2761b7b9e872b71bcf1f756c2474ca4a7f06342892d12f"
-"python/no-new-suppressions" = "4948353ff8634d811d54effd161e08f64c58c814c8617b9d0b6302d5ea6fc872"
+"python/no-new-suppressions" = "1dcdd508c0db4dafb6bb73a23bfc644e15606923ba717965756ee646a7c7a8bb"
 "python/no-passlib" = "c0485f2eb0ab87bcd139cd46d4b69dc3476d31c065cd94089fbb5e459822153d"
 "python/no-pickle" = "9c351dae94ee08822dae165aa3162647da126477b5c75b8cf49f8dcaef858b6b"
 "python/no-pkg-resources" = "885bc29a2544d66bb79d4bd714209d549366f764a4737423cc1b1d55a5281c79"
-"python/no-placeholder-comment" = "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286"
 "python/no-possibly-missing-submodule" = "23169ba136c8097d032bd0466d9db0ac7de78683071e5e7f953090cd8d855bd2"
 "python/no-preexec-fn" = "d53a83e7784fc809c37da3485cb62511bfe801b65fe43781853ab8b8fda96f94"
 "python/no-print" = "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a"
@@ -295,6 +301,7 @@ rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
 "python/no-weak-hash" = "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03"
 "python/open-with-context" = "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056"
 "python/override-decorator" = "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089"
+"python/pip-install" = "2734633f12571173b6f415db45fc1f635290f6a6e8bc058209b672fa17ca61e5"
 "python/project-table" = "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327"
 "python/raise-from" = "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381"
 "python/ruff-config-current" = "740352f926ca71cf7008eefd348543f0989a311eb1f051689ca0a7c480e7b312"
@@ -304,31 +311,38 @@ rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
 "python/subprocess-check" = "3b8e572d9f78082ac6eb7df6f0d8ffb1ae9e4a0ec797077fea459d1691e6bd08"
 "python/taskgroup-except-star" = "cac6a24d72d057d9dcf8aa120647e94a330c34c20536836e868f85c452e0f6ad"
 "python/type-checking-imports" = "a3ffea57777c1ccaec2df6487798c5621ed3195313d6114b4b44a34242b97df4"
-"python/typecheck" = "a0569facbec5254e123b397653773ea6e59e2e314833e24e7dc2739c99c9e5b8"
+"python/typecheck" = "f20a77cb92eccf2fbe6e119e9f3db3448aa26fd77df903a1c02dabcf14492baf"
 "python/typed-decorators" = "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75"
 "python/typeis-over-typeguard" = "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9"
+"python/uv/dependency-groups" = "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a"
+"python/uv/exclude-newer" = "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b"
+"python/uv/lock-sync" = "ad113b0741738e0c2e01426f456301807bac75b55254ce77376e63b6bfaf2364"
+"python/uv/no-pip" = "68c8dfbbd045bebd1ac31ad3d13e00fe8b8a36a9670f545a046dcd126932dcd7"
+"python/uv/no-requirements-txt" = "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5"
 "python/valid-pyproject" = "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241"
 "python/weak-crypto" = "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48"
 "python/with-suffix-dot" = "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
 "secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
 "secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
-"supply-chain/audit-ignore-ratchet" = "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5"
-"supply-chain/insecure-download" = "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee"
-"supply-chain/new-npm-dep-exists" = "d55abf477632768ca2ed9ba9c7025b76aa1651fe8ae19849172cb1f87ec9597d"
-"supply-chain/new-pypi-dep-exists" = "a8646bc19e12d584ffb149654f5bffccbd665d3d632d1b20143f60f7bd6a31d7"
+"supply-chain/audit-ignore-ratchet" = "82a2babb74414d41b371004b17f3bdf779527c67debfe682963c7c1442cea2c6"
+"supply-chain/insecure-download" = "e1f9edbbfa16c6ab1204560b746fb3406d8e53a13ec114b326242bc948953d3c"
+"supply-chain/new-npm-dep-exists" = "677b63966774292f89846c9ce2167eb6dd89942e579e90648a6d66b7cad9ae5b"
+"supply-chain/new-pypi-dep-exists" = "c56fab0b19b74025e2a13ddcd0e50b7057618603df676b54768c542f9020f13c"
 "supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
-"supply-chain/no-dependency-confusion-command" = "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c"
-"supply-chain/no-tls-disable" = "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124"
-"supply-chain/no-tls-disable-command" = "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542"
+"supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
+"supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
+"supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
 "supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
 
 [files]
-".claude/rules/forge-docker-compose.md" = "35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff"
-".claude/rules/forge-docker.md" = "0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7"
-".claude/rules/forge-github-actions.md" = "032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426"
-".claude/rules/forge-python.md" = "de53525de5bec9988f79efe3f8da98c0a0d9ac6e26965f92f793f49b4c0d2979"
-".claude/rules/forge-secrets.md" = "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658"
+".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
+".claude/rules/forge-docker-compose.md" = "a0371e0c8311cfb509b03aaedb5fe2529d00673b8ed85e6a958bf22f99e0963a"
+".claude/rules/forge-docker.md" = "41946e7b1a91c757c52a251514deec31ea0710cfdfc3404e6155581f82cd8ca0"
+".claude/rules/forge-github-actions.md" = "2ea08024102f867ac97c29ea92d65a4a2bf921159c217ad0ec8a25e9777a1cfd"
+".claude/rules/forge-python-uv.md" = "dfeecfb2197268dd67d8b071c05a6e5cad921f181da8d78bf5228b6f93688b2c"
+".claude/rules/forge-python.md" = "7f69193c7c00d8796b8f19a9cff6c0f72bd38faf7f8d38b8ca1759e7318c8c54"
+".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
 ".git/hooks/pre-commit" = "df1a857492084a9ae3a8d4b1e72bcd329806178fa45741089b8d7451f5cd7875"
 
 [roles]
@@ -425,6 +439,16 @@ value = "Write(**/setup.py)"
 file = ".claude/settings.json"
 path = "permissions.ask"
 value = "Write(**/setup.cfg)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Write(**/requirements*.txt)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/requirements*.txt)"
 
 [[settings]]
 file = ".claude/settings.json"

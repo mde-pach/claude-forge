@@ -192,7 +192,7 @@ fn bash(cmd: &str, id: &str) -> Value {
 
 #[test]
 fn pip_install_in_a_uv_project_is_denied_with_uv_add() {
-    let s = Sandbox::new(&["python/uv/no-pip"]);
+    let s = Sandbox::new(&["python/pip-install"]);
     let f = Fake::default();
     let out = s.run(&f, "pre-tool-use", bash("pip install requests", "t1"));
     let v = json_out(&out);
@@ -426,7 +426,7 @@ fn prompt_snapshots_the_turn_silently() {
 
 #[test]
 fn session_start_gives_repository_context_only() {
-    let s = Sandbox::new(&["python/uv/no-pip"]);
+    let s = Sandbox::new(&["python/pip-install"]);
     std::fs::write(s.root.join("app/main.py"), "x = 2\n").unwrap();
     let out = s.run(
         &Fake::default(),
@@ -651,7 +651,7 @@ fn session_start_starts_the_engine_for_typed_rules() {
 
 #[test]
 fn outside_a_project_hooks_are_silent() {
-    let s = Sandbox::new(&["python/uv/no-pip"]);
+    let s = Sandbox::new(&["python/pip-install"]);
     let elsewhere = s.root.parent().unwrap().join("elsewhere");
     std::fs::create_dir_all(&elsewhere).unwrap();
     for ev in [

@@ -2,31 +2,38 @@
 source: crates/forge-cli/tests/apply.rs
 expression: s.snapshot()
 ---
+=== .claude/rules/forge-code.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
+Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
+When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-python-fastapi.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-FastAPI. Dependencies use `Annotated[T, Depends(...)]` (FAST002). Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected). FastAPI reads request and response bodies from Pydantic v2 models.
+FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected).
+FastAPI reads request and response bodies from Pydantic v2 models.
 `FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
 HTTP Basic credentials (`HTTPBasicCredentials.username` / `.password`) are compared with `secrets.compare_digest`, never `==`.
 === .claude/rules/forge-python-pydantic.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`), with the adapter built once at module level.
-=== .claude/rules/forge-python-pytest.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
-pytest. Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
-When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-python-sqlalchemy-alembic.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
+Alembic. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
+With an async engine, `alembic/env.py` runs the migrations through `connection.run_sync()` (the async template's `run_async_migrations()`).
 Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.
+=== .claude/rules/forge-python-sqlalchemy-asyncio.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+SQLAlchemy asyncio: sessions come from `async_sessionmaker(engine, expire_on_commit=False)` and are opened with `async with`.
+Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
 === .claude/rules/forge-python-sqlalchemy.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
-SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Sessions: `async_sessionmaker(engine, expire_on_commit=False)`, opened with `async with`; the project depends on `sqlalchemy[asyncio]`.
-Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`; large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected). One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
+SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
 Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 === .claude/rules/forge-python-uv.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
@@ -37,14 +44,13 @@ These are this project's defaults. When the task or the user explicitly asks for
 
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
-Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
-Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
+Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 === .claude/rules/forge-secrets.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
-Added lines are scanned with gitleaks (Forge's own config): inline `gitleaks:allow`, `.gitleaksignore` and a project `.gitleaks.toml` do not silence it.
+A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/settings.json
 {
@@ -188,20 +194,20 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Written by forge apply. Do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
+rule_set = "b6195708e3cd800a7cfb846b9c189051a1517891c60df03becfba958d75e7958"
 
 [rules]
-"git/editorconfig" = "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f"
-"git/generated-files" = "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6"
-"git/large-files" = "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5"
+"git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
+"git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
+"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
 "python/annotations-api" = "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a"
 "python/archive-extract" = "87b2c77b092c7876717df443ca40d5ad933a9f96790aa4475bfe0e51556574da"
-"python/asyncpg/pool-acquire-ctx" = "86d08e2c35b761f228b02a4ff22d55b485de27bc9abe825aea07862b37f48b40"
+"python/asyncpg/pool-acquire-ctx" = "7a9911f11c82241ae12d391d012b747a73093fd6ebfd3d771181b73af04bf230"
 "python/aware-datetime" = "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b"
 "python/config-files" = "47fb25f5b890d22cfbebfdbaf84f73a27641a99e1fa78da0092c9906bcae7e49"
-"python/config-ratchet" = "fde5cb235c73ad800170c73f228bb004aa296f8ce1fb794c9ff2adfcb8cd7fbc"
+"python/config-ratchet" = "273656c77b1258c65a61b5d3b71bf2b2ef53cfcec17fa3c3a1ef3b69860eafa1"
 "python/contextmanager-finally" = "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55"
 "python/decimal-from-str" = "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262"
 "python/env-example" = "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd"
@@ -211,10 +217,10 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "python/fastapi/cors-credentials-wildcard" = "1ff2c42562d1d01479da9e3f2bea4be08ad42b140de7d6dae3b80ef4d277d84c"
 "python/fastapi/deprecated-params" = "de3831b362bb016f17b82dd083a133023a43800e4f03d45f203c5ec0b01c1071"
 "python/fastapi/no-debug-true" = "c18e5a042914d571469d52a7667fc5085fc5881cbcd67a0082ab6d668638cb9f"
-"python/fastapi/no-on-event" = "9964cd2fafef9ee91b7a1a635874b1ee1b201337443ce4d3c9662827c90332b2"
-"python/fastapi/no-raw-request-body" = "8d8714dc1c4d63e697799fcdf0098613ac7c69948819a0942a8f65bf9c790f5e"
+"python/fastapi/no-on-event" = "ad13721759861ffcdd4460b3439f5f24d8d4f839671e36b5616b7ae090ff5c6b"
+"python/fastapi/no-raw-request-body" = "80831410e23468b462ad429acea2ce69b62291cefd101830060d164fbc84225e"
 "python/fastapi/no-testclient-in-async-test" = "8463a8f5fad9b78b84ab69b6e962bb5cca3d212218f6300138d30b301438c316"
-"python/fastapi/testclient-lifespan" = "bd931f1ad747c77549fbfcc1582cdcea85cb8ff6e74de911effc21cbe72d9820"
+"python/fastapi/testclient-lifespan" = "be11d94171fd8925690ebc4a2231a0f1d423c39b4834da114b5324f0e7bc767c"
 "python/fastapi/unused-path-param" = "82bb1ec3e4cf1b41d581e50cb522bc85bffc81f3f77a4a6c0d6b23ce63d9526f"
 "python/format" = "8318b1f65f2c50fda053034fcbaef0c48b4556e32441cf08d04dda2153928f33"
 "python/generic-type-args" = "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4"
@@ -223,7 +229,7 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "python/jinja-autoescape" = "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52"
 "python/lazy-log-args" = "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221"
 "python/lint" = "ad100307284126a351d3c7863fb9ddd238faf8093eef8412683a9f97a1f905b4"
-"python/llm-client-timeout" = "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8"
+"python/llm-client-timeout" = "65fed6ef8f131d573aed25a4db8d58d73c9d35f05434df33477229b1a6c2178f"
 "python/log-exception" = "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81"
 "python/loop-closure" = "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa"
 "python/misplaced-bare-raise" = "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c"
@@ -250,11 +256,10 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "python/no-jump-in-finally" = "7a0cfb2d8894b112ab04f6b4bf01e7888e97640bb80c5462b12c03f61e120746"
 "python/no-mutable-defaults" = "9b431e94f8974c5ab1b937f224674196aa31520649925e40579908702af678a5"
 "python/no-nest-asyncio" = "42bd48664c16e28b8b2761b7b9e872b71bcf1f756c2474ca4a7f06342892d12f"
-"python/no-new-suppressions" = "4948353ff8634d811d54effd161e08f64c58c814c8617b9d0b6302d5ea6fc872"
+"python/no-new-suppressions" = "1dcdd508c0db4dafb6bb73a23bfc644e15606923ba717965756ee646a7c7a8bb"
 "python/no-passlib" = "c0485f2eb0ab87bcd139cd46d4b69dc3476d31c065cd94089fbb5e459822153d"
 "python/no-pickle" = "9c351dae94ee08822dae165aa3162647da126477b5c75b8cf49f8dcaef858b6b"
 "python/no-pkg-resources" = "885bc29a2544d66bb79d4bd714209d549366f764a4737423cc1b1d55a5281c79"
-"python/no-placeholder-comment" = "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286"
 "python/no-possibly-missing-submodule" = "23169ba136c8097d032bd0466d9db0ac7de78683071e5e7f953090cd8d855bd2"
 "python/no-preexec-fn" = "d53a83e7784fc809c37da3485cb62511bfe801b65fe43781853ab8b8fda96f94"
 "python/no-print" = "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a"
@@ -286,15 +291,16 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "python/no-weak-hash" = "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03"
 "python/open-with-context" = "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056"
 "python/override-decorator" = "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089"
+"python/pip-install" = "2734633f12571173b6f415db45fc1f635290f6a6e8bc058209b672fa17ca61e5"
 "python/project-table" = "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327"
 "python/pydantic/no-v1-namespace" = "b32fea991e2b3e0169aa28db7f026f05a450994c0febe4ea063f6d3c5da506ac"
-"python/pydantic/typeadapter-module-level" = "9055642fc8900ac8af6d9b0a553233a93f7ef38ad7a45a4c83f04f7f5312ea24"
-"python/pydantic/v2-api" = "000368a123b392306f8202639341a488e70c03ba337e07b8763a9c5c52453b0d"
+"python/pydantic/typeadapter-module-level" = "9466c14f59db5a2f41c941de1765cfab2c8fe6cb4d98b057d367e7924ee40d79"
+"python/pydantic/v2-api" = "f883d5d8621068a3582719b7600a323d027082e97d25ef93900551c7e4884f18"
 "python/pytest/no-blind-raises" = "f5f9ae20956c2759cf7a3b79015c991fda29794aa45079bc58f801ccf9eea6a7"
 "python/pytest/no-exit-zero" = "15151cbf387fc79f5469733269f5bd03a9d9a1e2bfa9c91e5b88710b39e69a9b"
-"python/pytest/no-exitstatus" = "75100f92b4395d983cebb1f6a6572393d07df26191a2008dcb455fe4a36bce47"
+"python/pytest/no-exitstatus" = "aa551ef1e96e4f74cd9a22f9e36fbf00d13d582fa41252022fc63aaa92cf6bd7"
 "python/pytest/no-fewer-asserts" = "845f8454902c287e0f3dbb976ab63817130ad352ebd5b1f797cdab2c0cbb621b"
-"python/pytest/no-hook-tamper" = "185fbafafa603f64de65f62544adfcdb6fb03bc640b9a42b56f0efcf18a62994"
+"python/pytest/no-hook-tamper" = "7af5b8dbcb98bc8f3c57c5e69c58ad5d9c09c930f4f0cc0ba16a68af1421a157"
 "python/pytest/no-mock-increase" = "900451d90a480de003646dadd99e9052dcf407de02bf1fd97be3134fd2ce62c8"
 "python/pytest/no-new-skip" = "9def450020d6e98f188f5a430fb49a977ca494801e344ae1e6bcb78ad005bf64"
 "python/pytest/no-tautological-assert" = "7aedc549f5af6a1f57bc4f92f28a346065f2b99bc3dc9fbea3248921879fe54d"
@@ -308,39 +314,39 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "python/self-type" = "7d4247c8346d32b948d11e91b0b2e7aa69dda3dd6401f83879479de240a7b4a1"
 "python/sqlalchemy/alembic/applied-migrations" = "aed7425e1c5079bfbc5d364d830dd600bd64d3d07b4eb6ff4e11e76a947943a4"
 "python/sqlalchemy/alembic/check" = "c26aa1453c76fc3a68bc9d3a34bb9f34ab8f2d4cc4b0c0fccd0cb706bd1705c8"
-"python/sqlalchemy/alembic/data-migration-downgrade" = "532462028b399611dded62b7ca935ccadc8139fbb368578e79c6e1d5a944b3bd"
-"python/sqlalchemy/alembic/downgrade" = "ae44bcbf5f4e2bcc2bf5905ad69c1799335cd535c42c395baba1184b3a56247a"
-"python/sqlalchemy/alembic/fk-index" = "a0fdaaa36af5e509006d2e782436ff3778e676e3e56b7283f3689a5365f3e4dd"
+"python/sqlalchemy/alembic/data-migration-downgrade" = "f40cb013d13833584019ea506514e737ce69085ccfe2e5a063aff9131ff8d2dd"
+"python/sqlalchemy/alembic/downgrade" = "c2d340e81dce5c85c2075231e7980f22198b43a31e566bb8a7782a7429232052"
+"python/sqlalchemy/alembic/fk-index" = "0876473b13bae42e39bf670c8301f01f24bb8e6fc3e0706289fc2c38bf9b2c0a"
 "python/sqlalchemy/alembic/migration-lint" = "decc6c2fb46676d13c4d3104fd729f1e57e1e7a278cb9275d060f4842181cb0a"
 "python/sqlalchemy/alembic/model-registered" = "9bf9e4138717c73c3958b80129243d7332f1fdb53b5c35ad19939a5182568521"
 "python/sqlalchemy/alembic/no-create-all" = "277c5982e162bda3c651a12d687ed49c444003c500a5bd11898a42f5e1fc9c54"
-"python/sqlalchemy/alembic/no-downgrade-base" = "64399d2ccfb81a42cd95eb0d187143e4694829edeabe8d1005e930e9a6b7030b"
+"python/sqlalchemy/alembic/no-downgrade-base" = "4200a5c8751de41acb877251c750dddaec795a17c8901da9589d60105d7ecc6e"
 "python/sqlalchemy/alembic/single-head" = "7abea6498402320d3423515f4122a7187ee95c9a5bd621fb0e217796c92d2fcc"
 "python/sqlalchemy/alembic/sqlite-batch" = "7d1cfb9046cd0e850310559dfa2ed6781a5882dd32e2ca94790b2e8c07e46588"
 "python/sqlalchemy/async-expire-on-commit" = "6fce73f809a395ca43afda54db104f1352d624589698ec0f91bab90a9848054b"
 "python/sqlalchemy/asyncio-extra" = "71ea9790379cb49b54e24b33a2632024623c225169aff4803985647df6e595fc"
-"python/sqlalchemy/fk-index" = "e95c1b2966eb44c593de8eb4f2ad2c807395947255d7e567f283cb693638b540"
+"python/sqlalchemy/fk-index" = "bead651a88ed1c2572a0199aa02cd71d3d8886e7349574fe8711601f0319f05a"
 "python/sqlalchemy/mapped-column" = "6427c117e9e210af344a1a9f48361832151670ca25bd382d47fbfc60fe896112"
 "python/sqlalchemy/no-backref" = "dcbee3478c89bcb1ece428ca1259e7bac091ed43c6c8e4da75787c4c06a258f4"
-"python/sqlalchemy/no-concurrent-session" = "0f936f3c2ed3ed7f6980c676d761eaa1831c56463e359a6a9e5c7e5df032b64c"
+"python/sqlalchemy/no-concurrent-session" = "29af54f83af8884077af489728f62e85a3a3e29095c30741fc25aa320b86cbd9"
 "python/sqlalchemy/no-declarative-base" = "10b289e5cc6d65882309cf305285e365372000cb1f1c37ac6649b13d43929852"
 "python/sqlalchemy/no-lazy-dynamic" = "523b0ef95de1683978fae918ff6b2cf82a361f6a1802455f4d6835e7cd5d90ff"
 "python/sqlalchemy/no-query-api" = "4a3897fffdaeb901ea51eab3e40b99c901dc168b7d02501825d15e786fb97be1"
 "python/sqlalchemy/no-raw-execute" = "9412a8f512351567d2b2e9cb3cb8c7d7b9db5dedfbbf09c40a78122803accad0"
 "python/sqlalchemy/no-text-fstring" = "d6124c4cd9fb3be0b5014c11bca908f9ed24f7998fce175c36dee6a3cf19740a"
-"python/sqlalchemy/session-context" = "d82d5556d244e6bb0de557a738c1f680f7ada159bc744b5df60f6129c371bb6f"
+"python/sqlalchemy/session-context" = "ef9d059f2d1e263dd83af468d227a1c39bee2d6a7eae398779ccab240307fe2a"
 "python/strict-zip" = "a657834c26cca0bb51b07a18b297238075b337fc30a03ea089e7e10c913fccde"
 "python/stub-sync" = "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe"
 "python/subprocess-check" = "3b8e572d9f78082ac6eb7df6f0d8ffb1ae9e4a0ec797077fea459d1691e6bd08"
 "python/taskgroup-except-star" = "cac6a24d72d057d9dcf8aa120647e94a330c34c20536836e868f85c452e0f6ad"
 "python/type-checking-imports" = "a3ffea57777c1ccaec2df6487798c5621ed3195313d6114b4b44a34242b97df4"
-"python/typecheck" = "a0569facbec5254e123b397653773ea6e59e2e314833e24e7dc2739c99c9e5b8"
+"python/typecheck" = "f20a77cb92eccf2fbe6e119e9f3db3448aa26fd77df903a1c02dabcf14492baf"
 "python/typed-decorators" = "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75"
 "python/typeis-over-typeguard" = "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9"
 "python/uv/dependency-groups" = "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a"
 "python/uv/exclude-newer" = "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b"
 "python/uv/lock-sync" = "ad113b0741738e0c2e01426f456301807bac75b55254ce77376e63b6bfaf2364"
-"python/uv/no-pip" = "67264ba6e92a5fc863f81f816d05223a758c9eece0a4eae9dc85fe8c718803c1"
+"python/uv/no-pip" = "68c8dfbbd045bebd1ac31ad3d13e00fe8b8a36a9670f545a046dcd126932dcd7"
 "python/uv/no-requirements-txt" = "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5"
 "python/valid-pyproject" = "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241"
 "python/weak-crypto" = "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48"
@@ -348,25 +354,26 @@ rule_set = "16ac0df4d9403dff38c3eb8cc0889e9b4f2d8e5de3fb6baa9a1158b1253dd362"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
 "secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
 "secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
-"supply-chain/audit-ignore-ratchet" = "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5"
-"supply-chain/insecure-download" = "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee"
-"supply-chain/new-npm-dep-exists" = "d55abf477632768ca2ed9ba9c7025b76aa1651fe8ae19849172cb1f87ec9597d"
-"supply-chain/new-pypi-dep-exists" = "a8646bc19e12d584ffb149654f5bffccbd665d3d632d1b20143f60f7bd6a31d7"
+"supply-chain/audit-ignore-ratchet" = "82a2babb74414d41b371004b17f3bdf779527c67debfe682963c7c1442cea2c6"
+"supply-chain/insecure-download" = "e1f9edbbfa16c6ab1204560b746fb3406d8e53a13ec114b326242bc948953d3c"
+"supply-chain/new-npm-dep-exists" = "677b63966774292f89846c9ce2167eb6dd89942e579e90648a6d66b7cad9ae5b"
+"supply-chain/new-pypi-dep-exists" = "c56fab0b19b74025e2a13ddcd0e50b7057618603df676b54768c542f9020f13c"
 "supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
-"supply-chain/no-dependency-confusion-command" = "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c"
-"supply-chain/no-tls-disable" = "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124"
-"supply-chain/no-tls-disable-command" = "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542"
+"supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
+"supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
+"supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
 "supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
 
 [files]
-".claude/rules/forge-python-fastapi.md" = "f087d2341264d50383f79fc83c6e300192c545a22c368a73ab19e9212bb25d61"
+".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
+".claude/rules/forge-python-fastapi.md" = "cea3e7b8d001717728b3fc3af62a85f2924399cb8d4aff4631617be1d43ba6b5"
 ".claude/rules/forge-python-pydantic.md" = "cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d"
-".claude/rules/forge-python-pytest.md" = "bd0b0ff93d58820d159a875d54f2993d77f965e1f23e98212049517f3415924a"
-".claude/rules/forge-python-sqlalchemy-alembic.md" = "dbf9fc34de9d1cd97ecdac7256edcfdbf419b925772e29c2207ec768cd2e825d"
-".claude/rules/forge-python-sqlalchemy.md" = "45415c50775a7637029fae55dd7dcef41b1cbe2fcbace978e88c05eeed67431e"
+".claude/rules/forge-python-sqlalchemy-alembic.md" = "d31eb60b501c6493062a9930a592d4fa4ab310557a4958d40c2729f516fd8208"
+".claude/rules/forge-python-sqlalchemy-asyncio.md" = "46f57b59c98499886cd59ef89044c3da47ec2a251d4fb7408554b420161e74bb"
+".claude/rules/forge-python-sqlalchemy.md" = "6f79b515badbe12e6d4e2bfcd1d32658b5e0dccff0fb011edc46ba2fdc612cba"
 ".claude/rules/forge-python-uv.md" = "dfeecfb2197268dd67d8b071c05a6e5cad921f181da8d78bf5228b6f93688b2c"
-".claude/rules/forge-python.md" = "de53525de5bec9988f79efe3f8da98c0a0d9ac6e26965f92f793f49b4c0d2979"
-".claude/rules/forge-secrets.md" = "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658"
+".claude/rules/forge-python.md" = "7f69193c7c00d8796b8f19a9cff6c0f72bd38faf7f8d38b8ca1759e7318c8c54"
+".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
 ".git/hooks/pre-commit" = "df1a857492084a9ae3a8d4b1e72bcd329806178fa45741089b8d7451f5cd7875"
 
 [roles]

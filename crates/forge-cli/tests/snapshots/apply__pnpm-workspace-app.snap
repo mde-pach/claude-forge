@@ -2,19 +2,24 @@
 source: crates/forge-cli/tests/apply.rs
 expression: s.snapshot()
 ---
+=== .claude/rules/forge-code.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
+Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
+When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-secrets.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
-Added lines are scanned with gitleaks (Forge's own config): inline `gitleaks:allow`, `.gitleaksignore` and a project `.gitleaks.toml` do not silence it.
+A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/rules/forge-typescript-pnpm.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
 pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
-pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.
 === .claude/rules/forge-typescript-vitest.md
 ---
 paths:
@@ -24,8 +29,6 @@ paths:
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
-Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
-When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-typescript.md
 ---
 paths:
@@ -35,9 +38,8 @@ paths:
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 TypeScript, strict.
-TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
+No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
-Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
 === .claude/settings.json
 {
@@ -186,30 +188,30 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 # Written by forge apply. Do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
+rule_set = "763b266c2ef9761114bd875e82dc8db4ac0c354f77ae8fa51e5de29406e1a53e"
 
 [rules]
-"git/editorconfig" = "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f"
-"git/generated-files" = "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6"
-"git/large-files" = "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5"
+"git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
+"git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
+"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
 "secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
 "secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
-"supply-chain/audit-ignore-ratchet" = "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5"
-"supply-chain/insecure-download" = "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee"
-"supply-chain/new-npm-dep-exists" = "d55abf477632768ca2ed9ba9c7025b76aa1651fe8ae19849172cb1f87ec9597d"
-"supply-chain/new-pypi-dep-exists" = "a8646bc19e12d584ffb149654f5bffccbd665d3d632d1b20143f60f7bd6a31d7"
+"supply-chain/audit-ignore-ratchet" = "82a2babb74414d41b371004b17f3bdf779527c67debfe682963c7c1442cea2c6"
+"supply-chain/insecure-download" = "e1f9edbbfa16c6ab1204560b746fb3406d8e53a13ec114b326242bc948953d3c"
+"supply-chain/new-npm-dep-exists" = "677b63966774292f89846c9ce2167eb6dd89942e579e90648a6d66b7cad9ae5b"
+"supply-chain/new-pypi-dep-exists" = "c56fab0b19b74025e2a13ddcd0e50b7057618603df676b54768c542f9020f13c"
 "supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
-"supply-chain/no-dependency-confusion-command" = "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c"
-"supply-chain/no-tls-disable" = "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124"
-"supply-chain/no-tls-disable-command" = "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542"
+"supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
+"supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
+"supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
 "supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
 "typescript/a11y" = "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6"
 "typescript/array-sort-compare" = "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7"
 "typescript/config-files" = "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9"
-"typescript/config-ratchet" = "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022"
+"typescript/config-ratchet" = "cd15b235882efa9d5ca66acf048912dcb6eb43443d21874e7f991d9bdaaf25f4"
 "typescript/cors-credentials-wildcard" = "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b"
 "typescript/env-example" = "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c"
 "typescript/error-cause" = "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a"
@@ -222,7 +224,7 @@ rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
 "typescript/no-const-enum" = "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d"
 "typescript/no-deprecated" = "95b64775b8c70d6e81054960efe4619b9cc7641fa5ab0c6f8eca20bcbf89953c"
 "typescript/no-double-assertion" = "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80"
-"typescript/no-dynamic-regexp" = "7feba0d9f253c3d0afe8d70f9c01fa27765c9484899bdf70c6faefb0142d697d"
+"typescript/no-dynamic-regexp" = "3d04181994b739993ddee0ee066f8da462840579f38de7ecf73be47c27880170"
 "typescript/no-empty-block" = "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f"
 "typescript/no-eval" = "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143"
 "typescript/no-explicit-any" = "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28"
@@ -231,10 +233,9 @@ rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
 "typescript/no-html-sinks" = "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024"
 "typescript/no-ignore-deprecations" = "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888"
 "typescript/no-implicit-any" = "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108"
-"typescript/no-new-suppressions" = "ba3d26c4a50c3cd7cb74cd3c47a2dbd08666c01c5d0de7d51a85db29983f7bd2"
+"typescript/no-new-suppressions" = "d52b04fe85396d74e40cd1dbffb33eb8d51825ef18ffb6aa4c04865fe111f4be"
 "typescript/no-non-null-assertion" = "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2"
 "typescript/no-object-literal-assertion" = "7324c436b6acce6a07f2441bf1a45d3b0a5e89f2ac0cc92cd1119ed75a8cd241"
-"typescript/no-placeholder-comment" = "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47"
 "typescript/no-proto" = "c6f0adc46d66d273c8a812e9f690ee0dd3cab37b5b6e05dc1a939212d217ec41"
 "typescript/no-secrets" = "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c"
 "typescript/no-stub" = "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8"
@@ -246,10 +247,10 @@ rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
 "typescript/no-unused-suppressions" = "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d"
 "typescript/node-version-file" = "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1"
 "typescript/pnpm/allow-builds" = "aa230a5f098979a6fc3363f33560cb94107984ab86ae60f8a31452a86416e0af"
-"typescript/pnpm/catalog" = "c07da19d3b10f6df3e53e6a48c8d477f3f3051ffabfdabf5fbf7c7cf294dfcb9"
+"typescript/pnpm/catalog" = "1fc98cecd6239097ff1e39dea3d931c3e5f6c1e1a22dfb29eef5138d389b5180"
 "typescript/pnpm/lock-sync" = "3edd1c57ef4f3b2f14e725a7a174c038be7db8d239a07e9c08a49c321324c608"
-"typescript/pnpm/no-other-pm" = "4df6962a766f9fdf549a4860ccd99f7a6e69be0932f76aecf1d209dbbd9d66d5"
-"typescript/pnpm/overrides" = "e936a6a10d787efcb8db9f0b3c2e9f65113b4c32dc0a8c4640f62323bf540558"
+"typescript/pnpm/no-other-pm" = "db4cb403c26489db7f646e2c36db27ee4b091daa480cdd62d0109687bd2068d9"
+"typescript/pnpm/overrides" = "bbecdfd782e520460a3341eb196b50be72ca29ea758840ab699f24c1b8383745"
 "typescript/pnpm/settings-location" = "f25e8fd2c0b4ae1646ac76a684d2b8fba4817cda7019e0fff5a073eb9a354411"
 "typescript/pnpm/workspace-protocol" = "44df17683751a0941f912453062d83267b86a602fe7034343c36d48f351cad77"
 "typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
@@ -265,8 +266,8 @@ rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
 "typescript/vitest/no-matcher-override" = "75a66954dbd8322e3c5a264b303a6bbd8546ccc3324a37a651fb6e9457364e48"
 "typescript/vitest/no-mock-increase" = "ba0ee04f03ef25ace93d3f4f3d871d14d73fa3a70fb42d5ea5efbef38d8a164a"
 "typescript/vitest/no-new-skip" = "a11e5b84ac571a56a3e001501a3940c6304b239f50cb1655c49e1f6fe1ef61eb"
-"typescript/vitest/no-pass-with-no-tests" = "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3"
-"typescript/vitest/no-snapshot-update" = "519846b6b08b3de78a1bee29e807aba76fd96e6055b3b37aff636232af075f0b"
+"typescript/vitest/no-pass-with-no-tests" = "479959d32c45c7d71d5b5e10faa4c17ac8f1430bb1d3cdf405132138db224811"
+"typescript/vitest/no-snapshot-update" = "684dca2ef95a45ffcd95f1e6bab9879956c758c694fe39eb7cad459d3b2fe62e"
 "typescript/vitest/no-tautological-expect" = "7649e807659538b0cd4cd18de3c3a75a35fac5d185c157d314ae4e158ba36764"
 "typescript/vitest/no-test-edits" = "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172"
 "typescript/vitest/no-test-env-branch" = "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466"
@@ -276,10 +277,11 @@ rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
 "typescript/vitest/untested-change" = "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99"
 
 [files]
-".claude/rules/forge-secrets.md" = "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658"
-".claude/rules/forge-typescript-pnpm.md" = "03b8228be0ab61e70a5f4cff8db198625c470716a8585d376cbd93a4316b7f2f"
-".claude/rules/forge-typescript-vitest.md" = "9a729b7b303f3a3be778048cf775492292ceafb2f4b20afc6648993e96bab6bc"
-".claude/rules/forge-typescript.md" = "ef54887e9556ab47283ef9df9a8b5788fb500ae778224c0b4df341594a1cfe37"
+".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
+".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
+".claude/rules/forge-typescript-pnpm.md" = "e07a43fa3b0f05a1249e49d69f3a7370243dfbfc18d670804658450ff2f1c9c2"
+".claude/rules/forge-typescript-vitest.md" = "0c647c10f6f9722729176fd156d3bf7a28fefb41804c17c8da90c1020496df3f"
+".claude/rules/forge-typescript.md" = "97caf185981beb9d466a7633ecbb922abb8af97f1aecf5c958de18167e59e560"
 ".git/hooks/pre-commit" = "df1a857492084a9ae3a8d4b1e72bcd329806178fa45741089b8d7451f5cd7875"
 
 [roles]
