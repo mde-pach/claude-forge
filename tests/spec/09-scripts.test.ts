@@ -54,7 +54,7 @@ function pyVenvs(): { project: string; other: string } | undefined {
       const site = sh(join(base, "project/bin/python3"), ["-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]).stdout.trim();
       for (const [dir, name] of [
         ["Flask_Login-0.6.3.dist-info", "Flask-Login"],
-        ["requests-2.31.0.dist-info", "requests"],
+        ["forge_fixture_dep-1.0.dist-info", "forge-fixture-dep"],
         ["ruff-0.1.5.dist-info", "ruff"],
       ] as const) {
         mkdirSync(join(site, dir), { recursive: true });
@@ -156,7 +156,7 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
   test.skipIf(!pyVenvs())("the environment with the project's declared dependencies wins over an unrelated one earlier on PATH, whichever comes first; with none, the first one, said so", () => {
     const v = pyVenvs()!;
     const repo = realpathSync(mkdtempSync(join(tmpdir(), "forge-pydeps-")));
-    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "app"\n\n[tool.poetry.dependencies]\npython = "^3.10"\nFlask_Login = "^0.6"\n"requests" = "*"\n');
+    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "app"\n\n[tool.poetry.dependencies]\npython = "^3.10"\nFlask_Login = "^0.6"\nforge_fixture_dep = "*"\n');
     writeFileSync(join(repo, "requirements-dev.txt"), "# tools\nruff==0.1.5\n-r other.txt\n");
     const run = (path: string) =>
       libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${path}:/usr/bin:/bin"; forge_py_env_report`, repo)
