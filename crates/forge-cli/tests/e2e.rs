@@ -277,7 +277,10 @@ fn violation_then_fix(sample: &str, file: &str, bad: &str, rule: &str, agent_tex
     assert!(agent_out.contains(agent_text), "{agent_out}");
     assert!(!agent_out.contains(rule), "{agent_out}");
     assert!(!agent_out.contains("Notes:"), "{agent_out}");
-    assert!(forge_core::internals::find(&agent_out).is_empty(), "{agent_out}");
+    assert!(
+        forge_core::internals::find(&agent_out).is_empty(),
+        "{agent_out}"
+    );
     let out = s.forge(&["check", "--changed", "--json"]);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let findings = v["findings"].as_array().unwrap();
