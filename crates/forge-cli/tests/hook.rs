@@ -264,5 +264,101 @@ fn budgets() {
             over.push(name.to_string());
         }
     }
+    over.extend(check_budgets(&s));
     assert!(over.is_empty(), "over budget: {over:?}");
+}
+
+/// The tools time the last hook check of `phase` recorded (ms).
+fn tools_ms(s: &Sandbox, phase: &str) -> f64 {
+    let state = s.forge_home.join("state");
+    let mut stack = vec![state];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p
+                .file_name()
+                .is_some_and(|n| *n == *format!("timings.{phase}.json"))
+            {
+                let v: Value = serde_json::from_slice(&std::fs::read(&p).unwrap()).unwrap();
+                return v["tools_ms"].as_f64().unwrap_or(0.0);
+            }
+        }
+    }
+    0.0
+}
+
+fn stats(mut v: Vec<f64>) -> (f64, f64) {
+    v.sort_by(f64::total_cmp);
+    let n = v.len();
+    (v[n / 2], v[(n * 99 / 100).min(n - 1)])
+}
+
+/// PostToolUse after an Edit of a Python file, and Stop: Forge's overhead (the process's wall
+/// time less the project's tools) against its budget, the tools' time reported apart.
+fn check_budgets(s: &Sandbox) -> Vec<String> {
+    let mut over = Vec::new();
+    let file = s.repo.join("app/main.py");
+    let clean = std::fs::read_to_string(&file).unwrap();
+    s.hook("user-prompt-submit", &json!({"prompt": "go"}));
+    let edit = |i: usize| {
+        std::fs::write(&file, format!("{clean}\nVALUE_{i} = {i}\n")).unwrap();
+        json!({"hook_event_name": "PostToolUse", "tool_name": "Edit",
+               "tool_input": {"file_path": file, "old_string": "x", "new_string": "y"},
+               "tool_response": {"filePath": file}, "tool_use_id": format!("e{i}")})
+    };
+    let cases: [(&str, &str, usize, f64, f64); 2] = [
+        (
+            "post-tool-use (Edit, Python)",
+            "post-edit",
+            60,
+            30.0,
+            1000.0,
+        ),
+        ("stop", "stop", 15, 300.0, f64::INFINITY),
+    ];
+    for (name, phase, n, budget, total_budget) in cases {
+        let (mut overhead, mut tools, mut total) = (vec![], vec![], vec![]);
+        for i in 0..=n {
+            let input = edit(i + 1000 * usize::from(phase == "stop"));
+            let t = Instant::now();
+            if phase == "stop" {
+                s.hook("post-tool-use", &input);
+                let t = Instant::now();
+                s.hook(
+                    "stop",
+                    &json!({"hook_event_name": "Stop", "stop_hook_active": false}),
+                );
+                let wall = t.elapsed().as_secs_f64() * 1000.0;
+                let tm = tools_ms(s, phase);
+                if i > 0 {
+                    total.push(wall);
+                    tools.push(tm);
+                    overhead.push(wall - tm);
+                }
+                continue;
+            }
+            s.hook("post-tool-use", &input);
+            let wall = t.elapsed().as_secs_f64() * 1000.0;
+            let tm = tools_ms(s, phase);
+            // the first edit of a session may exceed the budget
+            if i > 0 {
+                total.push(wall);
+                tools.push(tm);
+                overhead.push(wall - tm);
+            }
+        }
+        let (om, op) = stats(overhead);
+        let (tm, tp) = stats(tools);
+        let (wm, wp) = stats(total);
+        println!(
+            "{name}: Forge overhead median {om:.1} ms, p99 {op:.1} ms (budget {budget} ms); tools median {tm:.1} ms, p99 {tp:.1} ms; total median {wm:.1} ms, p99 {wp:.1} ms"
+        );
+        if op > budget || wm > total_budget {
+            over.push(name.to_string());
+        }
+    }
+    std::fs::write(&file, clean).unwrap();
+    over
 }

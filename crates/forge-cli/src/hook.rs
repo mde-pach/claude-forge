@@ -34,6 +34,26 @@ pub struct HookChecker {
     pub exe: PathBuf,
 }
 
+/// Where the last hook check spent its time (Forge's own work, the project's tools), in the
+/// repository's state directory: for `forge status` and the budget tests.
+fn record_timings(root: &Path, phase: &str, t: &forge_check::checker::Timings) {
+    let Ok(home) = forge_home::Home::from_env() else {
+        return;
+    };
+    let Ok(id) = forge_home::RepoId::for_root(root) else {
+        return;
+    };
+    let v = serde_json::json!({
+        "phase": phase,
+        "forge_ms": t.forge.as_secs_f64() * 1000.0,
+        "tools_ms": t.tools.as_secs_f64() * 1000.0,
+    });
+    let dir = home.repo_state_dir(&id);
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(dir.join(format!("timings.{phase}.json")), v.to_string());
+    }
+}
+
 fn forge_failure(what: String) -> Report {
     Report {
         findings: Vec::new(),
@@ -54,7 +74,10 @@ impl Checker for HookChecker {
             snapshot,
             &forge_check::Options::post_edit(self.exe.clone()),
         ) {
-            Ok(o) => o.report,
+            Ok(o) => {
+                record_timings(root, "post-edit", &o.timings);
+                o.report
+            }
             Err(e) => forge_failure(format!("The checks after an edit did not run: {e}.")),
         };
         report.notes.append(&mut notes);
@@ -79,7 +102,10 @@ impl Checker for HookChecker {
         };
         let mut outcome = match checker.check(mode, &forge_check::Options::stop(self.exe.clone())) {
             Ok(o) => StopOutcome {
-                report: o.report,
+                report: {
+                    record_timings(root, "stop", &o.timings);
+                    o.report
+                },
                 status: match o.status {
                     Status::Pass => StopStatus::Pass,
                     Status::Fail => StopStatus::Fail,
