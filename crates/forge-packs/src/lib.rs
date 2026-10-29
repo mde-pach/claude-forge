@@ -247,7 +247,7 @@ pub fn load_project_config(repo: &Path) -> Result<Option<ProjectConfig>, LoadErr
 }
 
 impl PackSet {
-    /// The packs from `source`, as `dist/packs.json` lists them (an array, in load order).
+    /// The packs from `source`, as JSON (an array, in load order): `forge packs dump`.
     pub fn bundle(&self, source: Option<PackSource>) -> Value {
         Value::Array(
             self.packs
