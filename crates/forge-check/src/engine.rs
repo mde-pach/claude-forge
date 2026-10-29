@@ -163,6 +163,17 @@ pub fn engine_languages(rules: &[ActiveRule]) -> BTreeSet<Lang> {
     out
 }
 
+/// Whether the installed packages without typing are Any to the engine: `forge.yaml`
+/// `python: {untyped-packages: any | source}`, `any` when unset (§15.2).
+pub fn untyped_as_any(root: &Path) -> bool {
+    forge_packs::load_project_config(root)
+        .ok()
+        .flatten()
+        .and_then(|c| c.python)
+        .and_then(|p| p.untyped_packages)
+        .is_none_or(|v| v != "source")
+}
+
 fn target_of_rule(rule: &Rule) -> Option<&forge_packs::model::AstGrepTarget> {
     target_of(rule)
 }
@@ -263,7 +274,8 @@ pub fn config(
                     py.python = Some(python);
                     py.prefix = Some(prefix);
                     // the probe runs ty itself: only a ty that is one executable
-                    if cmd.argv.len() == 1 && is_exe(&cmd.bin) {
+                    // `untyped-packages: source`: ty infers them from their source
+                    if untyped_as_any(root) && cmd.argv.len() == 1 && is_exe(&cmd.bin) {
                         match forge_helpers::untyped::untyped_modules(
                             root, &version, &sites, &cmd.bin,
                         ) {

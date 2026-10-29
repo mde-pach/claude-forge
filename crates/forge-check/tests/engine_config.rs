@@ -63,7 +63,7 @@ fn project() -> (tempfile::TempDir, PathBuf, FakeTy) {
 }
 
 #[test]
-fn engines_for_type_checks() {
+fn engines_for_type_checks_and_untyped_packages_from_forge_yaml() {
     // SAFETY: this test binary has this one test; no other thread reads the environment.
     unsafe { std::env::remove_var("VIRTUAL_ENV") };
     let rules = typecheck_only();
@@ -77,6 +77,32 @@ fn engines_for_type_checks() {
     assert_eq!(py.untyped, vec!["magic".to_string()]);
     assert!(notes.is_empty(), "{notes:?}");
     assert!(d.path().join("ty-ran").is_file());
+
+    // `source`: ty infers them from their source; nothing is listed, the probe never runs
+    let (d, root, ty) = project();
+    put(
+        &root,
+        "forge.yaml",
+        "forge: \"0.6\"\npython:\n  untyped-packages: source\n",
+    );
+    let (cfg, notes) = config(&root, &rules, &ty, false, "0.0.0");
+    let py = cfg.unwrap().python.unwrap();
+    assert!(py.untyped.is_empty() && py.untyped_all.is_none(), "{py:?}");
+    assert!(notes.is_empty(), "{notes:?}");
+    assert!(!d.path().join("ty-ran").exists());
+
+    // `any`, said explicitly, is the default
+    let (_d, root, ty) = project();
+    put(
+        &root,
+        "forge.yaml",
+        "forge: \"0.6\"\npython:\n  untyped-packages: any\n",
+    );
+    let (cfg, _) = config(&root, &rules, &ty, false, "0.0.0");
+    assert_eq!(
+        cfg.unwrap().python.unwrap().untyped,
+        vec!["magic".to_string()]
+    );
 
     // a TypeScript typecheck in a project without node_modules/typescript: the check stage
     // still runs; only the edit-time diagnostics are lost, which is no rule left unchecked
