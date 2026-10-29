@@ -15,8 +15,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use common::SQUAWK_VERSION;
 use common::*;
-use forge_builtins_data::{Mode, SQUAWK_VERSION};
+use forge_builtins_data::Mode;
 
 fn engine_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../templates/engine")
@@ -306,18 +307,6 @@ fn own_cases() -> Vec<Case> {
                 "app/models/invoice.py",
                 "class Invoice(Base):\n    __tablename__ = \"invoices\"\n\n\nclass Line(Base):\n    __tablename__ = \"lines\"\n",
             )],
-        ),
-        own(
-            "env files --all, a template next to a .env git does not ignore",
-            "forge_env_files",
-            Mode::All,
-            &[
-                ("api/.env.example", "KEY=\n"),
-                ("web/.env.sample", "KEY=\n"),
-                (".gitignore", "web/.env\n"),
-                ("deploy/.env.production", "KEY=1\n"),
-            ],
-            &[],
         ),
         own(
             "uv cooldown in hours, too short",

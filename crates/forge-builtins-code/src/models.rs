@@ -8,9 +8,9 @@ use forge_core::builtin::BuiltinCtx;
 use forge_core::{Finding, Report};
 use regex::Regex;
 
-use crate::CodeBuiltin;
 use crate::ctx::{Extra, read};
-use crate::scope::is_prose;
+use forge_check::builtins::CheckBuiltin;
+use forge_check::scope::is_prose;
 
 /// The ai-models pack's model table.
 pub const MODELS_TSV: &str = include_str!("../../../packs/ai-models/models.tsv");
@@ -86,12 +86,12 @@ static EMBEDDED: LazyLock<Models> = LazyLock::new(|| Models::parse(MODELS_TSV));
 /// the embedded model table is used. Run as advice.
 pub struct ModelIds;
 
-impl CodeBuiltin for ModelIds {
+impl CheckBuiltin for ModelIds {
     fn name(&self) -> &'static str {
         "model_ids"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
         // quotes of code: a JavaScript template literal is one (Markdown files are left out)
         static QUOTED: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r#"["'`][A-Za-z0-9._:/@-]+["'`]"#).expect("regex"));

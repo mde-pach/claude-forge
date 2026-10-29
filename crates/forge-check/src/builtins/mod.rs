@@ -11,10 +11,17 @@
 //! Context, beyond [`BuiltinCtx`] (forge-core's protocol), comes from the variables below,
 //! which the checker sets for each check command.
 
+mod context;
+mod domain;
 mod machinery;
-pub use machinery::{ACCEPT_HINT, RATCHET_HINT, is_local_db};
+pub use context::{CheckCtx, CheckRule, RunMode, parse_added, render_added};
+pub use domain::{
+    AdapterTools, BuiltinTools, CheckBuiltin, NoTools, ToolOutput, ToolRun, rule_note,
+};
+pub use machinery::{ACCEPT_HINT, RATCHET_HINT, database_url, is_local_db};
 mod repo;
 mod tests;
+pub use tests::{Block, blocks};
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -22,11 +29,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use forge_core::builtin::{Builtin, BuiltinCtx, Scope};
-use forge_core::{Note, NoteKind, Report, Severity};
-use forge_packs::model::Rule;
+use forge_core::{NoteKind, Report, Severity};
 
-use crate::change::Added;
-use crate::scope::{Roles, RuleScope};
 use crate::tools::ToolResolver;
 
 /// The check's files: its in-scope changed files, newline-separated (also `$FORGE_FILES` in
@@ -48,32 +52,24 @@ pub const ENV_CHECKS: &str = "FORGE_CHECKS";
 pub const ENV_MODE: &str = "FORGE_MODE";
 /// The repository root, when the command runs in a workspace package.
 pub const ENV_WS_ROOT: &str = "FORGE_WS_ROOT";
+/// The run's scratch directory, shared by the checks of one run.
+pub const ENV_TMP: &str = "FORGE_TMP";
 
-/// The running check's rule, as the checker hands it to builtins.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CheckRule {
-    pub rule: Rule,
-    #[serde(default)]
-    pub dirs: Option<Vec<String>>,
-}
-
-/// What a builtin call knows: forge-core's context and the checker's.
+/// What a builtin call knows: forge-core's context, the checker's ([`CheckCtx`], which the
+/// invocation derefs to), its arguments, and where tools are.
 pub struct Invocation<'a> {
     pub ctx: BuiltinCtx,
+    pub cx: CheckCtx,
     pub args: Vec<String>,
-    /// The check's files.
-    pub files: Vec<String>,
-    pub snapshot: Option<PathBuf>,
-    pub mode: String,
-    pub advised: Option<PathBuf>,
-    pub roles: Roles,
-    pub added: BTreeMap<String, Added>,
-    pub check: Option<CheckRule>,
-    pub checks: Vec<String>,
-    pub cwd: PathBuf,
-    pub ws_root: Option<PathBuf>,
     pub registry: &'a Registry,
     pub tools: Arc<dyn ToolResolver>,
+}
+
+impl std::ops::Deref for Invocation<'_> {
+    type Target = CheckCtx;
+    fn deref(&self) -> &CheckCtx {
+        &self.cx
+    }
 }
 
 impl Invocation<'_> {
@@ -83,40 +79,10 @@ impl Invocation<'_> {
         args: Vec<String>,
         tools: Arc<dyn ToolResolver>,
     ) -> Invocation<'r> {
-        let var = |k: &str| {
-            std::env::var_os(k)
-                .filter(|v| !v.is_empty())
-                .map(PathBuf::from)
-        };
-        let read = |k: &str| var(k).and_then(|p| std::fs::read_to_string(p).ok());
-        let files = std::env::var(ENV_FILES)
-            .unwrap_or_default()
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(str::to_string)
-            .collect();
-        let roles = read(ENV_ROLES)
-            .and_then(|t| serde_json::from_str::<BTreeMap<String, Vec<String>>>(&t).ok())
-            .map(Roles::from_map)
-            .unwrap_or_else(Roles::defaults);
-        let added = read(ENV_ADDED).map(|t| parse_added(&t)).unwrap_or_default();
-        let check = read(ENV_CHECK_RULE).and_then(|t| serde_json::from_str(&t).ok());
-        let checks = read(ENV_CHECKS)
-            .map(|t| t.lines().map(str::to_string).collect())
-            .unwrap_or_default();
         Invocation {
             ctx: BuiltinCtx::from_env(),
+            cx: CheckCtx::from_env(),
             args,
-            files,
-            snapshot: var(ENV_SNAPSHOT),
-            mode: std::env::var(ENV_MODE).unwrap_or_else(|_| "all".into()),
-            advised: var(ENV_ADVISED),
-            roles,
-            added,
-            check,
-            checks,
-            cwd: std::env::current_dir().unwrap_or_default(),
-            ws_root: var(ENV_WS_ROOT),
             registry,
             tools,
         }
@@ -135,11 +101,7 @@ impl Invocation<'_> {
     }
 
     pub fn note(&self, kind: NoteKind, text: impl Into<String>) {
-        let mut n = Note::new(kind, text);
-        if !self.ctx.rule.is_empty() {
-            n = n.for_rule(self.ctx.rule.clone());
-        }
-        self.ctx.write_notes(&[n]);
+        self.ctx.write_notes(&[rule_note(&self.ctx, kind, text)]);
     }
 
     /// Marks the running check's failure as advice.
@@ -165,74 +127,11 @@ impl Invocation<'_> {
             .collect()
     }
 
-    /// The running check's scope.
-    pub fn scope(&self) -> Option<RuleScope> {
-        let c = self.check.as_ref()?;
-        let config = c.rule.enforce.iter().find_map(|t| match t {
-            forge_packs::model::Target::Check(ct) => ct.config_files.clone(),
-            _ => None,
-        });
-        Some(RuleScope::new(
-            &c.rule,
-            &self.roles,
-            c.dirs.as_deref(),
-            config.as_deref(),
-        ))
-    }
-
     /// `forge_scope_files`: the check's files, else (`--all`, or a `when_changed` file changed
     /// and none of its own) every tracked file in its scope.
     pub fn scope_files(&self) -> Vec<String> {
-        if !self.files.is_empty() {
-            return self.files.clone();
-        }
-        let git = crate::change::Git::new(self.root());
-        let scope = self.scope();
-        crate::change::split_z(&git.run(&["ls-files", "-z"]).unwrap_or_default())
-            .filter(|p| !crate::scope::is_excluded(p) && self.root().join(p).is_file())
-            .filter(|p| scope.as_ref().is_none_or(|s| s.matches(p)))
-            .collect()
+        self.cx.scope_files(self.root())
     }
-}
-
-/// Reads an added-lines file.
-pub fn parse_added(text: &str) -> BTreeMap<String, Added> {
-    let mut out: BTreeMap<String, Added> = BTreeMap::new();
-    for l in text.lines() {
-        let Some((p, n)) = l.rsplit_once('\t') else {
-            continue;
-        };
-        if n == "*" {
-            out.insert(p.to_string(), Added::Whole);
-        } else if let Ok(n) = n.parse::<u32>() {
-            match out
-                .entry(p.to_string())
-                .or_insert_with(|| Added::Lines(Default::default()))
-            {
-                Added::Lines(s) => {
-                    s.insert(n);
-                }
-                Added::Whole => {}
-            }
-        }
-    }
-    out
-}
-
-/// Writes an added-lines file's text.
-pub fn render_added(added: &BTreeMap<String, Added>) -> String {
-    let mut s = String::new();
-    for (p, a) in added {
-        match a {
-            Added::Whole => s.push_str(&format!("{p}\t*\n")),
-            Added::Lines(l) => {
-                for n in l {
-                    s.push_str(&format!("{p}\t{n}\n"));
-                }
-            }
-        }
-    }
-    s
 }
 
 /// A builtin of the checker's own: writes its output and returns its exit status.
@@ -242,6 +141,7 @@ pub type RawFn = fn(&Invocation<'_>, &mut dyn Write, &mut dyn Write) -> i32;
 pub struct Registry {
     raw: BTreeMap<&'static str, RawFn>,
     builtins: BTreeMap<&'static str, Box<dyn Builtin + Send>>,
+    domain: BTreeMap<&'static str, Box<dyn CheckBuiltin>>,
     helpers: BTreeMap<String, Box<dyn Builtin + Send>>,
 }
 
@@ -257,6 +157,7 @@ impl Registry {
         let mut r = Registry {
             raw: BTreeMap::new(),
             builtins: BTreeMap::new(),
+            domain: BTreeMap::new(),
             helpers: BTreeMap::new(),
         };
         machinery::register(&mut r);
@@ -272,7 +173,16 @@ impl Registry {
     /// A domain builtin (`forge_<name>`); replaces one of the same name.
     pub fn register(&mut self, b: Box<dyn Builtin + Send>) {
         self.raw.remove(b.name());
+        self.domain.remove(b.name());
         self.builtins.insert(b.name(), b);
+    }
+
+    /// A domain crate's builtin (`forge_<name>`), which also reads the checker's context;
+    /// replaces one of the same name.
+    pub fn register_check(&mut self, b: Box<dyn CheckBuiltin>) {
+        self.raw.remove(b.name());
+        self.builtins.remove(b.name());
+        self.domain.insert(b.name(), b);
     }
 
     /// An engine helper (forge-helpers' builtins), by its name: the stem of the script packs
@@ -282,7 +192,9 @@ impl Registry {
     }
 
     pub fn has(&self, name: &str) -> bool {
-        self.raw.contains_key(name) || self.builtins.contains_key(name)
+        self.raw.contains_key(name)
+            || self.builtins.contains_key(name)
+            || self.domain.contains_key(name)
     }
 
     /// The helper a pack's script name stands for (`ratchet.py`, `new_deps.mjs`, `ratchet`).
@@ -306,6 +218,7 @@ impl Registry {
             .raw
             .keys()
             .chain(self.builtins.keys())
+            .chain(self.domain.keys())
             .copied()
             .collect();
         v.sort();
@@ -325,6 +238,10 @@ impl Registry {
         }
         if let Some(b) = self.builtins.get(name) {
             let report = b.run(&inv.ctx, &inv.args);
+            return finish(inv, report, out);
+        }
+        if let Some(b) = self.domain.get(name) {
+            let report = b.run(&inv.ctx, &inv.cx, &inv.args);
             return finish(inv, report, out);
         }
         inv.note(
@@ -376,4 +293,40 @@ pub fn internal_main(
     let code = registry.dispatch(name, &inv, &mut out, &mut err);
     let _ = out.flush();
     code
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+
+    /// A builtin nobody registered is a note for the person and passes: never a finding.
+    #[test]
+    fn an_unregistered_builtin_is_a_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let notes = dir.path().join("notes");
+        let registry = Registry::new();
+        let inv = Invocation {
+            ctx: BuiltinCtx {
+                root: dir.path().to_path_buf(),
+                base: None,
+                changed: vec![],
+                rule: "local/y".into(),
+                scope: Scope::All,
+                accepted: vec![],
+                notes_file: Some(notes.clone()),
+            },
+            cx: CheckCtx::default(),
+            args: vec![],
+            registry: &registry,
+            tools: Arc::new(crate::tools::LocalTools::default()),
+        };
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        assert_eq!(registry.dispatch("no_such", &inv, &mut out, &mut err), 0);
+        assert!(out.is_empty());
+        let text = std::fs::read_to_string(notes).unwrap();
+        assert!(
+            text.contains("not-enforced") && text.contains("local/y"),
+            "{text}"
+        );
+    }
 }

@@ -437,6 +437,119 @@ pub struct DoOutcome {
     pub notes: Vec<Note>,
 }
 
+/// An operation of a tool, resolved: what runs and with which arguments.
+#[derive(Debug, Clone)]
+pub struct Resolved {
+    pub adapter: Adapter,
+    /// The adapter's tool (after `pick`).
+    pub name: String,
+    pub version: String,
+    pub cmd: ToolCmd,
+    /// The arguments after the command's words (the operation's, then the caller's).
+    pub args: Vec<String>,
+}
+
+impl Resolved {
+    /// The whole command line.
+    pub fn argv(&self) -> Vec<String> {
+        let mut v = self.cmd.argv.clone();
+        v.extend(self.args.iter().cloned());
+        v
+    }
+
+    /// Why the tool rejected the command line (a usage error, which says the adapter does not
+    /// fit the installed version), from its exit status and output; None when it did not.
+    pub fn usage_error(
+        &self,
+        op: &str,
+        status: i32,
+        stdout: &[u8],
+        stderr: &[u8],
+    ) -> Option<String> {
+        let u = self.adapter.usage.as_ref()?;
+        if !u.exit.contains(&status) || op.ends_with("-stdin") {
+            return None;
+        }
+        let re = regex::Regex::new(&crate::grep::ere_to_regex(&u.pattern)).ok()?;
+        let (out, err) = (
+            String::from_utf8_lossy(stdout),
+            String::from_utf8_lossy(stderr),
+        );
+        let text = strip_ansi(&format!("{out}{err}"));
+        if !text.lines().any(|l| re.is_match(l)) {
+            return None;
+        }
+        let errtext = strip_ansi(&format!("{err}{out}"));
+        let why = errtext
+            .lines()
+            .find(|l| {
+                let ll = l.to_ascii_lowercase();
+                ll.starts_with("error") || ll.contains(": error")
+            })
+            .or_else(|| errtext.lines().find(|l| re.is_match(l)))
+            .unwrap_or("")
+            .trim_start_matches("error: ")
+            .trim_start_matches("Error: ")
+            .to_string();
+        Some(format!(
+            "skipped: {} {} rejected the command ({} {}): {why}",
+            self.name,
+            self.version,
+            self.name,
+            self.args.join(" ")
+        ))
+    }
+}
+
+/// How `op` of `tool` runs here with `args`, as its adapter says for the installed version;
+/// a note (the tool is absent, its version cannot, no adapter covers it) when it cannot.
+pub fn resolve(tool: &str, op: &str, args: &[String], ctx: &DoCtx<'_>) -> Result<Resolved, Note> {
+    let note = |kind: NoteKind, text: String| {
+        let n = Note::new(kind, text);
+        if ctx.rule.is_empty() {
+            n
+        } else {
+            n.for_rule(ctx.rule.to_string())
+        }
+    };
+    let name = picked(tool, ctx.root, ctx.tools);
+    let Some(a) = Adapter::load(&name) else {
+        return Err(note(
+            NoteKind::ForgeFailure,
+            format!("Forge has no adapter for {name}"),
+        ));
+    };
+    let (cmd, version) = locate(&a, ctx.tools, ctx.root, ctx.cwd)
+        .map_err(|why| note(NoteKind::MissingTool, format!("skipped: {why}")))?;
+    let words = match a.lookup(&version, op) {
+        OpLookup::Args(w) => w,
+        OpLookup::Cannot { need } => {
+            let need = need
+                .map(|n| format!(" (it needs {name} {n} or later)"))
+                .unwrap_or_default();
+            return Err(note(
+                NoteKind::NotEnforced,
+                format!("not enforced: {name} {version} cannot {op}{need}"),
+            ));
+        }
+        OpLookup::NotCovered { first } => {
+            return Err(note(
+                NoteKind::NotEnforced,
+                format!(
+                    "not enforced: no Forge adapter covers {name} {version} (Forge drives {name} {first} and later)"
+                ),
+            ));
+        }
+    };
+    Ok(Resolved {
+        args: build_args(&words, args),
+        adapter: a,
+        name,
+        version,
+        cmd,
+    })
+}
+
 /// `forge_do <tool> <op> [args]` (§16.1): runs `op` by the installed tool as its adapter says,
 /// with the tool's stdout and stderr passed on once it has exited. A version that cannot (or
 /// that no range covers), a tool that is absent, and a usage error of the command line are
@@ -449,63 +562,26 @@ pub fn run_do(
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> DoOutcome {
-    let rule = ctx.rule.to_string();
     let note = |kind: NoteKind, text: String| {
         let n = Note::new(kind, text);
-        if rule.is_empty() {
+        if ctx.rule.is_empty() {
             n
         } else {
-            n.for_rule(rule.clone())
+            n.for_rule(ctx.rule.to_string())
         }
     };
-    let name = picked(tool, ctx.root, ctx.tools);
-    let Some(a) = Adapter::load(&name) else {
-        return DoOutcome {
-            status: 0,
-            notes: vec![note(
-                NoteKind::ForgeFailure,
-                format!("Forge has no adapter for {name}"),
-            )],
-        };
-    };
-    let (cmd, version) = match locate(&a, ctx.tools, ctx.root, ctx.cwd) {
-        Ok(x) => x,
-        Err(why) => {
+    let r = match resolve(tool, op, args, ctx) {
+        Ok(r) => r,
+        Err(n) => {
             return DoOutcome {
                 status: 0,
-                notes: vec![note(NoteKind::MissingTool, format!("skipped: {why}"))],
+                notes: vec![n],
             };
         }
     };
-    let words = match a.lookup(&version, op) {
-        OpLookup::Args(w) => w,
-        OpLookup::Cannot { need } => {
-            let need = need
-                .map(|n| format!(" (it needs {name} {n} or later)"))
-                .unwrap_or_default();
-            return DoOutcome {
-                status: 0,
-                notes: vec![note(
-                    NoteKind::NotEnforced,
-                    format!("not enforced: {name} {version} cannot {op}{need}"),
-                )],
-            };
-        }
-        OpLookup::NotCovered { first } => {
-            return DoOutcome {
-                status: 0,
-                notes: vec![note(
-                    NoteKind::NotEnforced,
-                    format!(
-                        "not enforced: no Forge adapter covers {name} {version} (Forge drives {name} {first} and later)"
-                    ),
-                )],
-            };
-        }
-    };
-    let argv = build_args(&words, args);
-    let mut c = Command::new(&cmd.argv[0]);
-    c.args(&cmd.argv[1..]).args(&argv).current_dir(ctx.cwd);
+    let name = &r.name;
+    let mut c = Command::new(&r.cmd.argv[0]);
+    c.args(&r.cmd.argv[1..]).args(&r.args).current_dir(ctx.cwd);
     c.stdin(if ctx.stdin.is_some() {
         Stdio::piped()
     } else {
@@ -542,46 +618,11 @@ pub fn run_do(
         }
     };
     let status = output.status.code().unwrap_or(128 + 9);
-    if let Some(u) = &a.usage
-        && u.exit.contains(&status)
-        && !op.ends_with("-stdin")
-    {
-        let re = regex::Regex::new(&crate::grep::ere_to_regex(&u.pattern)).ok();
-        let text = strip_ansi(&format!(
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        ));
-        if let Some(re) = re
-            && text.lines().any(|l| re.is_match(l))
-        {
-            let errtext = strip_ansi(&format!(
-                "{}{}",
-                String::from_utf8_lossy(&output.stderr),
-                String::from_utf8_lossy(&output.stdout)
-            ));
-            let why = errtext
-                .lines()
-                .find(|l| {
-                    let ll = l.to_ascii_lowercase();
-                    ll.starts_with("error") || ll.contains(": error")
-                })
-                .or_else(|| errtext.lines().find(|l| re.is_match(l)))
-                .unwrap_or("")
-                .trim_start_matches("error: ")
-                .trim_start_matches("Error: ")
-                .to_string();
-            return DoOutcome {
-                status: 0,
-                notes: vec![note(
-                    NoteKind::NotEnforced,
-                    format!(
-                        "skipped: {name} {version} rejected the command ({name} {}): {why}",
-                        argv.join(" ")
-                    ),
-                )],
-            };
-        }
+    if let Some(why) = r.usage_error(op, status, &output.stdout, &output.stderr) {
+        return DoOutcome {
+            status: 0,
+            notes: vec![note(NoteKind::NotEnforced, why)],
+        };
     }
     let _ = out.write_all(&output.stdout);
     let _ = err.write_all(&output.stderr);

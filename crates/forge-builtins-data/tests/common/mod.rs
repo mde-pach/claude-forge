@@ -9,10 +9,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
-use forge_builtins_data::{
-    Facts, Mode, Options, PinnedTools, ProjectTools, SQUAWK_VERSION, ToolOutput, ToolRun,
-    glob_matches,
-};
+use forge_builtins_data::{Mode, Options, ToolOutput, ToolRun, glob_matches};
+use forge_check::builtins::{BuiltinTools, CheckCtx};
+
+/// The Squawk release Forge pins.
+pub const SQUAWK_VERSION: &str = "2.70.0";
 use forge_core::builtin::{BuiltinCtx, Scope};
 use forge_packs::model::{Language, Rule};
 
@@ -208,10 +209,8 @@ pub fn have(cmd: &str, args: &[&str]) -> bool {
 }
 
 /// Squawk through uvx, as the checker's resolver offers it.
-pub struct UvxPinned;
-
-impl PinnedTools for UvxPinned {
-    fn command(&self, name: &str) -> Result<Vec<String>, String> {
+fn uvx_pinned(name: &str) -> Result<Vec<String>, String> {
+    {
         if name != "squawk" || !have("uvx", &["--version"]) {
             return Err(format!("{name} is not installed"));
         }
@@ -236,12 +235,16 @@ pub fn output(c: &mut Command) -> ToolRun {
             stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&o.stderr).into_owned(),
         }),
-        Err(_) => ToolRun::Missing,
+        Err(e) => ToolRun::Missing(e.to_string()),
     }
 }
 
-impl ProjectTools for LocalProjectTools {
-    fn run(&self, root: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun {
+impl BuiltinTools for LocalProjectTools {
+    fn pinned(&self, tool: &str) -> Result<Vec<String>, String> {
+        uvx_pinned(tool)
+    }
+
+    fn run(&self, root: &Path, _cwd: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun {
         match (tool, op) {
             ("sqlfluff", "lint") if have("uvx", &["--version"]) => output(
                 Command::new("uvx")
@@ -257,22 +260,25 @@ impl ProjectTools for LocalProjectTools {
                     .arg("--sql")
                     .current_dir(root),
             ),
-            _ => ToolRun::Missing,
+            _ => ToolRun::Missing(format!("{tool} is not installed")),
         }
     }
 }
 
-pub fn options(facts: Facts) -> Options {
+pub fn options() -> Options {
     Options {
-        project_tools: Arc::new(LocalProjectTools),
-        pinned: Arc::new(UvxPinned),
-        facts: Some(facts),
+        tools: Arc::new(LocalProjectTools),
         ..Options::default()
     }
 }
 
-pub fn facts(mode: Mode, files: Vec<String>) -> Facts {
-    Facts::new(mode, files)
+/// The checker's context of a check: `files` in `mode`, Forge's default roles.
+pub fn facts(mode: Mode, files: Vec<String>) -> CheckCtx {
+    CheckCtx {
+        files,
+        mode,
+        ..CheckCtx::default()
+    }
 }
 
 /// The accepted changes of forge.yaml for a rule.
@@ -460,7 +466,8 @@ pub fn port(case: &Case, r: &Repo) -> Outcome {
     }
     let files = case.check_files(r);
     let (name, args) = call(&case.cmd, &files).expect("a builtin of this crate");
-    let all = forge_builtins_data::builtins(options(facts(case.mode, files)));
+    let check = facts(case.mode, files);
+    let all = forge_builtins_data::builtins(options());
     let b = all.iter().find(|b| b.name() == name).unwrap();
     let mut ctx = r.ctx(&case.rule, case.accepted());
     if case.mode == Mode::All {
@@ -468,7 +475,7 @@ pub fn port(case: &Case, r: &Repo) -> Outcome {
         ctx.changed.clear();
         ctx.base = None;
     }
-    let report = b.run(&ctx, &args);
+    let report = b.run(&ctx, &check, &args);
     out.notes = report.notes.iter().map(|n| n.to_string()).collect();
     out.texts = report.findings.iter().map(|f| f.agent_text()).collect();
     // what the checker attributes: a finding at a line of a file

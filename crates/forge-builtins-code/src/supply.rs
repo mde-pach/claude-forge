@@ -2,15 +2,15 @@
 
 use std::collections::BTreeSet;
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 
 use forge_core::builtin::BuiltinCtx;
 use forge_core::{Finding, NoteKind, Report};
 
+use crate::Options;
 use crate::ctx::{Extra, base_copy, is_all};
 use crate::util::{last_line, note};
-use crate::{CodeBuiltin, Options};
+use forge_check::builtins::CheckBuiltin;
 
 /// One vulnerability osv-scanner reports: package, version, advisory id, fixed version ("" when
 /// there is none).
@@ -22,12 +22,12 @@ type Vuln = (String, String, String, String);
 /// (no base to compare with).
 pub struct Osv(pub Arc<Options>);
 
-impl CodeBuiltin for Osv {
+impl CheckBuiltin for Osv {
     fn name(&self) -> &'static str {
         "osv"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         let files: Vec<&String> = x
             .files
@@ -37,7 +37,7 @@ impl CodeBuiltin for Osv {
         if is_all(ctx) || files.is_empty() {
             return r;
         }
-        let bin = match self.0.tools.pinned("osv-scanner") {
+        let bin = match crate::tools::pinned(&self.0, "osv-scanner") {
             Ok(b) => b,
             Err(n) => {
                 r.notes.push(n.for_rule(ctx.rule.clone()));
@@ -111,14 +111,14 @@ impl CodeBuiltin for Osv {
 }
 
 /// The vulnerabilities osv-scanner reports on `lock` (relative to `dir`).
-fn scan(bin: &Path, config: &Path, dir: &Path, lock: &str) -> Result<BTreeSet<Vuln>, String> {
+fn scan(bin: &[String], config: &Path, dir: &Path, lock: &str) -> Result<BTreeSet<Vuln>, String> {
     let name = lock.rsplit('/').next().unwrap_or(lock);
     let arg = if name.starts_with("requirements") && name.ends_with(".txt") {
         format!("requirements.txt:{lock}")
     } else {
         lock.to_string()
     };
-    let out = Command::new(bin)
+    let out = crate::tools::command(bin)
         .args(["scan", "source", "--format", "markdown", "--config"])
         .arg(config)
         .args(["-L", &arg])

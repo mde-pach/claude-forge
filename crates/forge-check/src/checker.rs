@@ -32,7 +32,7 @@ use crate::shell::{self, Exit, Spec};
 use crate::tools::{self, ToolResolver};
 
 /// A rule the project selected, and the workspace packages its pack was detected in.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ActiveRule {
     pub rule: Rule,
     /// Where it applies: workspace package directories, or `None` for the whole repository.
@@ -1387,7 +1387,7 @@ impl Checker {
             env.insert(ENV_CHANGED.into(), s(&run.files.path("changed")));
         }
         env.insert(ENV_NOTES.into(), s(&run.files.path("notes")));
-        env.insert("FORGE_TMP".into(), s(run.files.dir.path()));
+        env.insert(builtins::ENV_TMP.into(), s(run.files.dir.path()));
         // a missing pinned tool may be installed at Stop and `forge check`, never after an edit
         if run.opts.phase == Phase::Stop {
             env.insert(tools::ENV_DOWNLOAD.into(), "1".into());

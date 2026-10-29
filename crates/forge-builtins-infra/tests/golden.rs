@@ -15,7 +15,6 @@ use std::path::Path;
 use std::process::Command;
 
 use common::{Case, cases, ctx, gate, repo};
-use forge_builtins_infra::Extra;
 
 /// The engine's definitions: check.sh up to its first step.
 fn engine(check_sh: &Path) -> String {
@@ -155,13 +154,9 @@ fn port_agrees_with_the_shell_engine() {
             continue;
         };
         let ctx = ctx(&case, &r);
-        let extra = Extra {
-            files: Some(files.clone()),
-            rule: Some(case.rule.clone()),
-            ..Extra::default()
-        };
+        let extra = common::check(Some(case.rule.clone()), files.clone());
         let report =
-            forge_builtins_infra::run(&opts, &case.builtin, &ctx, extra, &case.args).unwrap();
+            forge_builtins_infra::run(&opts, &case.builtin, &ctx, &extra, &case.args).unwrap();
         let mut port: Vec<String> = report
             .findings
             .iter()

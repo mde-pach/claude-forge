@@ -1,61 +1,18 @@
 //! What the builtins share: the check they run in ([`Cx`]), the change, file roles and scopes,
 //! running tools, accepted changes.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 
+use forge_check::builtins::{CheckCtx, ToolRun};
 use forge_core::builtin::{BuiltinCtx, Scope};
 use forge_core::{Finding, Note, NoteKind, Report};
-use forge_packs::model::{Language, Rule};
 use regex::Regex;
 
 use crate::Options;
 
-/// The checker's variables for a check command, beyond forge-core's [`BuiltinCtx`].
-pub const ENV_FILES: &str = "FORGE_FILES";
-pub const ENV_ROLES: &str = "FORGE_ROLES";
-pub const ENV_CHECK_RULE: &str = "FORGE_CHECK_RULE";
-pub const ENV_TMP: &str = "FORGE_TMP";
-
-/// What the checker passes a check command besides [`BuiltinCtx`].
-#[derive(Debug, Clone, Default)]
-pub struct Extra {
-    /// The check's files: its in-scope changed files that exist (`FORGE_FILES`). Empty or None:
-    /// every tracked file in the rule's scope (`--all`, or a `when_changed` file changed).
-    pub files: Option<Vec<String>>,
-    /// Every file role's effective patterns (`FORGE_ROLES`); None: Forge's defaults.
-    pub roles: Option<BTreeMap<String, Vec<String>>>,
-    /// The running rule (`FORGE_CHECK_RULE`), for its scope.
-    pub rule: Option<Rule>,
-    /// The workspace packages the rule runs in.
-    pub dirs: Option<Vec<String>>,
-    /// The run's scratch directory (`FORGE_TMP`), shared by the checks of one run.
-    pub tmp: Option<PathBuf>,
-}
-
-#[derive(serde::Deserialize)]
-struct CheckRule {
-    rule: Rule,
-    #[serde(default)]
-    dirs: Option<Vec<String>>,
-}
-
-impl Extra {
-    pub fn from_env() -> Extra {
-        let var = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty());
-        let read = |k: &str| var(k).and_then(|p| std::fs::read_to_string(p).ok());
-        let check = read(ENV_CHECK_RULE).and_then(|t| serde_json::from_str::<CheckRule>(&t).ok());
-        Extra {
-            files: std::env::var(ENV_FILES).ok().map(|s| lines(&s)),
-            roles: read(ENV_ROLES).and_then(|t| serde_json::from_str(&t).ok()),
-            dirs: check.as_ref().and_then(|c| c.dirs.clone()),
-            rule: check.map(|c| c.rule),
-            tmp: var(ENV_TMP).map(PathBuf::from),
-        }
-    }
-}
+pub use forge_check::scope::is_excluded;
 
 pub fn lines(s: &str) -> Vec<String> {
     s.lines()
@@ -67,34 +24,13 @@ pub fn lines(s: &str) -> Vec<String> {
 /// A builtin's view of its check.
 pub struct Cx<'a> {
     pub ctx: &'a BuiltinCtx,
-    pub extra: Extra,
+    pub check: &'a CheckCtx,
     pub opts: &'a Options,
-    roles: BTreeMap<String, Vec<String>>,
-}
-
-/// Forge's own files and the paths no rule looks at.
-pub fn is_excluded(path: &str) -> bool {
-    const DIRS: &[&str] = &[".git", "node_modules", ".venv"];
-    path.starts_with(".forge/")
-        || path.starts_with(".claude/skills/forge-project/")
-        || path.starts_with(".claude/worktrees/")
-        || path.split('/').rev().skip(1).any(|s| DIRS.contains(&s))
 }
 
 impl<'a> Cx<'a> {
-    pub fn new(ctx: &'a BuiltinCtx, extra: Extra, opts: &'a Options) -> Cx<'a> {
-        let roles = extra.roles.clone().unwrap_or_else(|| {
-            forge_packs::roles::ROLES
-                .iter()
-                .map(|(n, _)| (n.to_string(), forge_packs::roles::default_patterns(n)))
-                .collect()
-        });
-        Cx {
-            ctx,
-            extra,
-            opts,
-            roles,
-        }
+    pub fn new(ctx: &'a BuiltinCtx, check: &'a CheckCtx, opts: &'a Options) -> Cx<'a> {
+        Cx { ctx, check, opts }
     }
 
     pub fn root(&self) -> &Path {
@@ -150,76 +86,18 @@ impl<'a> Cx<'a> {
 
     /// Whether `path` is one of the role's files.
     pub fn role(&self, role: &str, path: &str) -> bool {
-        self.roles
-            .get(role.trim_start_matches('@'))
-            .is_some_and(|g| GlobList::new(g).matches(path))
-    }
-
-    fn expand(&self, globs: &[String]) -> Vec<String> {
-        let mut out = Vec::new();
-        for g in globs {
-            match forge_packs::roles::role_ref(g) {
-                Some((neg, name)) => {
-                    for p in self.roles.get(&name).into_iter().flatten() {
-                        let (pneg, pg) = match p.strip_prefix('!') {
-                            Some(r) => (true, r),
-                            None => (false, p.as_str()),
-                        };
-                        out.push(if neg != pneg {
-                            format!("!{pg}")
-                        } else {
-                            pg.to_string()
-                        });
-                    }
-                }
-                None => out.push(g.clone()),
-            }
-        }
-        out
+        self.check.roles.matches(role, path)
     }
 
     /// Whether `path` is in the running rule's scope (true when the rule is unknown).
     pub fn in_rule_scope(&self, path: &str) -> bool {
-        let Some(rule) = &self.extra.rule else {
-            return true;
-        };
-        let files = self.expand(rule.scope.files.as_deref().unwrap_or(&[]));
-        let files = in_dirs(&files, self.extra.dirs.as_deref());
-        if !GlobList::new(&files).matches(path) {
-            return false;
-        }
-        let lang: &[&str] = match rule.scope.language {
-            Language::Python => &["*.py", "*.pyi"],
-            Language::Typescript => &[
-                "*.ts", "*.tsx", "*.mts", "*.cts", "*.js", "*.jsx", "*.mjs", "*.cjs",
-            ],
-            Language::Tsx => &["*.tsx", "*.jsx"],
-            Language::Yaml => &["*.yaml", "*.yml"],
-            Language::Any => &[],
-        };
-        lang.is_empty() || lang.iter().any(|g| glob_regex(g).is_match(path))
+        self.check.in_scope(path)
     }
 
     /// `forge_scope_files`: the check's files; else (`--all`, or a `when_changed` file changed
-    /// and none of the check's own) every tracked file in the rule's scope. Outside the checker
-    /// (no [`Extra::files`]), the check's files are the changed files that exist in its scope.
+    /// and none of the check's own) every tracked file in the rule's scope.
     pub fn scope_files(&self) -> Vec<String> {
-        let files = match &self.extra.files {
-            Some(f) => f.clone(),
-            None if !self.all() => self
-                .existing()
-                .into_iter()
-                .filter(|p| !is_excluded(p) && self.in_rule_scope(p))
-                .collect(),
-            None => vec![],
-        };
-        if !files.is_empty() {
-            return files;
-        }
-        self.git_files(&["ls-files"])
-            .into_iter()
-            .filter(|p| !is_excluded(p) && self.exists(p) && self.in_rule_scope(p))
-            .collect()
+        self.check.scope_files(self.root())
     }
 
     /// `git <args>` in the root, one path per line (empty when git fails).
@@ -270,33 +148,27 @@ impl<'a> Cx<'a> {
         self.error(msg).at(path, Some(line))
     }
 
-    /// Forge's pinned `tool`: installed only when this is not a hook (see the crate docs).
-    pub fn pinned(&self, tool: &str) -> Result<PathBuf, Note> {
-        let r = if self.ctx.scope == Scope::Turn {
-            self.opts.pinned.resolve(tool).ok_or_else(|| {
-                Note::new(
-                    NoteKind::MissingTool,
-                    format!("{tool} is not installed yet (forge apply installs it)"),
-                )
-            })
-        } else {
-            self.opts.pinned.ensure(tool)
-        };
-        r.map_err(|n| match n.rule {
-            Some(_) => n,
-            None => self.note(n.kind, n.text),
-        })
+    /// Forge's pinned `tool`: the words that run it (installed first only where the checker
+    /// allows downloads).
+    pub fn pinned(&self, tool: &str) -> Result<Vec<String>, Note> {
+        self.opts
+            .tools
+            .pinned(tool)
+            .map_err(|why| self.note(NoteKind::MissingTool, why))
     }
 
-    /// The project's `tool` for `op`.
-    pub fn project(&self, tool: &str, op: &str) -> Result<Vec<String>, Note> {
-        self.opts
-            .project
-            .command(self.root(), tool, op)
-            .map_err(|n| match n.rule {
-                Some(_) => n,
-                None => self.note(n.kind, n.text),
-            })
+    /// Runs `op` of the project's `tool` in `cwd`, `args` after (its adapter's words first).
+    pub fn project(&self, tool: &str, op: &str, args: &[String], cwd: &Path) -> Result<Out, Note> {
+        match self.opts.tools.run(self.root(), cwd, tool, op, args) {
+            ToolRun::Ran(o) => Ok(Out {
+                code: Some(o.status),
+                stdout: o.stdout,
+                stderr: o.stderr,
+                error: None,
+            }),
+            ToolRun::Missing(why) => Err(self.note(NoteKind::MissingTool, why)),
+            ToolRun::Unsupported(why) => Err(self.note(NoteKind::NotEnforced, why)),
+        }
     }
 
     /// Whether the user accepted `text` for this rule: an entry holds the finding as it was
@@ -326,7 +198,7 @@ impl<'a> Cx<'a> {
     /// A scratch directory: in the run's when there is one (so a later check of the same run
     /// can reuse what it holds), else a temporary one removed with the value.
     pub fn scratch(&self) -> Scratch {
-        if let Some(t) = &self.extra.tmp
+        if let Some(t) = &self.check.tmp
             && t.is_dir()
         {
             return Scratch::Run(t.clone());
@@ -463,157 +335,21 @@ pub fn join(dir: &str, name: &str) -> String {
     }
 }
 
-/// A glob list relative to each workspace package.
-pub fn in_dirs(files: &[String], dirs: Option<&[String]>) -> Vec<String> {
-    let Some(dirs) = dirs else {
-        return files.to_vec();
-    };
-    let mut include: Vec<String> = files
-        .iter()
-        .filter(|g| !g.starts_with('!'))
-        .cloned()
-        .collect();
-    if include.is_empty() {
-        include.push("**".into());
-    }
-    let mut out: Vec<String> = include
-        .iter()
-        .flat_map(|g| dirs.iter().map(move |d| format!("{d}/{g}")))
-        .collect();
-    for g in files.iter().filter_map(|g| g.strip_prefix('!')) {
-        for d in dirs {
-            out.push(format!("!{d}/{g}"));
-        }
-    }
-    out
+/// The words of a pinned tool, then `args`.
+pub fn with(words: &[String], args: Vec<String>) -> Vec<String> {
+    let mut v = words.to_vec();
+    v.extend(args);
+    v
 }
 
-/// Include and exclude globs ("!" before an exclusion).
-pub struct GlobList {
-    include: Vec<Regex>,
-    exclude: Vec<Regex>,
-}
-
-impl GlobList {
-    pub fn new(globs: &[String]) -> GlobList {
-        let mut l = GlobList {
-            include: vec![],
-            exclude: vec![],
-        };
-        for g in globs {
-            match g.strip_prefix('!') {
-                Some(x) => l.exclude.push(glob_regex(x)),
-                None => l.include.push(glob_regex(g)),
-            }
-        }
-        l
-    }
-
-    /// Not excluded, and included (or there are no include globs).
-    pub fn matches(&self, path: &str) -> bool {
-        !self.exclude.iter().any(|r| r.is_match(path))
-            && (self.include.is_empty() || self.include.iter().any(|r| r.is_match(path)))
-    }
-}
-
-/// A glob with the generated scripts' `case` semantics: `*` also matches `/`, `**/` is zero
-/// or more directories, `{a,b}` alternatives, `[…]` one character.
-pub fn glob_regex(glob: &str) -> Regex {
-    Regex::new(&format!("^(?:{})$", glob_source(glob)))
-        .unwrap_or_else(|_| Regex::new("[^\\s\\S]").expect("regex"))
-}
-
-fn glob_source(glob: &str) -> String {
-    let g: Vec<char> = glob.chars().collect();
-    let mut out = String::new();
-    let mut i = 0;
-    while i < g.len() {
-        match g[i] {
-            '*' => {
-                let mut j = i;
-                while j < g.len() && g[j] == '*' {
-                    j += 1;
-                }
-                if j - i >= 2 && g.get(j) == Some(&'/') {
-                    out.push_str("(?:.*/)?");
-                    i = j + 1;
-                } else {
-                    out.push_str(".*");
-                    i = j;
-                }
-                continue;
-            }
-            '?' => out.push('.'),
-            '[' => match g.iter().skip(i + 2).position(|&x| x == ']') {
-                Some(p) => {
-                    let end = p + i + 2;
-                    let mut body: String = g[i + 1..end].iter().collect();
-                    let neg = body.starts_with('!') || body.starts_with('^');
-                    if neg {
-                        body.remove(0);
-                    }
-                    let body: String = body
-                        .chars()
-                        .map(|c| {
-                            if matches!(c, '\\' | ']' | '^' | '[' | '&' | '~') {
-                                format!("\\{c}")
-                            } else {
-                                c.to_string()
-                            }
-                        })
-                        .collect();
-                    out.push_str(&format!("[{}{body}]", if neg { "^" } else { "" }));
-                    i = end;
-                }
-                None => out.push_str("\\["),
-            },
-            '{' => {
-                let mut alts = Vec::new();
-                let (mut depth, mut start, mut k, mut end) = (0, i + 1, i + 1, None);
-                while k < g.len() && end.is_none() {
-                    match g[k] {
-                        '{' => depth += 1,
-                        '}' if depth > 0 => depth -= 1,
-                        '}' => end = Some(k),
-                        ',' if depth == 0 => {
-                            alts.push(g[start..k].iter().collect::<String>());
-                            start = k + 1;
-                        }
-                        _ => {}
-                    }
-                    k += 1;
-                }
-                match end {
-                    None => out.push_str("\\{"),
-                    Some(end) => {
-                        alts.push(g[start..end].iter().collect());
-                        let parts: Vec<String> = alts.iter().map(|a| glob_source(a)).collect();
-                        out.push_str(&format!("(?:{})", parts.join("|")));
-                        i = end;
-                    }
-                }
-            }
-            c => out.push_str(&regex::escape(&c.to_string())),
-        }
-        i += 1;
-    }
-    out
+/// The executable of a pinned tool's words (a release binary is one word: its path).
+pub fn exe_path(words: &[String]) -> PathBuf {
+    PathBuf::from(words.last().cloned().unwrap_or_default())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn globs_have_case_semantics() {
-        assert!(glob_regex("**/Dockerfile").is_match("Dockerfile"));
-        assert!(glob_regex("**/Dockerfile").is_match("a/b/Dockerfile"));
-        assert!(glob_regex("**/*.{yaml,yml}").is_match("a/x.yml"));
-        assert!(!glob_regex("**/Dockerfile.*").is_match("Dockerfile"));
-        let l = GlobList::new(&["**/Dockerfile.*".into(), "!**/*.dockerignore".into()]);
-        assert!(l.matches("api/Dockerfile.prod"));
-        assert!(!l.matches("api/Dockerfile.dockerignore"));
-    }
 
     #[test]
     fn last_line_and_dirs() {

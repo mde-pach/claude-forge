@@ -10,9 +10,9 @@ use forge_core::builtin::{BuiltinCtx, Scope};
 use forge_core::{Finding, Report};
 use regex::Regex;
 
-use crate::CodeBuiltin;
 use crate::ctx::{Extra, read};
 use crate::util::git_lines;
+use forge_check::builtins::CheckBuiltin;
 
 macro_rules! re {
     ($name:ident, $src:expr) => {
@@ -50,12 +50,12 @@ pub const HINT: &str = "Output-producing code changed but its snapshots did not:
 /// changed. Run as advice.
 pub struct SnapshotStale;
 
-impl CodeBuiltin for SnapshotStale {
+impl CheckBuiltin for SnapshotStale {
     fn name(&self) -> &'static str {
         "snapshot_stale"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         if ctx.scope != Scope::Turn || ctx.changed.iter().any(|f| SNAPSHOT_FILE.is_match(f)) {
             return r;

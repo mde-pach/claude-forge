@@ -116,6 +116,121 @@ impl Sample {
     fn read(&self, rel: &str) -> String {
         std::fs::read_to_string(self.repo.join(rel)).unwrap()
     }
+
+    /// `forge hook <event>` with `input` (session and cwd added) as Claude Code sends it; the
+    /// JSON answer, None when it says nothing. Nothing it prints names Forge's internals.
+    fn hook(&self, event: &str, input: serde_json::Value) -> Option<serde_json::Value> {
+        use std::io::Write as _;
+        let mut input = input;
+        input["session_id"] = "sess-e2e".into();
+        input["cwd"] = self.repo.to_string_lossy().into_owned().into();
+        let mut c = Command::new(env!("CARGO_BIN_EXE_claude-forge"));
+        c.args(["hook", event]);
+        self.env(&mut c);
+        c.env("FORGE_ENGINE", "off")
+            .env_remove("CLAUDE_CODE_ENTRYPOINT")
+            .env_remove("CLAUDE_ENV_FILE")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = c.spawn().unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.to_string().as_bytes())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success(), "{event}: {}", text(&out));
+        let all = text(&out);
+        assert!(
+            forge_core::internals::find(&all).is_empty(),
+            "{event} names internals: {all}"
+        );
+        (!out.stdout.is_empty()).then(|| serde_json::from_slice(&out.stdout).unwrap())
+    }
+
+    /// The agent writes `rel` (Claude Code's Write, then its PostToolUse hook): the context the
+    /// hook adds, if any.
+    fn agent_writes(&self, rel: &str, content: &str, id: &str) -> Option<String> {
+        self.write(rel, content);
+        let path = self.repo.join(rel).to_string_lossy().into_owned();
+        let v = self.hook(
+            "post-tool-use",
+            serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": path, "content": content},
+                "tool_response": {"filePath": path, "success": true},
+                "tool_use_id": id,
+            }),
+        )?;
+        Some(
+            v["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        )
+    }
+
+    /// The agent stops: the block reason, None when it may stop.
+    fn agent_stops(&self, continuing: bool) -> Option<String> {
+        let v = self.hook(
+            "stop",
+            serde_json::json!({"hook_event_name": "Stop", "stop_hook_active": continuing}),
+        )?;
+        assert_eq!(v["decision"], "block", "{v}");
+        Some(v["reason"].as_str().unwrap().to_string())
+    }
+}
+
+/// A turn through the hooks, as Claude Code drives them: the prompt, a Write with a violation
+/// (the edit's context names it, without the rule id), Stop blocked on it, the fix, Stop passing.
+fn hook_turn(sample: &str, file: &str, bad: &str, rule: &str, agent_text: &str) {
+    let s = Sample::new(sample);
+    let out = s.forge(&["apply", "--yes"]);
+    assert!(out.status.success(), "apply: {}", text(&out));
+    s.commit("forge");
+    assert_eq!(
+        s.hook(
+            "user-prompt-submit",
+            serde_json::json!({"hook_event_name": "UserPromptSubmit", "prompt": "add a feature"}),
+        ),
+        None
+    );
+    let clean = s.read(file);
+    let ctx = s
+        .agent_writes(file, &format!("{clean}{bad}"), "w1")
+        .unwrap_or_else(|| panic!("the edit's hook said nothing about {agent_text:?}"));
+    assert!(ctx.contains(agent_text), "{ctx}");
+    assert!(!ctx.contains(rule), "the agent's text names no rule: {ctx}");
+    let reason = s.agent_stops(false).expect("Stop blocks on the violation");
+    assert!(reason.contains(agent_text), "{reason}");
+    assert!(!reason.contains(rule), "{reason}");
+    assert_eq!(s.agent_writes(file, &clean, "w2"), None);
+    assert_eq!(s.agent_stops(true), None, "Stop passes after the fix");
+}
+
+#[test]
+fn fastapi_hook_turn() {
+    hook_turn(
+        "fastapi-app",
+        "app/main.py",
+        "app.add_middleware(CORSMiddleware, allow_origins=[\"*\"], allow_credentials=True)\n",
+        "python/fastapi/cors-credentials-wildcard",
+        "app/main.py:17 CORS never combines",
+    );
+}
+
+#[test]
+fn typescript_hook_turn() {
+    hook_turn(
+        "eslint-app",
+        "src/index.ts",
+        "export const run = (code: string): unknown => eval(code);\n",
+        "typescript/no-eval",
+        "src/index.ts:2 ",
+    );
 }
 
 fn text(o: &Output) -> String {

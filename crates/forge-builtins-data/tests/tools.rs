@@ -7,9 +7,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use common::*;
-use forge_builtins_data::{
-    Mode, NoPinnedTools, Options, ProjectTools, ToolOutput, ToolRun, builtins,
-};
+use forge_builtins_data::{Mode, Options, ToolOutput, ToolRun, builtins};
+use forge_check::builtins::BuiltinTools;
 use forge_core::{NoteKind, Report};
 
 /// Answers each (tool, op) with a canned run and records the calls.
@@ -18,8 +17,12 @@ struct Fake {
     calls: Mutex<Vec<String>>,
 }
 
-impl ProjectTools for Fake {
-    fn run(&self, _root: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun {
+impl BuiltinTools for Fake {
+    fn pinned(&self, tool: &str) -> Result<Vec<String>, String> {
+        Err(format!("{tool} is not installed"))
+    }
+
+    fn run(&self, _root: &Path, _cwd: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun {
         self.calls
             .lock()
             .unwrap()
@@ -28,7 +31,7 @@ impl ProjectTools for Fake {
             .iter()
             .find(|(t, o, _)| *t == tool && *o == op)
             .map(|(_, _, r)| r.clone())
-            .unwrap_or(ToolRun::Missing)
+            .unwrap_or_else(|| ToolRun::Missing(format!("{tool} is not installed")))
     }
 }
 
@@ -54,15 +57,14 @@ fn run_with(
     };
     let r = repo(&f(head), &f(now));
     let opts = Options {
-        project_tools: fake,
-        pinned: Arc::new(NoPinnedTools),
-        facts: Some(facts(Mode::Changed, r.existing())),
+        tools: fake,
         ..Options::default()
     };
+    let check = facts(Mode::Changed, r.existing());
     let all = builtins(opts);
     let b = all.iter().find(|b| b.name() == name).unwrap();
     let args: Vec<String> = args.iter().map(|a| (*a).to_owned()).collect();
-    b.run(&r.ctx("test/rule", vec![]), &args)
+    b.run(&r.ctx("test/rule", vec![]), &check, &args)
 }
 
 const REV: &str =
@@ -183,7 +185,7 @@ fn typeorm_pending() {
         .into(),
     );
     let mut facts = facts(Mode::Changed, r.existing());
-    facts.roles = Some(
+    facts.roles = forge_check::scope::Roles::from_map(
         [
             (
                 "typeorm-datasource".to_owned(),
@@ -194,14 +196,14 @@ fn typeorm_pending() {
         .into(),
     );
     let opts = Options {
-        project_tools: fake.clone(),
-        facts: Some(facts),
+        tools: fake.clone(),
         ..Options::default()
     };
     let all = builtins(opts);
     let b = all.iter().find(|b| b.name() == "typeorm_pending").unwrap();
     let rep = b.run(
         &r.ctx("test/rule", vec![]),
+        &facts,
         &["@typeorm-datasource".into(), "@esm-modules".into()],
     );
     assert_eq!(rep.findings.len(), 1, "{rep:?}");

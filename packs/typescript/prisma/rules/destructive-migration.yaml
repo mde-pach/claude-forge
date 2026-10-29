@@ -28,7 +28,7 @@ enforce:
       done < "$FORGE_TMP/drops" > "$FORGE_TMP/drops.open"
       [ -s "$FORGE_TMP/drops.open" ] || return 0
       cat "$FORGE_TMP/drops.open"
-      printf 'Drop a column or table only after a deploy in which no code reads it (expand and contract), or have the user accept it in forge.yaml: accept: [{rule: typescript/prisma/destructive-migration, change: '"'"'<line above>'"'"', reason: "..."}]\n'
+      printf 'Drop a column or table only after a deploy in which no code reads it (expand and contract), or ask the user to accept this drop.\n'
       return 1
 examples:
   match:
