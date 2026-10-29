@@ -52,6 +52,12 @@ ast-grep-language = { version = "=0.45.3", default-features = false }
 imara-diff = "0.2"
 wait-timeout = "0.2"
 
+# Debug builds keep line tables only, and no incremental cache: the shared build directory of
+# parallel worktrees stays a few GB instead of tens.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
 # Dependencies optimised in debug builds: the tests load every pack, which is slow unoptimised.
 [profile.dev.package."*"]
 opt-level = 2
