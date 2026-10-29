@@ -8,9 +8,9 @@ enforce:
       if grep -q '\.nuxt/' tsconfig.json 2>/dev/null && [ ! -d .nuxt ]; then
         printf 'forge:typescript/vue/typecheck skipped: no .nuxt/ (run nuxt prepare)\n'
       elif grep -q '"references"' tsconfig.json 2>/dev/null; then
-        forge_exec_tool vue-tsc --build
+        forge_do vue-tsc typecheck-build
       else
-        forge_exec_tool vue-tsc --noEmit
+        forge_do vue-tsc typecheck
       fi
 examples:
   match:

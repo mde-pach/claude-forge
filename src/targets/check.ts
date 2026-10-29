@@ -1,4 +1,5 @@
 /** `check`: a command check.sh runs in a stage (format, lint, codegen, typecheck, migration, test), §10. */
+import { ADAPTERS, directPattern } from "../adapters/index.js";
 import { checkTools, directDashedTools } from "../core/tools.js";
 import { checkExamplesOptional, type CheckExampleRun, hadolintIntegrity, runCheckExamples } from "../selftest/runners.js";
 import type { CheckTarget, Rule } from "../types.js";
@@ -18,6 +19,8 @@ export const check: TargetKind<CheckTarget> = {
       run: { type: "string", minLength: 1 },
       changed_run: { type: "string", minLength: 1 },
       fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },
+      // the fix run also lints: its status and output are the lint result on the same files (ruff check --fix reports what remains)
+      fix_lints: { const: true },
       format_stdin: { type: "string", minLength: 1, pattern: "\\{file\\}" },
       rerun: { type: "string", minLength: 1, pattern: "\\{files\\}" },
       when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
@@ -32,14 +35,20 @@ export const check: TargetKind<CheckTarget> = {
       // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
       { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
       { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
+      { if: { required: ["fix_lints"] }, then: { required: ["fix_run", "changed_run"] } },
       { if: { required: ["config_files"] }, then: { properties: { stage: { const: "lint" } } } },
     ],
   },
   label: (t) => `check · ${t.stage}`,
   validate(_rule, t) {
-    for (const command of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun])
+    for (const command of [t.run, t.changed_run, t.fix_run, t.format_stdin, t.rerun]) {
+      // a tool with an adapter is asked for an operation, never run with a command line of its own (§16.1)
+      // single-quoted text is data (a message, a script for another interpreter), not a command of this shell
+      const code = (command ?? "").replace(/'[^']*'/g, "''").replace(/\bforge_do\s+[a-z][a-z0-9-]*/g, "forge_do _");
+      for (const a of ADAPTERS) if (directPattern(a).test(code)) throw new Error(`invalid rule: run ${a.tool} as "forge_do ${a.tool} <operation>" (§16: its adapter knows how each release does it)`);
       for (const tool of directDashedTools(command ?? ""))
         throw new Error(`invalid rule: run ${tool} as "forge_exec_tool ${tool}" (a name with "-" has no wrapper function, so it would not be the project's own)`);
+    }
   },
   needsExamples: (t) => !checkExamplesOptional(t),
   plan(ctx, rule, st, t) {

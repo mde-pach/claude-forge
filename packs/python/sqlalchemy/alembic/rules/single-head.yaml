@@ -4,5 +4,5 @@ scope: {language: python}
 enforce:
   - target: check
     stage: migration
-    run: 'test "$(alembic heads | wc -l)" -le 1'
+    run: 'test "$(forge_do alembic heads | wc -l)" -le 1'
     when_changed: ["@alembic-migrations"]

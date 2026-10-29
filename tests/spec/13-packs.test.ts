@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadPackBundle, loadPacks } from "../../src/packs";
 import { checkExamplesOptional, hadolintIntegrity, permissionMatches, runCheckExample, runCheckExamples, selfTest, type TestReport } from "../../src/selftest";
-import { ANGULAR_TOOLS, ROOT, SYSTEM_TOOLS_BIN, ensureNodeTools, fullEngine, hasBun, hasUv, packsSelfTest, sh, shScript } from "../helpers";
+import { ANGULAR_TOOLS, ROOT, SYSTEM_TOOLS_BIN, ensureNodeTools, fullEngine, hasBun, hasUv, packsSelfTest, sh, shScript, STUB_VERSION } from "../helpers";
 import type { CheckTarget } from "../../src/types";
 import { commandsOf, SYSTEM_TOOLS } from "../../src/core/tools";
 import { renderCheckScript } from "../../src/render";
@@ -169,8 +169,9 @@ test(
 /**
  * `prisma db push` projects (no `prisma/migrations`, a `db push` script) have no
  * migration history to compare the schema with. Here a stand-in `prisma` logs its
- * arguments and fails as `migrate diff --from-migrations` does on a missing
- * directory: the db push workflow must not call it, the migrate workflow must.
+ * arguments and reports a difference as `migrate diff --exit-code` does (exit 2; exit 1 is
+ * a diff that could not run, reported skipped): the db push workflow must not call it, the
+ * migrate workflow must.
  */
 /** @rule typescript/prisma/migration-present */
 test("prisma migration-present passes in a db push workflow and still runs migrate diff in a migrate workflow", () => {
@@ -178,7 +179,7 @@ test("prisma migration-present passes in a db push workflow and still runs migra
   const bin = mkdtempSync(join(tmpdir(), "forge-prisma-stub-"));
   try {
     const log = join(bin, "calls");
-    writeFileSync(join(bin, "prisma"), `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\necho 'Error: Could not find the migrations directory' >&2\nexit 1\n`);
+    writeFileSync(join(bin, "prisma"), `#!/bin/sh\n${STUB_VERSION}printf '%s\\n' "$*" >> "${log}"\necho '[+] Added column \`phone\`'\nexit 2\n`);
     const calls = () => (existsSync(log) ? readFileSync(log, "utf8") : "");
     chmodSync(join(bin, "prisma"), 0o755);
     const target = rule.enforce[0] as CheckTarget;
@@ -235,7 +236,7 @@ describe("forge test catches broken packs", () => {
     ],
     ["review without a guard ask or the test-edit check", "enforce: [{target: guard, decision: deny, pattern: x}]\nreview: Is this fine?", "/enforce must contain at least 1 valid item"],
     ["the ephemeral-exec guard check with decision deny", "enforce: [{target: guard, decision: deny, pattern: npx, check: ephemeral-exec}]", "/enforce/0/decision must be equal to constant"],
-    ["a project tool with a '-' run directly, not through forge_exec_tool", "enforce: [{target: check, stage: typecheck, run: 'vue-tsc --noEmit'}]", 'run vue-tsc as "forge_exec_tool vue-tsc"'],
+    ["a project tool with a '-' run directly, not through its adapter", "enforce: [{target: check, stage: typecheck, run: 'vue-tsc --noEmit'}]", 'run vue-tsc as "forge_do vue-tsc <operation>"'],
   ])("a rule with %s is rejected", (_what, body, message) => {
     const dir = packsWith({ "demo/rules/x.yaml": `id: demo/x\ndescription: X.\nscope: {language: any}\n${body}\n` });
     expect(() => loadPacks(dir)).toThrow(message);
@@ -322,7 +323,7 @@ describe("forge test catches broken packs", () => {
     "a check example whose tool is not available is reported skipped, never passed",
     () => {
       const rule =
-        'id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: "ruff check ."}]\nexamples: {match: ["import os\\n"], no_match: ["X = 1\\n"]}\n';
+        'id: demo/r\ndescription: R.\nscope: {language: python}\nenforce: [{target: check, stage: lint, run: "forge_do ruff lint ."}]\nexamples: {match: ["import os\\n"], no_match: ["X = 1\\n"]}\n';
       const r = selfTest(packsWith({ "demo/rules/r.yaml": rule }), undefined, { toolBins: [] });
       expect(r.failures).toEqual([]);
       expect(r.notes).toContain("demo/r: match example 1 skipped: ruff not available");
@@ -408,7 +409,7 @@ test("typescript/better-auth/schema-check: a schema mismatch fails, a check the 
   const target = rule.enforce[0] as CheckTarget;
   const bin = mkdtempSync(join(tmpdir(), "forge-auth-"));
   const auth = (code: number, say: string) => {
-    writeFileSync(join(bin, "better-auth"), `#!/bin/sh\n[ "$1 $2 $3" = "check schema --config" ] || exit 9\nprintf '%s\\n' '${say}' >&2\nexit ${code}\n`);
+    writeFileSync(join(bin, "better-auth"), `#!/bin/sh\n${STUB_VERSION}[ "$1 $2 $3" = "check schema --config" ] || exit 9\nprintf '%s\\n' '${say}' >&2\nexit ${code}\n`);
     chmodSync(join(bin, "better-auth"), 0o755);
   };
   const prisma =

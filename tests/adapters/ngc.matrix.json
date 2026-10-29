@@ -1,0 +1,41 @@
+{
+  "tool": "ngc",
+  "install": {
+    "npm": "@angular/compiler-cli",
+    "with": [
+      "@angular/compiler@{version}",
+      "@angular/core@{version}",
+      "rxjs@7.8.2"
+    ],
+    "withFor": {
+      "16.0.0": [
+        "typescript@5.0.4"
+      ],
+      "22.2.3": [
+        "typescript@6.0.3"
+      ]
+    }
+  },
+  "versions": [
+    "16.0.0",
+    "22.2.3"
+  ],
+  "files": {
+    "tsconfig.app.json": "{\"compilerOptions\": {\"strict\": true, \"target\": \"es2020\", \"module\": \"es2020\", \"moduleResolution\": \"bundler\", \"experimentalDecorators\": true, \"lib\": [\"es2020\", \"dom\"], \"skipLibCheck\": true}, \"files\": [\"src/app.component.ts\"], \"angularCompilerOptions\": {\"strictTemplates\": true}}",
+    "src/app.component.ts": "import { Component } from '@angular/core';\n\n@Component({ selector: 'app-root', standalone: true, template: '<p>{{ count.toFixed() }}</p>' })\nexport class AppComponent {\n  count = 'one';\n}\n"
+  },
+  "calls": [
+    {
+      "call": "typecheck tsconfig.app.json",
+      "exit": [
+        1
+      ],
+      "out": "TS2551: .*Property .toFixed. does not exist on type .string."
+    }
+  ],
+  "usageProbe": "typecheck tsconfig.app.json --definitely-not-an-option",
+  "untestedVersions": {
+    "9.0.0": "Angular 9 to 15 need an NgModule project and older module settings: verified by hand (src/adapters/ngc.ts notes)"
+  },
+  "withWhy": "the Angular compiler compiles against @angular/core and @angular/compiler (rxjs is core's peer) with the TypeScript its release supports"
+}

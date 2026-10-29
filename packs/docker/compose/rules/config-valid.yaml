@@ -1,10 +1,10 @@
 id: docker/compose/config-valid
-description: The root compose file is valid (docker compose config --quiet --no-interpolate --no-env-resolution, so no .env is read).
+description: "The root compose file is valid (docker compose config --quiet --no-interpolate --no-env-resolution: variables are not substituted and env_file files are not read; Compose still parses the project .env)."
 scope: {language: any, files: ["@compose"]}
 enforce:
   - target: check
     stage: lint
-    run: "[ -z \"$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)\" ] || docker compose config --quiet --no-interpolate --no-env-resolution"
+    run: "[ -z \"$(ls compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null)\" ] || forge_do docker validate"
     when_changed: ["@compose", "**/.env.example"]
 examples:
   match:

@@ -1,0 +1,35 @@
+{
+  "tool": "kubectl",
+  "install": {
+    "urls": {
+      "darwin-arm64": "https://dl.k8s.io/release/v{version}/bin/darwin/arm64/kubectl",
+      "linux-amd64": "https://dl.k8s.io/release/v{version}/bin/linux/amd64/kubectl"
+    }
+  },
+  "versions": [
+    "1.21.0",
+    "1.37.2"
+  ],
+  "files": {
+    "good/kustomization.yaml": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - cm.yaml\n",
+    "good/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm\ndata:\n  k: v\n",
+    "bad/kustomization.yaml": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - missing.yaml\n"
+  },
+  "calls": [
+    {
+      "call": "build good",
+      "exit": [
+        0
+      ],
+      "out": "^kind: ConfigMap"
+    },
+    {
+      "call": "build bad",
+      "exit": [
+        1
+      ],
+      "out": "accumulating resources"
+    }
+  ],
+  "usageProbe": "build good --definitely-not-an-option"
+}

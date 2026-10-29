@@ -4,10 +4,10 @@ scope: {language: any}
 enforce:
   - target: check
     stage: format
-    run: "prettier --check ."
-    changed_run: "prettier --write --ignore-unknown {files}"
+    run: "forge_do prettier format-check ."
+    changed_run: "forge_do prettier format {files}"
     # formats a file's base copy, so lines that only formatting changed are not counted as added
-    format_stdin: "prettier --stdin-filepath {file}"
+    format_stdin: "forge_do prettier format-stdin {file}"
 examples:
   match:
     - files: {src/cart.ts: "export const total = (items: {price:number}[]) => items.reduce((s, i) => s + i.price, 0)\n"}

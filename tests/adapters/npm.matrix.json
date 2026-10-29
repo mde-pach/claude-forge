@@ -1,0 +1,37 @@
+{
+  "tool": "npm",
+  "install": {
+    "npm": "npm",
+    "onPath": true
+  },
+  "versions": [
+    "8.0.0",
+    "10.5.0",
+    "10.5.1",
+    "12.2.1"
+  ],
+  "files": {
+    "package.json": "{\"name\":\"shop\",\"version\":\"1.0.0\",\"private\":true,\"dependencies\":{\"is-number\":\"7.0.0\"}}\n"
+  },
+  "calls": [
+    {
+      "before": "install --package-lock-only --ignore-scripts --no-audit --no-fund",
+      "call": "lock-check",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "write": {
+        "package.json": "{\"name\":\"shop\",\"version\":\"1.0.0\",\"private\":true,\"dependencies\":{\"is-number\":\"7.0.0\",\"is-odd\":\"3.0.1\"}}\n"
+      },
+      "call": "lock-check",
+      "exit": [
+        1
+      ],
+      "out": "(missing: is-odd@3\\.0\\.1|Missing: is-odd@3\\.0\\.1 from lock file)"
+    }
+  ],
+  "usageProbe": "lock-check --definitely-not-an-option",
+  "usageFrom": "12.0.0"
+}

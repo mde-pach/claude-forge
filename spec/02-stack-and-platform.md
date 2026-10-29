@@ -14,5 +14,5 @@
 
 - One application per repository.
 - Platforms: macOS, Linux, WSL2.
-- Claude Code ≥ 2.1.295. `forge apply` reads `claude --version` and refuses below it.
+- Claude Code ≥ 2.1.284. `forge apply` reads `claude --version` and refuses below it.
 - A project that uses other tools is never broken: rules whose tool is absent are reported as "not enforced here" (§11).

@@ -1,18 +1,21 @@
-import { auditRules } from "../../audit.js";
+import { auditRules, type PythonEnvState, pythonEnvState, untypedPackages } from "../../audit.js";
 import { FORGE_VERSION } from "../../util.js";
 import { computeChanges } from "../changes.js";
-import { context } from "../context.js";
+import { type Ctx, context } from "../context.js";
 import type { Flags } from "../flags.js";
 import { out } from "../io.js";
 import { notChecked, preCommitState } from "../pre-commit.js";
-import { defaultBranch, enforcement, enforcementSummary, formatAudit, formatMerged, mergedSnippets, missingTools, roleFiles, sandboxProblem } from "../report.js";
+import { defaultBranch, enforcement, enforcementSummary, formatAudit, formatMerged, mergedSnippets, missingTools, roleFiles, sandboxProblem, toolVersionReport } from "../report.js";
 
 export function cmdStatus(flags: Flags): number {
   const ctx = context(flags);
   const p = ctx.plan;
-  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active, (t) => p.toolDirs[t]) : [];
+  const audits = ctx.level === "project" ? auditRules(ctx.base, p.active, (t) => p.toolDirs[t], p.engineSettings) : [];
   const missing = missingTools(ctx);
   const rules = enforcement(ctx, audits, missing);
+  const untyped = untypedState(ctx);
+  const pyEnv = ctx.level === "project" && p.packs.some((pk) => pk.id === "python") ? pythonEnvState(ctx.base) : undefined;
+  const versions = toolVersionReport(ctx);
   if (flags.json) {
     const ch = computeChanges(ctx);
     out(
@@ -33,6 +36,9 @@ export function cmdStatus(flags: Flags): number {
           audits,
           snippets: mergedSnippets(audits),
           missing_tools: missing,
+          untyped_packages: untyped,
+          python_environment: pyEnv,
+          tool_versions: versions,
           pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
           files: roleFiles(ctx),
@@ -104,6 +110,9 @@ export function cmdStatus(flags: Flags): number {
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox.replace(/^forge: sandbox: /, "Sandbox: "));
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
+  if (pyEnv) out(formatPythonEnv(pyEnv));
+  if (untyped) out(formatUntyped(untyped));
+  if (ctx.level === "project") out(versions.length ? "Tool versions:\n" + versions.map((v) => `  ${v}`).join("\n") : "Tool versions: every tool the checks drive is covered");
   if (ctx.level === "project") {
     out("");
     const pre = preCommitState(ctx);
@@ -116,4 +125,43 @@ export function cmdStatus(flags: Flags): number {
       );
   }
   return 0;
+}
+
+/** Installed packages without typing (§15.2): where ty runs (python/typecheck, the types engine), what it checks as Any here. */
+export interface UntypedState {
+  setting: "any" | "source";
+  count: number;
+  names: string[];
+}
+
+function untypedState(ctx: Ctx): UntypedState | undefined {
+  const p = ctx.plan;
+  if (ctx.level !== "project" || !(p.types.includes("python") || /\bforge_ty\b/.test(p.checksFragment ?? ""))) return undefined;
+  const setting = p.engineSettings.untypedPackages;
+  const names = setting === "any" ? untypedPackages(ctx.base, p.engineSettings) : [];
+  return { setting, count: names.length, names };
+}
+
+/** One line: how many, the first names, and the opt-out. */
+export function formatUntyped(u: UntypedState): string {
+  if (u.setting === "source") return "Untyped packages: ty infers them from their source (forge.yaml python: {untyped-packages: source})";
+  if (!u.count) return "Untyped packages: none installed (every package ty sees ships typing)";
+  const shown = u.names.slice(0, 8).join(", ");
+  const more = u.count > 8 ? `, … ${u.count - 8} more` : "";
+  return `Untyped packages: ${u.count} installed without typing, checked as Any by ty (${shown}${more}); to infer them from their source: forge.yaml python: {untyped-packages: source}`;
+}
+
+/** The Python environment the checks use, why, and where each Python tool was found (§9.1). */
+export function formatPythonEnv(e: PythonEnvState): string {
+  const of = (c: { installed: number; declared: number }) => `${c.installed} of ${c.declared} declared dependencies installed`;
+  const checked = e.checked.map((c) => `${c.python} (${c.installed}/${c.declared})`).join(", ");
+  const lines: string[] = [];
+  if (!e.chosen) lines.push(`Python environment: none found${checked ? ` (checked: ${checked})` : ""}`);
+  else if (e.chosen.declared === 0) lines.push(`Python environment: ${e.chosen.prefix} (${e.chosen.python}); the project declares no dependencies`);
+  else if (e.chosen.installed === 0)
+    lines.push(`Python environment: none has the project's ${e.chosen.declared} declared dependencies installed (checked: ${checked}); using ${e.chosen.prefix} (${e.chosen.python})`);
+  else lines.push(`Python environment: ${e.chosen.prefix} (${e.chosen.python}), ${of(e.chosen)}${e.checked.length > 1 ? ` (checked: ${checked})` : ""}`);
+  const where = { venv: "the repository's .venv", env: "the environment's", path: "on PATH" };
+  for (const t of e.tools) lines.push(`  ${t.tool}: ${t.path} (${where[t.where]})`);
+  return lines.join("\n");
 }

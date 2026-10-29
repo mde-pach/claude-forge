@@ -1,0 +1,27 @@
+{
+  "tool": "playwright",
+  "install": {
+    "npm": "@playwright/test",
+    "with": []
+  },
+  "versions": [
+    "1.12.0",
+    "1.64.1"
+  ],
+  "files": {
+    "package.json": "{\"name\":\"p\",\"private\":true}",
+    "playwright.config.js": "module.exports = { testDir: \"e2e\" };\n",
+    "e2e/a.spec.js": "const { test, expect } = require(\"@playwright/test\");\ntest(\"adds\", () => { expect(1 + 2).toBe(3); });\n",
+    "e2e/b.spec.js": "const { test, expect } = require(\"@playwright/test\");\ntest(\"fails\", () => { expect(1 + 2).toBe(4); });\n"
+  },
+  "calls": [
+    {
+      "call": "test",
+      "exit": [
+        1
+      ],
+      "out": "1\\) .*b\\.spec\\.js:2:1 "
+    }
+  ],
+  "usageProbe": "test --definitely-not-an-option"
+}

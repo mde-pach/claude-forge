@@ -4,12 +4,15 @@ scope: {language: python}
 enforce:
   - target: check
     stage: lint
-    run: "ruff check ."
-    changed_run: "ruff check --output-format concise {files}"
+    # ruff's operations, as the installed release does them (§16: forge_do, src/adapters/ruff.ts)
+    run: "forge_do ruff lint ."
+    changed_run: "forge_do ruff lint {files}"
     # ruff also lints pyproject.toml (RUF200, python/valid-pyproject): a changed one is linted too
     config_files: ["**/pyproject.toml"]
     # after an edit: sorted imports and pyupgrade, when the project selects them; never F401/F841 (an import added now is used in the next edit)
-    fix_run: "ruff check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise {files}"
+    fix_run: "forge_do ruff fix {files}"
+    # that run reports what remains (ruff check --fix): it is the edit's lint run too, one ruff call
+    fix_lints: true
 examples:
   match: ["import os\n"]
   no_match: ["X = 1\n"]

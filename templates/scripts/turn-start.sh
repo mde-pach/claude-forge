@@ -6,23 +6,33 @@
 # (<state>/<session>.prompt) for a reviewer of test edits nobody can approve
 # (test-edit.sh). Tells the running types engines which files changed outside Claude's
 # edits since the last prompt (§15.3). Prints nothing (its output would reach Claude).
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
 forge_state_dir || exit 0
-snapshot "$(turn_dir)" 2>/dev/null
-rm -f "$FORGE_STATE/$(session_id).blocks"
-json_get prompt > "$FORGE_STATE/$(session_id).prompt" 2>/dev/null
+forge_session
+snapshot "$FORGE_STATE/$FORGE_SESSION.turn" 2>/dev/null
+[ ! -e "$FORGE_STATE/$FORGE_SESSION.blocks" ] || rm -f "$FORGE_STATE/$FORGE_SESSION.blocks"
+json_get prompt > "$FORGE_STATE/$FORGE_SESSION.prompt" 2>/dev/null
 if [ -d "$FORGE_STATE/types" ]; then
   # the uncommitted files, and every file a commit, checkout or pull changed since then
-  _ts_h=$(git rev-parse -q --verify HEAD 2>/dev/null)
-  _ts_o=$(cat "$FORGE_STATE/types/head" 2>/dev/null)
+  _ts_h=''; _ts_o=''
+  read -r _ts_h 2>/dev/null < "$FORGE_STATE/$FORGE_SESSION.turn/head"
+  read -r _ts_o 2>/dev/null < "$FORGE_STATE/types/head"
   set -f
   IFS='
 '
-  # shellcheck disable=SC2046
-  forge_types_changed $({ status_paths; [ -n "$_ts_o" ] && [ "$_ts_o" != "$_ts_h" ] && git diff --name-only "$_ts_o" "$_ts_h" 2>/dev/null; } | sort -u)
+  # the uncommitted files: the snapshot's list (builtins)
+  _ts_l=''
+  while IFS='	' read -r _ts_f _; do _ts_l="$_ts_l
+$_ts_f"; done < "$FORGE_STATE/$FORGE_SESSION.turn/dirty"
+  [ -n "$_ts_o" ] && [ "$_ts_o" != "$_ts_h" ] && _ts_l="$_ts_l
+$(git diff --name-only "$_ts_o" "$_ts_h" 2>/dev/null)"
+  # shellcheck disable=SC2086
+  [ -z "$_ts_l" ] || forge_types_changed ${_ts_l#?}
   printf '%s\n' "$_ts_h" > "$FORGE_STATE/types/head"
 fi
 exit 0

@@ -23,6 +23,7 @@ Formatting is Biome's (`bun run format`). Commits that only reformat are listed 
 | A pack, or a new one | `packs/<path>/pack.yaml`, `context.md`, `rules/`, `init/` |
 | What a kind of target (`tool`, `ast-grep`, `guard`, …) does | `src/targets/<kind>.ts` |
 | A shell helper a check calls (`forge_hadolint`, `forge_squawk_files`, …) | `templates/engine/<module>.sh` |
+| How a release of a tool is invoked, which codes it has | `src/adapters/<tool>.ts` (§16) |
 | A built-in guard check (`check: ephemeral-exec`) | `templates/scripts/guard.sh` and `GUARD_CHECKS` in `src/core/vocabulary.ts` |
 | A file role (`@python-tests`) | `ROLES` in `src/roles.ts` |
 | Which packs are active, where rules apply, what gets written | `src/plan/` |
@@ -57,6 +58,10 @@ Then add it to `TARGETS` in `src/targets/index.ts` and its type to `Target` in `
 ### A new engine helper
 
 Add the function to the module of its concern in `templates/engine/` (or a new `templates/engine/<module>.sh` starting with `# @module <name>` and a line on what it is for). Name it `forge_<name>` and its constants `FORGE_<NAME>`: that is how Forge finds which module provides it. A check's `run` calls it by name, and a project then gets that module and the ones it calls. Nothing is listed by hand. Version pins go in as `@@PLACEHOLDER@@`, filled by `pins()` in `src/render/engine.ts`. `core.sh` documents the state a helper may read (`$FORGE_TMP/changed`, `existing`, `base/`, `added`, `$c_id`). The pack test "every check target, rendered on its own, has every engine function it calls" fails if a helper's module cannot be found.
+
+### A tool adapter, or a new release of a tool
+
+A check asks a tool for an operation, `forge_do <tool> <operation> {files}`, never with a command line of its own (§16). The tool's adapter, `src/adapters/<tool>.ts`, lists version ranges, each citing the changelog entry that makes it a range, with the arguments of each operation there (`null`: that range cannot). Say how it is run (`runner`: the project's install by default, `path` for a tool on PATH, `forge_pinned <tool>` for one Forge pins: its launcher is `forge_pinned_<tool>` in the module that uses it, else its release binary), how it says its version (`versionArgs`, or `package` when only its package.json can be trusted), its usage error (exit status and a line no findings run prints; `null` when it has none, said why), and, when its name is also used for something it does not drive (bun as a runtime), the `direct` pattern of the uses it owns. Add it to `ADAPTERS` in `src/adapters/index.ts`, and its matrix to `tests/adapters/<tool>.matrix.json`: the first release of each range that can do something, one of each range that cannot, the newest, a sample project, one call per operation with the exit statuses and output its callers read, and a usage probe. `tests/spec/16-2-adapter-matrix.test.ts` installs each release (npm, PyPI, or a release binary per platform) and runs them; `tests/spec/16-adapters.test.ts` fails when a rule or an engine helper runs the tool without `forge_do`. When a release changes something, add a range. When the tool has a new release (the test comparing with npm or PyPI fails), add it to the matrix (ruff: `RUFF_MATRIX`, then run `bun scripts/ruff-rules.ts`, which reads each release's own rule table and finds from which one each code reports its rule's examples).
 
 ### A new built-in guard check
 

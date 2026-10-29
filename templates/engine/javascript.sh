@@ -31,6 +31,9 @@ forge_trusted_deps() {
 
 FORGE_LOCKFILE_LINT_VERSION="@@LOCKFILE_LINT_VERSION@@"
 
+# forge_pinned_lockfile_lint <args>: Forge's pinned lockfile-lint through bunx (forge_pinned).
+forge_pinned_lockfile_lint() { bunx "lockfile-lint@$FORGE_LOCKFILE_LINT_VERSION" "$@"; }
+
 # forge_lockfile_lint: the pinned lockfile-lint (through bunx) on each in-scope package-lock.json
 # (forge_scope_files): every package resolves from registry.npmjs.org, over https, with a
 # sha512 integrity. "path:0 <package>: <problem> (expected …, actual …)" per finding; when it
@@ -41,10 +44,10 @@ forge_lockfile_lint() {
   while IFS= read -r _ll_f; do
     case $_ll_f in package-lock.json|*/package-lock.json) ;; *) continue ;; esac
     [ -f "$_ll_f" ] || continue
-    command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
-    bunx "lockfile-lint@$FORGE_LOCKFILE_LINT_VERSION" --type npm --path "$_ll_f" --allowed-hosts npm --validate-https --validate-integrity > "$FORGE_TMP/ll.out" 2>&1 && continue
+    command -v bunx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
+    forge_do lockfile-lint lint "$_ll_f" > "$FORGE_TMP/ll.out" 2>&1 && continue
     if ! grep -q '^detected ' "$FORGE_TMP/ll.out"; then
-      printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
       return 0
     fi
     awk -v f="$_ll_f" '

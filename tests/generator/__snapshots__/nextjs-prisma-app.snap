@@ -280,6 +280,8 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 
 @@ templates/engine/types.sh (types: typescript) @@
 
+@@ templates/engine/adapters.sh @@
+
 @@ templates/engine/env.sh @@
 
 @@ templates/engine/javascript.sh @@
@@ -325,7 +327,9 @@ typescript/vitest/no-snapshot-update	ask	(^|[^A-Za-z0-9_-])vitest([[:space:]]+ru
 # the working tree with the snapshot bash-snapshot.sh took before it (at most 20
 # files). Findings on lines added during this turn (or since HEAD, before the
 # first prompt) go back to Claude as additionalContext (<= 20 lines). Nothing on success.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -335,7 +339,8 @@ FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-edit.XXXXXX") || exit 0
 trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 : > "$FORGE_TMP/report"
 
-if [ "$(json_get tool_name)" = Bash ]; then
+forge_json tool_name
+if [ "$FORGE_J" = Bash ]; then
   key=$(bash_key) || exit 0
   state=$(bash_state)
   [ -f "$state/$key.tree" ] || exit 0
@@ -375,39 +380,50 @@ FORGE_FORBID='typescript/bun/no-shell-raw|typescript/cors-credentials-wildcard|t
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
 FORGE_SNAP=''
-FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
-snap=$(turn_dir)
-if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); fi
+FORGE_BASE_REV=''
+forge_session
+snap=$FORGE_STATE/$FORGE_SESSION.turn
+if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; read -r FORGE_BASE_REV < "$snap/head"
+else FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null); fi
 
 # Each tool runs once on all the files; what is found is appended to the report as
 # it comes, so a run cut short by the time budget still returns what it has.
 forge_edit_checks() {
   # the types engine resyncs the changed files before any question (§15.3)
-  forge_types_changed $(cat "$FORGE_TMP/changed")
+  _pe_files=''
+  while IFS= read -r _pe_f; do _pe_files="$_pe_files
+$_pe_f"; done < "$FORGE_TMP/changed"
+  # shellcheck disable=SC2086
+  forge_types_changed ${_pe_files#?}
   forge_file_stage format "$FORGE_TMP/changed" > /dev/null 2>&1
   # safe fixes first (sorted imports, pyupgrade), then lint: a lint run may write too
   # (Biome's check --write applies its safe fixes and formats), so copies are kept to
   # tell its fixes from formatting
+  # copies before the fixes: a file the fixes or the lint run changed differs from its copy
   : > "$FORGE_TMP/noted"
-  forge_file_fixes "$FORGE_TMP/changed" >> "$FORGE_TMP/report" 2>/dev/null
   while IFS= read -r file; do
-    mkdir -p "$FORGE_TMP/pre/$(dirname "$file")" && cp "$file" "$FORGE_TMP/pre/$file"
+    forge_dirname "$FORGE_TMP/pre/$file"
+    { [ -d "$FORGE_DIR" ] || mkdir -p "$FORGE_DIR"; } && cp "$file" "$FORGE_TMP/pre/$file"
   done < "$FORGE_TMP/changed"
+  FORGE_FIX_BEFORE=$FORGE_TMP/pre forge_file_fixes "$FORGE_TMP/changed" >> "$FORGE_TMP/report" 2>/dev/null
   forge_file_run lint "$FORGE_TMP/changed" 2>/dev/null
-  forge_lint_fixes "$FORGE_TMP/changed" "$FORGE_TMP/pre" >> "$FORGE_TMP/report" 2>/dev/null
+  # only after a lint run: one that writes applies fixes too (the fix runs are noted already)
+  [ "${FORGE_FILE_RAN:-0}" = 0 ] || forge_lint_fixes "$FORGE_TMP/changed" "$FORGE_TMP/pre" >> "$FORGE_TMP/report" 2>/dev/null
   # added lines, on the files as the checks left them
   : > "$FORGE_TMP/added"
+  _pe_n=0
   while IFS= read -r file; do
-    rm -f "$FORGE_TMP/base"
-    base_file "$file" "$FORGE_TMP/base"
-    forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
+    # a base copy of its own per file (no rm between files)
+    _pe_n=$((_pe_n + 1))
+    base_file "$file" "$FORGE_TMP/base.$_pe_n"
+    forge_added_lines "$file" "$FORGE_TMP/base.$_pe_n" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
   [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" ${_pe_files#?} > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
@@ -423,10 +439,10 @@ forge_edit_checks() {
 if [ -s "$FORGE_TMP/changed" ]; then
   forge_edit_checks &
   _pe_pid=$!
-  ( sleep "${FORGE_EDIT_BUDGET:-45}"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
+  ( sleep "${FORGE_EDIT_BUDGET:-45}" & printf '%s\n' "$!" > "$FORGE_TMP/watch.sleep"; wait "$!"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
   _pe_watch=$!
   wait "$_pe_pid" 2>/dev/null
-  forge_kill_watch "$_pe_watch"
+  forge_kill_watch "$_pe_watch" "$FORGE_TMP/watch.sleep"
   if [ -f "$FORGE_TMP/over" ]; then
     { printf 'forge: the checks after this edit stopped after %ss; findings so far are below, and the Stop check covers the rest.\n' "${FORGE_EDIT_BUDGET:-45}"
       cat "$FORGE_TMP/report"; } > "$FORGE_TMP/report.over"
@@ -449,7 +465,9 @@ exit 0
 ===== .claude/skills/forge-project/scripts/session-start.sh
 #!/bin/sh
 # Generated by forge. SessionStart: <= 20 lines of repository context.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -461,16 +479,31 @@ IFS='
 
 branch=$(git branch --show-current 2>/dev/null)
 [ -n "$branch" ] || branch="(detached $(git rev-parse --short HEAD 2>/dev/null))"
-git status --porcelain --untracked-files=all 2>/dev/null | sed -e 's/^...//' -e 's/^.* -> //' > "${TMPDIR:-/tmp}/forge-ss.$$"
-n=$(awk 'END { print NR }' "${TMPDIR:-/tmp}/forge-ss.$$")
+# the changed files, counted and listed with builtins (status columns and rename sources cut)
+status=$(git status --porcelain --untracked-files=all 2>/dev/null)
+n=0
+list=''
+set -f
+for _ss_f in $status; do
+  n=$((n + 1))
+  _ss_f=${_ss_f#???}
+  [ "$n" -gt 10 ] || list="$list
+  ${_ss_f##* -> }"
+done
+set +f
 printf 'forge: branch %s, %s changed files\n' "$branch" "$n"
-first_lines 10 < "${TMPDIR:-/tmp}/forge-ss.$$" | sed 's/^/  /'
-rm -f "${TMPDIR:-/tmp}/forge-ss.$$"
-if git rev-parse --verify -q HEAD >/dev/null; then
+[ -z "$list" ] || printf '%s\n' "${list#?}"
+head=$(git log -5 --format='%h %s' 2>/dev/null)
+if [ -n "$head" ]; then
   printf 'forge: last commits\n'
-  git log -5 --format='%h %s' 2>/dev/null | cut -c 1-72 | sed 's/^/  /'
+  set -f
+  for _ss_c in $head; do printf '  %.72s\n' "$_ss_c"; done
+  set +f
 fi
 printf 'forge: packs git, secrets, supply-chain, typescript, typescript/bun, typescript/nextjs, typescript/nextjs/react, typescript/playwright, typescript/prisma, typescript/react, typescript/vitest, typescript/zod\n'
+
+# snapshots of Bash commands that never finished, older than a day (bash-snapshot.sh keeps the 50 newest)
+forge_state_dir && bash_cleanup age
 
 # the types engines the rules use start now, in the background, so the first edit
 # does not wait for them (§15.3); this session is registered with them
@@ -480,16 +513,8 @@ if [ -n "$FORGE_TYPES_LANGS" ] && forge_state_dir; then
   done
 fi
 
-missing=$(forge_missing_tools)
-state=$FORGE_STATE/missing-tools
-if [ -n "$missing" ]; then
-  if [ "$missing" != "$(cat "$state" 2>/dev/null)" ]; then
-    printf 'forge: missing tools (checks using them are skipped): %s\n' "$missing"
-    forge_state_dir && printf '%s\n' "$missing" > "$state"
-  fi
-else
-  rm -f "$state" 2>/dev/null
-fi
+# Missing tools, what the installed tool versions cannot do and the Python environment
+# are the person's to fix: forge apply and forge status say them, not Claude's context (§8.1)
 exit 0
 
 ===== .claude/skills/forge-project/scripts/stop.sh
@@ -507,7 +532,9 @@ exit 0
 # recorded in <turn snapshot>/tests-approved, which the Stop check does not block
 # on. The edited test file is recorded in <turn snapshot>/touched, so the Stop
 # check still runs it when the edit is later reverted.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -555,8 +582,9 @@ fi
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-test-edit.XXXXXX") || exit 0
 trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
 FORGE_SNAP=''
-FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
-if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); fi
+FORGE_BASE_REV=''
+if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; read -r FORGE_BASE_REV < "$snap/head"
+else FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null); fi
 # the file at the start of the turn, now, and after this edit
 base_file "$file" "$FORGE_TMP/v/base/$file" || exit 0
 mkdir -p "$FORGE_TMP/v/before/$(dirname "$file")" "$FORGE_TMP/v/after/$(dirname "$file")"
@@ -3891,12 +3919,25 @@ vitest() { forge_exec_tool vitest "$@"; }
 playwright() { forge_exec_tool playwright "$@"; }
 python() { forge_exec_tool python "$@"; }
 FORGE_NCHECKS=39
+FORGE_ADAPTER_USES='biome	ci	typescript/format-lint
+biome	fix	typescript/format-lint
+biome	format-stdin	typescript/format-lint
+biome	lint	typescript/no-unused-suppressions
+bun	lock-check	typescript/bun/lock-sync
+bun	test-files	typescript/bun/test
+playwright	test	typescript/playwright/run
+prisma	migrations-check	typescript/prisma/migration-present
+prisma	validate	typescript/prisma/validate
+tsc	typecheck-incremental	typescript/typecheck
+vitest	test	typescript/vitest/run
+vitest	test-changed	typescript/vitest/run
+vitest	test-files	typescript/vitest/run'
 
 # 1. git/editorconfig
 forge_check_meta_1() {
   c_id='git/editorconfig'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_1() {
   return 0
@@ -3910,7 +3951,7 @@ forge_editorconfig
 forge_check_meta_2() {
   c_id='git/generated-files'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_2() {
   return 0
@@ -3924,7 +3965,7 @@ forge_advise forge_generated_edits
 forge_check_meta_3() {
   c_id='git/large-files'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_3() {
   return 0
@@ -3938,7 +3979,7 @@ forge_large_files 1048576
 forge_check_meta_4() {
   c_id='git/no-build-artifacts'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_4() {
   return 0
@@ -3952,7 +3993,7 @@ forge_artifacts @build-artifacts
 forge_check_meta_5() {
   c_id='secrets/env-not-committed'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_5() {
   return 0
@@ -3966,7 +4007,7 @@ forge_env_files
 forge_check_meta_6() {
   c_id='secrets/gitleaks'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_6() {
   return 0
@@ -3980,7 +4021,7 @@ forge_gitleaks
 forge_check_meta_7() {
   c_id='secrets/no-credential-files'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_7() {
   return 0
@@ -3994,7 +4035,7 @@ forge_credential_files
 forge_check_meta_8() {
   c_id='supply-chain/new-npm-dep-exists'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_8() {
   case $1 in package.json|*/package.json) ;; *) return 1 ;; esac
@@ -4009,7 +4050,7 @@ forge_helper bun new_deps.mjs $FORGE_COOLDOWN_SECONDS
 forge_check_meta_9() {
   c_id='supply-chain/new-pypi-dep-exists'; c_stage=lint; c_tools='python'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_9() {
   case $1 in pyproject.toml|*/pyproject.toml) ;; *) return 1 ;; esac
@@ -4024,7 +4065,7 @@ forge_helper python new_deps.py $FORGE_COOLDOWN_SECONDS
 forge_check_meta_10() {
   c_id='supply-chain/vuln-audit'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_10() {
   case $1 in package-lock.json|*/package-lock.json|pnpm-lock.yaml|*/pnpm-lock.yaml|yarn.lock|*/yarn.lock|bun.lock|*/bun.lock|bun.lockb|*/bun.lockb|uv.lock|*/uv.lock|poetry.lock|*/poetry.lock|requirements*.txt|*/requirements*.txt|Pipfile.lock|*/Pipfile.lock|pdm.lock|*/pdm.lock|Cargo.lock|*/Cargo.lock) ;; *) return 1 ;; esac
@@ -4039,21 +4080,21 @@ forge_osv
 forge_check_meta_11() {
   c_id='typescript/bun/lock-sync'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_11() {
   return 0
 }
 forge_when_11() { case $1 in package.json) return 0 ;; esac; return 1; }
 forge_check_run_11() {
-bun install --frozen-lockfile
+forge_do bun lock-check
 }
 
 # 12. typescript/bun/no-test-edits
 forge_check_meta_12() {
   c_id='typescript/bun/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_12() {
   case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
@@ -4072,7 +4113,7 @@ forge_test_edits
 forge_check_meta_13() {
   c_id='typescript/bun/release-age'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_13() {
   return 0
@@ -4086,7 +4127,7 @@ forge_bun_cooldown
 forge_check_meta_14() {
   c_id='typescript/bun/test'; c_stage=test; c_tools='bun'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_14() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4095,7 +4136,7 @@ forge_scope_14() {
 forge_when_14() { return 1; }
 forge_check_run_14() {
 _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*' '*.spec.*' '*_spec.*' | sed 's|^|./|')
-[ -z "$_bt" ] || bun test $_bt
+[ -z "$_bt" ] || forge_do bun test-files $_bt
 
 }
 
@@ -4103,7 +4144,7 @@ _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*'
 forge_check_meta_15() {
   c_id='typescript/bun/text-lockfile'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_15() {
   return 0
@@ -4119,7 +4160,7 @@ _bl=$(git ls-files -co --exclude-standard -- 'bun.lockb' '*/bun.lockb')
 forge_check_meta_16() {
   c_id='typescript/bun/trusted-deps'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_16() {
   return 0
@@ -4133,7 +4174,7 @@ forge_trusted_deps
 forge_check_meta_17() {
   c_id='typescript/config-ratchet'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_17() {
   case $1 in biome.json|*/biome.json|biome.jsonc|*/biome.jsonc|tsconfig*.json|*/tsconfig*.json|package.json|*/package.json) ;; *) return 1 ;; esac
@@ -4148,7 +4189,7 @@ forge_ratchet bun ratchet.mjs
 forge_check_meta_18() {
   c_id='typescript/env-example'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_18() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4163,7 +4204,7 @@ forge_env_example ts
 forge_check_meta_19() {
   c_id='typescript/format-lint'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fixlint=0; c_fmt=1; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_19() {
   case $1 in *.ts|*/*.ts|*.tsx|*/*.tsx|*.mts|*/*.mts|*.cts|*/*.cts|*.js|*/*.js|*.jsx|*/*.jsx|*.mjs|*/*.mjs|*.cjs|*/*.cjs|*.vue|*/*.vue|*.svelte|*/*.svelte|*.astro|*/*.astro|*.html|*/*.html) ;; *) return 1 ;; esac
@@ -4171,20 +4212,20 @@ forge_scope_19() {
 }
 forge_when_19() { return 1; }
 forge_check_run_19() {
-biome ci .
+forge_do biome ci .
 }
 forge_check_changed_19() {
-biome check --write --no-errors-on-unmatched $FORGE_FILES
+forge_do biome fix $FORGE_FILES
 }
 forge_check_fmt_19() {
-biome format --stdin-file-path="$FORGE_FILE"
+forge_do biome format-stdin "$FORGE_FILE"
 }
 
 # 20. typescript/lockfile-updated
 forge_check_meta_20() {
   c_id='typescript/lockfile-updated'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_20() {
   return 0
@@ -4198,7 +4239,7 @@ forge_once forge_lockfile_updated
 forge_check_meta_21() {
   c_id='typescript/nextjs/parallel-route-default'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_21() {
   case $1 in app/*|src/app/*) ;; *) return 1 ;; esac
@@ -4217,7 +4258,7 @@ done)
 forge_check_meta_22() {
   c_id='typescript/no-ignore-deprecations'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_22() {
   case $1 in tsconfig*.json|*/tsconfig*.json) ;; *) return 1 ;; esac
@@ -4232,7 +4273,7 @@ forge_check_run_22() {
 forge_check_meta_23() {
   c_id='typescript/no-unused-suppressions'; c_stage=lint; c_tools='biome'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_23() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4240,17 +4281,17 @@ forge_scope_23() {
 }
 forge_when_23() { return 1; }
 forge_check_run_23() {
-! biome lint --colors=off --max-diagnostics=none . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+! forge_do biome lint . 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 forge_check_changed_23() {
-! biome lint --colors=off --max-diagnostics=none --no-errors-on-unmatched $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
+! forge_do biome lint $FORGE_FILES 2>&1 | grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'
 }
 
 # 24. typescript/node-version-file
 forge_check_meta_24() {
   c_id='typescript/node-version-file'; c_stage=lint; c_tools='bun'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_24() {
   case $1 in .nvmrc|.node-version|package.json) ;; *) return 1 ;; esac
@@ -4265,7 +4306,7 @@ forge_helper bun node_version.mjs
 forge_check_meta_25() {
   c_id='typescript/playwright/axe'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_25() {
   return 0
@@ -4279,7 +4320,7 @@ forge_check_run_25() {
 forge_check_meta_26() {
   c_id='typescript/playwright/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_26() {
   case $1 in e2e/*|tests/e2e/*) ;; *) return 1 ;; esac
@@ -4295,21 +4336,21 @@ forge_test_edits
 forge_check_meta_27() {
   c_id='typescript/playwright/run'; c_stage=test; c_tools='playwright'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_27() {
   return 0
 }
 forge_when_27() { case $1 in e2e/*|tests/e2e/*|playwright.config.*) return 0 ;; esac; return 1; }
 forge_check_run_27() {
-playwright test --reporter=line
+forge_do playwright test
 }
 
 # 28. typescript/prisma/applied-migrations
 forge_check_meta_28() {
   c_id='typescript/prisma/applied-migrations'; c_stage=migration; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_28() {
   return 0
@@ -4323,7 +4364,7 @@ forge_applied_migrations @prisma-migrations
 forge_check_meta_29() {
   c_id='typescript/prisma/client-generator'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_29() {
   return 0
@@ -4337,7 +4378,7 @@ forge_check_run_29() {
 forge_check_meta_30() {
   c_id='typescript/prisma/destructive-migration'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_30() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -4367,7 +4408,7 @@ return 1
 forge_check_meta_31() {
   c_id='typescript/prisma/migration-lint'; c_stage=migration; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=1; c_files=1; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=1; c_files=1; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_31() {
   case $1 in prisma/migrations/migration.sql|prisma/migrations/*/migration.sql) ;; *) return 1 ;; esac
@@ -4385,35 +4426,35 @@ forge_squawk_files $FORGE_FILES
 forge_check_meta_32() {
   c_id='typescript/prisma/migration-present'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=1; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_32() {
   return 0
 }
 forge_when_32() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_32() {
-if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code; fi
+if [ ! -d prisma/migrations ] && grep -qE "prisma[[:space:]]+db[[:space:]]+push" package.json 2>/dev/null; then :; elif ! grep -q shadowDatabaseUrl prisma.config.ts 2>/dev/null; then echo "forge:typescript/prisma/migration-present skipped: no shadowDatabaseUrl in prisma.config.ts"; else forge_do prisma migrations-check; case $? in 0) ;; 2) false ;; *) printf 'forge:%s skipped: prisma migrate diff could not compare the migrations with the schema\n' "$c_id" ;; esac; fi
 }
 
 # 33. typescript/prisma/validate
 forge_check_meta_33() {
   c_id='typescript/prisma/validate'; c_stage=migration; c_tools='prisma'
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_33() {
   return 0
 }
 forge_when_33() { case $1 in prisma/schema.prisma) return 0 ;; esac; return 1; }
 forge_check_run_33() {
-prisma validate
+forge_do prisma validate
 }
 
 # 34. typescript/typecheck
 forge_check_meta_34() {
   c_id='typescript/typecheck'; c_stage=typecheck; c_tools='tsc'
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_34() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4421,14 +4462,14 @@ forge_scope_34() {
 }
 forge_when_34() { return 1; }
 forge_check_run_34() {
-tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"
+forge_do tsc typecheck-incremental "$(forge_state_file tsc.tsbuildinfo)"
 }
 
 # 35. typescript/vitest/no-test-edits
 forge_check_meta_35() {
   c_id='typescript/vitest/no-test-edits'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_35() {
   case $1 in e2e/*|tests/e2e/*) return 1 ;; esac
@@ -4445,7 +4486,7 @@ forge_test_edits
 forge_check_meta_36() {
   c_id='typescript/vitest/no-workspace-file'; c_stage=lint; c_tools=''
   c_when=1; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_36() {
   return 0
@@ -4459,7 +4500,7 @@ forge_check_run_36() {
 forge_check_meta_37() {
   c_id='typescript/vitest/run'; c_stage=test; c_tools='vitest'
   c_when=0; c_localdb=0; c_timeout=300
-  c_changed=1; c_files=0; c_fix=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
+  c_changed=1; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=1; c_warn=0; c_dirs=''
 }
 forge_scope_37() {
   case $1 in *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) return 0 ;; esac
@@ -4467,20 +4508,20 @@ forge_scope_37() {
 }
 forge_when_37() { return 1; }
 forge_check_run_37() {
-vitest run
+forge_do vitest test
 }
 forge_check_changed_37() {
-vitest run --changed
+forge_do vitest test-changed
 }
 forge_check_rerun_37() {
-vitest run $FORGE_FILES
+forge_do vitest test-files $FORGE_FILES
 }
 
 # 38. typescript/vitest/snapshot-stale
 forge_check_meta_38() {
   c_id='typescript/vitest/snapshot-stale'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_38() {
   case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts) return 1 ;; esac
@@ -4496,7 +4537,7 @@ forge_advise forge_snapshot_stale
 forge_check_meta_39() {
   c_id='typescript/vitest/untested-change'; c_stage=lint; c_tools=''
   c_when=0; c_localdb=0; c_timeout=''
-  c_changed=0; c_files=0; c_fix=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
+  c_changed=0; c_files=0; c_fix=0; c_fixlint=0; c_fmt=0; c_rerun=0; c_warn=0; c_dirs=''
 }
 forge_scope_39() {
   case $1 in *.test.ts|*/*.test.ts|*.test.tsx|*/*.test.tsx|*.test.mts|*/*.test.mts|*.test.cts|*/*.test.cts|*.test.js|*/*.test.js|*.test.jsx|*/*.test.jsx|*.test.mjs|*/*.test.mjs|*.test.cjs|*/*.test.cjs|*.spec.ts|*/*.spec.ts|*.spec.tsx|*/*.spec.tsx|*.spec.mts|*/*.spec.mts|*.spec.cts|*/*.spec.cts|*.spec.js|*/*.spec.js|*.spec.jsx|*/*.spec.jsx|*.spec.mjs|*/*.spec.mjs|*.spec.cjs|*/*.spec.cjs|__tests__/*|*/__tests__/*|e2e/*|tests/e2e/*|*.d.ts|*/*.d.ts|*.config.*|*/*.config.*) return 1 ;; esac
@@ -4602,6 +4643,8 @@ forge_role() {
 @@ templates/engine/tests.sh @@
 
 @@ templates/engine/types.sh (types: typescript) @@
+
+@@ templates/engine/adapters.sh @@
 
 @@ templates/engine/env.sh @@
 
@@ -4721,7 +4764,7 @@ forge_tests_integrity() {
     if forge_counts "$FORGE_ROOT" "$ids" "$FORGE_TMP/existing" > "$FORGE_TMP/now" \
       && { [ ! -s "$FORGE_TMP/athead" ] || forge_counts "$FORGE_TMP/base" "$ids" "$FORGE_TMP/athead" > "$FORGE_TMP/then"; }; then :
     else
-      printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+      forge_tool_note 'forge:forge/ast-grep skipped: ast-grep unavailable'
       : > "$FORGE_TMP/now"; : > "$FORGE_TMP/then"
     fi
   fi
@@ -4746,7 +4789,7 @@ forge_tests_integrity() {
 forge_counts() {
   set -f
   # shellcheck disable=SC2046
-  ( cd "$1" && astgrep scan -c "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" --json=stream $(cat "$3") ) > "$FORGE_TMP/json"
+  ( cd "$1" && forge_do ast-grep scan "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --filter "^($2)\$" $(cat "$3") ) > "$FORGE_TMP/json"
   rc=$?
   set +f
   [ "$rc" -le 1 ] || return 1
@@ -4761,10 +4804,10 @@ forge_forbid() {
   if [ -n "$FORGE_FORBID" ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" $(cat "$FORGE_TMP/scope") > "$FORGE_TMP/forbid"
     rc=$?
     set +f
-    if [ "$rc" -gt 1 ]; then printf 'forge:forge/ast-grep skipped: ast-grep unavailable\n'
+    if [ "$rc" -gt 1 ]; then forge_tool_note 'forge:forge/ast-grep skipped: ast-grep unavailable'
     else
       # rules with type constraints: only the matches the types engine confirms (§15.1)
       forge_sg_report "$FORGE_TMP/forbid" json > "$FORGE_TMP/forbid.added"
@@ -4798,7 +4841,7 @@ forge_end "$fail"
 ===== .forge/forge.lock.json
 {
   "forge_version": "0.5.0",
-  "claude_code_min": "2.1.295",
+  "claude_code_min": "2.1.284",
   "rules": {
     "git/editorconfig": "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f",
     "git/generated-files": "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6",
@@ -4819,7 +4862,7 @@ forge_end "$fail"
     "supply-chain/vuln-audit": "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2",
     "typescript/a11y": "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6",
     "typescript/array-sort-compare": "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7",
-    "typescript/bun/lock-sync": "9e09d6a5edb31aa8fb18dc32cdf27b4610898b56dceb6715df786d729f80fb3c",
+    "typescript/bun/lock-sync": "2e78b7e238ebb87b8b23c0803175145f8d336562f5d246f491a45a7945afc11c",
     "typescript/bun/no-fewer-expects": "d39ef28d4c918ccd050f1017d83623c984b090d379eff2868ba2300b89b64d87",
     "typescript/bun/no-mock-increase": "59da686537b2fe781f69a285892669bfee36a4a6458c0e46c8ba898544046442",
     "typescript/bun/no-new-skip": "26cfa8b0a0ad346a30b14bf8de071fe2802eaa1aa9dce056d063c7b033f7faf0",
@@ -4828,7 +4871,7 @@ forge_end "$fail"
     "typescript/bun/no-snapshot-update": "44f865cdc519d6c573a601582a64a08517db474ca9a2e8dbcb5ab782e9a603f8",
     "typescript/bun/no-test-edits": "4ae92104baca408cf8bac7598a5a8690da1dd8125f5070349349254dd52c73cd",
     "typescript/bun/release-age": "a82d38eebf7955af0cef4cb4561d05374438bcd31c28a82eb46e1d644f29c44e",
-    "typescript/bun/test": "53b59f6fdb7da1713a6bb636496cdb705de29a53701bab7cbe016b5a47a1b0f7",
+    "typescript/bun/test": "d6980775d1c6d8726b085a0dcd09455629a709ff34a3dba66f93abc3da2c5a8a",
     "typescript/bun/text-lockfile": "cbdb95a24e3862815c0c3d78ee5911f35e64012228b9a63d9553accb3a3a4384",
     "typescript/bun/trusted-deps": "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732",
     "typescript/config-files": "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9",
@@ -4836,7 +4879,7 @@ forge_end "$fail"
     "typescript/cors-credentials-wildcard": "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b",
     "typescript/env-example": "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c",
     "typescript/error-cause": "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a",
-    "typescript/format-lint": "05c7d739312430fa0b59e663a21291286e698a91fa725d440b36bebd0b40b546",
+    "typescript/format-lint": "f3c1c7a3201dc7873ee6391e60502b47631007eb844ee3c52de6732a9fc30110",
     "typescript/iframe-sandbox": "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6",
     "typescript/implicit-returns": "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629",
     "typescript/lockfile-updated": "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7",
@@ -4889,7 +4932,7 @@ forge_end "$fail"
     "typescript/no-ts-nocheck": "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213",
     "typescript/no-unchecked-json": "0edc9ae044271697c2d2bea389c11c3b79311c68d282ace56a58f6d9e9e73360",
     "typescript/no-unused": "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413",
-    "typescript/no-unused-suppressions": "47b77a16691164d172e4f52e2267d0b6f1c7888c6b43a095e3ec41093081c918",
+    "typescript/no-unused-suppressions": "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d",
     "typescript/node-version-file": "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1",
     "typescript/playwright/axe": "e951813b377a71e9224293df5a8c9ef62a4b3bdd0c91c66374bd2087ab200981",
     "typescript/playwright/config-file": "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287",
@@ -4898,7 +4941,7 @@ forge_end "$fail"
     "typescript/playwright/no-snapshot-update": "78a18162973e50be255a9cdc5e3dd308ca4c339e29687e45bf9eb3986a8eca3e",
     "typescript/playwright/no-test-edits": "8791405a87b605a6a2b11343878db18ab330daa100414b8cddd692c312280161",
     "typescript/playwright/no-wait-for-timeout": "b8fec15a285fcc0bc18cfe89465455882f5610ae440f1ac501cbb1141d1285ce",
-    "typescript/playwright/run": "429826e2cc64a538bcea8f772b1c6a2e776f7a9d61b3fcfc1d5eb8db545ee203",
+    "typescript/playwright/run": "468f6b091253eec471e211167bafc948edacfdcb3884379ac2f68a13501d22b6",
     "typescript/postmessage-origin": "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c",
     "typescript/prisma/applied-migrations": "d5dc9eba1997a1e77d5bd748936c830d712c918f796d5c176e0ec9a95abef686",
     "typescript/prisma/client-generator": "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01",
@@ -4906,7 +4949,7 @@ forge_end "$fail"
     "typescript/prisma/destructive-migration": "6cb32c74f021c89b0a63d09e89b2298c64d251f3c3c2380279bfd804b750ba02",
     "typescript/prisma/generated-client-import": "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45",
     "typescript/prisma/migration-lint": "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9",
-    "typescript/prisma/migration-present": "884fb66ed58f8eaab7bc83838363ab83539cd972c45638055d79a93ef1752bde",
+    "typescript/prisma/migration-present": "468e4f6ea4a32f8bc571fa06cbce0917151ba2cbe7cd79a19fababb57ac4bc48",
     "typescript/prisma/no-middleware": "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1",
     "typescript/prisma/no-network-in-transaction": "db431e0148e4b401390bba8063e5d616717048b4bd30ac22bc2343486bedfc71",
     "typescript/prisma/no-query-in-loop": "68a5d28979fd4769b4da8bad4d6d654792ed373c3c2876a2fdb7d8d0c7d524a3",
@@ -4914,7 +4957,7 @@ forge_end "$fail"
     "typescript/prisma/no-raw-unsafe": "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9",
     "typescript/prisma/no-reset": "060bf3f7773db9cf87bede89da4d4540b19271ffb9a698aa7a3d84bf9cf7168a",
     "typescript/prisma/no-unscoped-bulk-write": "1372fd1bdce2e8fde38e3a4b47061f397469be74458bbc602fa880cdc2790e23",
-    "typescript/prisma/validate": "0479a5e9bc602a2d9f0a154719567605623fe73194bceafce1d87bc325d37aad",
+    "typescript/prisma/validate": "21fa58745959dc37b68516cbebb13ea09ca8c060d2afb7df64e1fa7015dcdbd1",
     "typescript/react/act-from-react": "6ce6eecb002259cfa74be55c1f0fee63bb28e3fc0d1170fd700584e20b563610",
     "typescript/react/compiler-rules": "c52d51ae79ed6796f3bcb200d1709ef50b5fd063f57eb95f80bca4756993eba1",
     "typescript/react/hooks-rules": "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047",
@@ -4929,7 +4972,7 @@ forge_end "$fail"
     "typescript/strict-function-types": "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263",
     "typescript/strict-null-checks": "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6",
     "typescript/ts-expect-error-reason": "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90",
-    "typescript/typecheck": "9e26565727146ec77b97b763002c2a035a5b077ed2b4b85a3134b2a04850780a",
+    "typescript/typecheck": "e2035c29acae905181896aefc37e91288b1d67c36f09553c1f631ab67b2a54cd",
     "typescript/unchecked-index": "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755",
     "typescript/verbatim-imports": "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8",
     "typescript/vitest/config-file": "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd",
@@ -4944,7 +4987,7 @@ forge_end "$fail"
     "typescript/vitest/no-test-edits": "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172",
     "typescript/vitest/no-test-env-branch": "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466",
     "typescript/vitest/no-workspace-file": "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a",
-    "typescript/vitest/run": "b40ed7dc07ba4276d9f8e40dc353b627d6067a14812d2dad1636240f5d47d300",
+    "typescript/vitest/run": "ffed07c248aacf6ab9544906dee79dfbf08bb464600b5fb333d92b2b9eff49c9",
     "typescript/vitest/snapshot-stale": "5cfed406c2567dbc25cc4e46f73207f6d76e807866bd2874f08d8824ecdd49b8",
     "typescript/vitest/untested-change": "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99",
     "typescript/zod/error-param": "98f91bc633e6bf49f35ef19f18911ca916f9a8dd6e31fbe09f7083c5b68c086c",
@@ -4963,19 +5006,19 @@ forge_end "$fail"
     ".claude/rules/forge-typescript.md": "4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f",
     ".claude/skills/forge-project/.claude-plugin/plugin.json": "c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2",
     ".claude/skills/forge-project/hooks/hooks.json": "3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b",
-    ".claude/skills/forge-project/scripts/bash-snapshot.sh": "29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e",
-    ".claude/skills/forge-project/scripts/checks.sh": "8fe77a0134cf820fc663e1d7eae3e2674926a1385626824f53e4e398b8cb95be",
+    ".claude/skills/forge-project/scripts/bash-snapshot.sh": "d28c202241b1c242030618b5d932e6095d88f869688363443827db5b4bdc89f0",
+    ".claude/skills/forge-project/scripts/checks.sh": "4f833395200bb6c0472eb22d700f0194d4507e60398ca47f27a055c25052d707",
     ".claude/skills/forge-project/scripts/guard.rules": "dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
-    ".claude/skills/forge-project/scripts/lib.sh": "83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5",
-    ".claude/skills/forge-project/scripts/post-edit.sh": "ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e",
-    ".claude/skills/forge-project/scripts/review.sh": "25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb",
-    ".claude/skills/forge-project/scripts/session-end.sh": "99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58",
-    ".claude/skills/forge-project/scripts/session-start.sh": "1bf5db5ab16bc0226ea2d48694fb5dfd424f45b16d008dfc25759f2eabc97639",
-    ".claude/skills/forge-project/scripts/stop.sh": "52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0",
-    ".claude/skills/forge-project/scripts/test-edit.sh": "405462586c11bf21016d0c9c1f96b38345ab770d291ab1d1f5e66dfe282786d3",
-    ".claude/skills/forge-project/scripts/turn-start.sh": "e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc",
-    ".claude/skills/forge-project/scripts/typecheck.sh": "d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9",
+    ".claude/skills/forge-project/scripts/lib.sh": "e11a85961313d532466e6893ab9a4c84d20a6623e4f437fbb0743bc9d228a178",
+    ".claude/skills/forge-project/scripts/post-edit.sh": "8cc28d645fb3c52721c359dfef340b63166d8fca6f18d9910f1185df338cde38",
+    ".claude/skills/forge-project/scripts/review.sh": "5499596d85984cba3faaa1fbd35948447445e2f088722e87aeaea3166045b7bc",
+    ".claude/skills/forge-project/scripts/session-end.sh": "a11baa414fa87ab5c1a20cee2f93d9d7710d08ad88aa164ec5f5937a2043000f",
+    ".claude/skills/forge-project/scripts/session-start.sh": "0d65e6fe5844d98a835a6fc8d71061ca91b5682805ef2d45827bda5270037a99",
+    ".claude/skills/forge-project/scripts/stop.sh": "5c1a9f8c9c4397e43fc8b7d8367239ec0cbe37e2e0cf4e1b96415b30ebf065c8",
+    ".claude/skills/forge-project/scripts/test-edit.sh": "0de510c95e06d723f912fbef58d4e35060ec33887b212d4c3214d9ec7934950c",
+    ".claude/skills/forge-project/scripts/turn-start.sh": "febd12715cd7b12be16b781b885f5968e31f26e86ed140a3601f13c46c8afedf",
+    ".claude/skills/forge-project/scripts/typecheck.sh": "bc7fd1ebde7a945402d80af87f2a9201a377896a204e0e084b4405e9f20a529e",
     ".forge/.gitignore": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6",
     ".forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml": "bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8",
     ".forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml": "2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310",
@@ -5096,7 +5139,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "5177fac9ed9fe3eed4f631af81728bab212d7bb300232bdd1be6037bdde14a8e",
+    ".forge/check.sh": "8fc75241effb60785671694a56efb94a563bf7a9046bf475b6dc7595c8e5ecb4",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
@@ -5281,19 +5324,19 @@ a5e2685c59231ba3ce5e994b28fa8dfd5e5e7946275ef3236334776e61329db7  .claude/rules/
 4b8c241aeb5ad04685613ea6293353866fff6baef62fcdf6b5711c778f75ad0f  .claude/rules/forge-typescript.md
 c5a40063dbeb7eb71b08c1f3507dd7c333a70fe95edad514361719c0d15dfff2  .claude/skills/forge-project/.claude-plugin/plugin.json
 3763c38c1d21ccd50c22007d10b155255f88c08290dab14d2afe25f4d181740b  .claude/skills/forge-project/hooks/hooks.json
-29acd4341aa2c564bf0d77aed78e2c8c44e133e86297c226ed16685ad064693e  .claude/skills/forge-project/scripts/bash-snapshot.sh
-8fe77a0134cf820fc663e1d7eae3e2674926a1385626824f53e4e398b8cb95be  .claude/skills/forge-project/scripts/checks.sh
+d28c202241b1c242030618b5d932e6095d88f869688363443827db5b4bdc89f0  .claude/skills/forge-project/scripts/bash-snapshot.sh
+4f833395200bb6c0472eb22d700f0194d4507e60398ca47f27a055c25052d707  .claude/skills/forge-project/scripts/checks.sh
 dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
-83b7b9cb71ea670410c4a9b5eeed3eadd16863919a130e4ca9284d163f134ff5  .claude/skills/forge-project/scripts/lib.sh
-ed4ea63e5fc6ec915a11033401576aa7484293e55d6d25facc38fcd24f72971e  .claude/skills/forge-project/scripts/post-edit.sh
-25cea388d7f4f694b32375eb4ac9fc935ddcdcc295ce213a1968f85d668f3feb  .claude/skills/forge-project/scripts/review.sh
-99a5b4d387302d9775ea7368be65b08ac18bceff713380fdd34f23868c91bf58  .claude/skills/forge-project/scripts/session-end.sh
-1bf5db5ab16bc0226ea2d48694fb5dfd424f45b16d008dfc25759f2eabc97639  .claude/skills/forge-project/scripts/session-start.sh
-52c5ba2bc8b2b7fd25fc84e669da396845921ed9fb897c81006e53d5a0d851e0  .claude/skills/forge-project/scripts/stop.sh
-405462586c11bf21016d0c9c1f96b38345ab770d291ab1d1f5e66dfe282786d3  .claude/skills/forge-project/scripts/test-edit.sh
-e498c33641b45c2be1a616506a75847bce3f5528335f6419efef2e8c8649b2fc  .claude/skills/forge-project/scripts/turn-start.sh
-d374474fd1a446c8485dcc46c418d990ce2832dfe5e6d6e2e0d1727741ce6aa9  .claude/skills/forge-project/scripts/typecheck.sh
+e11a85961313d532466e6893ab9a4c84d20a6623e4f437fbb0743bc9d228a178  .claude/skills/forge-project/scripts/lib.sh
+8cc28d645fb3c52721c359dfef340b63166d8fca6f18d9910f1185df338cde38  .claude/skills/forge-project/scripts/post-edit.sh
+5499596d85984cba3faaa1fbd35948447445e2f088722e87aeaea3166045b7bc  .claude/skills/forge-project/scripts/review.sh
+a11baa414fa87ab5c1a20cee2f93d9d7710d08ad88aa164ec5f5937a2043000f  .claude/skills/forge-project/scripts/session-end.sh
+0d65e6fe5844d98a835a6fc8d71061ca91b5682805ef2d45827bda5270037a99  .claude/skills/forge-project/scripts/session-start.sh
+5c1a9f8c9c4397e43fc8b7d8367239ec0cbe37e2e0cf4e1b96415b30ebf065c8  .claude/skills/forge-project/scripts/stop.sh
+0de510c95e06d723f912fbef58d4e35060ec33887b212d4c3214d9ec7934950c  .claude/skills/forge-project/scripts/test-edit.sh
+febd12715cd7b12be16b781b885f5968e31f26e86ed140a3601f13c46c8afedf  .claude/skills/forge-project/scripts/turn-start.sh
+bc7fd1ebde7a945402d80af87f2a9201a377896a204e0e084b4405e9f20a529e  .claude/skills/forge-project/scripts/typecheck.sh
 14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6  .forge/.gitignore
 bd5df50793070bba7b87b0f623ac58ed4599e0ba6f8d731fc0da4b28a0335ec8  .forge/ast-grep/rule-tests/typescript-bun-no-fewer-expects-test.yml
 2916d521378a79dbddd4e3a5822e04b4c3e5fad9262a65e019095f58bbfe0310  .forge/ast-grep/rule-tests/typescript-bun-no-mock-increase-test.yml
@@ -5414,7 +5457,7 @@ a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-5177fac9ed9fe3eed4f631af81728bab212d7bb300232bdd1be6037bdde14a8e  .forge/check.sh
+8fc75241effb60785671694a56efb94a563bf7a9046bf475b6dc7595c8e5ecb4  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs

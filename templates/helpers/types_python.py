@@ -8,6 +8,16 @@
 #
 # <state-dir>/in is a FIFO of lines (each shorter than PIPE_BUF, so writers never mix):
 #   changed<TAB><path>   a file changed on disk (relative to the root): resynced
+#   diag<TAB><dir>       diagnostics (SPECS §10.5, the edit-time typecheck): <dir>/req holds
+#                        "<path><TAB><base copy>" lines (the base copy's path, or nothing for a
+#                        new file); the answer, in <dir>/reply, is "now<TAB><diagnostic>" per
+#                        diagnostic of the file as it is on disk and "base<TAB><diagnostic>" per
+#                        diagnostic of the file with the base copy's text (in memory only), each
+#                        "<path>:<line>:<column>: <severity>[<code>] <message>" as `ty check
+#                        --output-format concise` prints it, then "end". They come from a server
+#                        that sees every untyped package as Any, as `ty check` does
+#                        (FORGE_TY_ANY_ALL; a second one when the questions' server sees the
+#                        packages the rules ask about as they are)
 #   restart | stop       the daemon exits (restart: the dependencies changed; the next
 #                        use starts it again); "stop<TAB><dir>" answers "end" in the FIFO
 #                        <dir>/reply once its language server has exited
@@ -35,6 +45,16 @@ ROOT = os.path.realpath(sys.argv[1])
 STATE = sys.argv[2]
 IDLE = int(os.environ.get("FORGE_TYPES_IDLE", "1800"))
 TY = os.path.join(os.path.dirname(sys.executable), "ty")
+# the project's interpreter when ty would not find its environment itself (forge_ty_env);
+# given to ty server as the active environment
+PROJECT_PYTHON = os.environ.get("FORGE_TY_PYTHON", "")
+PROJECT_PREFIX = os.environ.get("FORGE_TY_PREFIX", "")
+# the installed packages without typing that ty checks as Any (forge_ty_untyped), as `ty
+# check` does: given as inline configuration, which ty adds to the project's own list
+UNTYPED = [n for n in os.environ.get("FORGE_TY_ANY", "").splitlines() if n]
+# the whole list, as `ty check` gets it: the diagnostics' server's (UNTYPED leaves out the
+# packages the active rules ask about, whose declarations the questions need)
+UNTYPED_ALL = [n for n in os.environ.get("FORGE_TY_ANY_ALL", "\n".join(UNTYPED)).splitlines() if n]
 LOG = open(os.path.join(STATE, "log"), "a", buffering=1)
 
 
@@ -84,8 +104,14 @@ class Slot:
         self.response = {}
 
 
+# every language server running (the questions', and the diagnostics' when it is another)
+SERVERS = []
+
+
 class Server:
-    def __init__(self):
+    def __init__(self, untyped=None):
+        SERVERS.append(self)
+        self.untyped = UNTYPED if untyped is None else untyped
         self.proc = subprocess.Popen([TY, "server"], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=LOG)
         assert self.proc.stdin is not None and self.proc.stdout is not None
         self.stdin, self.stdout = self.proc.stdin, self.proc.stdout
@@ -130,9 +156,14 @@ class Server:
                 continue
             msg = json.loads(out.read(length))
             if "method" in msg and "id" in msg:
-                # a request from the server (configuration, registrations): answer with defaults
+                # a request from the server (configuration, registrations): answer with defaults,
+                # and the project's environment when ty cannot find it
                 items = (msg.get("params") or {}).get("items")
-                self.send({"jsonrpc": "2.0", "id": msg["id"], "result": [None] * len(items) if items else None})
+                if items and msg.get("method") == "workspace/configuration":
+                    result = [self.settings() if (item or {}).get("section") == "ty" else None for item in items]
+                else:
+                    result = [None] * len(items) if items else None
+                self.send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
             elif "id" in msg:
                 slot = self.waiting.pop(msg["id"], None)
                 if slot:
@@ -154,6 +185,16 @@ class Server:
 
         return wait
 
+    def settings(self):
+        """ty's workspace settings: the project's interpreter as the active environment, and
+        the untyped packages as Any, when there are."""
+        out = {}
+        if PROJECT_PYTHON and PROJECT_PREFIX:
+            out["pythonExtension"] = {"activeEnvironment": {"executable": {"uri": uri(PROJECT_PYTHON), "sysPrefix": PROJECT_PREFIX}}}
+        if self.untyped:
+            out["configuration"] = {"analysis": {"replace-imports-with-any": [p for n in self.untyped for p in (n, n + ".**")]}}
+        return out or None
+
     def notify(self, method, params):
         self.send({"jsonrpc": "2.0", "method": method, "params": params})
 
@@ -166,7 +207,7 @@ class Server:
                 "workspaceFolders": [{"uri": uri(ROOT), "name": "root"}],
                 "capabilities": {
                     "general": {"positionEncodings": ["utf-16"]},
-                    "textDocument": {"typeDefinition": {"linkSupport": True}, "definition": {"linkSupport": True}, "typeHierarchy": {}},
+                    "textDocument": {"typeDefinition": {"linkSupport": True}, "definition": {"linkSupport": True}, "typeHierarchy": {}, "diagnostic": {}},
                     "workspace": {"configuration": True, "workspaceFolders": True},
                 },
             },
@@ -519,6 +560,74 @@ def unchecked_line(m, var):
         m.get("ruleId"), m["file"], m["range"]["start"]["line"] + 1, var, text)
 
 
+# ---------------------------------------------------------------- diagnostics
+
+SEVERITY = {1: "error", 2: "warning", 3: "info", 4: "info"}
+
+
+class Diagnostics:
+    """The diagnostics of files, now and with their base text, from a server that sees the
+    untyped packages as `ty check` does: the questions' server when its list is the whole
+    list, else a second one started on first use."""
+
+    def __init__(self, server):
+        self.questions = server
+        self.server = server if set(UNTYPED_ALL) == set(UNTYPED) else None
+
+    def ready(self):
+        if self.server is None:
+            self.server = Server(UNTYPED_ALL)
+            log("diagnostics server", self.server.start())
+        return self.server
+
+    def of(self, path, text):
+        """The diagnostics of <path> with <text> (shown in memory), as concise lines."""
+        server = self.ready()
+        server.show(path, text)
+        result = server.request("textDocument/diagnostic", {"textDocument": {"uri": uri(path)}})() or {}
+        rel = os.path.relpath(path, ROOT)
+        out = []
+        for d in result.get("items") or []:
+            start = d["range"]["start"]
+            code = d.get("code")
+            message = " ".join(str(d.get("message", "")).split("\n"))
+            out.append("%s:%d:%d: %s%s %s" % (rel, start["line"] + 1, start["character"] + 1, SEVERITY.get(d.get("severity"), "error"), "[%s]" % code if code else "", message))
+        return out
+
+    def answer(self, lines):
+        out = []
+        for line in lines:
+            rel, _, base = line.partition("\t")
+            path = os.path.join(ROOT, rel)
+            text = read_text(path)
+            if text is None:
+                continue
+            server = self.ready()
+            if base:
+                base_text = read_text(base)
+                if base_text is not None:
+                    out.extend("base\t" + d for d in self.of(path, base_text))
+            out.extend("now\t" + d for d in self.of(path, text))
+            server.texts[path] = text
+        return out
+
+
+def diagnose(diags, d):
+    try:
+        with open(os.path.join(d, "req"), encoding="utf-8", errors="surrogateescape") as f:
+            req = [l for l in f.read().splitlines() if l]
+    except OSError:
+        return
+    t = time.time()
+    try:
+        out = diags.answer(req)
+    except Exception as e:  # noqa: BLE001 - reported to the hook, which falls back to ty check
+        log("error", repr(e))
+        out = ["error\t%s: %s" % (type(e).__name__, e)]
+    log("diagnosed %d file(s) in %.1f ms" % (len(req), (time.time() - t) * 1000))
+    reply(d, out)
+
+
 # ---------------------------------------------------------------- the FIFO loop
 
 
@@ -546,6 +655,7 @@ def orphaned(fd):
 
 
 def serve(server, types, fd):
+    diags = Diagnostics(server)
     buf = b""
     last = checked = time.time()
     # non-blocking: a FIFO another daemon also reads (see orphaned) can be readable for
@@ -575,11 +685,14 @@ def serve(server, types, fd):
             line, buf = buf.split(b"\n", 1)
             line = line.decode("utf-8", errors="surrogateescape")
             if line.startswith("changed\t"):
-                server.changed(os.path.join(ROOT, line[8:]))
+                for s in SERVERS:
+                    s.changed(os.path.join(ROOT, line[8:]))
             elif line == "restart" or line == "stop" or line.startswith("stop\t"):
                 # "stop<TAB><dir>": answered in <dir>/reply once the server has exited
                 log("asked to", line.split("\t")[0])
                 return line[5:] if line.startswith("stop\t") else None
+            elif line.startswith("diag\t"):
+                diagnose(diags, line[5:])
             elif line.startswith("/"):
                 question(types, line)
 
@@ -647,18 +760,18 @@ def main():
                     os.unlink(os.path.join(STATE, name))
                 except OSError:
                     pass
-        if server:
-            server.stopping = True
+        for s in SERVERS:
+            s.stopping = True
             try:
-                server.request("shutdown", None)
-                server.notify("exit", None)
+                s.request("shutdown", None)
+                s.notify("exit", None)
             except OSError:
                 pass
-            server.proc.terminate()
+            s.proc.terminate()
             try:
-                server.proc.wait(5)
+                s.proc.wait(5)
             except subprocess.TimeoutExpired:
-                server.proc.kill()
+                s.proc.kill()
         if waiting:
             reply(waiting, [])
         # no interpreter finalization: the reader thread may still hold the server's pipe

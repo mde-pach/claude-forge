@@ -1,6 +1,7 @@
 /** The script templates (templates/scripts, templates/helpers) and their @@KEY@@ placeholders. */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PYTHON_TOOLS } from "../core/tools.js";
 import { AST_GREP_VERSION, packageRoot } from "../util.js";
 
 /** Templates are read once per process: they ship with Forge and do not change while it runs. */
@@ -28,5 +29,5 @@ export function fill(text: string, values: Record<string, string>): string {
 }
 
 export function renderLib(): string {
-  return fill(template("lib.sh"), { AST_GREP_VERSION });
+  return fill(template("lib.sh"), { AST_GREP_VERSION, PYTHON_TOOLS: [...PYTHON_TOOLS].join(" ") });
 }

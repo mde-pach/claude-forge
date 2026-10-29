@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const FORGE_VERSION = "0.5.0";
-export const CLAUDE_CODE_MIN = "2.1.295";
+export const CLAUDE_CODE_MIN = "2.1.284";
 export const AST_GREP_VERSION = "0.45.3";
 /** Squawk (Postgres migration linter), run through bunx or uvx by migration-lint checks. */
 export const SQUAWK_VERSION = "2.70.0";

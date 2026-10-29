@@ -5,6 +5,9 @@
 # ignore comments and ignore rules not honoured (disabling goes through forge.yaml).
 FORGE_ZIZMOR_VERSION="@@ZIZMOR_VERSION@@"
 
+# forge_pinned_zizmor <args>: Forge's pinned zizmor through uvx (forge_pinned).
+forge_pinned_zizmor() { uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" "$@"; }
+
 # forge_zizmor <audit>...: zizmor on the in-scope files (forge_scope_files: the change, or
 # every tracked file of the rule's scope: workflows, actions, dependabot.yml, a pre-commit
 # config, as the rule lists them); prints "path:line audit message" for the findings of the
@@ -18,11 +21,11 @@ forge_zizmor() {
   while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
   shift
   [ "$#" -gt 0 ] || return 0
-  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
-  uvx -q "zizmor@$FORGE_ZIZMOR_VERSION" --offline --no-progress --no-ignores --format github "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
+  command -v uvx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  forge_do zizmor lint "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
   _fz_rc=$?
   if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
-    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    forge_for_agent || printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
     return 0
   fi
   awk -v audits="${_fz_audits#|}" '
@@ -54,15 +57,13 @@ forge_actionlint() {
     keep' .github/actionlint.yaml .github/actionlint.yml 2>/dev/null > "$FORGE_TMP/actionlint.yaml"
   set -f
   # shellcheck disable=SC2046
-  "$_al_bin" -config-file "$FORGE_TMP/actionlint.yaml" -shellcheck= -pyflakes= -no-color \
-    -format '{{range $err := .}}{{$err.Filepath}}:{{$err.Line}}:{{$err.Column}}: {{$err.Kind}}: {{$err.Message}}\n{{end}}' \
-    $(cat "$FORGE_TMP/al.files") > "$FORGE_TMP/al.out" 2>&1
+  forge_do actionlint lint "$FORGE_TMP/actionlint.yaml" $(cat "$FORGE_TMP/al.files") > "$FORGE_TMP/al.out" 2>&1
   _al_rc=$?
   set +f
   case $_al_rc in
     0) return 0 ;;
     1) cat "$FORGE_TMP/al.out"; return 1 ;;
-    *) printf 'forge:%s skipped: actionlint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/al.out" | tail -n 1)"; return 0 ;;
+    *) forge_for_agent || printf 'forge:%s skipped: actionlint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/al.out" | tail -n 1)"; return 0 ;;
   esac
 }
 

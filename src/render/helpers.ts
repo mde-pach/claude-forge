@@ -1,7 +1,7 @@
 /** The helper scripts shipped to .forge/helpers/ when an active check or the types engine uses them. */
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { commandsOf } from "../core/tools.js";
+import { checkTools, commandsOf } from "../core/tools.js";
 import { packageRoot } from "../util.js";
 import type { ActiveCheck } from "./checks.js";
 import type { TypesLanguage } from "./engine.js";
@@ -10,6 +10,9 @@ import { helperTemplate } from "./template.js";
 /** The types engines' adapters (§15.2), shipped for the languages the active rules type-check. */
 const TYPES_ADAPTERS: Record<TypesLanguage, string> = { python: "types_python.py", typescript: "types_typescript.mjs" };
 
+/** Finds the installed packages without typing that ty checks as Any (§15.2): shipped wherever ty runs (a check, the types engine). */
+export const UNTYPED_HELPER = "untyped_python.py";
+
 /**
  * Scripts that engine helpers run with a runtime (§13.4): every file of templates/helpers/
  * except the types engines' adapters, shipped as plain files in .forge/helpers/ only when an
@@ -17,7 +20,7 @@ const TYPES_ADAPTERS: Record<TypesLanguage, string> = { python: "types_python.py
  * A project formatter may rewrite them: their integrity hash ignores formatting (ownedHash).
  */
 function helperScripts(): string[] {
-  const adapters = new Set(Object.values(TYPES_ADAPTERS));
+  const adapters = new Set([...Object.values(TYPES_ADAPTERS), UNTYPED_HELPER]);
   return readdirSync(join(packageRoot(), "templates", "helpers"))
     .filter((f) => !adapters.has(f))
     .sort();
@@ -34,5 +37,6 @@ export function helperFiles(checks: ActiveCheck[], types: TypesLanguage[] = []):
     if (commands.some((c) => used.test(c))) out.set(`${HELPERS_DIR}/${name}`, helperTemplate(name));
   }
   for (const lang of types) out.set(`${HELPERS_DIR}/${TYPES_ADAPTERS[lang]}`, helperTemplate(TYPES_ADAPTERS[lang]));
+  if (types.includes("python") || checks.some((c) => checkTools(c.target).includes("ty"))) out.set(`${HELPERS_DIR}/${UNTYPED_HELPER}`, helperTemplate(UNTYPED_HELPER));
   return out;
 }

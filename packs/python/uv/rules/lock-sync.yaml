@@ -2,4 +2,4 @@ id: python/uv/lock-sync
 description: uv.lock matches pyproject.toml.
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "uv lock --check", when_changed: [pyproject.toml]}
+  - {target: check, stage: lint, run: "forge_do uv lock-check", when_changed: [pyproject.toml]}

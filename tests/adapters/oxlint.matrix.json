@@ -1,0 +1,49 @@
+{
+  "tool": "oxlint",
+  "install": {
+    "npm": "oxlint",
+    "inProject": true,
+    "withFor": {
+      "1.11.2": [
+        "oxlint-tsgolint@0.0.1"
+      ],
+      "1.90.0": [
+        "oxlint-tsgolint@7.0.2005"
+      ]
+    }
+  },
+  "versions": [
+    "1.11.2",
+    "1.90.0"
+  ],
+  "files": {
+    "tsconfig.json": "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n",
+    ".oxlintrc.json": "{\"rules\": {\"typescript/no-floating-promises\": \"warn\"}}\n",
+    "src/sync.ts": "async function save(): Promise<void> {}\n\nexport function sync(): void {\n  save();\n}\n",
+    "src/ok.ts": "export function ok(): number {\n  return 2;\n}\n"
+  },
+  "calls": [
+    {
+      "call": "lint",
+      "exit": [
+        1
+      ],
+      "out": "^src/sync\\.ts:4:3: .*no-floating-promises"
+    },
+    {
+      "call": "lint src/sync.ts",
+      "exit": [
+        1
+      ],
+      "out": "no-floating-promises"
+    },
+    {
+      "call": "lint src/ok.ts",
+      "exit": [
+        0
+      ]
+    }
+  ],
+  "usageProbe": "lint --definitely-not-an-option",
+  "withWhy": "--type-aware runs oxlint-tsgolint, a separate package whose version follows oxlint's"
+}

@@ -27,6 +27,8 @@ export interface PackDetect {
   content_any?: { files: string[]; pattern: string }[];
   /** A .yaml / .yml file whose first document is a mapping with all these top-level keys (Kubernetes: apiVersion, kind). */
   yaml_keys?: string[];
+  /** A source file matching one of these globs, outside vendored, generated and virtual-environment directories (packs.ts isVendored): a plain-scripts project with no packaging file. */
+  sources_any?: string[];
 }
 
 export interface Pack {
@@ -119,6 +121,8 @@ export interface CheckTarget {
   changed_run?: string;
   /** Lint checks: safe fixes applied to an edited file before it is linted ({files}). */
   fix_run?: string;
+  /** The fix run also lints: its status and output are the lint result on the same files (§8.1). */
+  fix_lints?: true;
   /** The formatter as a filter: formats stdin as if it were {file}, prints the result. Formats base copies, so formatting is not counted as added lines. */
   format_stdin?: string;
   /** Test checks: runs only the given test files ({files}); Stop re-runs failing tests with it at the start of the turn. */
@@ -187,7 +191,12 @@ export interface ProjectConfig {
   accept?: { rule: string; change: string; reason: string }[];
   /** File roles (§15.4): patterns added to a role, or replacing its defaults and the tool's config. */
   files?: Record<string, { add?: string[]; set?: string[] }>;
+  /** Python settings: how ty sees installed packages that ship no typing (§15.2; default "any"). */
+  python?: { "untyped-packages"?: UntypedPackages };
 }
+
+/** Installed packages without typing (PEP 561): checked as Any by ty ("any", as mypy does), or inferred from their source ("source"). */
+export type UntypedPackages = "any" | "source";
 
 export interface SettingsEntry {
   file: string;

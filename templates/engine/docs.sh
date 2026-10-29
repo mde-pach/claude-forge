@@ -1,13 +1,15 @@
 # @module docs
 # Documentation: immutable ADRs and docs that mention changed identifiers.
 
-# forge_changed_ids: the public identifiers whose definition the change added,
-# removed or edited, one per line, from the removed and added lines of the
-# in-scope files ($FORGE_FILES and the deleted ones it names): Python def, class,
-# annotated names (parameters, fields) and module-level assignments; TypeScript
-# and JavaScript exported declarations, optional properties (name?:), typed
-# members (name: T;) and methods with a modifier. A definition whose line only
-# moved does not count. Private (_x), short (< 4) and common names are dropped.
+# forge_changed_ids: the public identifiers whose existing definition the change removed,
+# renamed or changed, one per line, from the removed and added lines of the in-scope files
+# ($FORGE_FILES and the deleted ones it names): Python def, class, annotated names (fields)
+# and module-level assignments; TypeScript and JavaScript exported declarations, optional
+# properties (name?:), typed members (name: T;) and methods with a modifier. A name counts
+# when a definition line of it was removed and not added back as it was (removed, renamed,
+# signature or value changed); a parameter only when it is gone from the function. A name
+# only added (a new function, its parameters) cannot make docs stale. A definition whose
+# line only moved does not count. Private (_x), short (< 4) and common names are dropped.
 forge_changed_ids() {
   { printf '%s\n' "$FORGE_FILES"; cat "$FORGE_TMP/deleted"; } | while IFS= read -r _ci_f; do
     printf '%s\n' "$_ci_f" | grep -Eq -- "$FORGE_TEST_PATH_ERE" && continue
@@ -19,6 +21,8 @@ forge_changed_ids() {
       ids[id] = 1
     }
     function def(id, sign, text) { keep(id); if (id in ids) { if (sign == "-") M[id SUBSEP text] = 1; else P[id SUBSEP text] = 1 } }
+    # a parameter: counts when the removed lines have it and the added ones do not
+    function param(id, sign) { keep(id); if (id in ids) { if (sign == "-") PM[id] = 1; else PP[id] = 1 } }
     function ident(s) { sub(/^[^A-Za-z_$]*/, "", s); match(s, /^[A-Za-z_$][A-Za-z0-9_$]*/); return substr(s, 1, RLENGTH) }
     BEGIN {
       n = split("self cls this args kwargs props options opts config settings params param value values data name type kind keys item items result results error errors message path file files input output default index count size text body request response context event callback handler children model state status client server string number boolean object array true false none null undefined return async await const function class export import from init main test start stop update create delete call load save open close read write parse format info debug warn logger user node tree root parent child source target mode level headers method query schema field fields label title description content length list dict tuple bool float bytes json None True False Exception ValueError TypeError KeyError RuntimeError else elif while with pass yield raise assert except finally lambda global nonlocal case break continue Args Returns Raises Yields Example Examples Note Notes Attributes", w, " ")
@@ -34,7 +38,7 @@ forge_changed_ids() {
           s = t; sub(/^(async[ \t]+)?def[ \t]+/, "", s); def(ident(s), sign, t)
           if (i = index(s, "(")) {
             s = substr(s, i + 1); m = split(s, a, ",")
-            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) def(ident(p), sign, t) }
+            for (j = 1; j <= m; j++) { p = a[j]; sub(/^[ \t*]+/, "", p); if (p ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*[:=,)]?/) param(ident(p), sign) }
           }
         } else if (t ~ /^class[ \t]/) { s = t; sub(/^class[ \t]+/, "", s); def(ident(s), sign, t) }
         else if (t ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:[ \t]*[^ \t=]/) {
@@ -55,8 +59,9 @@ forge_changed_ids() {
       }
     }
     END {
+      # an existing definition removed or changed; one only added counts for nothing
       for (k in M) if (!(k in P)) { split(k, x, SUBSEP); out[x[1]] = 1 }
-      for (k in P) if (!(k in M)) { split(k, x, SUBSEP); out[x[1]] = 1 }
+      for (id in PM) if (!(id in PP)) out[id] = 1
       for (id in out) print id
     }' | sort
 }
@@ -108,10 +113,10 @@ forge_adr_edits() {
 FORGE_DOC_ERE='(^|/)(docs?/(.*/)?[^/]*\.(md|mdx|rst)|README[^/]*)$'
 
 # forge_docs_mentions: when no documentation file changed in the change, the
-# lines of the documentation that mention an identifier the change defined
-# differently (forge_changed_ids): up to 5 "path:line identifier" lines. A name
-# with an underscore or a capital inside counts anywhere; a plain word only in a
-# code span or a fenced block.
+# lines of the documentation that mention an identifier whose definition the change
+# removed or changed (forge_changed_ids): up to 5 "path:line identifier" lines. Only
+# where docs reference code: an inline code span, a fenced code block, or a qualified
+# name in the text (module.name, Class.attr); never a word of the prose.
 forge_docs_mentions() {
   grep -Eq -- "$FORGE_DOC_ERE" "$FORGE_TMP/changed" && return 0
   forge_changed_ids > "$FORGE_TMP/doc.ids"
@@ -131,13 +136,25 @@ forge_docs_mentions() {
       return 0
     }
     function spans(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 2; i <= n; i += 2) out = out " " p[i]; return out }
-    FILENAME == ARGV[1] { ids[++nid] = $0; plain[nid] = ($0 !~ /_/ && $0 !~ /.[A-Z]/); next }
+    function prose(s,   n, p, i, out) { n = split(s, p, "`"); out = ""; for (i = 1; i <= n; i += 2) out = out " " p[i]; return out }
+    # <id> joined to another name by a dot: module.id, Class.id, id.attr
+    function qualified(s, id,   i, b, a) {
+      while (i = index(s, id)) {
+        b = substr(s, i - 1, 1); a = substr(s, i + length(id), 1)
+        if ((i == 1 || b !~ /[A-Za-z0-9_$]/) && a !~ /[A-Za-z0-9_$]/) {
+          if (b == "." && substr(s, i - 2, 1) ~ /[A-Za-z0-9_]/) return 1
+          if (a == "." && substr(s, i + length(id) + 1, 1) ~ /[A-Za-z_]/) return 1
+        }
+        s = substr(s, i + length(id))
+      }
+      return 0
+    }
+    FILENAME == ARGV[1] { ids[++nid] = $0; next }
     FNR == 1 { fence = 0 }
     /^[ \t]*(```|~~~)/ { fence = !fence; next }
     {
-      code = fence ? $0 : spans($0)
       for (j = 1; j <= nid; j++)
-        if (word(plain[j] ? code : $0, ids[j])) { print FILENAME ":" FNR " " ids[j]; break }
+        if (fence ? word($0, ids[j]) : (word(spans($0), ids[j]) || qualified(prose($0), ids[j]))) { print FILENAME ":" FNR " " ids[j]; break }
     }' "$FORGE_TMP/doc.ids" $(cat "$FORGE_TMP/doc.files") > "$FORGE_TMP/doc.hits"
   [ -s "$FORGE_TMP/doc.hits" ] || return 0
   printf 'These docs mention identifiers you changed; check they still describe the behaviour:\n'

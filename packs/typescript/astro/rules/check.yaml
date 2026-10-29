@@ -2,4 +2,15 @@ id: typescript/astro/check
 description: The project passes astro check (types in .astro files).
 scope: {language: any, files: ["**/*.astro", "**/*.ts", "**/*.tsx"]}
 enforce:
-  - {target: check, stage: typecheck, run: "astro check"}
+  - target: check
+    stage: typecheck
+    # without @astrojs/check (Astro 4 and later) astro check prints why and exits 0: reported skipped, never passed
+    run: |
+      forge_do astro check > "$FORGE_TMP/astro.out" 2>&1
+      _as_rc=$?
+      if grep -q 'astrojs/check and typescript packages are required' "$FORGE_TMP/astro.out"; then
+        printf 'forge:%s skipped: astro check needs the @astrojs/check and typescript packages (install them as dev dependencies)\n' "$c_id"
+        return 0
+      fi
+      cat "$FORGE_TMP/astro.out"
+      return "$_as_rc"

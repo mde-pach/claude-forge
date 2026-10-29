@@ -29,10 +29,12 @@ import {
   hasUv,
   linkTools,
   linkTs5,
+  pathWithout,
   put,
   sampleRepo,
   sh,
   shScript,
+  STUB_VERSION,
 } from "../helpers";
 import { loadPacks } from "../../src/packs";
 import { checkTools } from "../../src/core/tools";
@@ -56,7 +58,8 @@ function reset() {
 }
 function stub(name: string, body: string) {
   const p = join(repo, ".venv", "bin", name);
-  writeFileSync(p, `#!/bin/sh\n${body}\n`);
+  // a stand-in that says its own version keeps it
+  writeFileSync(p, `#!/bin/sh\n${body.includes("--version") ? "" : STUB_VERSION}${body}\n`);
   chmodSync(p, 0o755);
 }
 
@@ -207,7 +210,8 @@ describe("steps", () => {
       const path = join(repo, "pyproject.toml");
       const text = readFileSync(path, "utf8").replace('select = ["E", "F", "ANN401", "E722"]', 'select = ["E", "F", "ANN401", "E722", "RUF200"]');
       writeFileSync(path, text);
-      expect(check().stdout).not.toContain("forge:python/lint");
+      // no finding of python/lint (its note on the codes this ruff lacks, §16.3, is not one)
+      expect(check().stdout).not.toMatch(/^forge:python\/lint (failed|ok)/m);
       writeFileSync(path, text.replace('version = "0.1.0"', 'version = "0.1.0"\nreadme = 3'));
       const r = check();
       expect(r.status).toBe(1);
@@ -219,11 +223,17 @@ describe("steps", () => {
 
   /** @rule python/pytest/run */
   test(
-    "a check whose tool is not installed prints skipped and does not fail",
+    "a check whose tool is not installed prints skipped and does not fail; for Claude the note is left out",
     () => {
       put(repo, "app/x.py", "X = 1\n");
-      const r = check();
+      const r = check("--changed", { PATH: pathWithout("pytest") });
       expect(r.stdout).toContain("forge:python/pytest/run skipped: pytest not installed");
+      // for Claude (Claude Code's Bash tool, or a hook: FORGE_FOR_AGENT), notes about missing or limited tools are left out (§10.1)
+      for (const env of [{ CLAUDECODE: "1" }, { FORGE_FOR_AGENT: "1" }] as Record<string, string>[]) {
+        const agent = check("--changed", { PATH: pathWithout("pytest"), ...env });
+        expect(agent.stdout).not.toContain("not installed");
+        expect(agent.stdout).not.toContain("not enforced");
+      }
       reset();
     },
     T,
@@ -734,7 +744,8 @@ describe("errors in unchanged files", () => {
         const ok = check();
         expect(ok.stdout).not.toContain("forge:python/typecheck failed");
         expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (only warnings)");
-        stub("ty-stand-in", `${warn("app/main.py")}; echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
+        // (in the base, without app/new.py, only the warning: the error is the change's)
+        stub("ty-stand-in", `${warn("app/main.py")}; [ ! -f app/new.py ] || echo "app/new.py:1:5: error[invalid-assignment] Type mismatch"; echo "Found 2 diagnostics"; exit 1`);
         const bad = check();
         expect(bad.stdout).toContain("forge:python/typecheck failed\napp/new.py:1:5: error[invalid-assignment] Type mismatch");
         // "Warning" in prose (a crash, no diagnostic location) is not a warning diagnostic: the run fails
@@ -886,7 +897,7 @@ describe("errors in unchanged files", () => {
       put(
         r,
         ".forge/rules/lint-all.yaml",
-        'id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: "ruff check --output-format concise ."}\n',
+        'id: local/lint-all\ndescription: ruff on the whole project.\nscope: {language: python}\nenforce:\n  - {target: check, stage: lint, run: "forge_do ruff lint ."}\n',
       );
       put(r, "app/legacy.py", "import os\n");
       commitAll(r, "legacy");
@@ -997,7 +1008,7 @@ describe("failing tests at the start of the turn in a workspace package", () => 
     const log = join(r, "vitest.log");
     const bin = join(r, "packages/core/node_modules/.bin");
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, "vitest"), `#!/bin/sh\nprintf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
+    writeFileSync(join(bin, "vitest"), `#!/bin/sh\n${STUB_VERSION}printf '%s|%s\\n' "$(pwd)" "$*" >> "${log}"\n${body}\n`);
     chmodSync(join(bin, "vitest"), 0o755);
     const snap = ".forge/state/t.turn";
     put(r, `${snap}/head`, git(r, "rev-parse", "HEAD").stdout);
@@ -1039,7 +1050,7 @@ describe("failing tests at the start of the turn in a workspace package", () => 
       commitAll(r, "forge");
       const stub = (dir: string, body: string) => {
         mkdirSync(join(r, dir, "node_modules/.bin"), { recursive: true });
-        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${body}\n`);
+        writeFileSync(join(r, dir, "node_modules/.bin/vitest"), `#!/bin/sh\n${STUB_VERSION}${body}\n`);
         chmodSync(join(r, dir, "node_modules/.bin/vitest"), 0o755);
       };
       stub("packages/core", "exit 0");
@@ -1502,7 +1513,10 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     T,
   );
 
-  /** The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic. */
+  /**
+   * The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic.
+   * Its checks run without a ruff or pytest on PATH (pathWithout): the revisions' lint and tests are not under test.
+   */
   function alembicRepo(): string {
     return fixture("fastapi-app-alembic", (r) => {
       ensureTools();
@@ -1544,7 +1558,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     () => {
       const r = alembicRepo();
       put(r, "alembic/versions/0002_rename.py", revision('op.alter_column("users", "name", new_column_name="full_name")'));
-      const out = run(r, "--changed");
+      const out = run(r, "--changed", { PATH: pathWithout("pytest", "ruff") });
       expect(out.status).toBe(1);
       expect(out.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
       expect(out.stdout).toContain("SQL of alembic upgrade 0001:0002 --sql");
@@ -1560,7 +1574,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
       const r = alembicRepo();
       put(r, "alembic/versions/0002_nick.py", revision('op.add_column("users", sa.Column("nick", sa.Text, nullable=True))'));
       for (const mode of ["--changed", "--all"]) {
-        const out = run(r, mode).stdout;
+        const out = run(r, mode, { PATH: pathWithout("pytest", "ruff") }).stdout;
         expect(out).not.toContain("forge:python/sqlalchemy/alembic/migration-lint");
         // the migration stage passed: the test stage, which comes after it, ran
         expect(out).toContain("forge:python/pytest/run skipped");
@@ -1568,7 +1582,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
       }
       put(r, "alembic/versions/0003_age.py", revision('op.add_column("users", sa.Column("age", sa.Integer, nullable=False))', "0003", "0002"));
       commitAll(r, "required");
-      const all = run(r, "--all");
+      const all = run(r, "--all", { PATH: pathWithout("pytest", "ruff") });
       expect(all.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
       expect(all.stdout).toContain("adding-required-field");
     },
@@ -1643,16 +1657,20 @@ describe("project tools whose name is not a shell function name", () => {
 
   /**
    * POSIX sh (dash) rejects "-" in a function name, so vue-tsc gets no wrapper
-   * function: the check runs it as `forge_exec_tool vue-tsc`, which still
+   * function: the check runs it as `forge_do vue-tsc typecheck` (§16), which still
    * resolves the project's own binary and reports it missing.
    * @rule typescript/vue/typecheck
    */
-  test("vue-tsc is run through forge_exec_tool, is a tool of the check, and is reported skipped when the project does not have it", () => {
+  test("vue-tsc is run through forge_do, is a tool of the check, and is reported skipped when the project does not have it", () => {
     expect(checkTools(target)).toEqual(["vue-tsc"]);
     expect(renderChecks([{ rule, target }])).not.toContain("vue-tsc()");
     expect(runCheckExample(rule, target, example, "match", [])).toEqual({ outcome: "skip", detail: "vue-tsc not available" });
     const bin = mkdtempSync(join(tmpdir(), "forge-vue-tsc-"));
-    writeFileSync(join(bin, "vue-tsc"), "#!/bin/sh\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n");
+    // (a type error in the file the change adds: the base, without it, has none)
+    writeFileSync(
+      join(bin, "vue-tsc"),
+      `#!/bin/sh\n${STUB_VERSION}` + "[ -f src/Counter.vue ] || exit 0\nprintf 'src/Counter.vue(2,7): error TS2322: Type string is not assignable to type number.\\n'\nexit 2\n",
+    );
     chmodSync(join(bin, "vue-tsc"), 0o755);
     expect(runCheckExample(rule, target, example, "match", [bin]).outcome).toBe("pass");
   });
@@ -1751,9 +1769,11 @@ describe("pinned release binaries and system tools", () => {
     const probe = 'for t in terraform tofu helm kustomize kubectl; do forge_has_tool $t && echo "has $t" || echo "no $(forge_tool_label $t)"; done';
     expect(run(probe, r.cwd, { PATH }).stdout).toBe("no terraform\nno tofu\nno helm\nno kustomize or kubectl\nno kubectl\n");
     tool("terraform");
-    tool("kubectl");
-    expect(run(`${probe}\nforge_terraform version\nforge_kustomize build .`, r.cwd, { PATH }).stdout).toBe(
-      "has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize build .\n",
+    // kubectl answers its version (forge_kustomize is the kustomize adapter's build, §16: kubectl's there)
+    put(bin, "kubectl", '#!/bin/sh\n[ "$*" = "version --client" ] && { echo "Client Version: v1.30.0"; exit 0; }\necho "kubectl $*"\n');
+    chmodSync(join(bin, "kubectl"), 0o755);
+    expect(run(`${probe}\nforge_terraform version\nforge_kustomize .`, r.cwd, { PATH }).stdout).toBe(
+      "has terraform\nno tofu\nno helm\nhas kustomize\nhas kubectl\nterraform version\nkubectl kustomize .\n",
     );
     put(r.cwd, "infra/main.tofu", "");
     expect(run(`${probe}\nforge_tf_bin`, r.cwd, { PATH }).stdout).toBe("no tofu\nno tofu\nno helm\nhas kustomize\nhas kubectl\ntofu");
@@ -2127,6 +2147,106 @@ test.if(hasBun)(
     ] as const) {
       expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: bad } }, "match", bins).outcome}`).toBe(`${path} pass`);
       expect(`${path} ${runCheckExample(rule, target, { head, files: { [path]: good } }, "no_match", bins).outcome}`).toBe(`${path} pass`);
+    }
+  },
+  T,
+);
+
+/**
+ * A typecheck run is whole-project, and a file the change touches may already have
+ * errors (a project that is not clean for ty): outside `--all`, an error in a changed
+ * file counts only when the change brought it, compared by its text with the same run
+ * in the base tree (§10.1 step 4).
+ * @rule python/typecheck
+ */
+describe("typecheck errors the base already has", () => {
+  // a ty stand-in: one error per line marked "BAD <word>", in every .py file under the
+  // directory it runs in (the repository, or the base tree, which has no .git)
+  const marked = [
+    "o=$(mktemp)",
+    "find . -name '*.py' -not -path './.venv/*' -not -path './.forge/*' | sed 's|^\\./||' | sort | while read -r f; do",
+    '  grep -n "BAD " "$f" | sed "s|^\\([0-9]*\\):.*BAD \\([a-z]*\\).*|$f:\\1:1: error[bad] Bad: \\2|"',
+    'done > "$o"; cat "$o"; [ ! -s "$o" ]; s=$?; rm -f "$o"; exit $s',
+  ].join("\n");
+
+  test(
+    "an error already in a changed file passes with a note; one more of the same text fails, naming only the added one; code moved to another file brings its errors along",
+    () => {
+      put(repo, "app/legacy.py", "A = 1  # BAD alpha\n");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-qm", "legacy", "--no-verify");
+      stub("ty-stand-in", marked);
+      try {
+        put(repo, "app/legacy.py", "A = 1  # BAD alpha\nB = 2\n");
+        const ok = check();
+        expect(ok.stdout).not.toContain("forge:python/typecheck failed");
+        expect(ok.stdout).toContain("forge:python/typecheck ok for the changed files (their 1 error(s) were already there before this change");
+        put(repo, "app/legacy.py", "A = 1  # BAD alpha\nC = 3  # BAD alpha\n");
+        const bad = check();
+        expect(bad.status).toBe(1);
+        expect(bad.stdout).toContain("forge:python/typecheck failed\napp/legacy.py:2:1: error[bad] Bad: alpha\n(1 other error(s) in the changed files were already there before this change)");
+        expect(bad.stdout).not.toContain("app/legacy.py:1:1");
+        put(repo, "app/legacy.py", "B = 2\n");
+        put(repo, "app/moved.py", "A = 1  # BAD alpha\n");
+        expect(check().stdout).toContain("forge:python/typecheck ok for the changed files (their 1 error(s) were already there before this change");
+        put(repo, "app/moved.py", "A = 1  # BAD beta\n");
+        expect(check().stdout).toContain("forge:python/typecheck failed\napp/moved.py:1:1: error[bad] Bad: beta");
+      } finally {
+        stub("ty-stand-in", "exit 0");
+        reset();
+        git(repo, "reset", "-q", "--hard", "HEAD~1");
+      }
+    },
+    T,
+  );
+});
+
+/**
+ * Check commands ask ruff for an operation (§16); the project's own may be an older release (a
+ * Docker image pinning ruff 0.1): its adapter asks it for `text`, the one-line format before
+ * `concise`; a release no adapter covers is not enforced, with why; a command it rejects as
+ * usage is reported skipped, never as a finding in the code.
+ * @rule python/lint
+ */
+test(
+  "an older ruff: lint findings still come out in its own one-line format; a release no adapter covers is not enforced; a command it rejects is skipped, not a failure",
+  () => {
+    const ruff = join(repo, ".venv", "bin", "ruff");
+    const real = existsSync(ruff) ? realpathSync(ruff) : "";
+    const fake = (version: string, rejects: string, error: string) => {
+      rmSync(ruff, { force: true });
+      stub(
+        "ruff",
+        [
+          `case "$*" in --version) echo "ruff ${version}"; exit 0 ;; esac`,
+          `case "$*" in *${rejects}*) printf "error: ${error}\\n\\nFor more information, try '--help'.\\n" >&2; exit 2 ;; esac`,
+          '[ "$1" = check ] || exit 0',
+          'for a; do case $a in *.py) if grep -q "^import os$" "$a"; then echo "$a:1:8: F401 [*] \\`os\\` imported but unused"; found=1; fi ;; esac; done',
+          '[ -z "$found" ]',
+        ].join("\n"),
+      );
+    };
+    try {
+      put(repo, "app/new.py", "import os\n");
+      // ruff 0.1 has no "concise" output format: its adapter asks for text, never concise
+      fake("0.1.5", "concise", "invalid value 'concise' for '--output-format <OUTPUT_FORMAT>'");
+      const old = check();
+      expect(old.stdout).toContain("forge:python/lint failed\napp/new.py:1:8: F401");
+      expect(old.stdout).not.toContain("invalid value");
+      // older than every range: not enforced, saying from which release Forge drives ruff
+      fake("0.0.200", "--output-format", "unexpected argument '--output-format' found");
+      const uncovered = check();
+      expect(uncovered.stdout).not.toContain("forge:python/lint failed");
+      expect(uncovered.stdout).toContain("forge:python/lint not enforced: no Forge adapter covers ruff 0.0.200 (Forge drives ruff 0.1.4 and later)");
+      // a covered release that rejects the command anyway: skipped, with its version and error
+      fake("0.5.0", "--output-format", "unexpected argument '--output-format' found");
+      const rejected = check();
+      expect(rejected.stdout).not.toContain("forge:python/lint failed");
+      expect(rejected.stdout).toContain("forge:python/lint skipped: ruff 0.5.0 rejected the command (ruff check --output-format concise app/new.py): unexpected argument '--output-format' found");
+    } finally {
+      rmSync(ruff, { force: true });
+      if (real) symlinkSync(real, ruff);
+      reset();
     }
   },
   T,

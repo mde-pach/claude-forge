@@ -10,7 +10,7 @@ enforce:
         printf 'forge:%s skipped: no wrangler types output (file role @wrangler-types names no file of the repository)\n' "$c_id"
       else
         _wt_rc=0
-        for _wt_f in $_wt_files; do wrangler types "$_wt_f" --check || _wt_rc=1; done
+        for _wt_f in $_wt_files; do forge_do wrangler codegen-check "$_wt_f" || _wt_rc=1; done
         [ "$_wt_rc" = 0 ]
       fi
     when_changed: ["@wrangler-config", "@wrangler-types"]

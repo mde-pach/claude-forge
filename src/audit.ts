@@ -1,16 +1,30 @@
 import { defaultRoles, expandGlobs } from "./roles.js";
 import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix } from "node:path";
-import { TY_COMMAND } from "./core/tools.js";
+import { adapterOf, opSince, rangeOf } from "./adapters/index.js";
+import { BIOME } from "./adapters/biome.js";
+import { ESLINT } from "./adapters/eslint.js";
+import { TSC } from "./adapters/tsc.js";
+
+/** The adapter operation each audited project tool runs on the examples (§11, §16). */
+const AUDIT_OP: Partial<Record<ToolTarget["tool"], string>> = { ruff: "lint-json-stdin", biome: "lint-json", eslint: "lint-json", tsc: "typecheck" };
+import { TY } from "./adapters/ty.js";
+import { PYTHON_TOOLS, TY_COMMAND } from "./core/tools.js";
 import { toolExamples } from "./examples.js";
-import { run } from "./util.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings, renderEngine, resolveEngine } from "./render/engine.js";
+import { UNTYPED_HELPER } from "./render/helpers.js";
+import { renderLib } from "./render/template.js";
+import { packageRoot, run, runScript, shQuote } from "./util.js";
 import type { Rule, ToolTarget } from "./types.js";
 
 export interface AuditResult {
   rule: string;
   tool: ToolTarget["tool"];
   expects: string;
-  status: "satisfied" | "unsatisfied" | "skipped";
+  /** unavailable: the installed release of the tool does not have the code, or no adapter covers it (§16.3): never a snippet. */
+  status: "satisfied" | "unsatisfied" | "skipped" | "unavailable";
+  /** The code the installed release gives the rule, when it is another (TCH004 for TC004 before ruff 0.8.0, §16.2). */
+  as?: string;
   /** The workspace package audited (its own config); absent: the root. */
   dir?: string;
   /** Why unsatisfied / skipped. */
@@ -21,7 +35,91 @@ export interface AuditResult {
 /** The project's own binary for a tool, or undefined. */
 export function projectBinary(repo: string, tool: string): string | undefined {
   for (const p of [join(repo, "node_modules", ".bin", tool), join(repo, ".venv", "bin", tool)]) if (existsSync(p)) return p;
-  return undefined;
+  // a Python tool outside .venv: in the project's environment elsewhere, as the hooks find it
+  return PYTHON_TOOLS.has(tool) ? (shellTool(repo, `forge_py_tool ${tool}`) ?? undefined) : undefined;
+}
+
+const shellTools = new Map<string, string | null>();
+/** What a shell call prints in <repo> after lib.sh and <prelude> (trimmed), or null: the hooks' own lookup, so both agree. */
+function shellTool(repo: string, call: string, prelude = ""): string | null {
+  const key = `${repo}\0${prelude}\0${call}\0${process.env.PATH ?? ""}\0${process.env.VIRTUAL_ENV ?? ""}`;
+  if (!shellTools.has(key)) {
+    const r = runScript(`${renderLib()}\nIFS='\n'\n${prelude}\n${call}\n`, { cwd: repo });
+    const out = r.status === 0 ? r.stdout.trim() : "";
+    shellTools.set(key, out || null);
+  }
+  return shellTools.get(key)!;
+}
+
+/** The project's Python environment as the hooks choose it (lib.sh forge_py_env_report): what was chosen, every candidate checked, where each Python tool is. */
+export interface PythonEnvState {
+  chosen?: { python: string; prefix: string; installed: number; declared: number };
+  checked: { python: string; installed: number; declared: number }[];
+  tools: { tool: string; path: string; where: "venv" | "env" | "path" }[];
+}
+
+export function pythonEnvState(repo: string): PythonEnvState {
+  return parsePythonEnvReport(shellTool(repo, "forge_py_env_report") ?? "");
+}
+
+/** forge_py_env_report's lines as a PythonEnvState. */
+export function parsePythonEnvReport(text: string): PythonEnvState {
+  const st: PythonEnvState = { checked: [], tools: [] };
+  for (const line of text.split("\n")) {
+    const w = line.split(" ");
+    if (w[0] === "env" && w.length >= 5) st.chosen = { python: w[1]!, prefix: w[2]!, installed: Number(w[3]), declared: Number(w[4]) };
+    else if (w[0] === "checked" && w.length >= 4) st.checked.push({ python: w[1]!, installed: Number(w[2]), declared: Number(w[3]) });
+    else if (w[0] === "tool" && w.length >= 4) st.tools.push({ tool: w[1]!, path: w[2]!, where: w[3] as "venv" | "env" | "path" });
+  }
+  return st;
+}
+
+/**
+ * The engine's ty functions (forge_ty_args, forge_ty_untyped) rendered with the project's
+ * settings, the untyped-packages helper read from Forge's own templates: the audits and
+ * forge status ask the same as the hooks' `ty check`.
+ */
+export function tyPrelude(settings: EngineSettings): string {
+  return `${renderEngine(["python"], resolveEngine(["forge_ty_args_print", "forge_ty_untyped_print"]), settings)}\nFORGE_TY_UNTYPED_HELPER=${shQuote(join(packageRoot(), "templates", "helpers", UNTYPED_HELPER))}`;
+}
+
+/** An adapter operation's arguments (§16.2): the caller's in place of {1}, {2}… (by rank) and {args} (the others), or after them. */
+export function opArgs(template: string, args: string[]): string[] {
+  const words = template.split(" ").filter(Boolean);
+  const used = new Set(words.flatMap((w) => (/^\{[1-9]\}$/.test(w) ? [Number(w[1]) - 1] : [])));
+  const rest = args.filter((_, i) => !used.has(i));
+  const out = words.flatMap((w) => (w === "{args}" ? rest : /^\{[1-9]\}$/.test(w) ? [args[Number(w[1]) - 1] ?? ""] : [w]));
+  return words.includes("{args}") ? out : [...out, ...rest];
+}
+
+/**
+ * The installed release of an adapted tool in <repo> and, for each of <codes>, the code that
+ * release gives the rule ("" when it does not have it) and the first release that does: the
+ * engine's own forge_tool_version and forge_tool_codes (§16.3), so status, the audits and
+ * the hooks agree.
+ */
+export function toolFacts(repo: string, tool: string, codes: string[], settings: EngineSettings): { version?: string; codes: Map<string, { have: string; since: string }> } {
+  const prelude = renderEngine([], resolveEngine(["forge_tool_codes"]), { ...settings, toolCodes: codes.map((code) => ({ tool, code })) });
+  const out = shellTool(repo, `forge_tool_version ${tool} || printf '\\n'; forge_tool_codes ${tool}`, prelude) ?? "";
+  const [version, ...lines] = out.split("\n");
+  const map = new Map<string, { have: string; since: string }>();
+  for (const l of lines) {
+    const [code, have, since] = l.split("\t");
+    if (code && have && since) map.set(code, { have: have === "-" ? "" : have, since });
+  }
+  return { version: version?.trim() || undefined, codes: map };
+}
+
+/** The arguments `ty check` gets in <repo> (forge_ty_args): the project's environment when ty would not find it, the untyped packages as Any. */
+export function tyArgs(repo: string, settings: EngineSettings): string[] {
+  const out = shellTool(repo, "forge_ty_args_print", tyPrelude(settings));
+  return out ? out.split("\n") : [];
+}
+
+/** The installed packages without typing that ty checks as Any in <repo> (forge_ty_untyped, §15.2). */
+export function untypedPackages(repo: string, settings: EngineSettings): string[] {
+  const out = shellTool(repo, "forge_ty_untyped_print", tyPrelude(settings));
+  return out ? out.split("\n") : [];
 }
 
 const EXT: Record<Rule["scope"]["language"], string> = { python: ".py", typescript: ".ts", tsx: ".tsx", yaml: ".yaml", any: ".txt" };
@@ -105,22 +203,24 @@ function withFiles<T>(repo: string, files: [string, string][], fn: () => T): T {
 /** Tools that report by file: the examples of a target are checked in one run (batchVerdicts). */
 const BY_FILE = new Set<ToolTarget["tool"]>(["biome", "ty", "eslint"]);
 
-/** biome, eslint and ty on example files (relative paths), with machine-readable output. */
-function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[]): ToolRun {
-  if (t.tool === "biome") return run(bin, ["lint", "--reporter=json", "--max-diagnostics=50", ...rels], { cwd: repo });
-  if (t.tool === "eslint") return run(bin, ["--format", "json", "--no-warn-ignored", ...rels], { cwd: repo });
-  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), "check", "--output-format", "gitlab", ...rels], { cwd: repo });
+/** biome, eslint and ty on example files (relative paths), with machine-readable output; <args>: the installed release's (§16). */
+function runOnFiles(repo: string, t: ToolTarget, bin: string, rels: string[], settings: EngineSettings, args?: string): ToolRun {
+  if (t.tool === "biome") return run(bin, opArgs(args ?? BIOME.ranges.at(-1)!.ops["lint-json"]!, rels), { cwd: repo });
+  if (t.tool === "eslint") return run(bin, opArgs(args ?? ESLINT.ranges.at(-1)!.ops["lint-json"]!, rels), { cwd: repo });
+  // ty's adapter (§16): its operation's arguments, the project's environment and untyped packages after `check`
+  const [sub, ...rest] = opArgs(TY.ranges[0]!.ops["typecheck-gitlab"]!, rels);
+  return run(TY_COMMAND[0]!, [...TY_COMMAND.slice(1), sub!, ...tyArgs(repo, settings), ...rest], { cwd: repo });
 }
 
-/** Runs the project's tool on one example with machine-readable output where the tool has it. */
-function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number): ToolRun {
+/** Runs the project's tool on one example with machine-readable output where the tool has it; <args>: its adapter's arguments for that (§16), {args} the example's path. */
+function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Example, n: number, settings: EngineSettings, args?: string): ToolRun {
   const stem = stemOf(n);
   const rel = exampleRel(rule, ex, n);
   const code = ex.code;
-  if (t.tool === "ruff") return run(bin, ["check", "--no-cache", "--no-fix", "--output-format", "json", "--stdin-filename", rel, "-"], { cwd: repo, input: code });
+  if (t.tool === "ruff") return run(bin, opArgs(args ?? "check --no-cache --no-fix --output-format json --stdin-filename {args} -", [rel]), { cwd: repo, input: code });
   // biome (its stdin mode prints no lint diagnostics), ty and tsc read real files: a
   // temporary file inside the project.
-  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel]));
+  if (BY_FILE.has(t.tool)) return withFiles(repo, [[rel, code]], () => runOnFiles(repo, t, bin, [rel], settings, args));
   const cfg = `tsconfig.${stem}.json`;
   const tsconfig = JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { noEmit: true, incremental: false, composite: false }, include: [], files: [rel] });
   return withFiles(
@@ -129,7 +229,7 @@ function runTool(repo: string, rule: Rule, t: ToolTarget, bin: string, ex: Examp
       [rel, code],
       [cfg, tsconfig],
     ],
-    () => run(bin, ["--noEmit", "-p", cfg, "--pretty", "false"], { cwd: repo }),
+    () => run(bin, opArgs(args ?? TSC.ranges.at(-1)!.ops.typecheck!, [cfg]), { cwd: repo }),
   );
 }
 
@@ -213,7 +313,7 @@ function judge(expects: string, all: { id: string; severity: string }[]): Verdic
  * an example the batch cannot judge (output not read, diagnostics left out, a file name
  * that is not one of the examples'): it runs alone.
  */
-function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[]): (Verdict | undefined)[] {
+function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, examples: Example[], settings: EngineSettings, args?: string): (Verdict | undefined)[] {
   const out: (Verdict | undefined)[] = new Array(examples.length);
   const codes = examples.map((e) => e.code);
   const rels = examples.map((e, n) => exampleRel(rule, e, n));
@@ -233,6 +333,8 @@ function batchVerdicts(repo: string, rule: Rule, t: ToolTarget, bin: string, exa
           t,
           bin,
           b.map((n) => rels[n]!),
+          settings,
+          args,
         ),
     );
     let d: ReturnType<typeof diagnostics>;
@@ -261,7 +363,7 @@ function hasUvx(): boolean {
 }
 
 /** §11: every match example fails the tool's run on the expected diagnostic; no no_match example reports it. */
-export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo): AuditResult {
+export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS, resolved = false): AuditResult {
   const base = { rule: rule.id, tool: t.tool, expects: t.expects };
   // in a workspace package, the tool may be installed at the root (hoisted)
   // ty is Forge's own (through uvx); the others are the project's
@@ -270,16 +372,44 @@ export function auditTarget(repo: string, rule: Rule, t: ToolTarget, root = repo
     return {
       ...base,
       status: "skipped",
-      detail: t.tool === "ty" ? "uvx is not installed (Forge runs its pinned ty through it)" : `${t.tool} is configured but not installed (node_modules/.bin or .venv/bin)`,
+      detail:
+        t.tool === "ty"
+          ? "uvx is not installed (Forge runs its pinned ty through it)"
+          : `${t.tool} is configured but not installed (node_modules/.bin, .venv/bin${PYTHON_TOOLS.has(t.tool) ? " or the project's Python environment" : ""})`,
     };
+  // the installed release, through the tool's adapter (§16): how it is asked, which code it gives the rule
+  let args: string | undefined;
+  const ad = adapterOf(t.tool);
+  if (ad && !ad.pinned) {
+    // every code of the tool's history at once: one engine run per repository for all its targets (shellTool's cache)
+    const facts = toolFacts(root, t.tool, Object.keys(ad.codes?.history ?? {}), settings);
+    if (!facts.version) return { ...base, status: "skipped", detail: `the version of ${t.tool} could not be read` };
+    const range = rangeOf(ad, facts.version);
+    if (!range) return { ...base, status: "unavailable", detail: `no Forge adapter covers ${t.tool} ${facts.version} (Forge drives ${t.tool} ${ad.ranges[0]!.from} and later)` };
+    const c = resolved ? undefined : facts.codes.get(t.expects);
+    if (c && !c.have) return { ...base, status: "unavailable", detail: `${t.expects} needs ${t.tool} ≥ ${c.since}; this project has ${facts.version}` };
+    if (c && c.have !== t.expects) {
+      const as = c.have;
+      const swapped = { ...t, expects: as, snippet: t.snippet.replace(new RegExp(`\\b${t.expects}\\b`, "g"), as) };
+      const r = auditTarget(repo, rule, swapped, root, settings, true);
+      return { ...r, expects: t.expects, as, ...(r.detail ? { detail: r.detail.replaceAll(as, `${as} (what ${t.tool} ${facts.version} calls ${t.expects})`) } : {}) };
+    }
+    // the operation the audit runs (§16): a release that cannot do it is not audited
+    const op = AUDIT_OP[t.tool];
+    if (op) {
+      const a = range.ops[op];
+      if (a === null) return { ...base, status: "unavailable", detail: `${t.tool} ${facts.version} cannot ${op} (it needs ${t.tool} ${opSince(ad, op, facts.version) ?? "a newer release"} or later)` };
+      args = a;
+    }
+  }
   const match = toolExamples(rule, "match");
   const noMatch = toolExamples(rule, "no_match");
   if (!match.length) return { ...base, status: "skipped", detail: "the rule has no match examples" };
-  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch]) : [];
+  const batched = BY_FILE.has(t.tool) ? batchVerdicts(repo, rule, t, bin, [...match, ...noMatch], settings, args) : [];
   const judge = (ex: Example, n: number): Verdict | AuditResult => {
     const v = batched[n];
     if (v) return v;
-    const r = runTool(repo, rule, t, bin, ex, n);
+    const r = runTool(repo, rule, t, bin, ex, n, settings, args);
     try {
       return verdict(t.tool, t.expects, r);
     } catch (e) {
@@ -322,8 +452,13 @@ function firstLine(s: string): string {
 
 /** Audits every tool target; dirOf gives where a tool is configured (a workspace package, relative to repo). */
 /** Each tool target audited in every place that configures the tool (the root "", or workspace packages, each with its own config). */
-export function auditRules(repo: string, items: { rule: Rule; audits: ToolTarget[] }[], dirsOf: (tool: ToolTarget["tool"]) => string[] = () => [""]): AuditResult[] {
+export function auditRules(
+  repo: string,
+  items: { rule: Rule; audits: ToolTarget[] }[],
+  dirsOf: (tool: ToolTarget["tool"]) => string[] = () => [""],
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+): AuditResult[] {
   return items.flatMap(({ rule, audits }) =>
-    audits.flatMap((t) => (dirsOf(t.tool).length ? dirsOf(t.tool) : [""]).map((d) => ({ ...auditTarget(join(repo, d), rule, t, repo), ...(d ? { dir: d } : {}) }))),
+    audits.flatMap((t) => (dirsOf(t.tool).length ? dirsOf(t.tool) : [""]).map((d) => ({ ...auditTarget(join(repo, d), rule, t, repo, settings), ...(d ? { dir: d } : {}) }))),
   );
 }

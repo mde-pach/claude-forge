@@ -161,6 +161,8 @@ export interface DepFacts {
   contains: (globs: string[], pattern: string) => boolean;
   /** A .yaml / .yml file's first document is a mapping with all these top-level keys (detect.yaml_keys). */
   yamlKeys: (keys: string[]) => boolean;
+  /** A file matching one of globs outside vendored, generated and virtual-environment directories (detect.sources_any). */
+  sources: (globs: string[]) => boolean;
   /** Ecosystems the project publishes a library to (see isPyLibrary, isNpmLibrary). */
   library: Set<Ecosystem>;
 }
@@ -234,7 +236,7 @@ function normPy(name: string): string {
 }
 
 /** Dependencies declared by the package.json and pyproject.toml in dir (the root's must parse; a package's may not). */
-function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files" | "contains" | "yamlKeys"> {
+function readDeps(dir: string, strict: boolean, hasManagePy = false, published = { pypi: false, npm: false }): Omit<DepFacts, "files" | "contains" | "yamlKeys" | "sources"> {
   const npm = new Map<string, string>();
   const pypi = new Map<string, string>();
   const library = new Set<Ecosystem>();
@@ -366,7 +368,7 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
   resolve({ npm, pypi });
   // the root's files are those outside the workspace packages: a file belongs to its package;
   // file contents are read only when a pack asks (content_any, yaml_keys), each file once
-  const fileFacts = (dir: string): Pick<DepFacts, "files" | "contains" | "yamlKeys"> => {
+  const fileFacts = (dir: string): Pick<DepFacts, "files" | "contains" | "yamlKeys" | "sources"> => {
     const mine = own.get(dir)!;
     const read = (f: string) => readSmallFile(join(repo, dir, f), DETECT_READ_MAX);
     const seen = new Map<string, boolean>();
@@ -387,6 +389,11 @@ export function readProjectFacts(repo: string, listFiles: () => string[]): Proje
           const res = globs.map(globToRegExp);
           const line = new RegExp(pattern, "m");
           return mine.some((f) => res.some((re) => re.test(f)) && line.test(read(f) ?? ""));
+        }),
+      sources: (globs) =>
+        memo(`s\0${globs.join("\0")}`, () => {
+          const res = globs.map(globToRegExp);
+          return mine.some((f) => !isVendored(f) && res.some((re) => re.test(f)));
         }),
       yamlKeys: (keys) =>
         memo(`y\0${keys.join("\0")}`, () => {
@@ -446,6 +453,42 @@ export function detectPack(pack: Pack, facts: DepFacts): boolean {
     (d.deps_any ?? []).some((dep) => depMatches(facts, dep)) ||
     (d.library_any ?? []).some((e) => facts.library.has(e)) ||
     (d.content_any ?? []).some((c) => facts.contains(c.files, c.pattern)) ||
-    (d.yaml_keys !== undefined && facts.yamlKeys(d.yaml_keys))
+    (d.yaml_keys !== undefined && facts.yamlKeys(d.yaml_keys)) ||
+    (d.sources_any !== undefined && facts.sources(d.sources_any))
   );
+}
+
+/** Directories that hold someone else's code, generated code or an environment, never the project's sources (detect.sources_any). */
+const VENDORED_DIRS = new Set([
+  "node_modules",
+  ".venv",
+  "venv",
+  ".env",
+  "env",
+  "virtualenv",
+  "site-packages",
+  "dist-packages",
+  "vendor",
+  "vendored",
+  "_vendor",
+  "third_party",
+  "third-party",
+  "build",
+  "dist",
+  ".tox",
+  ".nox",
+  ".eggs",
+  "__pycache__",
+  ".mypy_cache",
+  ".git",
+]);
+
+/** A path inside a vendored, generated or virtual-environment directory, Forge's .forge/ or .claude/, or a generated module (protobuf's *_pb2.py). */
+export function isVendored(path: string): boolean {
+  const parts = path.split("/");
+  const name = parts.pop() ?? "";
+  if (/_pb2(_grpc)?\.pyi?$/.test(name)) return true;
+  // Forge's own output (its helper scripts) and Claude Code's directory are not the project's sources
+  if (parts[0] === ".forge" || parts[0] === ".claude") return true;
+  return parts.some((d) => VENDORED_DIRS.has(d) || d.endsWith(".egg-info"));
 }

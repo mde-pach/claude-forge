@@ -18,7 +18,7 @@ import { plan, readProjectInputs } from "../../src/plan";
 import { renderLib } from "../../src/render";
 import { auditRules } from "../../src/audit";
 import { parseStrictYaml } from "../../src/yaml";
-import { applied, forge, put, ROOT, sampleRepo, sh, shScript } from "../helpers";
+import { applied, forge, put, ROOT, STUB_VERSION, sampleRepo, sh, shScript } from "../helpers";
 import type { Pack } from "../../src/types";
 
 const T = 120_000;
@@ -142,6 +142,21 @@ describe("forge.yaml", () => {
     T,
   );
 
+  test(
+    "python.untyped-packages chooses how ty sees installed packages without typing: as Any (the default) or from their source (§15.2)",
+    () => {
+      const repo = sampleRepo("fastapi-app");
+      expect(forge(["apply", "--yes"], repo).status).toBe(0);
+      expect(readFileSync(join(repo, ".forge/check.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='any'");
+      put(repo, "forge.yaml", 'forge: "0.5"\npython: {untyped-packages: source}\n');
+      expect(forge(["apply", "--yes"], repo).status).toBe(0);
+      expect(readFileSync(join(repo, ".forge/check.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='source'");
+      expect(readFileSync(join(repo, ".claude/skills/forge-project/scripts/checks.sh"), "utf8")).toContain("FORGE_TY_UNTYPED='source'");
+      expect(forge(["status"], repo).stdout).toContain("Untyped packages: ty infers them from their source (forge.yaml python: {untyped-packages: source})");
+    },
+    T,
+  );
+
   test.each([
     ["an unknown key", 'forge: "0.5"\nextra: 1\n', /invalid project.*extra/],
     ["a disable without a reason", 'forge: "0.5"\ndisable:\n  - id: python/pytest/run\n', /reason/],
@@ -149,6 +164,7 @@ describe("forge.yaml", () => {
     ["a duplicate key", 'forge: "0.5"\nforge: "0.5"\n', /forge\.yaml/],
     ["an alias", 'forge: &v "0.5"\npacks: {add: [*v]}\n', /alias|anchor/],
     ["no version", "packs: {add: [typescript/zod]}\n", /forge/],
+    ["an unknown untyped-packages value", 'forge: "0.5"\npython: {untyped-packages: ignore}\n', /untyped-packages/],
   ])(
     "a forge.yaml with %s stops apply and writes nothing",
     (_kind, text, message) => {
@@ -384,7 +400,7 @@ describe("workspaces", () => {
   });
 
   /** @rule typescript/vue/typecheck */
-  test("the Vue type check (vue-tsc through forge_exec_tool) runs in the package that has Vue", () => {
+  test("the Vue type check (vue-tsc through forge_do) runs in the package that has Vue", () => {
     const ws = planOf({
       "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
       "packages/web/package.json": '{"name": "web", "private": true, "dependencies": {"vue": "^3.4.0"}, "devDependencies": {"vue-tsc": "^2.0.0", "typescript": "^5.4.0"}}\n',
@@ -402,7 +418,7 @@ describe("workspaces", () => {
    * @rule typescript/format-lint
    */
   test("a format_stdin filter runs in the package that configures the formatter, on the path relative to it", () => {
-    const biome = '#!/bin/sh\ncat\nprintf \'// in %s as %s\\n\' "$(basename "$PWD")" "$2"\n';
+    const biome = `#!/bin/sh\n${STUB_VERSION}cat\nprintf '// in %s as %s %s\\n' "$(basename "$PWD")" "$2" "$3"\n`;
     const ws = planOf({
       "package.json": '{"name": "mono", "private": true, "workspaces": ["packages/*"]}\n',
       ...inDir("packages/a", { "package.json": '{"name": "a", "devDependencies": {"@biomejs/biome": "2.5.15"}}\n', "biome.json": "{}\n", "tsconfig.json": "{}\n" }),
@@ -412,7 +428,7 @@ describe("workspaces", () => {
     put(ws.base, "in.ts", "const a = 1;\n");
     const script = `${renderLib()}\nIFS='\n'\n${ws.checksFragment}\nforge_format_copy packages/a/src/x.ts in.ts out.ts; echo "rc=$?"; cat out.ts`;
     const r = shScript(script, { cwd: ws.base });
-    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path=src/x.ts\n");
+    expect(r.stdout).toBe("rc=0\nconst a = 1;\n// in a as --stdin-file-path src/x.ts\n");
   });
 
   /** Each package has its own tool config: each is audited (§11), not only the first. */
@@ -606,6 +622,35 @@ describe("detection by content", () => {
     const pkg = { "package.json": '{"name": "web", "dependencies": {"next": "16.2.0"}}\n', "tsconfig.json": "{}\n" };
     expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  cacheComponents: true,\n};\nexport default config;\n" })).toContain("typescript/nextjs/cache-components");
     expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  // cacheComponents: true,\n};\nexport default config;\n" })).not.toContain("typescript/nextjs/cache-components");
+  });
+
+  /** @pack python */
+  test("a plain-scripts Python project (.py files, no packaging) activates python, its lint and type check with the tools' defaults; data and docs only, or .py only in vendored, generated or environment directories, do not; packaging-only child packs stay off", () => {
+    const scripts = { "navigation.py": "def route() -> None:\n    pass\n", "data/flights.json": "[]\n" };
+    const active = activeIn(PACKS, scripts);
+    // nowhere to configure a tool: ruff and Forge's ty run with their defaults, so lint and the type check are enforced
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    for (const [rel, text] of Object.entries(scripts)) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    const rules = plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) }).active;
+    for (const id of ["python/lint", "python/format", "python/typecheck"]) expect({ id, enforced: rules.find((r) => r.rule.id === id)?.enforced.length }).toEqual({ id, enforced: 1 });
+    expect(active).toContain("python");
+    for (const child of ["python/uv", "python/library", "python/pytest"]) expect(active).not.toContain(child);
+    expect(activeIn(PACKS, { "data/flights.json": "[]\n", "README.md": "# Flights\n", "notes.txt": "x\n" })).not.toContain("python");
+    expect(
+      activeIn(PACKS, {
+        "vendor/lib/x.py": "X = 1\n",
+        "node_modules/pkg/y.py": "Y = 1\n",
+        ".venv/lib/python3.12/site-packages/z.py": "Z = 1\n",
+        "build/lib/w.py": "W = 1\n",
+        "proto/api_pb2.py": "V = 1\n",
+        "pkg.egg-info/v.py": "V = 1\n",
+        ".forge/helpers/ratchet.py": "R = 1\n",
+        "data/flights.json": "[]\n",
+      }),
+    ).not.toContain("python");
+    // a packaging file alone is enough, as before
+    expect(activeIn(PACKS, { "requirements.txt": "requests\n" })).toContain("python");
   });
 
   test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {

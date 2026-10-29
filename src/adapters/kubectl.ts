@@ -1,0 +1,38 @@
+/**
+ * kubectl, from PATH (§16), for its embedded kustomize: the adapter kustomize.ts's `pick`
+ * (forge_kustomize_bin) selects when kustomize itself is not on PATH (forge_kustomize: `kubectl
+ * kustomize <args>`). Same operation as kustomize.ts: `build <dir>`.
+ *
+ * - `kubectl kustomize` exists from 1.14 (CHANGELOG-1.14: "Added Kustomize as a subcommand in
+ *   kubectl" #73033), with kustomize v2.0.3 until 1.20. 1.21 jumped it to v4.0.5
+ *   (CHANGELOG-1.21, "Kustomize Updates in Kubectl"; later releases track kustomize: 1.27
+ *   embeds v5.0.1). 1.21.0 is the oldest covered release: a v2 renderer does not know today's
+ *   kustomization fields (`patches`, `labels`, `replacements`), so it would fail or render
+ *   differently from kustomize.ts's releases; and 1.21.0 is the oldest darwin/arm64 kubectl.
+ * - No `--version`: `kubectl version --client` prints `Client Version: v1.37.2` / `Kustomize
+ *   Version: v5.8.1` (1.28+), `Client Version: version.Info{Major:"1", Minor:"21",
+ *   GitVersion:"v1.21.0", ...}` before; the first x.y.z is kubectl's.
+ * - Exit statuses: 0 rendered; 1 build error (`error: accumulating resources: ...`; `Error:` on
+ *   1.21); usage errors 1 (`error: unknown flag: --x` / `See 'kubectl kustomize --help' for
+ *   usage.`; `Error: unknown flag` on 1.21; `error: specify one path to kustomization.yaml`).
+ */
+import type { ToolAdapter } from "./types.js";
+
+export const KUBECTL: ToolAdapter = {
+  tool: "kubectl",
+  runner: "path",
+  versionArgs: "version --client",
+  verified: "1.37.2",
+  usage: {
+    exit: 1,
+    pattern: "^[Ee]rror: (unknown (shorthand )?flag|invalid argument .+ flag|flag needs an argument|specify one path to kustomization)",
+  },
+  ranges: [
+    {
+      from: "1.21.0",
+      source: "kubernetes CHANGELOG/CHANGELOG-1.21.md, Kustomize Updates in Kubectl (v2.0.3 -> v4.0.5, #98946); CHANGELOG-1.14.md #73033 (kubectl kustomize)",
+      // the caller's argument: the kustomization directory
+      ops: { build: "kustomize" },
+    },
+  ],
+};

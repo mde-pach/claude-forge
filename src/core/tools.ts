@@ -33,7 +33,11 @@ export const PROJECT_TOOLS = [
   "eslint",
   "oxlint",
 ] as const;
-/** Tools resolved from the project's .venv/bin (the others from node_modules/.bin). */
+/**
+ * Tools resolved from the project's Python environment (the others from node_modules/.bin):
+ * .venv/bin, else the environment lib.sh's forge_py_env finds (VIRTUAL_ENV, uv, Poetry, the
+ * interpreter on PATH).
+ */
 export const PYTHON_TOOLS = new Set(["ruff", "alembic", "pytest", "python", "sqlfluff"]);
 /** Forge's own pinned tools used in check commands: ty (Python's type checker, through uvx, §15.2). */
 export const FORGE_TOOLS = ["ty"] as const;
@@ -67,7 +71,8 @@ const COMMAND_POSITION_ONLY = new Set<string>(["npm", "pnpm", "yarn"]);
 export function toolsInCommand(cmd: string): string[] {
   const found: { tool: string; at: number }[] = [];
   for (const tool of [...PROJECT_TOOLS, ...FORGE_TOOLS, ...SYSTEM_TOOLS]) {
-    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
+    // a tool an adapter drives is also named by `forge_do <tool>` (§16.1)
+    const lead = COMMAND_POSITION_ONLY.has(tool) ? "(^|[;&|(`]|\\$\\(|\\b(?:then|do|else)\\s|\\bforge_do\\s)[\\t ]*" : "(^|[\\s;&|(`]|\\$\\()";
     const m = new RegExp(`${lead}${tool}(?=$|[\\s;&|)\`])`, "m").exec(cmd);
     if (m) found.push({ tool, at: m.index });
   }
@@ -83,7 +88,7 @@ export function directDashedTools(cmd: string): string[] {
   const out = new Set<string>();
   for (const tool of PROJECT_TOOLS.filter((t) => t.includes("-"))) {
     const re = new RegExp(`(^|[\\s;&|(\`]|\\$\\()${tool.replace(/[.-]/g, "\\$&")}(?=$|[\\s;&|)\`])`, "g");
-    for (const m of cmd.matchAll(re)) if (!/\bforge_exec_tool\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
+    for (const m of cmd.matchAll(re)) if (!/\bforge_(exec_tool|do)\s+$/.test(cmd.slice(0, m.index! + m[1]!.length))) out.add(tool);
   }
   return [...out];
 }

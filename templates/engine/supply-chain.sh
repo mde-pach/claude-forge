@@ -19,10 +19,10 @@ forge_osv() {
     case $_ov_f in
       *.lockb) printf 'forge:%s skipped: %s is binary; osv-scanner reads bun.lock (bun install --save-text-lockfile)\n' "$c_id" "$_ov_f"; continue ;;
     esac
-    forge_osv_scan "$_ov_f" > "$FORGE_TMP/osv.now" || { printf 'forge:%s skipped: osv-scanner could not scan %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+    forge_osv_scan "$_ov_f" > "$FORGE_TMP/osv.now" || { forge_for_agent || printf 'forge:%s skipped: osv-scanner could not scan %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
     : > "$FORGE_TMP/osv.then"
     if [ -f "$FORGE_TMP/base/$_ov_f" ]; then
-      ( cd "$FORGE_TMP/base" && forge_osv_scan "$_ov_f" ) > "$FORGE_TMP/osv.then" || { printf 'forge:%s skipped: osv-scanner could not scan the base %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+      ( cd "$FORGE_TMP/base" && forge_osv_scan "$_ov_f" ) > "$FORGE_TMP/osv.then" || { forge_for_agent || printf 'forge:%s skipped: osv-scanner could not scan the base %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
     fi
     awk -F '\t' -v f="$_ov_f" 'FILENAME == ARGV[1] { old[$1 "\t" $2 "\t" $3] = 1; next }
       !(($1 "\t" $2 "\t" $3) in old) { printf "%s:0 %s@%s has a known vulnerability, %s (fixed in %s); use a fixed version\n", f, $1, $2, $3, ($4 == "" ? "no release yet" : $4); bad = 1 }
@@ -36,9 +36,11 @@ forge_osv() {
 # with the reason in $FORGE_TMP/osv.why when it cannot scan (offline: exit 127).
 forge_osv_scan() {
   case ${1##*/} in requirements*.txt) set -- "requirements.txt:$1" ;; esac
-  "$_ov_bin" scan source --config "$FORGE_TMP/osv.toml" --format markdown -L "$1" > "$FORGE_TMP/osv.md" 2> "$FORGE_TMP/osv.err"
+  forge_do osv-scanner scan "$FORGE_TMP/osv.toml" -L "$1" > "$FORGE_TMP/osv.md" 2> "$FORGE_TMP/osv.err"
+  # 0 no vulnerability, 1 vulnerabilities, 128 no package in the lock file (nothing to be
+  # vulnerable); 127 any other error (unreadable lock file, api.osv.dev unreachable)
   case $? in
-    0|1) ;;
+    0|1|128) ;;
     *) grep -v '^[[:space:]]*$' "$FORGE_TMP/osv.err" | tail -n 1 > "$FORGE_TMP/osv.why"; return 1 ;;
   esac
   # | https://osv.dev/<id>[<br/>…] | CVSS | Ecosystem | Package | Version | Fixed Version | Source |

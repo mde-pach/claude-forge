@@ -15,8 +15,10 @@ forge_tf_dirs() {
 forge_tf_validate() {
   _tv_rc=0
   forge_tf_dirs > "$FORGE_TMP/tf.dirs"
+  # which CLI, decided from the repository root (forge_tf_pick looks at its files)
+  forge_tf_pick
   while IFS= read -r _tv_d; do
-    forge_terraform -chdir="$_tv_d" validate -no-color > "$FORGE_TMP/tf.out" 2>&1 && continue
+    ( cd "$_tv_d" && forge_do terraform validate ) > "$FORGE_TMP/tf.out" 2>&1 && continue
     if grep -qE '(terraform|tofu) init' "$FORGE_TMP/tf.out"; then
       printf 'forge:%s skipped: %s is not initialised (%s init)\n' "$c_id" "$_tv_d" "$(forge_tf_bin)"; continue
     fi
@@ -77,12 +79,13 @@ forge_tflint() {
   while IFS= read -r _tl_d; do
     # rulesets are go-plugin processes reached through a Unix socket under $TMPDIR, whose path
     # macOS caps at 104 bytes: a long TMPDIR keeps every plugin from starting
-    TMPDIR=/tmp "$_tl_bin" --chdir "$_tl_d" --config "$FORGE_TMP/tflint.hcl" --format compact --force > "$FORGE_TMP/tfl.out" 2>&1
+    ( TMPDIR=/tmp; export TMPDIR; forge_do tflint lint "$_tl_d" --config "$FORGE_TMP/tflint.hcl" ) > "$FORGE_TMP/tfl.out" 2>&1
     # "path:line:col: Severity - message (rule)": every issue counts, whatever tflint's severity
     grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: (Error|Warning|Notice) - ' "$FORGE_TMP/tfl.out" | sed -E 's/: (Error|Warning|Notice) - /: /' > "$FORGE_TMP/tfl.found"
     if [ -s "$FORGE_TMP/tfl.found" ]; then cat "$FORGE_TMP/tfl.found"; _tl_rc=1
-    elif grep -q '^Failed to\|^Error:' "$FORGE_TMP/tfl.out"; then
-      printf 'forge:%s skipped: tflint could not run in %s (%s)\n' "$c_id" "$_tl_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.out" | tail -n 1)"
+    # anything else it printed (a file or config it cannot parse: "path:l:c: error - …") is a run that could not lint
+    elif grep -q '^Failed to\|^Error:\|: error - ' "$FORGE_TMP/tfl.out"; then
+      forge_for_agent || printf 'forge:%s skipped: tflint could not run in %s (%s)\n' "$c_id" "$_tl_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/tfl.out" | tail -n 1)"
     fi
   done < "$FORGE_TMP/tfl.dirs"
   return "$_tl_rc"
@@ -116,9 +119,8 @@ forge_trivy_config() {
     done < "$FORGE_TMP/tv.changed"
     for _tr_side in now "then"; do
       [ "$_tr_side" = now ] && _tr_dir=$_tr_d || _tr_dir=$_tr_b
-      "$_tr_bin" config --quiet --cache-dir "$_tr_cache" --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update \
-        --ignorefile "$FORGE_TMP/trivy.ignore" --format template --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
-        || { printf 'forge:%s skipped: trivy could not scan %s (%s)\n' "$c_id" "$_tr_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/trivy.err" | tail -n 1)"; continue 2; }
+      forge_do trivy scan --cache-dir "$_tr_cache" --ignorefile "$FORGE_TMP/trivy.ignore" --template "@$FORGE_TMP/trivy.tpl" "$_tr_dir" > "$FORGE_TMP/trivy.$_tr_side" 2> "$FORGE_TMP/trivy.err" \
+        || { forge_for_agent || printf 'forge:%s skipped: trivy could not scan %s (%s)\n' "$c_id" "$_tr_d" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/trivy.err" | tail -n 1)"; continue 2; }
     done
     awk -F '\t' -v d="$_tr_d" 'FILENAME == ARGV[1] { old[$2 "\t" $3] = 1; next }
       NF >= 5 && !(($2 "\t" $3) in old) { printf "%s%s:0 %s %s (%s, line %s)\n", (d == "." ? "" : d "/"), $1, $2, $5, $3, $4; bad = 1 }

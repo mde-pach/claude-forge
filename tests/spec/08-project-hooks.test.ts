@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderChecks } from "../../src/render";
-import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines } from "../helpers";
+import { applied, commitAll, copyRepo, ensureTools, fixture, forge, git, hasBun, hasUv, hookJson, linkTools, put, sampleRepo, sh, stateDir, stopEngines, STUB_VERSION } from "../helpers";
 
 const T = 180_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -55,7 +55,7 @@ function withRealTy(fn: () => void) {
 /** A stand-in for a project tool in the repository's .venv. */
 function stubTool(name: string, body: string) {
   const p = join(repo, ".venv", "bin", name);
-  writeFileSync(p, `#!/bin/sh\n${body}\n`);
+  writeFileSync(p, `#!/bin/sh\n${body.includes("--version") ? "" : STUB_VERSION}${body}\n`);
   chmodSync(p, 0o755);
 }
 /** Runs <fn> with a stand-in for a tool in the repository's .venv (ty's: ty-stand-in), then puts back what was there. */
@@ -78,13 +78,18 @@ function withStub(name: string, body: string, fn: () => void) {
  * of when typecheck.sh runs (its lock, headless sessions), where the tool's own output
  * is not under test: they do not depend on how the real one judges the sample.
  */
-const FAILING_TYPECHECK = 'sleep 1; echo "app/main.py:1:1 - error: stand-in type error"; exit 1';
+/**
+ * A stand-in ty that fails on the tests' edits of app/main.py (a BROKEN line, X = 1), not
+ * on the file as committed: the edit-time typecheck reports only what the edit added,
+ * comparing with the same run in the base tree (§10.1 step 4).
+ */
+const FAILING_TYPECHECK = 'sleep 1; if grep -qE "^(BROKEN|X = 1)" app/main.py 2>/dev/null; then echo "app/main.py:1:1 - error: stand-in type error"; exit 1; fi; exit 0';
 /** Runs <fn> with the repository's .venv/bin/ruff replaced by a wrapper around the real one (<body> runs first), restored afterwards. */
 function withRuffWrapper(body: string, fn: () => void) {
   const real = join(repo, ".venv/bin/ruff");
   const target = sh("sh", ["-c", `readlink "${real}"`]).stdout.trim();
   rmSync(real);
-  writeFileSync(real, `#!/bin/sh\n${body}\nexec "${target}" "$@"\n`);
+  writeFileSync(real, `#!/bin/sh\n${STUB_VERSION}${body}\nexec "${target}" "$@"\n`);
   chmodSync(real, 0o755);
   try {
     fn();
@@ -148,11 +153,12 @@ describe("SessionStart", () => {
   );
 
   test(
-    "missing tools are reported once, not at every session start",
+    "SessionStart says nothing of missing tools or of what the installed tool versions cannot do: forge apply and forge status do",
     () => {
-      rmSync(join(stateDir(repo), "missing-tools"), { force: true });
-      expect(hook("session-start.sh", { source: "startup" }).stdout).toContain("forge: missing tools");
-      expect(hook("session-start.sh", { source: "compact" }).stdout).not.toContain("missing tools");
+      const out = hook("session-start.sh", { source: "startup" }).stdout;
+      expect(out).not.toContain("missing tools");
+      expect(out).not.toContain("tool versions");
+      expect(out).not.toContain("not enforced");
     },
     T,
   );
@@ -475,12 +481,13 @@ describe("files changed by Bash", () => {
         expect(ctx).toContain("forge:python/sqlalchemy/no-declarative-base app/m2.py:5:12");
         expect(ctx).toContain("app/m1.py:1:8: F401");
         expect(ctx).toContain("app/m2.py:1:8: F401");
-        const calls = readFileSync(log, "utf8").trim().split("\n");
-        expect(calls).toEqual([
-          "format app/m1.py app/m2.py",
-          "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
-          "check --output-format concise app/m1.py app/m2.py",
-        ]);
+        // the operations, once each; the version and the rule table are asked once per binary (§16.3), here a new one.
+        // python/lint's fix run also lints (fix_lints): no separate lint run after the edit
+        const calls = readFileSync(log, "utf8")
+          .trim()
+          .split("\n")
+          .filter((c) => c !== "--version" && c !== "rule --all --output-format json");
+        expect(calls).toEqual(["format app/m1.py app/m2.py", "check --fix --fixable I,UP --show-fixes --output-format concise app/m1.py app/m2.py"]);
       });
     },
     T,
@@ -490,7 +497,7 @@ describe("files changed by Bash", () => {
   test(
     "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
     () =>
-      withRuffWrapper('case "$*" in "check --output-format"*) sleep 60 ;; esac', () => {
+      withRuffWrapper('case "$*" in "check --"*) sleep 60 ;; esac', () => {
         put(repo, "app/slow.py", "X = 1\n");
         const started = Date.now();
         const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });
@@ -762,7 +769,7 @@ describe("PostToolUse", () => {
         const r = sh("sh", ["-c", `sh ${SCRIPTS}/typecheck.sh <"$1" & sleep 0.3; sh ${SCRIPTS}/typecheck.sh <"$1"; echo "second=$?"; wait $!; echo "first=$?"`, "x", input], { cwd: repo });
         expect(r.stdout).toContain("second=0");
         expect(r.stdout).toContain("first=2");
-        expect(r.stderr).toContain("forge:python/typecheck\napp/main.py:1:1 - error: stand-in type error");
+        expect(r.stderr).toContain("forge:python/typecheck failed\napp/main.py:1:1 - error: stand-in type error");
         expect(existsSync(join(stateDir(repo), "typecheck.lock"))).toBe(false);
       }),
     T,
@@ -1146,7 +1153,7 @@ describe("Stop", () => {
 
   /** @rule python/pytest/run */
   test(
-    "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
+    "the block reason puts the failure before the notes, keeps at most 40 lines, and says nothing of missing tools",
     () => {
       // fails only with the turn's change: at the start of the turn the test passed
       stubTool(
@@ -1165,7 +1172,8 @@ describe("Stop", () => {
           "FAILED tests/test_main.py::test_health - assert 500 == 200",
         ]);
         expect(reason).toContain("PytestWarning: noise 0");
-        expect(lines.at(-1)).toBe("forge:python/sqlalchemy/fk-index skipped: python not installed");
+        // a check skipped for a missing tool is the person's to fix: not in the reason (§10.1)
+        expect(reason).not.toContain("not installed");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
         reset();
@@ -1203,7 +1211,7 @@ describe("Stop", () => {
         // checked again: the same failure; the advice given with it the first time is accepted, not repeated (§10.7)
         // (notes come after the failures, sorted: §10.2 step 7)
         const isNote = (l: string) => /^forge:\S+ (skipped:|ok for |accepted:)/.test(l);
-        const lines = first.replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "").split("\n");
+        const lines = first.replace(/\n?forge:python\/pytest\/untested-change failed\n[^\n]*/, "").split("\n");
         const notes = [...lines.filter(isNote), "forge:python/pytest/untested-change accepted: reported once this turn"].sort();
         expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe([...lines.filter((l) => !isNote(l)), ...notes].join("\n"));
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
@@ -1484,7 +1492,7 @@ describe("Stop", () => {
 
 /** @pack typescript/bun */
 test(
-  "without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once",
+  "without bun on PATH in a TypeScript repository every hook exits 0, and SessionStart does not report bun (forge status does)",
   () => {
     const ts = applied("nextjs-prisma-app");
     const env = { PATH: "/usr/bin:/bin" };
@@ -1492,8 +1500,7 @@ test(
     const tsEdit = { tool_name: "Edit", tool_input: { file_path: join(ts, "src/sum.ts") } };
     const first = run("session-start.sh", {});
     expect(first.status).toBe(0);
-    expect(first.stdout).toMatch(/missing tools.*\bbun\b/);
-    expect(run("session-start.sh", {}).stdout).not.toContain("missing tools");
+    expect(first.stdout).not.toContain("missing tools");
     expect(run("post-edit.sh", tsEdit).status).toBe(0);
     expect(run("typecheck.sh", tsEdit).status).toBe(0);
     expect(run("guard.sh", { tool_name: "Bash", tool_input: { command: "ls" } }).status).toBe(0);
@@ -1654,7 +1661,7 @@ describe("failing tests at the start of the turn", () => {
     // a stand-in pytest: imports the package with the venv's python, and writes to an ignored file
     writeFileSync(
       join(r, ".venv", "bin", "pytest"),
-      `#!/bin/sh\nprintf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
+      `#!/bin/sh\n${STUB_VERSION}printf 'x\\n' >> local.db\nexec "$(dirname "$0")/python" -c 'import sys\nfrom mypkg.f import f\nif f() != 1:\n    print("FAILED tests/test_f.py::test_f - assert", f(), "== 1")\n    sys.exit(1)'\n`,
     );
     chmodSync(join(r, ".venv", "bin", "pytest"), 0o755);
     return r;
@@ -1757,7 +1764,7 @@ describe("errors in unchanged files", () => {
       put(r, "src/ok.ts", 'export const ok: number = "no";\n');
       const loud = hook("typecheck.sh", edit, {}, r);
       expect(loud.status).toBe(2);
-      expect(loud.stderr).toContain("forge:typescript/typecheck\nsrc/ok.ts(1,14): error TS2322");
+      expect(loud.stderr).toContain("forge:typescript/typecheck failed\nsrc/ok.ts(1,14): error TS2322");
       expect(loud.stderr).not.toContain("legacy");
     },
     T,

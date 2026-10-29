@@ -6,4 +6,4 @@ enforce:
     stage: test
     run: |
       _bt=$(git grep -lE "from[[:space:]]*['\"]bun:test['\"]" -- '*.test.*' '*_test.*' '*.spec.*' '*_spec.*' | sed 's|^|./|')
-      [ -z "$_bt" ] || bun test $_bt
+      [ -z "$_bt" ] || forge_do bun test-files $_bt

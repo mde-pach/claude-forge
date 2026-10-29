@@ -4,5 +4,5 @@ scope: {language: any}
 enforce:
   - target: check
     stage: test
-    run: "playwright test --reporter=line"
+    run: "forge_do playwright test"
     when_changed: ["@e2e-tests", "playwright.config.*"]

@@ -18,7 +18,7 @@ import { plan, readProjectInputs } from "../../src/plan";
 import { renderRoles } from "../../src/render";
 import { applyRoles, defaultRoles, resolveRoles, roleGlobs, type Roles } from "../../src/roles";
 import type { Rule } from "../../src/types";
-import { commitAll, forge, git, put, ROOT, sampleRepo, sh } from "../helpers";
+import { commitAll, forge, git, put, ROOT, sampleRepo, sh, STUB_VERSION } from "../helpers";
 import { loadPacks } from "../../src/packs";
 
 const T = 120_000;
@@ -277,7 +277,7 @@ describe("rules on roles", () => {
     put(repo, ".gitignore", "node_modules/\n");
     put(repo, "src/data-source.ts", 'import { DataSource } from "typeorm";\n\nexport default new DataSource({ type: "postgres", url: process.env.DATABASE_URL });\n');
     put(repo, "src/user.entity.ts", "export class User {\n  id!: number;\n}\n");
-    put(repo, "node_modules/.bin/typeorm-ts-node-commonjs", `#!/bin/sh\necho "$*" >> calls.log\ncase $1 in migration:run) exit 0 ;; esac\necho '${out}'\nexit ${code}\n`);
+    put(repo, "node_modules/.bin/typeorm-ts-node-commonjs", `#!/bin/sh\n${STUB_VERSION}echo "$*" >> calls.log\ncase $1 in migration:run) exit 0 ;; esac\necho '${out}'\nexit ${code}\n`);
     sh("chmod", ["+x", join(repo, "node_modules/.bin/typeorm-ts-node-commonjs")]);
     if (forgeYaml) put(repo, "forge.yaml", forgeYaml);
     expect(forge(["apply", "--yes"], repo).status).toBe(0);

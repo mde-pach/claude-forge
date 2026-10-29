@@ -1,9 +1,10 @@
 import { casePatterns, inDirs, scopeInDirs } from "../core/globs.js";
-import { checkTools, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
+import { adapterUses } from "../adapters/index.js";
+import { checkTools, commandsOf, PROJECT_TOOLS, RESOLVED_TOOLS } from "../core/tools.js";
 import { defaultRoles, type Roles } from "../roles.js";
 import { shQuote } from "../util.js";
 import type { AstGrepTarget, CheckTarget, GrepTarget, Language, Rule } from "../types.js";
-import { renderEngine, resolveEngine, type TypesLanguage } from "./engine.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings, renderEngine, resolveEngine, type TypesLanguage } from "./engine.js";
 import { renderRoles } from "./roles.js";
 import { fill, renderLib, template } from "./template.js";
 
@@ -85,7 +86,14 @@ export const ENGINE_SCRIPTS = ["check.sh", "post-edit.sh", "typecheck.sh", "test
  * The generated checks fragment (wrappers, per-check functions, grep rules, file roles), then
  * the engine: the modules it and the scripts running it use ("used"), or every module ("all").
  */
-export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], types: TypesLanguage[] = [], roles: Roles = defaultRoles(), engine: "used" | "all" = "used"): string {
+export function renderChecks(
+  checks: ActiveCheck[],
+  greps: ActiveGrep[] = [],
+  types: TypesLanguage[] = [],
+  roles: Roles = defaultRoles(),
+  engine: "used" | "all" = "used",
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+): string {
   const used = new Set(checks.flatMap((c) => checkTools(c.target)));
   const out: string[] = ["# ---- generated checks"];
   // a POSIX shell function name has no "-": such tools are run as `forge_exec_tool <name>`
@@ -101,6 +109,8 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
     for (const t of resolved) out.push(`${t}() { forge_${t} "$@"; }`);
   }
   out.push(`FORGE_NCHECKS=${checks.length}`);
+  // the operations the checks ask of adapted tools (§16.3: forge_tool_report)
+  out.push(`FORGE_ADAPTER_USES=${shQuote(adapterUses(checks.flatMap(({ rule, target }) => commandsOf(target).map((command) => ({ rule: rule.id, command })))))}`);
   checks.forEach(({ rule, target, dirs }, i) => {
     const n = i + 1;
     const tools = checkTools(target);
@@ -114,7 +124,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
       `forge_check_meta_${n}() {`,
       `  c_id=${shQuote(rule.id)}; c_stage=${target.stage}; c_tools=${shQuote(tools.join(" "))}`,
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
-      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
+      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fixlint=${target.fix_lints ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
       scopeFunction(`forge_scope_${n}`, rule, dirs, target.config_files),
       when ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }` : `forge_when_${n}() { return 1; }`,
@@ -128,7 +138,7 @@ export function renderChecks(checks: ActiveCheck[], greps: ActiveGrep[] = [], ty
   out.push("", ...renderGreps(greps), "", ...renderRoles(roles));
   out.push("# ---- end of generated checks");
   const modules = engine === "all" ? undefined : resolveEngine([out.join("\n"), ...ENGINE_SCRIPTS.map(template)]);
-  out.push("", renderEngine(types, modules));
+  out.push("", renderEngine(types, modules, settings));
   return out.join("\n");
 }
 
@@ -176,10 +186,11 @@ export function renderCheckScript(
   greps: ActiveGrep[] = [],
   types: TypesLanguage[] = [],
   roles: Roles = defaultRoles(),
+  settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
 ): string {
   return fill(template("check.sh"), {
     LIB: renderLib().trimEnd(),
-    CHECKS: renderChecks(checks, greps, types, roles),
+    CHECKS: renderChecks(checks, greps, types, roles, "used", settings),
     FORBID: ids.forbid,
     NO_INCREASE: ids.noIncrease,
     NO_DECREASE: ids.noDecrease,

@@ -1,5 +1,5 @@
 id: docs/changed-identifiers
-description: When a turn changes the definition of a public name (a function, class, exported declaration, option or parameter) that the docs mention, and changes no doc, the mentions are shown; advisory, it blocks Stop once per turn.
+description: When a turn removes, renames or changes the existing definition of a public name (a function, class, exported declaration, option or parameter) that the docs reference as code (a code span, a fenced block, a qualified name like Settings.timeout), and changes no doc, the mentions are shown; a name only added, or a word of the prose, never counts. Advisory, it blocks Stop once per turn.
 scope: {language: any, files: ["**/*.{py,pyi,ts,tsx,mts,cts,js,jsx,mjs,cjs}", "!@python-tests", "!**/tests/**", "!@ts-tests", "!@e2e-tests"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_docs_mentions"}
@@ -11,9 +11,24 @@ examples:
       files: {src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\" | ((ctx: Ctx) => Schema);\n}\n"}
     - head:
         app/settings.py: "class Settings:\n    http_timeout: float = 30\n"
-        README.md: "# App\n\nRequests time out after http_timeout seconds.\n"
+        README.md: "# App\n\nRequests time out after `http_timeout` seconds.\n"
+      files: {app/settings.py: "class Settings:\n    request_timeout: float = 30\n"}
+    # a qualified name in the text references code too
+    - head:
+        app/settings.py: "class Settings:\n    http_timeout: float = 30\n"
+        README.md: "# App\n\nRaise Settings.http_timeout on slow networks.\n"
       files: {app/settings.py: "class Settings:\n    request_timeout: float = 30\n"}
   no_match:
+    # a changed name the docs only use as a word of the prose
+    - head:
+        app/settings.py: "class Settings:\n    http_timeout: float = 30\n"
+        README.md: "# App\n\nRequests time out after http_timeout seconds.\n"
+      files: {app/settings.py: "class Settings:\n    request_timeout: float = 30\n"}
+    # a new function: its name and its parameters are new, whatever the docs say about the words
+    - head:
+        app/domains.py: "def create_domain(name: str) -> None:\n    pass\n"
+        README.md: "# App\n\nSet your domain here.\n\n```\nmx1.example.com. domain\n```\n\nThe `domain` setting names it.\n"
+      files: {app/domains.py: "def create_domain(name: str) -> None:\n    pass\n\n\ndef delete_domain(domain: str) -> None:\n    pass\n"}
     - head:
         src/schema.ts: "export interface Params {\n  unrepresentable?: \"throw\" | \"any\";\n}\n"
         docs/json-schema.mdx: "# JSON Schema\n\nSet `unrepresentable` to `\"any\"` to turn unsupported types into `{}`.\n"

@@ -19,7 +19,7 @@ import { renderChecks, renderLib } from "../../src/render";
 import { validate } from "../../src/schemas";
 import { loadRuleFile } from "../../src/packs";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
-import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, pathWithout, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -35,8 +35,8 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
 const warmBudget = (n: number) => 300 + 10 * n;
 /** The first question of a session, the engine started on demand, in ms. */
 const COLD_BUDGET_MS = 5_000;
-// a daemon a failed test leaves behind goes away on its own
-const ENV = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_TYPES_IDLE: "300" };
+// a daemon a failed test leaves behind goes away on its own; no ruff from PATH: the lint is not under test here (§9.1)
+const ENV = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_TYPES_IDLE: "300", PATH: pathWithout("ruff") };
 
 function hook(repo: string, script: string, fields: Record<string, unknown>, env: Record<string, string> = {}) {
   return sh("sh", [join(SCRIPTS, script)], { cwd: repo, input: hookJson({ cwd: repo, ...fields }), env: { ...ENV, ...env } });
@@ -105,7 +105,7 @@ function project(key: string, sample: string | undefined, setup: (dir: string) =
  */
 function typeQuestion(repo: string, lang: "python" | "typescript", file: string, limit = Infinity): { asked: number; kept: number; ms: number } {
   const tmp = mkdtempSync(join(tmpdir(), "forge-tq-"));
-  const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; astgrep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
+  const scan = sh("sh", ["-c", `. ${SCRIPTS}/lib.sh; forge_pinned_ast_grep scan -c .forge/ast-grep/sgconfig.yml --json=stream --include-metadata "$1"`, "sh", file], { cwd: repo });
   const typed = scan.stdout
     .split("\n")
     .filter((l) => l.includes('"forge_where"'))
@@ -174,6 +174,179 @@ const PARAM_PY = [
   "      P: {type: {package: sqlalchemy, name: Session}}",
   "",
 ].join("\n");
+
+/**
+ * Installed packages that ship no typing (PEP 561) are Any to ty, as they are to mypy (§15.2):
+ * ty would otherwise infer them from their source and reject correct code on libraries with
+ * runtime magic (SQLAlchemy 1.x declarative columns). The list is Forge's, computed from the
+ * project's environment and kept until that environment changes.
+ */
+/** @rule python/typecheck */
+describe.if(hasUv)("Python: installed packages without typing are Any to ty", () => {
+  let repo = "";
+  const SITE = ".venv/lib/python3.12/site-packages";
+  const SCRIPT = `. ${SCRIPTS}/lib.sh; IFS='\n'; . ${SCRIPTS}/checks.sh;`;
+  const shell = (snippet: string, env: Record<string, string> = {}) => sh("sh", ["-c", `${SCRIPT} ${snippet}`], { cwd: repo, env: { ...ENV, ...env } });
+  const pkg = (rel: string, text = "") => put(repo, `${SITE}/${rel}`, text);
+  /** A declarative model library without typing: its class attributes are descriptors at run time. */
+  const ALPHA =
+    'import logging\n\n\nclass Column:\n    def __init__(self, kind):\n        self.kind = kind\n\n\nclass Model:\n    flag = Column(bool)\n\n\ndef get_logger() -> logging.Logger:\n    return logging.getLogger("alpha")\n';
+  const facts = () => readdirSync(join(stateDir(repo), "facts")).filter((f) => f.startsWith("ty-untyped-"));
+  const factTimes = () => facts().map((f) => Bun.file(join(stateDir(repo), "facts", f)).lastModified);
+  beforeAll(() => {
+    repo = project("untyped", undefined, (dir) => {
+      expect(sh("uv", ["venv", "-q", "--python", "3.12", join(dir, ".venv")]).status).toBe(0);
+      const p = (rel: string, text = "") => put(dir, `${SITE}/${rel}`, text);
+      p("alpha/__init__.py", ALPHA);
+      p("alpha-1.0.dist-info/METADATA", "Name: alpha\nVersion: 1.0\n");
+      // typed: py.typed; a stub-only package; .pyi files; one namespace portion typed, the other not
+      p("beta/__init__.py", "class B:\n    x: int = 1\n");
+      p("beta/py.typed");
+      p("stubbed/__init__.py", "def f(x):\n    return x\n");
+      p("stubbed-stubs/__init__.pyi", "def f(x: int) -> int: ...\n");
+      p("ns/typedpart/__init__.py");
+      p("ns/typedpart/__init__.pyi");
+      p("ns/plainpart/__init__.py");
+      p("six.py", "PY3 = True\n");
+      // resolved by ty without the environment: its bundled standard library stubs, and the project's own tests package an installed one shadows
+      p("typing_extensions.py", "Any = object\n");
+      p("tests/__init__.py");
+      put(dir, "tests/__init__.py", "");
+      put(dir, "app/__init__.py", "");
+      // the project's own replace-imports-with-any (beta, which ships typing) is kept
+      put(dir, "pyproject.toml", '[project]\nname = "untyped"\nversion = "0"\nrequires-python = ">=3.12"\n\n[tool.ty.analysis]\nreplace-imports-with-any = ["beta"]\n');
+      put(dir, "app/models.py", 'import beta\nfrom alpha import Model\n\n\ndef enable(m: Model) -> None:\n    m.flag = True\n    b = beta.B()\n    b.x = "s"\n');
+    });
+  }, T);
+  afterAll(() => stopEngines(repo));
+
+  test(
+    "the list is the environment's untyped modules (namespace packages by portion), not those with py.typed, .pyi files or a stubs package, nor modules ty resolves without the environment (its standard library stubs, the project's own code)",
+    () => {
+      const r = shell("forge_ty_untyped_print");
+      expect(r.status).toBe(0);
+      const names = r.stdout.trim().split("\n");
+      expect(names).toEqual(expect.arrayContaining(["alpha", "ns.plainpart", "six"]));
+      for (const typed of ["beta", "stubbed", "ns", "ns.typedpart", "typing_extensions", "tests"]) expect(names).not.toContain(typed);
+    },
+    T,
+  );
+
+  test(
+    "the modules ty resolves without the environment are asked from ty for the project's Python version: typing_extensions is left out on Python 3.10 too",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "forge-untyped-310-"));
+      const r = sh("uvx", ["-q", "--python", ENGINE_PYTHON, "--from", `ty==${TY_VERSION}`, "python", join(repo, ".forge/helpers/untyped_python.py"), root, "3.10", join(repo, SITE)]);
+      expect(r.status).toBe(0);
+      const names = r.stdout.split("\n").filter((l) => l && !l.startsWith("watch "));
+      expect(names).toContain("alpha");
+      expect(names).not.toContain("typing_extensions");
+    },
+    T,
+  );
+
+  test("the types engine never gets as Any a package the active rules' where conditions ask about: they need its declarations", () => {
+    const r = shell("FORGE_TYPES_PACKAGES='alpha\nns'; printf 'alpha\\nalpha.sub\\nns.plainpart\\nsix\\n' | forge_types_untyped_filter");
+    expect(r.stdout).toBe("six\n");
+  });
+
+  test(
+    "ty check gets them as replace-imports-with-any, added to the project's own list: the untyped model checks, the project's Any stays",
+    () => {
+      expect(sh("sh", [".forge/check.sh", "--all"], { cwd: repo, env: ENV }).stdout).not.toContain("invalid-assignment");
+      const args = shell("forge_ty_args_print").stdout;
+      expect(args).toContain('analysis.replace-imports-with-any = ["');
+      expect(args).toContain('"alpha", "alpha.**"');
+      // inferred from its source, the model's attribute is a Column; beta.B().x = "s" stays accepted (the project's own Any)
+      const source = shell("FORGE_TY_UNTYPED=source; forge_ty check --output-format concise app/models.py");
+      expect(source.stdout).toContain("app/models.py:6:");
+      expect(source.stdout).toContain("invalid-assignment");
+      expect(source.stdout).not.toContain("app/models.py:8:");
+      expect(shell("FORGE_TY_UNTYPED=source; forge_ty_args_print").stdout).not.toContain("replace-imports-with-any");
+    },
+    T,
+  );
+
+  test(
+    "the list is kept until the environment changes: a package upgraded to one that ships typing leaves it, and the types engine restarts with the new list",
+    () => {
+      put(repo, "app/log.py", 'import alpha\n\n\ndef run(text: str) -> None:\n    try:\n        int(text)\n    except ValueError:\n        alpha.get_logger().error("failed")\n');
+      // an Any receiver is not a Logger (§15.1 rule 7): not flagged while alpha is untyped
+      expect(afterEdit(repo, "app/log.py")).not.toContain("python/log-exception");
+      const pid = daemonPid(repo, "python");
+      const before = factTimes();
+      Bun.sleepSync(1100);
+      expect(shell("forge_ty_untyped_print").stdout).toContain("alpha");
+      expect(factTimes()).toEqual(before);
+      // alpha 1.1 ships py.typed
+      pkg("alpha/py.typed");
+      sh("mv", [join(repo, SITE, "alpha-1.0.dist-info"), join(repo, SITE, "alpha-1.1.dist-info")]);
+      expect(shell("forge_ty_untyped_print").stdout.split("\n")).not.toContain("alpha");
+      // the engine answers with the new list: get_logger() is a Logger again
+      expect(afterEdit(repo, "app/log.py")).toContain("forge:python/log-exception app/log.py:8:");
+      expect(daemonPid(repo, "python")).not.toBe(pid);
+    },
+    T,
+  );
+});
+
+/**
+ * The edit-time typecheck (§10.5) of a Python file is answered by the running types engine:
+ * ty server's diagnostics of the file now and of its base copy, so a cold `ty check` does not
+ * run on every edit, and only the errors the edit added wake Claude; errors the file already
+ * had stay silent, here as at Stop. ty check, compared with the base tree, answers when the
+ * engine cannot, and says so.
+ * @rule python/typecheck
+ */
+describe.if(hasUv)("Python: the edit-time typecheck, answered by the types engine", () => {
+  let repo = "";
+  const LEGACY = 'X: int = "old"\n\n\ndef f() -> int:\n    return 1\n';
+  beforeAll(() => {
+    repo = project("edit-typecheck", "fastapi-app", (dir) => {
+      writeFileSync(join(dir, "app/legacy.py"), LEGACY);
+    });
+  }, T);
+  afterAll(() => stopEngines(repo));
+  const engine = { FORGE_EDIT_TYPECHECK_ENGINE: "auto" };
+  const typecheck = (env: Record<string, string>) => hook(repo, "typecheck.sh", edit("app/legacy.py"), env);
+
+  test(
+    "an edit adding no error is silent though the file has one, and an error the edit adds is the only one reported; the engine answered, ty check did not run",
+    () => {
+      put(repo, "app/legacy.py", `${LEGACY}# x\n`);
+      const quiet = typecheck(engine);
+      expect({ status: quiet.status, stderr: quiet.stderr }).toEqual({ status: 0, stderr: "" });
+      put(repo, "app/legacy.py", `${LEGACY}Y: str = 1\n`);
+      const loud = typecheck(engine);
+      expect(loud.status).toBe(2);
+      expect(loud.stderr).toContain("forge:python/typecheck\napp/legacy.py:6:");
+      expect(loud.stderr).toContain("error[invalid-assignment]");
+      expect(loud.stderr).not.toContain("app/legacy.py:1:");
+      expect(loud.stderr).not.toContain("checked by ty check");
+      expect(readFileSync(join(stateDir(repo), "types", "python", "log"), "utf8")).toContain("diagnosed 1 file(s)");
+      put(repo, "app/legacy.py", LEGACY);
+    },
+    T,
+  );
+
+  test(
+    "without the engine, ty check answers, compared with the base tree: the same errors stay silent, and the report says the engine did not answer",
+    () => {
+      const cold = { FORGE_EDIT_TYPECHECK_ENGINE: "never" };
+      put(repo, "app/legacy.py", `${LEGACY}# x\n`);
+      const quiet = typecheck(cold);
+      expect({ status: quiet.status, stderr: quiet.stderr }).toEqual({ status: 0, stderr: "" });
+      put(repo, "app/legacy.py", `${LEGACY}Y: str = 1\n`);
+      const loud = typecheck(cold);
+      expect(loud.status).toBe(2);
+      expect(loud.stderr).toContain("forge:python/typecheck failed\napp/legacy.py:6:");
+      expect(loud.stderr).not.toContain("app/legacy.py:1:");
+      expect(loud.stderr).toContain("(checked by ty check: FORGE_EDIT_TYPECHECK_ENGINE=never)");
+      put(repo, "app/legacy.py", LEGACY);
+    },
+    T,
+  );
+});
 
 /** @rule python/sqlalchemy/no-query-api */
 describe.if(hasUv)("Python: the receiver's type, through ty", () => {

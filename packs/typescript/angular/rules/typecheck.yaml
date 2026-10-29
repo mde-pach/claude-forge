@@ -10,6 +10,6 @@ enforce:
         printf 'forge:%s skipped: file role @angular-tsconfig names no file; set the application tsconfig in forge.yaml (files: {angular-tsconfig: {set: [tsconfig.app.json]}})\n' "$c_id"
       else
         _ng_rc=0
-        for _ng_f in $_ng_files; do ngc -p "$_ng_f" --noEmit || _ng_rc=1; done
+        for _ng_f in $_ng_files; do forge_do ngc typecheck "$_ng_f" || _ng_rc=1; done
         [ "$_ng_rc" = 0 ]
       fi

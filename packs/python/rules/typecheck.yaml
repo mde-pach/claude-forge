@@ -2,7 +2,7 @@ id: python/typecheck
 description: The project passes ty (Forge's pinned type checker, with the project's environment and [tool.ty] config).
 scope: {language: python}
 enforce:
-  - {target: check, stage: typecheck, run: "ty check --output-format concise"}
+  - {target: check, stage: typecheck, run: "forge_do ty typecheck"}
 examples:
   match: ["x: int = \"one\"\n"]
   no_match: ["x: int = 1\n"]

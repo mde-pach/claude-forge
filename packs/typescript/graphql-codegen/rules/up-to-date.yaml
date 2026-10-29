@@ -5,7 +5,7 @@ enforce:
   - target: check
     stage: codegen
     run: |
-      forge_exec_tool graphql-codegen --check || { printf 'The generated files are stale: run GraphQL Code Generator again and commit what it writes.\n'; false; }
+      forge_do graphql-codegen codegen-check || { printf 'The generated files are stale: run GraphQL Code Generator again and commit what it writes.\n'; false; }
 examples:
   # the examples' codegen plugin is a file of the project (graphql-codegen loads ./ paths), so they need no plugin package
   match:

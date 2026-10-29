@@ -1,0 +1,29 @@
+{
+  "tool": "lockfile-lint",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "5.1.0"
+  ],
+  "files": {
+    "ok.json": "{\"name\":\"x\",\"version\":\"1.0.0\",\"lockfileVersion\":3,\"requires\":true,\"packages\":{\"\":{\"name\":\"x\",\"version\":\"1.0.0\",\"dependencies\":{\"is-number\":\"7.0.0\"}},\"node_modules/is-number\":{\"version\":\"7.0.0\",\"resolved\":\"https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz\",\"integrity\":\"sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==\"}}}",
+    "bad.json": "{\"name\":\"x\",\"version\":\"1.0.0\",\"lockfileVersion\":3,\"requires\":true,\"packages\":{\"\":{\"name\":\"x\",\"version\":\"1.0.0\",\"dependencies\":{\"is-number\":\"7.0.0\"}},\"node_modules/is-number\":{\"version\":\"7.0.0\",\"resolved\":\"http://evil.example.com/is-number/-/is-number-7.0.0.tgz\",\"integrity\":\"sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==\"}}}"
+  },
+  "calls": [
+    {
+      "call": "lint ok.json",
+      "exit": [
+        0
+      ],
+      "out": "No issues detected"
+    },
+    {
+      "call": "lint bad.json",
+      "exit": [
+        1
+      ],
+      "out": "^detected invalid host\\(s\\) for package: is-number@7\\.0\\.0"
+    }
+  ]
+}

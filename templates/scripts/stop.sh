@@ -6,7 +6,9 @@
 # Advice alone (check.sh exits 4) blocks once; the same tree then passes.
 # Tests that fail at the start of the turn too block once with what to do; on the same
 # tree again the stop is allowed and the user is told they could not be verified.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -79,7 +81,8 @@ FORGE_BUDGET=${FORGE_STOP_BUDGET:-540}
 case $FORGE_BUDGET in ''|*[!0-9]*) FORGE_BUDGET=540 ;; esac
 FORGE_DEADLINE=$(($(date +%s) + FORGE_BUDGET))
 export FORGE_BUDGET FORGE_DEADLINE
-out=$(FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
+# FORGE_FOR_AGENT: the reason goes to Claude, without notes about missing or limited tools
+out=$(FORGE_FOR_AGENT=1 FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then
   now_tree > "$passed"
@@ -92,7 +95,7 @@ fi
 # (checks print them in run order, which differs when advice is deferred, so the same
 # tree gives the same reason); at most 40 lines and 6000 characters, so the reason
 # stays short when Claude Code shows it
-note='^forge:[^ ]+ (skipped:|ok for |accepted:)'
+note='^forge:[^ ]+ (skipped:|ok for |accepted:|not enforced)'
 { printf '%s\n' "$out" | grep -Ev "$note"; printf '%s\n' "$out" | grep -E "$note" | LC_ALL=C sort; } \
   | awk '{ c += length($0) + 1 } NR <= 40 && c <= 6000' > "$failed.reason"
 # exit 4: advice only (§10.7). It is given once: the same tree then passes, so it is

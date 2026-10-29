@@ -4,8 +4,8 @@ scope: {language: typescript}
 enforce:
   - target: check
     stage: lint
-    run: "eslint --max-warnings=0 ."
-    changed_run: "eslint --max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern {files}"
+    run: "forge_do eslint lint ."
+    changed_run: "forge_do eslint lint-files {files}"
     # --max-warnings=0 makes warnings fail the run: they are attributed like errors
     fail_on_warnings: true
 examples:

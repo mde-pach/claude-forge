@@ -1,0 +1,30 @@
+{
+  "tool": "graphql-codegen",
+  "install": {
+    "npm": "@graphql-codegen/cli",
+    "with": [
+      "graphql@16.11.0"
+    ]
+  },
+  "versions": [
+    "2.10.0",
+    "2.11.0",
+    "7.4.6"
+  ],
+  "files": {
+    "codegen.yml": "schema: schema.graphql\ngenerates:\n  src/gql/types.ts:\n    plugins: [./codegen-fields.mjs]\n",
+    "codegen-fields.mjs": "export const plugin = (schema) => Object.keys(schema.getQueryType().getFields()).map((f) => `export type ${f} = unknown;`).join(\"\\n\") + \"\\n\";\n",
+    "schema.graphql": "type Query {\n  hello: String\n  bye: Int\n}\n",
+    "src/gql/types.ts": "export type hello = unknown;\n"
+  },
+  "calls": [
+    {
+      "call": "codegen-check",
+      "exit": [
+        1
+      ],
+      "out": "stale files were detected"
+    }
+  ],
+  "withWhy": "graphql is the CLI's required peer dependency"
+}

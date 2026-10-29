@@ -5,7 +5,19 @@ import { examplePath } from "../audit.js";
 import { globMatch } from "../core/globs.js";
 import { checkTools, commandExists, PROJECT_TOOLS, PYTHON_TOOLS } from "../core/tools.js";
 import { codeExamples } from "../examples.js";
-import { astGrepRulePath, renderAstGrepRule, renderCheckScript, renderChecks, helperFiles, renderLib, renderSgConfig, typesLanguage, type TypesLanguage } from "../render/index.js";
+import {
+  astGrepRulePath,
+  DEFAULT_ENGINE_SETTINGS,
+  renderAstGrepRule,
+  renderCheckScript,
+  renderChecks,
+  helperFiles,
+  renderLib,
+  renderSgConfig,
+  typesLanguage,
+  type TypesLanguage,
+  wherePackages,
+} from "../render/index.js";
 import { AST_GREP_VERSION, ENGINE_PYTHON, HADOLINT_SHA256, HADOLINT_VERSION, type Job, ownedHash, run, runParallel, sha256 } from "../util.js";
 import type { TestReport } from "../types.js";
 import type { AstGrepTarget, CheckTarget, DepSpec, Example, ExampleFixture, Rule, WhereCondition } from "../types.js";
@@ -356,8 +368,18 @@ export function examplesProject(lang: TypesLanguage, deps: DepSpec[]): { dir?: s
  * --json=stream lines, paths relative to project), with a state directory of its own;
  * the daemon it starts is stopped at the end. Returns the matches kept and the output.
  */
-export function runTypesFilter(project: string, lang: TypesLanguage, matches: string, state: string): { kept: string[]; output: string; status: number } {
-  const script = [renderLib(), "IFS='\n'", renderChecks([], [], [lang]), `FORGE_STATE=${JSON.stringify(state)}`, 'forge_types_filter "$1"; rc=$?', "forge_types_down", 'exit "$rc"'].join("\n");
+export function runTypesFilter(project: string, lang: TypesLanguage, matches: string, state: string, rules: Rule[] = []): { kept: string[]; output: string; status: number } {
+  // the packages the rules ask about, as a project with them active would render (§15.2)
+  const typesPackages = [...new Set(rules.flatMap((r) => r.enforce.filter((t): t is AstGrepTarget => t.target === "ast-grep").flatMap((t) => wherePackages(r, t))))].sort();
+  const script = [
+    renderLib(),
+    "IFS='\n'",
+    renderChecks([], [], [lang], undefined, "used", { ...DEFAULT_ENGINE_SETTINGS, typesPackages }),
+    `FORGE_STATE=${JSON.stringify(state)}`,
+    'forge_types_filter "$1"; rc=$?',
+    "forge_types_down",
+    'exit "$rc"',
+  ].join("\n");
   const file = join(state, "filter.sh");
   mkdirSync(state, { recursive: true, mode: 0o700 });
   // the engine's adapter, where the generated scripts start it from
@@ -417,7 +439,7 @@ export function typesExamples(rules: Rule[], report: TestReport): void {
       }
       const matches = join(state, "matches.json");
       writeFileSync(matches, scan.stdout);
-      const res = runTypesFilter(project.dir, lang, matches, join(state, "s"));
+      const res = runTypesFilter(project.dir, lang, matches, join(state, "s"), group);
       if (res.status !== 0) {
         failures.push(`types examples (${lang}): the types engine failed: ${res.output.trim().split("\n").slice(0, 5).join(" | ")}`);
         continue;

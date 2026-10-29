@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: check
     stage: lint
-    run: yarn install --immutable --mode=skip-build
+    run: forge_do yarn lock-check
     when_changed: ["**/package.json", "yarn.lock", ".yarnrc.yml"]
 examples:
   match:

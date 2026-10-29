@@ -1,0 +1,66 @@
+{
+  "tool": "uv",
+  "install": {
+    "urls": {
+      "darwin-arm64": "https://github.com/astral-sh/uv/releases/download/{version}/uv-aarch64-apple-darwin.tar.gz",
+      "linux-amd64": "https://github.com/astral-sh/uv/releases/download/{version}/uv-x86_64-unknown-linux-gnu.tar.gz"
+    },
+    "member": {
+      "darwin-arm64": "uv-aarch64-apple-darwin/uv",
+      "linux-amd64": "uv-x86_64-unknown-linux-gnu/uv"
+    }
+  },
+  "versions": [
+    "0.3.0",
+    "0.4.4",
+    "0.4.5",
+    "0.5.7",
+    "0.5.8",
+    "0.13.6"
+  ],
+  "files": {
+    "pyproject.toml": "[project]\nname = \"geo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\"\ndependencies = []\n\n[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n",
+    "src/geo/__init__.py": "X = 1\n"
+  },
+  "calls": [
+    {
+      "before": "lock",
+      "call": "lock-check",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "build-wheel wheel",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "run-python 'import os,sys; sys.exit(0 if os.listdir(sys.argv[1]) else 1)' wheel",
+      "exit": [
+        0
+      ],
+      "from": "0.4.5"
+    },
+    {
+      "call": "run-python 'import sys; sys.exit(3)'",
+      "exit": [
+        1,
+        3
+      ]
+    },
+    {
+      "write": {
+        "pyproject.toml": "[project]\nname = \"geo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\"\ndependencies = [\"iniconfig\"]\n\n[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n"
+      },
+      "call": "lock-check",
+      "exit": [
+        1,
+        2
+      ],
+      "out": "The lockfile at .uv\\.lock. needs to be updated"
+    }
+  ],
+  "usageProbe": "lock-check --definitely-not-an-option"
+}

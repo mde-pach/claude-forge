@@ -3,18 +3,21 @@
 # (<state>/bash/<tool_use_id>.tree, outside the repository: forge_state_of) so
 # that post-edit.sh and typecheck.sh can check the files the command changes. The user's index and object store are not
 # touched. Prints nothing; never blocks the command.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
 [ -d .forge ] || exit 0
 key=$(bash_key) || exit 0
-forge_state_dir && mkdir -p "$(bash_state)" 2>/dev/null || exit 0
+forge_state_dir || exit 0
+[ -d "$FORGE_STATE/bash" ] || mkdir -p "$FORGE_STATE/bash" 2>/dev/null || exit 0
 bash_cleanup
 if tree=$(tree_snapshot "${FORGE_SNAPSHOT_TIMEOUT:-5}"); then
-  printf '%s\n' "$tree" > "$(bash_state)/$key.tree"
+  printf '%s\n' "$tree" > "$FORGE_STATE/bash/$key.tree"
 else
   # too large or too slow: the Stop check still covers the change
-  printf 'skipped\n' > "$(bash_state)/$key.tree"
+  printf 'skipped\n' > "$FORGE_STATE/bash/$key.tree"
 fi
 exit 0

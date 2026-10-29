@@ -9,7 +9,9 @@
 # recorded in <turn snapshot>/tests-approved, which the Stop check does not block
 # on. The edited test file is recorded in <turn snapshot>/touched, so the Stop
 # check still runs it when the edit is later reverted.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -55,8 +57,9 @@ fi
 FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-test-edit.XXXXXX") || exit 0
 trap 'rm -rf "$FORGE_TMP"' EXIT HUP INT TERM
 FORGE_SNAP=''
-FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
-if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); fi
+FORGE_BASE_REV=''
+if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; read -r FORGE_BASE_REV < "$snap/head"
+else FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null); fi
 # the file at the start of the turn, now, and after this edit
 base_file "$file" "$FORGE_TMP/v/base/$file" || exit 0
 mkdir -p "$FORGE_TMP/v/before/$(dirname "$file")" "$FORGE_TMP/v/after/$(dirname "$file")"

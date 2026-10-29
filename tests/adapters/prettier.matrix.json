@@ -1,0 +1,53 @@
+{
+  "tool": "prettier",
+  "install": {
+    "npm": "prettier",
+    "with": []
+  },
+  "versions": [
+    "2.1.0",
+    "3.9.10"
+  ],
+  "files": {
+    "src/cart.ts": "export const total = (items: {price:number}[]) => items.reduce((s, i) => s + i.price, 0)\n",
+    "README.md": "# Shop\n\n* first\n* second\n",
+    "src/ok.ts": "export const total = (items: { price: number }[]) =>\n  items.reduce((s, i) => s + i.price, 0);\n",
+    "data.xyz": "binary-ish\n"
+  },
+  "calls": [
+    {
+      "call": "format-check .",
+      "exit": [
+        1
+      ],
+      "out": "^\\[warn\\] src/cart\\.ts$"
+    },
+    {
+      "call": "format-check src/ok.ts",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "format-stdin src/x.ts",
+      "exit": [
+        0
+      ],
+      "out": "^const x = 1;$",
+      "input": "const  x=1\n"
+    },
+    {
+      "call": "format src/cart.ts data.xyz",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "format-check src/cart.ts",
+      "exit": [
+        0
+      ]
+    }
+  ],
+  "usageProbe": "format-check --end-of-line=bogus ."
+}

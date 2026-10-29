@@ -1,0 +1,39 @@
+{
+  "tool": "oasdiff",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "1.33.0"
+  ],
+  "files": {
+    "base.yaml": "openapi: 3.0.3\ninfo: {title: t, version: \"1\"}\npaths:\n  /users:\n    get:\n      parameters:\n        - {name: q, in: query, required: false, schema: {type: string}}\n      responses:\n        \"200\": {description: ok}\n  /pets:\n    get:\n      responses:\n        \"200\": {description: ok}\n",
+    "same.yaml": "openapi: 3.0.3\ninfo: {title: t, version: \"1\"}\npaths:\n  /users:\n    get:\n      parameters:\n        - {name: q, in: query, required: false, schema: {type: string}}\n      responses:\n        \"200\": {description: ok}\n  /pets:\n    get:\n      responses:\n        \"200\": {description: ok}\n",
+    "broke.yaml": "openapi: 3.0.3\ninfo: {title: t, version: \"1\"}\npaths:\n  /users:\n    get:\n      parameters:\n        - {name: q, in: query, required: true, schema: {type: string}}\n      responses:\n        \"200\": {description: ok}\n  /pets:\n    get:\n      responses:\n        \"200\": {description: ok}\n",
+    "bad.yaml": "openapi: 3.0.3\ninfo: [unclosed\n"
+  },
+  "calls": [
+    {
+      "call": "diff base.yaml same.yaml",
+      "exit": [
+        0
+      ],
+      "out": "No changes detected"
+    },
+    {
+      "call": "diff base.yaml broke.yaml",
+      "exit": [
+        1
+      ],
+      "out": "^error at broke\\.yaml, in API GET /users .*\\[request-parameter-became-required\\]"
+    },
+    {
+      "call": "diff base.yaml bad.yaml",
+      "exit": [
+        102
+      ],
+      "out": "^Error: failed to load revision spec"
+    }
+  ],
+  "usageProbe": "diff base.yaml same.yaml --definitely-not-an-option"
+}

@@ -1,0 +1,40 @@
+/**
+ * Vitest, the project's own (§16). What changed between its releases, for what Forge asks of it
+ * (typescript/vitest/run: `vitest run`, `vitest run --changed`, `vitest run <files>`):
+ *
+ * - 0.8.4 added `--changed` (GitHub release v0.8.4: "add commands to run tests depending on
+ *   changed files (#1078)"; v0.8.5 "rerun tests on --changed, if test was changed (#1115)").
+ *   Verified: 0.8.3 rejects it (`CACError: Unknown option \`--changed\``, exit 1), 0.8.4 runs
+ *   the tests related to the uncommitted change. 0.8.4 is the oldest covered release: older
+ *   ones cannot do one of Forge's three invocations, and they are early-2022 0.x releases, not
+ *   worth a range of their own.
+ * - Nothing Forge invokes changed since: `run`, `run --changed`, `run <files>` behave the same
+ *   on 0.8.4, 1.6.1, 3.2.7, 4.1.12, 5.0.5 (later `--changed` entries are fixes: v4.0.0 #8270
+ *   `--changed` for `vitest list`, v5.0.4 #11432 project files and mocks, v5.0.5 #11583 quoted
+ *   file names).
+ * - Exit statuses: 0 passed; 1 failed tests; 1 `No test files found, exiting with code 1` when
+ *   `run` finds no test file (0.8.x: `exiting code with 1`); `run --changed` with nothing
+ *   changed exits 0 (`No changed files found` on 5.x, `No test files found, exiting with code
+ *   0` on 1.x-4.x, `exiting code with 0` on 0.8.x).
+ * - Usage errors are cac's: exit 1 (as failed tests) and an uncaught
+ *   `CACError: Unknown option \`--x\`` on stderr, every covered release.
+ */
+import type { ToolAdapter } from "./types.js";
+
+export const VITEST: ToolAdapter = {
+  tool: "vitest",
+  verified: "5.0.5",
+  usage: { exit: 1, pattern: "^CACError: Unknown option " },
+  ranges: [
+    {
+      from: "0.8.4",
+      source: "github.com/vitest-dev/vitest/releases/tag/v0.8.4: run tests depending on changed files (#1078)",
+      ops: {
+        test: "run",
+        "test-changed": "run --changed",
+        // the caller's arguments: the test files to rerun
+        "test-files": "run",
+      },
+    },
+  ],
+};

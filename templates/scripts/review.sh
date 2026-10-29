@@ -10,7 +10,9 @@
 #                            user's request for the turn, when given)
 # Prints nothing (the usual dialog, or the usual denial) when a human can answer,
 # when FORGE_ASK_REVIEW=never, in dontAsk mode, or when claude cannot run.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 event=${1:-permission}

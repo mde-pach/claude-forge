@@ -18,11 +18,14 @@ export const ESLINT_CONFIGS = ["eslint.config.js", "eslint.config.mjs", "eslint.
 function toolsIn(dir: string, deps: DepFacts): Record<AuditedTool, { config: boolean; dep: boolean }> {
   const has = (f: string) => existsSync(join(dir, f));
   const py = readToml(join(dir, "pyproject.toml")) ?? {};
+  // a plain-scripts Python project: its own .py files and no packaging file, so no place to configure a
+  // tool in; Forge's checks run with the tools' defaults (§5.1 sources_any, §13 python)
+  const scripts = !["pyproject.toml", "setup.py", "setup.cfg", "Pipfile"].some(has) && deps.sources(["**/*.py"]);
   return {
     biome: { config: has("biome.json") || has("biome.jsonc"), dep: deps.npm.has("@biomejs/biome") },
-    ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined, dep: deps.pypi.has("ruff") },
+    ruff: { config: has("ruff.toml") || has(".ruff.toml") || py.tool?.ruff !== undefined || scripts, dep: deps.pypi.has("ruff") },
     // Forge's own ty (§15.2): wherever there is a Python project; its config is optional
-    ty: { config: has("pyproject.toml") || has("ty.toml"), dep: false },
+    ty: { config: has("pyproject.toml") || has("ty.toml") || scripts, dep: false },
     tsc: { config: has("tsconfig.json"), dep: deps.npm.has("typescript") },
     // ESLint 9 and later: the flat config only
     eslint: { config: ESLINT_CONFIGS.some(has), dep: deps.npm.has("eslint") },
@@ -46,8 +49,8 @@ export function toolPlaces(repo: string, facts: ProjectFacts): Record<AuditedToo
   return out;
 }
 
-/** Engine helpers that work the same from any directory: forge_exec_tool runs the project's tool (a name with "-", e.g. vue-tsc); forge_state_file names a per-package file under the root's .forge/state (tool caches). */
-const CWD_AGNOSTIC_HELPERS = new Set(["forge_exec_tool", "forge_state_file"]);
+/** Engine helpers that work the same from any directory: forge_do and forge_exec_tool run the project's tool (§16: as its adapter says; a name with "-", e.g. vue-tsc); forge_state_file names a per-package file under the root's .forge/state (tool caches). */
+const CWD_AGNOSTIC_HELPERS = new Set(["forge_do", "forge_exec_tool", "forge_state_file"]);
 
 /**
  * Checks that may run inside workspace packages: those that run a project tool

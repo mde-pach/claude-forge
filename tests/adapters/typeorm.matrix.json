@@ -1,0 +1,34 @@
+{
+  "tool": "typeorm",
+  "install": {
+    "npm": "typeorm",
+    "with": [
+      "better-sqlite3@12.4.1"
+    ]
+  },
+  "versions": [
+    "0.3.0",
+    "1.1.2"
+  ],
+  "files": {
+    "package.json": "{\"name\":\"p\",\"private\":true}",
+    "data-source.js": "const { DataSource, EntitySchema } = require(\"typeorm\");\nconst User = new EntitySchema({ name: \"User\", columns: { id: { type: Number, primary: true, generated: true }, email: { type: String } } });\nmodule.exports = { default: new DataSource({ type: \"better-sqlite3\", database: \"dev.db\", entities: [User], migrations: [__dirname + \"/migrations/*.js\"] }) };\n"
+  },
+  "calls": [
+    {
+      "call": "migrate data-source.js",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "migrations-check data-source.js migrations/Check",
+      "exit": [
+        1
+      ],
+      "out": "Unexpected changes in database schema were found"
+    }
+  ],
+  "usageProbe": "migrate data-source.js --definitely-not-an-option",
+  "withWhy": "the sample data source is SQLite: the better-sqlite3 driver"
+}

@@ -15,7 +15,7 @@ FORGE_SPECTRAL_VERSION="@@SPECTRAL_VERSION@@"
 forge_openapi_lint() {
   git ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' '*.json' 2>/dev/null | grep -vE "$FORGE_OWN_ERE" | forge_filter forge_openapi_spec > "$FORGE_TMP/oal.roots"
   [ -s "$FORGE_TMP/oal.roots" ] || return 0
-  command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run the OpenAPI linter\n' "$c_id"; return 0; }
+  command -v bunx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: bunx is needed to run the OpenAPI linter\n' "$c_id"; return 0; }
   _ol_rc=0; _ol_any=''
   _ol_spectral=''
   for _ol_s in .spectral.yaml .spectral.yml .spectral.json; do [ -f "$_ol_s" ] && _ol_spectral=$_ol_s && break; done
@@ -23,11 +23,11 @@ forge_openapi_lint() {
     _ol_any=1
     set -f
     # shellcheck disable=SC2046
-    bunx "@redocly/cli@$FORGE_REDOCLY_VERSION" lint --format=github-actions $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2> "$FORGE_TMP/oal.err"
+    forge_do redocly lint $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2> "$FORGE_TMP/oal.err"
     _ol_r=$?
     set +f
     if [ "$_ol_r" -gt 1 ] || { [ "$_ol_r" = 1 ] && ! grep -q '^::error ' "$FORGE_TMP/oal.out"; }; then
-      printf 'forge:%s skipped: redocly could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.err" | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: redocly could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.err" | tail -n 1)"
     else
       awk '/^::error / {
           meta = $0; sub(/^::error /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
@@ -43,11 +43,11 @@ forge_openapi_lint() {
   if [ -n "$_ol_spectral" ]; then
     set -f
     # shellcheck disable=SC2046
-    bunx "@stoplight/spectral-cli@$FORGE_SPECTRAL_VERSION" lint --ruleset "$_ol_spectral" --format text --fail-severity error $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2>&1
+    forge_do spectral lint "$_ol_spectral" $(cat "$FORGE_TMP/oal.roots") > "$FORGE_TMP/oal.out" 2>&1
     _ol_r=$?
     set +f
     if ! grep -qE '^[^[:space:]]+:[0-9]+:[0-9]+ (error|warning|information|hint) ' "$FORGE_TMP/oal.out" && [ "$_ol_r" != 0 ]; then
-      printf 'forge:%s skipped: spectral could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.out" | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: spectral could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.out" | tail -n 1)"
     else
       awk '$2 == "error" && $1 ~ /:[0-9]+:[0-9]+$/ { r = $3; f = $1; m = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", m); print f ": error " r ": " m; bad = 1 } END { exit bad }' "$FORGE_TMP/oal.out" || _ol_rc=1
     fi
@@ -123,6 +123,11 @@ forge_openapi_ratchet() {
 
 # ---- OpenAPI (openapi/no-breaking)
 
+# forge_pinned_redocly, forge_pinned_spectral <args>: Forge's pinned Redocly CLI and Spectral
+# through bunx (forge_pinned).
+forge_pinned_redocly() { bunx "@redocly/cli@$FORGE_REDOCLY_VERSION" "$@"; }
+forge_pinned_spectral() { bunx "@stoplight/spectral-cli@$FORGE_SPECTRAL_VERSION" "$@"; }
+
 # forge_oasdiff: each OpenAPI document of the repository (forge_openapi_spec) that existed at the
 # base, compared by the pinned oasdiff with its base version: "error at <path>, in API … [id]."
 # for each breaking change (level ERR). The base side is a copy of the repository's YAML and
@@ -144,7 +149,8 @@ forge_oasdiff() {
   : > "$FORGE_TMP/oas.out"
   while IFS= read -r _oa_f; do
     [ -f "$_oa_base/$_oa_f" ] || continue
-    "$_oa_bin" breaking "$_oa_base/$_oa_f" "$_oa_f" --fail-on ERR --format singleline > "$FORGE_TMP/oas.one" 2>&1
+    # 0 no breaking change, 1 one (--fail-on ERR), 100-107 could not compare (unreadable spec, usage)
+    forge_do oasdiff diff "$_oa_base/$_oa_f" "$_oa_f" > "$FORGE_TMP/oas.one" 2>&1
     case $? in
       0|1) ;;
       *) printf 'forge:%s skipped: oasdiff could not compare %s (%s)\n' "$c_id" "$_oa_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oas.one" | tail -n 1)"; continue ;;

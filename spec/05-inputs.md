@@ -18,12 +18,14 @@ detect:                     # omitted for user-level packs; any one of these det
   library_any: [pypi | npm]  # the project is a library published there (§13.4)
   content_any: [{files: [glob], pattern: regex}]  # a line of a matching file matches (a literal value in a literal config file)
   yaml_keys: [key]           # a .yaml/.yml file whose first document is a mapping with all these top-level keys
+  sources_any: [glob]        # a source file of the project's own: outside vendored, generated and virtual-environment directories
 tool_off:                   # optional: tool diagnostics this pack switches off where it is active
   - {tool: biome, expects: lint/<group>/<name>, reason: string}
 ```
 
 - A root pack is active when detected; a child pack is active when its parent is active **and** it is detected.
 - `content_any` and `yaml_keys` read file contents, only for packs that use them and only files of at most 1 MiB. `content_any` patterns are JavaScript regular expressions tested on each line (`^` and `$` anchor lines); one that does not compile rejects the pack. `yaml_keys` reads a file's first document (up to the next `---` or `...`); a file that is not YAML (a template that renders to YAML) does not count. Detection by content stays a detection: `packs.add` and `packs.remove` decide last.
+- `sources_any` detects a project by its own source files when it has no packaging file (plain scripts). A file counts when it matches a glob and no directory on its path is `node_modules`, `.venv`, `venv`, `.env`, `env`, `virtualenv`, `site-packages`, `dist-packages`, `vendor`, `vendored`, `_vendor`, `third_party`, `third-party`, `build`, `dist`, `.tox`, `.nox`, `.eggs`, `__pycache__`, `.mypy_cache`, `.git` or `*.egg-info`, it is not under Forge's `.forge/` or `.claude/` (Forge's own helper scripts), and it is not a generated module (protobuf's `*_pb2.py`, `*_pb2_grpc.py`). One such file is enough. The file list is git's (tracked and untracked not ignored), so ignored directories never count. Packs whose facts come from packaging (a lock file, declared dependencies, a published library) keep their own detection, so a pack detected by `sources_any` activates none of them.
 - **`tool_off`.** Where the pack is active, no rule's `tool` target with that `tool` and `expects` is audited or demanded (nor its rule's `ast-grep` stand-in): status lists it as `not enforced here: <tool> <expects> switched off by <pack> (<reason>)` and under `Switched off by packs:` (`--json`: `switched_off`, with the rules whose targets asked for it), and `forge init` writes Forge's config for that tool with the diagnostic `"off"` (Biome: `linter.rules.<group>.<name>` in `biome.json`, the rest of the template kept). For a diagnostic the tool's own fix makes harmful in that framework (NestJS: `useImportType`).
 - `forge.yaml` `packs.add` activates a pack and its ancestors. `requires` activates the required pack and its ancestors.
 - `packs.remove` deactivates a pack, its whole subtree, and every pack that requires a removed pack.
@@ -62,6 +64,8 @@ accept:                     # config-ratchet findings accepted on purpose (§10.
     reason: string          # required
 files:                      # file roles (§15.4)
   <role>: {add: [glob], set: [glob]}   # add to the role, or replace its defaults and the tool's config
+python:
+  untyped-packages: any | source       # installed packages without typing: Any to ty (default), or inferred from their source (§15.2)
 ```
 
 `<repo>/.forge/rules/<name>.yaml`: project-local rules. A local rule whose `id` equals a pack rule's `id` replaces it entirely. `forge.yaml` and `.forge/rules/` are inputs, not owned output: `apply` never rewrites them, but they are behind permission `ask` (§8.3).

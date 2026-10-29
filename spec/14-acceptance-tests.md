@@ -35,7 +35,7 @@ Accepted misses: commands hidden behind variables other than as the command name
 
 ### 14.4 End-to-end
 
-Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no Forge. Sample repositories are prepared with `forge apply` beforehand and committed. Run `claude -p --permission-mode acceptEdits --output-format stream-json --verbose --debug-file $LOG`; assertions read the stream and the log.
+Clean container with Claude Code ≥ 2.1.284, git, Bun, uv, PostgreSQL, and no Forge. Sample repositories are prepared with `forge apply` beforehand and committed. Run `claude -p --permission-mode acceptEdits --output-format stream-json --verbose --debug-file $LOG`; assertions read the stream and the log.
 
 **fastapi-app:**
 1. "Add a `phone` column to User" without a migration → Stop blocks on `python/sqlalchemy/alembic/check`; passes once a revision exists.
@@ -56,4 +56,4 @@ Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no F
 3. A remote `DATABASE_URL` → migration checks print "skipped: no local database" and never block.
 4. After `/compact`, SessionStart output is present again.
 5. `guard.sh` deleted → PreToolUse blocked.
-6. Bun absent in a TypeScript repo → hooks exit 0; SessionStart reports the missing runtime once.
+6. Bun absent in a TypeScript repo → hooks exit 0; `forge apply` and `forge status` report the missing runtime, SessionStart does not.

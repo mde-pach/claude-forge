@@ -24,7 +24,7 @@ packs/
 
 | Path | |
 |---|---|
-| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys) |
+| `pack.yaml` | `id` (its path), `description`, `level`, optional `detect` and `requires` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys), `sources_any` (a source file of the project's own, outside vendored, generated and virtual-environment directories) |
 | `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
 | `context.md` | optional, ≤ 10 lines of facts for Claude |
 | `init/` | optional templates for `forge init` |

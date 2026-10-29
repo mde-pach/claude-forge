@@ -7,8 +7,8 @@ enforce:
     when_changed: ["pyproject.toml", "**/py.typed"]
     run: |
       rm -rf "$FORGE_TMP/wheel"
-      uv build --wheel --quiet -o "$FORGE_TMP/wheel" > "$FORGE_TMP/wheel.log" 2>&1 || { printf 'forge:%s skipped: uv build --wheel failed: %s\n' "$c_id" "$(grep . "$FORGE_TMP/wheel.log" | tail -n 1)"; return 0; }
-      uv run --no-project --quiet python -I -c '
+      forge_do uv build-wheel "$FORGE_TMP/wheel" > "$FORGE_TMP/wheel.log" 2>&1 || { printf 'forge:%s skipped: uv build --wheel failed: %s\n' "$c_id" "$(grep . "$FORGE_TMP/wheel.log" | tail -n 1)"; return 0; }
+      forge_do uv run-python '
       import os, sys, zipfile
       bad = 0
       for wheel in sorted(w for w in os.listdir(sys.argv[1]) if w.endswith(".whl")):

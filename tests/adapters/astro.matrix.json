@@ -1,0 +1,38 @@
+{
+  "tool": "astro",
+  "install": {
+    "npm": "astro",
+    "with": [
+      "@astrojs/check@0.9.12",
+      "typescript@6.0.3"
+    ],
+    "withFor": {
+      "1.0.0": [
+        "typescript@4.7.4"
+      ]
+    },
+    "inProject": true
+  },
+  "versions": [
+    "1.0.0",
+    "7.4.2"
+  ],
+  "env": {
+    "CI": "1"
+  },
+  "files": {
+    "package.json": "{\"name\": \"s\", \"private\": true, \"type\": \"module\"}",
+    "tsconfig.json": "{\"compilerOptions\": {\"strict\": true}}",
+    "src/pages/index.astro": "---\nconst count: number = \"one\";\n---\n<p>{{ count }}</p>\n"
+  },
+  "calls": [
+    {
+      "call": "check",
+      "exit": [
+        1
+      ],
+      "out": "index\\.astro:2:7 (- error ts\\(2322\\)|Error): Type .string. is not assignable to type .number."
+    }
+  ],
+  "withWhy": "astro check runs @astrojs/check and the project's TypeScript (Astro 3 and later require both); each release takes the TypeScript of its own time"
+}

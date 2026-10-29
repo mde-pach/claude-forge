@@ -2,4 +2,6 @@ id: python
 description: Python project checks with ruff and ty.
 level: project
 detect:
-  files_any: [pyproject.toml]
+  # a packaging file; else, a plain-scripts project: a .py file of its own (not vendored, generated or in a virtual environment)
+  files_any: [pyproject.toml, setup.py, setup.cfg, "requirements*.txt", Pipfile]
+  sources_any: ["**/*.py"]

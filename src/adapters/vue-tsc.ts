@@ -1,0 +1,42 @@
+/**
+ * vue-tsc, the project's own (§16): tsc's command line run with Vue's language plugin on the
+ * project's JavaScript TypeScript (peer `typescript: "*"` up to 2.x, `>=5.0.0` in 3.3).
+ * What Forge asks of it (`--noEmit`, `--build`) is tsc's own command line, unchanged across the
+ * covered releases:
+ *
+ * - 1.0.0 is the oldest covered: the first stable release (language-tools
+ *   changelogs/CHANGELOG-v1.md, 1.0.0), Vue 3's type checker since; 0.x was the "Volar"
+ *   preview. 1.0.0 already passes `--noEmit` and `--build` to tsc (verified on 1.0.0 with
+ *   TypeScript 4.8.4). 2.0.0 is a broken npm release (its `index.js` is missing:
+ *   `Cannot find module '../index.js'`); 2.0.1 runs.
+ * - 3.0.0 (CHANGELOG.md, 3.0.0) and later: same command line (verified 3.0.0, 3.3.13).
+ * - vue-tsc runs on TypeScript's JavaScript API: with TypeScript 7 (native, no `lib/tsc`) it
+ *   crashes (`ERR_PACKAGE_PATH_NOT_EXPORTED: Package subpath './lib/tsc'`, vue-tsc 3.3.13);
+ *   with TypeScript 6.0.3 it runs.
+ * - Usage errors are tsc's: exit 1 and `error TS5023: Unknown compiler option`, or under
+ *   `--build` `error TS5072: Unknown build option`, on stdout.
+ *
+ * VERSION: `vue-tsc --version` prints TypeScript's version (`Version 5.9.3`), not vue-tsc's;
+ * no argument prints vue-tsc's own. The engine has to read it from the package
+ * (node_modules/vue-tsc/package.json "version"): see vue-tsc.md.
+ */
+import type { ToolAdapter } from "./types.js";
+
+export const VUE_TSC: ToolAdapter = {
+  tool: "vue-tsc",
+  verified: "3.3.13",
+  // `vue-tsc --version` prints TypeScript's version: the package says it
+  package: "vue-tsc",
+  usage: { exit: 1, pattern: "^error TS(5023|5025|5072|5073|6044|6046): " },
+  ranges: [
+    {
+      from: "1.0.0",
+      source: "vuejs/language-tools changelogs/CHANGELOG-v1.md 1.0.0 (first stable); CHANGELOG.md 3.0.0: unchanged tsc command line",
+      ops: {
+        typecheck: "--noEmit",
+        // a tsconfig with references (create-vue's layout)
+        "typecheck-build": "--build",
+      },
+    },
+  ],
+};

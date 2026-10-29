@@ -4,6 +4,6 @@ scope: {language: python}
 enforce:
   - target: check
     stage: migration
-    run: "alembic check"
+    run: "forge_do alembic migrations-check"
     when_changed: ["**/models/**", "**/models.py", "@alembic-migrations"]
     requires_local_db: true

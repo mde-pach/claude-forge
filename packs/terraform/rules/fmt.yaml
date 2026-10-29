@@ -4,8 +4,8 @@ scope: {language: any, files: ["**/*.tf", "**/*.tfvars", "**/*.tofu"]}
 enforce:
   - target: check
     stage: format
-    run: "terraform fmt -check -recursive"
-    changed_run: "terraform fmt {files}"
+    run: "forge_do terraform format-check"
+    changed_run: "forge_do terraform format {files}"
 examples:
   match:
     - files: {infra/main.tf: "resource \"terraform_data\" \"build\" {\ninput=\"v1\"\n}\n"}

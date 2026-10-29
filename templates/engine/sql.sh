@@ -10,17 +10,15 @@
 # CODE: message" per violation. Not configured: nothing to check.
 forge_sqlfluff() {
   [ -f .sqlfluff ] || grep -qE '^\[tool\.sqlfluff(\]|\.)' pyproject.toml 2>/dev/null || grep -qE '^\[sqlfluff(\]|:)' setup.cfg tox.ini 2>/dev/null || return 0
-  _sf_cmd=$(tool sqlfluff)
-  [ -n "$_sf_cmd" ] || { printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
+  forge_has_tool sqlfluff || { forge_for_agent || printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
   for _sf_f in "$@"; do shift; case $_sf_f in *.sql) [ -f "$_sf_f" ] && set -- "$@" "$_sf_f" ;; esac; done
   [ "$#" -gt 0 ] || [ "$mode" = --all ] || return 0
   [ "$#" -gt 0 ] || set -- .
   set -f
-  # shellcheck disable=SC2086
-  $_sf_cmd lint --format github-annotation-native --nocolor "$@" > "$FORGE_TMP/sqlfluff" 2>&1
+  forge_do sqlfluff lint "$@" > "$FORGE_TMP/sqlfluff" 2>&1
   _sf_rc=$?
   set +f
-  case $_sf_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
+  case $_sf_rc in 0) return 0 ;; 1) ;; *) forge_for_agent || printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
   awk '/^::(error|warning|notice) / {
       meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
       f = meta; sub(/^.*file=/, "", f); sub(/,.*$/, "", f); sub(/^\.\//, "", f)
@@ -38,6 +36,16 @@ FORGE_SQUAWK_VERSION="@@SQUAWK_VERSION@@"
 
 FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|adding-required-field|adding-not-nullable-field|ban-drop-database'
 
+# forge_pinned_squawk <args>: Forge's pinned Squawk (forge_pinned): through bunx, else uvx.
+# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
+# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
+# runs at the same time then kill each other's install.
+forge_pinned_squawk() {
+  if command -v bunx >/dev/null 2>&1; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" "$@"
+  else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk "$@"
+  fi
+}
+
 # forge_squawk [--stdin-filepath <path>] [file...]: the pinned Squawk through bunx or uvx,
 # on the files (or stdin, reported as <path>); gcc-style output in $FORGE_TMP/squawk. Exit
 # status 0 when Squawk ran (with or without findings). The project cannot silence it: Squawk
@@ -45,9 +53,6 @@ FORGE_SQUAWK_BLOCKING='renaming-column|renaming-table|changing-column-type|addin
 # excluded_paths do not apply) on copies of the SQL whose "squawk-ignore" comments are
 # rewritten into plain comments (same lines and columns), from the copies' directory so the
 # reported paths are the repository's.
-# "bunx squawk-cli@<v>" runs the package's one binary from bunx's cache; with
-# "-p squawk-cli@<v> squawk" bunx installs the package again at every run, and
-# runs at the same time then kill each other's install.
 forge_squawk() {
   _sq_src=$FORGE_TMP/squawk.src
   rm -rf "$_sq_src"; mkdir -p "$_sq_src" || return 2
@@ -59,14 +64,11 @@ forge_squawk() {
       mkdir -p "$_sq_src/$(dirname "$_sq_f")" && forge_squawk_unignore < "$_sq_f" > "$_sq_src/$_sq_f" || return 2
     done
   fi
-  if command -v bunx >/dev/null 2>&1; then
-    ( cd "$_sq_src" && if [ -f .stdin ]; then bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else bunx "squawk-cli@$FORGE_SQUAWK_VERSION" --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
-  elif command -v uvx >/dev/null 2>&1; then
-    ( cd "$_sq_src" && if [ -f .stdin ]; then uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@" < .stdin; else uvx -q --from "squawk-cli==$FORGE_SQUAWK_VERSION" squawk --reporter gcc -c "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
-  else
+  if ! command -v bunx >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     printf 'bunx or uvx is needed\n' > "$FORGE_TMP/squawk"
     return 2
   fi
+  ( cd "$_sq_src" && if [ -f .stdin ]; then forge_do squawk lint "$FORGE_TMP/squawk.toml" "$@" < .stdin; else forge_do squawk lint "$FORGE_TMP/squawk.toml" "$@"; fi ) > "$FORGE_TMP/squawk" 2>&1
   _sq_rc=$?
   # Squawk exits 1 whenever it warns, which is almost always
   [ "$_sq_rc" -eq 0 ] || grep -qE ':[0-9]+:[0-9]+: (warning|error): ' "$FORGE_TMP/squawk"
@@ -88,7 +90,7 @@ forge_squawk_blocking() {
 
 # forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
 forge_squawk_skipped() {
-  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+  forge_for_agent || printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
 }
 
 # forge_squawk_files <sql files>: lints migration SQL files.
@@ -164,7 +166,7 @@ forge_squawk_alembic() {
       None*|'') _fs_range=$_fs_rev ;;
       *) _fs_range="$(printf '%s' "$_fs_down" | sed "s/^['\"]\([^'\"]*\)['\"].*/\1/"):$_fs_rev" ;;
     esac
-    if ! alembic upgrade "$_fs_range" --sql > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
+    if ! forge_do alembic upgrade-sql "$_fs_range" > "$FORGE_TMP/alembic.sql" 2> "$FORGE_TMP/alembic.err"; then
       printf 'forge:%s skipped: alembic upgrade %s --sql failed for %s (%s)\n' "$c_id" "$_fs_range" "$_fs_f" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/alembic.err" | tail -n 1)"
       continue
     fi
@@ -638,14 +640,14 @@ forge_typeorm_pending() {
     *) _tp_bin=typeorm ;;
   esac
   if [ -z "$(tool "$_tp_bin")" ]; then
-    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    forge_for_agent || printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
     return 0
   fi
-  if ! forge_exec_tool "$_tp_bin" migration:run -d "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
+  if ! forge_do "$_tp_bin" migrate "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then
     printf 'forge:%s skipped: %s migration:run -d %s failed: %s\n' "$c_id" "$_tp_bin" "$_tp_ds" "$(grep . "$FORGE_TMP/typeorm.out" | tail -n 1)"
     return 0
   fi
-  forge_exec_tool "$_tp_bin" migration:generate -d "$_tp_ds" --check "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
+  forge_do "$_tp_bin" migrations-check "$_tp_ds" "$FORGE_TMP/typeorm-check" > "$FORGE_TMP/typeorm.out" 2>&1
   if grep -q 'Unexpected changes in database schema were found' "$FORGE_TMP/typeorm.out"; then
     printf 'The entities changed, but no migration has the change: generate one (%s migration:generate -d %s <path>), review it and commit it.\n' "$_tp_bin" "$_tp_ds"
     cat "$FORGE_TMP/typeorm.out"

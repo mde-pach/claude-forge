@@ -1,0 +1,30 @@
+{
+  "tool": "tflint",
+  "install": {
+    "pinned": true
+  },
+  "versions": [
+    "0.64.0"
+  ],
+  "files": {
+    "tflint.hcl": "plugin \"terraform\" {\n  enabled = true\n  preset  = \"recommended\"\n}\n",
+    "ok/main.tf": "terraform {\n  required_version = \">= 1.0\"\n}\n",
+    "bad/main.tf": "terraform {\n  required_version = \">= 1.0\"\n}\nvariable \"unused\" {\n  type = string\n}\n"
+  },
+  "calls": [
+    {
+      "call": "lint ok --config ../tflint.hcl",
+      "exit": [
+        0
+      ]
+    },
+    {
+      "call": "lint bad --config ../tflint.hcl",
+      "exit": [
+        0
+      ],
+      "out": "^bad/main\\.tf:4:1: Warning - variable \"unused\" is declared but not used \\(terraform_unused_declarations\\)"
+    }
+  ],
+  "usageProbe": "lint ok --config ../tflint.hcl --definitely-not-an-option"
+}

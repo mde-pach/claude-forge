@@ -1,7 +1,7 @@
 # End-to-end harness (§14.4)
 
 **Status: written, not run.** These scenarios need real `claude -p` sessions
-(an authenticated Claude Code ≥ 2.1.295) in a clean container with PostgreSQL;
+(an authenticated Claude Code ≥ 2.1.284) in a clean container with PostgreSQL;
 the development environment where Forge was built had neither. Expect to adjust
 some regexes in `run.ts` on the first real run: they match the hook output Forge
 produces, but the exact framing in Claude Code's stream and debug log was not

@@ -8,7 +8,9 @@
 # the working tree with the snapshot bash-snapshot.sh took before it (at most 20
 # files). Findings on lines added during this turn (or since HEAD, before the
 # first prompt) go back to Claude as additionalContext (<= 20 lines). Nothing on success.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0
@@ -18,7 +20,8 @@ FORGE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/forge-edit.XXXXXX") || exit 0
 trap 'rm -rf "$FORGE_TMP"' EXIT; trap 'exit 143' HUP INT TERM
 : > "$FORGE_TMP/report"
 
-if [ "$(json_get tool_name)" = Bash ]; then
+forge_json tool_name
+if [ "$FORGE_J" = Bash ]; then
   key=$(bash_key) || exit 0
   state=$(bash_state)
   [ -f "$state/$key.tree" ] || exit 0
@@ -58,39 +61,50 @@ FORGE_FORBID='@@FORBID@@'
 # the lines added to each file during the turn (base: the turn snapshot, else HEAD)
 mode=--changed
 FORGE_SNAP=''
-FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null)
-snap=$(turn_dir)
-if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; FORGE_BASE_REV=$(cat "$snap/head"); fi
+FORGE_BASE_REV=''
+forge_session
+snap=$FORGE_STATE/$FORGE_SESSION.turn
+if [ -f "$snap/head" ]; then FORGE_SNAP=$snap; read -r FORGE_BASE_REV < "$snap/head"
+else FORGE_BASE_REV=$(git rev-parse -q --verify HEAD 2>/dev/null); fi
 
 # Each tool runs once on all the files; what is found is appended to the report as
 # it comes, so a run cut short by the time budget still returns what it has.
 forge_edit_checks() {
   # the types engine resyncs the changed files before any question (§15.3)
-  forge_types_changed $(cat "$FORGE_TMP/changed")
+  _pe_files=''
+  while IFS= read -r _pe_f; do _pe_files="$_pe_files
+$_pe_f"; done < "$FORGE_TMP/changed"
+  # shellcheck disable=SC2086
+  forge_types_changed ${_pe_files#?}
   forge_file_stage format "$FORGE_TMP/changed" > /dev/null 2>&1
   # safe fixes first (sorted imports, pyupgrade), then lint: a lint run may write too
   # (Biome's check --write applies its safe fixes and formats), so copies are kept to
   # tell its fixes from formatting
+  # copies before the fixes: a file the fixes or the lint run changed differs from its copy
   : > "$FORGE_TMP/noted"
-  forge_file_fixes "$FORGE_TMP/changed" >> "$FORGE_TMP/report" 2>/dev/null
   while IFS= read -r file; do
-    mkdir -p "$FORGE_TMP/pre/$(dirname "$file")" && cp "$file" "$FORGE_TMP/pre/$file"
+    forge_dirname "$FORGE_TMP/pre/$file"
+    { [ -d "$FORGE_DIR" ] || mkdir -p "$FORGE_DIR"; } && cp "$file" "$FORGE_TMP/pre/$file"
   done < "$FORGE_TMP/changed"
+  FORGE_FIX_BEFORE=$FORGE_TMP/pre forge_file_fixes "$FORGE_TMP/changed" >> "$FORGE_TMP/report" 2>/dev/null
   forge_file_run lint "$FORGE_TMP/changed" 2>/dev/null
-  forge_lint_fixes "$FORGE_TMP/changed" "$FORGE_TMP/pre" >> "$FORGE_TMP/report" 2>/dev/null
+  # only after a lint run: one that writes applies fixes too (the fix runs are noted already)
+  [ "${FORGE_FILE_RAN:-0}" = 0 ] || forge_lint_fixes "$FORGE_TMP/changed" "$FORGE_TMP/pre" >> "$FORGE_TMP/report" 2>/dev/null
   # added lines, on the files as the checks left them
   : > "$FORGE_TMP/added"
+  _pe_n=0
   while IFS= read -r file; do
-    rm -f "$FORGE_TMP/base"
-    base_file "$file" "$FORGE_TMP/base"
-    forge_added_lines "$file" "$FORGE_TMP/base" >> "$FORGE_TMP/added"
+    # a base copy of its own per file (no rm between files)
+    _pe_n=$((_pe_n + 1))
+    base_file "$file" "$FORGE_TMP/base.$_pe_n"
+    forge_added_lines "$file" "$FORGE_TMP/base.$_pe_n" >> "$FORGE_TMP/added"
   done < "$FORGE_TMP/changed"
   forge_file_report lint >> "$FORGE_TMP/report" 2>&1
   [ -s "$FORGE_TMP/changed" ] && forge_grep_forbid "$FORGE_TMP/changed" advise >> "$FORGE_TMP/report"
   if [ -s "$FORGE_TMP/changed" ] && [ -n "$FORGE_FORBID" ] && [ -f .forge/ast-grep/sgconfig.yml ]; then
     set -f
     # shellcheck disable=SC2046
-    astgrep scan -c .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" --json=stream --include-metadata $(cat "$FORGE_TMP/changed") > "$FORGE_TMP/forbid" 2>/dev/null
+    forge_do ast-grep scan-meta .forge/ast-grep/sgconfig.yml --filter "^($FORGE_FORBID)\$" ${_pe_files#?} > "$FORGE_TMP/forbid" 2>/dev/null
     set +f
     # matches on added lines; those of rules with type constraints only when the
     # types engine confirms them (§15.1)
@@ -106,10 +120,10 @@ forge_edit_checks() {
 if [ -s "$FORGE_TMP/changed" ]; then
   forge_edit_checks &
   _pe_pid=$!
-  ( sleep "${FORGE_EDIT_BUDGET:-45}"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
+  ( sleep "${FORGE_EDIT_BUDGET:-45}" & printf '%s\n' "$!" > "$FORGE_TMP/watch.sleep"; wait "$!"; : > "$FORGE_TMP/over"; forge_kill_tree "$_pe_pid" ) >/dev/null 2>&1 &
   _pe_watch=$!
   wait "$_pe_pid" 2>/dev/null
-  forge_kill_watch "$_pe_watch"
+  forge_kill_watch "$_pe_watch" "$FORGE_TMP/watch.sleep"
   if [ -f "$FORGE_TMP/over" ]; then
     { printf 'forge: the checks after this edit stopped after %ss; findings so far are below, and the Stop check covers the rest.\n' "${FORGE_EDIT_BUDGET:-45}"
       cat "$FORGE_TMP/report"; } > "$FORGE_TMP/report.over"

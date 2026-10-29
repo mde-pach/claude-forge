@@ -42,6 +42,30 @@ jobs:
           path: test-results/
           if-no-files-found: error
 
+  # The adapters' real-binary matrix (§16.5): every release each adapter is proven on,
+  # installed into one shared store under a disk budget, removed when done.
+  adapter-matrix:
+    name: adapter matrix (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: astral-sh/setup-uv@v6
+      - run: bun install --frozen-lockfile
+      - name: The version matrix on real releases
+        env:
+          FORGE_ADAPTER_MATRIX: "1"
+        run: bun test --timeout 900000 tests/spec/16-2-adapter-matrix.test.ts
+
   docs:
     name: docs build (with this run's results)
     needs: test

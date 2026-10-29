@@ -1,10 +1,10 @@
 id: typescript/pnpm/lock-sync
-description: pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing).
+description: "pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes)."
 scope: {language: any}
 enforce:
   - target: check
     stage: lint
-    run: pnpm install --frozen-lockfile --lockfile-only
+    run: forge_do pnpm lock-check
     when_changed: ["**/package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
 examples:
   match:

@@ -85,10 +85,16 @@ forge_duration_seconds() {
 
 # forge_version_ge <a> <b>: succeeds when version a >= b (numeric dot-separated parts).
 forge_version_ge() {
-  awk -v a="$1" -v b="$2" 'BEGIN {
-    na = split(a, x, "."); nb = split(b, y, ".")
-    for (i = 1; i <= (na > nb ? na : nb); i++) { p = x[i] + 0; q = y[i] + 0; if (p > q) exit 0; if (p < q) exit 1 }
-    exit 0 }'
+  _vg_a=$1 _vg_b=$2
+  while [ -n "$_vg_a" ] || [ -n "$_vg_b" ]; do
+    _vg_x=${_vg_a%%.*} _vg_y=${_vg_b%%.*}
+    _vg_x=${_vg_x%%[!0-9]*} _vg_y=${_vg_y%%[!0-9]*}
+    [ "${_vg_x:-0}" -gt "${_vg_y:-0}" ] && return 0
+    [ "${_vg_x:-0}" -lt "${_vg_y:-0}" ] && return 1
+    case $_vg_a in *.*) _vg_a=${_vg_a#*.} ;; *) _vg_a='' ;; esac
+    case $_vg_b in *.*) _vg_b=${_vg_b#*.} ;; *) _vg_b='' ;; esac
+  done
+  return 0
 }
 
 # Forge's one release cooldown (3 days, in seconds): the minimum age of a version the
@@ -187,13 +193,33 @@ forge_release_bin() {
 # prints "forge:<id> skipped: <why>" for the current check and fails.
 forge_release() {
   if _rl_bin=$(forge_release_bin "$1"); then eval "$2=\$_rl_bin"; return 0; fi
-  printf 'forge:%s skipped: %s\n' "$c_id" "$_rl_bin"
+  forge_tool_note "forge:$c_id skipped: $_rl_bin"
   return 1
+}
+
+# forge_pinned <tool> <args>: runs Forge's pinned <tool> (§16.2 runner): its launcher
+# forge_pinned_<tool> ("-" as "_", defined by the module that uses the tool: uvx, bunx), else
+# its pinned release binary (forge_release_bin). 127, with why on stderr, when it cannot be had.
+forge_pinned() {
+  _pn_t=$1
+  _pn_n=$1
+  shift
+  _pn_fn=''
+  while :; do
+    case $_pn_n in
+      *-*) _pn_fn="$_pn_fn${_pn_n%%-*}_"; _pn_n=${_pn_n#*-} ;;
+      *) _pn_fn="$_pn_fn$_pn_n"; break ;;
+    esac
+  done
+  if command -v "forge_pinned_$_pn_fn" >/dev/null 2>&1; then "forge_pinned_$_pn_fn" "$@"; return; fi
+  _pn_bin=$(forge_release_bin "$_pn_t") || { printf 'forge: %s\n' "$_pn_bin" >&2; return 127; }
+  "$_pn_bin" "$@"
 }
 
 # forge_exec_tool <name> <args>: runs the project's own <name>; 127 when absent.
 forge_exec_tool() {
-  _fx_cmd=$(tool "$1")
+  forge_tool_lookup "$1"
+  _fx_cmd=$FORGE_TOOL_CMD
   [ -n "$_fx_cmd" ] || { printf 'forge: %s not installed\n' "$1" >&2; return 127; }
   shift
   _fx_ifs=$IFS
@@ -212,12 +238,12 @@ forge_has_tool() {
     uv|uvx|bun|docker) command -v "$1" >/dev/null 2>&1 ;;
     tofu|helm|kubectl|npm|pnpm) forge_on_path "$1" ;;
     # Yarn 1 is another tool (a .yarnrc.yml project needs Yarn 2 or later): absent then
-    yarn) forge_on_path yarn && case $(yarn --version 2>/dev/null) in ''|0.*|1.*) false ;; esac ;;
+    yarn) forge_on_path yarn && case $(forge_tool_version yarn) in ''|0.*|1.*) false ;; esac ;;
     terraform) forge_on_path "$(forge_tf_bin)" ;;
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
     ty) command -v uvx >/dev/null 2>&1 ;;
-    *) [ -n "$(tool "$1")" ] ;;
+    *) forge_tool_lookup "$1"; [ -n "$FORGE_TOOL_CMD" ] ;;
   esac
 }
 
@@ -242,9 +268,16 @@ forge_on_path() {
   return 1
 }
 
-# forge_tf_bin: the project's Terraform CLI: tofu when it uses OpenTofu (a *.tofu file, or
-# a .terraform.lock.hcl naming registry.opentofu.org providers), else terraform.
+# forge_tf_bin: prints the project's Terraform CLI (forge_tf_pick).
 forge_tf_bin() {
+  forge_tf_pick
+  printf '%s' "$_tf_bin"
+}
+
+# forge_tf_pick: FORGE_PICKED (and _tf_bin, kept for the shell), the project's Terraform CLI:
+# tofu when it uses OpenTofu (a *.tofu file, or a .terraform.lock.hcl naming
+# registry.opentofu.org providers), else terraform; the terraform adapter's pick (§16.2).
+forge_tf_pick() {
   if [ -z "${_tf_bin:-}" ]; then
     _tf_bin=terraform
     _tf_files=$(git ls-files --cached --others --exclude-standard -- '*.tofu' '*.terraform.lock.hcl' 2>/dev/null)
@@ -257,15 +290,20 @@ forge_tf_bin() {
 $_tf_files
 EOF
   fi
-  printf '%s' "$_tf_bin"
+  FORGE_PICKED=$_tf_bin
 }
 
 # forge_terraform <args>: the project's Terraform CLI (forge_tf_bin) from PATH.
 forge_terraform() { command "$(forge_tf_bin)" "$@"; }
 
-# forge_kustomize <args>: kustomize from PATH, else `kubectl kustomize`.
-forge_kustomize() {
-  if forge_on_path kustomize; then command kustomize "$@"; else command kubectl kustomize "$@"; fi
+# forge_kustomize <dir>: the kustomization's build, by kustomize from PATH, else `kubectl
+# kustomize` (their adapters' build operation).
+forge_kustomize() { forge_do kustomize build "$@"; }
+
+# forge_kustomize_pick: FORGE_PICKED, kustomize when it is on PATH, else kubectl (the
+# kustomize adapter's pick, §16.2).
+forge_kustomize_pick() {
+  if forge_on_path kustomize; then FORGE_PICKED=kustomize; else FORGE_PICKED=kubectl; fi
 }
 
 # forge_missing_tool: prints the first tool of $c_tools that is absent (in a package
