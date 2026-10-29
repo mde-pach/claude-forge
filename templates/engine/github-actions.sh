@@ -21,11 +21,11 @@ forge_zizmor() {
   while [ "$1" != -- ]; do _fz_audits="$_fz_audits|$1"; shift; done
   shift
   [ "$#" -gt 0 ] || return 0
-  command -v uvx >/dev/null 2>&1 || { printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
+  command -v uvx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: uvx is needed to run zizmor\n' "$c_id"; return 0; }
   forge_do zizmor lint "$@" > "$FORGE_TMP/zizmor" 2> "$FORGE_TMP/zizmor.err"
   _fz_rc=$?
   if [ "$_fz_rc" -ne 0 ] && [ "$_fz_rc" -lt 10 ]; then
-    printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
+    forge_for_agent || printf 'forge:%s skipped: zizmor could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/zizmor.err" | tail -n 1)"
     return 0
   fi
   awk -v audits="${_fz_audits#|}" '
@@ -63,7 +63,7 @@ forge_actionlint() {
   case $_al_rc in
     0) return 0 ;;
     1) cat "$FORGE_TMP/al.out"; return 1 ;;
-    *) printf 'forge:%s skipped: actionlint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/al.out" | tail -n 1)"; return 0 ;;
+    *) forge_for_agent || printf 'forge:%s skipped: actionlint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/al.out" | tail -n 1)"; return 0 ;;
   esac
 }
 

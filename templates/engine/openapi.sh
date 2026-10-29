@@ -15,7 +15,7 @@ FORGE_SPECTRAL_VERSION="@@SPECTRAL_VERSION@@"
 forge_openapi_lint() {
   git ls-files --cached --others --exclude-standard -- '*.yaml' '*.yml' '*.json' 2>/dev/null | grep -vE "$FORGE_OWN_ERE" | forge_filter forge_openapi_spec > "$FORGE_TMP/oal.roots"
   [ -s "$FORGE_TMP/oal.roots" ] || return 0
-  command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run the OpenAPI linter\n' "$c_id"; return 0; }
+  command -v bunx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: bunx is needed to run the OpenAPI linter\n' "$c_id"; return 0; }
   _ol_rc=0; _ol_any=''
   _ol_spectral=''
   for _ol_s in .spectral.yaml .spectral.yml .spectral.json; do [ -f "$_ol_s" ] && _ol_spectral=$_ol_s && break; done
@@ -27,7 +27,7 @@ forge_openapi_lint() {
     _ol_r=$?
     set +f
     if [ "$_ol_r" -gt 1 ] || { [ "$_ol_r" = 1 ] && ! grep -q '^::error ' "$FORGE_TMP/oal.out"; }; then
-      printf 'forge:%s skipped: redocly could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.err" | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: redocly could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.err" | tail -n 1)"
     else
       awk '/^::error / {
           meta = $0; sub(/^::error /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
@@ -47,7 +47,7 @@ forge_openapi_lint() {
     _ol_r=$?
     set +f
     if ! grep -qE '^[^[:space:]]+:[0-9]+:[0-9]+ (error|warning|information|hint) ' "$FORGE_TMP/oal.out" && [ "$_ol_r" != 0 ]; then
-      printf 'forge:%s skipped: spectral could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.out" | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: spectral could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/oal.out" | tail -n 1)"
     else
       awk '$2 == "error" && $1 ~ /:[0-9]+:[0-9]+$/ { r = $3; f = $1; m = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", m); print f ": error " r ": " m; bad = 1 } END { exit bad }' "$FORGE_TMP/oal.out" || _ol_rc=1
     fi

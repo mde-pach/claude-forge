@@ -86,7 +86,7 @@ forge_kube_linter() {
   # 1 is findings ("Error: found <n> lint errors") or a run that could not lint (a bad config,
   # a check this release does not know): the latter is reported skipped, never passed
   if [ "$_kl_r" != 0 ] && ! grep -q 'Error: found [0-9]* lint errors' "$FORGE_TMP/kl.out"; then
-    printf 'forge:%s skipped: kube-linter could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kl.out" | sed 's/\x1b\[[0-9;]*m//g' | tail -n 1)"
+    forge_for_agent || printf 'forge:%s skipped: kube-linter could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kl.out" | sed 's/\x1b\[[0-9;]*m//g' | tail -n 1)"
     return "$_kl_rc"
   fi
   awk -v r1="$(pwd)/" -v r2="$(pwd -P)/" '
@@ -121,7 +121,7 @@ forge_kubeconform() {
   forge_do kubeconform validate "$_kc_cache" "$@" > "$FORGE_TMP/kc.json" 2> "$FORGE_TMP/kc.err"
   # invalid documents exit 1 with their JSON; an exit with no JSON could not validate
   if [ "$?" != 0 ] && ! grep -q '"status"' "$FORGE_TMP/kc.json"; then
-    printf 'forge:%s skipped: %s: kubeconform could not run (%s)\n' "$c_id" "$_kc_label" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kc.err" | tail -n 1)"
+    forge_for_agent || printf 'forge:%s skipped: %s: kubeconform could not run (%s)\n' "$c_id" "$_kc_label" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/kc.err" | tail -n 1)"
     return 0
   fi
   awk -v id="$c_id" -v label="$_kc_label" '

@@ -713,13 +713,23 @@ forge_diag_keys() {
     }' "$FORGE_TMP/added" -
 }
 
+# forge_for_agent: the output goes to Claude: a hook runs check.sh (FORGE_FOR_AGENT=1, Stop),
+# or Claude Code's Bash tool does (CLAUDECODE=1: a commit's pre-commit, a check Claude runs).
+# What a missing tool or an installed tool's version leaves unenforced is then left out: it is
+# the person's to fix (forge apply, forge status), not Claude's (§8.1, §10).
+forge_for_agent() { [ "${FORGE_FOR_AGENT:-}" = 1 ] || [ "${CLAUDECODE:-}" = 1 ]; }
+
+# forge_tool_note <line>: prints a note about a missing or limited tool, unless for Claude.
+forge_tool_note() { forge_for_agent || printf '%s\n' "$1"; }
+
 # forge_run_check <n>: one check under check.sh (forge_run_check_one), then the notes its
-# tool adapters left whatever its outcome (§16.3: what the installed version cannot do).
+# tool adapters left whatever its outcome (§16.3: what the installed version cannot do),
+# unless the output goes to Claude (forge_for_agent).
 forge_run_check() {
   rm -f "$FORGE_TMP/notes"
   forge_run_check_one "$1"
   _rn_rc=$?
-  if [ -s "$FORGE_TMP/notes" ]; then awk '!seen[$0]++' "$FORGE_TMP/notes"; fi
+  if [ -s "$FORGE_TMP/notes" ] && ! forge_for_agent; then awk '!seen[$0]++' "$FORGE_TMP/notes"; fi
   rm -f "$FORGE_TMP/notes"
   return "$_rn_rc"
 }
@@ -739,7 +749,7 @@ forge_run_check_one() {
     [ "$c_when" = 1 ] || [ -n "$FORGE_FILES" ] || return 0
   fi
   if _fc_missing=$(forge_missing_tool); then
-    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_fc_missing"
+    forge_tool_note "forge:$c_id skipped: $_fc_missing not installed"
     return 0
   fi
   if [ "$c_localdb" = 1 ] && ! forge_local_db; then

@@ -153,11 +153,12 @@ describe("SessionStart", () => {
   );
 
   test(
-    "missing tools are reported once, not at every session start",
+    "SessionStart says nothing of missing tools or of what the installed tool versions cannot do: forge apply and forge status do",
     () => {
-      rmSync(join(stateDir(repo), "missing-tools"), { force: true });
-      expect(hook("session-start.sh", { source: "startup" }).stdout).toContain("forge: missing tools");
-      expect(hook("session-start.sh", { source: "compact" }).stdout).not.toContain("missing tools");
+      const out = hook("session-start.sh", { source: "startup" }).stdout;
+      expect(out).not.toContain("missing tools");
+      expect(out).not.toContain("tool versions");
+      expect(out).not.toContain("not enforced");
     },
     T,
   );
@@ -1152,7 +1153,7 @@ describe("Stop", () => {
 
   /** @rule python/pytest/run */
   test(
-    "the block reason puts the failure before the skipped and ok notes, and keeps at most 40 lines",
+    "the block reason puts the failure before the notes, keeps at most 40 lines, and says nothing of missing tools",
     () => {
       // fails only with the turn's change: at the start of the turn the test passed
       stubTool(
@@ -1171,7 +1172,8 @@ describe("Stop", () => {
           "FAILED tests/test_main.py::test_health - assert 500 == 200",
         ]);
         expect(reason).toContain("PytestWarning: noise 0");
-        expect(lines.at(-1)).toBe("forge:python/sqlalchemy/fk-index skipped: python not installed");
+        // a check skipped for a missing tool is the person's to fix: not in the reason (§10.1)
+        expect(reason).not.toContain("not installed");
       } finally {
         rmSync(join(repo, ".venv/bin/pytest"));
         reset();
@@ -1209,7 +1211,7 @@ describe("Stop", () => {
         // checked again: the same failure; the advice given with it the first time is accepted, not repeated (§10.7)
         // (notes come after the failures, sorted: §10.2 step 7)
         const isNote = (l: string) => /^forge:\S+ (skipped:|ok for |accepted:)/.test(l);
-        const lines = first.replace(/forge:python\/pytest\/untested-change failed\n[^\n]*\n/, "").split("\n");
+        const lines = first.replace(/\n?forge:python\/pytest\/untested-change failed\n[^\n]*/, "").split("\n");
         const notes = [...lines.filter(isNote), "forge:python/pytest/untested-change accepted: reported once this turn"].sort();
         expect(JSON.parse(hook("stop.sh", { session_id: "t-13" }).stdout).reason).toBe([...lines.filter((l) => !isNote(l)), ...notes].join("\n"));
         expect(readFileSync(runs, "utf8")).toBe("run\nrun\nrun\nrun\n");
@@ -1490,7 +1492,7 @@ describe("Stop", () => {
 
 /** @pack typescript/bun */
 test(
-  "without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once",
+  "without bun on PATH in a TypeScript repository every hook exits 0, and SessionStart does not report bun (forge status does)",
   () => {
     const ts = applied("nextjs-prisma-app");
     const env = { PATH: "/usr/bin:/bin" };
@@ -1498,8 +1500,7 @@ test(
     const tsEdit = { tool_name: "Edit", tool_input: { file_path: join(ts, "src/sum.ts") } };
     const first = run("session-start.sh", {});
     expect(first.status).toBe(0);
-    expect(first.stdout).toMatch(/missing tools.*\bbun\b/);
-    expect(run("session-start.sh", {}).stdout).not.toContain("missing tools");
+    expect(first.stdout).not.toContain("missing tools");
     expect(run("post-edit.sh", tsEdit).status).toBe(0);
     expect(run("typecheck.sh", tsEdit).status).toBe(0);
     expect(run("guard.sh", { tool_name: "Bash", tool_input: { command: "ls" } }).status).toBe(0);

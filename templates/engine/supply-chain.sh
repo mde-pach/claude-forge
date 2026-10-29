@@ -19,10 +19,10 @@ forge_osv() {
     case $_ov_f in
       *.lockb) printf 'forge:%s skipped: %s is binary; osv-scanner reads bun.lock (bun install --save-text-lockfile)\n' "$c_id" "$_ov_f"; continue ;;
     esac
-    forge_osv_scan "$_ov_f" > "$FORGE_TMP/osv.now" || { printf 'forge:%s skipped: osv-scanner could not scan %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+    forge_osv_scan "$_ov_f" > "$FORGE_TMP/osv.now" || { forge_for_agent || printf 'forge:%s skipped: osv-scanner could not scan %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
     : > "$FORGE_TMP/osv.then"
     if [ -f "$FORGE_TMP/base/$_ov_f" ]; then
-      ( cd "$FORGE_TMP/base" && forge_osv_scan "$_ov_f" ) > "$FORGE_TMP/osv.then" || { printf 'forge:%s skipped: osv-scanner could not scan the base %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
+      ( cd "$FORGE_TMP/base" && forge_osv_scan "$_ov_f" ) > "$FORGE_TMP/osv.then" || { forge_for_agent || printf 'forge:%s skipped: osv-scanner could not scan the base %s (%s)\n' "$c_id" "$_ov_f" "$(cat "$FORGE_TMP/osv.why")"; continue; }
     fi
     awk -F '\t' -v f="$_ov_f" 'FILENAME == ARGV[1] { old[$1 "\t" $2 "\t" $3] = 1; next }
       !(($1 "\t" $2 "\t" $3) in old) { printf "%s:0 %s@%s has a known vulnerability, %s (fixed in %s); use a fixed version\n", f, $1, $2, $3, ($4 == "" ? "no release yet" : $4); bad = 1 }

@@ -94,6 +94,9 @@ if (REAL_UVX && !process.env.FORGE_TEST_UVX_SHIM) {
  * they ask for the engine's (FORGE_EDIT_TYPECHECK_ENGINE=auto).
  */
 process.env.FORGE_EDIT_TYPECHECK_ENGINE ??= "never";
+// check.sh run by the specs is run by a person unless a spec says otherwise: the suite itself may run in
+// Claude Code's Bash tool (CLAUDECODE=1), whose output check.sh leaves the tool notes out of (§10.1)
+delete process.env.CLAUDECODE;
 
 /** The environment of a run in which ty finds nothing (the sample's dependencies are not installed, and the test is not about ty). */
 export const TY_FINDS_NOTHING: Record<string, string> = { FORGE_TEST_TY_STAND_IN: join(process.env.FORGE_TEST_UVX_SHIM ?? "", "ty-finds-nothing") };

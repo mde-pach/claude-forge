@@ -201,14 +201,16 @@ describe("status, explain, diff", () => {
   );
 
   test(
-    "status and the SessionStart hook report the same missing tools (one source: the scripts' forge_missing_tools)",
+    "status and apply report the same missing tools (one source: the scripts' forge_missing_tools); the SessionStart hook does not, they are the person's to fix",
     () => {
       const r = applied("fastapi-app");
       const fromStatus = (JSON.parse(forge(["status", "--json"], r).stdout) as { missing_tools: string[] }).missing_tools;
-      const hook = sh("sh", [".claude/skills/forge-project/scripts/session-start.sh"], { cwd: r, input: JSON.stringify({ session_id: "s", cwd: r }) }).stdout;
-      const line = /forge: missing tools \(checks using them are skipped\): (.*)$/m.exec(hook);
-      stopEngines(r); // SessionStart started the types engine (§15.3)
+      const line = /forge: missing tools \(checks using them are skipped\): (.*)$/m.exec(forge(["apply", "--yes"], r).stdout);
       expect(line ? line[1]!.split(", ") : []).toEqual(fromStatus);
+      const hook = sh("sh", [".claude/skills/forge-project/scripts/session-start.sh"], { cwd: r, input: JSON.stringify({ session_id: "s", cwd: r }) }).stdout;
+      stopEngines(r); // SessionStart started the types engine (§15.3)
+      expect(hook).not.toContain("missing tools");
+      expect(hook).not.toContain("tool versions");
     },
     T,
   );

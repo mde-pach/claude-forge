@@ -10,7 +10,7 @@
 # CODE: message" per violation. Not configured: nothing to check.
 forge_sqlfluff() {
   [ -f .sqlfluff ] || grep -qE '^\[tool\.sqlfluff(\]|\.)' pyproject.toml 2>/dev/null || grep -qE '^\[sqlfluff(\]|:)' setup.cfg tox.ini 2>/dev/null || return 0
-  forge_has_tool sqlfluff || { printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
+  forge_has_tool sqlfluff || { forge_for_agent || printf 'forge:%s skipped: sqlfluff not installed\n' "$c_id"; return 0; }
   for _sf_f in "$@"; do shift; case $_sf_f in *.sql) [ -f "$_sf_f" ] && set -- "$@" "$_sf_f" ;; esac; done
   [ "$#" -gt 0 ] || [ "$mode" = --all ] || return 0
   [ "$#" -gt 0 ] || set -- .
@@ -18,7 +18,7 @@ forge_sqlfluff() {
   forge_do sqlfluff lint "$@" > "$FORGE_TMP/sqlfluff" 2>&1
   _sf_rc=$?
   set +f
-  case $_sf_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
+  case $_sf_rc in 0) return 0 ;; 1) ;; *) forge_for_agent || printf 'forge:%s skipped: sqlfluff could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/sqlfluff" | tail -n 1)"; return 0 ;; esac
   awk '/^::(error|warning|notice) / {
       meta = $0; sub(/^::[a-z]+ /, "", meta); msg = meta; sub(/^[^:]*::/, "", msg); sub(/::.*$/, "", meta)
       f = meta; sub(/^.*file=/, "", f); sub(/,.*$/, "", f); sub(/^\.\//, "", f)
@@ -90,7 +90,7 @@ forge_squawk_blocking() {
 
 # forge_squawk_skipped: reports, as a forge: line of the current check, that Squawk could not run.
 forge_squawk_skipped() {
-  printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
+  forge_for_agent || printf 'forge:%s skipped: squawk could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/squawk" | tail -n 1)"
 }
 
 # forge_squawk_files <sql files>: lints migration SQL files.
@@ -640,7 +640,7 @@ forge_typeorm_pending() {
     *) _tp_bin=typeorm ;;
   esac
   if [ -z "$(tool "$_tp_bin")" ]; then
-    printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
+    forge_for_agent || printf 'forge:%s skipped: %s not installed\n' "$c_id" "$_tp_bin"
     return 0
   fi
   if ! forge_do "$_tp_bin" migrate "$_tp_ds" > "$FORGE_TMP/typeorm.out" 2>&1; then

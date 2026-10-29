@@ -223,11 +223,17 @@ describe("steps", () => {
 
   /** @rule python/pytest/run */
   test(
-    "a check whose tool is not installed prints skipped and does not fail",
+    "a check whose tool is not installed prints skipped and does not fail; for Claude the note is left out",
     () => {
       put(repo, "app/x.py", "X = 1\n");
       const r = check("--changed", { PATH: pathWithout("pytest") });
       expect(r.stdout).toContain("forge:python/pytest/run skipped: pytest not installed");
+      // for Claude (Claude Code's Bash tool, or a hook: FORGE_FOR_AGENT), notes about missing or limited tools are left out (§10.1)
+      for (const env of [{ CLAUDECODE: "1" }, { FORGE_FOR_AGENT: "1" }] as Record<string, string>[]) {
+        const agent = check("--changed", { PATH: pathWithout("pytest"), ...env });
+        expect(agent.stdout).not.toContain("not installed");
+        expect(agent.stdout).not.toContain("not enforced");
+      }
       reset();
     },
     T,

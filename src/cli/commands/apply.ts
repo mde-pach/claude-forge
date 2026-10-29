@@ -9,7 +9,9 @@ import { claudeGate, context } from "../context.js";
 import type { Flags } from "../flags.js";
 import { confirmSettings, deleteFile, err, out, showDiff, writeSettingsFile, writeText } from "../io.js";
 import { notChecked, offerPreCommit, preCommitHint, preCommitState } from "../pre-commit.js";
-import { formatAudit, formatMerged, provisionEngines, sandboxProblem } from "../report.js";
+import { formatAudit, formatMerged, missingTools, provisionEngines, sandboxProblem, toolVersionReport } from "../report.js";
+import { pythonEnvState } from "../../audit.js";
+import { formatPythonEnv } from "./status.js";
 
 export function cmdApply(flags: Flags): number {
   claudeGate();
@@ -60,6 +62,16 @@ export function cmdApply(flags: Flags): number {
     if (pre.activate) out(`forge: pre-commit: ${notChecked(ctx, pre)}`);
     else if (!pre.installed) out(`forge: pre-commit: not installed, so commits are not checked; ${preCommitHint(ctx.base)}`);
     for (const problem of provisionEngines(ctx.plan.types)) out(problem);
+    // what the installed tools and environment leave unenforced: for the person configuring Forge,
+    // here and in forge status, never in the hooks' output to Claude (§8.1)
+    const missing = missingTools(ctx);
+    if (missing.length) out(`forge: missing tools (checks using them are skipped): ${missing.join(", ")}`);
+    const versions = toolVersionReport(ctx);
+    if (versions.length) out(`forge: tool versions (what they cannot do is not enforced):\n${versions.map((v) => `  ${v}`).join("\n")}`);
+    if (ctx.plan.packs.some((pk) => pk.id === "python")) {
+      const env = pythonEnvState(ctx.base);
+      if (!env.chosen || (env.chosen.declared > 0 && env.chosen.installed === 0)) out(`forge: ${formatPythonEnv(env)}`);
+    }
   }
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox);

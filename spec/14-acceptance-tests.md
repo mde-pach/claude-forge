@@ -56,4 +56,4 @@ Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no F
 3. A remote `DATABASE_URL` → migration checks print "skipped: no local database" and never block.
 4. After `/compact`, SessionStart output is present again.
 5. `guard.sh` deleted → PreToolUse blocked.
-6. Bun absent in a TypeScript repo → hooks exit 0; SessionStart reports the missing runtime once.
+6. Bun absent in a TypeScript repo → hooks exit 0; `forge apply` and `forge status` report the missing runtime, SessionStart does not.

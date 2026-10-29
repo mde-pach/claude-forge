@@ -193,7 +193,7 @@ forge_release_bin() {
 # prints "forge:<id> skipped: <why>" for the current check and fails.
 forge_release() {
   if _rl_bin=$(forge_release_bin "$1"); then eval "$2=\$_rl_bin"; return 0; fi
-  printf 'forge:%s skipped: %s\n' "$c_id" "$_rl_bin"
+  forge_tool_note "forge:$c_id skipped: $_rl_bin"
   return 1
 }
 

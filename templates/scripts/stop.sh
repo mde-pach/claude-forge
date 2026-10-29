@@ -81,7 +81,8 @@ FORGE_BUDGET=${FORGE_STOP_BUDGET:-540}
 case $FORGE_BUDGET in ''|*[!0-9]*) FORGE_BUDGET=540 ;; esac
 FORGE_DEADLINE=$(($(date +%s) + FORGE_BUDGET))
 export FORGE_BUDGET FORGE_DEADLINE
-out=$(FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
+# FORGE_FOR_AGENT: the reason goes to Claude, without notes about missing or limited tools
+out=$(FORGE_FOR_AGENT=1 FORGE_UNVERIFIED=$failed.unverified sh .forge/check.sh "$@" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then
   now_tree > "$passed"

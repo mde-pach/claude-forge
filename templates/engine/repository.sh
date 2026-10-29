@@ -40,7 +40,7 @@ forge_gitleaks() {
   printf '{{range .}}{{.File}}:{{.StartLine}} {{.RuleID}}: {{.Description}}\n{{end}}' > "$_gl/report.tmpl"
   # with --exit-code 0 (the adapter's), 0 is a scan whatever it found; 1 a fatal error, 126 an unknown flag
   if ! ( cd "$_gl/scan" && forge_do gitleaks scan -c "$_gl/config.toml" -i "$_gl/ignore" --report-template "$_gl/report.tmpl" --report-path "$_gl/report" . ) > "$_gl/err" 2>&1; then
-    printf 'forge:%s skipped: gitleaks could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$_gl/err" | tail -n 1)"
+    forge_for_agent || printf 'forge:%s skipped: gitleaks could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$_gl/err" | tail -n 1)"
     return 0
   fi
   [ -f "$_gl/report" ] || return 0
@@ -193,7 +193,7 @@ forge_editorconfig() {
   forge_do editorconfig-checker lint "$FORGE_TMP/ec.json" $(cat "$FORGE_TMP/ec.files") > "$FORGE_TMP/ec.out" 2>&1
   _ec_rc=$?
   set +f
-  case $_ec_rc in 0) return 0 ;; 1) ;; *) printf 'forge:%s skipped: editorconfig-checker could not run (%s)\n' "$c_id" "$(tail -n 1 "$FORGE_TMP/ec.out")"; return 0 ;; esac
+  case $_ec_rc in 0) return 0 ;; 1) ;; *) forge_for_agent || printf 'forge:%s skipped: editorconfig-checker could not run (%s)\n' "$c_id" "$(tail -n 1 "$FORGE_TMP/ec.out")"; return 0 ;; esac
   grep -E '^[^[:space:]:]+:[0-9]+:[0-9]+: ' "$FORGE_TMP/ec.out" | sed 's/: error: /: /'
   return 1
 }

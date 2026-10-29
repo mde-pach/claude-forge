@@ -137,7 +137,7 @@ forge_test_edits() {
   [ -s "$FORGE_TMP/tests.files" ] || return 0
   if ! forge_test_blocks "$FORGE_TMP/base" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.then" \
     || ! forge_test_blocks "$FORGE_ROOT" "$FORGE_TMP/tests.files" > "$FORGE_TMP/tests.now"; then
-    printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
+    forge_for_agent || printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"
     return 0
   fi
   _te_ok=$FORGE_ARG/tests-approved
@@ -238,7 +238,7 @@ forge_snapshot_stale() {
   forge_do ast-grep scan "$FORGE_ROOT/.forge/ast-grep/sgconfig.yml" --inline-rules "$FORGE_SNAP_VALUES" --filter '^forge-snap' $(cat "$FORGE_TMP/snap.cand") > "$FORGE_TMP/snap.json"
   _ss_rc=$?
   set +f
-  [ "$_ss_rc" -le 1 ] || { printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"; return 0; }
+  [ "$_ss_rc" -le 1 ] || { forge_for_agent || printf 'forge:%s skipped: ast-grep unavailable\n' "$c_id"; return 0; }
   awk '
     function str(s, key,   i, out, c) {
       i = index(s, "\"" key "\":\""); if (!i) return ""

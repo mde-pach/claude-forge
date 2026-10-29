@@ -44,10 +44,10 @@ forge_lockfile_lint() {
   while IFS= read -r _ll_f; do
     case $_ll_f in package-lock.json|*/package-lock.json) ;; *) continue ;; esac
     [ -f "$_ll_f" ] || continue
-    command -v bunx >/dev/null 2>&1 || { printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
+    command -v bunx >/dev/null 2>&1 || { forge_for_agent || printf 'forge:%s skipped: bunx is needed to run lockfile-lint\n' "$c_id"; return 0; }
     forge_do lockfile-lint lint "$_ll_f" > "$FORGE_TMP/ll.out" 2>&1 && continue
     if ! grep -q '^detected ' "$FORGE_TMP/ll.out"; then
-      printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
+      forge_for_agent || printf 'forge:%s skipped: lockfile-lint could not run (%s)\n' "$c_id" "$(grep -v '^[[:space:]]*$' "$FORGE_TMP/ll.out" | sed 's/\x1b\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -n 1)"
       return 0
     fi
     awk -v f="$_ll_f" '

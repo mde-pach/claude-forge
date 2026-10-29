@@ -30,9 +30,9 @@ The project setup is a Claude Code plugin in `.claude/skills/forge-project/`. It
 
 <Spec file="08-project-hooks" test="hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice and PreToolUse(Edit|Write), PermissionRequest, PostToolUse(Edit|Write|Bash) twice and PostToolUse(Edit|Write), PostToolUseFailure(Bash) twice and Stop, with the specified timeouts" />
 
-A missing runtime never breaks a session; every hook exits cleanly:
+A missing runtime never breaks a session; every hook exits cleanly, and the missing tool is reported to the person (`forge apply`, `forge status`), not to Claude:
 
-<Spec file="08-project-hooks" test="without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once" />
+<Spec file="08-project-hooks" test="without bun on PATH in a TypeScript repository every hook exits 0, and SessionStart does not report bun (forge status does)" />
 
 ## How fast the hooks are
 

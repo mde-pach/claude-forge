@@ -64,7 +64,11 @@ forge_hadolint() {
       fi
     fi
   fi
-  if [ -f "$FORGE_TMP/hadolint.skip" ]; then printf 'forge:%s %s\n' "$c_id" "$(cat "$FORGE_TMP/hadolint.skip")"; return 0; fi
+  if [ -f "$FORGE_TMP/hadolint.skip" ]; then
+    # hadolint missing or unable to run is the person's to fix (forge_for_agent); a Dockerfile it cannot parse is not
+    case $(cat "$FORGE_TMP/hadolint.skip") in *"could not parse"*) ;; *) forge_for_agent && return 0 ;; esac
+    printf 'forge:%s %s\n' "$c_id" "$(cat "$FORGE_TMP/hadolint.skip")"; return 0
+  fi
   _fh_codes=' '
   for _fh_c in "$@"; do _fh_codes="$_fh_codes$_fh_c "; done
   awk -v codes="$_fh_codes" '
