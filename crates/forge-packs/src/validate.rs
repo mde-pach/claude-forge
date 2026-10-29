@@ -209,6 +209,14 @@ fn check_fields(rule: &Rule) -> Result<(), String> {
             Target::Guard(g) if g.command.is_none() && g.check.is_none() => {
                 return Err("invalid rule: a guard target needs command or check".into());
             }
+            Target::Guard(g) if g.check.is_some_and(|c| c.decision() != g.decision) => {
+                let c = g.check.expect("checked above");
+                return Err(format!(
+                    "invalid rule: the {c} check's decision is {}, not {}",
+                    c.decision(),
+                    g.decision
+                ));
+            }
             Target::AstGrep(a) if a.where_.is_some() || a.needs.is_some() => {
                 if a.where_.is_none() {
                     return Err("invalid rule: needs requires where".into());

@@ -60,6 +60,19 @@ vocabulary!(
         PythonPm = "python-pm",
     }
 );
+
+impl GuardCheck {
+    /// The decision a guard target with this check takes, from what the check finds: a package
+    /// added or fetched to run may be the task's (the person, or a reviewer, decides: `ask`); pip
+    /// in a uv or unpackaged project always has the right command to use instead (`deny`, which
+    /// names it).
+    pub fn decision(self) -> Decision {
+        match self {
+            GuardCheck::EphemeralExec | GuardCheck::PackageAdd => Decision::Ask,
+            GuardCheck::PythonPm => Decision::Deny,
+        }
+    }
+}
 vocabulary!(
     /// Tools a `tool` target audits (§11).
     AuditedTool { Biome = "biome", Ruff = "ruff", Ty = "ty", Tsc = "tsc", Eslint = "eslint" }
