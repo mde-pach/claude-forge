@@ -1,0 +1,35 @@
+# TypeORM's CLI, the project's own (§16). What Forge asks of it (forge_typeorm_pending,
+# templates/engine/sql.sh; typescript/typeorm/migration-present): `migration:run -d <data
+# source>` then `migration:generate -d <data source> --check <path>` on the local database,
+# through `typeorm` (a JavaScript data source), `typeorm-ts-node-esm` or
+# `typeorm-ts-node-commonjs` (a TypeScript one).
+#
+# - 0.3.0 reworked every command around a DataSource file (CHANGELOG.md, 0.3.0, Breaking
+#   changes: "all CLI commands do not support `ormconfig` anymore. You must specify a file with
+#   data source instance instead"; "all commands were re-worked"). 0.2.x has no `-d` (verified
+#   0.2.45: `Unknown argument: d`, `migration:generate` `Missing required argument: n`), so
+#   0.3.0 is the oldest covered release. `--check` itself is older (CHANGELOG.md 0.2.32: "add
+#   check and dry-run to migration generate", #7275).
+# - 0.3.2 added the `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` binaries (package.json
+#   `bin` of 0.3.1 vs 0.3.2 on npm; CHANGELOG.md 0.3.5 fixes their shebang, #8821): those two
+#   adapters start there.
+# - `--version` prints `unknown` from 1.0.0 (verified 1.0.0, 1.1.2; 0.3.0 and 0.3.28 print the
+#   version). `typeorm version` prints `Local installed version: <v>` on every covered
+#   release (verified 0.2.45-1.1.2): versionArgs `version`.
+# - `migration:generate --check`: exit 1 `Unexpected changes in database schema were found in
+#   check mode:` and the would-be migration, exit 0 `No changes in database schema were found`
+#   (0.3.0, 0.3.28, 1.0.0, 1.1.2); it writes no file. The caller's arguments are the data
+#   source and the path: `-d <ds> <path> --check` parses on every covered release.
+# - Usage errors are yargs' (strict): exit 1 (as a schema change) and, after the help,
+#   `Unknown arguments: ...` (or `Unknown argument: d`, `Missing required argument: n` on 0.2).
+
+tool: "typeorm"
+verified: "1.1.2"
+version_args: "version"
+usage: {exit: [1], pattern: "^(Unknown arguments?|Missing required arguments?): "}
+ranges:
+  - from: "0.3.0"
+    source: "CHANGELOG.md 0.3.0: CLI commands take a data source file (-d); 0.2.32 (#7275): migration:generate --check"
+    ops:
+      "migrate": "migration:run -d {args}"
+      "migrations-check": "migration:generate -d {args} --check"

@@ -1,0 +1,16 @@
+# Redocly CLI, Forge's own pinned OpenAPI linter (§16.2 pinned tools): one range, the pin
+# (REDOCLY_VERSION), proven on @redocly/cli 2.62.1 through bunx. Forge's invocation (openapi.sh
+# forge_openapi_lint): `lint --format=github-actions <roots>`. Exit: 0 no error (warnings print),
+# 1 errors (`::error ` lines on stdout) and also a document it cannot parse or find and a usage
+# error (yargs), 2 a redocly.yaml it cannot load.
+
+tool: "redocly"
+pinned: "2.62.1"
+verified: "2.62.1"
+runner: pinned
+usage: {exit: [1], pattern: "^(Unknown arguments?|Invalid values?):"}
+ranges:
+  - from: "2.62.1"
+    source: "@redocly/cli 2.62.1: https://github.com/Redocly/redocly-cli/releases/tag/%40redocly%2Fcli%402.62.1; redocly lint --help"
+    ops:
+      "lint": "lint --format=github-actions"

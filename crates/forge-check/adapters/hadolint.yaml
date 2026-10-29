@@ -1,0 +1,17 @@
+# hadolint, Forge's own pinned Dockerfile linter (§16.2 pinned tools): one range, the pin
+# (HADOLINT_VERSION), proven on 2.15.1 (the hadolint-bin wheel through uvx; its binary's sha256
+# is the upstream release's, HADOLINT_SHA256). Forge's invocation (docker.sh forge_hadolint):
+# `-c <yaml> --disable-ignore-pragma --no-fail --no-color -f tty <files>`. With --no-fail the
+# exit is 0 whatever it finds; 1 is a usage error or an unreadable file; a config it cannot
+# parse is printed and ignored (exit 0).
+
+tool: "hadolint"
+pinned: "2.15.1"
+verified: "2.15.1"
+runner: pinned
+usage: {exit: [1], pattern: "^(Invalid (option|argument) |option -.*: cannot parse value )"}
+ranges:
+  - from: "2.15.1"
+    source: "hadolint 2.15.1: https://github.com/hadolint/hadolint/releases/tag/v2.15.1; hadolint --help"
+    ops:
+      "lint": "--disable-ignore-pragma --no-fail --no-color -f tty -c"
