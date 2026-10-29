@@ -21,8 +21,8 @@ use forge_core::builtin::{Builtin, BuiltinCtx};
 use serde_json::Value;
 
 use crate::pyast::{
-    self, N, Root, args, assign, bases, body, decorators, dotted, ident, is_class, is_def,
-    name_of, string, strings,
+    self, N, Root, args, assign, bases, body, decorators, dotted, ident, is_class, is_def, name_of,
+    string, strings,
 };
 use crate::util::{Change, Lang, at, regex_static, strip_script};
 
@@ -47,7 +47,8 @@ impl Builtin for PublicApi {
     }
 }
 
-const MAJOR: &str = "if the removal is intended for a major version, ask the user to accept this change";
+const MAJOR: &str =
+    "if the removal is intended for a major version, ask the user to accept this change";
 
 // ---------------------------------------------------------------- Python
 
@@ -67,7 +68,10 @@ fn dunder_all(tree: &N) -> Option<BTreeSet<String>> {
     let mut seen = false;
     for st in body(tree) {
         if let Some(a) = assign(&st) {
-            if a.targets.iter().any(|t| ident(t).as_deref() == Some("__all__")) {
+            if a.targets
+                .iter()
+                .any(|t| ident(t).as_deref() == Some("__all__"))
+            {
                 let vals = strings(a.value.as_ref()?)?;
                 if !a.aug {
                     names.clear();
@@ -111,7 +115,10 @@ impl Index {
             categories: CATEGORIES.iter().map(|s| (*s).to_owned()).collect(),
             warners: HashSet::new(),
         };
-        let all: Vec<N> = trees.iter().flat_map(|t| t.root().dfs().collect::<Vec<_>>()).collect();
+        let all: Vec<N> = trees
+            .iter()
+            .flat_map(|t| t.root().dfs().collect::<Vec<_>>())
+            .collect();
         let classes: Vec<&N> = all.iter().filter(|n| is_class(n)).collect();
         let defs: Vec<&N> = all.iter().filter(|n| is_def(n)).collect();
         loop {
@@ -156,7 +163,8 @@ impl Index {
             for p in params.children() {
                 if matches!(&*p.kind(), "default_parameter" | "typed_default_parameter")
                     && p.field("name").map(|n| n.text().into_owned()).as_deref() == Some(&id)
-                    && p.field("value").is_some_and(|d| self.categories.contains(&last_of(&d)))
+                    && p.field("value")
+                        .is_some_and(|d| self.categories.contains(&last_of(&d)))
                 {
                     return true;
                 }
@@ -174,11 +182,15 @@ impl Index {
         let name = target.and_then(|t| dotted(&t)).unwrap_or_default();
         if matches!(
             name.as_str(),
-            "deprecated" | "typing_extensions.deprecated" | "warnings.deprecated" | "deprecation.deprecated"
+            "deprecated"
+                | "typing_extensions.deprecated"
+                | "warnings.deprecated"
+                | "deprecation.deprecated"
         ) {
             return true;
         }
-        self.warners.contains(name.rsplit('.').next().unwrap_or_default())
+        self.warners
+            .contains(name.rsplit('.').next().unwrap_or_default())
     }
 
     fn warn_call(&self, node: &N, func: Option<&N>) -> bool {
@@ -204,13 +216,18 @@ impl Index {
             if cat.is_none()
                 && let Some(msg) = a.pos.first()
                 && msg.kind() == "call"
-                && msg.field("function").is_some_and(|mf| self.category(&mf, func))
+                && msg
+                    .field("function")
+                    .is_some_and(|mf| self.category(&mf, func))
             {
                 return true;
             }
             return cat.is_some_and(|c| self.category(&c, func));
         }
-        if self.warners.contains(name.rsplit('.').next().unwrap_or_default()) {
+        if self
+            .warners
+            .contains(name.rsplit('.').next().unwrap_or_default())
+        {
             return true;
         }
         // deprecated("...")(target): an alias wrapped by the decorator
@@ -221,7 +238,9 @@ impl Index {
     fn warns(&self, node: &N) -> bool {
         let func = is_def(node).then_some(node);
         if (is_def(node) || is_class(node))
-            && decorators(node).iter().any(|d| self.is_deprecated_decorator(d))
+            && decorators(node)
+                .iter()
+                .any(|d| self.is_deprecated_decorator(d))
         {
             return true;
         }
@@ -240,7 +259,9 @@ impl Index {
             let inner = if is_def(&sub) { Some(&sub) } else { func };
             if (is_def(&sub) || is_class(&sub))
                 && sub.node_id() != start
-                && decorators(&sub).iter().any(|d| self.is_deprecated_decorator(d))
+                && decorators(&sub)
+                    .iter()
+                    .any(|d| self.is_deprecated_decorator(d))
             {
                 return true;
             }
@@ -322,7 +343,9 @@ fn python(ch: &Change, rule: &str, r: &mut Report) {
             }
             continue;
         };
-        let Some(tree) = pyast::parse(&text) else { continue };
+        let Some(tree) = pyast::parse(&text) else {
+            continue;
+        };
         let Some(now_all) = dunder_all(&tree.root()) else {
             continue;
         };
@@ -373,7 +396,13 @@ fn normalize(p: &str) -> String {
         }
     }
     let s = out.join("/");
-    if abs { format!("/{s}") } else if s.is_empty() { ".".into() } else { s }
+    if abs {
+        format!("/{s}")
+    } else if s.is_empty() {
+        ".".into()
+    } else {
+        s
+    }
 }
 
 struct Js<'a> {
@@ -484,7 +513,10 @@ impl Js<'_> {
         if !spec.starts_with('.') {
             return None;
         }
-        let dir = Path::new(from).parent().and_then(|d| d.to_str()).unwrap_or("");
+        let dir = Path::new(from)
+            .parent()
+            .and_then(|d| d.to_str())
+            .unwrap_or("");
         let joined = if dir.is_empty() {
             spec.to_owned()
         } else {
@@ -493,11 +525,14 @@ impl Js<'_> {
         let base = regex_static(r"\.[cm]?jsx?$")
             .replace(&normalize(&joined), "")
             .into_owned();
-        let cands = SOURCE
-            .iter()
-            .map(|e| format!("{base}{e}"))
-            .chain(SOURCE.iter().map(|e| normalize(&format!("{base}/index{e}"))));
-        cands.into_iter().find(|c| self.exists(c) || self.ch.is_changed(c))
+        let cands = SOURCE.iter().map(|e| format!("{base}{e}")).chain(
+            SOURCE
+                .iter()
+                .map(|e| normalize(&format!("{base}/index{e}"))),
+        );
+        cands
+            .into_iter()
+            .find(|c| self.exists(c) || self.ch.is_changed(c))
     }
 
     /// The exports of a module (`export *` followed through relative modules).
@@ -591,7 +626,8 @@ impl Js<'_> {
                 }
             }
         }
-        for m in regex_static(r"\bexport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from").captures_iter(&text)
+        for m in
+            regex_static(r"\bexport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from").captures_iter(&text)
         {
             let name = m[1].to_owned();
             if !has(&out, &name) {
@@ -649,12 +685,20 @@ fn line_at(text: &str, index: usize) -> usize {
 fn strip_comments(t: &str) -> String {
     let blank = |m: &str| -> String {
         m.chars()
-            .map(|c| if c == '\n' { "\n".to_owned() } else { " ".repeat(c.len_utf8()) })
+            .map(|c| {
+                if c == '\n' {
+                    "\n".to_owned()
+                } else {
+                    " ".repeat(c.len_utf8())
+                }
+            })
             .collect()
     };
     let s = regex_static(r"(?s)/\*.*?\*/").replace_all(t, |c: &regex::Captures| blank(&c[0]));
     regex_static(r#"(^|[^:"'`\\])(//[^\n]*)"#)
-        .replace_all(&s, |c: &regex::Captures| format!("{}{}", &c[1], blank(&c[2])))
+        .replace_all(&s, |c: &regex::Captures| {
+            format!("{}{}", &c[1], blank(&c[2]))
+        })
         .into_owned()
 }
 
@@ -708,7 +752,8 @@ mod tests {
 
     #[test]
     fn all_of_a_module() {
-        let t = pyast::parse("__all__ = ['a', 'b']\n__all__ += ['c']\n__all__.append('d')\n").unwrap();
+        let t =
+            pyast::parse("__all__ = ['a', 'b']\n__all__ += ['c']\n__all__.append('d')\n").unwrap();
         let a = dunder_all(&t.root()).unwrap();
         assert_eq!(a.into_iter().collect::<Vec<_>>(), ["a", "b", "c", "d"]);
         let t = pyast::parse("__all__ = [x for x in y]\n").unwrap();
@@ -729,7 +774,10 @@ mod tests {
 
     #[test]
     fn comments_blanked() {
-        assert_eq!(strip_comments("a /* x\ny */ b // c\n"), "a     \n     b     \n");
+        assert_eq!(
+            strip_comments("a /* x\ny */ b // c\n"),
+            "a     \n     b     \n"
+        );
         assert_eq!(normalize("./dist/../src/index.js"), "src/index.js");
     }
 }

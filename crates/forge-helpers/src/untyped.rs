@@ -89,7 +89,9 @@ fn ships_typing(d: &Path) -> bool {
     }
     let mut todo = vec![d.to_path_buf()];
     while let Some(dir) = todo.pop() {
-        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             let path = e.path();
@@ -119,14 +121,24 @@ fn stubbed(dotted: &str, sites: &[PathBuf]) -> bool {
     })
 }
 
-fn units(site: &Path, prefix: &str, depth: usize, sites: &[PathBuf], out: &mut Vec<(String, bool)>) {
-    let Ok(rd) = std::fs::read_dir(site) else { return };
+fn units(
+    site: &Path,
+    prefix: &str,
+    depth: usize,
+    sites: &[PathBuf],
+    out: &mut Vec<(String, bool)>,
+) {
+    let Ok(rd) = std::fs::read_dir(site) else {
+        return;
+    };
     let mut entries: Vec<String> = rd
         .flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
     entries.sort();
-    let ext = regex_static(r"^([A-Za-z_][A-Za-z0-9_]*)\..*\.(so|pyd)$|^([A-Za-z_][A-Za-z0-9_]*)\.(so|pyd)$");
+    let ext = regex_static(
+        r"^([A-Za-z_][A-Za-z0-9_]*)\..*\.(so|pyd)$|^([A-Za-z_][A-Za-z0-9_]*)\.(so|pyd)$",
+    );
     for entry in entries {
         let path = site.join(&entry);
         if entry.starts_with("__") || SKIP_SUFFIXES.iter().any(|s| entry.ends_with(s)) {
@@ -171,11 +183,15 @@ fn ty_config(root: &Path) -> (Value, Value) {
         let Ok(text) = std::fs::read_to_string(root.join(f)) else {
             continue;
         };
-        let Ok(data) = parse_toml(&text) else { continue };
+        let Ok(data) = parse_toml(&text) else {
+            continue;
+        };
         if !in_tool {
             return (data, empty());
         }
-        let project = get(obj(Some(&data)), "project").cloned().unwrap_or_else(empty);
+        let project = get(obj(Some(&data)), "project")
+            .cloned()
+            .unwrap_or_else(empty);
         let tool = obj(get(obj(Some(&data)), "tool"));
         return (tool.get("ty").cloned().unwrap_or_else(empty), project);
     }
@@ -185,13 +201,14 @@ fn ty_config(root: &Path) -> (Value, Value) {
 /// ty's first-party search roots: environment.root, else its layout detection's candidates.
 fn roots(root: &Path, config: &Value) -> Vec<PathBuf> {
     let c = obj(Some(config));
-    let configured = get(obj(get(c, "environment")), "root")
-        .or_else(|| get(obj(get(c, "src")), "root"));
+    let configured =
+        get(obj(get(c, "environment")), "root").or_else(|| get(obj(get(c, "src")), "root"));
     let names: Vec<String> = match configured {
         Some(Value::String(s)) => vec![s.clone()],
-        Some(Value::Array(a)) if !a.is_empty() => {
-            a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect()
-        }
+        Some(Value::Array(a)) if !a.is_empty() => a
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_owned))
+            .collect(),
         _ => [".", "src", "python", "tests"].map(str::to_owned).to_vec(),
     };
     names.iter().map(|n| normpath(&root.join(n))).collect()
@@ -229,8 +246,12 @@ fn resolved_without_environment(
         crate::util::now_secs() as u64
     ));
     let env = tmp.join("env");
-    std::fs::create_dir_all(env.join("lib").join(format!("python{py_version}")).join("site-packages"))
-        .map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(
+        env.join("lib")
+            .join(format!("python{py_version}"))
+            .join("site-packages"),
+    )
+    .map_err(|e| e.to_string())?;
     let probe = tmp.join("probe.py");
     let mut src = String::from("# probe\n");
     for (i, n) in names.iter().enumerate() {

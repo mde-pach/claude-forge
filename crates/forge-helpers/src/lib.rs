@@ -66,18 +66,63 @@ impl Default for Options {
     }
 }
 
-/// Every helper builtin.
+/// Every helper builtin. Each drops the findings the user accepted (see [`accepts`]).
 pub fn builtins(opts: &Options) -> Vec<Box<dyn Builtin + Send>> {
     vec![
-        Box::new(ratchet::Ratchet),
-        Box::new(new_deps::NewDeps::new(opts.clone())),
-        Box::new(public_api::PublicApi),
-        Box::new(drf::DrfPermissions),
-        Box::new(fk_index::FkIndex),
-        Box::new(pytest_fw::PytestFilterwarnings),
-        Box::new(node_version::NodeVersion),
-        Box::new(pm_policy::PmPolicy),
+        Box::new(Accepting(ratchet::Ratchet)),
+        Box::new(Accepting(new_deps::NewDeps::new(opts.clone()))),
+        Box::new(Accepting(public_api::PublicApi)),
+        Box::new(Accepting(drf::DrfPermissions)),
+        Box::new(Accepting(fk_index::FkIndex)),
+        Box::new(Accepting(pytest_fw::PytestFilterwarnings)),
+        Box::new(Accepting(node_version::NodeVersion)),
+        Box::new(Accepting(pm_policy::PmPolicy)),
     ]
+}
+
+/// A builtin whose accepted findings are dropped, with the forms accept entries were written in
+/// before (see [`accepts`]).
+pub struct Accepting<B>(pub B);
+
+impl<B: Builtin> Builtin for Accepting<B> {
+    fn name(&self) -> &'static str {
+        self.0.name()
+    }
+
+    fn run(&self, ctx: &BuiltinCtx, args: &[String]) -> Report {
+        let mut r = self.0.run(ctx, args);
+        r.findings
+            .retain(|f| is_hint(f) || !accepts(&ctx.accepted, &f.agent_text()));
+        // the hint is for accepting something that is still reported
+        if r.findings.iter().all(is_hint) {
+            r.findings.clear();
+        }
+        r
+    }
+}
+
+/// A line that says what to do about the findings above it, not a finding of its own.
+fn is_hint(f: &forge_core::Finding) -> bool {
+    f.path.is_none() && (f.message == ACCEPT_HINT || f.message == drf::HINT)
+}
+
+/// Whether an accepted change covers a finding's text. An accept entry holds the finding as it
+/// was reported, and may hold it in an older form: `path:0 message` for a finding about a file
+/// as a whole, the acceptance sentence of the earlier helpers; it was matched as a part of the
+/// entry, which stays true.
+pub fn accepts(accepted: &[String], text: &str) -> bool {
+    accepted.iter().any(|a| {
+        a == text || a.contains(text) || {
+            let n = regex::Regex::new(r"^(\S+):0 ")
+                .map(|re| re.replace(a, "$1 ").into_owned())
+                .unwrap_or_else(|_| a.clone())
+                .replace(
+                    "; a removal intended for a major version is accepted in forge.yaml (accept)",
+                    "; if the removal is intended for a major version, ask the user to accept this change",
+                );
+            n == text
+        }
+    })
 }
 
 /// The builtin a pack's helper file stands for (`ratchet.py` → `ratchet`).

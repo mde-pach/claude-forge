@@ -109,11 +109,16 @@ struct Table {
 }
 
 fn kw_true(call: &N, name: &str) -> bool {
-    args(call).kw.iter().any(|(k, v)| k == name && v.kind() == "true")
+    args(call)
+        .kw
+        .iter()
+        .any(|(k, v)| k == name && v.kind() == "true")
 }
 
 fn func_last(call: &N) -> String {
-    call.field("function").map(|f| last_name(&f)).unwrap_or_default()
+    call.field("function")
+        .map(|f| last_name(&f))
+        .unwrap_or_default()
 }
 
 fn has_fk(call: &N) -> bool {
@@ -148,16 +153,25 @@ impl Table {
         let kind = func_last(call);
         let a = args(call).pos;
         if kind == "ForeignKeyConstraint" {
-            if let Some(first) = a.first().and_then(elements).and_then(|e| e.into_iter().next())
+            if let Some(first) = a
+                .first()
+                .and_then(elements)
+                .and_then(|e| e.into_iter().next())
                 && let Some(name) = col_ref(&first)
             {
                 self.fks.insert_new(name, pyast::line(call));
             }
             return;
         }
-        let rest = if kind == "Index" { a.get(1..).unwrap_or_default() } else { &a[..] };
-        if matches!(&*kind, "Index" | "UniqueConstraint" | "PrimaryKeyConstraint")
-            && let Some(name) = rest.first().and_then(col_ref)
+        let rest = if kind == "Index" {
+            a.get(1..).unwrap_or_default()
+        } else {
+            &a[..]
+        };
+        if matches!(
+            &*kind,
+            "Index" | "UniqueConstraint" | "PrimaryKeyConstraint"
+        ) && let Some(name) = rest.first().and_then(col_ref)
         {
             self.leading.insert(name);
         }

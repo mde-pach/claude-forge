@@ -215,7 +215,13 @@ pub fn js_str(v: &Value) -> String {
         Value::String(s) => s.clone(),
         Value::Array(a) => a
             .iter()
-            .map(|x| if x.is_null() { String::new() } else { js_str(x) })
+            .map(|x| {
+                if x.is_null() {
+                    String::new()
+                } else {
+                    js_str(x)
+                }
+            })
             .collect::<Vec<_>>()
             .join(","),
         Value::Object(_) => "[object Object]".into(),
@@ -464,7 +470,9 @@ pub fn esc(s: &str) -> String {
 
 /// The first line (from 1) of `text` matching `re`, else 0.
 pub fn line_of(text: &str, re: &regex::Regex) -> usize {
-    text.split('\n').position(|l| re.is_match(l)).map_or(0, |i| i + 1)
+    text.split('\n')
+        .position(|l| re.is_match(l))
+        .map_or(0, |i| i + 1)
 }
 
 pub fn first_line(s: &str) -> &str {
@@ -478,7 +486,10 @@ pub fn parse_iso8601(s: &str) -> Option<f64> {
         r"^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?\s*(Z|[+-]\d{2}:?\d{2})?$",
     );
     let c = re.captures(s.trim())?;
-    let n = |i: usize| c.get(i).map_or(0, |m| m.as_str().parse::<i64>().unwrap_or(0));
+    let n = |i: usize| {
+        c.get(i)
+            .map_or(0, |m| m.as_str().parse::<i64>().unwrap_or(0))
+    };
     let days = days_from_civil(n(1), n(2), n(3));
     let mut secs = days * 86400 + n(4) * 3600 + n(5) * 60 + n(6);
     if let Some(off) = c.get(8).map(|m| m.as_str()).filter(|o| *o != "Z") {

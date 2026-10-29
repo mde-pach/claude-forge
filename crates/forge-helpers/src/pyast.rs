@@ -86,7 +86,9 @@ pub fn is_async(n: &N) -> bool {
 }
 
 pub fn name_of(n: &N) -> String {
-    n.field("name").map(|x| x.text().into_owned()).unwrap_or_default()
+    n.field("name")
+        .map(|x| x.text().into_owned())
+        .unwrap_or_default()
 }
 
 /// The decorator expressions of a definition.
@@ -173,7 +175,10 @@ pub fn last_name(n: &N) -> String {
             .map(|a| a.text().into_owned())
             .unwrap_or_default(),
         "subscript" => n.field("value").map(|v| last_name(&v)).unwrap_or_default(),
-        "call" => n.field("function").map(|v| last_name(&v)).unwrap_or_default(),
+        "call" => n
+            .field("function")
+            .map(|v| last_name(&v))
+            .unwrap_or_default(),
         _ => String::new(),
     }
 }
@@ -303,7 +308,9 @@ pub fn elements<'r>(n: &N<'r>) -> Option<Vec<N<'r>>> {
                 .collect(),
         ),
         "parenthesized_expression" => {
-            let mut named = n.children().filter(|c| c.is_named() && c.kind() != "comment");
+            let mut named = n
+                .children()
+                .filter(|c| c.is_named() && c.kind() != "comment");
             match (named.next(), named.next()) {
                 (Some(only), None) => elements(&only),
                 _ => None,
@@ -329,7 +336,8 @@ mod tests {
 
     #[test]
     fn reads_python() {
-        let root = parse("import x\n@dec\ndef f(a=1):\n    pass\n__all__ = ['a', \"b\"]\n").unwrap();
+        let root =
+            parse("import x\n@dec\ndef f(a=1):\n    pass\n__all__ = ['a', \"b\"]\n").unwrap();
         let top = root.root();
         let b = body(&top);
         assert_eq!(b.len(), 3);

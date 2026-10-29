@@ -11,8 +11,8 @@ use serde_json::{Map, Value};
 
 use crate::ACCEPT_HINT;
 use crate::util::{
-    Change, EMPTY, Lang, line, strip_script, first_line, get, js_json, js_str, list, obj, parse_jsonc, parse_toml, py_eq,
-    py_in, py_number, py_str, regex_static,
+    Change, EMPTY, Lang, first_line, get, js_json, js_str, line, list, obj, parse_jsonc,
+    parse_toml, py_eq, py_in, py_number, py_str, regex_static, strip_script,
 };
 
 pub const PYTHON_FILES: &[&str] = &[
@@ -71,7 +71,7 @@ impl Builtin for Ratchet {
                 continue;
             };
             for l in loosened(p, &before, &after, lang) {
-                if !ctx.accepted.contains(&l) {
+                if !crate::accepts(&ctx.accepted, &l) {
                     report.findings.push(line(&ctx.rule, l));
                 }
             }
@@ -158,7 +158,10 @@ fn show(v: Option<&Value>) -> String {
         Some(Value::Bool(b)) => b.to_string(),
         Some(Value::Array(a)) => format!(
             "[{}]",
-            a.iter().map(|x| show(Some(x))).collect::<Vec<_>>().join(", ")
+            a.iter()
+                .map(|x| show(Some(x)))
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
         Some(x) => py_str(x).replace('"', "").replace('\\', "/"),
     }
@@ -373,7 +376,10 @@ fn truthy(v: Option<&Value>) -> bool {
     match v {
         Some(Value::Bool(true)) => true,
         Some(Value::String(s)) => {
-            matches!(s.trim().to_lowercase().as_str(), "true" | "yes" | "on" | "1")
+            matches!(
+                s.trim().to_lowercase().as_str(),
+                "true" | "yes" | "on" | "1"
+            )
         }
         _ => false,
     }
@@ -594,7 +600,9 @@ fn biome(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
                 Some(now) if lgb > level_of(now).unwrap_or(-1) => {
                     o.out(format!("linter.rules.{group} {gb} -> {now}"));
                 }
-                None if lgb > 0 && !matches!(ga, Some(Value::Object(_) | Value::Array(_) | Value::Null)) => {
+                None if lgb > 0
+                    && !matches!(ga, Some(Value::Object(_) | Value::Array(_) | Value::Null)) =>
+                {
                     o.out(format!("linter.rules.{group} {gb} -> unset"));
                 }
                 _ => {}
@@ -653,9 +661,7 @@ fn biome(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
             }
         }
     }
-    let ov = |m: &Map<String, Value>| {
-        js_json(m.get("overrides").unwrap_or(&Value::Array(vec![])))
-    };
+    let ov = |m: &Map<String, Value>| js_json(m.get("overrides").unwrap_or(&Value::Array(vec![])));
     if ov(b) != ov(a) {
         let before: Vec<String> = list(b.get("overrides")).into_iter().map(js_json).collect();
         for o_ in list(a.get("overrides")) {
@@ -667,7 +673,13 @@ fn biome(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
                 };
                 let joined = globs
                     .iter()
-                    .map(|g| if g.is_null() { String::new() } else { js_str(g) })
+                    .map(|g| {
+                        if g.is_null() {
+                            String::new()
+                        } else {
+                            js_str(g)
+                        }
+                    })
                     .collect::<Vec<_>>()
                     .join(" ");
                 o.out(format!(
@@ -765,7 +777,10 @@ fn scripts(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
     static LOOSE_RE: std::sync::LazyLock<Vec<regex::Regex>> = std::sync::LazyLock::new(|| {
         LOOSE
             .iter()
-            .map(|p| regex::Regex::new(&format!("(?-u:{p})")).unwrap_or_else(|_| regex::Regex::new(p).expect("regex")))
+            .map(|p| {
+                regex::Regex::new(&format!("(?-u:{p})"))
+                    .unwrap_or_else(|_| regex::Regex::new(p).expect("regex"))
+            })
             .collect()
     });
     for (name, cmd) in sb {

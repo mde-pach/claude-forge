@@ -63,7 +63,9 @@ impl Builtin for NewDeps {
             r.notes.push(
                 Note::new(
                     NoteKind::Environment,
-                    format!("new dependencies were not looked up: the registry did not answer ({why})"),
+                    format!(
+                        "new dependencies were not looked up: the registry did not answer ({why})"
+                    ),
                 )
                 .for_rule(&ctx.rule),
             );
@@ -99,7 +101,12 @@ struct Cached<T> {
 impl Registry {
     fn new(o: &Options) -> Self {
         let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(o.timeout))
+            // a registry that does not answer is given up quickly; a large document (a package
+            // with thousands of versions) may take longer to arrive while data keeps coming
+            .timeout_connect(Some(o.timeout))
+            .timeout_recv_response(Some(o.timeout))
+            .timeout_per_read(Some(o.timeout))
+            .timeout_global(Some(o.timeout * 12))
             .http_status_as_error(false)
             .build()
             .into();
@@ -115,9 +122,20 @@ impl Registry {
     fn cache_file(&self, url: &str) -> Option<PathBuf> {
         let name: String = url
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '.' || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
-        Some(self.cache.as_ref()?.join("registry").join(format!("{name}.json")))
+        Some(
+            self.cache
+                .as_ref()?
+                .join("registry")
+                .join(format!("{name}.json")),
+        )
     }
 
     /// GETs `url` and digests its JSON with `f`; the digest is cached.
@@ -170,7 +188,10 @@ impl Registry {
             }
         };
         if let Some(file) = file {
-            let c = Cached { at: now_secs(), doc };
+            let c = Cached {
+                at: now_secs(),
+                doc,
+            };
             if let Some(dir) = file.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }
@@ -203,7 +224,9 @@ fn pypi_facts(doc: Value) -> PypiFacts {
         for f in list(Some(rel)) {
             files += 1;
             let f = obj(Some(f));
-            if f.get("yanked").is_some_and(|y| y.as_bool().unwrap_or(false) || y.as_str().is_some_and(|s| !s.is_empty())) {
+            if f.get("yanked").is_some_and(|y| {
+                y.as_bool().unwrap_or(false) || y.as_str().is_some_and(|s| !s.is_empty())
+            }) {
                 yanked += 1;
             }
             let up = get(f, "upload_time_iso_8601")
@@ -227,7 +250,10 @@ pub fn norm(n: &str) -> String {
 }
 
 fn poetry_tables(poetry: &Map<String, Value>) -> Vec<&Map<String, Value>> {
-    let mut t = vec![obj(get(poetry, "dependencies")), obj(get(poetry, "dev-dependencies"))];
+    let mut t = vec![
+        obj(get(poetry, "dependencies")),
+        obj(get(poetry, "dev-dependencies")),
+    ];
     for g in obj(get(poetry, "group")).values() {
         if let Value::Object(g) = g {
             t.push(obj(get(g, "dependencies")));
@@ -361,7 +387,10 @@ fn pypi(
                 regex::escape(&name)
             ))
             .expect("regex");
-            let line = lines.iter().position(|l| pat.is_match(l)).map_or(0, |i| i + 1);
+            let line = lines
+                .iter()
+                .position(|l| pat.is_match(l))
+                .map_or(0, |i| i + 1);
             let url = format!("{}/pypi/{name}/json", reg.pypi);
             match reg.get(&url, pypi_facts) {
                 Lookup::Unreachable(e) => *unreachable = Some(e),
@@ -467,7 +496,11 @@ fn registry_spec(name: &str, spec: &str) -> Option<(String, String)> {
     let s = spec.trim();
     if s.starts_with("npm:") {
         let c = regex_static(r"^npm:((?:@[^/@]+/)?[^@]+)(?:@(.*))?$").captures(s)?;
-        let range = c.get(2).map(|m| m.as_str()).filter(|r| !r.is_empty()).unwrap_or("*");
+        let range = c
+            .get(2)
+            .map(|m| m.as_str())
+            .filter(|r| !r.is_empty())
+            .unwrap_or("*");
         return Some((c[1].to_owned(), range.to_owned()));
     }
     if regex_static(
@@ -480,7 +513,10 @@ fn registry_spec(name: &str, spec: &str) -> Option<(String, String)> {
     {
         return None;
     }
-    Some((name.to_owned(), if s.is_empty() { "*" } else { s }.to_owned()))
+    Some((
+        name.to_owned(),
+        if s.is_empty() { "*" } else { s }.to_owned(),
+    ))
 }
 
 struct Registries {
@@ -572,15 +608,25 @@ fn npm(
             let Some((name, range)) = registry_spec(key, spec) else {
                 continue;
             };
-            let scope = name.starts_with('@').then(|| name.split('/').next().unwrap_or(""));
+            let scope = name
+                .starts_with('@')
+                .then(|| name.split('/').next().unwrap_or(""));
             let reg_url = scope
-                .and_then(|s| regs.scopes.iter().find(|(k, _)| k == s).map(|(_, v)| v.clone()))
+                .and_then(|s| {
+                    regs.scopes
+                        .iter()
+                        .find(|(k, _)| k == s)
+                        .map(|(_, v)| v.clone())
+                })
                 .or_else(|| regs.default.clone());
             if reg_url.as_deref().is_some_and(|u| !is_npmjs(u)) {
                 continue;
             }
             let quoted = format!("\"{key}\"");
-            let line = lines.iter().position(|l| l.contains(&quoted)).map_or(0, |i| i + 1);
+            let line = lines
+                .iter()
+                .position(|l| l.contains(&quoted))
+                .map_or(0, |i| i + 1);
             let url = format!("{}/{}", reg.npm, name.replacen('/', "%2f", 1));
             let facts = match reg.get(&url, npm_facts) {
                 Lookup::Unreachable(e) => {

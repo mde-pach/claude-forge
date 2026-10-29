@@ -108,7 +108,8 @@ fn npmrc(text: Option<&str>) -> Vec<(String, Vec<String>)> {
         let k = k.strip_suffix("[]").unwrap_or(k).to_owned();
         let mut v = l[i + 1..].trim().to_owned();
         if v.len() >= 2
-            && ((v.starts_with('"') && v.ends_with('"')) || (v.starts_with('\'') && v.ends_with('\'')))
+            && ((v.starts_with('"') && v.ends_with('"'))
+                || (v.starts_with('\'') && v.ends_with('\'')))
         {
             v = v[1..v.len() - 1].to_owned();
         }
@@ -144,7 +145,10 @@ fn parts(v: &str) -> Vec<i64> {
 fn ge(a: &str, b: &str) -> bool {
     let (x, y) = (parts(a), parts(b));
     for i in 0..x.len().max(y.len()) {
-        let (p, q) = (x.get(i).copied().unwrap_or(0), y.get(i).copied().unwrap_or(0));
+        let (p, q) = (
+            x.get(i).copied().unwrap_or(0),
+            y.get(i).copied().unwrap_or(0),
+        );
         if p != q {
             return p > q;
         }
@@ -228,13 +232,16 @@ impl Policy<'_> {
         let secs: f64 = seconds.and_then(|s| s.parse().ok()).unwrap_or(f64::NAN);
         let days = (secs / 86400.0).ceil();
         if !(days > 0.0) {
-            return Err(Skip("the npm release cooldown check needs the cooldown in seconds".into()));
+            return Err(Skip(
+                "the npm release cooldown check needs the cooldown in seconds".into(),
+            ));
         }
         let days = days as i64;
         let rc = npmrc(self.ch.now(".npmrc").as_deref());
         let age = last(&rc, "min-release-age");
         let ok = age.is_some_and(|a| {
-            regex_static(r"^\d+(\.\d+)?$").is_match(a) && a.parse::<f64>().unwrap_or(0.0) >= days as f64
+            regex_static(r"^\d+(\.\d+)?$").is_match(a)
+                && a.parse::<f64>().unwrap_or(0.0) >= days as f64
         });
         if !ok {
             self.out(format!(".npmrc: min-release-age is {}; set min-release-age={days} (days) or more so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in min-release-age-exclude.", age.unwrap_or("unset")));
@@ -256,7 +263,11 @@ impl Policy<'_> {
             wanted.push(regex_static(r"\+.*$").replace(v, "").into_owned());
         }
         let low: Vec<Option<String>> = wanted.iter().map(|w| lowest(w)).collect();
-        if low.is_empty() || low.iter().any(|v| v.as_deref().is_none_or(|v| !ge(v, "11.10.0"))) {
+        if low.is_empty()
+            || low
+                .iter()
+                .any(|v| v.as_deref().is_none_or(|v| !ge(v, "11.10.0")))
+        {
             let req = if wanted.is_empty() {
                 "nothing".to_owned()
             } else {
@@ -281,7 +292,13 @@ impl Policy<'_> {
                     && !(b.is_some() && b != Some(&Value::Bool(false)))
                 {
                     let l = line_of(&text, &re(&format!(r#""{}"\s*:"#, esc(k))));
-                    self.out_at("package.json", l, format!("allowScripts approves {k} (its install scripts would run); {ACCEPT}"));
+                    self.out_at(
+                        "package.json",
+                        l,
+                        format!(
+                            "allowScripts approves {k} (its install scripts would run); {ACCEPT}"
+                        ),
+                    );
                 }
             }
         }
@@ -298,7 +315,10 @@ impl Policy<'_> {
             if last(&now, "dangerously-allow-all-scripts") == Some("true")
                 && last(&before, "dangerously-allow-all-scripts") != Some("true")
             {
-                let l = line_of(&text, regex_static(r"^\s*dangerously-allow-all-scripts\s*="));
+                let l = line_of(
+                    &text,
+                    regex_static(r"^\s*dangerously-allow-all-scripts\s*="),
+                );
                 self.out_at(".npmrc", l, format!("dangerously-allow-all-scripts=true runs every dependency's install scripts; {ACCEPT}"));
             }
             let names = |m: &[(String, Vec<String>)]| -> Vec<String> {
@@ -313,10 +333,20 @@ impl Policy<'_> {
                 out
             };
             let had = names(&before);
-            let added: Vec<String> = names(&now).into_iter().filter(|n| !had.contains(n)).collect();
+            let added: Vec<String> = names(&now)
+                .into_iter()
+                .filter(|n| !had.contains(n))
+                .collect();
             if !added.is_empty() {
                 let l = line_of(&text, regex_static(r"^\s*allow-scripts(\[\])?\s*="));
-                self.out_at(".npmrc", l, format!("allow-scripts adds {} (their install scripts would run); {ACCEPT}", added.join(", ")));
+                self.out_at(
+                    ".npmrc",
+                    l,
+                    format!(
+                        "allow-scripts adds {} (their install scripts would run); {ACCEPT}",
+                        added.join(", ")
+                    ),
+                );
             }
         }
         Ok(())
@@ -340,17 +370,33 @@ impl Policy<'_> {
         for (k, v) in ab {
             if *v == t && ab0.get(k) != Some(&t) {
                 let l = Self::key_line(&text, k);
-                self.out_at(p, l, format!("allowBuilds approves {k} (its install scripts would run); {ACCEPT}"));
+                self.out_at(
+                    p,
+                    l,
+                    format!("allowBuilds approves {k} (its install scripts would run); {ACCEPT}"),
+                );
             }
         }
         let ob0: HashSet<String> = list(before.get("onlyBuiltDependencies"))
             .into_iter()
             .map(js_str)
             .collect();
-        for d in list(now.get("onlyBuiltDependencies")).into_iter().map(js_str) {
+        for d in list(now.get("onlyBuiltDependencies"))
+            .into_iter()
+            .map(js_str)
+        {
             if !ob0.contains(&d) {
-                let l = line_of(&text, &re(&format!(r#"^\s*-\s*["']?{}["']?\s*(#.*)?$"#, esc(&d))));
-                self.out_at(p, l, format!("onlyBuiltDependencies adds {d} (its install scripts would run); {ACCEPT}"));
+                let l = line_of(
+                    &text,
+                    &re(&format!(r#"^\s*-\s*["']?{}["']?\s*(#.*)?$"#, esc(&d))),
+                );
+                self.out_at(
+                    p,
+                    l,
+                    format!(
+                        "onlyBuiltDependencies adds {d} (its install scripts would run); {ACCEPT}"
+                    ),
+                );
             }
         }
         if now.get("dangerouslyAllowAllBuilds") == Some(&t)
@@ -376,8 +422,17 @@ impl Policy<'_> {
             let now = yaml(text.as_deref(), ".yarnrc.yml")?;
             let before = yaml(self.ch.before(".yarnrc.yml").as_deref(), ".yarnrc.yml")?;
             if now.get("enableScripts") == Some(&t) && before.get("enableScripts") != Some(&t) {
-                let l = line_of(&text.unwrap_or_default(), regex_static(r"^\s*enableScripts\s*:"));
-                self.out_at(".yarnrc.yml", l, format!("enableScripts: true runs every dependency's install scripts; {ACCEPT}"));
+                let l = line_of(
+                    &text.unwrap_or_default(),
+                    regex_static(r"^\s*enableScripts\s*:"),
+                );
+                self.out_at(
+                    ".yarnrc.yml",
+                    l,
+                    format!(
+                        "enableScripts: true runs every dependency's install scripts; {ACCEPT}"
+                    ),
+                );
             }
         }
         for p in self.manifests() {
@@ -386,7 +441,8 @@ impl Policy<'_> {
             let before = json(self.ch.before(&p).as_deref(), &p)?;
             let bm = obj(before.get("dependenciesMeta"));
             for (k, v) in obj(now.get("dependenciesMeta")) {
-                if obj(Some(v)).get("built") == Some(&t) && obj(bm.get(k)).get("built") != Some(&t) {
+                if obj(Some(v)).get("built") == Some(&t) && obj(bm.get(k)).get("built") != Some(&t)
+                {
                     let l = line_of(&text, &re(&format!(r#""{}"\s*:"#, esc(k))));
                     self.out_at(&p, l, format!("dependenciesMeta lets {k} build (built: true runs its install scripts); {ACCEPT}"));
                 }
@@ -396,7 +452,10 @@ impl Policy<'_> {
     }
 
     fn pnpm_workspace(&mut self) -> Res {
-        let ws = yaml(self.ch.now("pnpm-workspace.yaml").as_deref(), "pnpm-workspace.yaml")?;
+        let ws = yaml(
+            self.ch.now("pnpm-workspace.yaml").as_deref(),
+            "pnpm-workspace.yaml",
+        )?;
         let globs: Vec<String> = list(ws.get("packages")).into_iter().map(js_str).collect();
         if globs.is_empty() {
             return Ok(());
@@ -416,7 +475,11 @@ impl Policy<'_> {
                 .map(|g| g.compile_matcher())
                 .ok()
         };
-        let inc: Vec<_> = globs.iter().filter(|g| !g.starts_with('!')).filter_map(|g| compile(g)).collect();
+        let inc: Vec<_> = globs
+            .iter()
+            .filter(|g| !g.starts_with('!'))
+            .filter_map(|g| compile(g))
+            .collect();
         let exc: Vec<_> = globs
             .iter()
             .filter_map(|g| g.strip_prefix('!'))
@@ -432,7 +495,9 @@ impl Policy<'_> {
                 !globs.iter().any(|g| g == ".")
             } else {
                 !inc.iter().any(|g| g.is_match(dir))
-                    || exc.iter().any(|g| g.is_match(dir) || g.is_match(format!("{dir}/x")))
+                    || exc
+                        .iter()
+                        .any(|g| g.is_match(dir) || g.is_match(format!("{dir}/x")))
             };
             if out {
                 continue;
@@ -456,7 +521,10 @@ impl Policy<'_> {
     }
 
     fn pnpm_catalog(&mut self) -> Res {
-        let ws = yaml(self.ch.now("pnpm-workspace.yaml").as_deref(), "pnpm-workspace.yaml")?;
+        let ws = yaml(
+            self.ch.now("pnpm-workspace.yaml").as_deref(),
+            "pnpm-workspace.yaml",
+        )?;
         if ws.get("catalogMode").and_then(Value::as_str) == Some("strict") {
             return Ok(());
         }

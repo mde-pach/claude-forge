@@ -22,7 +22,7 @@ use crate::util::{Change, at, could_not_run, line, regex_static, strip_script};
 
 pub struct DrfPermissions;
 
-const HINT: &str = "Set permission_classes on the view (IsAuthenticated, or the project's permission), or a restrictive REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES in settings; a public endpoint is the user's call";
+pub const HINT: &str = "Set permission_classes on the view (IsAuthenticated, or the project's permission), or a restrictive REST_FRAMEWORK DEFAULT_PERMISSION_CLASSES in settings; a public endpoint is the user's call";
 
 fn tests_re() -> &'static regex::Regex {
     regex_static(r"(^|/)(tests?/|test_[^/]*$|[^/]*_test\.py$|conftest\.py$|migrations/)")
@@ -44,7 +44,11 @@ impl Builtin for DrfPermissions {
                 vec![]
             }
         };
-        let mut paths: Vec<String> = args.iter().filter(|p| p.ends_with(".py")).cloned().collect();
+        let mut paths: Vec<String> = args
+            .iter()
+            .filter(|p| p.ends_with(".py"))
+            .cloned()
+            .collect();
         if paths.is_empty() {
             paths = tracked.clone();
         }
@@ -111,7 +115,9 @@ fn settings_modules(parsed: &Parsed, files: &[String]) -> Vec<String> {
         if !regex_static(r"(^|/)(manage|wsgi|asgi)\.py$").is_match(path) {
             continue;
         }
-        let Some(tree) = parsed.get(path) else { continue };
+        let Some(tree) = parsed.get(path) else {
+            continue;
+        };
         let root = path.rsplit_once('/').map_or("", |(d, _)| d);
         for node in walk(&tree) {
             if node.kind() != "call" {
@@ -180,7 +186,9 @@ fn star_imports(path: &str, tree: &N, files: &[String]) -> Vec<String> {
         {
             continue;
         }
-        let Some(m) = st.field("module_name") else { continue };
+        let Some(m) = st.field("module_name") else {
+            continue;
+        };
         let cands: Vec<String> = if m.kind() == "relative_import" {
             let prefix = m
                 .children()
@@ -193,7 +201,9 @@ fn star_imports(path: &str, tree: &N, files: &[String]) -> Vec<String> {
                 .unwrap_or_default();
             let mut base = pkg.to_owned();
             for _ in 0..prefix.saturating_sub(1) {
-                base = base.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_owned());
+                base = base
+                    .rsplit_once('/')
+                    .map_or(String::new(), |(d, _)| d.to_owned());
             }
             let full = if base.is_empty() {
                 module
@@ -206,7 +216,8 @@ fn star_imports(path: &str, tree: &N, files: &[String]) -> Vec<String> {
             files
                 .iter()
                 .filter(|c| {
-                    c.ends_with(&format!("{module}.py")) || c.ends_with(&format!("{module}/__init__.py"))
+                    c.ends_with(&format!("{module}.py"))
+                        || c.ends_with(&format!("{module}/__init__.py"))
                 })
                 .cloned()
                 .collect()
@@ -224,7 +235,9 @@ fn default_is_restricted(parsed: &Parsed, files: &[String]) -> bool {
         if !seen.insert(path.clone()) {
             continue;
         }
-        let Some(tree) = parsed.get(&path) else { continue };
+        let Some(tree) = parsed.get(&path) else {
+            continue;
+        };
         let mut value: Option<N> = None;
         for node in walk(&tree) {
             if node.kind() == "dictionary" {
@@ -273,7 +286,9 @@ fn declares(cls: &N) -> Option<bool> {
     for st in body(cls) {
         if let Some(a) = assign(&st)
             && !a.aug
-            && a.targets.iter().any(|t| ident(t).as_deref() == Some("permission_classes"))
+            && a.targets
+                .iter()
+                .any(|t| ident(t).as_deref() == Some("permission_classes"))
         {
             return Some(match &a.value {
                 Some(v) if matches!(&*v.kind(), "list" | "tuple") => {
@@ -301,7 +316,9 @@ impl<'p> Classes<'p> {
             if tests_re().is_match(path) {
                 continue;
             }
-            let Some(tree) = parsed.get(path) else { continue };
+            let Some(tree) = parsed.get(path) else {
+                continue;
+            };
             for node in walk(&tree) {
                 if is_class(&node) {
                     by_name.entry(name_of(&node)).or_default().push(node);
