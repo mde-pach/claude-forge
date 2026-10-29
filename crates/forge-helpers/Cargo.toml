@@ -1,0 +1,25 @@
+[package]
+name = "forge-helpers"
+description = "The checks packs call as helpers (config ratchet, new dependencies, public API, Django, SQLAlchemy, pytest and Node policies), in Rust."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+ast-grep-core.workspace = true
+ast-grep-language = { workspace = true, features = ["tree-sitter-python"] }
+globset.workspace = true
+nodejs-semver.workspace = true
+regex.workspace = true
+saphyr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+forge-packs.workspace = true
+tempfile.workspace = true
