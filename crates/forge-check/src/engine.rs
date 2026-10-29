@@ -366,6 +366,9 @@ fn config_file(root: &Path) -> Option<PathBuf> {
 /// detached start after SessionStart, which registers `session`): the daemon running with this
 /// configuration, or one started now (`<exe> engine serve --config <file>`). `None` and notes
 /// when it cannot be had: the typed rules are then not checked.
+///
+/// A session's engine also serves the type checks (their edit-time diagnostics); a check only
+/// asks it about typed rules, so without one it does not start (or wait for) an engine.
 pub fn start(
     root: &Path,
     rules: &[ActiveRule],
@@ -375,7 +378,11 @@ pub fn start(
     forge_version: &str,
     session: Option<&str>,
 ) -> (Option<EngineOracle>, Vec<Note>) {
-    if engine_languages(rules).is_empty() {
+    let needed = match session {
+        Some(_) => engine_languages(rules),
+        None => typed_languages(rules),
+    };
+    if needed.is_empty() {
         return (None, Vec::new());
     }
     let (cfg, mut notes) = config(root, rules, tools, download, forge_version);
