@@ -345,6 +345,25 @@ pub struct Examples {
     pub deps: Option<Vec<DepSpec>>,
 }
 
+impl Examples {
+    /// Every example with its list and its place in it (from 1): `match` first.
+    pub fn listed(&self) -> Vec<(forge_core::examples::ExampleKind, usize, &Example)> {
+        use forge_core::examples::ExampleKind;
+        [
+            (ExampleKind::Match, &self.match_),
+            (ExampleKind::NoMatch, &self.no_match),
+        ]
+        .into_iter()
+        .flat_map(|(kind, list)| {
+            list.iter()
+                .flatten()
+                .enumerate()
+                .map(move |(i, e)| (kind, i + 1, e))
+        })
+        .collect()
+    }
+}
+
 /// Files of an example, by path.
 pub type Files = IndexMap<String, String>;
 

@@ -29,6 +29,7 @@ pub mod change;
 pub mod checker;
 pub mod diagnostics;
 pub mod engine;
+pub mod examples;
 pub mod grep;
 pub mod output;
 pub mod probe;

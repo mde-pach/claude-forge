@@ -18,6 +18,7 @@ pub mod args;
 pub mod checks;
 pub mod converted;
 pub mod ctx;
+pub mod examples;
 mod lex;
 pub mod parse;
 pub mod rule;

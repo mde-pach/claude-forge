@@ -8,9 +8,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
-use std::sync::Mutex;
 
-use forge_packs::model::{Example, Rule, Stage, Target};
 use serde_json::Value;
 
 /// The forge under test (`FORGE_TEST_EXE` overrides it: a copy, when the target dir is shared).
@@ -212,171 +210,60 @@ fn forge_do_drives_a_fake_tool_and_notes_what_it_cannot() {
     assert!(notes.iter().any(|n| n["kind"] == "not-enforced"), "{v}");
 }
 
-/// Every check rule example the machinery here can run behaves as declared: a `match` example
-/// fails its check (or gives its advice), a `no_match` example passes. Examples whose tool or
-/// builtin is not available are skipped (by the run's notes).
+/// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
+/// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
+/// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as
+/// the results' structure says.
 #[test]
 fn check_examples() {
-    let set = forge_packs::load_builtin(forge_packs::Options::default()).unwrap();
-    let mut runs = Vec::new();
-    for r in set.packs.values().flat_map(|p| p.rules.iter()) {
-        let Some(t) = r.enforce.iter().find_map(|t| match t {
-            Target::Check(c) => Some(c.clone()),
-            _ => None,
-        }) else {
-            continue;
-        };
-        for (kind, list) in [
-            ("match", r.examples.as_ref().and_then(|e| e.match_.clone())),
-            (
-                "no_match",
-                r.examples.as_ref().and_then(|e| e.no_match.clone()),
-            ),
-        ] {
-            for (i, ex) in list.unwrap_or_default().into_iter().enumerate() {
-                runs.push((r.clone(), t.stage, kind, i + 1, ex));
-            }
-        }
-    }
-    let results = Mutex::new(Vec::new());
-    let queue = Mutex::new(runs);
-    std::thread::scope(|s| {
-        for _ in 0..8 {
-            s.spawn(|| {
-                loop {
-                    let Some((rule, stage, kind, n, ex)) = queue.lock().unwrap().pop() else {
-                        break;
-                    };
-                    let res = run_example(&rule, stage, kind, &ex);
-                    results
-                        .lock()
-                        .unwrap()
-                        .push((rule.id.clone(), kind, n, res));
-                }
-            });
-        }
-    });
-    let results = results.into_inner().unwrap();
-    let mut pass = 0;
-    let mut skip = 0;
+    let home = tempfile::tempdir().unwrap();
+    let out = Command::new(exe())
+        .args(["test", "--builtin", "--json"])
+        .current_dir(home.path())
+        .env("PATH", PATH)
+        .env("FORGE_HOME", home.path())
+        .env("FORGE_NO_DOWNLOAD", "1")
+        .env_remove("VIRTUAL_ENV")
+        .env_remove("CLAUDECODE")
+        .env_remove("DATABASE_URL")
+        .output()
+        .expect("forge test");
+    let lines: Vec<Value> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let (summary, results) = lines.split_last().expect("a summary");
     let mut fail = Vec::new();
     let mut leaks = Vec::new();
-    for (id, kind, n, res) in &results {
-        match res {
-            Res::Pass(texts) => {
-                pass += 1;
-                for t in texts {
-                    if !forge_core::internals::find(t).is_empty() {
-                        leaks.push(format!("{id}: {t}"));
-                    }
-                }
+    let mut checks_passed = 0;
+    for r in results {
+        let label = format!("{} {} {} {}", r["rule"], r["target"], r["kind"], r["index"]);
+        match r["verdict"].as_str() {
+            Some("fail") => fail.push(format!("{label}: {}", r["why"])),
+            Some("pass") if r["target"] == "check" => checks_passed += 1,
+            Some("skip") => assert!(r["note"]["kind"].is_string(), "{r}"),
+            _ => {}
+        }
+        for t in r["agent_texts"].as_array().into_iter().flatten() {
+            let t = t.as_str().unwrap();
+            if !forge_core::internals::find(t).is_empty() {
+                leaks.push(format!("{label}: {t}"));
             }
-            Res::Skip => skip += 1,
-            Res::Fail(why) => fail.push(format!("{id}: {kind} example {n}: {why}")),
         }
     }
-    eprintln!(
-        "check examples: {} run, {pass} as declared, {skip} skipped (tool or builtin not available), {} failed",
-        results.len(),
-        fail.len()
-    );
-    fail.sort();
+    eprintln!("forge test --builtin: {summary}");
     assert!(fail.is_empty(), "{}", fail.join("\n"));
+    assert_eq!(out.status.code(), Some(0), "{summary}");
     assert!(
         leaks.is_empty(),
         "agent text names internals:\n{}",
         leaks.join("\n")
     );
-    assert!(pass > 20, "only {pass} examples ran");
-}
-
-enum Res {
-    Pass(Vec<String>),
-    Skip,
-    Fail(String),
-}
-
-/// `examplePath`: a concrete path inside the rule's scope.
-fn example_path(rule: &Rule) -> String {
-    use forge_packs::model::Language;
-    let ext = match rule.scope.language {
-        Language::Python => ".py",
-        Language::Typescript => ".ts",
-        Language::Tsx => ".tsx",
-        Language::Yaml => ".yaml",
-        Language::Any => ".txt",
-    };
-    let stem = "example";
-    let roles = forge_check::scope::Roles::defaults();
-    let globs = roles.expand(rule.scope.files.as_deref().unwrap_or(&[]));
-    let Some(g) = globs.iter().find(|g| !g.starts_with('!')) else {
-        return format!("{stem}{ext}");
-    };
-    let re = |p: &str| regex::Regex::new(p).unwrap();
-    let mut p = re(r"\{([^,}]*)[^}]*\}").replace_all(g, "$1").into_owned();
-    p = re(r"\.\*$").replace(&p, ext).into_owned();
-    p = re(r"(^|/)\*\*/").replace_all(&p, "$1").into_owned();
-    p = p.replace("**", stem).replace('*', stem).replace('?', "x");
-    p = re(r"\[(!?)(.)[^\]]*\]")
-        .replace_all(&p, |c: &regex::Captures| {
-            if &c[1] == "!" {
-                "x".to_string()
-            } else {
-                c[2].to_string()
-            }
-        })
-        .into_owned();
-    if p.ends_with('/') {
-        p.push_str(stem);
-    }
-    let base = p.rsplit('/').next().unwrap_or(&p).to_string();
-    if !re(r"\.[A-Za-z0-9]+$").is_match(&base) {
-        p.push_str(ext);
-    }
-    p
-}
-
-fn run_example(rule: &Rule, stage: Stage, kind: &str, ex: &Example) -> Res {
-    let (head, changed) = match ex {
-        Example::Code(code) => (BTreeMap::new(), files(&[(&example_path(rule), code)])),
-        Example::Fixture(f) => (
-            f.head
-                .clone()
-                .map(|h| h.into_iter().collect())
-                .unwrap_or_default(),
-            f.files.clone().into_iter().collect(),
-        ),
-        Example::Command(_) => return Res::Skip,
-    };
-    let repo = Repo::new(&head);
-    write(repo.path(), &changed);
-    git(repo.path(), &["add", "-A"]);
-    let (_, v) = if stage == Stage::Format {
-        repo.check(&["--all"], &[&rule.id], PATH)
-    } else {
-        repo.turn(&[&rule.id])
-    };
-    let found = findings_of(&v, &rule.id);
-    let texts: Vec<String> = v["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|f| f["agent_text"].as_str().unwrap_or("").to_string())
-        .collect();
-    let skipped = notes_of(&v, &rule.id).iter().any(|n| {
-        matches!(
-            n["kind"].as_str(),
-            Some("missing-tool" | "not-enforced" | "forge-failure" | "environment")
-        )
-    });
-    match kind {
-        "match" if !found.is_empty() => Res::Pass(texts),
-        "match" if skipped => Res::Skip,
-        "match" => Res::Fail(format!("did not fail the check: {v}")),
-        _ if found.is_empty() => Res::Pass(texts),
-        _ if skipped => Res::Skip,
-        _ => Res::Fail(format!("failed the check: {v}")),
-    }
+    assert!(summary["passed"].as_u64().unwrap() > 2000, "{summary}");
+    assert!(
+        checks_passed > 20,
+        "only {checks_passed} check examples ran"
+    );
 }
 
 /// §10.6: failing tests are re-run in the tree as it was at the start of the turn; only new
