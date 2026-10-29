@@ -8,6 +8,7 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 
 mod check;
+mod hook;
 pub mod project;
 mod provisioning;
 
@@ -36,11 +37,17 @@ enum Command {
     /// Runs a builtin of a check command (`forge_<name>`).
     #[command(hide = true)]
     Internal(check::InternalArgs),
-    /// Runs a Claude Code hook (not implemented yet).
+    /// Answers a Claude Code hook call (what the settings' hook entries run).
     #[command(hide = true)]
     Hook {
-        /// The hook event (PreToolUse, PostToolUse, Stop, ...).
-        event: Option<String>,
+        /// The hook event (session-start, pre-tool-use, stop, ...).
+        event: String,
+    },
+    /// The types engine (started by the SessionStart hook).
+    #[command(hide = true)]
+    Engine {
+        #[command(subcommand)]
+        command: hook::EngineCommand,
     },
 }
 
@@ -85,10 +92,11 @@ pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
     // its notes are recorded for `forge status`. A builtin of a check command is run by the binary
     // that runs the check: no launch.
-    if std::env::args().nth(1).as_deref() != Some("internal") {
-        let _notes =
-            forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher());
-    }
+    let notes = if std::env::args().nth(1).as_deref() == Some("internal") {
+        Vec::new()
+    } else {
+        forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher())
+    };
     let cli = Cli::parse();
     let cli = match cli.command {
         Command::Check(args) => return check::run(args),
@@ -123,7 +131,8 @@ pub fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         }),
-        Command::Hook { .. } => Err("forge hook: not implemented yet".into()),
+        Command::Hook { event } => Ok(hook::run(&event, notes)),
+        Command::Engine { command } => Ok(hook::engine(command)),
         Command::Project(c) => Ok(project::run(c)),
         Command::Check(_) | Command::Internal(_) => unreachable!("handled above"),
     };
