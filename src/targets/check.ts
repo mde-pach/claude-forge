@@ -19,6 +19,8 @@ export const check: TargetKind<CheckTarget> = {
       run: { type: "string", minLength: 1 },
       changed_run: { type: "string", minLength: 1 },
       fix_run: { type: "string", minLength: 1, pattern: "\\{files\\}" },
+      // the fix run also lints: its status and output are the lint result on the same files (ruff check --fix reports what remains)
+      fix_lints: { const: true },
       format_stdin: { type: "string", minLength: 1, pattern: "\\{file\\}" },
       rerun: { type: "string", minLength: 1, pattern: "\\{files\\}" },
       when_changed: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1 },
@@ -33,6 +35,7 @@ export const check: TargetKind<CheckTarget> = {
       // rerun re-runs failing tests (§10.6); format_stdin formats base copies (§10.1)
       { if: { required: ["rerun"] }, then: { properties: { stage: { const: "test" } } } },
       { if: { required: ["format_stdin"] }, then: { properties: { stage: { enum: ["format", "lint"] } } } },
+      { if: { required: ["fix_lints"] }, then: { required: ["fix_run", "changed_run"] } },
       { if: { required: ["config_files"] }, then: { properties: { stage: { const: "lint" } } } },
     ],
   },

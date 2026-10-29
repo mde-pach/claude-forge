@@ -63,8 +63,15 @@ forge_adapter_tool() {
 # binary changes (forge_fact: the executable, its directory and the package's that it
 # resolves to are watched). Fails when the tool is absent or says no version.
 forge_tool_version() {
+  forge_tool_v "$1" || return 1
+  printf '%s\n' "$FORGE_TV"
+}
+
+# forge_tool_v <tool>: FORGE_TV, forge_tool_version's answer, without a subshell; fails as it does.
+forge_tool_v() {
+  FORGE_TV=''
   forge_adapter_meta "$1"
-  if [ -n "$FORGE_AM_PIN" ]; then printf '%s\n' "$FORGE_AM_PIN"; return 0; fi
+  if [ -n "$FORGE_AM_PIN" ]; then FORGE_TV=$FORGE_AM_PIN; return 0; fi
   case $FORGE_AM_RUNNER in
     project)
       forge_tool_lookup "$1"
@@ -79,7 +86,7 @@ forge_tool_version() {
   esac
   forge_fact tool-version "$_tv_key" forge_tool_version_ask "$1" "$_tv_bin" "$FORGE_AM_RUNNER" "$FORGE_AM_VARGS" "$FORGE_AM_PKG" || return 1
   [ -n "$FORGE_FACT" ] || return 1
-  printf '%s\n' "$FORGE_FACT"
+  FORGE_TV=$FORGE_FACT
 }
 
 # forge_tool_version_ask <tool> <executable> <runner> <version args> [<package>]: the version
@@ -120,7 +127,12 @@ forge_tool_version_ask() {
 forge_tool_watch() {
   printf 'watch %s\nwatch %s\n' "$1" "${1%/*}"
   _tw_real=$(realpath "$1" 2>/dev/null || readlink -f "$1" 2>/dev/null)
-  [ -z "$_tw_real" ] || [ "$_tw_real" = "$1" ] || printf 'watch %s\nwatch %s\nwatch %s\n' "$_tw_real" "${_tw_real%/*}" "${_tw_real%/*}/.."
+  [ -z "$_tw_real" ] || [ "$_tw_real" = "$1" ] && return 0
+  # only a directory on the way is a link (/var to /private/var): the same file, already watched;
+  # its parent directory would be one that changes all the time (the system's temporary directory)
+  _tw_dir=$(cd "${1%/*}" 2>/dev/null && pwd -P)
+  [ "$_tw_dir/${1##*/}" = "$_tw_real" ] && return 0
+  printf 'watch %s\nwatch %s\nwatch %s\n' "$_tw_real" "${_tw_real%/*}" "${_tw_real%/*}/.."
 }
 
 # forge_adapter <tool> <version> <op>: how this version does <op>. Returns 0 and sets
@@ -128,27 +140,46 @@ forge_tool_watch() {
 # that can, "" when none); 2 when no range covers the version (FORGE_AD_COVER: the versions
 # that are).
 forge_adapter() {
-  _ad_out=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" -v op="$3" '
-    function cmp(a, b,   x, y, i, n) {
-      split(a, x, "."); split(b, y, ".")
-      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
-      return 0
-    }
-    $1 != t { next }
-    { if (first == "" || cmp($2, first) < 0) first = $2 }
-    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { found = 1; args = $5 }
-    $4 == op && $5 != "-" && ($3 == "" || cmp(v, $3) < 0) && (need == "" || cmp($2, need) < 0) { need = $2 }
-    $4 == op && cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { inrange = 1 }
-    END {
-      if (!inrange) { print "none\t" first; exit }
-      if (args == "-") { print "cannot\t" need; exit }
-      print "ok\t" args
-    }')
-  case $_ad_out in
-    ok*) FORGE_AD_ARGS=${_ad_out#ok	}; return 0 ;;
-    cannot*) FORGE_AD_NEED=${_ad_out#cannot	}; return 1 ;;
-    *) FORGE_AD_COVER="$1 ${_ad_out#none	} and later"; return 2 ;;
-  esac
+  _ad_first='' _ad_need='' _ad_args='' _ad_in=0
+  _ad_ifs=$IFS
+  IFS='
+'
+  set -f
+  for _ad_l in $FORGE_ADAPTERS; do
+    case $_ad_l in "$1	"*) ;; *) continue ;; esac
+    IFS='	'
+    # shellcheck disable=SC2086
+    set -- "$1" "$2" "$3" $_ad_l
+    IFS='
+'
+    # $4 tool, $5 from, $6 to (or "" when open: then $6 is the op), the op, the arguments
+    if [ "$#" -eq 7 ]; then _ad_from=$5 _ad_to='' _ad_op=$6 _ad_a=$7; else _ad_from=$5 _ad_to=$6 _ad_op=$7 _ad_a=$8; fi
+    if [ -z "$_ad_first" ] || forge_version_lt "$_ad_from" "$_ad_first"; then _ad_first=$_ad_from; fi
+    [ "$_ad_op" = "$3" ] || continue
+    _ad_below=1
+    [ -z "$_ad_to" ] || forge_version_lt "$2" "$_ad_to" || _ad_below=0
+    if [ "$_ad_below" = 1 ] && [ "$_ad_a" != - ] && { [ -z "$_ad_need" ] || forge_version_lt "$_ad_from" "$_ad_need"; }; then _ad_need=$_ad_from; fi
+    if [ "$_ad_below" = 1 ] && ! forge_version_lt "$2" "$_ad_from"; then _ad_in=1; _ad_args=$_ad_a; fi
+  done
+  set +f
+  IFS=$_ad_ifs
+  if [ "$_ad_in" = 0 ]; then FORGE_AD_COVER="$1 $_ad_first and later"; return 2; fi
+  if [ "$_ad_args" = - ]; then FORGE_AD_NEED=$_ad_need; return 1; fi
+  FORGE_AD_ARGS=$_ad_args
+  return 0
+}
+
+# forge_version_lt <a> <b>: version <a> is older than <b> (x.y.z, numerically; builtins).
+forge_version_lt() {
+  _vl_a=$1.0.0.0 _vl_b=$2.0.0.0 _vl_n=0
+  while [ "$_vl_n" -lt 3 ]; do
+    _vl_x=${_vl_a%%.*} _vl_y=${_vl_b%%.*}
+    _vl_x=${_vl_x%%[!0-9]*} _vl_y=${_vl_y%%[!0-9]*}
+    [ "${_vl_x:-0}" -lt "${_vl_y:-0}" ] && return 0
+    [ "${_vl_x:-0}" -gt "${_vl_y:-0}" ] && return 1
+    _vl_a=${_vl_a#*.} _vl_b=${_vl_b#*.} _vl_n=$((_vl_n + 1))
+  done
+  return 1
 }
 
 # forge_do <tool> <op> [args]: <op> by the installed <tool>, as its adapter says (§16). The
@@ -164,10 +195,11 @@ forge_do() {
   _do_t=$FORGE_AD_TOOL
   _do_op=$2
   shift 2
-  if ! _do_v=$(forge_tool_version "$_do_t"); then
+  if ! forge_tool_v "$_do_t"; then
     forge_do_note "skipped: the version of $_do_t could not be read"
     return 0
   fi
+  _do_v=$FORGE_TV
   forge_adapter "$_do_t" "$_do_v" "$_do_op"
   case $? in
     1) forge_do_note "not enforced: $_do_t $_do_v cannot $_do_op${FORGE_AD_NEED:+ (it needs $_do_t $FORGE_AD_NEED or later)}"; return 0 ;;
@@ -220,7 +252,11 @@ forge_do() {
   _do_ux=$FORGE_AM_UEXIT
   _do_up=$FORGE_AM_UPATTERN
   _do_run=$FORGE_AM_RUNNER
-  _do_err=$(mktemp "${FORGE_TMP:-${TMPDIR:-/tmp}}/do-err.XXXXXX") || return 1
+  # the run's outputs: files of this run's own in FORGE_TMP (removed with it)
+  FORGE_DO_SEQ=$((${FORGE_DO_SEQ:-0} + 1))
+  if [ -n "${FORGE_TMP:-}" ] && [ -d "$FORGE_TMP" ]; then _do_err=$FORGE_TMP/do.$$.$FORGE_DO_SEQ.err
+  else _do_err=$(mktemp "${TMPDIR:-/tmp}/do-err.XXXXXX") || return 1
+  fi
   _do_out=$_do_err.out
   # the tool's output is kept until it has exited: a usage error, on either stream, is not passed on
   case $_do_run in
@@ -244,18 +280,34 @@ forge_do() {
         _do_esc=$(printf '\033')
         _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -iE '^(error|[a-z]+: error)' | head -n 1)
         [ -n "$_do_why" ] || _do_why=$(cat "$_do_err" "$_do_out" | sed "s/$_do_esc\[[0-9;]*m//g" | grep -E "$_do_up" | head -n 1)
-        forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): $(printf '%s' "$_do_why" | sed 's/^[Ee]rror: //')"
-        rm -f "$_do_err" "$_do_out"
+        forge_do_note "skipped: $_do_t $_do_v rejected the command ($_do_t $(IFS=' '; printf '%s' "$*")): ${_do_why#[Ee]rror: }"
+        [ -n "${FORGE_TMP:-}" ] || rm -f "$_do_err" "$_do_out"
         return 0
       fi ;;
     esac
   fi
-  cat "$_do_out"
-  cat "$_do_err" >&2
-  rm -f "$_do_err" "$_do_out"
+  forge_cat "$_do_out"
+  [ ! -s "$_do_err" ] || forge_cat "$_do_err" >&2
+  [ -n "${FORGE_TMP:-}" ] || rm -f "$_do_err" "$_do_out"
   if [ "$_do_op" = lint ] && [ -n "${c_id:-}" ]; then
-    _do_miss=$(forge_tool_codes "$_do_t" | awk -F '\t' -v t="$_do_t" '$2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " needs " t " ≥ " $3 } END { if (n) print n "\t" s }')
-    [ -z "$_do_miss" ] || forge_do_note "not enforced for ${_do_miss%%	*} code(s) $_do_t $_do_v does not have: ${_do_miss#*	}"
+    # the codes this version does not have (builtins: the answer is a fact)
+    forge_tool_codes_v "$_do_t"
+    _do_n=0 _do_miss=''
+    _do_ifs=$IFS
+    IFS='
+'
+    for _do_l in $FORGE_TCODES; do
+      IFS='	'
+      # shellcheck disable=SC2086
+      set -- $_do_l
+      IFS='
+'
+      [ "${2:-}" = - ] || continue
+      _do_n=$((_do_n + 1))
+      _do_miss="${_do_miss:+$_do_miss, }$1 needs $_do_t ≥ $3"
+    done
+    IFS=$_do_ifs
+    [ "$_do_n" = 0 ] || forge_do_note "not enforced for $_do_n code(s) $_do_t $_do_v does not have: $_do_miss"
   fi
   return "$_do_rc"
 }
@@ -276,6 +328,13 @@ forge_do_note() {
 # the rules' examples (the history's first release, §16.4). The answer is a fact (forge_fact)
 # for the binary and the codes asked: a few lines, read back without a process.
 forge_tool_codes() {
+  forge_tool_codes_v "$1"
+  [ -z "$FORGE_TCODES" ] || printf '%s\n' "$FORGE_TCODES"
+}
+
+# forge_tool_codes_v <tool>: FORGE_TCODES, forge_tool_codes' lines, without a subshell.
+forge_tool_codes_v() {
+  FORGE_TCODES=''
   _tk_want=''
   _tk_ifs=$IFS
   IFS='
@@ -286,13 +345,14 @@ forge_tool_codes() {
   done
   IFS=$_tk_ifs
   [ -n "$_tk_want" ] || return 0
-  _tk_v=$(forge_tool_version "$1") || return 0
+  forge_tool_v "$1" || return 0
+  _tk_v=$FORGE_TV
   forge_adapter "$1" "$_tk_v" rules || return 0
   forge_tool_lookup "$1"
   case $FORGE_TOOL_BIN in /*) _tk_bin=$FORGE_TOOL_BIN ;; *) _tk_bin=$PWD/$FORGE_TOOL_BIN ;; esac
   # the codes asked are part of the key: one answer per set of active rules
   forge_fact tool-codes "$1 $_tk_v $PWD $FORGE_TOOL_CMD $_tk_want" forge_tool_codes_ask "$1" "$FORGE_AD_ARGS" "$_tk_bin" "$_tk_v" || return 0
-  [ -z "$FORGE_FACT" ] || printf '%s\n' "$FORGE_FACT"
+  FORGE_TCODES=$FORGE_FACT
 }
 
 # forge_tool_codes_ask <tool> <rules args> <executable> <version>: forge_tool_codes' answer,
@@ -336,16 +396,26 @@ forge_tool_rules() {
 # forge_adapter_covers <tool> <version>: a range of the tool's adapter covers the version;
 # else FORGE_AD_COVER says which versions are.
 forge_adapter_covers() {
-  _ac_first=$(printf '%s\n' "$FORGE_ADAPTERS" | awk -F '\t' -v t="$1" -v v="$2" '
-    function cmp(a, b,   x, y, i) {
-      split(a, x, "."); split(b, y, ".")
-      for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) return -1; if (x[i] + 0 > y[i] + 0) return 1 }
-      return 0
-    }
-    $1 != t { next }
-    { if (first == "" || cmp($2, first) < 0) first = $2 }
-    cmp(v, $2) >= 0 && ($3 == "" || cmp(v, $3) < 0) { in_range = 1 }
-    END { if (!in_range) print first }')
+  _ac_first='' _ac_in=0
+  _ac_ifs=$IFS
+  IFS='
+'
+  set -f
+  for _ac_l in $FORGE_ADAPTERS; do
+    case $_ac_l in "$1	"*) ;; *) continue ;; esac
+    # tool, from, to ("" when open), op, arguments
+    _ac_r=${_ac_l#*	}
+    _ac_from=${_ac_r%%	*}
+    _ac_r=${_ac_r#*	}
+    _ac_to=${_ac_r%%	*}
+    if [ -z "$_ac_first" ] || forge_version_lt "$_ac_from" "$_ac_first"; then _ac_first=$_ac_from; fi
+    forge_version_lt "$2" "$_ac_from" && continue
+    [ -z "$_ac_to" ] || forge_version_lt "$2" "$_ac_to" || continue
+    _ac_in=1
+  done
+  set +f
+  IFS=$_ac_ifs
+  [ "$_ac_in" = 1 ] && return 0
   [ -z "$_ac_first" ] && return 0
   FORGE_AD_COVER="$1 $_ac_first and later"
   return 1
@@ -356,27 +426,67 @@ forge_adapter_covers() {
 # the adapter was proven on, an operation a check needs that the version cannot do, the codes
 # the rules expect that it does not have. Absent tools are forge_missing_tools'.
 forge_tool_report() {
-  { printf '%s\n' "$FORGE_ADAPTER_USES"; printf '%s\n' "$FORGE_TOOL_CODES"; } | awk -F '\t' 'NF { print $1 }' | sort -u | while IFS= read -r _rp_n; do
+  # the tools the rules name, once each (builtins)
+  _rp_seen='
+'
+  _rp_ifs=$IFS
+  IFS='
+'
+  for _rp_l in $FORGE_ADAPTER_USES $FORGE_TOOL_CODES; do
+    _rp_n=${_rp_l%%	*}
+    case $_rp_seen in *"
+$_rp_n
+"*) continue ;; esac
+    _rp_seen="$_rp_seen$_rp_n
+"
     forge_has_tool "$_rp_n" || continue
     # the rules name the tool; the project's may be another adapter's (tofu for terraform)
     forge_adapter_tool "$_rp_n"
     _rp_t=$FORGE_AD_TOOL
-    _rp_v=$(forge_tool_version "$_rp_t") || { printf '%s: its version could not be read\n' "$_rp_t"; continue; }
+    forge_tool_v "$_rp_t" || { printf '%s: its version could not be read\n' "$_rp_t"; continue; }
+    _rp_v=$FORGE_TV
+    # the uses of the tool: "<op> <rule id>" lines
+    _rp_uses=''
+    _rp_ids=''
+    for _rp_u in $FORGE_ADAPTER_USES; do
+      case $_rp_u in "$_rp_n	"*)
+        _rp_u=${_rp_u#*	}
+        _rp_uses="$_rp_uses
+$_rp_u"
+        case ", $_rp_ids, " in *", ${_rp_u#*	}, "*) ;; *) _rp_ids="$_rp_ids${_rp_ids:+, }${_rp_u#*	}" ;; esac ;;
+      esac
+    done
     if ! forge_adapter_covers "$_rp_t" "$_rp_v"; then
-      _rp_ids=$(printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_n" '$1 == t { print $3 }' | sort -u | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
       printf '%s %s: no Forge adapter covers it (Forge drives %s)%s\n' "$_rp_t" "$_rp_v" "$FORGE_AD_COVER" "${_rp_ids:+: $_rp_ids not enforced}"
       continue
     fi
     forge_adapter_meta "$_rp_t"
     _rp_ver=$FORGE_AM_VERIFIED
-    if [ -n "$_rp_ver" ] && ! forge_version_ge "$(printf '%s' "$_rp_ver" | cut -d. -f1-2)" "$(printf '%s' "$_rp_v" | cut -d. -f1-2)"; then
+    if [ -n "$_rp_ver" ] && ! forge_version_ge "$(forge_major_minor "$_rp_ver")" "$(forge_major_minor "$_rp_v")"; then
       printf '%s %s is newer than the releases Forge'"'"'s adapter was proven on (up to %s): driven as %s\n' "$_rp_t" "$_rp_v" "$_rp_ver" "$_rp_ver"
     fi
-    printf '%s\n' "$FORGE_ADAPTER_USES" | awk -F '\t' -v t="$_rp_n" '$1 == t' | while IFS='	' read -r _ _rp_op _rp_id; do
+    for _rp_u in $_rp_uses; do
+      _rp_op=${_rp_u%%	*}
+      _rp_id=${_rp_u#*	}
       forge_adapter "$_rp_t" "$_rp_v" "$_rp_op" || printf '%s: not enforced: %s %s cannot %s%s\n' "$_rp_id" "$_rp_t" "$_rp_v" "$_rp_op" "${FORGE_AD_NEED:+ (it needs $_rp_t $FORGE_AD_NEED or later)}"
     done
-    forge_tool_codes "$_rp_t" | awk -F '\t' -v t="$_rp_t" -v v="$_rp_v" '
-      $2 == "-" { n++; s = s (s == "" ? "" : ", ") $1 " (needs " t " ≥ " $3 ")" }
-      END { if (n) print t " " v " does not have " n " rule code(s) the active rules ask for (not enforced): " s }'
+    # the codes the active rules ask for that this release does not have ("<code><TAB>-<TAB><since>")
+    forge_tool_codes_v "$_rp_t"
+    _rp_k=0
+    _rp_s=''
+    for _rp_c in $FORGE_TCODES; do
+      _rp_r=${_rp_c#*	}
+      case $_rp_r in "-	"*) _rp_k=$((_rp_k + 1)); _rp_s="$_rp_s${_rp_s:+, }${_rp_c%%	*} (needs $_rp_t ≥ ${_rp_r#*	})" ;; esac
+    done
+    [ "$_rp_k" = 0 ] || printf '%s %s does not have %s rule code(s) the active rules ask for (not enforced): %s\n' "$_rp_t" "$_rp_v" "$_rp_k" "$_rp_s"
   done
+  IFS=$_rp_ifs
+}
+
+# forge_major_minor <version>: its first two numbers (x.y), as cut -d. -f1-2 does.
+forge_major_minor() {
+  case $1 in
+    *.*.*) _mm=${1#*.}; printf '%s.%s' "${1%%.*}" "${_mm%%.*}" ;;
+    *) printf '%s' "$1" ;;
+  esac
 }

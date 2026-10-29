@@ -6,7 +6,9 @@
 # Advice alone (check.sh exits 4) blocks once; the same tree then passes.
 # Tests that fail at the start of the turn too block once with what to do; on the same
 # tree again the stop is allowed and the user is told they could not be verified.
-dir=$(cd "$(dirname "$0")" && pwd)
+# this script's directory, absolute (builtins)
+case $0 in */*) dir=${0%/*} ;; *) dir=. ;; esac
+case $dir in /*) ;; *) dir=$PWD/$dir ;; esac
 FORGE_INPUT=$(cat)
 . "$dir/lib.sh"
 repo_root || exit 0

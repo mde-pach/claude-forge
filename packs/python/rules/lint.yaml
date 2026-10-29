@@ -11,6 +11,8 @@ enforce:
     config_files: ["**/pyproject.toml"]
     # after an edit: sorted imports and pyupgrade, when the project selects them; never F401/F841 (an import added now is used in the next edit)
     fix_run: "forge_do ruff fix {files}"
+    # that run reports what remains (ruff check --fix): it is the edit's lint run too, one ruff call
+    fix_lints: true
 examples:
   match: ["import os\n"]
   no_match: ["X = 1\n"]

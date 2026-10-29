@@ -78,8 +78,9 @@ export const RUFF: ToolAdapter = {
       ops: {
         ...COMMON,
         lint: "check --output-format text",
-        // after an edit: sorted imports and pyupgrade, when the project selects them; never F401 / F841
-        fix: "check --fix --fixable I,UP --exit-zero --show-fixes --output-format text",
+        // after an edit: sorted imports and pyupgrade, when the project selects them; never F401 / F841.
+        // No --exit-zero: it reports what remains, as lint does, so one run is the edit's fixes and lint (fix_lints)
+        fix: "check --fix --fixable I,UP --show-fixes --output-format text",
         "settings-warnings": null,
       },
     },
@@ -89,7 +90,7 @@ export const RUFF: ToolAdapter = {
       ops: {
         ...COMMON,
         lint: "check --output-format concise",
-        fix: "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise",
+        fix: "check --fix --fixable I,UP --show-fixes --output-format concise",
         "settings-warnings": "check --exit-zero --no-cache",
       },
     },

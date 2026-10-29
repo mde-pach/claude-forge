@@ -124,7 +124,7 @@ export function renderChecks(
       `forge_check_meta_${n}() {`,
       `  c_id=${shQuote(rule.id)}; c_stage=${target.stage}; c_tools=${shQuote(tools.join(" "))}`,
       `  c_when=${target.when_changed ? 1 : 0}; c_localdb=${target.requires_local_db ? 1 : 0}; c_timeout=${target.timeout ?? "''"}`,
-      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
+      `  c_changed=${changed ? 1 : 0}; c_files=${changed && target.changed_run!.includes("{files}") ? 1 : 0}; c_fix=${target.fix_run ? 1 : 0}; c_fixlint=${target.fix_lints ? 1 : 0}; c_fmt=${target.format_stdin ? 1 : 0}; c_rerun=${target.rerun ? 1 : 0}; c_warn=${target.fail_on_warnings ? 1 : 0}; c_dirs=${shQuote(dirs?.join(" ") ?? "")}`,
       "}",
       scopeFunction(`forge_scope_${n}`, rule, dirs, target.config_files),
       when ? `forge_when_${n}() { case $1 in ${casePatterns(when)}) return 0 ;; esac; return 1; }` : `forge_when_${n}() { return 1; }`,

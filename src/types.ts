@@ -119,6 +119,8 @@ export interface CheckTarget {
   changed_run?: string;
   /** Lint checks: safe fixes applied to an edited file before it is linted ({files}). */
   fix_run?: string;
+  /** The fix run also lints: its status and output are the lint result on the same files (§8.1). */
+  fix_lints?: true;
   /** The formatter as a filter: formats stdin as if it were {file}, prints the result. Formats base copies, so formatting is not counted as added lines. */
   format_stdin?: string;
   /** Test checks: runs only the given test files ({files}); Stop re-runs failing tests with it at the start of the turn. */

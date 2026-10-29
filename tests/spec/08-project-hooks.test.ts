@@ -480,16 +480,13 @@ describe("files changed by Bash", () => {
         expect(ctx).toContain("forge:python/sqlalchemy/no-declarative-base app/m2.py:5:12");
         expect(ctx).toContain("app/m1.py:1:8: F401");
         expect(ctx).toContain("app/m2.py:1:8: F401");
-        // the operations, once each; the version and the rule table are asked once per binary (§16.3), here a new one
+        // the operations, once each; the version and the rule table are asked once per binary (§16.3), here a new one.
+        // python/lint's fix run also lints (fix_lints): no separate lint run after the edit
         const calls = readFileSync(log, "utf8")
           .trim()
           .split("\n")
           .filter((c) => c !== "--version" && c !== "rule --all --output-format json");
-        expect(calls).toEqual([
-          "format app/m1.py app/m2.py",
-          "check --fix --fixable I,UP --exit-zero --show-fixes --output-format concise app/m1.py app/m2.py",
-          "check --output-format concise app/m1.py app/m2.py",
-        ]);
+        expect(calls).toEqual(["format app/m1.py app/m2.py", "check --fix --fixable I,UP --show-fixes --output-format concise app/m1.py app/m2.py"]);
       });
     },
     T,
@@ -499,7 +496,7 @@ describe("files changed by Bash", () => {
   test(
     "checks still running after FORGE_EDIT_BUDGET seconds are stopped, and Claude gets what was found with a note",
     () =>
-      withRuffWrapper('case "$*" in "check --output-format"*) sleep 60 ;; esac', () => {
+      withRuffWrapper('case "$*" in "check --"*) sleep 60 ;; esac', () => {
         put(repo, "app/slow.py", "X = 1\n");
         const started = Date.now();
         const r = hook("post-edit.sh", edit("app/slow.py"), { FORGE_EDIT_BUDGET: "2" });

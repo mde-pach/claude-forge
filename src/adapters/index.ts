@@ -141,7 +141,8 @@ export function adapterTable(): string {
 export function adapterUses(commands: { rule: string; command: string }[]): string {
   const out = new Set<string>();
   for (const { rule, command } of commands) for (const m of command.matchAll(/\bforge_do\s+([a-z][a-z0-9-]*)\s+([a-z][a-z0-9-]*)/g)) out.add([m[1], m[2], rule].join("\t"));
-  return [...out].join("\n");
+  // sorted: the engine reports per tool in this order, with builtins (forge_tool_report)
+  return [...out].sort().join("\n");
 }
 
 /**

@@ -534,6 +534,9 @@
                   "minLength": 1,
                   "pattern": "\\{files\\}"
                 },
+                "fix_lints": {
+                  "const": true
+                },
                 "format_stdin": {
                   "type": "string",
                   "minLength": 1,
@@ -602,6 +605,19 @@
                         ]
                       }
                     }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "fix_lints"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "fix_run",
+                      "changed_run"
+                    ]
                   }
                 },
                 {

@@ -78,8 +78,31 @@ forge_ty_args_print() {
 # forge_types_untyped_filter: the untyped modules of stdin the types engine gets as Any: not
 # those of a package the active rules ask about (FORGE_TYPES_PACKAGES).
 forge_types_untyped_filter() {
-  awk -v keep="$(printf '%s' "$FORGE_TYPES_PACKAGES" | tr '\n' ' ')" 'BEGIN { n = split(keep, k, " "); for (i = 1; i <= n; i++) asked[k[i]] = 1 }
-    { top = $0; sub(/\..*/, "", top); if (!(top in asked)) print }'
+  _uf_l=$(forge_cat /dev/stdin)
+  forge_types_untyped_filter_v "$_uf_l"
+  [ -z "$FORGE_TY_ANY" ] || printf '%s\n' "$FORGE_TY_ANY"
+}
+# forge_types_untyped_filter_v <modules>: FORGE_TY_ANY, forge_types_untyped_filter's answer (builtins).
+forge_types_untyped_filter_v() {
+  FORGE_TY_ANY=''
+  _uf_ifs=$IFS
+  IFS='
+'
+  set -f
+  for _uf_m in $1; do
+    _uf_top=${_uf_m%%.*}
+    _uf_keep=0
+    for _uf_k in $FORGE_TYPES_PACKAGES; do
+      IFS=' '
+      for _uf_w in $_uf_k; do [ "$_uf_w" != "$_uf_top" ] || _uf_keep=1; done
+      IFS='
+'
+    done
+    [ "$_uf_keep" = 1 ] || FORGE_TY_ANY="$FORGE_TY_ANY${FORGE_TY_ANY:+
+}$_uf_m"
+  done
+  set +f
+  IFS=$_uf_ifs
 }
 
 # forge_ty_env: the Python environment ty checks the project with, as ty finds it
@@ -207,8 +230,14 @@ forge_types_up() {
       # the questions' list leaves out the packages the rules ask about; the diagnostics' is the whole list (ty check's)
       forge_ty_untyped
       _tu_all=$FORGE_TY_UNTYPED_LIST
-      _tu_any=$(printf '%s\n' "$_tu_all" | forge_types_untyped_filter)
-      _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV any:$(printf '%s\n--\n%s' "$_tu_any" "$_tu_all" | forge_sha256 | cut -c 1-12)" ;;
+      forge_types_untyped_filter_v "$_tu_all"
+      _tu_any=$FORGE_TY_ANY
+      # the lists themselves (builtins: no hash to compute at each question)
+      _tu_want="ty $FORGE_TY_VERSION $FORGE_TYPES_REV any:
+$_tu_any
+--
+$_tu_all
+end" ;;
     # the project's own TypeScript: a change of its version changes package.json or a lock file (restart)
     typescript) _tu_want="typescript (the project's) $FORGE_TYPES_REV" ;;
     *) printf 'no types engine for %s\n' "$1"; return 1 ;;
@@ -271,8 +300,8 @@ forge_types_up() {
 # forge_types_running <lang> <want>: its daemon runs with this engine; registers the
 # hook's session with it.
 forge_types_running() {
-  forge_types_alive "$1" && [ "$(cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
-  [ -z "${FORGE_INPUT:-}" ] || : > "$FORGE_STATE/types/$1/sessions/$(session_id)"
+  forge_types_alive "$1" && [ "$(forge_cat "$FORGE_STATE/types/$1/want" 2>/dev/null)" = "$2" ] || return 1
+  [ -z "${FORGE_INPUT:-}" ] || { forge_session; : > "$FORGE_STATE/types/$1/sessions/$FORGE_SESSION"; }
 }
 
 # forge_types_down: stops the daemons this run started when no session uses them, and
@@ -290,6 +319,7 @@ forge_types_down() {
 # engine that cannot answer is not a pass: "forge:forge/types ..." lines name the rules
 # left unchecked, and it fails.
 forge_types_filter() {
+  [ -s "$1" ] || return 0
   grep -q '"forge_where"' "$1" 2>/dev/null || return 0
   grep -v '"forge_where"' "$1" > "$1.kept"
   _tf_rc=0

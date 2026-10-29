@@ -85,10 +85,16 @@ forge_duration_seconds() {
 
 # forge_version_ge <a> <b>: succeeds when version a >= b (numeric dot-separated parts).
 forge_version_ge() {
-  awk -v a="$1" -v b="$2" 'BEGIN {
-    na = split(a, x, "."); nb = split(b, y, ".")
-    for (i = 1; i <= (na > nb ? na : nb); i++) { p = x[i] + 0; q = y[i] + 0; if (p > q) exit 0; if (p < q) exit 1 }
-    exit 0 }'
+  _vg_a=$1 _vg_b=$2
+  while [ -n "$_vg_a" ] || [ -n "$_vg_b" ]; do
+    _vg_x=${_vg_a%%.*} _vg_y=${_vg_b%%.*}
+    _vg_x=${_vg_x%%[!0-9]*} _vg_y=${_vg_y%%[!0-9]*}
+    [ "${_vg_x:-0}" -gt "${_vg_y:-0}" ] && return 0
+    [ "${_vg_x:-0}" -lt "${_vg_y:-0}" ] && return 1
+    case $_vg_a in *.*) _vg_a=${_vg_a#*.} ;; *) _vg_a='' ;; esac
+    case $_vg_b in *.*) _vg_b=${_vg_b#*.} ;; *) _vg_b='' ;; esac
+  done
+  return 0
 }
 
 # Forge's one release cooldown (3 days, in seconds): the minimum age of a version the
@@ -237,7 +243,7 @@ forge_has_tool() {
     kustomize) forge_on_path kustomize || forge_on_path kubectl ;;
     # Forge's pinned ty runs through uvx (§15.2)
     ty) command -v uvx >/dev/null 2>&1 ;;
-    *) [ -n "$(tool "$1")" ] ;;
+    *) forge_tool_lookup "$1"; [ -n "$FORGE_TOOL_CMD" ] ;;
   esac
 }
 

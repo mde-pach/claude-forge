@@ -78,7 +78,7 @@ describe.each((hasUv ? TOOL_VERSIONS.ruffAdapters : []).map((v) => [v]))("ruff %
       expect(p.run("forge_tool_version ruff").stdout.trim()).toBe(version);
       const calls: Record<string, [string, string?]> = {
         lint: ["forge_do ruff lint a.py"],
-        fix: ["forge_do ruff fix b.py"],
+        fix: ["forge_do ruff fix a.py"],
         "lint-json": ["forge_do ruff lint-json a.py"],
         "lint-json-stdin": ["forge_do ruff lint-json-stdin a.py", "import os\n"],
         "format-check": ["forge_do ruff format-check b.py"],
@@ -95,7 +95,8 @@ describe.each((hasUv ? TOOL_VERSIONS.ruffAdapters : []).map((v) => [v]))("ruff %
           continue;
         }
         expect({ op, notes: r.notes.replace(/^forge:python\/lint not enforced for .*\n?/m, "") }).toEqual({ op, notes: "" });
-        if (op === "lint") expect(r.stdout).toMatch(/^a\.py:1:8: F401 /m);
+        // fix reports what it cannot fix like lint does (python/lint's fix_lints: one run after an edit)
+        if (op === "lint" || op === "fix") expect(r.stdout).toMatch(/^a\.py:1:8: F401 /m);
         if (op === "lint-json-stdin") expect(JSON.parse(r.stdout).map((d: { code: string }) => d.code)).toContain("F401");
         if (op === "format-stdin") expect(r.stdout).toBe("x = 1\n");
       }
