@@ -356,9 +356,19 @@ name = "forge-cli"
 version = "0.6.0-dev"
 dependencies = [
  "clap",
+ "forge-core",
+ "forge-detect",
+ "forge-home",
  "forge-launcher",
  "forge-packs",
+ "forge-render",
+ "include_dir",
+ "insta",
+ "regex",
+ "serde",
  "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -368,6 +378,22 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "forge-detect"
+version = "0.6.0-dev"
+dependencies = [
+ "fancy-regex",
+ "forge-packs",
+ "indexmap",
+ "nodejs-semver",
+ "regex",
+ "saphyr-parser",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -406,6 +432,23 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "forge-render"
+version = "0.6.0-dev"
+dependencies = [
+ "forge-core",
+ "forge-detect",
+ "forge-launcher",
+ "forge-packs",
+ "indexmap",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -620,6 +663,16 @@ name = "micromap"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a86d3146ed3995b5913c414f6664344b9617457320782e64f0bb44afd49d74"
+
+[[package]]
+name = "nodejs-semver"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "938185814d480ac0eff0ac4676d27deef920cbd2b83df83603a873af5b7c8fc9"
+dependencies = [
+ "smallvec",
+ "thiserror",
+]
 
 [[package]]
 name = "num"

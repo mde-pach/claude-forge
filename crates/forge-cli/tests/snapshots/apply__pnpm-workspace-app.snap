@@ -1,0 +1,438 @@
+---
+source: crates/forge-cli/tests/apply.rs
+expression: s.snapshot()
+---
+=== .claude/rules/forge-secrets.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
+A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
+Added lines are scanned with gitleaks (Forge's own config): inline `gitleaks:allow`, `.gitleaksignore` and a project `.gitleaks.toml` do not silence it.
+Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
+=== .claude/rules/forge-typescript-pnpm.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
+pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
+pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.
+=== .claude/rules/forge-typescript-vitest.md
+---
+paths:
+  - "packages/core/**"
+---
+
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
+Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
+When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass.
+=== .claude/rules/forge-typescript.md
+---
+paths:
+  - "packages/core/**"
+---
+
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+TypeScript, strict.
+TypeScript 6 deprecates `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` and `esModuleInterop: false`, and TypeScript 7 removes them: migrate them; `ignoreDeprecations` in a tsconfig is rejected.
+`!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `util.*` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
+Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
+=== .claude/settings.json
+{
+  "permissions": {
+    "ask": [
+      "Edit(.forge/**)",
+      "Edit(forge.yaml)",
+      "Edit(forge.lock)",
+      "Edit(.claude/rules/forge-*.md)",
+      "Edit(**/biome.json)",
+      "Edit(**/biome.jsonc)",
+      "Edit(**/tsconfig*.json)",
+      "Edit(**/eslint.config.*)",
+      "Edit(**/.oxlintrc.json)",
+      "Edit(**/deno.json)",
+      "Edit(**/deno.jsonc)",
+      "Edit(**/.prettierrc*)",
+      "Edit(**/prettier.config.*)",
+      "Edit(**/pnpm-workspace.yaml)",
+      "Edit(**/.npmrc)",
+      "Edit(**/.yarnrc.yml)",
+      "Edit(**/bunfig.toml)",
+      "Edit(**/turbo.json)",
+      "Edit(**/vitest.config.*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+=== forge.lock
+# Written by forge apply. Do not edit.
+forge = "<forge version>"
+claude_code_min = "2.1.295"
+rule_set = "675ec549592e558302198817b0ba75718ce190df40e76925ecf1deba710736f3"
+
+[rules]
+"git/editorconfig" = "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f"
+"git/generated-files" = "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6"
+"git/large-files" = "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5"
+"git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
+"git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
+"secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
+"secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
+"secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
+"supply-chain/audit-ignore-ratchet" = "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5"
+"supply-chain/insecure-download" = "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee"
+"supply-chain/new-npm-dep-exists" = "d55abf477632768ca2ed9ba9c7025b76aa1651fe8ae19849172cb1f87ec9597d"
+"supply-chain/new-pypi-dep-exists" = "a8646bc19e12d584ffb149654f5bffccbd665d3d632d1b20143f60f7bd6a31d7"
+"supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
+"supply-chain/no-dependency-confusion-command" = "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c"
+"supply-chain/no-tls-disable" = "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124"
+"supply-chain/no-tls-disable-command" = "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542"
+"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+"typescript/a11y" = "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6"
+"typescript/array-sort-compare" = "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7"
+"typescript/config-files" = "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9"
+"typescript/config-ratchet" = "b0ff3b6c064f691984e217acc0388d0900b1a2a1d1ee493935badb41a8a45022"
+"typescript/cors-credentials-wildcard" = "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b"
+"typescript/env-example" = "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c"
+"typescript/error-cause" = "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a"
+"typescript/format-lint" = "f3c1c7a3201dc7873ee6391e60502b47631007eb844ee3c52de6732a9fc30110"
+"typescript/iframe-sandbox" = "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6"
+"typescript/implicit-returns" = "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629"
+"typescript/lockfile-updated" = "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7"
+"typescript/no-banned-types" = "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e"
+"typescript/no-console" = "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5"
+"typescript/no-const-enum" = "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d"
+"typescript/no-deprecated" = "95b64775b8c70d6e81054960efe4619b9cc7641fa5ab0c6f8eca20bcbf89953c"
+"typescript/no-double-assertion" = "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80"
+"typescript/no-dynamic-regexp" = "7feba0d9f253c3d0afe8d70f9c01fa27765c9484899bdf70c6faefb0142d697d"
+"typescript/no-empty-block" = "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f"
+"typescript/no-eval" = "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143"
+"typescript/no-explicit-any" = "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28"
+"typescript/no-focused-tests" = "8450a2111244ef53e5c5451aa9a127f215f3ff26b9de3ec189ddbb775de6cd53"
+"typescript/no-hardcoded-session-secret" = "3b0d415cf4fa417e518bc9f11ef6fd6e63687bdd4a6a5e132388342895558e26"
+"typescript/no-html-sinks" = "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024"
+"typescript/no-ignore-deprecations" = "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888"
+"typescript/no-implicit-any" = "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108"
+"typescript/no-new-suppressions" = "ba3d26c4a50c3cd7cb74cd3c47a2dbd08666c01c5d0de7d51a85db29983f7bd2"
+"typescript/no-non-null-assertion" = "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2"
+"typescript/no-object-literal-assertion" = "7324c436b6acce6a07f2441bf1a45d3b0a5e89f2ac0cc92cd1119ed75a8cd241"
+"typescript/no-placeholder-comment" = "940fb140d959d26ffe50ae2978f2efbf8b3e44891a2b7fa0e0156f4752c7fb47"
+"typescript/no-proto" = "c6f0adc46d66d273c8a812e9f690ee0dd3cab37b5b6e05dc1a939212d217ec41"
+"typescript/no-secrets" = "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c"
+"typescript/no-stub" = "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8"
+"typescript/no-swallowed-catch" = "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4"
+"typescript/no-ts-ignore" = "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee"
+"typescript/no-ts-nocheck" = "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213"
+"typescript/no-unchecked-json" = "0edc9ae044271697c2d2bea389c11c3b79311c68d282ace56a58f6d9e9e73360"
+"typescript/no-unused" = "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413"
+"typescript/no-unused-suppressions" = "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d"
+"typescript/node-version-file" = "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1"
+"typescript/pnpm/allow-builds" = "aa230a5f098979a6fc3363f33560cb94107984ab86ae60f8a31452a86416e0af"
+"typescript/pnpm/catalog" = "c07da19d3b10f6df3e53e6a48c8d477f3f3051ffabfdabf5fbf7c7cf294dfcb9"
+"typescript/pnpm/lock-sync" = "3edd1c57ef4f3b2f14e725a7a174c038be7db8d239a07e9c08a49c321324c608"
+"typescript/pnpm/no-other-pm" = "4df6962a766f9fdf549a4860ccd99f7a6e69be0932f76aecf1d209dbbd9d66d5"
+"typescript/pnpm/overrides" = "e936a6a10d787efcb8db9f0b3c2e9f65113b4c32dc0a8c4640f62323bf540558"
+"typescript/pnpm/settings-location" = "f25e8fd2c0b4ae1646ac76a684d2b8fba4817cda7019e0fff5a073eb9a354411"
+"typescript/pnpm/workspace-protocol" = "44df17683751a0941f912453062d83267b86a602fe7034343c36d48f351cad77"
+"typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
+"typescript/strict-function-types" = "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263"
+"typescript/strict-null-checks" = "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6"
+"typescript/ts-expect-error-reason" = "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90"
+"typescript/typecheck" = "e2035c29acae905181896aefc37e91288b1d67c36f09553c1f631ab67b2a54cd"
+"typescript/unchecked-index" = "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
+"typescript/verbatim-imports" = "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8"
+"typescript/vitest/config-file" = "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd"
+"typescript/vitest/no-exit-zero" = "72f80ed3f8f01917969112ce7dc7ad9f2d1217cbdd4decc6aaf6d3945fbdaa80"
+"typescript/vitest/no-fewer-expects" = "024fda235e5a51a89a17228a7c50b20252b0d5754775f6c72c4c336ef06e03c9"
+"typescript/vitest/no-matcher-override" = "75a66954dbd8322e3c5a264b303a6bbd8546ccc3324a37a651fb6e9457364e48"
+"typescript/vitest/no-mock-increase" = "ba0ee04f03ef25ace93d3f4f3d871d14d73fa3a70fb42d5ea5efbef38d8a164a"
+"typescript/vitest/no-new-skip" = "a11e5b84ac571a56a3e001501a3940c6304b239f50cb1655c49e1f6fe1ef61eb"
+"typescript/vitest/no-pass-with-no-tests" = "f0ca2c41a2c2d0289f12750c521dbe16bf55a0a94ce38457dd51492fe028a1f3"
+"typescript/vitest/no-snapshot-update" = "519846b6b08b3de78a1bee29e807aba76fd96e6055b3b37aff636232af075f0b"
+"typescript/vitest/no-tautological-expect" = "7649e807659538b0cd4cd18de3c3a75a35fac5d185c157d314ae4e158ba36764"
+"typescript/vitest/no-test-edits" = "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172"
+"typescript/vitest/no-test-env-branch" = "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466"
+"typescript/vitest/no-workspace-file" = "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a"
+"typescript/vitest/run" = "ffed07c248aacf6ab9544906dee79dfbf08bb464600b5fb333d92b2b9eff49c9"
+"typescript/vitest/snapshot-stale" = "5cfed406c2567dbc25cc4e46f73207f6d76e807866bd2874f08d8824ecdd49b8"
+"typescript/vitest/untested-change" = "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99"
+
+[files]
+".claude/rules/forge-secrets.md" = "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658"
+".claude/rules/forge-typescript-pnpm.md" = "03b8228be0ab61e70a5f4cff8db198625c470716a8585d376cbd93a4316b7f2f"
+".claude/rules/forge-typescript-vitest.md" = "9a729b7b303f3a3be778048cf775492292ceafb2f4b20afc6648993e96bab6bc"
+".claude/rules/forge-typescript.md" = "ef54887e9556ab47283ef9df9a8b5788fb500ae778224c0b4df341594a1cfe37"
+".git/hooks/pre-commit" = "df1a857492084a9ae3a8d4b1e72bcd329806178fa45741089b8d7451f5cd7875"
+
+[roles]
+build-artifacts = ["**/node_modules/**", "**/__pycache__/**", "**/*.pyc", "**/.next/**", "**/.nuxt/**", "**/.svelte-kit/**", "**/.turbo/**", "**/.coverage", "**/.DS_Store"]
+dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "!**/*.dockerignore"]
+e2e-tests = ["e2e/**", "tests/e2e/**"]
+env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
+env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+ts-tests = ["**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}", "**/__tests__/**"]
+
+[tools]
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.forge/**)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.yaml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.lock)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.claude/rules/forge-*.md)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/biome.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/biome.jsonc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/tsconfig*.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/eslint.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.oxlintrc.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/deno.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/deno.jsonc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.prettierrc*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/prettier.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/pnpm-workspace.yaml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.npmrc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.yarnrc.yml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/bunfig.toml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/turbo.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/vitest.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionStart"
+json = '''{"matcher":"startup|resume|clear|compact","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'","timeout":10}]}'''
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.UserPromptSubmit"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":10}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180,"onFailure":"block"}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Read|Edit|Write|Grep|Glob|NotebookEdit","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUse"
+json = """{"matcher":"Edit|Write|Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUseFailure"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.Stop"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'","timeout":600}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PermissionRequest"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionEnd"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'","timeout":10}]}"""
+=== .git/hooks/pre-commit
+#!/bin/sh
+# Generated by forge. Remove with forge remove.
+command -v claude-forge >/dev/null 2>&1 || { echo "forge: claude-forge is not installed, so this commit is not checked" >&2; exit 0; }
+exec claude-forge check --changed

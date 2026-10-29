@@ -1,0 +1,454 @@
+---
+source: crates/forge-cli/tests/apply.rs
+expression: s.snapshot()
+---
+=== .claude/rules/forge-docker-compose.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Docker Compose. `compose.yaml` holds the shared setup; `compose.override.yaml` (loaded automatically) holds local changes.
+`depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
+`develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
+Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
+Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 (short syntax) bind to `127.0.0.1`: Docker-published ports bypass ufw and firewalld.
+docker compose runs outside Claude Code's sandbox, so these checks are a real boundary.
+=== .claude/rules/forge-docker.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Docker. Multi-stage builds keep build tools out of the final stage; the checks require the final stage to run as a non-root `USER`.
+`RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+`ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
+Claude Code's sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`; docker commands then run outside the sandbox.
+=== .claude/rules/forge-github-actions.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`); zizmor's unpinned-uses check rejects tags.
+Workflows set `permissions: {}` at the top and grant each job only what it needs (excessive-permissions).
+`actions/checkout` sets `persist-credentials: false` unless a later step pushes (artipacked).
+Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) inside `run:` are rejected (template-injection): pass them through `env:` and use the shell variable.
+`pull_request_target` and `workflow_run` run with secrets on untrusted code; zizmor's dangerous-triggers check rejects them.
+=== .claude/rules/forge-python.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Parameters and return types are annotated.
+Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
+Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file may not gain suppression comments.
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions) and reuse it instead of adding a near-duplicate.
+=== .claude/rules/forge-secrets.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
+A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
+Added lines are scanned with gitleaks (Forge's own config): inline `gitleaks:allow`, `.gitleaksignore` and a project `.gitleaks.toml` do not silence it.
+Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
+=== .claude/settings.json
+{
+  "permissions": {
+    "ask": [
+      "Edit(.forge/**)",
+      "Edit(forge.yaml)",
+      "Edit(forge.lock)",
+      "Edit(.claude/rules/forge-*.md)",
+      "Edit(**/ruff.toml)",
+      "Edit(**/.ruff.toml)",
+      "Edit(**/ty.toml)",
+      "Edit(**/mypy.ini)",
+      "Edit(**/.mypy.ini)",
+      "Edit(**/pyrightconfig.json)",
+      "Write(**/setup.py)",
+      "Write(**/setup.cfg)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+=== forge.lock
+# Written by forge apply. Do not edit.
+forge = "<forge version>"
+claude_code_min = "2.1.295"
+rule_set = "b5316e28fd1216af05c3bd192ce95e73d9ea4f6e9c105e2d137213cf4530881c"
+
+[rules]
+"docker/compose/config-valid" = "b87377426380c917a3d0496c579860b4167ae96f6df1e50de5fa1e7c5a454a8d"
+"docker/compose/datastore-loopback" = "43892d01fdec9ac491fb3882ad2a7438af2f84e859d033a538485cd7bbbac2c3"
+"docker/compose/healthy-depends" = "28a47bf2921dd7041a878ff5d7c089ce75a0711aefb88e00b599c51b95e5aa29"
+"docker/compose/no-docker-sock" = "544a4ff4105d0a67f445ec265dc00088b21f1d7100cd11e646829156d2c84214"
+"docker/compose/no-host-root-mounts" = "668048d320eab4bc13a818dd9b9f5d085d271025e7869ad4b09740c86ce959e4"
+"docker/compose/no-inline-secrets" = "855fe35726fd9131bd87587a9f3947aaa0d5370bfcdb1a3202a6733186600e53"
+"docker/compose/no-links" = "fae79635ad73874fa138d642fdd5d2d11e5b69bdc99201332fab5c7ea25f7b6d"
+"docker/compose/no-privileged" = "5870ca015ca64a9cb94b4e66aff16e9f12b5e832ee4f79c5c5d7e323e0fce856"
+"docker/compose/no-version-key" = "91ec3635e4dd2da89e4a10a2a8aab160d3106d38a24389bb84ece0174e65d2b7"
+"docker/compose/pinned-images" = "13729d3fc187e8e27b993e53842a96e4d73ac1dde1f55502d32a9d501764f2cd"
+"docker/copy-not-add" = "5c3ab1b028c86b84d5ef86e0486b97cd9470fbb31056f788b6b8713ed5cfe83a"
+"docker/deps-before-copy" = "d81fc70ff3e8308b29453147ed7a4743413f6a6634e1e7f375fe170efe43bccb"
+"docker/dockerignore" = "99f013f0c52289375c0f2552ab0ee5a4e7b8f56e399cd1d53de0a8dd85890540"
+"docker/exec-form" = "18e5e51155d61fe2a856c665a8015de70fe3fbbc5589131e75a3c9a2b469e012"
+"docker/hadolint-correctness" = "d2488c874b225a06573499c78087a73fbcea8d472ad7419606032c334305ca61"
+"docker/image-size" = "42c15d243a6cd2490ea83fc687c008505a604beb85a4a9c85fba4af5eceafd84"
+"docker/locked-install" = "a5495533935cc356e8fced1905edd6270f4ee74ab11aa4962428532f94673280"
+"docker/no-secret-arg-env" = "82dbb6e788a6f4951d9acfe5bc05c62a0e90db51be84fe17c4121f2568f7a4f7"
+"docker/non-root-user" = "632b555a85749702d4547dea1ce0c84bf6c4382b03a6c004df5200c13b84edab"
+"docker/pin-base-image" = "4b3c4da19bfd220fc4bd457a6845ee83ae91c36a729a4309f4e69f8682c7cdc3"
+"docker/pipefail" = "a139fc92536169041f21e1e7a004f80fc8c4930adceec45f4e2b90709725d0e8"
+"docker/workdir" = "e93bb4f7873a3ad1bc8def88a259d8ec4d2bb461d58dc0ac924f5fb46eae09de"
+"git/editorconfig" = "045df992efc36ca41ed5419602e5bbf78ce017963291756d6c35a546951cce4f"
+"git/generated-files" = "17be5fbb43d6c428a39432ee5ea6716f295f60acaf30622fb320a8b90db7a0e6"
+"git/large-files" = "901c1f85b0623c15ebc61c9c02331614934d9658ba8db05e4b6379d8aa83cef5"
+"git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
+"git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
+"github-actions/actionlint" = "dae02b700cee685e90135c93ee84d2f1dd116d2b260cfe50089651ef8db42435"
+"github-actions/ci-ratchet" = "cc975df7ce4dcb81fe01ade6c982bbc80e182359e2103082cf13b63af2566592"
+"github-actions/no-removed-jobs" = "e01f20d069abe7bf7421a448629a96eb865def925d9529ed726bde39baa29a80"
+"github-actions/zizmor" = "152e740e0ec9b85f970fbea79835a9e78532541b357baaaea186aca86c09831a"
+"github-actions/zizmor-advice" = "7a7605e8752f8bc7f4846ccac20a52db9069fd8856f049b1f88885e8c5533b97"
+"python/annotations-api" = "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a"
+"python/archive-extract" = "87b2c77b092c7876717df443ca40d5ad933a9f96790aa4475bfe0e51556574da"
+"python/aware-datetime" = "10f327faa8c075c17454cc4eee7e935efc299a89db7c18a416d2202f84c2ea9b"
+"python/config-files" = "47fb25f5b890d22cfbebfdbaf84f73a27641a99e1fa78da0092c9906bcae7e49"
+"python/config-ratchet" = "fde5cb235c73ad800170c73f228bb004aa296f8ce1fb794c9ff2adfcb8cd7fbc"
+"python/contextmanager-finally" = "4c7f966205ad9317c478863b230de79f1107f827888cd78038514d5d828b6c55"
+"python/decimal-from-str" = "04cdc6805137a3a06a27ea45cdafc7b5c1cc59ff8a534773cc689bfa73c4e262"
+"python/env-example" = "c4597314420b3777fb4b0e819ea37c3d0187c175afcb6e63f00176bab4fff4cd"
+"python/env-misuse" = "5a5cc025a0ab1b58dc61ab934840895b9e91f856ca683b8d3b4bc7fcd23de339"
+"python/format" = "8318b1f65f2c50fda053034fcbaef0c48b4556e32441cf08d04dda2153928f33"
+"python/generic-type-args" = "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4"
+"python/hmac-compare" = "73bd6611568c027294db648c172eb8f0fd7319e7fefc709748cc3131dddffaf4"
+"python/http-timeout" = "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94"
+"python/jinja-autoescape" = "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52"
+"python/lazy-log-args" = "a0123cd863943017b8028af0766081fc8e56aac5bc557dc4fff535d202ef1221"
+"python/lint" = "ad100307284126a351d3c7863fb9ddd238faf8093eef8412683a9f97a1f905b4"
+"python/llm-client-timeout" = "c6bef4ca599af7fc8444ddb81f6e732822f7f09f7ce05002a0297e02f9828ac8"
+"python/log-exception" = "0012baa29d5549d69dddc4dc78ae2b803e33768f213a0c840d2e4dc5a73ecd81"
+"python/loop-closure" = "cf0307c28904e70dfc39c2c5bab2b35b934bcf81e6f1d2fb1e5552735b919faa"
+"python/misplaced-bare-raise" = "3ec155d69ba703dffb70514813dd85b83a189886baf07838963bdc95b2ac8a2c"
+"python/no-async-timeout" = "4cb4ebed582e7c990d9205d07ea88d943bf3356edeb9f9162bb900fcfa352ffe"
+"python/no-bare-except" = "1ea911085040c162828227d499b90871d6a395de928351c6bd4b1843c31b26ca"
+"python/no-bidi-chars" = "4e06bbba9bfeb852b50bfd5de1d2037f1516f79591e3461d302e6dcbba6445e4"
+"python/no-blanket-noqa" = "8e80247d900e6ab1d3205281b3e0b352f983cec7180e6ff904fe9b3dc7af03d1"
+"python/no-blind-except" = "4f3bfd74f11c5b6e2357af09286afde64c0bf2370be519dd68e79be42fe5e7f5"
+"python/no-blocking-in-async" = "c9720ff9c61c7d427764aed8bb2917d3fb9bde7e15aa3a844de81a13832f23f3"
+"python/no-cached-method" = "9dcf97f5f700521455c82f0bdb5020b0e9cb0b69259fe254bcceeb01600d07c4"
+"python/no-commented-out-code" = "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101"
+"python/no-commonprefix" = "7cbe29348a97eaaf7ebf9e045bddd7ebd01b65f01f8d9aea07cb9dfcc8c885d3"
+"python/no-dangling-task" = "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901"
+"python/no-debugger" = "164e5665b19459d1d4fd670ef634ee12ed0ee35d20700ca3c3fafed08f281b7b"
+"python/no-deprecated" = "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd"
+"python/no-dev-server-in-image" = "bf54df0f55252d6cb4c2f445aaea0cc23fc99bc947f7b7e98125cee996e48141"
+"python/no-ensure-future" = "65a1f258c08dabc70ad036262a5215443032def2595d93651ee3a123de6a4dcb"
+"python/no-eval" = "6dbaa96e5c5ec9952f70419be092a2261f7a0c6df75a091b5f5a5a8b678fefbd"
+"python/no-explicit-any" = "e3510c58cd582e5c40bd7eb02d4606708cc1f92e17bb3ac555f264c4e2e5e46b"
+"python/no-forgotten-call" = "dc244142f38dbc163fec9b03b13687f1291d072400e5f9a944a53c6138421f2c"
+"python/no-get-event-loop" = "72c8a9a8df88f46797dce49e8c8aa208a87b4031c8f2ab87c47a4f77be8eeb99"
+"python/no-global-statement" = "19d5b2acc7c201af57b1c29fdd6c7b9cb515caa6db46d5ec747a02c649d83f2a"
+"python/no-hardcoded-password" = "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e"
+"python/no-jump-in-finally" = "7a0cfb2d8894b112ab04f6b4bf01e7888e97640bb80c5462b12c03f61e120746"
+"python/no-mutable-defaults" = "9b431e94f8974c5ab1b937f224674196aa31520649925e40579908702af678a5"
+"python/no-nest-asyncio" = "42bd48664c16e28b8b2761b7b9e872b71bcf1f756c2474ca4a7f06342892d12f"
+"python/no-new-suppressions" = "4948353ff8634d811d54effd161e08f64c58c814c8617b9d0b6302d5ea6fc872"
+"python/no-passlib" = "c0485f2eb0ab87bcd139cd46d4b69dc3476d31c065cd94089fbb5e459822153d"
+"python/no-pickle" = "9c351dae94ee08822dae165aa3162647da126477b5c75b8cf49f8dcaef858b6b"
+"python/no-pkg-resources" = "885bc29a2544d66bb79d4bd714209d549366f764a4737423cc1b1d55a5281c79"
+"python/no-placeholder-comment" = "f527fcb761d164766cd78d64625480135f62bfefc8b9232ea5424cbd2b968286"
+"python/no-possibly-missing-submodule" = "23169ba136c8097d032bd0466d9db0ac7de78683071e5e7f953090cd8d855bd2"
+"python/no-preexec-fn" = "d53a83e7784fc809c37da3485cb62511bfe801b65fe43781853ab8b8fda96f94"
+"python/no-print" = "64c6bbe79a0f0e0205844745791774acc85e6bfc3e9f24dd9bd9846555f5254a"
+"python/no-python-jose" = "e2514dc0891d352768775fd48c8640667273b578588402f31218e95045313506"
+"python/no-pytz" = "c20d211b7166bcbd6623f78fce4e748a104e357af1ef1e13b5d29407a8ba87a0"
+"python/no-raise-vanilla" = "94d69facf52fe2d7a0634aaf155c6bc8759ada50e98844f0b331be10901216ff"
+"python/no-removed-stdlib" = "1b81a299489064187600523e13170dca614a99732ec12fd81d52358600aea585"
+"python/no-root-logger" = "f2fd080c455236b6cc9bfd5c769afbbfd7486f25a81f56bc42920b627aa8c32e"
+"python/no-ruff-overlap" = "c056a910aedd5616c5e512586a468c6fbd9cc77588a11de88e54c3115eca689c"
+"python/no-setup-py" = "40550650c37e0a43e830dcfaf184fc97353fdca73d4027f3b8e3db783d164e38"
+"python/no-shell-true" = "e57da980e2cf90ab2998c0b12987735c970262277193bdea72397679c12200de"
+"python/no-silent-except" = "cb885f3faac45a814f4f080cecd5b5de600926626ba454fd8776ab5abf10185c"
+"python/no-sql-format" = "7946d9a48b8df9239ac68a0bf2b4b3880171d2e72426507d623d36a5c7035e4c"
+"python/no-ssl-verify-off" = "6c5003d2ba0db73b551ff147fe024749d9c8908811840c84a867521e90af04db"
+"python/no-stale-ignore" = "025c59ddb4f717e8f1cdb657b3c4dc20d9956546d59bd263f40bf7ab3f55a6aa"
+"python/no-stub" = "b2b4943b8db051e5e64d410b2a3a6538c71c931c7bc8e474dfa2883dc6993a50"
+"python/no-swallowed-cancel" = "86e42ec8b2f39f0b68b032cea2591268f0adf076b78571691c8ee012bed5cc67"
+"python/no-tls-bypass" = "50f40612ba7d0bccc6df25dc918b467429f7fb120f9d8a9d74389dcb9eddcab4"
+"python/no-unawaited-coroutine" = "f8c54678f05d37ca91b302b9513ba4290521c927748f95d2684edf4a62511012"
+"python/no-unknown" = "338e97ad56332dc9b8a0f04db8b6bac86eacbe5be0a639ad11d6d0633f6bd820"
+"python/no-unsafe-markup" = "36cc21c3e5ad54bb0b7c5a1e5b6ed3cd3be645008967dcecdaa0d99b49c4e6f3"
+"python/no-unsafe-yaml" = "3a1aa90fcb8512a33df1c4afff6717b4cb4e95f77c634409f7f7b6221eabad92"
+"python/no-unscoped-ignore" = "431b8ace40499bc0444f2d57b5a4a826853bb8d340a4c1091003ad9b7bb8ce0c"
+"python/no-unused-args" = "f9581d5227911b978ccddedb552372edf436218e640e07a0ab57d03c947dc9c5"
+"python/no-unused-noqa" = "451c4baa594552fae0c808e39002665ddfe1a86dd3d9ba95ebc22def6d80edd6"
+"python/no-useless-cast" = "69e12c7922cfc0c6a2d6c9d2baa84e04b5746e11393627a6bc1b6076fe300421"
+"python/no-useless-lock" = "443e98c84edc59f69d9d85f01b983d2cdeb58dd67a0b9b743f92666963f3c4b6"
+"python/no-useless-try" = "2b26c37730777ecc9d8b657bafba15e5037ead286a08f3b1dc120dcc27eb00d3"
+"python/no-weak-hash" = "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03"
+"python/open-with-context" = "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056"
+"python/override-decorator" = "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089"
+"python/project-table" = "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327"
+"python/raise-from" = "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381"
+"python/ruff-config-current" = "740352f926ca71cf7008eefd348543f0989a311eb1f051689ca0a7c480e7b312"
+"python/self-type" = "7d4247c8346d32b948d11e91b0b2e7aa69dda3dd6401f83879479de240a7b4a1"
+"python/strict-zip" = "a657834c26cca0bb51b07a18b297238075b337fc30a03ea089e7e10c913fccde"
+"python/stub-sync" = "73da3b9b1b1b66d958d03306e05f26c601377596348f4632fc3f462242f4bafe"
+"python/subprocess-check" = "3b8e572d9f78082ac6eb7df6f0d8ffb1ae9e4a0ec797077fea459d1691e6bd08"
+"python/taskgroup-except-star" = "cac6a24d72d057d9dcf8aa120647e94a330c34c20536836e868f85c452e0f6ad"
+"python/type-checking-imports" = "a3ffea57777c1ccaec2df6487798c5621ed3195313d6114b4b44a34242b97df4"
+"python/typecheck" = "a0569facbec5254e123b397653773ea6e59e2e314833e24e7dc2739c99c9e5b8"
+"python/typed-decorators" = "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75"
+"python/typeis-over-typeguard" = "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9"
+"python/valid-pyproject" = "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241"
+"python/weak-crypto" = "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48"
+"python/with-suffix-dot" = "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2"
+"secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
+"secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
+"secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
+"supply-chain/audit-ignore-ratchet" = "776a5a5bddfdf35c92ceec3b91e7e06aad0ae83638ac3ce9a6f5b0f103b787c5"
+"supply-chain/insecure-download" = "857919418f09839d386248631285abc53838bd8e7657044467037b0e216b99ee"
+"supply-chain/new-npm-dep-exists" = "d55abf477632768ca2ed9ba9c7025b76aa1651fe8ae19849172cb1f87ec9597d"
+"supply-chain/new-pypi-dep-exists" = "a8646bc19e12d584ffb149654f5bffccbd665d3d632d1b20143f60f7bd6a31d7"
+"supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
+"supply-chain/no-dependency-confusion-command" = "b6e3da32764a408a4ca0b898cadfb9d59d60792db47240310282016b78cba84c"
+"supply-chain/no-tls-disable" = "a7534ef466675254037644cb6520e52325e262d55d71dd629a98d26eec701124"
+"supply-chain/no-tls-disable-command" = "0657f0d795fce30f651cccdcb4128be73a0ef98c52cabadfceb76b4f2fac1542"
+"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+
+[files]
+".claude/rules/forge-docker-compose.md" = "35e094a47a5a4be9a61f496e4dc1de3b6c2cb1d836c4c0ca46846ab24414dfff"
+".claude/rules/forge-docker.md" = "0aa39e4c93ea79eda0a7b7f7657829f72326d4c61a34b75c097461c568ec97d7"
+".claude/rules/forge-github-actions.md" = "032616772621679b8f2daa8621475e79176b582af94221582d992e8576f3b426"
+".claude/rules/forge-python.md" = "de53525de5bec9988f79efe3f8da98c0a0d9ac6e26965f92f793f49b4c0d2979"
+".claude/rules/forge-secrets.md" = "f608fa83e7dc82af96f148e9c89eb21d3634223971c8827ef0c98ab6109a8658"
+".git/hooks/pre-commit" = "df1a857492084a9ae3a8d4b1e72bcd329806178fa45741089b8d7451f5cd7875"
+
+[roles]
+alembic-migrations = ["alembic/versions/**", "migrations/versions/**"]
+build-artifacts = ["**/node_modules/**", "**/__pycache__/**", "**/*.pyc", "**/.next/**", "**/.nuxt/**", "**/.svelte-kit/**", "**/.turbo/**", "**/.coverage", "**/.DS_Store"]
+compose = ["**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml"]
+django-migrations = ["**/migrations/[0-9]*.py"]
+dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "!**/*.dockerignore"]
+env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
+env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+procfile = ["Procfile", "Procfile.*"]
+
+[tools]
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.forge/**)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.yaml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.lock)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.claude/rules/forge-*.md)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/ruff.toml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.ruff.toml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/ty.toml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/mypy.ini)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.mypy.ini)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/pyrightconfig.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Write(**/setup.py)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Write(**/setup.cfg)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionStart"
+json = '''{"matcher":"startup|resume|clear|compact","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'","timeout":10}]}'''
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.UserPromptSubmit"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":10}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180,"onFailure":"block"}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Read|Edit|Write|Grep|Glob|NotebookEdit","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUse"
+json = """{"matcher":"Edit|Write|Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUseFailure"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.Stop"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'","timeout":600}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PermissionRequest"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionEnd"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'","timeout":10}]}"""
+=== .git/hooks/pre-commit
+#!/bin/sh
+# Generated by forge. Remove with forge remove.
+command -v claude-forge >/dev/null 2>&1 || { echo "forge: claude-forge is not installed, so this commit is not checked" >&2; exit 0; }
+exec claude-forge check --changed
