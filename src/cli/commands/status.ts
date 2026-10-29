@@ -1,4 +1,4 @@
-import { auditRules, untypedPackages } from "../../audit.js";
+import { auditRules, type PythonEnvState, pythonEnvState, untypedPackages } from "../../audit.js";
 import { FORGE_VERSION } from "../../util.js";
 import { computeChanges } from "../changes.js";
 import { type Ctx, context } from "../context.js";
@@ -14,6 +14,7 @@ export function cmdStatus(flags: Flags): number {
   const missing = missingTools(ctx);
   const rules = enforcement(ctx, audits, missing);
   const untyped = untypedState(ctx);
+  const pyEnv = ctx.level === "project" && p.packs.some((pk) => pk.id === "python") ? pythonEnvState(ctx.base) : undefined;
   const versions = toolVersionReport(ctx);
   if (flags.json) {
     const ch = computeChanges(ctx);
@@ -36,6 +37,7 @@ export function cmdStatus(flags: Flags): number {
           snippets: mergedSnippets(audits),
           missing_tools: missing,
           untyped_packages: untyped,
+          python_environment: pyEnv,
           tool_versions: versions,
           pre_commit: ctx.level === "project" ? preCommitState(ctx) : undefined,
           drift: [...ch.drift, ...ch.conflicts, ...ch.blockDrift],
@@ -108,6 +110,7 @@ export function cmdStatus(flags: Flags): number {
   const sandbox = sandboxProblem(ctx);
   if (sandbox) out(sandbox.replace(/^forge: sandbox: /, "Sandbox: "));
   out(missing.length ? "Missing tools:\n" + missing.map((m) => `  ${m}`).join("\n") : "Missing tools: none");
+  if (pyEnv) out(formatPythonEnv(pyEnv));
   if (untyped) out(formatUntyped(untyped));
   if (ctx.level === "project") out(versions.length ? "Tool versions:\n" + versions.map((v) => `  ${v}`).join("\n") : "Tool versions: every tool the checks drive is covered");
   if (ctx.level === "project") {
@@ -146,4 +149,19 @@ export function formatUntyped(u: UntypedState): string {
   const shown = u.names.slice(0, 8).join(", ");
   const more = u.count > 8 ? `, … ${u.count - 8} more` : "";
   return `Untyped packages: ${u.count} installed without typing, checked as Any by ty (${shown}${more}); to infer them from their source: forge.yaml python: {untyped-packages: source}`;
+}
+
+/** The Python environment the checks use, why, and where each Python tool was found (§9.1). */
+export function formatPythonEnv(e: PythonEnvState): string {
+  const of = (c: { installed: number; declared: number }) => `${c.installed} of ${c.declared} declared dependencies installed`;
+  const checked = e.checked.map((c) => `${c.python} (${c.installed}/${c.declared})`).join(", ");
+  const lines: string[] = [];
+  if (!e.chosen) lines.push(`Python environment: none found${checked ? ` (checked: ${checked})` : ""}`);
+  else if (e.chosen.declared === 0) lines.push(`Python environment: ${e.chosen.prefix} (${e.chosen.python}); the project declares no dependencies`);
+  else if (e.chosen.installed === 0)
+    lines.push(`Python environment: none has the project's ${e.chosen.declared} declared dependencies installed (checked: ${checked}); using ${e.chosen.prefix} (${e.chosen.python})`);
+  else lines.push(`Python environment: ${e.chosen.prefix} (${e.chosen.python}), ${of(e.chosen)}${e.checked.length > 1 ? ` (checked: ${checked})` : ""}`);
+  const where = { venv: "the repository's .venv", env: "the environment's", path: "on PATH" };
+  for (const t of e.tools) lines.push(`  ${t.tool}: ${t.path} (${where[t.where]})`);
+  return lines.join("\n");
 }

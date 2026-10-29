@@ -623,3 +623,15 @@ export function packsSelfTest(): TestReport {
 export function fullEngine(): string {
   return [renderLib(), "IFS='\n'", renderChecks([], [], [], undefined, "all")].join("\n");
 }
+
+/**
+ * PATH without the directories that hold one of <tools>: those tools not installed, whatever
+ * the machine has. A Python tool the project's environment does not have is the one on PATH
+ * (§9.1), so a spec whose lint or tests are not under test runs without them.
+ */
+export function pathWithout(...tools: string[]): string {
+  return (process.env.PATH ?? "")
+    .split(":")
+    .filter((d) => d && !tools.some((t) => existsSync(join(d, t))))
+    .join(":");
+}

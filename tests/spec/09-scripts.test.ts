@@ -16,6 +16,8 @@ import { dirname, join } from "node:path";
 import { renderEngine, renderGuardRules, renderLib, resolveEngine, template } from "../../src/render";
 import { availableShells, guardDecision, guardExampleDir, hookInput } from "../../src/selftest";
 import type { Rule } from "../../src/types";
+import { parsePythonEnvReport } from "../../src/audit";
+import { formatPythonEnv } from "../../src/cli/commands/status";
 import { sh } from "../helpers";
 
 const shells = availableShells();
@@ -37,6 +39,34 @@ function backdate(dir: string): void {
 }
 
 /** Runs `snippet` after sourcing lib.sh, with $FORGE_INPUT set to `input`. */
+/**
+ * Two virtual environments of the system's python3, made once: "project", with the
+ * metadata of the project's three declared dependencies (flask-login, requests, ruff) and a
+ * ruff script, and "other", with none. Undefined without a python3 that has venv.
+ */
+let venvs: { project: string; other: string } | null | undefined;
+function pyVenvs(): { project: string; other: string } | undefined {
+  if (venvs === undefined) {
+    venvs = null;
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-venvs-")));
+    const made = ["project", "other"].every((n) => sh("python3", ["-m", "venv", "--without-pip", join(base, n)]).status === 0);
+    if (made) {
+      const site = sh(join(base, "project/bin/python3"), ["-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]).stdout.trim();
+      for (const [dir, name] of [
+        ["Flask_Login-0.6.3.dist-info", "Flask-Login"],
+        ["requests-2.31.0.dist-info", "requests"],
+        ["ruff-0.1.5.dist-info", "ruff"],
+      ] as const) {
+        mkdirSync(join(site, dir), { recursive: true });
+        writeFileSync(join(site, dir, "METADATA"), `Metadata-Version: 2.1\nName: ${name}\nVersion: 1\n`);
+      }
+      writeFileSync(join(base, "project/bin/ruff"), "#!/bin/sh\n", { mode: 0o755 });
+      venvs = { project: join(base, "project"), other: join(base, "other") };
+    }
+  }
+  return venvs ?? undefined;
+}
+
 function libRun(argv: string[], input: string, snippet: string, cwd = lib): string {
   const r = sh(argv[0]!, [...argv.slice(1), "-c", `. "${join(lib, "lib.sh")}"; FORGE_INPUT=$(cat); ${snippet}`], { input, cwd });
   return r.stdout;
@@ -68,16 +98,16 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     writeFileSync(join(uvRepo, "uv.lock"), "");
     mkdirSync(join(uvRepo, ".venv/bin"), { recursive: true });
     writeFileSync(join(uvRepo, ".venv/bin/ruff"), "#!/bin/sh\n", { mode: 0o755 });
-    expect(libRun([...argv], "{}", "tool ruff; printf '|'; tool pytest", uvRepo)).toBe(".venv/bin/ruff|");
+    expect(libRun([...argv], "{}", "PATH=/nonexistent; tool ruff; printf '|'; tool pytest", uvRepo)).toBe(".venv/bin/ruff|");
   });
 
   /**
    * Projects install their Python tools elsewhere than .venv: an activated virtual
    * environment, uv's UV_PROJECT_ENVIRONMENT, Poetry's own environments, or the
    * interpreter itself (pip, Poetry without virtualenvs, a Docker image). The tool is the
-   * one of that environment; one elsewhere on PATH (a global install) is not the project's.
+   * one of that environment, else the first on PATH.
    */
-  test("tool finds a Python tool of the project's environment outside .venv, never one elsewhere on PATH", () => {
+  test("tool finds a Python tool in the project's environment outside .venv first, then on PATH", () => {
     const base = realpathSync(mkdtempSync(join(tmpdir(), "forge-pyenv-")));
     const exe = (p: string, body = "") => {
       mkdirSync(dirname(join(base, p)), { recursive: true });
@@ -94,12 +124,64 @@ describe.each(shells.map((s) => [s.name, s.argv] as const))("lib.sh on %s", (_na
     mkdirSync(repo);
     const path = `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${base}/interp:${base}/global:$PATH"`;
     const all = "tool ruff; printf '|'; tool pytest; printf '|'; tool python; printf '|'; tool tsc";
-    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe(`${base}/scripts/ruff||${base}/interp/python3|`);
-    expect(libRun([...argv], "{}", `${path}; VIRTUAL_ENV="${base}/venv"; ${all}`, repo)).toBe(`|${base}/venv/bin/pytest|${base}/venv/bin/python|`);
-    // a uv project's environment is .venv or UV_PROJECT_ENVIRONMENT, nothing else
+    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe(`${base}/scripts/ruff|${base}/global/pytest|${base}/interp/python3|`);
+    expect(libRun([...argv], "{}", `${path}; VIRTUAL_ENV="${base}/venv"; ${all}`, repo)).toBe(`${base}/global/ruff|${base}/venv/bin/pytest|${base}/venv/bin/python|`);
+    // a uv project's environment is .venv or UV_PROJECT_ENVIRONMENT, nothing else; its tools not there are PATH's
     writeFileSync(join(repo, "uv.lock"), "");
-    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe("|||");
+    expect(libRun([...argv], "{}", `${path}; ${all}`, repo)).toBe(`${base}/global/ruff|${base}/global/pytest||`);
     expect(libRun([...argv], "{}", `${path}; UV_PROJECT_ENVIRONMENT="${base}/venv"; tool pytest`, repo)).toBe(`${base}/venv/bin/pytest`);
+  });
+
+  test("the declared dependencies are read from [project] (one line or several), [tool.poetry.dependencies] and requirements*.txt, as normalised names", () => {
+    const repo = realpathSync(mkdtempSync(join(tmpdir(), "forge-pydecl-")));
+    writeFileSync(
+      join(repo, "pyproject.toml"),
+      '[project]\nname = "x"\ndependencies = ["FastAPI>=0.115", \'SQLAlchemy[asyncio]>=2\',\n  "httpx[http2]",\n  "anyio",\n]\n\n[tool.poetry.dependencies]\npython = "^3.10"\nFlask_Login = "^0.6"\n\n[tool.ruff.lint]\nselect = ["E"]\n',
+    );
+    writeFileSync(join(repo, "requirements.txt"), "# pinned\nzope.interface==6\n-e .\n");
+    expect(
+      libRun([...argv], "{}", "forge_py_deps_ask | grep -v '^watch '", repo)
+        .trim()
+        .split("\n"),
+    ).toEqual(["fastapi", "sqlalchemy", "httpx", "anyio", "flask-login", "zope-interface"]);
+  });
+
+  /**
+   * The project's environment is the one its declared dependencies are installed in, not
+   * merely the first interpreter on PATH: an image may put an unrelated virtual environment
+   * first (evaluation tooling) while the project's packages and tools are in the system
+   * interpreter. Real interpreters (virtual environments with installed distributions'
+   * metadata), so the probe is the one the hooks run.
+   */
+  test.skipIf(!pyVenvs())("the environment with the project's declared dependencies wins over an unrelated one earlier on PATH, whichever comes first; with none, the first one, said so", () => {
+    const v = pyVenvs()!;
+    const repo = realpathSync(mkdtempSync(join(tmpdir(), "forge-pydeps-")));
+    writeFileSync(join(repo, "pyproject.toml"), '[tool.poetry]\nname = "app"\n\n[tool.poetry.dependencies]\npython = "^3.10"\nFlask_Login = "^0.6"\n"requests" = "*"\n');
+    writeFileSync(join(repo, "requirements-dev.txt"), "# tools\nruff==0.1.5\n-r other.txt\n");
+    const run = (path: string) =>
+      libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${path}:/usr/bin:/bin"; forge_py_env_report`, repo)
+        .trim()
+        .split("\n");
+    // the image's shape: the unrelated environment first on PATH, the project's second
+    const shape = run(`${v.other}/bin:${v.project}/bin`);
+    expect(shape[0]).toMatch(new RegExp(`^env \\S+ ${v.project} 3 3$`));
+    expect(shape).toContain(`checked ${v.other}/bin/python3 0 3`);
+    expect(shape).toContain(`tool ruff ${v.project}/bin/ruff env`);
+    // the reverse order: still the project's
+    expect(run(`${v.project}/bin:${v.other}/bin`)[0]).toMatch(new RegExp(`^env \\S+ ${v.project} 3 3$`));
+    // neither has them: the first, with 0 of 3, which forge status says
+    const none = run(`${v.other}/bin`);
+    expect(none[0]).toMatch(new RegExp(`^env \\S+ ${v.other} 0 3$`));
+    const said = formatPythonEnv(parsePythonEnvReport(none.join("\n")));
+    expect(said).toStartWith(`Python environment: none has the project's 3 declared dependencies installed (checked: ${v.other}/bin/python3 (0/3)`);
+    expect(said).toContain(`; using ${v.other} (${v.other}/bin/python3)`);
+    expect(formatPythonEnv(parsePythonEnvReport(shape.join("\n")))).toContain(`  ruff: ${v.project}/bin/ruff (the environment's)`);
+    // no declared dependencies: the first interpreter on PATH
+    const bare = realpathSync(mkdtempSync(join(tmpdir(), "forge-pydeps-")));
+    const r = libRun([...argv], "{}", `unset VIRTUAL_ENV UV_PROJECT_ENVIRONMENT; PATH="${v.other}/bin:${v.project}/bin:/usr/bin:/bin"; forge_py_env_report`, bare)
+      .trim()
+      .split("\n");
+    expect(r[0]).toMatch(new RegExp(`^env \\S+ ${v.other} 0 0$`));
   });
 
   /**

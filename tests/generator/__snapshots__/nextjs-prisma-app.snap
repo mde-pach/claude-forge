@@ -524,6 +524,30 @@ elif [ -e "$state" ]; then
   rm -f "$state"
 fi
 
+# the project's Python environment (§9.1): said when none of the candidates has the
+# project's declared dependencies installed, once until it changes
+state=$FORGE_STATE/python-env
+pyenv=''
+if [ ! -x .venv/bin/python ] && [ ! -x .venv/bin/python3 ]; then
+  forge_py_deps
+  if [ -n "$FORGE_FACT" ] && forge_py_env; then
+    case $FORGE_PY_DEPS in
+      "0 "*)
+        _ss_c=''
+        for _ss_l in $FORGE_PY_CHECKED; do _ss_n=${_ss_l#* }; _ss_c="${_ss_c:+$_ss_c, }${_ss_l%% *} ${_ss_n% *}/${_ss_n#* }"; done
+        pyenv="no Python environment has the project's ${FORGE_PY_DEPS#0 } declared dependencies installed (checked: $_ss_c); the checks use $FORGE_PY. Install them there, or activate the project's environment (VIRTUAL_ENV)" ;;
+    esac
+  fi
+fi
+if [ -n "$pyenv" ]; then
+  if [ "$pyenv" != "$(forge_cat "$state" 2>/dev/null)" ]; then
+    printf 'forge: %s\n' "$pyenv"
+    forge_state_dir && printf '%s\n' "$pyenv" > "$state"
+  fi
+elif [ -e "$state" ]; then
+  rm -f "$state"
+fi
+
 # what the installed tool versions cannot do (§16.3), once until it changes
 report=$(forge_tool_report)
 state=$FORGE_STATE/tool-report
@@ -5039,11 +5063,11 @@ forge_end "$fail"
     ".claude/skills/forge-project/scripts/checks.sh": "646341f3287ba90488bf56be99a66309f8128ba472482b9755eba6443fbb89c6",
     ".claude/skills/forge-project/scripts/guard.rules": "dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f",
     ".claude/skills/forge-project/scripts/guard.sh": "1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538",
-    ".claude/skills/forge-project/scripts/lib.sh": "cd594965a7d041b5871a3330b4e2d321a8012d177b718fb2751040e151c1a448",
+    ".claude/skills/forge-project/scripts/lib.sh": "e11a85961313d532466e6893ab9a4c84d20a6623e4f437fbb0743bc9d228a178",
     ".claude/skills/forge-project/scripts/post-edit.sh": "8cc28d645fb3c52721c359dfef340b63166d8fca6f18d9910f1185df338cde38",
     ".claude/skills/forge-project/scripts/review.sh": "5499596d85984cba3faaa1fbd35948447445e2f088722e87aeaea3166045b7bc",
     ".claude/skills/forge-project/scripts/session-end.sh": "a11baa414fa87ab5c1a20cee2f93d9d7710d08ad88aa164ec5f5937a2043000f",
-    ".claude/skills/forge-project/scripts/session-start.sh": "b33ed77429ab22aa121d263b6cef2b453a3cdb30dcf5440280618d319d182ec0",
+    ".claude/skills/forge-project/scripts/session-start.sh": "4646ceca29ff3c400e6a1e7af2b4f6962f3e76bfdc85edbfc6eb6f34c3d6b9bf",
     ".claude/skills/forge-project/scripts/stop.sh": "63ed1ba62c9e58d3abb56522448e892f061a5a87b8d4119d9777136ea0065f33",
     ".claude/skills/forge-project/scripts/test-edit.sh": "0de510c95e06d723f912fbef58d4e35060ec33887b212d4c3214d9ec7934950c",
     ".claude/skills/forge-project/scripts/turn-start.sh": "febd12715cd7b12be16b781b885f5968e31f26e86ed140a3601f13c46c8afedf",
@@ -5168,7 +5192,7 @@ forge_end "$fail"
     ".forge/ast-grep/rules/typescript/zod/error-param.yml": "88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a",
     ".forge/ast-grep/rules/typescript/zod/v4-string-formats.yml": "1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45",
     ".forge/ast-grep/sgconfig.yml": "ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371",
-    ".forge/check.sh": "7dc62d6cbf9df21fbacc31449e83c8b34ca49c04fa920c2ac549053787c4787d",
+    ".forge/check.sh": "6d970cd9358eb73459a7e88601479527cf593359304f9263137ada59b735132a",
     ".forge/helpers/new_deps.mjs": "8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565",
     ".forge/helpers/new_deps.py": "7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0",
     ".forge/helpers/node_version.mjs": "4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f",
@@ -5357,11 +5381,11 @@ d28c202241b1c242030618b5d932e6095d88f869688363443827db5b4bdc89f0  .claude/skills
 646341f3287ba90488bf56be99a66309f8128ba472482b9755eba6443fbb89c6  .claude/skills/forge-project/scripts/checks.sh
 dd3dc5f9e4a9cf698340b1eef468e6c333e2ebfa16f92d50f4649db5ab18e40f  .claude/skills/forge-project/scripts/guard.rules
 1d892db2c9236bbd4f73742e1de1185a1b6bbc2ed8b0d8d6e7252692a1366538  .claude/skills/forge-project/scripts/guard.sh
-cd594965a7d041b5871a3330b4e2d321a8012d177b718fb2751040e151c1a448  .claude/skills/forge-project/scripts/lib.sh
+e11a85961313d532466e6893ab9a4c84d20a6623e4f437fbb0743bc9d228a178  .claude/skills/forge-project/scripts/lib.sh
 8cc28d645fb3c52721c359dfef340b63166d8fca6f18d9910f1185df338cde38  .claude/skills/forge-project/scripts/post-edit.sh
 5499596d85984cba3faaa1fbd35948447445e2f088722e87aeaea3166045b7bc  .claude/skills/forge-project/scripts/review.sh
 a11baa414fa87ab5c1a20cee2f93d9d7710d08ad88aa164ec5f5937a2043000f  .claude/skills/forge-project/scripts/session-end.sh
-b33ed77429ab22aa121d263b6cef2b453a3cdb30dcf5440280618d319d182ec0  .claude/skills/forge-project/scripts/session-start.sh
+4646ceca29ff3c400e6a1e7af2b4f6962f3e76bfdc85edbfc6eb6f34c3d6b9bf  .claude/skills/forge-project/scripts/session-start.sh
 63ed1ba62c9e58d3abb56522448e892f061a5a87b8d4119d9777136ea0065f33  .claude/skills/forge-project/scripts/stop.sh
 0de510c95e06d723f912fbef58d4e35060ec33887b212d4c3214d9ec7934950c  .claude/skills/forge-project/scripts/test-edit.sh
 febd12715cd7b12be16b781b885f5968e31f26e86ed140a3601f13c46c8afedf  .claude/skills/forge-project/scripts/turn-start.sh
@@ -5486,7 +5510,7 @@ a177d889c58e4ec07acda640b671d277f719f2249822839745d8eb536d8bcfd2  .forge/ast-gre
 88159fbb4d7194f8aaf1b83a735dd8e4202cfcf5a9d377e6164a2b262b20d95a  .forge/ast-grep/rules/typescript/zod/error-param.yml
 1f4b2e54f9767673c6469da4a1d7f0d9dc1d8f39b657460bab8096b8c35a0a45  .forge/ast-grep/rules/typescript/zod/v4-string-formats.yml
 ead956ce3bae6f46de44ea2d91710c2a9d1270635fdbef76f915a0405400d371  .forge/ast-grep/sgconfig.yml
-7dc62d6cbf9df21fbacc31449e83c8b34ca49c04fa920c2ac549053787c4787d  .forge/check.sh
+6d970cd9358eb73459a7e88601479527cf593359304f9263137ada59b735132a  .forge/check.sh
 8a768498205d62eee0b96c05a840fc0338762abb5ed302343e087aaaa1dcf565  .forge/helpers/new_deps.mjs
 7119435e36e4107d347842e8b763f84dcd37bfa0071931e80adb215735da36a0  .forge/helpers/new_deps.py
 4759bf340bd01d4555cb531a44f95e4604ad0ecd4a95ccf69715883ce06ce91f  .forge/helpers/node_version.mjs

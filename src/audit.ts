@@ -51,6 +51,29 @@ function shellTool(repo: string, call: string, prelude = ""): string | null {
   return shellTools.get(key)!;
 }
 
+/** The project's Python environment as the hooks choose it (lib.sh forge_py_env_report): what was chosen, every candidate checked, where each Python tool is. */
+export interface PythonEnvState {
+  chosen?: { python: string; prefix: string; installed: number; declared: number };
+  checked: { python: string; installed: number; declared: number }[];
+  tools: { tool: string; path: string; where: "venv" | "env" | "path" }[];
+}
+
+export function pythonEnvState(repo: string): PythonEnvState {
+  return parsePythonEnvReport(shellTool(repo, "forge_py_env_report") ?? "");
+}
+
+/** forge_py_env_report's lines as a PythonEnvState. */
+export function parsePythonEnvReport(text: string): PythonEnvState {
+  const st: PythonEnvState = { checked: [], tools: [] };
+  for (const line of text.split("\n")) {
+    const w = line.split(" ");
+    if (w[0] === "env" && w.length >= 5) st.chosen = { python: w[1]!, prefix: w[2]!, installed: Number(w[3]), declared: Number(w[4]) };
+    else if (w[0] === "checked" && w.length >= 4) st.checked.push({ python: w[1]!, installed: Number(w[2]), declared: Number(w[3]) });
+    else if (w[0] === "tool" && w.length >= 4) st.tools.push({ tool: w[1]!, path: w[2]!, where: w[3] as "venv" | "env" | "path" });
+  }
+  return st;
+}
+
 /**
  * The engine's ty functions (forge_ty_args, forge_ty_untyped) rendered with the project's
  * settings, the untyped-packages helper read from Forge's own templates: the audits and

@@ -19,7 +19,7 @@ import { renderChecks, renderLib } from "../../src/render";
 import { validate } from "../../src/schemas";
 import { loadRuleFile } from "../../src/packs";
 import { ENGINE_PYTHON, TY_VERSION } from "../../src/util";
-import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
+import { commitAll, fakeClaude, fixture, forge, git, hasUv, hookJson, othersRunning, pathWithout, processesNaming, put, ROOT, sh, stateDir, stopEngines, TOOL_VERSIONS } from "../helpers";
 
 const T = 300_000;
 const SCRIPTS = ".claude/skills/forge-project/scripts";
@@ -35,8 +35,8 @@ const SCRIPTS = ".claude/skills/forge-project/scripts";
 const warmBudget = (n: number) => 300 + 10 * n;
 /** The first question of a session, the engine started on demand, in ms. */
 const COLD_BUDGET_MS = 5_000;
-// a daemon a failed test leaves behind goes away on its own
-const ENV = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_TYPES_IDLE: "300" };
+// a daemon a failed test leaves behind goes away on its own; no ruff from PATH: the lint is not under test here (§9.1)
+const ENV = { CLAUDE_CODE_ENTRYPOINT: "cli", FORGE_TYPES_IDLE: "300", PATH: pathWithout("ruff") };
 
 function hook(repo: string, script: string, fields: Record<string, unknown>, env: Record<string, string> = {}) {
   return sh("sh", [join(SCRIPTS, script)], { cwd: repo, input: hookJson({ cwd: repo, ...fields }), env: { ...ENV, ...env } });

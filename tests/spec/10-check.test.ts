@@ -29,6 +29,7 @@ import {
   hasUv,
   linkTools,
   linkTs5,
+  pathWithout,
   put,
   sampleRepo,
   sh,
@@ -225,7 +226,7 @@ describe("steps", () => {
     "a check whose tool is not installed prints skipped and does not fail",
     () => {
       put(repo, "app/x.py", "X = 1\n");
-      const r = check();
+      const r = check("--changed", { PATH: pathWithout("pytest") });
       expect(r.stdout).toContain("forge:python/pytest/run skipped: pytest not installed");
       reset();
     },
@@ -1506,7 +1507,10 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     T,
   );
 
-  /** The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic. */
+  /**
+   * The FastAPI sample with a real async Alembic setup (`alembic init -t async`) and the cached Alembic.
+   * Its checks run without a ruff or pytest on PATH (pathWithout): the revisions' lint and tests are not under test.
+   */
   function alembicRepo(): string {
     return fixture("fastapi-app-alembic", (r) => {
       ensureTools();
@@ -1548,7 +1552,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
     () => {
       const r = alembicRepo();
       put(r, "alembic/versions/0002_rename.py", revision('op.alter_column("users", "name", new_column_name="full_name")'));
-      const out = run(r, "--changed");
+      const out = run(r, "--changed", { PATH: pathWithout("pytest", "ruff") });
       expect(out.status).toBe(1);
       expect(out.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
       expect(out.stdout).toContain("SQL of alembic upgrade 0001:0002 --sql");
@@ -1564,7 +1568,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
       const r = alembicRepo();
       put(r, "alembic/versions/0002_nick.py", revision('op.add_column("users", sa.Column("nick", sa.Text, nullable=True))'));
       for (const mode of ["--changed", "--all"]) {
-        const out = run(r, mode).stdout;
+        const out = run(r, mode, { PATH: pathWithout("pytest", "ruff") }).stdout;
         expect(out).not.toContain("forge:python/sqlalchemy/alembic/migration-lint");
         // the migration stage passed: the test stage, which comes after it, ran
         expect(out).toContain("forge:python/pytest/run skipped");
@@ -1572,7 +1576,7 @@ ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") 
       }
       put(r, "alembic/versions/0003_age.py", revision('op.add_column("users", sa.Column("age", sa.Integer, nullable=False))', "0003", "0002"));
       commitAll(r, "required");
-      const all = run(r, "--all");
+      const all = run(r, "--all", { PATH: pathWithout("pytest", "ruff") });
       expect(all.stdout).toContain("forge:python/sqlalchemy/alembic/migration-lint failed");
       expect(all.stdout).toContain("adding-required-field");
     },

@@ -59,6 +59,30 @@ elif [ -e "$state" ]; then
   rm -f "$state"
 fi
 
+# the project's Python environment (§9.1): said when none of the candidates has the
+# project's declared dependencies installed, once until it changes
+state=$FORGE_STATE/python-env
+pyenv=''
+if [ ! -x .venv/bin/python ] && [ ! -x .venv/bin/python3 ]; then
+  forge_py_deps
+  if [ -n "$FORGE_FACT" ] && forge_py_env; then
+    case $FORGE_PY_DEPS in
+      "0 "*)
+        _ss_c=''
+        for _ss_l in $FORGE_PY_CHECKED; do _ss_n=${_ss_l#* }; _ss_c="${_ss_c:+$_ss_c, }${_ss_l%% *} ${_ss_n% *}/${_ss_n#* }"; done
+        pyenv="no Python environment has the project's ${FORGE_PY_DEPS#0 } declared dependencies installed (checked: $_ss_c); the checks use $FORGE_PY. Install them there, or activate the project's environment (VIRTUAL_ENV)" ;;
+    esac
+  fi
+fi
+if [ -n "$pyenv" ]; then
+  if [ "$pyenv" != "$(forge_cat "$state" 2>/dev/null)" ]; then
+    printf 'forge: %s\n' "$pyenv"
+    forge_state_dir && printf '%s\n' "$pyenv" > "$state"
+  fi
+elif [ -e "$state" ]; then
+  rm -f "$state"
+fi
+
 # what the installed tool versions cannot do (§16.3), once until it changes
 report=$(forge_tool_report)
 state=$FORGE_STATE/tool-report

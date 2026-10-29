@@ -124,22 +124,31 @@ forge_py_tool() {
 }
 
 # forge_py_tool_lookup <name>: FORGE_TOOL_CMD (and FORGE_TOOL_BIN), the project's Python
-# tool <name> in its environment outside .venv (forge_py_env): <name> in the environment's
-# scripts directories, or, for python, its interpreter; "" when it is not there, or <name> is
-# not a Python tool.
+# tool <name> outside .venv: in the scripts directories of its environment (forge_py_env),
+# else the first on PATH; for python, the environment's interpreter. FORGE_TOOL_WHERE says
+# which ("env" or "path"). "" when it is in neither, or <name> is not a Python tool.
 forge_py_tool_lookup() {
   FORGE_TOOL_CMD=''
   FORGE_TOOL_BIN=''
+  FORGE_TOOL_WHERE=''
   case " $FORGE_PYTHON_TOOLS " in *" $1 "*) ;; *) return 0 ;; esac
-  forge_py_env || return 0
-  if [ "$1" = python ]; then FORGE_TOOL_CMD=$FORGE_PY; FORGE_TOOL_BIN=$FORGE_PY; return 0; fi
-  _pt_ifs=$IFS
-  IFS='
+  if forge_py_env; then
+    if [ "$1" = python ]; then FORGE_TOOL_CMD=$FORGE_PY; FORGE_TOOL_BIN=$FORGE_PY; FORGE_TOOL_WHERE="env"; return 0; fi
+    _pt_ifs=$IFS
+    IFS='
 '
-  for _pt_d in $FORGE_PY_BIN; do
-    if [ -f "$_pt_d/$1" ] && [ -x "$_pt_d/$1" ]; then FORGE_TOOL_CMD=$_pt_d/$1; FORGE_TOOL_BIN=$FORGE_TOOL_CMD; break; fi
-  done
-  IFS=$_pt_ifs
+    for _pt_d in $FORGE_PY_BIN; do
+      if [ -f "$_pt_d/$1" ] && [ -x "$_pt_d/$1" ]; then FORGE_TOOL_CMD=$_pt_d/$1; FORGE_TOOL_BIN=$FORGE_TOOL_CMD; FORGE_TOOL_WHERE="env"; break; fi
+    done
+    IFS=$_pt_ifs
+    [ -z "$FORGE_TOOL_CMD" ] || return 0
+  fi
+  [ "$1" != python ] || return 0
+  forge_path_lookup "$1"
+  [ -n "$FORGE_FOUND" ] || return 0
+  FORGE_TOOL_CMD=$FORGE_FOUND
+  FORGE_TOOL_BIN=$FORGE_FOUND
+  FORGE_TOOL_WHERE=path
   return 0
 }
 
@@ -159,67 +168,268 @@ forge_path_lookup() {
 # forge_py_env: the project's Python environment when it is not the repository's .venv
 # (which the callers look at first): FORGE_PY, its interpreter, FORGE_PY_PREFIX, its
 # sys.prefix (the environment's directory), and FORGE_PY_BIN, the directories of its
-# scripts (one per line). Fails when there is none. In order:
+# scripts (one per line). Fails when there is none.
+# The project's environment is the one its declared dependencies are installed in
+# (forge_py_deps: pyproject.toml's [project] and [tool.poetry] dependencies,
+# requirements*.txt). The candidates, in order:
 #   - an activated virtual environment ($VIRTUAL_ENV);
 #   - uv's project environment ($UV_PROJECT_ENVIRONMENT); in a uv.lock project, nothing
 #     else: uv installs a project nowhere else;
 #   - in a poetry.lock project, the environment Poetry itself says is the project's
-#     (`poetry env info -p`, forge_poetry_env), when Poetry is on PATH; none when Poetry
-#     installs into the interpreter (virtualenvs.create false);
-#   - the interpreter on PATH (python3, else python): the dependencies installed into
-#     it (pip, Poetry with virtualenvs.create false, a Docker image) and its scripts
-#     directory (not the user scripts one, ~/.local/bin, where pipx puts global tools).
-# Looked up once per directory and shell; what needs a process (Poetry's answer, the
-# interpreter's prefix) is a fact (forge_fact): an unchanged environment costs no process.
+#     (`poetry env info -p`, forge_poetry_env), when Poetry is on PATH;
+#   - every interpreter on PATH, in PATH order (python3, python, python3.X in each
+#     directory): the dependencies installed into it (pip, Poetry with virtualenvs.create
+#     false, a Docker image), and its scripts directory.
+# The first with every declared dependency installed wins, else the one with the most;
+# with none installed anywhere (or none declared), the first candidate. FORGE_PY_DEPS
+# says how many of the declared ones the chosen one has ("<n> <of>"), FORGE_PY_CHECKED
+# what each candidate has ("<interpreter> <n> <of>" lines), for forge status and
+# SessionStart. Looked up once per directory and shell; each candidate's answer is a fact
+# (forge_fact): an unchanged environment costs no process.
 forge_py_env() {
   if [ "${_pe_at:-}" = "$PWD" ]; then [ -n "$FORGE_PY" ]; return; fi
   _pe_at=$PWD
   FORGE_PY=''
   FORGE_PY_PREFIX=''
   FORGE_PY_BIN=''
+  FORGE_PY_DEPS=''
+  FORGE_PY_CHECKED=''
+  forge_py_deps
+  _pe_deps=$FORGE_FACT
+  _pe_cands=''
+  # the interpreters of environment directories (VIRTUAL_ENV, uv's, Poetry's): their prefix
+  # and scripts directory are the directory's, whatever the interpreter answers
+  _pe_dirs='
+'
   for _pe_d in "${VIRTUAL_ENV:-}" "${UV_PROJECT_ENVIRONMENT:-}"; do
     [ -n "$_pe_d" ] || continue
     case $_pe_d in /*) ;; *) _pe_d=$_pe_at/$_pe_d ;; esac
     for _pe_n in python python3; do
-      if [ -x "$_pe_d/bin/$_pe_n" ]; then FORGE_PY=$_pe_d/bin/$_pe_n; FORGE_PY_PREFIX=$_pe_d; FORGE_PY_BIN=$_pe_d/bin; return 0; fi
+      if [ -x "$_pe_d/bin/$_pe_n" ]; then _pe_cands="$_pe_cands
+$_pe_d/bin/$_pe_n"; _pe_dirs="$_pe_dirs$_pe_d/bin/$_pe_n
+"; break; fi
     done
   done
-  [ ! -f uv.lock ] || return 1
-  if [ -f poetry.lock ]; then
-    forge_path_lookup poetry
-    # Poetry's own settings that move its environments (the others live in the files it reads, watched)
-    if [ -n "$FORGE_FOUND" ] && forge_fact poetry-env "$PWD $FORGE_FOUND ${POETRY_VIRTUALENVS_PATH-}|${POETRY_VIRTUALENVS_CREATE-}|${POETRY_VIRTUALENVS_IN_PROJECT-}|${POETRY_CACHE_DIR-}|${POETRY_CONFIG_DIR-}|${POETRY_HOME-}" forge_poetry_env "$FORGE_FOUND"; then
-      case $FORGE_FACT in
-        /*)
-          for _pe_n in python python3; do
-            if [ -x "$FORGE_FACT/bin/$_pe_n" ]; then FORGE_PY=$FORGE_FACT/bin/$_pe_n; FORGE_PY_PREFIX=$FORGE_FACT; FORGE_PY_BIN=$FORGE_FACT/bin; return 0; fi
-          done ;;
-      esac
+  if [ -f uv.lock ]; then
+    [ -n "$_pe_cands" ] || return 1
+  else
+    if [ -f poetry.lock ]; then
+      forge_path_lookup poetry
+      # Poetry's own settings that move its environments (the others live in the files it reads, watched)
+      if [ -n "$FORGE_FOUND" ] && forge_fact poetry-env "$PWD $FORGE_FOUND ${POETRY_VIRTUALENVS_PATH-}|${POETRY_VIRTUALENVS_CREATE-}|${POETRY_VIRTUALENVS_IN_PROJECT-}|${POETRY_CACHE_DIR-}|${POETRY_CONFIG_DIR-}|${POETRY_HOME-}" forge_poetry_env "$FORGE_FOUND"; then
+        case $FORGE_FACT in
+          /*)
+            for _pe_n in python python3; do
+              if [ -x "$FORGE_FACT/bin/$_pe_n" ]; then _pe_cands="$_pe_cands
+$FORGE_FACT/bin/$_pe_n"; _pe_dirs="$_pe_dirs$FORGE_FACT/bin/$_pe_n
+"; break; fi
+            done ;;
+        esac
+      fi
     fi
-  fi
-  for _pe_n in python3 python; do
-    forge_path_lookup "$_pe_n"
-    [ -n "$FORGE_FOUND" ] || continue
-    # the interpreter's own answer, until it (or the pyenv version selecting it) changes
-    forge_fact python-env "$FORGE_FOUND ${PYENV_VERSION-}" forge_py_find "$FORGE_FOUND" || continue
-    _pe_i=0
-    FORGE_PY_BIN=''
+    # every interpreter on PATH, in order (builtins)
     _pe_ifs=$IFS
+    IFS=:
+    for _pe_d in $PATH; do
+      [ -n "$_pe_d" ] || continue
+      case $_pe_d in /*) ;; *) _pe_d=$_pe_at/$_pe_d ;; esac
+      for _pe_f in "$_pe_d/python3" "$_pe_d/python" "$_pe_d"/python3.[0-9] "$_pe_d"/python3.[0-9][0-9]; do
+        [ -f "$_pe_f" ] && [ -x "$_pe_f" ] || continue
+        case "$_pe_cands
+" in *"
+$_pe_f
+"*) continue ;; esac
+        _pe_cands="$_pe_cands
+$_pe_f"
+      done
+    done
+    IFS=$_pe_ifs
+  fi
+  # each candidate's answer: interpreter, prefix, scripts directory, "deps <n> <of>"
+  _pe_best='' _pe_bestn=-1 _pe_first='' _pe_prefixes='
+'
+  _pe_ifs=$IFS
+  if [ -z "$_pe_deps" ]; then
+    # none declared: the first candidate that answers
     IFS='
 '
-    for _pe_l in $FORGE_FACT; do
-      _pe_i=$((_pe_i + 1))
-      case $_pe_i in
-        1) FORGE_PY=$_pe_l ;;
-        2) FORGE_PY_PREFIX=$_pe_l ;;
-        *) FORGE_PY_BIN="${FORGE_PY_BIN:+$FORGE_PY_BIN
+    for _pe_c in $_pe_cands; do
+      IFS=$_pe_ifs
+      forge_fact python-env "$_pe_c ${PYENV_VERSION-}" forge_py_find "$_pe_c" '' || FORGE_FACT=''
+      forge_py_consider "$_pe_c" "$FORGE_FACT"
+      [ -z "$_pe_first" ] || break
+      IFS='
+'
+    done
+  else
+    # every candidate, asked at once (in parallel) and kept as one fact until one of them,
+    # its site directories (a package installed or removed), the pyenv version or the
+    # declared dependencies change
+    forge_fact python-envs "${_pe_cands#?}
+${PYENV_VERSION-}
+$_pe_deps" forge_py_find_all "$_pe_deps" "${_pe_cands#?}" || FORGE_FACT=''
+    _pe_all=$FORGE_FACT
+    _pe_c='' _pe_v=''
+    IFS='
+'
+    for _pe_l in $_pe_all; do
+      case $_pe_l in
+        "cand "*)
+          [ -z "$_pe_c" ] || forge_py_consider "$_pe_c" "$_pe_v"
+          _pe_c=${_pe_l#cand } _pe_v='' ;;
+        *) _pe_v="${_pe_v:+$_pe_v
 }$_pe_l" ;;
       esac
     done
-    IFS=$_pe_ifs
-    [ -n "$FORGE_PY" ] && return 0
+    [ -z "$_pe_c" ] || forge_py_consider "$_pe_c" "$_pe_v"
+  fi
+  IFS=$_pe_ifs
+  _pe_rec=${_pe_best:-$_pe_first}
+  [ -n "$_pe_rec" ] || return 1
+  FORGE_PY=${_pe_rec%%
+*}
+  _pe_rec=${_pe_rec#*
+}
+  FORGE_PY_PREFIX=${_pe_rec%%
+*}
+  _pe_rec=${_pe_rec#*
+}
+  FORGE_PY_DEPS=${_pe_rec%%
+*}
+  case $_pe_rec in *"
+"*) FORGE_PY_BIN=${_pe_rec#*
+} ;; *) FORGE_PY_BIN='' ;; esac
+  return 0
+}
+
+# forge_py_consider <candidate> <answer>: forge_py_env's choice, updated with one
+# candidate's answer (forge_py_find's lines): the first, the best so far, the checked list.
+forge_py_consider() {
+  _pc_i=0 _pe_x='' _pe_p='' _pe_b='' _pe_n=0 _pe_of=0
+  _pc_ifs=$IFS
+  IFS='
+'
+  for _pc_l in $2; do
+    _pc_i=$((_pc_i + 1))
+    case $_pc_i:$_pc_l in
+      1:*) _pe_x=$_pc_l ;;
+      2:*) _pe_p=$_pc_l ;;
+      *:"deps "*) _pc_l=${_pc_l#deps }; _pe_n=${_pc_l%% *}; _pe_of=${_pc_l#* } ;;
+      *) _pe_b="${_pe_b:+$_pe_b
+}$_pc_l" ;;
+    esac
   done
-  return 1
+  IFS=$_pc_ifs
+  # an environment directory's interpreter (VIRTUAL_ENV, uv's, Poetry's): its prefix and scripts directory are the directory's
+  case $_pe_dirs in
+    *"
+$1
+"*) _pe_x=$1; _pe_p=${1%/bin/*}; _pe_b=$_pe_p/bin ;;
+  esac
+  [ -n "$_pe_x" ] || return 0
+  # the same environment through another name (python, python3, python3.12)
+  case $_pe_prefixes in *"
+$_pe_p
+"*) return 0 ;; esac
+  _pe_prefixes="$_pe_prefixes$_pe_p
+"
+  FORGE_PY_CHECKED="${FORGE_PY_CHECKED:+$FORGE_PY_CHECKED
+}$1 $_pe_n $_pe_of"
+  _pc_rec="$_pe_x
+$_pe_p
+$_pe_n $_pe_of
+$_pe_b"
+  [ -n "$_pe_first" ] || _pe_first=$_pc_rec
+  # the first with every declared dependency, else the one with the most
+  if [ "$_pe_n" -gt "$_pe_bestn" ] && [ "$_pe_n" -gt 0 ]; then _pe_best=$_pc_rec; _pe_bestn=$_pe_n; fi
+  return 0
+}
+
+# forge_py_find_all <declared dependencies> <candidates>: forge_py_find for each candidate
+# (one per line), all at once; each answer after a "cand <candidate>" line.
+forge_py_find_all() {
+  _fa_t=$(mktemp -d "${TMPDIR:-/tmp}/forge-pyenvs.XXXXXX") || return 1
+  _fa_i=0 _fa_pids=''
+  _fa_ifs=$IFS
+  IFS='
+'
+  for _fa_c in $2; do
+    _fa_i=$((_fa_i + 1))
+    ( IFS=$_fa_ifs; forge_py_find "$_fa_c" "$1" ) > "$_fa_t/$_fa_i" 2>/dev/null &
+    _fa_pids="$_fa_pids $!"
+  done
+  # only these (a hook may have other jobs running)
+  IFS=' '
+  for _fa_p in $_fa_pids; do wait "$_fa_p"; done
+  IFS='
+'
+  _fa_i=0
+  for _fa_c in $2; do
+    _fa_i=$((_fa_i + 1))
+    printf 'cand %s\n' "$_fa_c"
+    forge_cat "$_fa_t/$_fa_i"
+  done
+  IFS=$_fa_ifs
+  rm -rf "$_fa_t"
+}
+
+# forge_py_env_report: what forge_py_env chose and why, for forge status and SessionStart:
+# "env <interpreter> <prefix> <n> <of>", or "none"; then "checked <interpreter> <n> <of>" per
+# candidate; then "tool <name> <path> <env|path>" per Python tool found (forge_py_tool_lookup).
+forge_py_env_report() {
+  if forge_py_env; then printf 'env %s %s %s\n' "$FORGE_PY" "$FORGE_PY_PREFIX" "$FORGE_PY_DEPS"; else printf 'none\n'; fi
+  _pr_ifs=$IFS
+  IFS='
+'
+  for _pr_l in $FORGE_PY_CHECKED; do printf 'checked %s\n' "$_pr_l"; done
+  IFS=' '
+  for _pr_t in $FORGE_PYTHON_TOOLS; do
+    [ "$_pr_t" != python ] || continue
+    if [ -x ".venv/bin/$_pr_t" ]; then printf 'tool %s %s venv\n' "$_pr_t" "$PWD/.venv/bin/$_pr_t"; continue; fi
+    forge_py_tool_lookup "$_pr_t"
+    [ -z "$FORGE_TOOL_CMD" ] || printf 'tool %s %s %s\n' "$_pr_t" "$FORGE_TOOL_CMD" "$FORGE_TOOL_WHERE"
+  done
+  IFS=$_pr_ifs
+}
+
+# forge_py_deps: FORGE_FACT, the project's declared runtime dependencies, one normalised
+# name per line (PEP 503: lower case, runs of -_. as -): pyproject.toml's
+# [project] dependencies and [tool.poetry.dependencies] (python left out), and the
+# requirements*.txt files at the root. A fact, watched: those files and the root directory
+# (a requirements file added).
+forge_py_deps() {
+  forge_fact python-deps "$PWD" forge_py_deps_ask || FORGE_FACT=''
+}
+forge_py_deps_ask() {
+  printf 'watch %s\nwatch %s\n' "$PWD" "$PWD/pyproject.toml"
+  set --
+  for _pd_f in requirements*.txt; do [ -f "$_pd_f" ] && { printf 'watch %s\n' "$PWD/$_pd_f"; set -- "$@" "$_pd_f"; }; done
+  [ -f pyproject.toml ] && set -- pyproject.toml "$@"
+  [ "$#" -gt 0 ] || return 0
+  awk '
+    function add(s) {
+      if (!match(s, /^[A-Za-z0-9][A-Za-z0-9._-]*/)) return
+      s = tolower(substr(s, RSTART, RLENGTH)); gsub(/[-_.]+/, "-", s)
+      if (s != "python" && !(s in seen)) { seen[s] = 1; print s }
+    }
+    FILENAME ~ /requirements[^\/]*\.txt$/ {
+      l = $0; sub(/^[ \t]+/, "", l)
+      if (l == "" || l ~ /^[#-]/) next
+      add(l); next
+    }
+    /^[ \t]*\[/ { sec = $0; gsub(/[ \t]/, "", sec); inlist = 0 }
+    sec == "[project]" && /^[ \t]*dependencies[ \t]*=/ { inlist = 1 }
+    inlist {
+      l = $0
+      # (add() runs match() too: the position is taken first)
+      while (match(l, /"[^"]*"|\047[^\047]*\047/)) { q = substr(l, RSTART + 1, RLENGTH - 2); l = substr(l, RSTART + RLENGTH); add(q) }
+      # the list ends at a ] outside the strings (the [asyncio] of an extra is inside one)
+      r = $0; gsub(/"[^"]*"|\047[^\047]*\047/, "", r); if (r ~ /\]/) inlist = 0
+      next
+    }
+    sec == "[tool.poetry.dependencies]" && /^[ \t]*["\047]?[A-Za-z0-9]/ {
+      l = $0; sub(/^[ \t]*["\047]?/, "", l); add(l)
+    }' "$@"
 }
 
 # forge_poetry_env <poetry>: the environment Poetry uses for the project in this
@@ -236,14 +446,30 @@ forge_poetry_env() {
   case $_pv_env in /*) printf '%s\n' "$_pv_env" ;; *) printf 'none\n' ;; esac
 }
 
-# forge_py_find <python>: the interpreter, its sys.prefix, then its scripts directories;
-# watched: the interpreter and .python-version (pyenv's choice).
+# forge_py_find <python> <declared dependencies>: the interpreter, its sys.prefix, its
+# scripts directory, then "deps <n> <of>": how many of the declared dependencies (one
+# normalised name per line) are installed in it. Watched: the interpreter, .python-version
+# (pyenv's choice) and its site-packages directories (a package installed or removed).
 forge_py_find() {
   printf 'watch %s\nwatch %s\n' "$1" "$PWD/.python-version"
-  "$1" -c 'import sys, sysconfig
+  FORGE_PY_WANT=$2 "$1" -I -c 'import os, re, sys, sysconfig
 print(sys.executable)
 print(sys.prefix)
 print(sysconfig.get_path("scripts"))
+want = [n for n in os.environ.get("FORGE_PY_WANT", "").split("\n") if n]
+have = set()
+try:
+    from importlib import metadata
+    for d in metadata.distributions():
+        n = d.metadata["Name"] if d.metadata else None
+        if n:
+            have.add(re.sub(r"[-_.]+", "-", n).lower())
+except Exception:
+    pass
+print("deps %d %d" % (len([n for n in want if n in have]), len(want)))
+for p in sys.path:
+    if os.path.basename(p) in ("site-packages", "dist-packages") and os.path.isdir(p):
+        print("watch " + p)
 '
 }
 
