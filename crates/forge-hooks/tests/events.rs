@@ -301,17 +301,23 @@ fn stop_blocks_on_findings_not_on_notes() {
             .iter()
             .any(|n| n.text.contains("ruff is not installed"))
     );
-    // the same tree: the reason again, the checks not re-run
+    // the same tree after a block: Claude chose to leave the findings; the stop goes through,
+    // the checks are not re-run, and the person is told
     let out = s.run(&f, "stop", json!({"stop_hook_active": true}));
-    assert!(
-        json_out(&out)["reason"]
-            .as_str()
-            .unwrap()
-            .contains("No eval().")
-    );
+    assert_eq!(out.stdout, "");
     assert_eq!(*f.asked_stop.borrow(), 1);
-    // after three blocks in a turn the stop goes through, with a note for the person
-    s.run(&f, "stop", json!({"stop_hook_active": true}));
+    assert!(
+        s.notes()
+            .iter()
+            .any(|n| n.text.contains("after being shown them once"))
+    );
+    // a tree that keeps changing and keeps failing: three blocks in a turn, then a note
+    for i in 0..3 {
+        std::fs::write(s.root.join("app/main.py"), format!("x = eval('{i}')\n")).unwrap();
+        let out = s.run(&f, "stop", json!({"stop_hook_active": true}));
+        assert_eq!(json_out(&out)["decision"], "block", "block {i}");
+    }
+    std::fs::write(s.root.join("app/main.py"), "x = eval('9')\n").unwrap();
     let out = s.run(&f, "stop", json!({"stop_hook_active": true}));
     assert_eq!(out.stdout, "");
     assert!(s.notes().iter().any(|n| n.text.contains("3 times")));

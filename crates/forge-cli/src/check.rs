@@ -338,6 +338,17 @@ pub fn run(args: CheckArgs) -> ExitCode {
             let mut out = std::io::stdout().lock();
             if args.json {
                 let _ = writeln!(out, "{}", forge_check::output::json(&o));
+            } else if std::env::var_os("CLAUDECODE").is_some() {
+                // run by Claude Code (its Bash tool, or a git hook it triggered): Claude reads only
+                // what it can fix; the notes go to `forge status`
+                if let (Ok(home), Ok(root)) = (forge_home::Home::from_env(), repo_root()) {
+                    let state = home.repo_state_dir(&forge_home::RepoId::from_physical_path(&root));
+                    forge_hooks::state::record_notes(&state, &o.report.notes);
+                }
+                let text = o.report.agent_text(40);
+                if !text.is_empty() {
+                    let _ = writeln!(out, "{text}");
+                }
             } else {
                 let _ = write!(out, "{}", forge_check::output::person_text(&o));
             }

@@ -528,12 +528,16 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
         state::write_atomic(&counter, (count + 1).to_string().as_bytes());
         Output::json(json!({"decision": "block", "reason": cap(&text)}))
     };
-    if same_failure {
-        if let Some(r) = read(&reason_file) {
-            return block(format!(
-                "Nothing changed in the working tree since this check failed, so it was not run again (it runs again once a file changes):\n{r}"
-            ));
-        }
+    if same_failure && reason_file.is_file() {
+        // Claude was shown these findings and stopped again without changing anything: it chose
+        // to leave them (the user may have asked for that code). Blocking again with the same
+        // reason only costs turns; the person is told what was left.
+        let _ = std::fs::remove_file(&counter);
+        p.note(&[Note::new(
+            NoteKind::Environment,
+            "Claude stopped with the Stop check's findings left after being shown them once; run `forge check` to see them.",
+        )]);
+        return Output::silent();
     }
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| {
         rt.checker.stop(&p.root, snap.as_deref())
