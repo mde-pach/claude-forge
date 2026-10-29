@@ -1,0 +1,24 @@
+# Playwright Test (@playwright/test, binary `playwright`), the project's own (§16). What Forge
+# asks of it: `playwright test --reporter=line` (typescript/playwright/run).
+#
+# - 1.12.0 is the oldest covered: it introduced the test runner (GitHub release v1.12.0:
+#   "Introducing Playwright Test ... npx playwright test", #6816). `test --reporter=line` runs
+#   there as on 1.64.1 (verified 1.12.0, 1.30.0, 1.45.0, 1.64.1): exit 0 passed, 1 failed
+#   (`  1) <file>:<line>:<col> › <title> ───`, then the error).
+# - No boundary since for this invocation. 1.26.0 added `--pass-with-no-tests` (release
+#   v1.26.0), which Forge does not pass: with no test, every covered release exits 1
+#   (1.12.0-1.30.0 `no tests found.` between `=` rules, 1.45.0+ `Error: No tests found`).
+#   1.45.0's `--fail-on-flaky-tests` is not used either.
+# - `playwright --version` prints `Version 1.64.1`.
+# - Usage errors are commander's: exit 1 (as failed tests) and `error: unknown option '--x'`.
+#   An unknown `--reporter` value is not one: it fails loading a module (`Error: Cannot find
+#   module '<name>'`, exit 1), indistinguishable from a configuration error.
+
+tool: "playwright"
+verified: "1.64.1"
+usage: {exit: [1], pattern: "^error: unknown option "}
+ranges:
+  - from: "1.12.0"
+    source: "github.com/microsoft/playwright/releases/tag/v1.12.0: Introducing Playwright Test (`npx playwright test`, #6816)"
+    ops:
+      "test": "test --reporter=line"

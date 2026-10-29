@@ -14,6 +14,7 @@ forge-home = { path = "crates/forge-home" }
 forge-launcher = { path = "crates/forge-launcher" }
 forge-packs = { path = "crates/forge-packs" }
 forge-tools = { path = "crates/forge-tools" }
+forge-check = { path = "crates/forge-check" }
 blake3 = "1.8"
 clap = { version = "4.6", features = ["derive"] }
 fancy-regex = "0.19"
@@ -36,8 +37,6 @@ tar = "0.4"
 ureq = { version = "3.5", default-features = false, features = ["rustls", "platform-verifier"] }
 zip = { version = "9.1", default-features = false, features = ["deflate-flate2"] }
 forge-helpers = { path = "crates/forge-helpers" }
-ast-grep-core = "0.51"
-ast-grep-language = { version = "0.51", default-features = false }
 globset = "0.4"
 nodejs-semver = "7"
 saphyr = "0.3"
@@ -47,6 +46,11 @@ forge-render = { path = "crates/forge-render" }
 forge-guard = { path = "crates/forge-guard" }
 tree-sitter = "0.27"
 tree-sitter-bash = "0.25"
+ast-grep-config = "=0.45.3"
+ast-grep-core = "=0.45.3"
+ast-grep-language = { version = "=0.45.3", default-features = false }
+imara-diff = "0.2"
+wait-timeout = "0.2"
 
 # Dependencies optimised in debug builds: the tests load every pack, which is slow unoptimised.
 [profile.dev.package."*"]

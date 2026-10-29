@@ -1,0 +1,18 @@
+# kube-linter, Forge's own pinned Kubernetes manifest linter (§13.5 release binary, §16.2 pinned
+# tools): one range, the pin (RELEASE_BINARIES["kube-linter"]), proven on 0.8.3. Forge's
+# invocation (kubernetes.sh forge_kube_linter): `lint --config <yaml> --format plain
+# --with-color=false <files>`. Exit: 0 clean, 1 findings ("Error: found N lint errors" on
+# stderr) and 1 for every error too (bad config, unknown check, unknown flag, missing file):
+# only the stderr line tells a usage error. No `--version`: `kube-linter version`.
+
+tool: "kube-linter"
+pinned: "0.8.3"
+verified: "0.8.3"
+runner: pinned
+version_args: "version"
+usage: {exit: [1], pattern: "^Error: (unknown (shorthand )?flag|unknown command|invalid argument|invalid format)"}
+ranges:
+  - from: "0.8.3"
+    source: "kube-linter 0.8.3: https://github.com/stackrox/kube-linter/releases/tag/v0.8.3; kube-linter lint --help"
+    ops:
+      "lint": "lint --format plain --with-color=false --config"
