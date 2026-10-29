@@ -347,7 +347,12 @@ fn glob_source(glob: &str) -> String {
                 continue;
             }
             '?' => out.push('.'),
-            '[' => match g.iter().skip(i + 2).position(|&x| x == ']').map(|p| p + i + 2) {
+            '[' => match g
+                .iter()
+                .skip(i + 2)
+                .position(|&x| x == ']')
+                .map(|p| p + i + 2)
+            {
                 Some(end) => {
                     let mut body: String = g[i + 1..end].iter().collect();
                     let neg = body.starts_with('!') || body.starts_with('^');
@@ -411,11 +416,23 @@ mod tests {
 
     #[test]
     fn case_globs() {
-        assert!(glob_matches("supabase/migrations/*.sql", "supabase/migrations/a.sql"));
-        assert!(glob_matches("drizzle/*/migration.sql", "drizzle/x/migration.sql"));
+        assert!(glob_matches(
+            "supabase/migrations/*.sql",
+            "supabase/migrations/a.sql"
+        ));
+        assert!(glob_matches(
+            "drizzle/*/migration.sql",
+            "drizzle/x/migration.sql"
+        ));
         assert!(glob_matches("**/.env", ".env"));
-        assert!(glob_matches("**/migrations/[0-9]*.py", "a/migrations/0001_x.py"));
-        assert!(!glob_matches("**/migrations/[0-9]*.py", "a/migrations/x.py"));
+        assert!(glob_matches(
+            "**/migrations/[0-9]*.py",
+            "a/migrations/0001_x.py"
+        ));
+        assert!(!glob_matches(
+            "**/migrations/[0-9]*.py",
+            "a/migrations/x.py"
+        ));
         let env = forge_packs::roles::default_patterns("env-files");
         assert!(globs_match(&env, "api/.env.local"));
         assert!(!globs_match(&env, ".env.example"));

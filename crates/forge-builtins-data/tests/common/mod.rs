@@ -193,7 +193,9 @@ pub fn in_scope(rule: &Rule, path: &str) -> bool {
 }
 
 pub fn when_changed(globs: &[String], path: &str) -> bool {
-    expand(globs).iter().any(|g| !g.starts_with('!') && glob_matches(g, path))
+    expand(globs)
+        .iter()
+        .any(|g| !g.starts_with('!') && glob_matches(g, path))
 }
 
 pub fn have(cmd: &str, args: &[&str]) -> bool {
@@ -286,4 +288,197 @@ pub fn accepted(files: &BTreeMap<String, String>, rule: &str) -> Vec<String> {
         .filter(|e| e.get("rule").and_then(|r| r.as_str()) == Some(rule))
         .filter_map(|e| e.get("change").and_then(|c| c.as_str()).map(str::to_owned))
         .collect()
+}
+
+// ---- cases: a builtin call on a fixture
+
+/// One builtin call on one fixture.
+#[derive(Debug, Clone)]
+pub struct Case {
+    pub name: String,
+    pub rule: String,
+    /// The check command (`changed_run` when it takes `{files}`, else `run`).
+    pub cmd: String,
+    /// The rule, for the check's files.
+    pub scope: Option<Rule>,
+    pub when_changed: Option<Vec<String>>,
+    pub lint: bool,
+    pub mode: Mode,
+    pub head: BTreeMap<String, String>,
+    pub files: BTreeMap<String, String>,
+    /// Some(true): must find something; Some(false): nothing.
+    pub want: Option<bool>,
+}
+
+/// The builtin a check command calls, with its literal arguments (`{files}` expanded).
+pub fn call(cmd: &str, files: &[String]) -> Option<(String, Vec<String>)> {
+    let ours = forge_builtins_data::names();
+    let cmd = cmd.replace("forge_advise ", "");
+    let re = regex::Regex::new(r"forge_([a-z_]+)((?: [^|;&$()\n]+)?)").unwrap();
+    for c in re.captures_iter(&cmd) {
+        let name = c[1].to_owned();
+        if !ours.contains(&name.as_str()) {
+            continue;
+        }
+        let mut args = vec![];
+        for w in c[2].split_whitespace() {
+            if w == "{files}" {
+                args.extend(files.iter().cloned());
+            } else {
+                args.push(w.to_owned());
+            }
+        }
+        // the Prisma rule's command passes the check's files itself
+        if cmd.contains("$_dm_files") {
+            args = files.to_vec();
+        }
+        return Some((name, args));
+    }
+    None
+}
+
+/// Every fixture example of a rule whose check calls one of this crate's builtins.
+pub fn pack_cases() -> Vec<Case> {
+    use forge_packs::model::{Example, Stage, Target};
+    let set = forge_packs::load_builtin(forge_packs::Options::default()).expect("packs");
+    let mut out = vec![];
+    for pack in set.packs.values() {
+        for rule in &pack.rules {
+            for t in &rule.enforce {
+                let Target::Check(c) = t else { continue };
+                let cmd = match &c.changed_run {
+                    Some(r) if r.contains("{files}") => r.clone(),
+                    _ => c.run.clone(),
+                };
+                if call(&cmd, &[]).is_none() {
+                    continue;
+                }
+                let Some(ex) = &rule.examples else { continue };
+                for (want, list) in [(true, &ex.match_), (false, &ex.no_match)] {
+                    for (i, e) in list.iter().flatten().enumerate() {
+                        let Example::Fixture(fx) = e else { continue };
+                        out.push(Case {
+                            name: format!(
+                                "{} {}[{i}]",
+                                rule.id,
+                                if want { "match" } else { "no_match" }
+                            ),
+                            rule: rule.id.clone(),
+                            cmd: cmd.clone(),
+                            scope: Some(rule.clone()),
+                            when_changed: c.when_changed.clone(),
+                            lint: c.stage == Stage::Lint,
+                            mode: Mode::Changed,
+                            head: fx.head.clone().unwrap_or_default().into_iter().collect(),
+                            files: fx.files.clone().into_iter().collect(),
+                            want: Some(want),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// What a run produced.
+#[derive(Debug, Default)]
+pub struct Outcome {
+    /// Every line of output for the agent.
+    pub texts: Vec<String>,
+    /// The output that counts: accepted changes dropped, a lint check's findings only when one
+    /// names the change; empty when the check does not run.
+    pub counted: Vec<String>,
+    pub notes: Vec<String>,
+}
+
+impl Case {
+    pub fn needs_uvx(&self) -> bool {
+        self.cmd.contains("squawk") || self.cmd.contains("sqlfluff")
+    }
+
+    /// The check's files: the in-scope changed files that exist (none with `--all`).
+    pub fn check_files(&self, r: &Repo) -> Vec<String> {
+        if self.mode == Mode::All {
+            return vec![];
+        }
+        r.existing()
+            .into_iter()
+            .filter(|p| self.scope.as_ref().is_none_or(|s| in_scope(s, p)))
+            .collect()
+    }
+
+    /// Whether the checker runs the check at all.
+    pub fn triggered(&self, r: &Repo) -> bool {
+        if self.mode == Mode::All || self.scope.is_none() {
+            return true;
+        }
+        match &self.when_changed {
+            Some(w) => r.changed.iter().any(|p| when_changed(w, p)),
+            None => !self.check_files(r).is_empty(),
+        }
+    }
+
+    pub fn accepted(&self) -> Vec<String> {
+        let mut a = accepted(&self.files, &self.rule);
+        a.extend(accepted(&self.head, &self.rule));
+        a
+    }
+
+    /// The output that counts, from the lines a run printed and whether one names the change.
+    pub fn count(
+        &self,
+        r: &Repo,
+        lines: Vec<String>,
+        names_file: bool,
+        names_change: bool,
+    ) -> Vec<String> {
+        let accepted = self.accepted();
+        let mut counted: Vec<String> = lines
+            .into_iter()
+            .filter(|t| !accepted.contains(t))
+            .collect();
+        if self.cmd.contains("$_dm_files") {
+            // the pack command drops the lines forge.yaml accepts
+            let yaml = std::fs::read_to_string(r.root.join("forge.yaml")).unwrap_or_default();
+            counted.retain(|l| !yaml.contains(l.as_str()));
+        }
+        // a lint check fails on what names the change: an added line, or a changed file as a
+        // whole (the checker's attribution); output naming no file counts as a whole
+        if self.lint && self.mode != Mode::All && names_file && !names_change {
+            counted.clear();
+        }
+        counted
+    }
+}
+
+/// The Rust builtin on a case.
+pub fn port(case: &Case, r: &Repo) -> Outcome {
+    let mut out = Outcome::default();
+    if !case.triggered(r) {
+        return out;
+    }
+    let files = case.check_files(r);
+    let (name, args) = call(&case.cmd, &files).expect("a builtin of this crate");
+    let all = forge_builtins_data::builtins(options(facts(case.mode, files)));
+    let b = all.iter().find(|b| b.name() == name).unwrap();
+    let mut ctx = r.ctx(&case.rule, case.accepted());
+    if case.mode == Mode::All {
+        ctx.scope = Scope::All;
+        ctx.changed.clear();
+        ctx.base = None;
+    }
+    let report = b.run(&ctx, &args);
+    out.notes = report.notes.iter().map(|n| n.to_string()).collect();
+    out.texts = report.findings.iter().map(|f| f.agent_text()).collect();
+    // what the checker attributes: a finding at a line of a file
+    let named: Vec<&forge_core::Finding> = report
+        .findings
+        .iter()
+        .filter(|f| f.path.is_some() && f.line.is_some())
+        .collect();
+    let names_file = !named.is_empty();
+    let names_change = named.iter().any(|f| r.names_change(f));
+    out.counted = case.count(r, out.texts.clone(), names_file, names_change);
+    out
 }

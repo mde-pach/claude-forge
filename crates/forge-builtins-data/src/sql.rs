@@ -18,9 +18,10 @@ use crate::util::{basename, dirname, join, last_line, re};
 /// given .sql files (the whole project with `--all`).
 pub fn sqlfluff(run: &Run<'_>, args: &[String]) -> Report {
     let configured = run.exists(".sqlfluff")
-        || run
-            .read("pyproject.toml")
-            .is_some_and(|t| t.lines().any(|l| re(r"^\[tool\.sqlfluff(\]|\.)").is_match(l)))
+        || run.read("pyproject.toml").is_some_and(|t| {
+            t.lines()
+                .any(|l| re(r"^\[tool\.sqlfluff(\]|\.)").is_match(l))
+        })
         || ["setup.cfg", "tox.ini"].iter().any(|f| {
             run.read(f)
                 .is_some_and(|t| t.lines().any(|l| re(r"^\[sqlfluff(\]|:)").is_match(l)))
@@ -165,8 +166,8 @@ fn squawk(run: &Run<'_>, input: SquawkInput<'_>) -> Result<Vec<SquawkHit>, Strin
     let out = child
         .wait_with_output()
         .map_err(|e| format!("squawk could not run ({e})"))?;
-    let text = String::from_utf8_lossy(&out.stdout).into_owned()
-        + &String::from_utf8_lossy(&out.stderr);
+    let text =
+        String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
     let line_re = re(r"^(.*):([0-9]+):([0-9]+): (warning|error): (\S+) (.*)$");
     // Squawk exits 1 whenever it warns, which is almost always
     if !out.status.success() && !text.lines().any(|l| line_re.is_match(l)) {
@@ -186,13 +187,22 @@ fn squawk(run: &Run<'_>, input: SquawkInput<'_>) -> Result<Vec<SquawkHit>, Strin
         .collect())
 }
 
+/// A Squawk that is not installed, or one that could not run.
+fn squawk_kind(why: &str) -> NoteKind {
+    if why.contains("not installed") {
+        NoteKind::MissingTool
+    } else {
+        NoteKind::ForgeFailure
+    }
+}
+
 /// `forge_squawk_files <sql files>`: lints migration SQL files.
 fn squawk_on(run: &Run<'_>, files: &[String]) -> Report {
     if files.is_empty() {
         return Report::default();
     }
     match squawk(run, SquawkInput::Files(files)) {
-        Err(why) => run.only_note(NoteKind::MissingTool, why),
+        Err(why) => run.only_note(squawk_kind(&why), why),
         Ok(hits) => Report {
             findings: hits
                 .into_iter()
@@ -223,9 +233,10 @@ fn sql_postgres(run: &Run<'_>, file: &str) -> bool {
     if run.exists("flyway.conf") || run.exists("conf/flyway.conf") || run.exists("flyway.toml") {
         let conf = run.read("flyway.conf").unwrap_or_default()
             + &run.read("conf/flyway.conf").unwrap_or_default();
-        if conf.lines().any(|l| {
-            re(r"^[ \t]*flyway\.url[ \t]*=[ \t]*jdbc:postgresql:").is_match(l)
-        }) {
+        if conf
+            .lines()
+            .any(|l| re(r"^[ \t]*flyway\.url[ \t]*=[ \t]*jdbc:postgresql:").is_match(l))
+        {
             return true;
         }
         return run.read("flyway.toml").is_some_and(|t| {
@@ -327,7 +338,9 @@ pub fn squawk_alembic(run: &Run<'_>, args: &[String]) -> Report {
         let range = if down.is_empty() || down.starts_with("None") {
             rev.clone()
         } else {
-            let d = re(r#"^['"]([^'"]*)['"].*$"#).replace(&down, "$1").into_owned();
+            let d = re(r#"^['"]([^'"]*)['"].*$"#)
+                .replace(&down, "$1")
+                .into_owned();
             format!("{d}:{rev}")
         };
         let out = match run.opts.project_tools.run(
@@ -368,7 +381,7 @@ pub fn squawk_alembic(run: &Run<'_>, args: &[String]) -> Report {
         ) {
             Ok(h) => h,
             Err(why) => {
-                r.notes.push(run.note(NoteKind::MissingTool, why));
+                r.notes.push(run.note(squawk_kind(&why), why));
                 return r;
             }
         };
@@ -379,10 +392,7 @@ pub fn squawk_alembic(run: &Run<'_>, args: &[String]) -> Report {
             "the SQL that alembic upgrade {range} --sql renders breaks the running app during a deploy (line numbers are in that SQL):"
         );
         for h in hits {
-            msg.push_str(&format!(
-                "\n  line {}: {}: {}",
-                h.line, h.rule, h.message
-            ));
+            msg.push_str(&format!("\n  line {}: {}: {}", h.line, h.rule, h.message));
         }
         r.findings.push(run.at(f, None, msg));
     }
@@ -640,11 +650,7 @@ pub fn alembic_fk_index(run: &Run<'_>, _args: &[String]) -> Report {
                         .into_iter()
                         .map(|c| c.to_lowercase()),
                 ),
-                "Index" => cov.extend(
-                    strings(args, true)
-                        .get(1)
-                        .map(|c| c.to_lowercase()),
-                ),
+                "Index" => cov.extend(strings(args, true).get(1).map(|c| c.to_lowercase())),
                 _ => cov.extend(strings(args, false).into_iter().map(|c| c.to_lowercase())),
             }
             off = po + 1;
@@ -654,7 +660,9 @@ pub fn alembic_fk_index(run: &Run<'_>, _args: &[String]) -> Report {
         for m in ci.find_iter(&u) {
             let t: String = u[m.end()..]
                 .chars()
-                .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_' || *c == '"')
+                .take_while(|c| {
+                    c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_' || *c == '"'
+                })
                 .filter(|c| *c != '"')
                 .collect();
             cov.insert(t.to_lowercase());
@@ -768,7 +776,9 @@ fn imported_modules(init: &str) -> Vec<String> {
     let mut out = vec![];
     for l in init.lines() {
         if re(r"^[ \t]*from[ \t]+\.[ \t]+import[ \t]").is_match(l) {
-            let s = re(r"^.*import[ \t]+").replace(l, "").replace(['(', ')', ','], " ");
+            let s = re(r"^.*import[ \t]+")
+                .replace(l, "")
+                .replace(['(', ')', ','], " ");
             out.extend(
                 s.split_whitespace()
                     .filter(|w| *w != "as")
@@ -790,7 +800,13 @@ pub fn models_registered(run: &Run<'_>, _args: &[String]) -> Report {
     let files: Vec<String> = if !run.files().is_empty() {
         run.files().to_vec()
     } else {
-        run.ls_files(&["-co", "--exclude-standard", "--", "models/*.py", "*/models/*.py"])
+        run.ls_files(&[
+            "-co",
+            "--exclude-standard",
+            "--",
+            "models/*.py",
+            "*/models/*.py",
+        ])
     };
     let mut r = Report::default();
     for f in files {
@@ -1065,10 +1081,11 @@ fn statement(
             ) {
                 continue;
             }
-            let shown = unq(&stmt[start..start + c[1].len()]);
+            let shown = unq(stmt.get(start..start + c[1].len()).unwrap_or(&c[1]));
             entry.push((k, shown));
         }
-        let drop = re(r#"DROP[ \t]+COLUMN[ \t]+(?:IF[ \t]+EXISTS[ \t]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)"#);
+        let drop =
+            re(r#"DROP[ \t]+COLUMN[ \t]+(?:IF[ \t]+EXISTS[ \t]+)?("[^"]+"|[A-Z_][A-Z0-9_]*)"#);
         for c in drop.captures_iter(&u) {
             let k = unq(&c[1]);
             entry.retain(|(x, _)| *x != k);
@@ -1079,10 +1096,7 @@ fn statement(
         return;
     }
     if re(r"^[ \t]*DROP[ \t]+TABLE").is_match(&u) {
-        let t = name_after(
-            &u,
-            r"^[ \t]*DROP[ \t]+TABLE[ \t]+(?:IF[ \t]+EXISTS[ \t]+)?",
-        );
+        let t = name_after(&u, r"^[ \t]*DROP[ \t]+TABLE[ \t]+(?:IF[ \t]+EXISTS[ \t]+)?");
         // a redefinition renames "new_<t>" to <t> later in the same file (its old columns
         // unknown without the earlier migrations: not reported)
         if cols.contains_key(&format!("NEW_{t}")) {
@@ -1174,9 +1188,8 @@ fn drizzle_config(run: &Run<'_>) -> Option<DrizzleConfig> {
         re(r"migrations[ \t\n]*:[ \t\n]*\{[^}]*\}").replace_all(&t, "")
     );
     let val = |key: &str| -> String {
-        let p = format!(
-            r#"[^A-Za-z0-9_$]"?{key}"?[ \t]*:[ \t]*(\[[^\]]*\]|"[^"]*"|'[^']*'|`[^`]*`)"#
-        );
+        let p =
+            format!(r#"[^A-Za-z0-9_$]"?{key}"?[ \t]*:[ \t]*(\[[^\]]*\]|"[^"]*"|'[^']*'|`[^`]*`)"#);
         re(&p)
             .captures(&s)
             .map(|c| c[1].to_owned())
@@ -1255,7 +1268,8 @@ fn drizzle_tables(text: Option<String>) -> Vec<String> {
         if re(r"^[ \t]*(//|$)").is_match(l) {
             continue;
         }
-        if re(r"^[ \t]*(import[ \t{*]|export[ \t]+(type|interface)[ \t]|export[ \t]*\*)").is_match(l)
+        if re(r"^[ \t]*(import[ \t{*]|export[ \t]+(type|interface)[ \t]|export[ \t]*\*)")
+            .is_match(l)
         {
             continue;
         }
@@ -1372,7 +1386,11 @@ pub fn drizzle_applied(run: &Run<'_>, _args: &[String]) -> Report {
             || cfg.under(&f, "meta/*_snapshot.json")
             || cfg.under(&f, "*/snapshot.json")
         {
-            let what = if run.exists(&f) { "modified" } else { "deleted" };
+            let what = if run.exists(&f) {
+                "modified"
+            } else {
+                "deleted"
+            };
             r.findings.push(run.at(
                 &f,
                 None,
@@ -1416,7 +1434,11 @@ pub fn applied_migrations(run: &Run<'_>, args: &[String]) -> Report {
     }
     for f in run.inbase() {
         if args.iter().any(|role| run.role(role, &f)) {
-            let what = if run.exists(&f) { "modified" } else { "deleted" };
+            let what = if run.exists(&f) {
+                "modified"
+            } else {
+                "deleted"
+            };
             r.findings.push(run.at(
                 &f,
                 None,
@@ -1435,7 +1457,10 @@ pub fn applied_migrations(run: &Run<'_>, args: &[String]) -> Report {
 /// migrations lack: the migrations run on the local database, then `migration:generate
 /// --check` compares the entities with it.
 pub fn typeorm_pending(run: &Run<'_>, args: &[String]) -> Report {
-    let ds_role = args.first().map(String::as_str).unwrap_or("@typeorm-datasource");
+    let ds_role = args
+        .first()
+        .map(String::as_str)
+        .unwrap_or("@typeorm-datasource");
     let esm_role = args.get(1).map(String::as_str).unwrap_or("@esm-modules");
     let Some(ds) = run.role_files(ds_role).into_iter().next() else {
         return run.only_note(
@@ -1477,7 +1502,11 @@ pub fn typeorm_pending(run: &Run<'_>, args: &[String]) -> Report {
     let Ok(dir) = tempfile::tempdir() else {
         return Report::default();
     };
-    let check = dir.path().join("typeorm-check").to_string_lossy().into_owned();
+    let check = dir
+        .path()
+        .join("typeorm-check")
+        .to_string_lossy()
+        .into_owned();
     let out = match ran("migrations-check", vec![ds.clone(), check]) {
         Ok(o) => o,
         Err(r) => return r,
@@ -1524,6 +1553,9 @@ mod tests {
                 ("LEGACYID".to_owned(), "legacyId".to_owned())
             ]
         );
-        assert_eq!(first_list("None, \"u\", [\"team_id\"], [\"id\"]"), "[\"team_id\"]");
+        assert_eq!(
+            first_list("None, \"u\", [\"team_id\"], [\"id\"]"),
+            "[\"team_id\"]"
+        );
     }
 }

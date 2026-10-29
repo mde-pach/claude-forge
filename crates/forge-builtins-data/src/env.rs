@@ -27,7 +27,10 @@ fn class_name(line: &str) -> String {
 /// (env_prefix, alias, case_sensitive applied). Fields with AliasChoices / AliasPath are left
 /// out.
 fn fields_py(text: &str) -> Vec<Field> {
-    let lines: Vec<&str> = text.lines().map(|l| l.strip_suffix('\r').unwrap_or(l)).collect();
+    let lines: Vec<&str> = text
+        .lines()
+        .map(|l| l.strip_suffix('\r').unwrap_or(l))
+        .collect();
     // the class bodies' lines: (index, class, indent, body indent)
     let mut body_lines = vec![];
     let mut cls = String::new();
@@ -78,7 +81,9 @@ fn fields_py(text: &str) -> Vec<Field> {
             continue;
         }
         let mut key = format!("{}{name}", prefix.get(&cls).map_or("", |p| p.as_str()));
-        if let Some(a) = re(r#"(?:validation_alias|alias)[ \t]*=[ \t]*["']([^"']+)["']"#).captures(rest) {
+        if let Some(a) =
+            re(r#"(?:validation_alias|alias)[ \t]*=[ \t]*["']([^"']+)["']"#).captures(rest)
+        {
             key = a[1].to_owned();
         }
         if !sensitive.contains(&cls) {
@@ -177,7 +182,10 @@ pub fn env_example(run: &Run<'_>, args: &[String]) -> Report {
         let mut have: BTreeSet<String> = BTreeSet::new();
         for p in &paths {
             for l in run.read(p).unwrap_or_default().lines() {
-                if let Some(c) = re(r"^[ \t]*(?:export[ \t]+)?#?[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=").captures(l) {
+                if let Some(c) =
+                    re(r"^[ \t]*(?:export[ \t]+)?#?[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=")
+                        .captures(l)
+                {
                     have.insert(c[1].to_uppercase());
                 }
             }
@@ -186,7 +194,11 @@ pub fn env_example(run: &Run<'_>, args: &[String]) -> Report {
             let k = k.to_uppercase();
             have.contains(&k) || have.iter().any(|h| h.starts_with(&format!("{k}_")))
         };
-        let fields = if lang == "ts" { fields_ts(&text) } else { fields_py(&text) };
+        let fields = if lang == "ts" {
+            fields_ts(&text)
+        } else {
+            fields_py(&text)
+        };
         let mut tot: BTreeMap<&str, usize> = BTreeMap::new();
         let mut got: BTreeMap<&str, usize> = BTreeMap::new();
         for fl in &fields {

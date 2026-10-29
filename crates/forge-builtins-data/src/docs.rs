@@ -27,9 +27,21 @@ static STOP: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
 fn diff_lines(run: &Run<'_>, path: &str) -> Vec<String> {
     let null = std::path::PathBuf::from("/dev/null");
     let old = run.base_path(path).unwrap_or_else(|| null.clone());
-    let new = if run.exists(path) { run.path(path) } else { null };
+    let new = if run.exists(path) {
+        run.path(path)
+    } else {
+        null
+    };
     let out = Command::new("git")
-        .args(["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color", "-U0", "--"])
+        .args([
+            "diff",
+            "--no-index",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "-U0",
+            "--",
+        ])
         .arg(&old)
         .arg(&new)
         .current_dir(run.root())
@@ -95,7 +107,9 @@ fn changed_ids(run: &Run<'_>) -> ChangedIds {
         for dl in diff_lines(run, &f) {
             let minus_sign = dl.starts_with('-');
             let line = &dl[1..];
-            let t = line.trim_start_matches([' ', '\t']).trim_end_matches([' ', '\t', '\r']);
+            let t = line
+                .trim_start_matches([' ', '\t'])
+                .trim_end_matches([' ', '\t', '\r']);
             if t.is_empty() {
                 continue;
             }
@@ -187,9 +201,13 @@ fn qualified(s: &str, id: &str) -> bool {
         let before: Vec<char> = s[..i].chars().rev().take(2).collect();
         let after: Vec<char> = s[i + id.len()..].chars().take(2).collect();
         (before.first() == Some(&'.')
-            && before.get(1).is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_'))
+            && before
+                .get(1)
+                .is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_'))
             || (after.first() == Some(&'.')
-                && after.get(1).is_some_and(|c| c.is_ascii_alphabetic() || *c == '_'))
+                && after
+                    .get(1)
+                    .is_some_and(|c| c.is_ascii_alphabetic() || *c == '_'))
     })
 }
 
@@ -300,7 +318,11 @@ fn adr_accepted(text: &str) -> bool {
         }
         if st {
             if let Some(w) = l.split_whitespace().next() {
-                let w: String = w.to_lowercase().chars().filter(|c| c.is_ascii_lowercase()).collect();
+                let w: String = w
+                    .to_lowercase()
+                    .chars()
+                    .filter(|c| c.is_ascii_lowercase())
+                    .collect();
                 if w == "accepted" {
                     return true;
                 }
@@ -352,7 +374,10 @@ fn adr_body(text: &str) -> Vec<&str> {
 pub fn adr_edits(run: &Run<'_>, _args: &[String]) -> Report {
     let mut r = Report::default();
     for f in run.files() {
-        if ![".md", ".mdx", ".markdown", ".rst"].iter().any(|e| f.ends_with(e)) {
+        if ![".md", ".mdx", ".markdown", ".rst"]
+            .iter()
+            .any(|e| f.ends_with(e))
+        {
             continue;
         }
         let (Some(base), Some(now)) = (run.base(f), run.read(f)) else {

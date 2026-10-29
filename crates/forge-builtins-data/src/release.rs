@@ -123,9 +123,9 @@ pub fn release_notes(run: &Run<'_>, args: &[String]) -> Report {
     let added: BTreeSet<String> = run.added().into_iter().collect();
     let mut r = Report::default();
     if run.exists(".changeset/config.json")
-        && !added.iter().any(|f| {
-            re(r"^\.changeset/[^/]+\.md$").is_match(f) && f != ".changeset/README.md"
-        })
+        && !added
+            .iter()
+            .any(|f| re(r"^\.changeset/[^/]+\.md$").is_match(f) && f != ".changeset/README.md")
     {
         let mut pkgs = BTreeSet::new();
         for f in run.changed() {

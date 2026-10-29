@@ -6,7 +6,9 @@ use std::collections::BTreeSet;
 use forge_core::Report;
 
 use crate::Run;
-use crate::util::{basename, dirname, duration_seconds, duration_text, has_word, py_word, re, toml_get, version_ge};
+use crate::util::{
+    basename, dirname, duration_seconds, duration_text, has_word, py_word, re, toml_get, version_ge,
+};
 
 /// `forge_py_public`: the public names of a Python module: the entries of `__all__` when it
 /// has one, else its top-level def and class names without a leading underscore.
@@ -28,7 +30,9 @@ fn py_public(text: &str) -> BTreeSet<String> {
             }
             continue;
         }
-        if let Some(c) = re(r"^(?:(?:async[ \t]+)?def|class)[ \t]+([A-Za-z][A-Za-z0-9_]*)").captures(l) {
+        if let Some(c) =
+            re(r"^(?:(?:async[ \t]+)?def|class)[ \t]+([A-Za-z][A-Za-z0-9_]*)").captures(l)
+        {
             d.insert(c[1].to_owned());
         }
     }
@@ -58,7 +62,10 @@ fn py_module(run: &Run<'_>, path: &str) -> String {
         .unwrap_or(b)
         .to_owned();
     let mut top = String::new();
-    while d != "." && d != "/" && (run.exists(&format!("{d}/__init__.py")) || run.exists(&format!("{d}/__init__.pyi"))) {
+    while d != "."
+        && d != "/"
+        && (run.exists(&format!("{d}/__init__.py")) || run.exists(&format!("{d}/__init__.pyi")))
+    {
         if !top.is_empty() {
             m = format!("{top}/{m}");
         }
@@ -83,7 +90,11 @@ pub fn stub_sync(run: &Run<'_>, _args: &[String]) -> Report {
     }
     for f in run.files().iter().filter(|f| f.ends_with(".py")) {
         let module = py_module(run, f);
-        let mine: Vec<&String> = stubs.iter().filter(|(m, _)| *m == module).map(|(_, s)| s).collect();
+        let mine: Vec<&String> = stubs
+            .iter()
+            .filter(|(m, _)| *m == module)
+            .map(|(_, s)| s)
+            .collect();
         if mine.is_empty() {
             continue;
         }
@@ -123,7 +134,11 @@ pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
     } else {
         ("pyproject.toml", "tool.uv")
     };
-    let shown = if section.is_empty() { "top level" } else { section };
+    let shown = if section.is_empty() {
+        "top level"
+    } else {
+        section
+    };
     let text = run.read(file).unwrap_or_default();
     let min = run.opts.cooldown.as_secs();
     let mut r = Report::default();

@@ -34,7 +34,7 @@ use forge_core::builtin::{Builtin, BuiltinCtx};
 
 pub use ctx::{ENV_FILES, ENV_MODE, ENV_ROLES, Facts, Mode, glob_matches};
 pub use tools::{
-    NoProjectTools, NoPinnedTools, PinnedTools, ProjectTools, ResolverPinned, SQUAWK_VERSION,
+    NoPinnedTools, NoProjectTools, PinnedTools, ProjectTools, ResolverPinned, SQUAWK_VERSION,
     ToolOutput, ToolRun,
 };
 
