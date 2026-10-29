@@ -43,7 +43,7 @@ pub struct AuditResult {
 
 /// What Forge asks of the machine's tools. Implemented by the checker; machine state, so it
 /// goes to the person (apply, status), never into the rules files.
-pub trait ToolProbe {
+pub trait ToolProbe: Sync {
     /// The installed version of a tool here, if it can tell.
     fn version(&self, repo: &Path, tool: &str) -> Option<String>;
     /// Audits a tool target in a directory (relative to the repository, "" the root);
@@ -84,19 +84,37 @@ impl ToolProbe for NoProbe {
     }
 }
 
-/// Audits every audited tool target of the active rules, where each tool runs.
+/// Audits every audited tool target of the active rules, where each tool runs. Each audit
+/// runs the tool on the rule's examples: several at a time, the results in plan order.
 pub fn audit_rules(plan: &Plan, probe: &dyn ToolProbe) -> Vec<AuditResult> {
-    let mut out = Vec::new();
+    let mut jobs = Vec::new();
     for st in &plan.active {
         for t in &st.audits {
             for dir in plan.tool_dirs.get(&t.tool).into_iter().flatten() {
-                if let Some(a) = probe.audit(&plan.base, &st.rule, t, dir) {
-                    out.push(a);
-                }
+                jobs.push((&st.rule, t, dir.as_str()));
             }
         }
     }
-    out
+    let workers = std::thread::available_parallelism()
+        .map_or(4, |n| n.get())
+        .min(8);
+    let chunk = jobs.len().div_ceil(workers).max(1);
+    std::thread::scope(|s| {
+        let handles: Vec<_> = jobs
+            .chunks(chunk)
+            .map(|part| {
+                s.spawn(move || {
+                    part.iter()
+                        .filter_map(|(rule, t, dir)| probe.audit(&plan.base, rule, t, dir))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    })
 }
 
 /// Whether an active rule is enforced here, and why not.

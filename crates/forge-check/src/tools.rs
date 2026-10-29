@@ -1,79 +1,20 @@
 //! Where a tool is: the project's own install, the executable on PATH, or Forge's pinned
-//! release. Provisioning (downloading pinned tools, uv) belongs to forge-tools; the checker asks
-//! through [`ToolResolver`], and [`LocalTools`] answers from what is already on the machine.
+//! release. The question is forge-core's [`ToolResolver`]; [`LocalTools`] answers it from what
+//! is on the machine, and asks a pinned-tools resolver (forge-tools' cache) first when it is
+//! given one. Which tools a check names is forge-detect's ([`forge_detect::tools`]).
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-/// How to run a tool: the words before its own arguments, and the executable they resolve to
-/// (whose changes invalidate what was learnt about it, such as its version).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToolCmd {
-    pub argv: Vec<String>,
-    pub bin: PathBuf,
-}
-
-impl ToolCmd {
-    pub fn exe(bin: PathBuf) -> ToolCmd {
-        ToolCmd {
-            argv: vec![bin.to_string_lossy().into_owned()],
-            bin,
-        }
-    }
-}
-
-/// Answers "where is tool X" for the checker.
-pub trait ToolResolver: Send + Sync {
-    /// The project's own `name` (node_modules/.bin, .venv, its Python environment), for a
-    /// command run in `cwd` (a workspace package falls back to the root's install).
-    fn project(&self, root: &Path, cwd: &Path, name: &str) -> Option<ToolCmd>;
-    /// The executable `name` on PATH.
-    fn on_path(&self, name: &str) -> Option<PathBuf>;
-    /// Forge's pinned `name` at `version`; `Err` says why it cannot be had (for the person).
-    fn pinned(&self, name: &str, version: &str) -> Result<ToolCmd, String>;
-}
+pub use forge_core::tools::{ToolCmd, ToolResolver};
+pub use forge_detect::tools::{PROJECT_TOOLS, SYSTEM_TOOLS};
 
 /// The tools project checks run from the project's Python environment (`PYTHON_TOOLS`).
 pub const PYTHON_TOOLS: &[&str] = &["ruff", "alembic", "pytest", "python", "sqlfluff"];
 
-/// Project tools resolved through `tool <name>` (`PROJECT_TOOLS`).
-pub const PROJECT_TOOLS: &[&str] = &[
-    "biome",
-    "ruff",
-    "tsc",
-    "alembic",
-    "pytest",
-    "prisma",
-    "vitest",
-    "playwright",
-    "astro",
-    "python",
-    "sqlfluff",
-    "vue-tsc",
-    "ngc",
-    "mikro-orm",
-    "graphql-codegen",
-    "wrangler",
-    "better-auth",
-    "prettier",
-    "eslint",
-    "oxlint",
-];
-
-/// System tools, found on PATH (`SYSTEM_TOOLS`).
-pub const SYSTEM_TOOLS: &[&str] = &[
-    "uv",
-    "uvx",
-    "bun",
-    "npm",
-    "pnpm",
-    "yarn",
-    "docker",
-    "terraform",
-    "tofu",
-    "helm",
-    "kustomize",
-    "kubectl",
-];
+/// Set (to `1`) for the builtins of a run that may download a missing pinned tool (Stop and
+/// `forge check`); unset after an edit.
+pub const ENV_DOWNLOAD: &str = "FORGE_TOOL_DOWNLOAD";
 
 /// Pinned tools that uvx can run from PyPI: package name, executable.
 const UVX_PACKAGES: &[(&str, &str, &str)] = &[
@@ -84,15 +25,39 @@ const UVX_PACKAGES: &[(&str, &str, &str)] = &[
     ("squawk", "squawk-cli", "squawk"),
 ];
 
-/// What is already on this machine: the project's installs, PATH, and uvx for the pinned tools
-/// PyPI distributes. Downloads nothing itself.
-#[derive(Debug, Clone, Default)]
+/// What is on this machine: the project's installs, PATH, and for Forge's pinned tools, the
+/// pinned-tools resolver it was given (forge-tools' cache), else uvx for the ones PyPI
+/// distributes. Downloads nothing itself; its pinned resolver may, when `download` is set.
+#[derive(Clone, Default)]
 pub struct LocalTools {
     /// PATH, when not the process's.
     pub path: Option<String>,
+    /// Forge's pinned tools (forge-tools' cache).
+    pub pinned: Option<Arc<dyn ToolResolver>>,
+    /// A missing pinned tool may be installed (Stop, `forge check`, `forge apply`).
+    pub download: bool,
+}
+
+impl std::fmt::Debug for LocalTools {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LocalTools")
+            .field("path", &self.path)
+            .field("pinned", &self.pinned.is_some())
+            .field("download", &self.download)
+            .finish()
+    }
 }
 
 impl LocalTools {
+    /// With Forge's pinned tools; `download`: a missing one may be installed.
+    pub fn with_pinned(pinned: Arc<dyn ToolResolver>, download: bool) -> LocalTools {
+        LocalTools {
+            path: None,
+            pinned: Some(pinned),
+            download,
+        }
+    }
+
     fn path_var(&self) -> String {
         self.path
             .clone()
@@ -180,7 +145,22 @@ impl ToolResolver for LocalTools {
     }
 
     fn pinned(&self, name: &str, version: &str) -> Result<ToolCmd, String> {
-        if let Some((_, pkg, exe)) = UVX_PACKAGES.iter().find(|(t, _, _)| *t == name)
+        let mut why = None;
+        if let Some(p) = &self.pinned {
+            let r = if self.download {
+                p.ensure(name, version)
+            } else {
+                p.pinned(name, version)
+            };
+            match r {
+                Ok(c) => return Ok(c),
+                Err(e) => why = Some(e),
+            }
+        }
+        // without Forge's cache, the machine's uvx (which may download: never with the cache,
+        // whose own downloads are allowed only where the person waits)
+        if self.pinned.is_none()
+            && let Some((_, pkg, exe)) = UVX_PACKAGES.iter().find(|(t, _, _)| *t == name)
             && let Some(uvx) = self.on_path("uvx")
         {
             return Ok(ToolCmd {
@@ -196,8 +176,16 @@ impl ToolResolver for LocalTools {
         }
         match self.on_path(name) {
             Some(p) => Ok(ToolCmd::exe(p)),
-            None => Err(format!("{name} {version} is not installed")),
+            None => Err(why.unwrap_or_else(|| format!("{name} {version} is not installed"))),
         }
+    }
+
+    fn ensure(&self, name: &str, version: &str) -> Result<ToolCmd, String> {
+        LocalTools {
+            download: true,
+            ..self.clone()
+        }
+        .pinned(name, version)
     }
 }
 
@@ -234,60 +222,14 @@ pub fn tool_label(root: &Path, name: &str) -> String {
     }
 }
 
-/// The tools a check target runs (`checkTools`): named in its commands as commands (or by
-/// `forge_do <tool>`), and those the builtins it calls run.
+/// The tools a check target runs (forge-detect's `check_tools`), less uvx: Forge runs its pinned
+/// tools itself.
 pub fn check_tools(commands: &[&str]) -> Vec<String> {
-    use regex::Regex;
-    use std::sync::LazyLock;
-    static HELPER_TOOLS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
-        vec![
-            (
-                Regex::new(r"\bforge_(trusted_deps|openapi_lint|lockfile_lint)\b").unwrap(),
-                "bun",
-            ),
-            (Regex::new(r"\bforge_tf_validate\b").unwrap(), "terraform"),
-            (Regex::new(r"\bforge_helm\b").unwrap(), "helm"),
-            (Regex::new(r"\bforge_sqlfluff\b").unwrap(), "sqlfluff"),
-        ]
-    });
-    static TOOL_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
-        PROJECT_TOOLS
-            .iter()
-            .chain(["ty"].iter())
-            .chain(SYSTEM_TOOLS.iter())
-            .map(|t| {
-                let lead = if matches!(*t, "npm" | "pnpm" | "yarn") {
-                    r"(?m)(^|[;&|(`]|\$\(|\b(?:then|do|else)\s|\bforge_do\s)[\t ]*"
-                } else {
-                    r"(?m)(^|[\s;&|(`]|\$\()"
-                };
-                let re = Regex::new(&format!(r"{lead}{}($|[\s;&|)`])", regex::escape(t)))
-                    .expect("regex");
-                (*t, re)
-            })
-            .collect()
-    });
-    let mut found: Vec<(usize, &str)> = Vec::new();
-    for (tool, re) in TOOL_RES.iter() {
-        let at = commands
-            .iter()
-            .enumerate()
-            .filter_map(|(i, c)| re.find(c).map(|m| i * 1_000_000 + m.start()))
-            .min();
-        if let Some(at) = at {
-            found.push((at, tool));
-        }
-    }
-    found.sort();
-    let mut out: Vec<String> = found.into_iter().map(|(_, t)| t.to_string()).collect();
-    for (re, tool) in HELPER_TOOLS.iter() {
-        if commands.iter().any(|c| re.is_match(c)) && !out.iter().any(|t| t == tool) {
-            out.push(tool.to_string());
-        }
-    }
-    // uvx is how pinned tools run today; Forge provisions them itself
-    out.retain(|t| t != "uvx");
-    out
+    forge_detect::tools::tools_of_commands(commands)
+        .into_iter()
+        .filter(|t| *t != "uvx")
+        .map(str::to_string)
+        .collect()
 }
 
 #[cfg(test)]

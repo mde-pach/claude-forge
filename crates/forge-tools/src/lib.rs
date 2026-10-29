@@ -4,9 +4,10 @@
 //! * [`catalog`]: the one table of pinned tools (uv, Bun, the uv-installed Python tools,
 //!   the npm-only tools, the release binaries) — [`catalog::lock_pins`] is what `forge
 //!   apply` writes into `forge.lock`.
-//! * [`Provisioner`] / [`ToolResolver`]: `resolve(tool)` finds an installed tool without
-//!   downloading (hot path); `ensure(tool)` installs it first when missing, returning a
-//!   person-facing [`forge_core::Note`] when it cannot.
+//! * [`Provisioner`]: `resolve(tool)` finds an installed tool without downloading (hot
+//!   path); `ensure(tool)` installs it first when missing, returning a person-facing
+//!   [`forge_core::Note`] when it cannot. [`PinnedTools`] is that cache as forge-core's
+//!   `ToolResolver`, the one question the checker, the engine and the report ask.
 //! * [`env_file`]: the SessionStart step that puts Forge's uv on the agent's PATH through
 //!   `CLAUDE_ENV_FILE`.
 //! * [`ReleaseFetcher`]: the launcher's downloader for the Forge version `forge.lock` pins.
@@ -31,4 +32,4 @@ pub use env_file::{add_forge_path_to_session, append_path_export};
 pub use forge_release::{ReleaseFetcher, run_background_fetch};
 pub use http::Http;
 pub use platform::Platform;
-pub use provision::{ProvisionReport, Provisioned, Provisioner, ToolResolver};
+pub use provision::{PinnedTools, ProvisionReport, Provisioned, Provisioner};

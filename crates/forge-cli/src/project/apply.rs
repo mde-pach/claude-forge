@@ -137,6 +137,9 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
         ch = ctx.changes()?;
     }
     write(&ctx, &ch)?;
+    if ctx.level == Level::Project {
+        provision(&ctx);
+    }
     for o in &ch.overridden {
         eprintln!("forge: {o}");
     }
@@ -152,6 +155,26 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     report(&ctx, probe);
     Ok(0)
+}
+
+/// Installs the tools the lock pins that this setup uses: uv (Forge's PATH directory for the
+/// agent) and the pinned tools the active checks and the types engine run. For the person.
+fn provision(ctx: &Ctx) {
+    let mut names = vec!["uv".to_string()];
+    names.extend(forge_check::probe::pinned_tools(&ctx.plan));
+    let report = crate::provisioning::ensure_tools(&names);
+    let installed: Vec<String> = report
+        .tools
+        .iter()
+        .filter(|t| t.installed_now)
+        .map(|t| format!("{} {}", t.name, t.version))
+        .collect();
+    if !installed.is_empty() {
+        println!("forge: installed {}", installed.join(", "));
+    }
+    for n in &report.notes {
+        println!("forge: note: {n}");
+    }
 }
 
 fn write(ctx: &Ctx, ch: &Changes) -> Result<(), Error> {

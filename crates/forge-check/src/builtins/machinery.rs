@@ -139,7 +139,14 @@ fn run_helper(inv: &Invocation<'_>, out: &mut dyn Write, hint: Option<&str>) -> 
         );
         return 0;
     };
-    let report = h.run(&inv.ctx, &inv.args[2..]);
+    // the script's name first: it picks the Python or the JavaScript half of a helper
+    let mut report = h.run(&inv.ctx, &inv.args[1..]);
+    if hint.is_some() {
+        // the ratchet's own hint gives way to the one said after its findings
+        report
+            .findings
+            .retain(|f| !(f.path.is_none() && f.message == ACCEPT_HINT));
+    }
     let mut buf = Vec::new();
     let code = finish(inv, report, &mut buf);
     let _ = out.write_all(&buf);

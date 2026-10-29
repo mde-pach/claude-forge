@@ -34,19 +34,6 @@ use crate::platform::Platform;
 /// Written last into a uv-tool or npm install: its presence means the install completed.
 pub const MARKER: &str = ".forge-installed";
 
-/// Where the pinned tools are: what the checker and the engine ask.
-pub trait ToolResolver {
-    /// The tool's executable when it is already installed. Never downloads: a couple of
-    /// `stat` calls, safe on a hook's hot path.
-    fn resolve(&self, tool: &str) -> Option<PathBuf>;
-
-    /// The tool's executable, installing it (and uv or Bun first, when it needs them) if
-    /// it is missing. May download: call it only where a person waits anyway (`forge
-    /// apply`, session start in the background, `forge check`). A failure is a note for
-    /// the person: the checks that need the tool are skipped, never failed.
-    fn ensure(&self, tool: &str) -> Result<PathBuf, Note>;
-}
-
 /// One tool after [`Provisioner::ensure_all`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Provisioned {
@@ -433,14 +420,20 @@ impl Provisioner {
     }
 }
 
-impl ToolResolver for Provisioner {
-    fn resolve(&self, tool: &str) -> Option<PathBuf> {
+impl Provisioner {
+    /// The tool's executable when it is already installed. Never downloads: a couple of
+    /// `stat` calls, safe on a hook's hot path.
+    pub fn resolve(&self, tool: &str) -> Option<PathBuf> {
         let spec = self.spec(tool)?;
         let dir = self.dir(&spec)?;
         Self::complete(&spec, &dir).then(|| Self::exe(&spec, &dir))
     }
 
-    fn ensure(&self, tool: &str) -> Result<PathBuf, Note> {
+    /// The tool's executable, installing it (and uv or Bun first, when it needs them) if
+    /// it is missing. May download: call it only where a person waits anyway (`forge
+    /// apply`, session start in the background, `forge check`). A failure is a note for
+    /// the person: the checks that need the tool are skipped, never failed.
+    pub fn ensure(&self, tool: &str) -> Result<PathBuf, Note> {
         let spec = self.spec(tool).ok_or_else(|| unknown(tool))?;
         let dir = self.dir(&spec).ok_or_else(|| {
             Note::new(
@@ -537,4 +530,58 @@ fn io_note(spec: &ToolSpec, what: &str, e: io::Error) -> Note {
             spec.name, spec.version
         ),
     )
+}
+
+/// Forge's pinned tools from the cache, as forge-core's [`forge_core::tools::ToolResolver`]
+/// answers them: what the checker and the engine ask. `pinned` never downloads; `ensure`
+/// installs a missing tool only when `download` is set (`forge apply`, `forge check`, Stop).
+#[derive(Debug)]
+pub struct PinnedTools {
+    pub provisioner: Provisioner,
+    pub download: bool,
+}
+
+impl PinnedTools {
+    pub fn new(provisioner: Provisioner, download: bool) -> PinnedTools {
+        PinnedTools {
+            provisioner,
+            download,
+        }
+    }
+
+    /// The tool of this Forge's table at `version`; another version is not Forge's pin.
+    fn spec_at(&self, name: &str, version: &str) -> Result<ToolSpec, String> {
+        let spec = self
+            .provisioner
+            .spec(name)
+            .ok_or_else(|| format!("Forge has no pinned tool named {name}"))?;
+        if spec.version != version {
+            return Err(format!(
+                "{name} {version} is not this Forge's pin ({name} {})",
+                spec.version
+            ));
+        }
+        Ok(spec)
+    }
+}
+
+impl forge_core::tools::ToolResolver for PinnedTools {
+    fn pinned(&self, name: &str, version: &str) -> Result<forge_core::tools::ToolCmd, String> {
+        let spec = self.spec_at(name, version)?;
+        self.provisioner
+            .resolve(spec.name)
+            .map(forge_core::tools::ToolCmd::exe)
+            .ok_or_else(|| format!("{name} {version} is not installed in Forge's cache"))
+    }
+
+    fn ensure(&self, name: &str, version: &str) -> Result<forge_core::tools::ToolCmd, String> {
+        if !self.download {
+            return self.pinned(name, version);
+        }
+        let spec = self.spec_at(name, version)?;
+        self.provisioner
+            .ensure(spec.name)
+            .map(forge_core::tools::ToolCmd::exe)
+            .map_err(|n| n.text)
+    }
 }

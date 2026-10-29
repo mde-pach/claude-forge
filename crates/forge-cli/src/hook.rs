@@ -2,7 +2,7 @@
 //! commands the SessionStart hook starts the types engine with.
 
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Subcommand;
@@ -12,8 +12,9 @@ use forge_hooks::{Checker, Env, NoChecker, Runtime};
 pub enum EngineCommand {
     /// Runs the types engine daemon with a configuration file.
     Serve {
+        /// The configuration: JSON, or the path of a file holding it.
         #[arg(long)]
-        config: PathBuf,
+        config: String,
     },
     /// Makes sure the engine of a repository runs and registers a session (detached, from SessionStart).
     Start {
@@ -62,7 +63,10 @@ pub fn run(event: &str, launcher_notes: Vec<forge_launcher::Note>) -> ExitCode {
 
 pub fn engine(cmd: EngineCommand) -> ExitCode {
     match cmd {
-        EngineCommand::Serve { config } => match forge_hooks::engine::serve(&config) {
+        EngineCommand::Serve { config } if config.trim_start().starts_with('{') => {
+            crate::check::engine_serve(&config)
+        }
+        EngineCommand::Serve { config } => match forge_hooks::engine::serve(Path::new(&config)) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("forge engine: {e}");

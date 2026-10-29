@@ -35,12 +35,20 @@ use crate::tools::{self, ToolResolver};
 #[derive(Debug, Clone)]
 pub struct ActiveRule {
     pub rule: Rule,
+    /// Where it applies: workspace package directories, or `None` for the whole repository.
     pub dirs: Option<Vec<String>>,
+    /// Where each check target runs, by its index in `rule.enforce`: in workspace packages, or
+    /// at the root (`None`). A check missing here runs in `dirs`.
+    pub check_dirs: BTreeMap<usize, Option<Vec<String>>>,
 }
 
 impl ActiveRule {
     pub fn new(rule: Rule) -> ActiveRule {
-        ActiveRule { rule, dirs: None }
+        ActiveRule {
+            rule,
+            dirs: None,
+            check_dirs: BTreeMap::new(),
+        }
     }
 }
 
@@ -142,6 +150,10 @@ struct Check<'a> {
     target: &'a CheckTarget,
     scope: RuleScope,
     tools: Vec<String>,
+    /// The workspace packages it runs in; `None`: the root.
+    run_dirs: Option<Vec<String>>,
+    /// The workspace packages its files are in; `None`: the whole repository.
+    scope_dirs: Option<Vec<String>>,
 }
 
 impl Check<'_> {
@@ -223,12 +235,14 @@ impl Checker {
     fn checks(&self) -> Vec<Check<'_>> {
         let mut out = Vec::new();
         for a in &self.rules {
-            for t in &a.rule.enforce {
+            for (i, t) in a.rule.enforce.iter().enumerate() {
                 if let Target::Check(c) = t {
+                    let run_dirs = a.check_dirs.get(&i).cloned().unwrap_or(a.dirs.clone());
+                    let scope_dirs = run_dirs.clone().or(a.dirs.clone());
                     let scope = RuleScope::new(
                         &a.rule,
                         &self.roles,
-                        a.dirs.as_deref(),
+                        scope_dirs.as_deref(),
                         c.config_files.as_deref(),
                     );
                     out.push(Check {
@@ -236,6 +250,8 @@ impl Checker {
                         target: c,
                         scope,
                         tools: tools::check_tools(&c.commands().collect::<Vec<_>>()),
+                        run_dirs,
+                        scope_dirs,
                     });
                 }
             }
@@ -785,22 +801,15 @@ impl Checker {
             };
             let keep: Vec<AstMatch> = if c.typed() {
                 match &self.types {
-                    Some(t) => match t.confirm(&self.root, c, &ms) {
-                        Ok(k) => ms
-                            .into_iter()
+                    Some(t) => {
+                        let (k, n) = t.confirm(&self.root, c, &ms);
+                        notes.extend(n);
+                        ms.into_iter()
                             .zip(k)
                             .filter(|(_, k)| *k)
                             .map(|(m, _)| m)
-                            .collect(),
-                        Err(why) => {
-                            notes.push(note(
-                                NoteKind::ForgeFailure,
-                                &id,
-                                format!("not checked: the types engine could not answer ({why})"),
-                            ));
-                            Vec::new()
-                        }
-                    },
+                            .collect()
+                    }
                     None => {
                         notes.push(note(NoteKind::NotEnforced, &id, "not enforced: its matches need the types engine, which is not available"));
                         Vec::new()
@@ -851,7 +860,7 @@ impl Checker {
 
     fn missing_tool(&self, c: &Check<'_>) -> Option<String> {
         for t in &c.tools {
-            match c.active.dirs.as_deref() {
+            match c.run_dirs.as_deref() {
                 Some(dirs) => {
                     for d in dirs {
                         if !tools::has_tool(self.tools.as_ref(), &self.root, &self.root.join(d), t)
@@ -881,7 +890,7 @@ impl Checker {
                 GlobList::new(
                     &self
                         .roles
-                        .expand(&crate::scope::in_dirs(w, c.active.dirs.as_deref())),
+                        .expand(&crate::scope::in_dirs(w, c.scope_dirs.as_deref())),
                 )
             });
             if let Some(w) = &when
@@ -1272,7 +1281,7 @@ impl Checker {
             env.insert(ENV_ROOT.into(), root.as_os_str().to_owned());
         }
         let timeout = c.target.timeout.map(|s| Duration::from_secs(s as u64));
-        let dirs: Vec<Option<&String>> = match c.active.dirs.as_deref() {
+        let dirs: Vec<Option<&String>> = match c.run_dirs.as_deref() {
             Some(d) => d.iter().map(Some).collect(),
             None => vec![None],
         };
@@ -1379,6 +1388,10 @@ impl Checker {
         }
         env.insert(ENV_NOTES.into(), s(&run.files.path("notes")));
         env.insert("FORGE_TMP".into(), s(run.files.dir.path()));
+        // a missing pinned tool may be installed at Stop and `forge check`, never after an edit
+        if run.opts.phase == Phase::Stop {
+            env.insert(tools::ENV_DOWNLOAD.into(), "1".into());
+        }
         let accepted: Vec<&str> = self
             .accept
             .iter()
@@ -1404,7 +1417,7 @@ impl Checker {
                 &rule_file,
                 serde_json::to_string(&CheckRule {
                     rule: c.active.rule.clone(),
-                    dirs: c.active.dirs.clone(),
+                    dirs: c.scope_dirs.clone(),
                 })
                 .unwrap_or_default(),
             );

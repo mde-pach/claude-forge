@@ -95,6 +95,7 @@ impl Repo {
             .args(&args)
             .env("PATH", path)
             .env("FORGE_HOME", self.home.path())
+            .env("FORGE_NO_DOWNLOAD", "1")
             .env_remove("VIRTUAL_ENV")
             .env_remove("CLAUDECODE")
             .env_remove("DATABASE_URL")

@@ -7,10 +7,10 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
-mod check;
+pub mod check;
 mod hook;
 pub mod project;
-mod provisioning;
+pub mod provisioning;
 
 #[derive(Parser)]
 #[command(
@@ -92,7 +92,13 @@ pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
     // its notes are recorded for `forge status`. A builtin of a check command is run by the binary
     // that runs the check: no launch.
-    let notes = if std::env::args().nth(1).as_deref() == Some("internal") {
+    // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
+    // its notes are recorded for `forge status`. Builtins of a check command and the types engine
+    // are run by the binary that started them: no launch.
+    let notes = if matches!(
+        std::env::args().nth(1).as_deref(),
+        Some("internal" | "engine")
+    ) {
         Vec::new()
     } else {
         forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher())
