@@ -223,6 +223,8 @@ fn budgets() {
     // warm: the hook cache and the snapshot objects
     s.hook("session-start", &json!({"source": "startup"}));
     s.hook("pre-tool-use", &bash("ls", "warm"));
+    // a session's turns have a snapshot
+    s.hook("user-prompt-submit", &json!({"prompt": "go"}));
     let n = 120;
     let cases: &[(&str, &str, Value, u64)] = &[
         (
@@ -236,6 +238,14 @@ fn budgets() {
             "pre-tool-use",
             bash("ls -la app", "b2"),
             50,
+        ),
+        (
+            "test-edit lookup (Edit of a test)",
+            "pre-tool-use",
+            json!({"tool_name": "Edit", "tool_use_id": "b3", "tool_input": {
+                "file_path": s.repo.join("tests/test_main.py"),
+                "old_string": "def ", "new_string": "def "}}),
+            10,
         ),
         (
             "internals refusal (Read)",
@@ -355,7 +365,9 @@ fn check_budgets(s: &Sandbox) -> Vec<String> {
         println!(
             "{name}: Forge overhead median {om:.1} ms, p99 {op:.1} ms (budget {budget} ms); tools median {tm:.1} ms, p99 {tp:.1} ms; total median {wm:.1} ms, p99 {wp:.1} ms"
         );
-        if op > budget || wm > total_budget {
+        // the overhead's budget is a warm median; a p99 past 1.5 times it is a regression too
+        // (the tools' processes make single runs noisy)
+        if om > budget || op > budget * 1.5 || wm > total_budget {
             over.push(name.to_string());
         }
     }

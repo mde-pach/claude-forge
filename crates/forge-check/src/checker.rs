@@ -233,10 +233,17 @@ impl Checker {
     }
 
     fn checks(&self) -> Vec<Check<'_>> {
+        self.checks_where(|_| true)
+    }
+
+    /// The check targets `keep` selects (building a check's scope costs: only those needed).
+    fn checks_where(&self, keep: impl Fn(&CheckTarget) -> bool) -> Vec<Check<'_>> {
         let mut out = Vec::new();
         for a in &self.rules {
             for (i, t) in a.rule.enforce.iter().enumerate() {
-                if let Target::Check(c) = t {
+                if let Target::Check(c) = t
+                    && keep(c)
+                {
                     let run_dirs = a.check_dirs.get(&i).cloned().unwrap_or(a.dirs.clone());
                     let scope_dirs = run_dirs.clone().or(a.dirs.clone());
                     let scope = RuleScope::new(
@@ -399,10 +406,16 @@ impl Checker {
             serde_json::to_string(&roles).unwrap_or_default(),
         );
         let ids: Vec<&str> = self
-            .checks()
+            .rules
             .iter()
-            .map(|c| c.active.rule.id.as_str())
-            .collect::<Vec<_>>();
+            .flat_map(|a| {
+                a.rule
+                    .enforce
+                    .iter()
+                    .filter(|t| matches!(t, Target::Check(_)))
+                    .map(|_| a.rule.id.as_str())
+            })
+            .collect();
         let _ = std::fs::write(run.files.path("checks"), ids.join("\n"));
         let _ = std::fs::write(run.files.path("notes"), "");
         let status = match opts.phase {
@@ -457,7 +470,8 @@ impl Checker {
 
     fn edit_steps(&self, run: &mut Run<'_>) -> Status {
         self.write_change_files(run);
-        let checks = self.checks();
+        // after an edit: formatters and linters only
+        let checks = self.checks_where(|t| matches!(t.stage, Stage::Format | Stage::Lint));
         let existing: Vec<String> = run.change.existing.clone();
         // format (silently): the {files} form of each format check
         for c in checks.iter().filter(|c| c.target.stage == Stage::Format) {
@@ -1431,7 +1445,7 @@ impl Checker {
     /// `forge_format_copy`: `content` formatted as `path` would be, by the `format_stdin` filter
     /// of each check covering it, in check order; None when no filter applies or one fails.
     fn format_copy(&self, run: &mut Run<'_>, path: &str, content: &[u8]) -> Option<Vec<u8>> {
-        let checks = self.checks();
+        let checks = self.checks_where(|t| t.format_stdin.is_some());
         let mut cur = content.to_vec();
         let mut any = false;
         for c in checks
