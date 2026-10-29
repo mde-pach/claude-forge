@@ -16,7 +16,7 @@ use forge_core::{Note, NoteKind};
 use forge_engine::{
     Binding, Client, Condition, EngineConfig, Lang, Match, PythonConfig, TypeScriptConfig,
 };
-use forge_packs::model::{Language, Rule, WhereCondition};
+use forge_packs::model::{Language, Rule, Stage, Target, WhereCondition};
 
 use crate::astgrep::{AstMatch, Compiled, TypeOracle, target_of};
 use crate::checker::ActiveRule;
@@ -123,17 +123,44 @@ pub fn running(root: &Path) -> Option<EngineOracle> {
     Some(EngineOracle { client, edit: true })
 }
 
-/// The languages whose active rules have `where` conditions.
+fn engine_lang(language: &Language) -> Option<Lang> {
+    match language {
+        Language::Python => Some(Lang::Python),
+        Language::Typescript | Language::Tsx => Some(Lang::Typescript),
+        _ => None,
+    }
+}
+
+/// The languages whose active rules have `where` conditions (the engine confirms their matches).
 pub fn typed_languages(rules: &[ActiveRule]) -> BTreeSet<Lang> {
     rules
         .iter()
         .filter(|a| target_of_rule(&a.rule).is_some_and(|t| t.where_.is_some()))
-        .filter_map(|a| match a.rule.scope.language {
-            Language::Python => Some(Lang::Python),
-            Language::Typescript | Language::Tsx => Some(Lang::Typescript),
-            _ => None,
-        })
+        .filter_map(|a| engine_lang(&a.rule.scope.language))
         .collect()
+}
+
+/// The languages whose active rules have a `typecheck` stage: the engine gives the edit-time
+/// diagnostics of their files (§15.5).
+pub fn typecheck_languages(rules: &[ActiveRule]) -> BTreeSet<Lang> {
+    rules
+        .iter()
+        .filter(|a| {
+            a.rule
+                .enforce
+                .iter()
+                .any(|t| matches!(t, Target::Check(c) if c.stage == Stage::Typecheck))
+        })
+        .filter_map(|a| engine_lang(&a.rule.scope.language))
+        .collect()
+}
+
+/// The languages an engine serves for these rules: the typed `where` rules' and the type
+/// checks'.
+pub fn engine_languages(rules: &[ActiveRule]) -> BTreeSet<Lang> {
+    let mut out = typed_languages(rules);
+    out.extend(typecheck_languages(rules));
+    out
 }
 
 fn target_of_rule(rule: &Rule) -> Option<&forge_packs::model::AstGrepTarget> {
@@ -194,7 +221,10 @@ fn python_env(root: &Path) -> Option<(PathBuf, PathBuf, Vec<PathBuf>, String)> {
 }
 
 /// The engine's configuration for the active rules of `root`, and what it could not set up
-/// (notes). `None` when no language with typed rules can have an engine here.
+/// (notes). `None` when no language the engine serves (typed rules, type checks) can have one
+/// here. A language that is only type-checked loses only the edit-time diagnostics without its
+/// engine (its check stage still runs and says what it misses), so only typed rules' losses are
+/// notes.
 pub fn config(
     root: &Path,
     rules: &[ActiveRule],
@@ -203,9 +233,15 @@ pub fn config(
     forge_version: &str,
 ) -> (Option<EngineConfig>, Vec<Note>) {
     let mut notes = Vec::new();
-    let langs = typed_languages(rules);
+    let langs = engine_languages(rules);
+    let typed = typed_languages(rules);
+    let mut note = |lang: Lang, n: Note| {
+        if typed.contains(&lang) {
+            notes.push(n);
+        }
+    };
     let Some(socket) = socket(root) else {
-        return (None, notes);
+        return (None, Vec::new());
     };
     let mut cfg = EngineConfig::new(root, socket);
     if langs.contains(&Lang::Python) {
@@ -236,28 +272,34 @@ pub fn config(
                                 py.untyped = u
                                     .modules
                                     .iter()
-                                    .filter(|m| {
-                                        !asked.contains(m.split('.').next().unwrap_or(m))
-                                    })
+                                    .filter(|m| !asked.contains(m.split('.').next().unwrap_or(m)))
                                     .cloned()
                                     .collect();
                                 py.untyped_all = Some(u.modules);
                             }
-                            Err(e) => notes.push(Note::new(
-                                NoteKind::ForgeFailure,
-                                format!(
-                                    "the packages without typing could not be listed ({e}); ty checks them as it infers them"
+                            Err(e) => note(
+                                Lang::Python,
+                                Note::new(
+                                    NoteKind::ForgeFailure,
+                                    format!(
+                                        "the packages without typing could not be listed ({e}); ty checks them as it infers them"
+                                    ),
                                 ),
-                            )),
+                            ),
                         }
                     }
                 }
                 cfg.python = Some(py);
             }
-            Some(Err(why)) => notes.push(Note::new(
-                NoteKind::MissingTool,
-                format!("the Python types engine needs ty: {why}; the rules that ask for types are not checked"),
-            )),
+            Some(Err(why)) => note(
+                Lang::Python,
+                Note::new(
+                    NoteKind::MissingTool,
+                    format!(
+                        "the Python types engine needs ty: {why}; the rules that ask for types are not checked"
+                    ),
+                ),
+            ),
             None => {}
         }
     }
@@ -268,10 +310,13 @@ pub fn config(
                 preload: true,
             });
         } else {
-            notes.push(Note::new(
-                NoteKind::MissingTool,
-                "the TypeScript types engine needs the project's TypeScript installed (node_modules/typescript); the rules that ask for types are not checked",
-            ));
+            note(
+                Lang::Typescript,
+                Note::new(
+                    NoteKind::MissingTool,
+                    "the TypeScript types engine needs the project's TypeScript installed (node_modules/typescript); the rules that ask for types are not checked",
+                ),
+            );
         }
     }
     if cfg.python.is_none() && cfg.typescript.is_none() {
@@ -318,7 +363,7 @@ pub fn start(
     forge_version: &str,
     session: Option<&str>,
 ) -> (Option<EngineOracle>, Vec<Note>) {
-    if typed_languages(rules).is_empty() {
+    if engine_languages(rules).is_empty() {
         return (None, Vec::new());
     }
     let (cfg, mut notes) = config(root, rules, tools, download, forge_version);
