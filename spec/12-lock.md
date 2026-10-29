@@ -48,4 +48,4 @@ hash = "<sha256>"                  # of the block's lines, indentation removed
 
 - Round trip, and the launcher agreeing with the full parser: `crates/forge-render/src/lock.rs::round_trip_and_launcher_agrees`, `::paths` (unit); `crates/forge-launcher/src/lock.rs` (unit); `crates/forge-launcher/tests/lock_differential.rs`.
 - The lock each sample gets, drift against `[files]`, `remove` using `[[settings]]` and `[[blocks]]`: `crates/forge-cli/tests/apply.rs` (snapshots in `crates/forge-cli/tests/snapshots/`).
-- Refused locks: `crates/forge-render/src/changes.rs` (unit).
+- Refused locks (not TOML, an unknown key, a path Forge does not write): `crates/forge-cli/tests/spec_cli.rs::invalid_locks_and_settings_are_refused`.
