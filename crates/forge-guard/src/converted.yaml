@@ -1,0 +1,435 @@
+# The structural form of every current pack guard rule (see CONVERSION.md and src/rule.rs).
+# By rule id: `targets` replace the rule's guard targets; `dropped` says why a rule is no
+# guard rule any more; `description` replaces a description the agent should not read as is.
+
+python/django/migrate-guard:
+  targets:
+    - decision: ask
+      command:
+        - {name: [manage.py, django-admin], sub: [migrate], flags_any: [--fake]}
+        - {name: [manage.py, django-admin], sub: [migrate], args_any: [zero]}
+        - {name: [manage.py, django-admin], sub: ['flush|reset_db']}
+        - {name: [manage.py, django-admin], sub: [sqlflush], pipe_to: ['*']}
+
+python/sqlalchemy/alembic/downgrade:
+  targets:
+    - decision: ask
+      command: {name: alembic, sub: ['downgrade|stamp']}
+
+python/sqlalchemy/alembic/no-downgrade-base:
+  targets:
+    - decision: deny
+      command: {name: alembic, sub: [downgrade, base]}
+
+python/uv/no-pip:
+  description: Dependencies are added with uv add and the environment is uv's; Claude asks before other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv.
+  targets:
+    - decision: deny
+      check: python-pm
+    - decision: ask
+      command:
+        - {name: [poetry, pdm], sub: ['add|install']}
+        - {name: pipenv, sub: [install]}
+        - {name: [conda, mamba, micromamba], sub: [install]}
+        - {name: [venv, virtualenv]}
+
+safety/cdk-destructive:
+  targets:
+    - decision: ask
+      command:
+        - {name: cdk, sub: [deploy], flags_any: ['--require-approval=never'], value_flags: [--require-approval]}
+        - {name: cdk, sub: [destroy]}
+
+safety/chmod-777:
+  targets:
+    - decision: deny
+      command:
+        - {name: chmod, args_any: ['777', '0777', 'a+rwx', 'ugo+rwx', '=rwx']}
+        - {name: chown, flags_any: [-R, --recursive], args_any: ['/', '~', '~/', '$HOME', '$HOME/', '${HOME}', '${HOME}/']}
+
+safety/cloud-destructive:
+  targets:
+    - decision: ask
+      command:
+        - {name: aws, sub: ['*', 'delete-*|terminate-instances|deregister-*|rb']}
+        - {name: aws, sub: [s3, rm], flags_any: [--recursive]}
+        - {name: [gcloud, az, doctl], args_any: [delete]}
+        - {name: gsutil, sub: ['rm|rb']}
+        - {name: [fly, flyctl], sub: ['apps|volume|volumes|postgres|machine|machines', 'destroy|delete|remove|rm']}
+        - {name: railway, sub: ['down|delete']}
+        - {name: railway, sub: [volume, delete]}
+        - {name: vercel, sub: ['remove|rm']}
+        - {name: heroku, sub: ['apps:destroy']}
+        - {name: netlify, sub: ['sites:delete']}
+        - {name: wrangler, sub: ['*'], args_any: [delete]}
+
+safety/datastore-reset:
+  targets:
+    - decision: ask
+      command:
+        - {name: redis-cli, stdin: true, arg_regex: '(?im)^\s*flush(all|db)\b'}
+        - {name: supabase, sub: [db, reset]}
+        - {name: manage.py, sub: [flush]}
+
+safety/docker-privileged:
+  targets:
+    - decision: deny
+      command:
+        - name: [docker, podman]
+          sub: ['run|create|exec']
+          flags_any: [--privileged, '--pid=host', '--ipc=host', '--userns=host', '--cap-add=ALL', '--cap-add=SYS_ADMIN', '--security-opt=seccomp=unconfined', '--security-opt=seccomp:unconfined', '--security-opt=apparmor=unconfined', '--security-opt=apparmor:unconfined']
+          value_flags: [--pid, --ipc, --userns, --cap-add, --security-opt, -v, --volume, --mount, -e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
+        - name: [docker, podman]
+          sub: [container, 'run|create|exec']
+          flags_any: [--privileged, '--pid=host', '--ipc=host', '--userns=host', '--cap-add=ALL', '--cap-add=SYS_ADMIN', '--security-opt=seccomp=unconfined', '--security-opt=seccomp:unconfined', '--security-opt=apparmor=unconfined', '--security-opt=apparmor:unconfined']
+          value_flags: [--pid, --ipc, --userns, --cap-add, --security-opt, -v, --volume, --mount, -e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
+        - {name: [docker, podman], sub: ['run|create|exec|container'], arg_regex: 'docker\.sock'}
+        - name: [docker, podman]
+          sub: ['run|create|container']
+          option_values:
+            '-v|--volume': '^(/|/etc|/root|~|\$HOME|\$\{HOME\})/?(:|$)'
+            '--mount': '(^|,)(source|src)=(/|/etc|/root|~|\$HOME|\$\{HOME\})/?(,|$)'
+          value_flags: [-e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
+
+safety/docker-push:
+  targets:
+    - decision: ask
+      command:
+        - {name: [docker, podman], sub: [push]}
+        - {name: [docker, podman], sub: [image, push]}
+        - {name: [docker, podman], sub: [buildx], flags_any: [--push]}
+        - {name: [docker, podman], sub: [compose], args_any: [push]}
+        - {name: docker-compose, sub: [push]}
+
+safety/docker-volumes:
+  targets:
+    - decision: deny
+      command:
+        - {name: docker, sub: [compose], args_any: [down], flags_any: [-v, --volumes]}
+        - {name: docker-compose, sub: [down], flags_any: [-v, --volumes]}
+        - {name: docker, sub: [volume, 'rm|prune']}
+        - {name: docker, sub: [system, prune], flags_any: [--volumes]}
+
+safety/ephemeral-exec:
+  targets:
+    - decision: ask
+      check: ephemeral-exec
+
+safety/forge-state:
+  dropped: Forge's state moves out of the repository into the per-user cache; the PreToolUse refusal of internal paths (Read, Edit, Write, Grep, Glob and Bash) covers it, with a neutral reason, and this description names the internals the agent must not be pointed at.
+
+safety/git-branch-force-delete:
+  targets:
+    - decision: ask
+      command:
+        - {name: git, sub: [branch], flags_any: [-D]}
+        - {name: git, sub: [branch], flags_all: ['-d|--delete', '-f|--force']}
+
+safety/git-discard:
+  targets:
+    - decision: deny
+      command:
+        - {name: git, sub: [checkout], args_any: ['.']}
+        - {name: git, sub: [checkout], arg_regex: '^--$'}
+        - {name: git, sub: [restore], flags_none: [--staged, -S]}
+        - {name: git, sub: [restore], flags_any: [--worktree, -W]}
+
+safety/git-force-push:
+  targets:
+    - decision: deny
+      command:
+        - {name: git, sub: [push], flags_any: [--force, -f]}
+        - {name: git, sub: [push], args_any: ['+*']}
+
+safety/git-force-with-lease:
+  targets:
+    - decision: ask
+      command: {name: git, sub: [push], flags_any: [--force-with-lease]}
+
+safety/git-no-verify:
+  description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= assignment, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (the project's checks run from those hooks). Reading core.hooksPath is fine."
+  targets:
+    - decision: deny
+      command:
+        - name: git
+          sub: [commit]
+          flags_any: [--no-verify, -n]
+          value_flags: [-m, --message, -F, --file, -C, -c, --reuse-message, --reedit-message, --author, --date, --fixup, --squash, --trailer, --cleanup, -t, --template]
+        - {env_any: [SKIP, PRE_COMMIT_ALLOW_NO_CONFIG, HUSKY, HUSKY_SKIP_HOOKS, LEFTHOOK, LEFTHOOK_EXCLUDE]}
+        - {name: git, option_values: {'-c': '^core\.hooks[Pp]ath='}}
+        - {name: git, sub: [config, 'core.hooksPath|core.hookspath'], args_any: ['*']}
+        - {name: git, sub: [config, 'set|unset', 'core.hooksPath|core.hookspath']}
+        - {name: git, sub: [config, 'core.hooksPath|core.hookspath'], flags_any: [--unset, --unset-all]}
+        - {name: [pre-commit, lefthook], sub: [uninstall]}
+        - {name: [rm, mv, chmod, truncate], arg_regex: '(^|/)(\.git/hooks|\.husky)(/|$)'}
+
+safety/git-stash-drop:
+  targets:
+    - decision: ask
+      command: {name: git, sub: [stash, drop]}
+
+safety/kubernetes-change:
+  targets:
+    - decision: ask
+      command:
+        - {name: kubectl, sub: ['delete|drain|edit|patch|replace']}
+        - {name: kubectl, sub: [scale], flags_any: ['--replicas=0'], value_flags: [--replicas]}
+        - {name: helm, sub: ['uninstall|delete|del|un|rollback']}
+
+safety/kubernetes-destructive:
+  targets:
+    - decision: deny
+      command:
+        - {name: kubectl, sub: [delete, '/^(ns|namespaces?|pv|pvc|persistentvolumes?|persistentvolumeclaims?|crds?|customresourcedefinitions?)([/.,]|$)/']}
+        - {name: kubectl, sub: [delete], flags_any: [--all, -A, --all-namespaces]}
+
+safety/lockfile-bash-write:
+  targets:
+    - decision: ask
+      command:
+        - {name: [sed, perl], flags_any: [-i, --in-place], value_flags: [-e, --expression, -f, --file], arg_regex: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+        - {redirect_to: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+        - {name: [tee, truncate], args_any: ['/(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$/']}
+        - {name: [cp, mv, install, rsync], last_arg: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+        - {name: dd, arg_regex: '^of=(.*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+        - name: ['python*', 'pypy*', node, bun, deno, ruby]
+          stdin: true
+          arg_regex: '(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json).*(\.write\(|write_text|writeFile|Bun\.write|[(,]\s*["'']w[+b]?["''])|(\.write\(|write_text|writeFile|Bun\.write|[(,]\s*["'']w[+b]?["'']).*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)'
+
+safety/no-break-system-packages:
+  targets:
+    - decision: deny
+      command:
+        - {name: [pip, pip3, 'pip3.*', uv, pipx], flags_any: [--break-system-packages]}
+        - {env_any: [PIP_BREAK_SYSTEM_PACKAGES]}
+        - {name: [pip, pip3, 'pip3.*'], sub: [install], wrapped_by: [sudo, doas]}
+        - {name: [npm, pnpm, yarn, bun], sub: ['i|install|add|global'], wrapped_by: [sudo, doas]}
+
+safety/package-add:
+  targets:
+    - decision: ask
+      check: package-add
+
+safety/prisma-ai-consent:
+  targets:
+    - decision: deny
+      command: {env_any: [PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION]}
+
+safety/pulumi-destructive:
+  targets:
+    - decision: ask
+      command:
+        - {name: pulumi, sub: ['destroy|cancel']}
+        - {name: pulumi, sub: [stack, rm]}
+        - {name: pulumi, sub: [state, 'delete|unprotect']}
+        - {name: pulumi, sub: ['up|refresh'], flags_any: [--yes, -y, --skip-preview]}
+
+safety/remote-script:
+  targets:
+    - decision: deny
+      command:
+        - {name: [curl, wget], pipe_to: [sh, bash, zsh, dash, ksh, 'python*', bun, node]}
+        - {name: base64, flags_any: [-d, -D, --decode], pipe_to: [sh, bash, zsh, dash, ksh]}
+        - {name: [sh, bash, zsh, dash, ksh], arg_regex: '^(<\(|\$\()\s*(curl|wget)\s'}
+
+safety/rm-root:
+  targets:
+    - decision: deny
+      command:
+        - {name: rm, flags_any: [-r, -R, --recursive], args_any: ['/^(/|~|\$HOME|\$\{HOME\}|\.\.)/?\*?$/']}
+        - {name: rm, flags_any: [-r, -R, --recursive], args_any: ['/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/\*?$/']}
+
+safety/secret-read-bash:
+  targets:
+    - decision: deny
+      command:
+        - {name: [cat, less, more, head, tail, cp, source, '.', grep, base64], arg_regex: '(^|[/=])\.env(\.(local|development|production|test|staging|dev|prod))?$'}
+        - {name: [cat, less, more, head, tail, cp, source, '.', grep, base64], arg_regex: '^(~|\$HOME|\$\{HOME\})/(\.ssh/|\.pgpass|\.netrc)'}
+
+safety/sql-destructive:
+  targets:
+    - decision: deny
+      command:
+        - {name: [psql, mysql, mariadb, sqlite3], stdin: true, arg_regex: '(?i)(\bdrop\s+(table|database|schema)(\s|;|$)|\btruncate(\s|;|$)|\bdelete\s+from\s+[a-z0-9_."]+\s*(;|$))'}
+        - {name: [mongosh, mongo], stdin: true, arg_regex: '(dropDatabase|\.drop)\s*\('}
+        - {name: heroku, sub: ['pg:reset']}
+        - {name: supabase, sub: [db, reset], flags_any: [--linked, --db-url]}
+
+safety/terraform-destroy:
+  targets:
+    - decision: ask
+      command:
+        - {name: [terraform, tofu], sub: [destroy]}
+        - {name: [terraform, tofu], sub: [apply], flags_any: [-auto-approve, --auto-approve, -replace, -target, '-lock=false']}
+        - {name: [terraform, tofu], sub: [state, 'rm|mv|push|replace-provider']}
+        - {name: [terraform, tofu], sub: ['force-unlock|import']}
+        - {name: [terraform, tofu], sub: [workspace, delete]}
+
+supply-chain/insecure-download:
+  targets:
+    - decision: ask
+      command:
+        - name: curl
+          flags_any: [-k, --insecure]
+          value_flags: [-o, --output, -H, --header, -d, --data, --data-raw, --data-binary, -u, --user, -X, --request, -A, --user-agent, -e, --referer, -b, --cookie, -c, --cookie-jar, -T, --upload-file, -w, --write-out, -x, --proxy, -m, --max-time, --connect-timeout, -r, --range, -F, --form, --keepalive-time]
+        - {name: wget, flags_any: [--no-check-certificate]}
+
+supply-chain/no-dependency-confusion-command:
+  targets:
+    - decision: ask
+      command:
+        - {name: [pip, pip3, 'pip3.*', uv], flags_any: [--extra-index-url]}
+        - {name: [uv, uvx], option_values: {'--index-strategy': '^unsafe-'}}
+
+supply-chain/no-tls-disable-command:
+  targets:
+    - decision: deny
+      command:
+        - {name: [npm, pnpm, yarn], sub: [config, set, strict-ssl, 'false']}
+        - {name: [npm, pnpm, yarn], sub: [config, set, 'strict-ssl=false']}
+        - {flags_any: ['--strict-ssl=false', --allow-insecure-host, --trusted-host], value_flags: [--strict-ssl]}
+        - {env_any: [GIT_SSL_NO_VERIFY, PIP_TRUSTED_HOST, UV_INSECURE_HOST, 'NODE_TLS_REJECT_UNAUTHORIZED=0', 'PYTHONHTTPSVERIFY=0']}
+        - {name: git, option_values: {'-c': '(?i)^http\.sslverify=(false|0|no|off)$'}}
+        - {name: git, sub: [config, '/(?i)^http\.sslverify$/', '/(?i)^(false|0|no|off)$/']}
+        - {name: git, sub: [config, set, '/(?i)^http\.sslverify$/', '/(?i)^(false|0|no|off)$/']}
+
+typescript/bun/no-other-pm:
+  targets:
+    - decision: ask
+      command:
+        - {name: npm, sub: ['install|i|ci|add']}
+        - {name: [pnpm, yarn]}
+
+typescript/bun/no-snapshot-update:
+  targets:
+    - decision: ask
+      command: {name: bun, sub: [test], flags_any: [-u, --update-snapshots]}
+
+typescript/drizzle/no-push-force:
+  targets:
+    - decision: deny
+      command: {name: drizzle-kit, sub: [push], flags_any: [--force]}
+
+typescript/drizzle/no-push:
+  targets:
+    - decision: ask
+      command: {name: drizzle-kit, sub: [push]}
+
+typescript/jest/no-test-path-pattern:
+  targets:
+    - decision: deny
+      command: {name: jest, flags_any: [--testPathPattern]}
+
+typescript/mikro-orm/schema-guard:
+  targets:
+    - decision: deny
+      command: {name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop|schema:fresh'], flags_any: [--run, -r]}
+
+typescript/mikro-orm/schema-update:
+  targets:
+    - decision: ask
+      command:
+        - {name: [mikro-orm, mikro-orm-esm], sub: ['schema:update'], flags_any: [--run, -r]}
+        - {name: [mikro-orm, mikro-orm-esm], sub: ['migration:fresh']}
+
+typescript/node/no-ts-node:
+  targets:
+    - decision: ask
+      command: {name: [ts-node, ts-node-esm, ts-node-script]}
+
+typescript/npm/allow-scripts-command:
+  targets:
+    - decision: ask
+      command:
+        - {name: npm, sub: [approve-scripts, '*']}
+        - {name: npm, sub: [approve-scripts], flags_any: [--all, --no-allow-scripts-pin]}
+        - {name: npm, sub: [install-scripts, approve]}
+        - {name: [npm, pnpm, yarn, bun, npx], flags_any: [--dangerously-allow-all-scripts]}
+        - {name: [npm, pnpm, yarn, bun, npx], option_values: {'--allow-scripts': '^[^-]'}}
+
+typescript/npm/no-audit-fix-force:
+  targets:
+    - decision: ask
+      command: {name: npm, sub: [audit, fix], flags_any: [--force]}
+
+typescript/npm/no-exotic-sources:
+  targets:
+    - decision: deny
+      command: {flags_any: ['--allow-git=all', '--allow-remote=all'], value_flags: [--allow-git, --allow-remote]}
+
+typescript/npm/no-legacy-peer-deps:
+  targets:
+    - decision: deny
+      command: {name: npm, sub: ['install|i|ci|add'], flags_any: [--legacy-peer-deps, --force]}
+
+typescript/npm/no-other-pm:
+  targets:
+    - decision: ask
+      command:
+        - {name: [pnpm, yarn]}
+        - {name: bun, sub: ['install|i|add']}
+
+typescript/npm/release-age-command:
+  targets:
+    - decision: ask
+      command: {option_values: {'--min-release-age': '^0*$'}}
+
+typescript/playwright/no-snapshot-update:
+  targets:
+    - decision: ask
+      command: {name: playwright, sub: [test], flags_any: [--update-snapshots, -u]}
+
+typescript/pnpm/no-other-pm:
+  targets:
+    - decision: ask
+      command:
+        - {name: npm, sub: ['install|i|ci|add']}
+        - {name: yarn}
+        - {name: bun, sub: ['install|i|add']}
+
+typescript/prisma/db-push:
+  targets:
+    - decision: ask
+      command:
+        - {name: prisma, sub: [db, 'push|execute']}
+        - {name: prisma, sub: [migrate, deploy]}
+
+typescript/prisma/no-reset:
+  targets:
+    - decision: deny
+      command:
+        - {name: prisma, sub: [migrate, reset]}
+        - {name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}
+
+typescript/turbo/no-env-loose-flag:
+  targets:
+    - decision: deny
+      command: {name: turbo, flags_any: ['--env-mode=loose'], value_flags: [--env-mode]}
+
+typescript/typeorm/migration-revert:
+  targets:
+    - decision: ask
+      command: {name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['migration:revert']}
+
+typescript/typeorm/schema-sync-guard:
+  targets:
+    - decision: deny
+      command: {name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync|schema:drop']}
+
+typescript/vitest/no-pass-with-no-tests:
+  targets:
+    - decision: ask
+      command: {name: vitest, flags_any: [--passWithNoTests]}
+
+typescript/vitest/no-snapshot-update:
+  targets:
+    - decision: ask
+      command: {name: vitest, flags_any: [-u, --update]}
+
+typescript/yarn/no-other-pm:
+  targets:
+    - decision: ask
+      command:
+        - {name: npm, sub: ['install|i|ci|add']}
+        - {name: pnpm}
+        - {name: bun, sub: ['install|i|add']}
