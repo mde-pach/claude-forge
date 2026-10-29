@@ -111,12 +111,19 @@ fn busy_lock_skips_the_background_fetch() {
         None
     );
     drop(held);
-    assert!(
-        fetcher(&server, None)
+    // A process another test thread is forking can hold a copy of the lock's descriptor
+    // until it execs (the descriptor is close-on-exec), so allow a moment.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut got = None;
+    while got.is_none() && Instant::now() < deadline {
+        got = fetcher(&server, None)
             .fetch_unless_busy(&h, "1.2.3")
-            .unwrap()
-            .is_some()
-    );
+            .unwrap();
+        if got.is_none() {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+    assert!(got.is_some());
 }
 
 /// The background child: this test binary re-run with only this test selected. It does

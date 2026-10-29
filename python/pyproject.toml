@@ -1,0 +1,28 @@
+# The PyPI distribution: `uv tool install claude-forge` / `pipx install claude-forge`.
+# maturin builds the Rust CLI and ships its executables (claude-forge and forge) in a
+# platform wheel, one per platform, as ruff does. The release workflow builds the wheels.
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "claude-forge"
+description = "Generates a standalone Claude Code setup from rule packs."
+requires-python = ">=3.8"
+keywords = ["claude", "claude-code", "linter", "hooks"]
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Rust",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/mde-pach/claude-forge"
+
+[tool.maturin]
+bindings = "bin"
+manifest-path = "../crates/forge-cli/Cargo.toml"
+strip = true
