@@ -1,0 +1,25 @@
+[package]
+name = "forge-hooks"
+description = "The Claude Code hooks Forge answers (`forge hook <event>`): guard, snapshots, edit and Stop checks, reviewer, notifications."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-detect.workspace = true
+forge-engine.workspace = true
+forge-guard.workspace = true
+forge-home.workspace = true
+forge-launcher.workspace = true
+forge-packs.workspace = true
+forge-render.workspace = true
+forge-tools.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

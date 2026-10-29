@@ -7,6 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
+mod hook;
 pub mod project;
 mod provisioning;
 
@@ -30,11 +31,17 @@ enum Command {
         #[command(subcommand)]
         command: PacksCommand,
     },
-    /// Runs a Claude Code hook (not implemented yet).
+    /// Answers a Claude Code hook call (what the settings' hook entries run).
     #[command(hide = true)]
     Hook {
-        /// The hook event (PreToolUse, PostToolUse, Stop, ...).
-        event: Option<String>,
+        /// The hook event (session-start, pre-tool-use, stop, ...).
+        event: String,
+    },
+    /// The types engine (started by the SessionStart hook).
+    #[command(hide = true)]
+    Engine {
+        #[command(subcommand)]
+        command: hook::EngineCommand,
     },
 }
 
@@ -78,7 +85,7 @@ pub fn main() -> ExitCode {
     if let Some(code) = provisioning::intercept() {
         return code;
     }
-    let _notes =
+    let notes =
         forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher());
     let cli = Cli::parse();
     let result = match cli.command {
@@ -109,7 +116,8 @@ pub fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         }),
-        Command::Hook { .. } => Err("forge hook: not implemented yet".into()),
+        Command::Hook { event } => Ok(hook::run(&event, notes)),
+        Command::Engine { command } => Ok(hook::engine(command)),
         Command::Project(c) => Ok(project::run(c)),
     };
     result.unwrap_or_else(|e| {

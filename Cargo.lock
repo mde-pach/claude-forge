@@ -550,7 +550,9 @@ dependencies = [
  "clap",
  "forge-core",
  "forge-detect",
+ "forge-engine",
  "forge-home",
+ "forge-hooks",
  "forge-launcher",
  "forge-packs",
  "forge-render",
@@ -637,6 +639,25 @@ dependencies = [
 name = "forge-home"
 version = "0.6.0-dev"
 dependencies = [
+ "sha2",
+ "tempfile",
+]
+
+[[package]]
+name = "forge-hooks"
+version = "0.6.0-dev"
+dependencies = [
+ "forge-core",
+ "forge-detect",
+ "forge-engine",
+ "forge-guard",
+ "forge-home",
+ "forge-launcher",
+ "forge-packs",
+ "forge-render",
+ "forge-tools",
+ "serde",
+ "serde_json",
  "sha2",
  "tempfile",
 ]

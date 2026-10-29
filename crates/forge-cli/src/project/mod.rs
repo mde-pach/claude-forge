@@ -276,6 +276,7 @@ pub fn person_notes(ctx: &Ctx, probe: &dyn ToolProbe) -> Vec<String> {
         )
     {
         out.extend(forge_launcher::take_notes(&home, &id).unwrap_or_default());
+        out.extend(forge_hooks::state::take_repo_notes(&home, &ctx.base));
     }
     out.extend(probe.notes(&ctx.plan).into_iter().map(|n| n.to_string()));
     out
