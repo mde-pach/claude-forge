@@ -1,5 +1,5 @@
-//! What `forge apply`, `status` and `explain` tell the person about enforcement
-//! (`src/cli/report.ts`): whether each active rule is enforced here and why not, from the
+//! What `forge apply`, `status` and `explain` tell the person about enforcement:
+//! whether each active rule is enforced here and why not, from the
 //! plan and from what the installed tools can do. Asking the tools (their versions, whether
 //! their config reports a code) is the checker's: [`ToolProbe`] is that question, and
 //! [`NoProbe`] answers "not known" until the checker implements it.
@@ -143,7 +143,7 @@ fn push_unique(v: &mut Vec<String>, s: String) {
     }
 }
 
-/// Each active rule's enforcement here (`enforcement` in `src/cli/report.ts`).
+/// Each active rule's enforcement here.
 pub fn enforcement(plan: &Plan, audits: &[AuditResult], missing: &[String]) -> Vec<Enforcement> {
     let absent: BTreeSet<String> = missing
         .iter()

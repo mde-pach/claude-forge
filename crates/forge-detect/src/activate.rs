@@ -1,4 +1,4 @@
-//! Which packs are active (§5.1, `src/plan/active-packs.ts`) and why.
+//! Which packs are active (§5.1) and why.
 
 use std::collections::BTreeMap;
 

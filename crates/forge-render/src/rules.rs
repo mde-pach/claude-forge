@@ -1,4 +1,4 @@
-//! Which rules apply here and what enforces each (§5.3, §6.1, `src/plan/rules.ts` and each
+//! Which rules apply here and what enforces each (§5.3, §6.1, and each
 //! target kind's `plan`): the active packs' rules, local rules, forge.yaml's disables,
 //! deprecations, version gates and file roles; then, per target, what it adds (settings
 //! entries, the checker's work) and what `forge status` says about it.

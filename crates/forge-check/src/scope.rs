@@ -1,7 +1,7 @@
 //! Which files a rule is about: its scope (`scope.language`, `scope.files`), file roles (`@role`
 //! entries), and the paths no rule ever looks at.
 //!
-//! Globs match as the generated scripts matched them (shell `case` patterns, `src/core/globs.ts`
+//! Globs match as the generated scripts matched them (shell `case` patterns
 //! `globToCase`): `*` also matches `/`, `**/` is zero or more directories, `{a,b}` alternatives,
 //! `[0-9]` / `[!x]` one character. ast-grep's own `files` globs (globset) behave the same way.
 
@@ -137,7 +137,7 @@ pub struct Roles {
 }
 
 impl Roles {
-    /// Forge's default patterns (`src/roles.ts` ROLES).
+    /// Forge's default patterns.
     pub fn defaults() -> Roles {
         let map = forge_packs::roles::ROLES
             .iter()
@@ -254,7 +254,7 @@ impl GlobList {
     }
 }
 
-/// `LANGUAGE_CASE` (`src/render/checks.ts`): the files of a scope language for grep and check
+/// `LANGUAGE_CASE` (of the TypeScript Forge): the files of a scope language for grep and check
 /// targets.
 pub fn language_globs(lang: Language) -> &'static [&'static str] {
     match lang {

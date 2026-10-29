@@ -1,7 +1,7 @@
 //! ast-grep targets, with ast-grep linked as a library: each rule's `rule`, `constraints` and
 //! `utils` become an ast-grep rule config in memory (no files), compiled once per run.
 //!
-//! Languages are ast-grep's, as Forge's sgconfig set them (`src/render/astgrep.ts`): a
+//! Languages are ast-grep's, as the TypeScript Forge's sgconfig set them: a
 //! `python` rule is Python (`.py`, `.pyi`, …), `typescript` and `tsx` rules are Tsx (`.tsx`,
 //! and `.ts`, `.mts`, `.cts` through `languageGlobs`), `yaml` is Yaml.
 
