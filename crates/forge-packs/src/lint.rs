@@ -1,9 +1,6 @@
 //! Content lints: what loads fine but is probably wrong. They never fail loading; they are
 //! findings `forge packs lint` reports.
 
-use std::sync::LazyLock;
-
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::glob::glob_to_regex;
@@ -210,16 +207,6 @@ fn grep_scope(rule: &Rule, file: &str, out: &mut Vec<Finding>) {
     });
 }
 
-/// Forge's internals, as agent-facing text should not name them.
-/// The term is group 1 or 2 (`.forge` as a name of its own: not `x.forge`, not `.forgejo`).
-static INTERNALS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(concat!(
-        r"(?:^|[^\w.-])(\.forge)(?:$|[^\w-])",
-        r"|(?-u:\b)(check\.sh(?-u:\b)|forge\.yaml(?-u:\b)|forge (?:apply|diff)(?-u:\b)|FORGE_[A-Z0-9_]+|forge-state(?-u:\b)|models\.tsv(?-u:\b)|accept:)",
-    ))
-    .expect("regex")
-});
-
 /// Agent-facing text and where it was written.
 struct Text<'a> {
     file: &'a str,
@@ -235,10 +222,7 @@ struct Text<'a> {
 /// (c) the internals a text names, each once, with the source line it is on.
 fn forge_internals(t: &Text, out: &mut Vec<Finding>) {
     let mut seen: Vec<&str> = Vec::new();
-    for c in INTERNALS.captures_iter(t.text) {
-        let Some(term) = c.get(1).or_else(|| c.get(2)).map(|m| m.as_str()) else {
-            continue;
-        };
+    for (_, term) in forge_core::internals::find(t.text) {
         if seen.contains(&term) {
             continue;
         }

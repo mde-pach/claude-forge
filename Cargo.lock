@@ -362,6 +362,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "forge-core"
+version = "0.6.0-dev"
+dependencies = [
+ "regex",
+ "serde",
+]
+
+[[package]]
 name = "forge-home"
 version = "0.6.0-dev"
 dependencies = [
@@ -384,6 +392,7 @@ version = "0.6.0-dev"
 dependencies = [
  "blake3",
  "fancy-regex",
+ "forge-core",
  "include_dir",
  "indexmap",
  "insta",
