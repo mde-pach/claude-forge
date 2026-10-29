@@ -1,5 +1,5 @@
 id: python/typecheck
-description: The project passes ty (Forge's pinned type checker, with the project's environment and [tool.ty] config).
+description: "The project passes ty, with the project's environment and its [tool.ty] config."
 scope: {language: python}
 enforce:
   - {target: check, stage: typecheck, run: "forge_do ty typecheck"}

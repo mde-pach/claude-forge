@@ -150,7 +150,8 @@ fn check_findings_in_reasons() {
         reason("npx some-unknown-tool")
     );
     assert!(reason("N=npx; $N cowsay").contains("Here: the command name $N is expanded"));
-    assert!(reason("uv add requests flask").ends_with("Here: it adds requests and flask."));
+    // (uv add would be the Poetry, PDM or Pipenv pack's ask here: every pack is loaded)
+    assert!(reason("pipx install requests flask").ends_with("Here: it adds requests and flask."));
     assert!(reason("cd packages/app && npx cowsay").contains("from packages/app up to"));
 }
 

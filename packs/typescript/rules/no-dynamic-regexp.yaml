@@ -1,5 +1,5 @@
 id: typescript/no-dynamic-regexp
-description: "A RegExp built from a non-literal pattern (new RegExp(input), RegExp(`^${p}`)) escapes it with RegExp.escape() (ES2025, Node 24) unless the text is meant as a pattern: unescaped input changes what matches and can backtrack for ever."
+description: "A RegExp built from a non-literal pattern (new RegExp(input), RegExp(`^${p}`)) escapes it (RegExp.escape() where the runtime has it, ES2025 / Node 24, else an escaping helper) unless the text is meant as a pattern: unescaped input changes what matches and can backtrack for ever."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

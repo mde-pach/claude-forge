@@ -1,5 +1,5 @@
 id: typescript/typeorm/migration-present
-description: "Entity changes come with a migration: once the migrations have run on the local database, TypeORM's migration:generate --check finds no schema change. The data source file is file role @typeorm-datasource, set in forge.yaml; until it is, the check reports itself skipped."
+description: "Entity changes come with a migration: once the migrations have run on the local database, TypeORM's migration:generate --check finds no schema change."
 scope: {language: typescript}
 enforce:
   - {target: check, stage: migration, run: "forge_typeorm_pending @typeorm-datasource @esm-modules", requires_local_db: true, timeout: 180}

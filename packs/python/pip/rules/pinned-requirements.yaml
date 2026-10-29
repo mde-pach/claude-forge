@@ -1,0 +1,28 @@
+id: python/pip/pinned-requirements
+description: "Requirements files pin each package to an exact version (name==1.2.3), so every install gets the same packages; a range or a bare name lets each machine resolve its own."
+scope: {language: any, files: ["**/requirements*.txt", "**/requirements/*.txt"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*[A-Za-z0-9][A-Za-z0-9._-]*(\\[[^]]*\\])?[[:space:]]*($|[;#<>!~])"
+examples:
+  match:
+    - "requests\n"
+    - "django>=5.0\n"
+    - "httpx~=0.27\n"
+    - "uvicorn[standard]>=0.30\n"
+    - "flask  # web\n"
+    - "rich ; python_version >= \"3.10\"\n"
+    - "numpy!=2.0.0\n"
+  no_match:
+    - "requests==2.32.5\n"
+    - "uvicorn[standard]==0.30.6\n"
+    - "rich==13.9.4 ; python_version >= \"3.10\"\n"
+    - "-r base.txt\n"
+    - "-e .\n"
+    - "--index-url https://pypi.org/simple\n"
+    - "# pinned by pip-compile\n"
+    - "mypkg @ https://example.com/mypkg-1.0.tar.gz\n"
+    - "git+https://github.com/acme/lib.git@v1.2.0#egg=lib\n"
+    - "    --hash=sha256:0123abcd\n"
+    - "\n"

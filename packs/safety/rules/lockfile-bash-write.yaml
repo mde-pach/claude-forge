@@ -1,5 +1,5 @@
 id: safety/lockfile-bash-write
-description: "Rewriting a lock file (those of safety/lockfile-hand-edit) through Bash asks first: sed -i / perl -i (perl -0pi included), a redirect or tee into one, cp, mv, install or rsync onto one, dd of=, truncate, or a Python, Node, Bun, Deno or Ruby command that names one and writes. Reading one does not ask, unless such a script also writes something. Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
+description: "Rewriting a lock file through Bash asks first: sed -i / perl -i (perl -0pi included), a redirect or tee into one, cp, mv, install or rsync onto one, dd of=, truncate, or a Python, Node, Bun, Deno or Ruby command that names one and writes. Reading one does not ask, unless such a script also writes something. Change the manifest and run the package manager (bun install, pnpm install, uv lock, cargo update -p …) instead."
 review: "Does this command write a lock file by hand (rather than only read it, or run the package manager that owns it)? Deny a hand rewrite unless the user's request asks for exactly that; allow a read or a package-manager run."
 scope: {language: any}
 enforce:

@@ -8,7 +8,10 @@ context:
       Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
   - text: |
       Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
+    when: {deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]}
   - text: |
-      Custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
+      Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
+    when: {deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]}
   - text: |
-      Object strictness: `z.strictObject()` and `z.looseObject()`. Errors: `error.issues`, `z.treeifyError()`, `z.flattenError()`.
+      Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
+    when: {deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]}

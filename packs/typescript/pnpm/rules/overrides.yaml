@@ -1,5 +1,5 @@
 id: typescript/pnpm/overrides
-description: "Advice: each overrides entry added or changed in pnpm-workspace.yaml is reported once, so Claude says why (a security fix, an incompatible transitive version): an override can hide a vulnerability or force a version its dependents do not support."
+description: "Each overrides entry added or changed in pnpm-workspace.yaml is reported once, so Claude says why (a security fix, an incompatible transitive version): an override can hide a vulnerability or force a version its dependents do not support."
 scope: {language: any}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_helper bun pm_policy.mjs pnpm-overrides", when_changed: [pnpm-workspace.yaml]}

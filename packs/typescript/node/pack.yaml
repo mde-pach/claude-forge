@@ -5,6 +5,6 @@ detect:
   deps_any: [{ecosystem: npm, name: "@types/node"}]
 context:
   - text: |
-      TypeScript files run on Node with `node file.ts` (type stripping) or `tsx`; `ts-node` is unmaintained and rejected in package.json, and running it asks.
+      TypeScript runs through the project's own runner (its package.json scripts), not `ts-node`, which is unmaintained and rejected in package.json.
   - text: |
       `node:vm` is not a security boundary: never use it to run untrusted code.

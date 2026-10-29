@@ -1,5 +1,5 @@
 id: terraform/misconfig
-description: "A change introduces no new HIGH or CRITICAL Terraform misconfiguration found by trivy (public buckets, ingress open to the world, unencrypted storage); its bundled checks, and an ignore file of Forge's, so .trivyignore does not apply."
+description: "A change introduces no new HIGH or CRITICAL Terraform misconfiguration found by trivy (public buckets, ingress open to the world, unencrypted storage); a finding is fixed, not added to .trivyignore."
 scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
 enforce:
   - target: check

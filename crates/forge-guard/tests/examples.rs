@@ -86,7 +86,10 @@ pub fn failures(rule: &Rule, guard: GuardRule) -> Vec<String> {
             .map(|(a, b)| (a.as_str(), b.as_str()))
             .collect();
         let dir = repo(&files);
-        let got = set.evaluate(&c.command, &ctx(dir.path()).with_python_pm(python_pm(&c.files)));
+        let got = set.evaluate(
+            &c.command,
+            &ctx(dir.path()).with_python_pm(python_pm(&c.files)),
+        );
         let ok = if c.must_match {
             got != Outcome::None && decisions.contains(&got.decision())
         } else {

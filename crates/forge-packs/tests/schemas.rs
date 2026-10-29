@@ -49,9 +49,7 @@ fn schemas_refuse_what_loading_adds_and_null() {
 
 #[test]
 fn guard_targets_are_structural() {
-    let rule = |target: serde_json::Value| {
-        json!({"id": "x/y", "description": "d", "scope": {"language": "any"}, "enforce": [target]})
-    };
+    let rule = |target: serde_json::Value| json!({"id": "x/y", "description": "d", "scope": {"language": "any"}, "enforce": [target]});
     let ok = rule(json!({"target": "guard", "decision": "deny",
         "command": {"name": "git", "sub": ["push"], "flags_any": ["--force"]}}));
     validate(Kind::Rule, &ok).unwrap();

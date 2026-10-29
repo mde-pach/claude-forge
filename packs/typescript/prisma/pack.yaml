@@ -20,4 +20,4 @@ context:
   - text: |
       A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
   - text: |
-      A new migration that drops a column or table is rejected unless the user accepts that line in `forge.yaml`: drop only after a deploy in which no code reads it (expand and contract).
+      Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).

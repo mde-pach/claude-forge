@@ -163,7 +163,10 @@ fn direct_dashed_tools(cmd: &str) -> Vec<&'static str> {
 /// The named facts `when.facts` and `detect.facts_any` may use, with their values (forge-detect
 /// computes them: `python.pm` from the packaging files, `js.pm` from the pinned manager or lock).
 pub const FACTS: &[(&str, &[&str])] = &[
-    ("python.pm", &["uv", "poetry", "pdm", "pipenv", "pip", "none"]),
+    (
+        "python.pm",
+        &["uv", "poetry", "pdm", "pipenv", "pip", "none"],
+    ),
     ("js.pm", &["npm", "pnpm", "yarn", "bun", "none"]),
 ];
 
@@ -173,9 +176,16 @@ fn check_facts<'a>(
     for (name, want) in facts {
         let Some((_, values)) = FACTS.iter().find(|(n, _)| n == name) else {
             let known: Vec<&str> = FACTS.iter().map(|(n, _)| *n).collect();
-            return Err(format!("unknown fact {name:?} (known: {})", known.join(", ")));
+            return Err(format!(
+                "unknown fact {name:?} (known: {})",
+                known.join(", ")
+            ));
         };
-        if let Some(v) = want.as_slice().iter().find(|v| !values.contains(&v.as_str())) {
+        if let Some(v) = want
+            .as_slice()
+            .iter()
+            .find(|v| !values.contains(&v.as_str()))
+        {
             return Err(format!(
                 "fact {name} has no value {v:?} (its values: {})",
                 values.join(", ")
@@ -193,18 +203,20 @@ pub fn validate_pack(pack: &Pack) -> Result<(), String> {
     if let Some(f) = pack.detect.as_ref().and_then(|d| d.facts_any.as_ref()) {
         check_facts(f).map_err(|e| format!("invalid pack: detect.facts_any: {e}"))?;
     }
-    let mut ids: Vec<&str> = Vec::new();
+    // items may share an id (one text under alternative conditions: the first that holds is
+    // rendered), but then they share the text too
     for (i, item) in pack.context.iter().enumerate() {
         if let Some(w) = &item.when {
             check_facts(&w.facts).map_err(|e| format!("invalid pack: /context/{i}/when: {e}"))?;
         }
-        if let Some(id) = &item.id {
-            if ids.contains(&id.as_str()) {
-                return Err(format!(
-                    "invalid pack: /context/{i}: id {id:?} is used twice"
-                ));
-            }
-            ids.push(id);
+        if let Some(id) = &item.id
+            && pack.context[..i]
+                .iter()
+                .any(|o| o.id.as_ref() == Some(id) && o.text != item.text)
+        {
+            return Err(format!(
+                "invalid pack: /context/{i}: id {id:?} names another text already"
+            ));
         }
     }
     Ok(())

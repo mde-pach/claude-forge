@@ -5,8 +5,6 @@ detect:
   deps_any: [{ecosystem: npm, name: react, version: ">=19.0.0"}]
 context:
   - text: |
-      React 19 in the App Router: components are Server Components unless their file starts with `'use client'`.
-  - text: |
       State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
   - text: |
       Server Actions are async functions in a file or function marked `'use server'`.

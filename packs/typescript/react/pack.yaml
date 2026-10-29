@@ -13,4 +13,4 @@ context:
   - text: |
       `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
   - text: |
-      Components pass React Compiler's checks (Biome `useReactCompiler`): no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.
+      Components follow the React Compiler's rules: no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.

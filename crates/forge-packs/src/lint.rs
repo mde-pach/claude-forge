@@ -151,7 +151,6 @@ const DOC_PROBES: &[&str] = &[
     "doc/notes.md",
     "src/notes.md",
     "packages/app/README.md",
-    "NOTES.txt",
 ];
 
 /// The rule's file globs with roles expanded to Forge's defaults.
@@ -197,10 +196,25 @@ fn reached<'p>(globs: &[String], probes: &[&'p str]) -> Vec<&'p str> {
         .collect()
 }
 
+/// Whether an ERE spells letters (outside its character classes' names and its escapes).
+fn matches_words(pattern: &str) -> bool {
+    static CLASS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[:[a-z]+:\]|\\.").expect("regex"));
+    CLASS
+        .replace_all(pattern, "")
+        .chars()
+        .any(|c| c.is_ascii_alphabetic())
+}
+
 /// (b) grep targets that read prose: no scope at all, or a scope reaching Markdown or docs.
 /// A language scope alone keeps a grep on that language's source files.
 fn grep_scope(rule: &Rule, file: &str, out: &mut Vec<Finding>) {
-    if !rule.enforce.iter().any(|t| matches!(t, Target::Grep(_))) {
+    // a pattern without words (a merge conflict marker) cannot match prose by its words
+    if !rule
+        .enforce
+        .iter()
+        .any(|t| matches!(t, Target::Grep(g) if matches_words(&g.pattern)))
+    {
         return;
     }
     // the engine scopes a rule by its files, then by its language's extensions
@@ -357,10 +371,17 @@ pub fn lint_rule(rule: &Rule, file: &str, source: &str, scalars: &[Scalar]) -> V
     let mut out = Vec::new();
     cut_by_comment(file, &rule.id, source, scalars, rule_text_field, &mut out);
     grep_scope(rule, file, &mut out);
-    let reasons = rule.enforce.iter().enumerate().filter_map(|(i, t)| match t {
-        Target::Guard(g) => g.reason.as_ref().map(|r| (format!("enforce/{i}/reason"), r)),
-        _ => None,
-    });
+    let reasons = rule
+        .enforce
+        .iter()
+        .enumerate()
+        .filter_map(|(i, t)| match t {
+            Target::Guard(g) => g
+                .reason
+                .as_ref()
+                .map(|r| (format!("enforce/{i}/reason"), r)),
+            _ => None,
+        });
     let fields: Vec<(String, &String)> = [
         Some(("description".to_string(), &rule.description)),
         rule.review.as_ref().map(|r| ("review".to_string(), r)),
@@ -396,7 +417,14 @@ pub fn lint_rule(rule: &Rule, file: &str, source: &str, scalars: &[Scalar]) -> V
 /// The findings of a pack.yaml.
 pub fn lint_pack(pack: &Pack, pack_file: &str, source: &str, scalars: &[Scalar]) -> Vec<Finding> {
     let mut out = Vec::new();
-    cut_by_comment(pack_file, &pack.id, source, scalars, pack_text_field, &mut out);
+    cut_by_comment(
+        pack_file,
+        &pack.id,
+        source,
+        scalars,
+        pack_text_field,
+        &mut out,
+    );
     for (i, item) in pack.context.iter().enumerate() {
         let what = format!("context/{i}/text");
         let t = Text {

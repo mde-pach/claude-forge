@@ -14,6 +14,8 @@ enforce:
           inside:
             kind: call_expression
             has: {field: function, regex: "^z\\."}
+when:
+  deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]
 examples:
   match: ["const S = z.string().min(5, { message: \"too short\" });", "const E = z.email({ message: \"bad email\" });", "const N = z.number({ required_error: \"required\" });"]
   no_match: ["const S = z.string().min(5, { error: \"too short\" });", "const S = z.string().min(5, \"too short\");", "toast({ message: \"saved\" });", "form.setError(\"email\", { message: \"taken\" });"]

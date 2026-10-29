@@ -1,5 +1,5 @@
 id: python/langchain/no-dangerous-flags
-description: "Advice: allow_dangerous_deserialization=True, allow_dangerous_code=True and allow_dangerous_requests=True opt in to unpickling, running model-written code and requests to any URL. Keep them for data and tools the project controls (an index it wrote itself), and say so."
+description: "allow_dangerous_deserialization=True, allow_dangerous_code=True and allow_dangerous_requests=True opt in to unpickling, running model-written code and requests to any URL. Keep them for data and tools the project controls (an index it wrote itself), and say so."
 scope: {language: python}
 enforce:
   - target: ast-grep

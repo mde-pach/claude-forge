@@ -51,7 +51,10 @@ fn main() {
 
     // cold
     let t0 = Instant::now();
-    let conv: Vec<GuardRule> = rules.iter().filter_map(|r| GuardRule::from_pack(r)).collect();
+    let conv: Vec<GuardRule> = rules
+        .iter()
+        .filter_map(|r| GuardRule::from_pack(r))
+        .collect();
     let set = GuardSet::new_lazy(conv).expect("set");
     let built = t0.elapsed();
     let first = Instant::now();

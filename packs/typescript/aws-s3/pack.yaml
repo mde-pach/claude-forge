@@ -5,4 +5,4 @@ detect:
   deps_any: [{ecosystem: npm, name: "@aws-sdk/client-s3"}, {ecosystem: npm, name: "@aws-sdk/s3-presigned-post"}]
 context:
   - text: |
-      AWS S3: uploads set no `public-read` / `public-read-write` ACL (advice); objects are served through CloudFront or presigned GET URLs.
+      AWS S3: uploads set no `public-read` / `public-read-write` ACL; objects are served through CloudFront or presigned GET URLs.

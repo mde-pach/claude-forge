@@ -2,11 +2,17 @@ id: kubernetes
 description: Kubernetes manifests, linted with kube-linter.
 level: project
 detect:
-  yaml_keys: [apiVersion, kind]
+  # a manifest: a Kubernetes kind or API group at the top level (not any YAML with apiVersion
+  # and kind: Backstage, Tekton or Argo files are not Kubernetes workloads)
+  content_any:
+    - files: ["**/*.yaml", "**/*.yml"]
+      pattern: "^kind:[ \\t]*[\"']?(Deployment|StatefulSet|DaemonSet|ReplicaSet|ReplicationController|Pod|Job|CronJob|Service|Ingress|IngressClass|ConfigMap|Secret|Namespace|PersistentVolume|PersistentVolumeClaim|StorageClass|ServiceAccount|Role|RoleBinding|ClusterRole|ClusterRoleBinding|NetworkPolicy|HorizontalPodAutoscaler|PodDisruptionBudget|LimitRange|ResourceQuota|PriorityClass|CustomResourceDefinition|MutatingWebhookConfiguration|ValidatingWebhookConfiguration|Gateway|HTTPRoute)[\"']?[ \\t]*(#.*)?$"
+    - files: ["**/*.yaml", "**/*.yml"]
+      pattern: "^apiVersion:[ \\t]*[\"']?(apps|batch|autoscaling|policy|networking\\.k8s\\.io|rbac\\.authorization\\.k8s\\.io|storage\\.k8s\\.io|apiextensions\\.k8s\\.io|admissionregistration\\.k8s\\.io|scheduling\\.k8s\\.io|gateway\\.networking\\.k8s\\.io)/v[0-9]"
   files_any: ["**/kustomization.yaml", "**/kustomization.yml", "**/Kustomization", "**/Chart.yaml"]
 context:
   - text: |
-      Kubernetes. Changed manifests are linted by kube-linter (Forge's config): containers run as non-root with a read-only root filesystem, no privilege escalation, a memory limit and a pinned image tag (not `latest`); no host network, PID or IPC, no docker socket or sensitive host mounts.
+      Kubernetes. Containers run as non-root with a read-only root filesystem, no privilege escalation, a memory limit and a pinned image tag (not `latest`); no host network, PID or IPC, no docker socket or sensitive host mounts.
   - text: |
       `ignore-check.kube-linter.io/*` annotations are not added to silence a finding; fix the manifest.
   - text: |

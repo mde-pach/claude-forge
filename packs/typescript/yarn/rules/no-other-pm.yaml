@@ -6,8 +6,8 @@ enforce:
     decision: ask
     command:
       - {name: npm, sub: ['install|i|ci|add']}
-      - {name: pnpm}
+      - {name: pnpm, sub: ['add|install|i|update|up|remove|rm']}
       - {name: bun, sub: ['install|i|add']}
 examples:
   match: ["npm install lodash", "npm ci", "pnpm add zod", "pnpm install", "bun add zod", "bun install"]
-  no_match: ["yarn add zod", "yarn install --immutable", "npm view zod version", "npm run build", "bun run build"]
+  no_match: ["which pnpm", "yarn --version", "pnpm --version", "yarn add zod", "yarn install --immutable", "npm view zod version", "npm run build", "bun run build"]

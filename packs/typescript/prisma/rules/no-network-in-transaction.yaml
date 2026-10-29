@@ -5,7 +5,7 @@
 # Only HTTP client APIs are matched: the global fetch, and axios, got, ky, ofetch,
 # node-fetch and undici bound by an import (not variable names, nor every await), so it blocks.
 id: typescript/prisma/no-network-in-transaction
-description: "An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. SDK clients and the project's own helpers are not recognised."
+description: "An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

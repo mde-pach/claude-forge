@@ -15,9 +15,9 @@ context:
   - text: |
       Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
   - text: |
-      `next lint` no longer exists and `next build` does not lint; lint runs through Biome.
+      `next lint` no longer exists and `next build` does not lint: run the project's own linter.
   - text: |
-      Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling (not checked by Forge).
+      Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
   - text: |
       `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
   - text: |

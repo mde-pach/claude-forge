@@ -1,5 +1,5 @@
 id: terraform/no-unprotect
-description: "No force_destroy = true, skip_final_snapshot = true or deletion_protection = false: they clear the way for destroying data. An intended decommission is accepted in forge.yaml."
+description: "No force_destroy = true, skip_final_snapshot = true or deletion_protection = false: they clear the way for destroying data. An intended decommission is the user's decision: ask them."
 scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
 enforce:
   - target: grep

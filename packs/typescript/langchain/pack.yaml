@@ -4,5 +4,11 @@ level: project
 detect:
   deps_any: [{ecosystem: npm, name: langchain}, {ecosystem: npm, name: "@langchain/core"}, {ecosystem: npm, name: "@langchain/classic"}]
 context:
-  - text: |
+  - id: langchain-1
+    text: |
       LangChain 1: agents are built with `createAgent` from `langchain` (and LangGraph); `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `AgentExecutor` and the like are legacy (`@langchain/classic`).
+    when: {deps: [{ecosystem: npm, name: langchain, version: ">=1.0.0"}]}
+  - id: langchain-1
+    text: |
+      LangChain 1: agents are built with `createAgent` from `langchain` (and LangGraph); `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `AgentExecutor` and the like are legacy (`@langchain/classic`).
+    when: {deps: [{ecosystem: npm, name: "@langchain/core", version: ">=1.0.0"}]}

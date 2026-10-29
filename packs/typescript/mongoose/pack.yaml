@@ -10,3 +10,4 @@ context:
       No `$where` (server-side JavaScript); use query operators or `$expr`.
   - text: |
       Mongoose 9: an update pipeline (an array) needs `{ updatePipeline: true }` on the call or `mongoose.set("updatePipeline", true)`.
+    when: {deps: [{ecosystem: npm, name: mongoose, version: ">=9.0.0"}]}

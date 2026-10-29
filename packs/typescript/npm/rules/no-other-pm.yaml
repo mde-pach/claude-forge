@@ -5,8 +5,10 @@ enforce:
   - target: guard
     decision: ask
     command:
-      - {name: [pnpm, yarn]}
+      - {name: pnpm, sub: ['add|install|i|update|up|remove|rm']}
+      - {name: yarn, sub: ['add|install|up|upgrade|remove']}
+      - {name: yarn, words: '^yarn( --(immutable|frozen-lockfile))?$'}
       - {name: bun, sub: ['install|i|add']}
 examples:
   match: ["pnpm add zod", "pnpm install", "yarn", "yarn add zod", "bun add zod", "bun install"]
-  no_match: ["npm install zod", "npm ci", "bun run build", "bunx tsc", "npx pnpm-lock-check"]
+  no_match: ["which pnpm", "yarn --version", "pnpm --version", "npm install zod", "npm ci", "bun run build", "bunx tsc", "npx pnpm-lock-check"]

@@ -1,5 +1,5 @@
 id: gitlab-ci/ci-ratchet
-description: "Pipeline changes do not switch checks off: a changed CI file may not have more allow_failure: true, when: manual, or script lines ending in || true / || exit 0 / || : than it had. Fix the failing job instead; an accepted change goes through forge.yaml."
+description: "Pipeline changes do not switch checks off: a changed CI file may not have more allow_failure: true, when: manual, or script lines ending in || true / || exit 0 / || : than it had. Fix the failing job instead; switching a check off is the user's decision: ask them."
 scope: {language: any, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
 enforce:
   - target: grep

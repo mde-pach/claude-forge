@@ -1,5 +1,5 @@
 id: typescript/opentelemetry/init-before-imports
-description: "Advice: a file that imports @opentelemetry/sdk-node does not also import a library the Node auto-instrumentations patch (express, fastify, koa, http, pg, mysql2, ioredis, redis, mongodb, mongoose, graphql, …): ES imports are hoisted, so the library loads before the SDK starts and its spans go missing. Start the SDK in its own file loaded with node --import ./instrumentation.mjs."
+description: "A file that imports @opentelemetry/sdk-node does not also import a library the Node auto-instrumentations patch (express, fastify, koa, http, pg, mysql2, ioredis, redis, mongodb, mongoose, graphql, …): ES imports are hoisted, so the library loads before the SDK starts and its spans go missing. Start the SDK in its own file loaded with node --import ./instrumentation.mjs."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

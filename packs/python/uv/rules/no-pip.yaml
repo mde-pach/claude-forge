@@ -3,9 +3,6 @@ description: Dependencies are added with uv add and the environment is uv's; Cla
 scope: {language: any}
 enforce:
   - target: guard
-    decision: deny
-    check: python-pm
-  - target: guard
     decision: ask
     command:
       - {name: [poetry, pdm], sub: ['add|install']}
@@ -13,5 +10,5 @@ enforce:
       - {name: [conda, mamba, micromamba], sub: [install]}
       - {name: [venv, virtualenv]}
 examples:
-  match: ["pip install requests", "pip3 install -r requirements.txt", "uv pip install httpx", "python -m pip install x", "poetry add httpx", "pipenv install", "pdm add httpx", "conda install numpy", "micromamba install -c conda-forge numpy", "python3 -m venv .venv", "virtualenv venv && source venv/bin/activate"]
+  match: ["poetry add httpx", "pipenv install", "pdm add httpx", "conda install numpy", "micromamba install -c conda-forge numpy", "python3 -m venv .venv", "virtualenv venv && source venv/bin/activate"]
   no_match: ["uv add requests", "pip list", "uv sync", "uv venv", "poetry show", "conda list", "ls ~/.virtualenvs", "cat docs/virtualenv.md"]

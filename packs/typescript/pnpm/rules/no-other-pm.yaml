@@ -6,8 +6,9 @@ enforce:
     decision: ask
     command:
       - {name: npm, sub: ['install|i|ci|add']}
-      - {name: yarn}
+      - {name: yarn, sub: ['add|install|up|upgrade|remove']}
+      - {name: yarn, words: '^yarn( --(immutable|frozen-lockfile))?$'}
       - {name: bun, sub: ['install|i|add']}
 examples:
   match: ["npm install lodash", "npm ci", "yarn", "yarn add zod", "bun add zod", "bun install"]
-  no_match: ["pnpm add zod", "pnpm install --frozen-lockfile", "npm view zod version", "npm run build", "bun run build", "bunx tsc"]
+  no_match: ["which pnpm", "yarn --version", "pnpm --version", "pnpm add zod", "pnpm install --frozen-lockfile", "npm view zod version", "npm run build", "bun run build", "bunx tsc"]

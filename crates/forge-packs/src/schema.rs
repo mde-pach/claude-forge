@@ -54,7 +54,10 @@ fn no_null(schema: &mut Schema) {
     for key in ["anyOf", "oneOf"] {
         let only = match obj.get_mut(key) {
             Some(Value::Array(alts)) => {
-                alts.retain(|a| a.as_object().is_none_or(|o| o.len() != 1 || o.get("type").is_none_or(|t| t != "null")));
+                alts.retain(|a| {
+                    a.as_object()
+                        .is_none_or(|o| o.len() != 1 || o.get("type").is_none_or(|t| t != "null"))
+                });
                 (alts.len() == 1).then(|| alts.remove(0))
             }
             _ => None,

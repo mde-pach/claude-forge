@@ -1,0 +1,8 @@
+id: python/pipenv
+description: Pipenv is the Python package manager.
+level: project
+detect:
+  facts_any: {python.pm: pipenv}
+context:
+  - text: |
+      The project is managed with Pipenv: dependencies are added with `pipenv install <pkg>` (`pipenv install --dev <pkg>` for tooling), and tools run through the project's environment (`pipenv run <tool>`).

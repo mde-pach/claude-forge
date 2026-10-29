@@ -19,4 +19,4 @@ context:
   - text: |
       On the Express platform (Nest 11), route paths use path-to-regexp 8 syntax: `*splat` / `{*splat}`, optional segments `{...}`.
   - text: |
-      A DTO used as a `@Body()`, `@Query()` or `@Param()` type is imported as a value, never with `import type` / `{ type X }` (that erases it from the decorator metadata and turns validation off); Biome's `useImportType` is off here for that reason.
+      A DTO used as a `@Body()`, `@Query()` or `@Param()` type is imported as a value, never with `import type` / `{ type X }` (that erases it from the decorator metadata and turns validation off).

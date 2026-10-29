@@ -1,5 +1,5 @@
 id: sql/migration-lint
-description: New or changed Postgres migrations of Flyway, Supabase, dbmate, sqitch and Atlas (file role @sql-migrations) do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL with Forge's own config, so .squawk.toml excluded_rules and squawk-ignore comments do not silence it.
+description: "New or changed Postgres migrations of Flyway, Supabase, dbmate, sqitch and Atlas (file role @sql-migrations) do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); a finding is fixed, not silenced with squawk-ignore comments or excluded_rules."
 scope: {language: any, files: ["@sql-migrations"]}
 enforce:
   - target: check

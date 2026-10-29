@@ -1,5 +1,5 @@
 id: typescript/nestjs/http-exception
-description: "Advice: a method of a @Controller() class (from @nestjs/common) throws an HttpException subclass (NotFoundException, BadRequestException, …), not a plain Error, which becomes a generic 500. An Error thrown inside a try block is not concerned: it is caught there."
+description: "A method of a @Controller() class (from @nestjs/common) throws an HttpException subclass (NotFoundException, BadRequestException, …), not a plain Error, which becomes a generic 500. An Error thrown inside a try block is not concerned: it is caught there."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

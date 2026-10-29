@@ -11,8 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use forge_detect::{Activation, DepFacts, ProjectFacts};
 use forge_packs::glob::glob_to_regex;
-pub use forge_packs::model::{ContextItem, ContextWhen};
 use forge_packs::model::Pack;
+pub use forge_packs::model::{ContextItem, ContextWhen};
 
 /// First lines of every rules file: the facts guide defaults, and an explicit instruction wins.
 pub const CONTEXT_INTRO: &str = "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n";
@@ -58,11 +58,14 @@ pub fn rules_file_path(pack_id: &str) -> String {
     format!(".claude/rules/{}", rules_file_name(pack_id))
 }
 
-/// A pack to render: its items and where it applies (`None`: the whole repository).
+/// A pack to render: its items, where its rules file applies (`dirs`, `None`: the whole
+/// repository), and the places its items' conditions are judged in (`places`: "" for the
+/// root, else workspace package directories; `None`: the root and every package).
 pub struct PackContext<'a> {
     pub id: &'a str,
     pub items: Vec<ContextItem>,
     pub dirs: Option<Vec<String>>,
+    pub places: Option<Vec<String>>,
 }
 
 /// The rules files of the active packs, in id order: path → text.
@@ -74,12 +77,11 @@ pub fn render_rules_files(
     let mut out = BTreeMap::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     for p in packs {
-        let places: Vec<&DepFacts> = match (facts, &p.dirs) {
+        let places: Vec<&DepFacts> = match (facts, &p.places) {
             (None, _) => Vec::new(),
-            (Some(f), Some(dirs)) => f
-                .workspaces
-                .iter()
-                .filter(|w| dirs.contains(&w.dir))
+            (Some(f), Some(places)) => std::iter::once(&f.root)
+                .chain(f.workspaces.iter())
+                .filter(|w| places.contains(&w.dir))
                 .collect(),
             (Some(f), None) => std::iter::once(&f.root)
                 .chain(f.workspaces.iter())

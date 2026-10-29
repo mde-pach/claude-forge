@@ -1,9 +1,9 @@
 id: python/redis/no-keys
-description: "Advice: application code does not call KEYS (r.keys(pattern)): it walks every key and blocks Redis while it runs. Iterate with scan_iter(match=pattern)."
+description: "Application code does not call KEYS (r.keys(pattern)): it walks every key and blocks Redis while it runs. Iterate with scan_iter(match=pattern)."
 scope: {language: python}
 enforce:
   - target: ast-grep
-    mode: advise
+    mode: forbid
     rule: {pattern: $R.keys($$$)}
     # the sync and redis.asyncio clients
     where:

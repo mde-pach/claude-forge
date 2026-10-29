@@ -1,5 +1,5 @@
 id: supply-chain/new-npm-dep-exists
-description: "Each dependency a package.json gains (dependencies, devDependencies, optionalDependencies, peerDependencies; registry specs) exists on registry.npmjs.org, the newest version its range allows is not deprecated, and the package was first published at least Forge's cooldown (3 days) ago; names a private registry serves (.npmrc @scope:registry=, or another default registry) are not looked up, and an unreachable registry is reported skipped."
+description: "Each dependency a package.json gains (dependencies, devDependencies, optionalDependencies, peerDependencies; registry specs) exists on registry.npmjs.org, the newest version its range allows is not deprecated, and the package was first published at least 3 days ago; names a private registry serves (.npmrc @scope:registry=, or another default registry) are the registry's."
 scope: {language: any, files: ["**/package.json"]}
 enforce:
   - target: check

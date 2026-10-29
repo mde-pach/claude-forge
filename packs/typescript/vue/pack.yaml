@@ -7,7 +7,7 @@ context:
   - text: |
       Vue 3 with `<script setup lang="ts">` single-file components; `vue-tsc` type-checks `.vue` files (tsc does not).
   - text: |
-      Templates are valid as Biome checks them: an element with `v-for` binds a `:key` that uses its item, no `v-if` with `v-for` on one element, directives have their value.
+      Templates: an element with `v-for` binds a `:key` that uses its item, no `v-if` with `v-for` on one element, directives have their value.
   - text: |
       Refs are read with `.value` in script code (never as a condition or operand), and `setup()` does not destructure its props (`toRefs(props)` instead).
   - text: |

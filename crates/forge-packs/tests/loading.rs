@@ -64,7 +64,9 @@ fn loads_a_pack_tree() {
         &[
             (
                 "acme/pack.yaml",
-                &format!("{PACK}context:\n  - id: tests-first\n    text: |\n      ctx\n    when: {{facts: {{python.pm: uv}}, packs: [acme/web]}}\n"),
+                &format!(
+                    "{PACK}context:\n  - id: tests-first\n    text: |\n      ctx\n    when: {{facts: {{python.pm: uv}}, packs: [acme/web]}}\n"
+                ),
             ),
             ("acme/rules/no-todo.yaml", RULE),
             ("acme/init/x", ""),
@@ -103,9 +105,15 @@ fn context_is_pack_yaml_only() {
     assert_eq!(err.kind, ErrorKind::Layout);
     assert!(err.to_string().contains("context:"), "{err}");
     for (ctx, want) in [
-        ("[{text: x, when: {facts: {python.pm: conda}}}]", "has no value \"conda\""),
-        ("[{text: x, when: {facts: {os: linux}}}]", "unknown fact \"os\""),
-        ("[{id: a, text: x}, {id: a, text: y}]", "used twice"),
+        (
+            "[{text: x, when: {facts: {python.pm: conda}}}]",
+            "has no value \"conda\"",
+        ),
+        (
+            "[{text: x, when: {facts: {os: linux}}}]",
+            "unknown fact \"os\"",
+        ),
+        ("[{id: a, text: x}, {id: a, text: y}]", "another text"),
     ] {
         let err = error(&[("acme/pack.yaml", &format!("{PACK}context: {ctx}\n"))]);
         assert!(err.to_string().contains(want), "{ctx}: {err}");
@@ -518,7 +526,9 @@ fn lints_on_a_local_pack() {
     let r = repo(&[
         (
             ".forge/packs/acme/pack.yaml",
-            &format!("{PACK}context:\n  - text: Accepted findings go in forge.yaml (accept:) # or ask\n  - text: kube-linter rejects it; this is not checked by Forge.\n"),
+            &format!(
+                "{PACK}context:\n  - text: Accepted findings go in forge.yaml (accept:) # or ask\n  - text: kube-linter rejects it; this is not checked by Forge.\n"
+            ),
         ),
         (".forge/packs/acme/rules/no-todo.yaml", cut),
         (".forge/packs/acme/rules/docs.yaml", docs),
