@@ -1,19 +1,51 @@
 ## 12. Lock
 
-`.forge/forge.lock.json` and `~/.claude/forge.lock.json`:
+`forge.lock` is TOML, at the repository root, written by `forge apply` and committed. The user level's lock is `~/.claude/forge-user.lock`, with the same format.
 
-```json
-{"forge_version":"0.5.0","claude_code_min":"2.1.295",
- "rules":{"<rule-id>":"<sha256 of rule file>"},
- "files":{"<path>":"<sha256>"},
- "settings":[{"file":".claude/settings.json","path":"permissions.ask","value":"Edit(.forge/**)"}]}
+```toml
+# Written by forge apply. Do not edit.
+forge = "0.6.0"                    # the Forge version that wrote it; the launcher runs this version (§3.4)
+claude_code_min = "2.1.295"        # the Claude Code minimum of that version (§2.3)
+rule_set = "<sha256>"              # the active rule set (below)
+
+[rules]                            # each active rule id → sha256 of its rule file
+"python/no-eval" = "<sha256>"
+
+[files]                            # each owned file apply wrote → sha256 of its content
+".claude/rules/forge-python.md" = "<sha256>"
+
+[roles]                            # each file role the active rules use → its effective patterns
+alembic-migrations = ["alembic/versions/**"]
+
+[tools]                            # the tool pins of this Forge version (§17.2)
+uv = "0.13.1"
+ty = "0.0.86"
+python = "3.12"
+
+[[settings]]                       # each settings entry apply added
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.yaml)"         # a string value; any other value is `json = "<JSON text>"`
+
+[[blocks]]                         # Forge's block in a hook manager's file (§7.6)
+file = ".pre-commit-config.yaml"
+kind = "pre-commit"                # pre-commit | husky | lefthook | hooks
+created = false                    # whether Forge created the file
+hash = "<sha256>"                  # of the block's lines, indentation removed
 ```
 
-- `diff` and `status` report owned files whose hash differs, appended entries that are missing, and rules whose source changed since the last apply.
-- `remove` deletes listed files and removes exactly the listed settings entries.
-- **Validation.** Every command reading the lock validates it against its schema and refuses it as a whole (exit 1, nothing written or deleted) when a path is not one Forge writes: `files` keys must be owned paths (§4) or git's `hooks/pre-commit` (`git rev-parse --git-path`), `settings[].file` a settings file of that level, `blocks[].file` the file `hookManager` names for its `kind` (`.pre-commit-config.yaml`, `.husky/pre-commit`, `lefthook.yml` / `.yaml` / `.lefthook.yml`, `<core.hooksPath>/pre-commit`); all relative, without `.` or `..` segments, and inside the repository (or `~/.claude`) once symbolic links are resolved.
-- **`roles`** (present only when an active rule names a file role): `{"<role>": ["<glob>", "!<glob>"]}`, the effective patterns at the last apply (§15.4); `status` and `diff` report a role whose patterns changed since (a tool config or `forge.yaml` changed).
-- **`blocks`** (present only when there is one): `[{file, kind, created, hash}]`, Forge's marked block in a hook manager's file (§10.3); `hash` is the sha256 of the block's lines, indentation removed.
-- **Owned-file hashes** are sha256 of the content, except for `.json` files, which are hashed with spaces, tabs, CR and LF removed, and the scripts in `.forge/helpers/`, hashed also without `'`, `"`, `` ` ``, `,`, `;`, `(` and `)`: a formatter reflowing Forge's JSON, or rewriting its helper scripts (`ruff format .`, `biome check --write .`: layout, quote style, trailing commas, semicolons, parentheses), is not drift; any other change is. (A change made only of those characters, such as moving a parenthesis, is not detected: the price of letting formatters rewrite the scripts.) A file whose owned hash matches is not rewritten by `apply`. The lock is compared as JSON (formatting ignored).
-- **`.forge/manifest.sha256`** (project level) repeats the owned-file hashes of `.forge/` and `.claude/` as `<sha256>  <path>` lines (sha256sum format) for `check.sh`. Non-JSON lines verify with `sha256sum -c`; JSON and helper lines need the normalised content, so `check.sh` hashes each file itself (`sha256sum`, `shasum -a 256` or `openssl`). The manifest and the lock do not hash themselves; `remove` deletes both.
-- **Formatting.** During `apply`, the JSON files Forge generates (plugin manifest, `hooks.json`, the lock, and a `.claude/settings.json` that Forge creates) and its JavaScript helpers (`.forge/helpers/*.mjs`, written free of Biome's `recommended` lint findings) are formatted with the project's own Biome when installed (`biome format --stdin-file-path`), so the project's `biome ci .` passes; without Biome, they, the context files (`.claude/rules/forge-*.md`), the ast-grep YAML files and the JavaScript helpers are formatted with the project's own Prettier when installed (`prettier --stdin-filepath`), so `prettier --check .` passes. An existing settings file keeps its own indentation for appended entries. Project-owned files are never formatted.
+- `forge` is the first key, a top-level string holding an exact version (`MAJOR.MINOR.PATCH[-pre][+build]`). The launcher reads only this key, with a scanner that stops at the first table header; a differential test checks it agrees with a full TOML parser.
+- `rule_set` is the sha256 of the active rules (id and file hash), the file roles they use (effective patterns) and the active packs. The hooks and the checker key their caches on it.
+- `[rules]` lets `apply` and `status` report `rule <id> changed since the last apply`.
+- `[files]` is what drift is measured against: an owned file whose content no longer has its recorded hash is drift (§3.3). It lists the rules files and, when Forge created it, git's pre-commit hook.
+- `[roles]` lets `status` report a file role whose patterns changed since the last apply.
+- `[tools]` holds this Forge version's tool pins, written by every `apply`. `forge status` lists each pin that differs between the lock and the running Forge (`<tool>: <locked> -> <ours>`; `not pinned` for a missing side).
+- `[[settings]]` and `[[blocks]]` are exactly what `remove` takes out.
+- Unknown keys are refused. Every command that reads the lock validates it and refuses it as a whole when it names a path Forge does not write (§4.2): `forge.lock: refused: …`. A lock that does not parse: `forge.lock: <error>; fix it or delete it`.
+- Hashes are lowercase hex sha256 of the exact bytes.
+
+### Tests
+
+- Round trip, and the launcher agreeing with the full parser: `crates/forge-render/src/lock.rs::round_trip_and_launcher_agrees`, `::paths` (unit); `crates/forge-launcher/src/lock.rs` (unit); `crates/forge-launcher/tests/lock_differential.rs`.
+- The lock each sample gets, drift against `[files]`, `remove` using `[[settings]]` and `[[blocks]]`: `crates/forge-cli/tests/apply.rs` (snapshots in `crates/forge-cli/tests/snapshots/`).
+- Refused locks (not TOML, an unknown key, a path Forge does not write): `crates/forge-cli/tests/spec_cli.rs::invalid_locks_and_settings_are_refused`.

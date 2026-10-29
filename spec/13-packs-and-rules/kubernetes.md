@@ -1,28 +1,46 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `kubernetes`
+
 ### kubernetes
 
-Detected by a YAML file whose first document has top-level `apiVersion` and `kind` (`yaml_keys`, §5.1; manifest file names are the project's), or by `**/kustomization.yaml`, `**/kustomization.yml`, `**/Kustomization`, `**/Chart.yaml`.
+Kubernetes manifests, linted with kube-linter.
 
-| Rule | Targets |
-|---|---|
-| `kubernetes/kube-linter` | `check` lint: `forge_kube_linter --no-new-ignores <checks>`: pinned kube-linter (§13.5) with a config of Forge's own (`doNotAutoAddDefaults`, `include` the checks; a project `.kube-linter.yaml` does not apply) on the changed manifests (first document with `apiVersion` and `kind`, outside a chart's `templates/`), each linted with the manifests of its directory; findings of changed files at line 0: `run-as-non-root`, `privilege-escalation-container`, `privileged-container`, `no-read-only-root-fs`, `unset-memory-requirements`, `latest-tag`, `host-network`, `host-pid`, `host-ipc`, `docker-sock`, `sensitive-host-mounts`, `drop-net-raw-capability`, `mismatching-selector`, `dangling-service`, `deprecated-service-account-field`, `invalid-target-ports`, `liveness-port`, `readiness-port`, `startup-port`, `unsafe-sysctls`, `duplicate-env-var`; a changed manifest also may not gain `ignore-check.kube-linter.io/` annotations (kube-linter has no flag to disregard them) |
-| `kubernetes/rbac-advice` | `check` lint, advisory (§10.7): `forge_kube_linter wildcard-in-rules cluster-admin-role-binding` |
-| `kubernetes/no-plain-secret` | `ast-grep` forbid (`yaml`, not under `templates/`): `data` / `stringData` of a document with `apiVersion: v1`, `kind: Secret` and no top-level `sops` |
+Detected by: a file matching `**/kustomization.yaml`, `**/kustomization.yml`, `**/Kustomization`, `**/Chart.yaml`; or a line matching `^kind:[ \t]*["']?(Deployment\|StatefulSet\|DaemonSet\|ReplicaSet\|ReplicationController\|Pod\|Job\|CronJob\|Service\|Ingress\|IngressClass\|ConfigMap\|Secret\|Namespace\|PersistentVolume\|PersistentVolumeClaim\|StorageClass\|ServiceAccount\|Role\|RoleBinding\|ClusterRole\|ClusterRoleBinding\|NetworkPolicy\|HorizontalPodAutoscaler\|PodDisruptionBudget\|LimitRange\|ResourceQuota\|PriorityClass\|CustomResourceDefinition\|MutatingWebhookConfiguration\|ValidatingWebhookConfiguration\|Gateway\|HTTPRoute)["']?[ \t]*(#.*)?$` in a file matching `**/*.yaml`, `**/*.yml`; or a line matching `^apiVersion:[ \t]*["']?(apps\|batch\|autoscaling\|policy\|networking\.k8s\.io\|rbac\.authorization\.k8s\.io\|storage\.k8s\.io\|apiextensions\.k8s\.io\|admissionregistration\.k8s\.io\|scheduling\.k8s\.io\|gateway\.networking\.k8s\.io)/v[0-9]` in a file matching `**/*.yaml`, `**/*.yml`.
 
-context.md: what kube-linter enforces, no ignore annotations, Secrets through SealedSecret / ExternalSecret / SOPS, RBAC without wildcards or `cluster-admin`.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Kubernetes. Containers run as non-root with a read-only root filesystem, no privilege escalation, a memory limit and a pinned image tag (not `latest`); no host network, PID or IPC, no docker socket or sensitive host mounts.
+- `ignore-check.kube-linter.io/*` annotations are not added to silence a finding; fix the manifest.
+- Secrets are not committed as `kind: Secret` with `data` or `stringData`; use SealedSecret, ExternalSecret or SOPS-encrypted files.
+- RBAC grants named verbs and resources, not `*`, and does not bind `cluster-admin`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `kubernetes/kube-linter` | Changed workloads pass kube-linter's run-as-non-root, privilege-escalation-container, privileged-container, no-read-only-root-fs, unset-memory-requirements, latest-tag, host-network, host-pid, host-ipc, docker-sock, sensitive-host-mounts, drop-net-raw-capability, mismatching-selector, dangling-service, deprecated-service-account-field, invalid-target-ports, liveness-port, readiness-port, startup-port, unsafe-sysctls and duplicate-env-var checks, and gain no ignore-check.kube-linter.io annotations. | any: `**/*.yaml`, `**/*.yml` | check lint: a shell script calling `forge_kube_linter` |
+| `kubernetes/no-plain-secret` | No committed v1 Secret with data or stringData (base64 is not encryption) unless the document is SOPS-encrypted (a top-level sops key); use SealedSecret, ExternalSecret or SOPS. | yaml: `**/*.yaml`, `**/*.yml`, `!**/templates/**` | ast-grep forbid |
+| `kubernetes/rbac-advice` | Changed RBAC objects pass kube-linter's wildcard-in-rules and cluster-admin-role-binding checks (grant named verbs and resources, not * or cluster-admin). | any: `**/*.yaml`, `**/*.yml` | check lint: `forge_advise forge_kube_linter wildcard-in-rules cluster-admin-role-binding`<br>advice, never blocks |
 
 ### kubernetes/helm
 
-Detected by `**/Chart.yaml`.
+Helm charts, linted and rendered.
 
-| Rule | Targets |
-|---|---|
-| `kubernetes/helm/lint` | `check` lint: `forge_helm` (needs `helm`, a system tool): for each chart with changed files (the nearest `Chart.yaml` above them), `helm lint --strict`, then `helm template forge <chart>` validated by `forge_kubeconform`: pinned kubeconform (§13.5) `-strict` against Kubernetes' schemas and the CRDs catalog, cached in `~/.cache/forge/kubeconform`; a document with no schema is a finding when its group is Kubernetes' own (none, no dot, or `*.k8s.io`: an apiVersion current Kubernetes no longer serves), else `skipped`; schemas that cannot be downloaded are `skipped`; a chart whose dependencies are not built is `skipped` (`helm dependency build`). Findings name the chart, not lines |
-| `kubernetes/helm/version-bump` | `check` lint: `forge_chart_version`, only with chart-testing's `ct.yaml` / `ct.yml` at the root (its `check-version-increment` not `false`): each chart under its `chart-dirs` (default `charts`) with a changed file whose `Chart.yaml` `version` equals the base's; a new chart is fine |
+Detected by: a file matching `**/Chart.yaml`.
+Child of `kubernetes`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `kubernetes/helm/chart-api-v2` | Chart.yaml declares apiVersion: v2 (Helm 3); v1 with requirements.yaml is the Helm 2 format. | any: `**/Chart.yaml` | grep forbid `^apiVersion:[[:space:]]*["']?v1["']?[[:space:]]*$` |
+| `kubernetes/helm/lint` | A changed chart passes helm lint --strict, and its helm template output validates with kubeconform in strict mode (no unknown fields, no apiVersion current Kubernetes no longer serves). | any | check lint: `forge_helm` |
+| `kubernetes/helm/version-bump` | In a chart-testing repository (ct.yaml or ct.yml; check-version-increment not false), a chart under its chart-dirs (default charts/) with changed files bumps its Chart.yaml version. | any | check lint: `forge_chart_version` |
 
 ### kubernetes/kustomize
 
-Detected by `**/kustomization.yaml`, `**/kustomization.yml` or `**/Kustomization`.
+Kustomize bases and overlays.
 
-| Rule | Targets |
-|---|---|
-| `kubernetes/kustomize/no-deprecated-fields` | `ast-grep` forbid on `kustomization.y*ml`: a top-level `bases`, `patchesStrategicMerge`, `patchesJson6902`, `commonLabels`, `imageTags`, `vars` or `helmChartInflationGenerator` key |
+Detected by: a file matching `**/kustomization.yaml`, `**/kustomization.yml`, `**/Kustomization`.
+Child of `kubernetes`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `kubernetes/kustomize/no-deprecated-fields` | kustomization files do not use the fields kustomize v5 deprecates: bases, patchesStrategicMerge, patchesJson6902, commonLabels, imageTags, vars, helmChartInflationGenerator. Use resources, patches, labels, images, replacements and helmCharts (kustomize edit fix rewrites them). | yaml: `**/kustomization.yaml`, `**/kustomization.yml` | ast-grep forbid |
