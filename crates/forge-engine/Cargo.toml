@@ -1,0 +1,17 @@
+[package]
+name = "forge-engine"
+description = "The types engine: a per-repository daemon keeping ty's and TypeScript's servers running, answering type questions and edit-time diagnostics."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
