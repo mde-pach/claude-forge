@@ -1,5 +1,5 @@
 id: python/strawberry/query-limits
-description: "Advice: a strawberry.Schema() limits query depth with extensions=[QueryDepthLimiter(max_depth=...)] (and consider MaxTokensLimiter, MaxAliasesLimiter): without limits, one deeply nested query costs the server far more than the client."
+description: "A strawberry.Schema() limits query depth with extensions=[QueryDepthLimiter(max_depth=...)] (and consider MaxTokensLimiter, MaxAliasesLimiter): without limits, one deeply nested query costs the server far more than the client."
 scope: {language: python}
 enforce:
   - target: ast-grep

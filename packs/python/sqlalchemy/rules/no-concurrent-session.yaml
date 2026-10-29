@@ -1,5 +1,5 @@
 id: python/sqlalchemy/no-concurrent-session
-description: "No asyncio.gather() over calls on one AsyncSession: a session is not safe for concurrent use (InvalidRequestError, or corrupted state). Await the calls one after the other, or give each task its own session. A session passed into helper coroutines is not followed."
+description: "No asyncio.gather() over calls on one AsyncSession: a session is not safe for concurrent use (InvalidRequestError, or corrupted state). Await the calls one after the other, or give each task its own session."
 scope: {language: python}
 enforce:
   - target: ast-grep

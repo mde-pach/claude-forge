@@ -3,3 +3,6 @@ description: Stripe on Cloudflare Workers (async webhook verification).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: stripe}]
+context:
+  - text: |
+      Stripe on Workers: webhooks are verified with `await stripe.webhooks.constructEventAsync(body, signature, secret)` (SubtleCrypto is async only; `constructEvent` throws there).

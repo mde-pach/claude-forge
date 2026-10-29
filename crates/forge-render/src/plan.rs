@@ -142,6 +142,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
                 id: &p.id,
                 items: pack_context(&input.set.packs[&p.id]),
                 dirs: site.pack_dirs(&p.id),
+                places: Some(site.pack_places(&p.id)),
             })
             .collect();
         files = render_rules_files(&contexts, input.facts, &activation);

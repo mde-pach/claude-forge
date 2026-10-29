@@ -8,7 +8,7 @@
 # "X", ALTER TABLE "new_X" RENAME TO "X") drops the columns of "X" (followed through the
 # earlier migrations) that "new_X" lacks (forge_prisma_drops).
 id: typescript/prisma/destructive-migration
-description: A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user accepted that drop in forge.yaml (expand and contract - drop only after a deploy in which no code reads it).
+description: "A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user approved that drop: ask them first, and drop only after a deploy in which no code reads it (expand and contract)."
 scope: {language: any, files: ["prisma/migrations/**/migration.sql"]}
 enforce:
   - target: check

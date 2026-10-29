@@ -7,7 +7,7 @@ enforce:
     pattern: "(^|[^A-Za-z0-9_@/-])ts-node([^A-Za-z0-9_-]|$)"
   - target: guard
     decision: ask
-    pattern: "(^|[^A-Za-z0-9_-])ts-node([[:space:]]|$)"
+    command: {name: [ts-node, ts-node-esm, ts-node-script]}
 examples:
   match:
     - "{\"scripts\": {\"seed\": \"ts-node prisma/seed.ts\"}}"

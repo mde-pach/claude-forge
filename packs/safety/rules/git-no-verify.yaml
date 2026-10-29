@@ -1,25 +1,21 @@
 id: safety/git-no-verify
-description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= assignment, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (Forge's check runs from those hooks). Reading core.hooksPath is fine."
+description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= assignment, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (the project's checks run from those hooks). Reading core.hooksPath is fine."
 scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*commit([[:space:]]+[^[:space:];&|"'']+)*[[:space:]]+(--no-verify|-[A-Za-z]*n[A-Za-z]*)([[:space:];&|)]|$)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[;&|(][[:space:]]*|\\n[[:space:]]*)(export[[:space:]]+)?(SKIP|PRE_COMMIT_ALLOW_NO_CONFIG|HUSKY|HUSKY_SKIP_HOOKS|LEFTHOOK|LEFTHOOK_EXCLUDE)='
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*-c[[:space:]]*core\.hooks[Pp]ath='
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+config([[:space:]]+(set|--[A-Za-z-]+|-[A-Za-z]))*[[:space:]]+(core\.hooks[Pp]ath[[:space:]]+[^-[:space:];&|][^[:space:];&|]*|(--unset|unset)[[:space:]]+core\.hooks[Pp]ath)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(pre-commit|lefthook)[[:space:]]+uninstall'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(rm|mv|chmod|truncate)[[:space:]][^;&|]*(\.git/hooks/|\.husky/)'
+    command:
+      - name: git
+        sub: [commit]
+        flags_any: [--no-verify, -n]
+        value_flags: [-m, --message, -F, --file, -C, -c, --reuse-message, --reedit-message, --author, --date, --fixup, --squash, --trailer, --cleanup, -t, --template]
+      - {env_any: [SKIP, PRE_COMMIT_ALLOW_NO_CONFIG, HUSKY, HUSKY_SKIP_HOOKS, LEFTHOOK, LEFTHOOK_EXCLUDE]}
+      - {name: git, option_values: {'-c': '^core\.hooks[Pp]ath='}}
+      - {name: git, sub: [config, 'core.hooksPath|core.hookspath'], args_any: ['*']}
+      - {name: git, sub: [config, 'set|unset', 'core.hooksPath|core.hookspath']}
+      - {name: git, sub: [config, 'core.hooksPath|core.hookspath'], flags_any: [--unset, --unset-all]}
+      - {name: [pre-commit, lefthook], sub: [uninstall]}
+      - {name: [rm, mv, chmod, truncate], arg_regex: '(^|/)(\.git/hooks|\.husky)(/|$)'}
 examples:
   match:
     - "git commit --no-verify -m x"

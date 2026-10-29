@@ -1,0 +1,9 @@
+id: python/pip
+description: pip with requirements files.
+level: project
+detect:
+  facts_any: {python.pm: pip}
+context:
+  - text: |
+      Dependencies are listed in the requirements files with exact versions (`name==1.2.3`): a new dependency goes there with the version to use, then `pip install -r <file>` installs it.
+    when: {files: ["requirements*.txt", "**/requirements*.txt", "**/requirements/*.txt"]}

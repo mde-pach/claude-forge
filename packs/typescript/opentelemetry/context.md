@@ -1,2 +1,0 @@
-OpenTelemetry (Node): the SDK starts in its own file, loaded before the app (`node --import ./instrumentation.mjs`); importing instrumented libraries in that file is advised against (ES imports load them before the SDK patches them).
-Span attributes use the stable semantic conventions (`http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `db.query.text`, `db.system.name`); the old keys are rejected.

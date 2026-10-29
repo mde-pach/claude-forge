@@ -3,3 +3,8 @@ description: MikroORM configuration and schema commands.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@mikro-orm/core"}]
+context:
+  - text: |
+      MikroORM: each request works in its own context (`RequestContext` middleware or `em.fork()`); `allowGlobalContext: true` is rejected outside tests.
+  - text: |
+      Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run` / `schema:fresh --run` are refused, `schema:update --run` and `migration:fresh` need confirmation.

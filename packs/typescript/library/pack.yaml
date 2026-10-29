@@ -3,3 +3,8 @@ description: An npm library's public exports (deprecations).
 level: project
 detect:
   library_any: [npm]
+context:
+  - text: |
+      This project is an npm library: its public API is what the entry points in `package.json` `exports` (and `main`, `module`, `types`) export.
+  - text: |
+      An exported name is not removed or renamed outright: it stays exported as a `/** @deprecated Use <new name> */` alias; removing it, even in a major version, is the user's decision: ask them. Removing an export, or turning it into an alias of a renamed export without that JSDoc tag, is rejected.

@@ -176,6 +176,31 @@ impl<'a> Site<'a> {
         )
     }
 
+    /// The places a pack's context conditions are judged in: the root ("") and the workspace
+    /// packages where the pack is detected; the root alone when it is detected nowhere (added
+    /// in forge.yaml, required, a parent of an added pack). A condition such as
+    /// `python.pm: none` is then never judged in a package the pack does not apply to.
+    pub fn pack_places(&self, id: &str) -> Vec<String> {
+        let (Some(pack), Some(facts)) = (self.set.packs.get(id), self.facts) else {
+            return vec![String::new()];
+        };
+        let mut out: Vec<String> = Vec::new();
+        if detect_pack(pack, &facts.root) {
+            out.push(String::new());
+        }
+        out.extend(
+            facts
+                .workspaces
+                .iter()
+                .filter(|w| detect_pack(pack, w))
+                .map(|w| w.dir.clone()),
+        );
+        if out.is_empty() {
+            out.push(String::new());
+        }
+        out
+    }
+
     /// Where a rule applies: its pack's places, narrowed to those where its version gate
     /// holds. `Some([])`: the gate holds nowhere.
     pub fn rule_dirs(&self, rule: &Rule) -> Option<Vec<String>> {

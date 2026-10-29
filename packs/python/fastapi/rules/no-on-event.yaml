@@ -1,5 +1,5 @@
 id: python/fastapi/no-on-event
-description: "FastAPI() and APIRouter() take no on_startup or on_shutdown handlers: startup and shutdown go in the lifespan context manager (FastAPI(lifespan=lifespan)). The deprecated @app.on_event decorator is python/no-deprecated (ty reads FastAPI's deprecation)."
+description: "FastAPI() and APIRouter() take no on_startup or on_shutdown handlers: startup and shutdown go in the lifespan context manager (FastAPI(lifespan=lifespan)). The @app.on_event decorator is deprecated as well."
 scope: {language: python}
 enforce:
   - target: ast-grep

@@ -1,5 +1,5 @@
 id: git/large-files
-description: "No file of the change over 1 MiB is added or grown unless Git LFS stores it (its filter attribute is lfs); replace the rule locally (.forge/rules/large-files.yaml) to change the threshold."
+description: "No file of the change over 1 MiB is added or grown unless Git LFS stores it (its filter attribute is lfs); a larger file is the user's decision: ask them."
 scope: {language: any}
 enforce:
   - target: check

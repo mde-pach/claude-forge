@@ -1,0 +1,15 @@
+id: python/pipenv/no-other-pm
+description: "Dependencies are added with pipenv install (the lock file is Pipfile.lock); Claude asks before pip installs, other package managers or a hand-made virtualenv."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command:
+      - {name: [pip, pip3, 'pip3.*'], sub: [install], flags_none: [--dry-run]}
+      - {name: uv, sub: [pip, install], flags_none: [--dry-run]}
+      - {name: [conda, mamba, micromamba], sub: [install]}
+      - {name: [venv, virtualenv]}
+      - {name: [uv, poetry, pdm], sub: [add]}
+examples:
+  match: ["pip install requests", "uv add httpx", "poetry add httpx", "pdm add httpx", "python -m venv .venv"]
+  no_match: ["pipenv install requests", "pipenv run pytest", "pip freeze", "pip install --dry-run requests"]

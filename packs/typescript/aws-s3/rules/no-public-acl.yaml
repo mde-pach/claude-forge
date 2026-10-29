@@ -1,5 +1,5 @@
 id: typescript/aws-s3/no-public-acl
-description: "Advice: no public-read / public-read-write ACL on S3 uploads (PutObjectCommand, CreateMultipartUploadCommand, CopyObjectCommand inputs, createPresignedPost Fields / Conditions): new buckets enforce bucket-owner ownership, so the request fails, or the object becomes public; serve it through CloudFront or presigned GET URLs."
+description: "No public-read / public-read-write ACL on S3 uploads (PutObjectCommand, CreateMultipartUploadCommand, CopyObjectCommand inputs, createPresignedPost Fields / Conditions): new buckets enforce bucket-owner ownership, so the request fails, or the object becomes public; serve it through CloudFront or presigned GET URLs."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

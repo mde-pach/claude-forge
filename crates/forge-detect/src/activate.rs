@@ -31,6 +31,10 @@ pub fn detect_pack(pack: &Pack, f: &DepFacts) -> bool {
             .any(|c| f.contains(&c.files, &c.pattern))
         || d.yaml_keys.as_ref().is_some_and(|k| f.yaml_keys(k))
         || d.sources_any.as_ref().is_some_and(|g| f.sources(g))
+        || d.facts_any.iter().flatten().any(|(name, want)| {
+            f.fact(name)
+                .is_some_and(|v| want.as_slice().iter().any(|w| w == v))
+        })
 }
 
 /// Detected at the root or in a workspace package (each judged on its own facts).

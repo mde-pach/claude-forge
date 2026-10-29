@@ -3,3 +3,8 @@ description: Angular 20+ templates and security APIs.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@angular/core", version: ">=20.0.0"}]
+context:
+  - text: |
+      Angular 20+: templates use built-in control flow (`@if`, `@for (x of xs; track x.id)`, `@switch`); `*ngIf`, `*ngFor` and `[ngSwitch]` are deprecated and rejected (`ng generate @angular/core:control-flow` migrates them).
+  - text: |
+      `DomSanitizer.bypassSecurityTrust*` turns off Angular's XSS protection and is rejected; bind values and let Angular sanitise them.

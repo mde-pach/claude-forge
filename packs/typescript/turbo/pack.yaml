@@ -3,3 +3,8 @@ description: Turborepo (2 and later) runs the workspace's tasks.
 level: project
 detect:
   files_any: [turbo.json]
+context:
+  - text: |
+      Turborepo 2: tasks are under `tasks` in `turbo.json` (not `pipeline`), and env mode stays strict.
+  - text: |
+      Every environment variable the code reads is declared in `turbo.json` `env` (per task) or `globalEnv`, so it is part of the cache key.

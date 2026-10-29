@@ -1,4 +1,0 @@
-Svelte 5 components use runes: `$props()`, `$state()`, `$derived()`, `$effect()`, event attributes (`onclick`), snippets and `{@render}`.
-Legacy syntax (`export let`, `$:`, `on:click`, `<slot>`, `$$props`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, `svelte/legacy`) is rejected: it compiles silently in legacy mode.
-`{@html}` renders unescaped HTML and is rejected; render text, or sanitise in one component.
-`{#each}` blocks have a key (`{#each items as item (item.id)}`); no `{@debug}` tag is left in.

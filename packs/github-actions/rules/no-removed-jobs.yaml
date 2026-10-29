@@ -1,5 +1,5 @@
 id: github-actions/no-removed-jobs
-description: "A job removed from a workflow that runs on push or pull_request (the whole workflow deleted included) is reported: restore it rather than switching a check off; an intended removal is accepted in forge.yaml."
+description: "A job removed from a workflow that runs on push or pull_request (the whole workflow deleted included) is reported: restore it rather than switching a check off; removing a check is the user's decision: ask them."
 scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
 enforce:
   - target: check

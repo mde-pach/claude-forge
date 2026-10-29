@@ -4,7 +4,9 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])cdk[[:space:]]+(deploy[^;&|]*--require-approval[[:space:]=]+never|destroy)([[:space:];&|)]|$)'
+    command:
+      - {name: cdk, sub: [deploy], flags_any: ['--require-approval=never'], value_flags: [--require-approval]}
+      - {name: cdk, sub: [destroy]}
 examples:
   match: ["npx cdk deploy --all --require-approval never", "cdk deploy MyStack --require-approval=never", "npx cdk destroy --force", "cdk destroy"]
   no_match: ["npx cdk deploy MyStack", "cdk deploy --require-approval broadening", "npx cdk synth", "npx cdk diff"]

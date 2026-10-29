@@ -4,3 +4,14 @@ level: project
 detect:
   files_any: ["drizzle.config.*"]
   deps_any: [{ecosystem: npm, name: drizzle-orm}, {ecosystem: npm, name: drizzle-kit}]
+context:
+  - text: |
+      Drizzle: drizzle.config.* names the schema files (`schema`), the migrations folder (`out`, default `./drizzle`) and the `dialect`.
+  - text: |
+      A schema change is followed by `drizzle-kit generate`; the SQL and the metadata it writes are committed together, never written by hand.
+  - text: |
+      A migration that exists in the base is not modified or deleted; a change goes in a new migration. `drizzle-kit push` needs confirmation; `push --force` is refused.
+  - text: |
+      Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` with a template or concatenation (or a variable built from one) is rejected.
+  - text: |
+      `db.delete(t)` and `db.update(t).set(…)` are chained with `.where(…)`.

@@ -1,5 +1,10 @@
 id: python/sqlalchemy
-description: SQLAlchemy 2.0 typed and async APIs.
+description: SQLAlchemy 2.0 typed APIs.
 level: project
 detect:
   deps_any: [{ecosystem: pypi, name: sqlalchemy, version: ">=2.0.0"}]
+context:
+  - text: |
+      SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
+  - text: |
+      Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.

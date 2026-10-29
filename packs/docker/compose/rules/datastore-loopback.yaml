@@ -1,5 +1,5 @@
 id: docker/compose/datastore-loopback
-description: "Published database and broker ports (5432, 3306, 6379, 27017, 9200, 5672, 11211, 1433) bind to 127.0.0.1; Docker-published ports bypass ufw and firewalld. Short syntax only: a long-syntax ports entry is not checked."
+description: "Published database and broker ports (5432, 3306, 6379, 27017, 9200, 5672, 11211, 1433) bind to 127.0.0.1; Docker-published ports bypass ufw and firewalld."
 scope: {language: yaml, files: ["@compose"]}
 enforce:
   - target: ast-grep

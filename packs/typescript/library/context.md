@@ -1,2 +1,0 @@
-This project is an npm library: its public API is what the entry points in `package.json` `exports` (and `main`, `module`, `types`) export.
-An exported name is not removed or renamed outright: it stays exported as a `/** @deprecated Use <new name> */` alias until a major version (where the removal is accepted in `forge.yaml`); removing one, or turning it into an alias of a renamed export without that JSDoc tag, is rejected at Stop.

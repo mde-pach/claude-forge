@@ -1,5 +1,5 @@
 id: typescript/config-ratchet
-description: Biome, tsconfig and package.json test scripts are not loosened (rules lowered or turned off, strict flags removed, paths excluded, --passWithNoTests-like flags added); a deliberate change is accepted in forge.yaml.
+description: "Biome, tsconfig and package.json test scripts are not loosened (rules lowered or turned off, strict flags removed, paths excluded, --passWithNoTests-like flags added); loosening one is the user's decision: ask them."
 scope: {language: any, files: ["**/biome.json", "**/biome.jsonc", "**/tsconfig*.json", "**/package.json"]}
 enforce:
   - target: check

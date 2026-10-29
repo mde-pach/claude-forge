@@ -77,7 +77,7 @@ pub fn check(parsed: &Parsed, raw: &str, ctx: &GuardCtx) -> Option<String> {
                 Found::Lookup(node, dir, name, launcher) => {
                     let Dir::Known(d) = dir else {
                         return Some(format!(
-                            "{launcher} {name} runs in a directory that cannot be followed, so whether {name} is installed there cannot be checked"
+                            "{launcher} {name} runs in a directory that is not known in advance, so whether {name} is installed there is unknown: give `cd` a literal path"
                         ));
                     };
                     if installed(node, &d, &name, ctx) {

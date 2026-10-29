@@ -1,6 +1,15 @@
 id: typescript
-description: TypeScript project checks with Biome and tsc.
+description: TypeScript projects, type-checked with tsc.
 level: project
 detect:
   files_any: [tsconfig.json]
   deps_any: [{ecosystem: npm, name: typescript}]
+context:
+  - text: |
+      TypeScript, strict.
+  - text: |
+      No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
+  - text: |
+      `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+  - text: |
+      Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.

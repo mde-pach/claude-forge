@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])vitest[[:space:]][^|;&]*--passWithNoTests([[:space:]=;&|)]|$)'
+    command: {name: vitest, flags_any: [--passWithNoTests]}
 examples:
   match: ["bunx vitest run --passWithNoTests", "vitest run src/a.test.ts --passWithNoTests=true"]
   no_match: ["bunx vitest run", "bunx vitest run src/a.test.ts"]

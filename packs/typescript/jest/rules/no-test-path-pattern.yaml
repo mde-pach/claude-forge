@@ -7,7 +7,7 @@ enforce:
     pattern: "--testPathPattern([^s]|$)"
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])jest[^;&|]*--testPathPattern([^s]|$)'
+    command: {name: jest, flags_any: [--testPathPattern]}
 examples:
   match: ["{\"scripts\": {\"test:auth\": \"jest --testPathPattern auth\"}}", "npx jest --testPathPattern=src/auth"]
   no_match: ["{\"scripts\": {\"test:auth\": \"jest --testPathPatterns auth\"}}", "npx jest --testPathPatterns=src/auth"]

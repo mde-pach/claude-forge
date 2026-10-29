@@ -1,84 +1,455 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "What the agent reads when the rule fires: the norm and its reason, one line.",
+      "pattern": "^[^\\n\\t]+$"
+    },
+    "scope": {
+      "$ref": "#/$defs/Scope"
+    },
+    "enforce": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Target"
+      },
+      "minItems": 1
+    },
+    "examples": {
+      "$ref": "#/$defs/Examples"
+    },
+    "review": {
+      "type": "string",
+      "description": "The question a reviewer answers for an ask nobody is there for (a guard `ask`, or the\ntest-edit check).",
+      "pattern": "^[^\\n\\t]+$"
+    },
+    "when": {
+      "$ref": "#/$defs/When"
+    },
+    "deprecated": {
+      "$ref": "#/$defs/Deprecated"
+    }
+  },
+  "required": [
+    "id",
+    "description",
+    "scope",
+    "enforce"
+  ],
+  "title": "rule",
+  "description": "A rule: its file as written plus what loading adds (file, hash, origin, pack).",
   "$id": "forge:rule",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
-    "where": {
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "language"
+      ]
+    },
+    "Language": {
+      "type": "string",
+      "enum": [
+        "python",
+        "typescript",
+        "tsx",
+        "yaml",
+        "any"
+      ]
+    },
+    "Target": {
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "tool"
+            },
+            "tool": {
+              "$ref": "#/$defs/AuditedTool"
+            },
+            "expects": {
+              "type": "string",
+              "minLength": 1
+            },
+            "snippet": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "target",
+            "tool",
+            "expects",
+            "snippet"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "ast-grep"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "rule": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "ast-grep's own rule object, passed through.",
+              "minProperties": 1
+            },
+            "constraints": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "utils": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "where": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/WhereCondition"
+              },
+              "description": "Engine capabilities on metavariables (§15.1); `forbid` and `advise` only.",
+              "minProperties": 1,
+              "propertyNames": {
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Need"
+              },
+              "description": "Packages the `where` answers need installed; requires `where`.",
+              "minItems": 1
+            }
+          },
+          "required": [
+            "target",
+            "mode",
+            "rule"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "permission"
+            },
+            "decision": {
+              "$ref": "#/$defs/Decision"
+            },
+            "rule": {
+              "type": "string",
+              "description": "A Claude Code permission rule: `Tool` or `Tool(specifier)`.",
+              "pattern": "^[A-Za-z]+(\\(.+\\))?$"
+            }
+          },
+          "required": [
+            "target",
+            "decision",
+            "rule"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "guard"
+            },
+            "decision": {
+              "$ref": "#/$defs/Decision"
+            },
+            "command": {
+              "description": "One simple command shape, or a list of them (any matches).",
+              "$ref": "#/$defs/OneOrMany3"
+            },
+            "check": {
+              "$ref": "#/$defs/GuardCheck"
+            },
+            "reason": {
+              "type": "string",
+              "description": "The reason for this target, in place of the rule's description.",
+              "pattern": "^[^\\n\\t]+$"
+            }
+          },
+          "required": [
+            "target",
+            "decision"
+          ],
+          "description": "A guard target: the Bash commands it decides on, by their structure (`command`), by a\nbuilt-in check (`check`), or both (the check then decides on what `command` matched)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "sandbox"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$"
+            },
+            "value": true
+          },
+          "required": [
+            "target",
+            "path",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "check"
+            },
+            "stage": {
+              "$ref": "#/$defs/Stage"
+            },
+            "run": {
+              "type": "string",
+              "minLength": 1
+            },
+            "changed_run": {
+              "type": "string",
+              "minLength": 1
+            },
+            "fix_run": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\{files\\}"
+            },
+            "fix_lints": {
+              "type": "boolean",
+              "description": "Requires `fix_run` and `changed_run`.",
+              "const": true
+            },
+            "format_stdin": {
+              "type": "string",
+              "description": "`format` and `lint` stages only.",
+              "minLength": 1,
+              "pattern": "\\{file\\}"
+            },
+            "rerun": {
+              "type": "string",
+              "description": "`test` stage only.",
+              "minLength": 1,
+              "pattern": "\\{files\\}"
+            },
+            "when_changed": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "config_files": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "`lint` stage only.",
+              "minItems": 1
+            },
+            "requires_local_db": {
+              "type": "boolean"
+            },
+            "fail_on_warnings": {
+              "type": "boolean",
+              "const": true
+            },
+            "timeout": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 1,
+              "maximum": 600
+            }
+          },
+          "required": [
+            "target",
+            "stage",
+            "run"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "grep"
+            },
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "pattern": {
+              "type": "string",
+              "pattern": "^[^\\t\\n]+$"
+            },
+            "ignore_case": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "target",
+            "mode",
+            "pattern"
+          ],
+          "description": "A POSIX extended regular expression matched on the lines of config files."
+        }
+      ],
+      "description": "An `enforce` entry (§6.2), by kind."
+    },
+    "AuditedTool": {
+      "type": "string",
+      "enum": [
+        "biome",
+        "ruff",
+        "ty",
+        "tsc",
+        "eslint"
+      ],
+      "description": "Tools a `tool` target audits (§11)."
+    },
+    "Mode": {
+      "type": "string",
+      "enum": [
+        "forbid",
+        "no-increase",
+        "no-decrease",
+        "advise"
+      ],
+      "description": "How an ast-grep or grep match turns into a failure (§6.2)."
+    },
+    "WhereCondition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "$ref": "#/$defs/OneOrMany"
+            }
+          },
           "required": [
             "type"
           ],
-          "properties": {
-            "type": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/spec"
-                },
-                {
-                  "type": "array",
-                  "minItems": 1,
-                  "items": {
-                    "$ref": "#/$defs/spec"
-                  }
-                }
-              ]
-            }
-          }
+          "additionalProperties": false
         },
         {
           "type": "object",
-          "additionalProperties": false,
+          "properties": {
+            "declared": {
+              "$ref": "#/$defs/OneOrMany"
+            }
+          },
           "required": [
             "declared"
           ],
-          "properties": {
-            "declared": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/spec"
-                },
-                {
-                  "type": "array",
-                  "minItems": 1,
-                  "items": {
-                    "$ref": "#/$defs/spec"
-                  }
-                }
-              ]
-            }
-          }
+          "additionalProperties": false
         },
         {
           "type": "object",
-          "additionalProperties": false,
+          "properties": {
+            "deprecated": {
+              "type": "boolean",
+              "const": true
+            }
+          },
           "required": [
             "deprecated"
           ],
-          "properties": {
-            "deprecated": {
-              "const": true
-            }
-          }
+          "additionalProperties": false
         },
         {
           "type": "object",
-          "additionalProperties": false,
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/WhereCondition"
+            }
+          },
           "required": [
             "not"
           ],
-          "properties": {
-            "not": {
-              "$ref": "#/$defs/where"
-            }
-          }
+          "additionalProperties": false
         }
-      ]
+      ],
+      "description": "A where condition (§15.1, §15.6, §15.7): written as `{type: …}`, `{declared: …}`,\n`{deprecated: true}` or `{not: …}`."
     },
-    "spec": {
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TypeSpec"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TypeSpec"
+          },
+          "minItems": 1
+        }
+      ],
+      "description": "A value or a non-empty list of them, kept in the shape it was written."
+    },
+    "TypeSpec": {
       "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "package": {
+          "$ref": "#/$defs/OneOrMany2"
+        },
+        "module": {
+          "$ref": "#/$defs/OneOrMany2"
+        },
+        "name": {
+          "$ref": "#/$defs/OneOrMany2"
+        },
+        "unknown": {
+          "type": "string",
+          "description": "\"match\" or \"no-match\".",
+          "enum": [
+            "match",
+            "no-match"
+          ]
+        }
+      },
+      "description": "A type, by its package or module (at least one), and its name.",
       "anyOf": [
         {
           "required": [
@@ -90,805 +461,347 @@
             "module"
           ]
         }
-      ],
-      "properties": {
-        "package": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          ]
-        },
-        "module": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          ]
-        },
-        "name": {
-          "oneOf": [
-            {
-              "type": "string",
-              "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
-            },
-            {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "string",
-                "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
-              }
-            }
-          ]
-        },
-        "unknown": {
-          "enum": [
-            "match",
-            "no-match"
-          ]
-        }
-      }
-    }
-  },
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "id",
-    "description",
-    "scope",
-    "enforce"
-  ],
-  "if": {
-    "required": [
-      "review"
-    ]
-  },
-  "then": {
-    "properties": {
-      "enforce": {
-        "contains": {
-          "anyOf": [
-            {
-              "properties": {
-                "target": {
-                  "const": "guard"
-                },
-                "decision": {
-                  "const": "ask"
-                }
-              },
-              "required": [
-                "decision"
-              ]
-            },
-            {
-              "properties": {
-                "target": {
-                  "const": "check"
-                },
-                "run": {
-                  "pattern": "^\\s*forge_test_edits\\s*$"
-                }
-              },
-              "required": [
-                "run"
-              ]
-            }
-          ]
-        }
-      }
-    }
-  },
-  "properties": {
-    "id": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+      ]
     },
-    "description": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^[^\\n\\t]+$"
-    },
-    "scope": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "language"
-      ],
-      "properties": {
-        "language": {
-          "enum": [
-            "python",
-            "typescript",
-            "tsx",
-            "yaml",
-            "any"
-          ]
+    "OneOrMany2": {
+      "anyOf": [
+        {
+          "type": "string"
         },
-        "files": {
+        {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           },
           "minItems": 1
         }
-      }
+      ],
+      "description": "A value or a non-empty list of them, kept in the shape it was written."
     },
-    "enforce": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": [
-          "target"
-        ],
-        "properties": {
-          "target": {
-            "enum": [
-              "tool",
-              "ast-grep",
-              "permission",
-              "guard",
-              "sandbox",
-              "check",
-              "grep"
-            ]
-          }
+    "Need": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "$ref": "#/$defs/Ecosystem"
         },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "tool"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "tool",
-                "expects",
-                "snippet"
-              ],
-              "properties": {
-                "target": true,
-                "tool": {
-                  "enum": [
-                    "biome",
-                    "ruff",
-                    "ty",
-                    "tsc",
-                    "eslint"
-                  ]
-                },
-                "expects": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "snippet": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "ast-grep"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "mode",
-                "rule"
-              ],
-              "properties": {
-                "target": true,
-                "mode": {
-                  "enum": [
-                    "forbid",
-                    "no-increase",
-                    "no-decrease",
-                    "advise"
-                  ]
-                },
-                "rule": {
-                  "type": "object",
-                  "minProperties": 1
-                },
-                "constraints": {
-                  "type": "object"
-                },
-                "utils": {
-                  "type": "object"
-                },
-                "where": {
-                  "type": "object",
-                  "minProperties": 1,
-                  "propertyNames": {
-                    "pattern": "^[A-Z][A-Z0-9_]*$"
-                  },
-                  "additionalProperties": {
-                    "$ref": "#/$defs/where"
-                  }
-                },
-                "needs": {
-                  "type": "array",
-                  "minItems": 1,
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "ecosystem",
-                      "name"
-                    ],
-                    "properties": {
-                      "ecosystem": {
-                        "enum": [
-                          "pypi",
-                          "npm"
-                        ]
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    }
-                  }
-                }
-              },
-              "allOf": [
-                {
-                  "if": {
-                    "required": [
-                      "where"
-                    ]
-                  },
-                  "then": {
-                    "properties": {
-                      "mode": {
-                        "enum": [
-                          "forbid",
-                          "advise"
-                        ]
-                      }
-                    }
-                  }
-                },
-                {
-                  "if": {
-                    "required": [
-                      "needs"
-                    ]
-                  },
-                  "then": {
-                    "required": [
-                      "where"
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "permission"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "decision",
-                "rule"
-              ],
-              "properties": {
-                "target": true,
-                "decision": {
-                  "enum": [
-                    "deny",
-                    "ask"
-                  ]
-                },
-                "rule": {
-                  "type": "string",
-                  "pattern": "^[A-Za-z]+(\\(.+\\))?$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "guard"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "decision",
-                "pattern"
-              ],
-              "properties": {
-                "target": true,
-                "decision": {
-                  "enum": [
-                    "deny",
-                    "ask"
-                  ]
-                },
-                "pattern": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^[^\\t\\n]+$"
-                },
-                "check": {
-                  "enum": [
-                    "ephemeral-exec"
-                  ]
-                }
-              },
-              "if": {
-                "required": [
-                  "check"
-                ]
-              },
-              "then": {
-                "properties": {
-                  "decision": {
-                    "const": "ask"
-                  }
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "sandbox"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "path",
-                "value"
-              ],
-              "properties": {
-                "target": true,
-                "path": {
-                  "type": "string",
-                  "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$"
-                },
-                "value": true
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "check"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "stage",
-                "run"
-              ],
-              "properties": {
-                "target": true,
-                "stage": {
-                  "enum": [
-                    "format",
-                    "lint",
-                    "codegen",
-                    "typecheck",
-                    "migration",
-                    "test"
-                  ]
-                },
-                "run": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "changed_run": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "fix_run": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "\\{files\\}"
-                },
-                "fix_lints": {
-                  "const": true
-                },
-                "format_stdin": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "\\{file\\}"
-                },
-                "rerun": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "\\{files\\}"
-                },
-                "when_changed": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "minItems": 1
-                },
-                "config_files": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "minItems": 1
-                },
-                "requires_local_db": {
-                  "type": "boolean"
-                },
-                "fail_on_warnings": {
-                  "const": true
-                },
-                "timeout": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 600
-                }
-              },
-              "allOf": [
-                {
-                  "if": {
-                    "required": [
-                      "rerun"
-                    ]
-                  },
-                  "then": {
-                    "properties": {
-                      "stage": {
-                        "const": "test"
-                      }
-                    }
-                  }
-                },
-                {
-                  "if": {
-                    "required": [
-                      "format_stdin"
-                    ]
-                  },
-                  "then": {
-                    "properties": {
-                      "stage": {
-                        "enum": [
-                          "format",
-                          "lint"
-                        ]
-                      }
-                    }
-                  }
-                },
-                {
-                  "if": {
-                    "required": [
-                      "fix_lints"
-                    ]
-                  },
-                  "then": {
-                    "required": [
-                      "fix_run",
-                      "changed_run"
-                    ]
-                  }
-                },
-                {
-                  "if": {
-                    "required": [
-                      "config_files"
-                    ]
-                  },
-                  "then": {
-                    "properties": {
-                      "stage": {
-                        "const": "lint"
-                      }
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "target": {
-                  "const": "grep"
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
-                "mode",
-                "pattern"
-              ],
-              "properties": {
-                "target": true,
-                "mode": {
-                  "enum": [
-                    "forbid",
-                    "no-increase",
-                    "no-decrease",
-                    "advise"
-                  ]
-                },
-                "pattern": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^[^\\t\\n]+$"
-                },
-                "ignore_case": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        ]
-      }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ecosystem",
+        "name"
+      ]
     },
-    "examples": {
+    "Ecosystem": {
+      "type": "string",
+      "enum": [
+        "pypi",
+        "npm"
+      ]
+    },
+    "Decision": {
+      "type": "string",
+      "enum": [
+        "deny",
+        "ask"
+      ]
+    },
+    "OneOrMany3": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CommandMatch"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommandMatch"
+          },
+          "minItems": 1
+        }
+      ],
+      "description": "A value or a non-empty list of them, kept in the shape it was written."
+    },
+    "CommandMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The command name (its basename: `./manage.py` is `manage.py`). Without a name, the\ncommand's own name position is used.",
+          "$ref": "#/$defs/OneOrMany2"
+        },
+        "sub": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The first positionals, in order; each entry is alternatives separated by `|`\n(`[stash, drop]`, `['up|refresh']`), or a `/regex/`."
+        },
+        "args_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Some positional after `sub` is one of these."
+        },
+        "last_arg": {
+          "type": "string",
+          "description": "The last positional matches this regex (searched)."
+        },
+        "flags_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Some option is one of these: `--force` (and `--force=x`, not `--force-with-lease`),\n`-f` (and the cluster `-uf`), `--require-approval=never` (or as two words)."
+        },
+        "flags_all": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Every one of these options is given; an entry may be alternatives separated by `|`\n(`['-d|--delete', '-f|--force']`)."
+        },
+        "flags_none": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "None of these options is given."
+        },
+        "value_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Options that take the next word as their value, besides those known for the command\n(`git -C <dir>`, `kubectl -n <ns>`…)."
+        },
+        "arg_regex": {
+          "type": "string",
+          "description": "Some argument after the name matches this regex (searched)."
+        },
+        "stdin": {
+          "type": "boolean",
+          "description": "`arg_regex` also searches the heredoc or here-string fed to the command (a program\nit reads: `psql <<EOF`, `python3 - <<EOF`). Otherwise that text is data."
+        },
+        "words": {
+          "type": "string",
+          "description": "The escape hatch: a regex searched in the command's words from its name, joined by\nsingle spaces (a word holding whitespace is shown between single quotes)."
+        },
+        "option_values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Some option (a key: alternatives separated by `|`) has a value matching the regex\n(searched): `{'-v|--volume': '^/:'}`. Options with a value in two words need to be\nknown to take one (`value_flags`)."
+        },
+        "env_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`);\n`NAME=value` requires that value (`*` wildcards allowed)."
+        },
+        "wrapped_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The command position is reached through one of these wrappers (`sudo pip install`)."
+        },
+        "pipe_to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The command's output is piped into one of these commands (`*`: any)."
+        },
+        "redirect_to": {
+          "type": "string",
+          "description": "The command writes, through a redirection, a file whose path matches this regex."
+        }
+      },
+      "description": "A simple command, described by its structure. Every field given must hold; lists hold\nwhen any of their entries does, except `flags_all`.\n\nNames and values are matched whole; `*` in them matches any run of characters\n(`delete-*`, `python*`). A `sub` or `args_any` entry written `/regex/` is a regex\nsearched in the positional instead. The command is matched at each of its command\npositions: the command itself, what a wrapper runs (`sudo`, `env`, `nice -n 5`,\n`timeout 5`…) and what a runner runs (`npx`, `bunx`, `bun x`, `npm exec`, `pnpm exec|dlx`,\n`uv run`, `uvx`, `poetry run`, `python <script>`, `python -m <module>`…): `name: prisma`\nmatches `bunx prisma migrate reset`."
+    },
+    "GuardCheck": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "ephemeral-exec",
+          "description": "A package launcher that would fetch what it runs from a registry."
+        },
+        {
+          "type": "string",
+          "const": "package-add",
+          "description": "A command that adds a named package (read-only and lock-file installs pass)."
+        },
+        {
+          "type": "string",
+          "const": "python-pm",
+          "description": "pip into the project's environment where the project's packages are uv's, or\nwhere it has no packaging yet."
+        }
+      ],
+      "description": "The guard's built-in checks, each reading the whole parsed command line."
+    },
+    "Stage": {
+      "type": "string",
+      "enum": [
+        "format",
+        "lint",
+        "codegen",
+        "typecheck",
+        "migration",
+        "test"
+      ],
+      "description": "check.sh's stages, in the order it runs them (§10.1)."
+    },
+    "Examples": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "match": {
           "type": "array",
           "items": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "files"
-                ],
-                "properties": {
-                  "files": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  },
-                  "head": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "command"
-                ],
-                "properties": {
-                  "command": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "files": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  }
-                }
-              }
-            ]
+            "$ref": "#/$defs/Example"
           }
         },
         "no_match": {
           "type": "array",
           "items": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "files"
-                ],
-                "properties": {
-                  "files": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  },
-                  "head": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "command"
-                ],
-                "properties": {
-                  "command": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "files": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "propertyNames": {
-                      "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
-                    }
-                  }
-                }
-              }
-            ]
+            "$ref": "#/$defs/Example"
           }
         },
         "deps": {
           "type": "array",
-          "minItems": 1,
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "ecosystem",
-              "name",
-              "version"
-            ],
-            "properties": {
-              "ecosystem": {
-                "enum": [
-                  "pypi",
-                  "npm"
-                ]
-              },
-              "name": {
-                "type": "string",
-                "minLength": 1
-              },
-              "version": {
-                "type": "string",
-                "pattern": "^[0-9][0-9A-Za-z.+-]*$"
-              }
-            }
-          }
+            "$ref": "#/$defs/DepSpec"
+          },
+          "description": "The dependencies the examples' project declares (each with a version).",
+          "minItems": 1
         }
       }
     },
-    "review": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^[^\\n\\t]+$"
+    "Example": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/CommandExample"
+        },
+        {
+          "$ref": "#/$defs/FixtureExample"
+        }
+      ],
+      "description": "A rule example: code in the rule's scope, a fixture (files on top of `head`), or a\nguard command run among `files`."
     },
-    "when": {
+    "CommandExample": {
       "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+          }
+        }
+      },
       "required": [
-        "deps"
+        "command"
       ],
+      "description": "A guard example: a command run in a directory holding `files`."
+    },
+    "FixtureExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+          }
+        },
+        "head": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).*[^/]$"
+          }
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "description": "Files committed at HEAD, then the files of the change."
+    },
+    "DepSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "$ref": "#/$defs/Ecosystem"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ecosystem",
+        "name"
+      ],
+      "description": "A dependency: by ecosystem and name, in a version range (npm semver, or PEP 440 for PyPI)."
+    },
+    "When": {
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "deps": {
           "type": "array",
-          "minItems": 1,
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "ecosystem",
-              "name",
-              "version"
-            ],
-            "properties": {
-              "ecosystem": {
-                "enum": [
-                  "pypi",
-                  "npm"
-                ]
-              },
-              "name": {
-                "type": "string",
-                "minLength": 1
-              },
-              "version": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
+            "$ref": "#/$defs/DepSpec"
+          },
+          "minItems": 1
         }
-      }
+      },
+      "required": [
+        "deps"
+      ],
+      "description": "The rule applies where every dependency is declared in its range."
     },
-    "deprecated": {
+    "Deprecated": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "replaced_by"
-      ],
       "properties": {
         "replaced_by": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
         }
-      }
+      },
+      "required": [
+        "replaced_by"
+      ]
     }
   }
 }

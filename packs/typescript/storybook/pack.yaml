@@ -3,3 +3,6 @@ description: Storybook 9 and later.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: storybook, version: ">=9.0.0"}]
+context:
+  - text: |
+      Storybook 9+ ships its test, actions, viewport, manager and preview APIs and theming in the `storybook` package: import `storybook/test`, `storybook/actions`, `storybook/viewport`, `storybook/manager-api`, `storybook/preview-api`, `storybook/theming`, and doc blocks from `@storybook/addon-docs/blocks`. The old `@storybook/*` packages for them, and `@storybook/addon-essentials` / `addon-interactions`, are rejected.

@@ -8,5 +8,9 @@ expression: "local.join(\"\\n\")"
 .forge/packs/acme/rules/docs.yaml:2: acme/docs [forge-internals] description names Forge's internals: FORGE_DEBUG
 .forge/packs/acme/rules/no-todo.yaml:2: acme/no-todo [cut-by-comment] description is cut at " #": YAML reads "No TODO comments (# TODO," and drops "# FIXME) in code." as a comment; quote the text
 .forge/packs/acme/rules/no-todo.yaml: acme/no-todo [grep-scope] grep target with no scope.files: it reads every file, docs included
-.forge/packs/acme/context.md:1: acme [forge-internals] context.md names Forge's internals: forge.yaml
-.forge/packs/acme/context.md:1: acme [forge-internals] context.md names Forge's internals: accept:
+.forge/packs/acme/pack.yaml:6: acme [cut-by-comment] context/0/text is cut at " #": YAML reads "Accepted findings go in forge.yaml (accept:)" and drops "# or ask" as a comment; quote the text
+.forge/packs/acme/pack.yaml:6: acme [forge-internals] context/0/text names Forge's internals: forge.yaml
+.forge/packs/acme/pack.yaml:6: acme [forge-internals] context/0/text names Forge's internals: accept:
+.forge/packs/acme/pack.yaml:7: acme [forge-internals] context/1/text names Forge's internals: Forge
+.forge/packs/acme/pack.yaml:7: acme [enforcement-claim] context/1/text claims enforcement ("rejects"); state the norm and its reason
+.forge/packs/acme/pack.yaml:7: acme [enforcement-limit] context/1/text describes what is not enforced ("is not checked"); keep the norm and its reason

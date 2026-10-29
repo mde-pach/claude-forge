@@ -3,3 +3,11 @@ description: Mongoose models and queries (operator injection, server-side JavaSc
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: mongoose}]
+context:
+  - text: |
+      Mongoose: request input (`req.body`, `req.query`, `req.params`) is validated or passed through `sanitizeFilter()` before it reaches a filter or update; passing it whole is rejected (operator injection).
+  - text: |
+      No `$where` (server-side JavaScript); use query operators or `$expr`.
+  - text: |
+      Mongoose 9: an update pipeline (an array) needs `{ updatePipeline: true }` on the call or `mongoose.set("updatePipeline", true)`.
+    when: {deps: [{ecosystem: npm, name: mongoose, version: ">=9.0.0"}]}

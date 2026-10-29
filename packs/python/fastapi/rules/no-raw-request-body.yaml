@@ -1,5 +1,5 @@
 id: python/fastapi/no-raw-request-body
-description: "Advice: a route reads its input from a declared parameter (a Pydantic model body, Form(), File()), not from request.json(), .form(), .body() or .stream() on the Starlette Request, which skip validation and the OpenAPI schema. Reading the raw body stays right where the bytes matter, such as a webhook signature check."
+description: "A route reads its input from a declared parameter (a Pydantic model body, Form(), File()), not from request.json(), .form(), .body() or .stream() on the Starlette Request, which skip validation and the OpenAPI schema. Reading the raw body stays right where the bytes matter, such as a webhook signature check."
 scope: {language: python}
 enforce:
   - target: ast-grep

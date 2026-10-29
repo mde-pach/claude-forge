@@ -3,3 +3,6 @@ description: Model Context Protocol servers (TypeScript SDK).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@modelcontextprotocol/sdk"}, {ecosystem: npm, name: "@modelcontextprotocol/server"}]
+context:
+  - text: |
+      MCP: a server on the stdio transport writes only JSON-RPC to stdout; logs go to stderr (`console.error`), and `console.log` / `info` / `debug` or `process.stdout.write` in a file importing `StdioServerTransport` are rejected.

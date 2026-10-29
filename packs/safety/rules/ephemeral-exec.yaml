@@ -5,8 +5,6 @@ review: "This command would fetch a package from a registry and run it (the rule
 enforce:
   - target: guard
     decision: ask
-    # a pre-filter: the check parses the command (launcher options, compound commands, cd, heredocs) and looks for the tool in node_modules/.bin or .venv/bin
-    pattern: '(npx|pnpx|bunx|dlx|uvx|uv[[:space:]]+tool|pipx|deno[[:space:]]|(npm|pnpm|yarn|bun)[[:space:]](.*[[:space:]])?(exec|x|create|init|innit)([[:space:]]|$))'
     check: ephemeral-exec
 examples:
   match:
