@@ -33,3 +33,9 @@ The project setup is a Claude Code plugin in `.claude/skills/forge-project/`. It
 A missing runtime never breaks a session; every hook exits cleanly:
 
 <Spec file="08-project-hooks" test="without bun on PATH in a TypeScript repository every hook exits 0 and SessionStart reports bun once" />
+
+## How fast the hooks are
+
+Every hook runs on Claude's critical path, so each has a budget it is tested against, warm, after an edit: the commands it starts by name (a process costs about 25 ms on an emulated machine, so their number is what keeps a hook fast everywhere) and its median time.
+
+<Spec file="08-5-hook-budgets" />
