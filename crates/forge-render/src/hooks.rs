@@ -18,8 +18,8 @@
 //! | PermissionRequest  |                                              | `permission-request`      | 180 s   |                  |
 //! | SessionEnd         |                                              | `session-end`             | 10 s    |                  |
 //!
-//! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`),
-//! PermissionRequest → `user-permission-request` (180 s), Notification
+//! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`), PreToolUse
+//! [`FILE_TOOLS`] → `user-pre-tool-use` (180 s: the internals refusal), PermissionRequest → `user-permission-request` (180 s), Notification
 //! `permission_prompt|idle_prompt` → `user-notification` (5 s). The `user-` events are the
 //! user-level setup's own (its rules, not the project's), so a project with both runs each once.
 //!
@@ -132,6 +132,11 @@ pub const USER_HOOKS: &[HookGroup] = &[
         event: "PreToolUse",
         matcher: Some("Bash"),
         commands: &[USER_GUARD],
+    },
+    HookGroup {
+        event: "PreToolUse",
+        matcher: Some(FILE_TOOLS),
+        commands: &[cmd("user-pre-tool-use", 180)],
     },
     HookGroup {
         event: "PermissionRequest",

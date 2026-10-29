@@ -39,7 +39,7 @@ Every PreToolUse call is checked first. A tool call that names a path inside For
 
 - Read, Edit, Write, MultiEdit: `file_path`. NotebookEdit: `notebook_path`. Grep and Glob: `path`, and a `pattern` that starts with `/` or `~`. Bash: any word or redirection target holding `/` or starting with `~` (for `NAME=value`, the value), resolved against the directory it runs in, when the command mentions `forge` or a root's path.
 - `~`, `~/`, `$HOME/` and `${HOME}/` are expanded. A path matches lexically (`..` resolved) or physically (through symlinks, a symlink in the repository pointing into the cache included).
-- Nothing points the agent at these paths, so the refusal should rarely fire. The project-level PreToolUse matchers are `Bash` and `Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob`; the user-level one is `Bash`.
+- Nothing points the agent at these paths, so the refusal should rarely fire. The PreToolUse matchers are `Bash` and `Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob`, at project and at user level; at user level the second entry runs only this refusal.
 
 ### 9.4 Edits to tests ask
 
@@ -80,6 +80,6 @@ Verified on Claude Code 2.1.308 (not documented by Claude Code): `claude -p` set
 
 - 9.1 Parsing: `crates/forge-guard/src/parse.rs (unit)`, `crates/forge-guard/tests/corpus.rs::quoted_and_heredoc_text_never_triggers`, `corpus.rs::text_fed_to_a_shell_is_parsed`, `corpus.rs::unparseable_input_is_handled_conservatively`, `crates/forge-guard/tests/spec_parsing.rs` (`every_shell_dash_c_is_parsed`, `pushd_moves_the_directory_like_cd`, `popd_and_cd_dash_leave_the_directory_unknown`, `xargs_runs_its_command`).
 - 9.2 Guard rules: `crates/forge-guard/tests/corpus.rs` (`corpus_with_the_pack_rules`, `reasons_are_neutral`, `check_findings_in_reasons`, `pip_in_a_uv_project_is_denied`), `crates/forge-guard/tests/examples.rs` (every guard rule's pack examples), `crates/forge-hooks/tests/events.rs::pip_install_in_a_uv_project_is_denied_with_uv_add`, `events.rs::user_guard_reads_commands_not_messages`, `crates/forge-hooks/tests/spec_hooks.rs::the_user_guard_applies_in_any_directory`, `crates/forge-cli/tests/hook.rs::hooks_on_an_applied_sample`.
-- 9.3 Internals: `events.rs::forge_files_are_refused_neutrally`, `crates/forge-home/src/lib.rs (unit)::internal_paths`, `hook.rs::hooks_on_an_applied_sample`.
+- 9.3 Internals: `events.rs::forge_files_are_refused_neutrally` (each tool of the file-tools matcher), `events.rs::the_user_level_refuses_forge_files_to_every_file_tool`, `crates/forge-home/src/lib.rs (unit)::internal_paths`, `hook.rs::hooks_on_an_applied_sample`.
 - 9.4 Test edits: `events.rs::test_edits_ask`.
 - 9.5 Reviewer: `events.rs::reviewer_answers_asks_nobody_can`, `spec_hooks.rs::a_guard_ask_nobody_can_answer_is_reviewed`, `spec_hooks.rs::the_reviewer_runs_a_fresh_read_only_claude`, `spec_hooks.rs::reviews_outside_a_project_are_logged_in_the_user_state`, `spec_hooks.rs::a_test_edit_verdict_is_not_reused_once_the_request_changed`. The "verified on 2.1.308" facts: the real-Claude-Code end-to-end job (§14).

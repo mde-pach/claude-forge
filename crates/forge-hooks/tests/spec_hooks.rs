@@ -307,6 +307,7 @@ fn hook_entries_wire_every_event() {
         row(USER_HOOKS),
         [
             "PreToolUse Bash user-pre-tool-use 180 block",
+            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob user-pre-tool-use 180",
             "PermissionRequest - user-permission-request 180",
             "Notification permission_prompt|idle_prompt user-notification 5",
         ]

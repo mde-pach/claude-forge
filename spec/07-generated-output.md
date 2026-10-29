@@ -51,6 +51,7 @@ User level:
 | Claude Code event | Matcher | `forge hook` event | Timeout | Options |
 |---|---|---|---|---|
 | PreToolUse | `Bash` | `user-pre-tool-use` | 180 s | `onFailure: "block"` |
+| PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `user-pre-tool-use` | 180 s | |
 | PermissionRequest | | `user-permission-request` | 180 s | |
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
 

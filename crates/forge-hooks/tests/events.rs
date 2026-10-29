@@ -210,6 +210,41 @@ fn pip_install_in_a_uv_project_is_denied_with_uv_add() {
 }
 
 #[test]
+fn the_user_level_refuses_forge_files_to_every_file_tool() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    // outside any project: only the user-level hook runs
+    let elsewhere = s.root.parent().unwrap().join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let cache_file = s.home.cache_root().join("bin/forge-0.6.0");
+    let mut cases: Vec<Value> = forge_render::hooks::FILE_TOOLS
+        .split('|')
+        .map(|tool| {
+            let field = match tool {
+                "NotebookEdit" => "notebook_path",
+                "Grep" | "Glob" => "path",
+                _ => "file_path",
+            };
+            json!({"tool_name": tool, "tool_input": {field: cache_file, "pattern": "x"}})
+        })
+        .collect();
+    cases.push(bash(&format!("cat {}", cache_file.display()), "b1"));
+    for mut c in cases {
+        c["cwd"] = json!(elsewhere);
+        let out = s.run(&f, "user-pre-tool-use", c.clone());
+        let v = json_out(&out);
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny", "{c}");
+        assert_eq!(
+            v["hookSpecificOutput"]["permissionDecisionReason"],
+            INTERNAL_REASON
+        );
+    }
+    let ok = json!({"tool_name": "Read", "cwd": elsewhere,
+        "tool_input": {"file_path": elsewhere.join("notes.txt")}});
+    assert_eq!(s.run(&f, "user-pre-tool-use", ok).stdout, "");
+}
+
+#[test]
 fn user_guard_reads_commands_not_messages() {
     let s = Sandbox::new(&[]);
     std::fs::write(
