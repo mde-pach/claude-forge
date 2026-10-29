@@ -245,23 +245,70 @@ impl Checker {
 
     /// The ast-grep targets of the given languages, compiled; a rule that does not compile is a
     /// note.
-    fn ast_rules(&self, langs: &BTreeSet<&'static str>, notes: &mut Vec<Note>) -> Vec<Compiled> {
+    fn ast_rules(
+        &self,
+        langs: &BTreeSet<&'static str>,
+        only: Option<&[String]>,
+        notes: &mut Vec<Note>,
+    ) -> Vec<Compiled> {
+        let candidates: Vec<&ActiveRule> = self
+            .rules
+            .iter()
+            .filter(|a| {
+                astgrep::target_of(&a.rule).is_some()
+                    && astgrep::language(a.rule.scope.language)
+                        .is_some_and(|l| langs.contains(lang_key(l)))
+            })
+            .collect();
+        // compiling a rule parses its patterns: in parallel, a rule's scope first
+        let workers = std::thread::available_parallelism()
+            .map_or(4, |n| n.get())
+            .min(8);
+        let chunk = candidates.len().div_ceil(workers).max(1);
+        let results: Vec<Option<Result<Compiled, (String, String)>>> = std::thread::scope(|s| {
+            let handles: Vec<_> = candidates
+                .chunks(chunk)
+                .map(|part| {
+                    s.spawn(move || {
+                        part.iter()
+                            .map(|a| {
+                                let lang = astgrep::language(a.rule.scope.language)?;
+                                if let Some(files) = only {
+                                    let scope = RuleScope::new(
+                                        &a.rule,
+                                        &self.roles,
+                                        a.dirs.as_deref(),
+                                        None,
+                                    );
+                                    if !files.iter().any(|f| {
+                                        astgrep::file_language(f) == Some(lang)
+                                            && scope.files_match(f)
+                                    }) {
+                                        return None;
+                                    }
+                                }
+                                let t = astgrep::target_of(&a.rule)?;
+                                Some(
+                                    astgrep::compile(&a.rule, t, &self.roles, a.dirs.as_deref())
+                                        .map_err(|e| (a.rule.id.clone(), e)),
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|h| h.join().unwrap_or_default())
+                .collect()
+        });
         let mut out = Vec::new();
-        for a in &self.rules {
-            let Some(t) = astgrep::target_of(&a.rule) else {
-                continue;
-            };
-            let Some(lang) = astgrep::language(a.rule.scope.language) else {
-                continue;
-            };
-            if !langs.contains(lang_key(lang)) {
-                continue;
-            }
-            match astgrep::compile(&a.rule, t, &self.roles, a.dirs.as_deref()) {
+        for r in results.into_iter().flatten() {
+            match r {
                 Ok(c) => out.push(c),
-                Err(e) => notes.push(note(
+                Err((id, e)) => notes.push(note(
                     NoteKind::ForgeFailure,
-                    &a.rule.id,
+                    &id,
                     format!("not enforced: the rule does not compile ({e})"),
                 )),
             }
@@ -525,13 +572,7 @@ impl Checker {
             }
         }
         // the added lines, on the files as the checks left them
-        if let Ok(fresh) = ChangeSet::for_files(
-            &self.root,
-            &run.change.changed,
-            run.change.snapshot.as_deref(),
-        ) {
-            *run.change = fresh;
-        }
+        run.change.refresh_added();
         self.format_added_lines(run);
         self.write_change_files(run);
         for (id, stage, warn, exit, out) in lint_runs {
@@ -623,7 +664,7 @@ impl Checker {
             .map(lang_key)
             .collect();
         let ast: Vec<Compiled> = self
-            .ast_rules(&langs, &mut notes)
+            .ast_rules(&langs, Some(&change.existing), &mut notes)
             .into_iter()
             .filter(|c| counted(c.mode()))
             .collect();
@@ -725,7 +766,7 @@ impl Checker {
             .map(lang_key)
             .collect();
         let ast: Vec<Compiled> = self
-            .ast_rules(&langs, &mut notes)
+            .ast_rules(&langs, Some(&scope), &mut notes)
             .into_iter()
             .filter(|c| wanted(c.mode()))
             .collect();

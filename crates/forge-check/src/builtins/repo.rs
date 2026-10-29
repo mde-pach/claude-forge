@@ -14,7 +14,7 @@ pub(super) fn register(r: &mut Registry) {
 
 /// `git check-attr <attr>` of a path.
 fn attr(root: &std::path::Path, name: &str, path: &str) -> String {
-    let out = Command::new("git")
+    let out = Command::new(crate::change::git_exe())
         .current_dir(root)
         .args(["check-attr", name, "--", path])
         .stderr(Stdio::null())

@@ -356,6 +356,23 @@ impl ChangeSet {
         })
     }
 
+    /// Recomputes the added lines from the base copies (after formatters or fixes rewrote files).
+    pub fn refresh_added(&mut self) {
+        if self.mode == Mode::All {
+            return;
+        }
+        for p in self.existing.clone() {
+            let now = self.root.join(&p);
+            let b = self.base.path().join(&p);
+            let a = if b.is_file() {
+                added_lines_files(&b, &now)
+            } else {
+                Added::Whole
+            };
+            self.added.insert(p, a);
+        }
+    }
+
     /// Replaces a file's added lines (after formatting the base copy: `forge_added_lines`).
     pub fn set_added(&mut self, path: &str, added: Added) {
         self.added.insert(path.to_string(), added);
@@ -470,6 +487,59 @@ pub(crate) fn split_z(bytes: &[u8]) -> impl Iterator<Item = String> + '_ {
         .map(|s| String::from_utf8_lossy(s).into_owned())
 }
 
+/// The git executable. On macOS `/usr/bin/git` is a shim that looks up the developer tools at
+/// every call (about 20 ms); the binary it runs is used instead, found once (`git --exec-path`)
+/// and kept in Forge's state while it exists.
+pub fn git_exe() -> &'static Path {
+    static EXE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    EXE.get_or_init(|| {
+        if let Some(p) = std::env::var_os("FORGE_GIT").filter(|p| !p.is_empty()) {
+            return PathBuf::from(p);
+        }
+        let on_path = std::env::var("PATH")
+            .unwrap_or_default()
+            .split(':')
+            .map(|d| Path::new(d).join("git"))
+            .find(|p| crate::tools::is_exe(p));
+        let Some(git) = on_path else {
+            return PathBuf::from("git");
+        };
+        if git != Path::new("/usr/bin/git") {
+            return git;
+        }
+        let fact = forge_home::Home::from_env()
+            .ok()
+            .map(|h| h.state_root().join("facts").join("git-exe"));
+        if let Some(f) = &fact
+            && let Ok(p) = std::fs::read_to_string(f)
+            && crate::tools::is_exe(Path::new(p.trim()))
+        {
+            return PathBuf::from(p.trim());
+        }
+        let real = Command::new(&git)
+            .arg("--exec-path")
+            .stderr(Stdio::null())
+            .output()
+            .ok()
+            .map(|o| PathBuf::from(String::from_utf8_lossy(&o.stdout).trim()))
+            .and_then(|d| {
+                // <prefix>/libexec/git-core → <prefix>/bin/git
+                let bin = d.parent()?.parent()?.join("bin/git");
+                crate::tools::is_exe(&bin).then_some(bin)
+            });
+        match real {
+            Some(r) => {
+                if let Some(f) = &fact {
+                    let _ = std::fs::create_dir_all(f.parent().unwrap_or(Path::new("/")));
+                    let _ = std::fs::write(f, r.display().to_string());
+                }
+                r
+            }
+            None => git,
+        }
+    })
+}
+
 /// The git CLI in a repository.
 pub struct Git {
     root: PathBuf,
@@ -483,7 +553,7 @@ impl Git {
     }
 
     fn cmd(&self) -> Command {
-        let mut c = Command::new("git");
+        let mut c = Command::new(git_exe());
         c.current_dir(&self.root)
             .env("GIT_OPTIONAL_LOCKS", "0")
             .args(["-c", "core.quotepath=off"]);

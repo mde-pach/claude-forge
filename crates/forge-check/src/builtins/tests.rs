@@ -17,6 +17,7 @@ use crate::change::diff_lines;
 pub(super) fn register(r: &mut Registry) {
     r.register_raw("test_edits", test_edits);
     r.register_raw("untested_change", untested_change);
+    r.register_raw("related_py_tests", related_py_tests);
 }
 
 /// Test blocks: pytest test functions (with their decorators) and classes; Vitest/Playwright
@@ -332,6 +333,62 @@ fn untested_change(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Wri
         "You changed behaviour in {list} without adding or updating a test; add a test that fails without your change, or say why none is needed."
     );
     // a finding of forge_once / forge_advise: its status is theirs
+    0
+}
+
+/// `forge_related_py_tests <files>`: the changed test files, and `tests/**/test_<module>.py` for
+/// each changed module; at Stop also the test files edited during the turn
+/// (`<snapshot>/touched`), even when the edit was reverted. Sorted, one per line.
+fn related_py_tests(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) -> i32 {
+    let root = inv.cwd.clone();
+    let is_test =
+        |b: &str| (b.starts_with("test_") || b.ends_with("_test.py")) && b.ends_with(".py");
+    let mut found = BTreeSet::new();
+    if inv.turn()
+        && let Some(t) = inv.snapshot.as_ref().and_then(|s| read(&s.join("touched")))
+    {
+        for f in t.lines() {
+            let base = f.rsplit('/').next().unwrap_or(f);
+            if is_test(base) && root.join(f).is_file() {
+                found.insert(f.to_string());
+            }
+        }
+    }
+    fn walk(dir: &Path, rel: &str, want: &str, out: &mut BTreeSet<String>) {
+        let Ok(rd) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let r = format!("{rel}/{name}");
+            if e.file_type().is_ok_and(|t| t.is_dir()) {
+                walk(&e.path(), &r, want, out);
+            } else if name == want {
+                out.insert(r);
+            }
+        }
+    }
+    for f in &inv.args {
+        if !f.ends_with(".py") {
+            continue;
+        }
+        let base = f.rsplit('/').next().unwrap_or(f);
+        if is_test(base) {
+            if root.join(f).is_file() {
+                found.insert(f.clone());
+            }
+        } else if base != "__init__.py" && base != "conftest.py" && root.join("tests").is_dir() {
+            walk(
+                &root.join("tests"),
+                "tests",
+                &format!("test_{base}"),
+                &mut found,
+            );
+        }
+    }
+    for f in found {
+        let _ = writeln!(out, "{f}");
+    }
     0
 }
 

@@ -401,3 +401,78 @@ fn run_example(rule: &Rule, stage: Stage, kind: &str, ex: &Example) -> Res {
         _ => Res::Fail(format!("failed the check: {v}")),
     }
 }
+
+/// §10.6: failing tests are re-run in the tree as it was at the start of the turn; only new
+/// failures fail the check, old ones are "unverified" (exit 3).
+#[test]
+fn failing_tests_compared_with_the_start_of_the_turn() {
+    let pytest = "#!/bin/sh\ncase \"$1\" in --version) echo 'pytest 8.3.0'; exit 0 ;; esac\necho 'E   OSError: connect ECONNREFUSED 127.0.0.1:5432'\necho 'FAILED tests/test_a.py::test_old - OSError'\nif grep -q BROKEN a.py; then echo 'FAILED tests/test_a.py::test_new - assert 1 == 2'; fi\nexit 1\n";
+    let head = files(&[
+        ("a.py", "x = 1\n"),
+        ("tests/test_a.py", "def test_old():\n    pass\n"),
+        (".venv/bin/pytest", pytest),
+    ]);
+    let r = Repo::new(&head);
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(
+        r.path().join(".venv/bin/pytest"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let id = "python/pytest/run";
+    write(r.path(), &files(&[("a.py", "x = 2\n")]));
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 3, "{v}");
+    assert!(
+        v["unverified"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|u| u.as_str().unwrap().contains("test_old")),
+        "{v}"
+    );
+    assert!(
+        findings_of(&v, id)[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Postgres refused the connection"),
+        "{v}"
+    );
+    write(r.path(), &files(&[("a.py", "x = 2  # BROKEN\n")]));
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 1, "{v}");
+    let m = findings_of(&v, id)[0]["message"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        m.starts_with(
+            "1 failing test(s) passed at the start of the turn:\n  tests/test_a.py::test_new"
+        ),
+        "{m}"
+    );
+}
+
+/// Advice (§10.7) is given once per turn and never fails the run alone (exit 4).
+#[test]
+fn advice_once_per_turn() {
+    let r = Repo::new(&files(&[("app/a.py", "def f():\n    return 1\n")]));
+    write(
+        r.path(),
+        &files(&[("app/a.py", "def f():\n    return 2\n")]),
+    );
+    let id = "python/pytest/untested-change";
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 4, "{v}");
+    let f = findings_of(&v, id);
+    assert_eq!(f[0]["severity"], "advice", "{v}");
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .starts_with("Advice: You changed behaviour in app/a.py"),
+        "{v}"
+    );
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 0, "reported once: {v}");
+}

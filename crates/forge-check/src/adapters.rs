@@ -248,7 +248,7 @@ pub fn build_args(adapter_args: &str, caller: &[String]) -> Vec<String> {
 /// `forge_tf_pick`: tofu when the repository uses OpenTofu (a `*.tofu` file, or a
 /// `.terraform.lock.hcl` naming registry.opentofu.org providers), else terraform.
 pub fn opentofu_pick(root: &Path) -> &'static str {
-    let out = Command::new("git")
+    let out = Command::new(crate::change::git_exe())
         .current_dir(root)
         .args([
             "ls-files",
