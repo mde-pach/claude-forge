@@ -3,3 +3,6 @@ description: AWS Lambda Node.js handlers.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@types/aws-lambda"}, {ecosystem: npm, name: aws-lambda}]
+context:
+  - text: |
+      AWS Lambda: handlers are `async (event, context) => result` and return or throw; callback handlers (a `Callback` parameter, `context.callbackWaitsForEmptyEventLoop`) are rejected (the Node.js 24 runtime does not run them).

@@ -37,48 +37,16 @@ fn check_corpus(set: &GuardSet, extra_silent: &[&str]) -> Vec<String> {
 }
 
 #[test]
-fn corpus_with_the_converted_rules() {
-    let failures = check_corpus(&converted_set(), FALSE_POSITIVES);
+fn corpus_with_the_pack_rules() {
+    let failures = check_corpus(&guard_set(), FALSE_POSITIVES);
     assert!(failures.is_empty(), "{failures:#?}");
-}
-
-#[test]
-fn corpus_with_the_pack_patterns_per_simple_command() {
-    // the pack patterns keep the corpus; the false positives below are those still left
-    // (a pattern reading flags anywhere in its command: pip install --dry-run)
-    let failures = check_corpus(&legacy_set(), &[]);
-    assert!(failures.is_empty(), "{failures:#?}");
-}
-
-#[test]
-fn prose_left_to_the_pack_patterns() {
-    let set = legacy_set();
-    let project = corpus_repo();
-    let left: Vec<&str> = FALSE_POSITIVES
-        .iter()
-        .copied()
-        .filter(|c| !decision(&set, c, project.path()).is_empty())
-        .collect();
-    // matching per simple command already fixes most; these need the structural form: a
-    // flag read anywhere in a command (pip's --dry-run is not seen), a flag pattern with no
-    // command (`rg -- --env-mode=loose`), `[^;&|]*` running into a heredoc body
-    assert_eq!(
-        left,
-        [
-            "pip install --dry-run -r requirements.txt",
-            "pip install --dry-run requests",
-            "uv pip install --dry-run httpx",
-            "rg -- --env-mode=loose src",
-            "cat > notes.md <<'EOF'\ngit push --force\nrm -rf /\ncat .env\nkubectl delete ns prod\nEOF",
-        ]
-    );
 }
 
 /// Quoted text and heredoc bodies are data: a command that triggers on its own triggers
 /// nothing as the argument of another command.
 #[test]
 fn quoted_and_heredoc_text_never_triggers() {
-    let set = converted_set();
+    let set = guard_set();
     let project = corpus_repo();
     let mut failures = Vec::new();
     for (cmd, _) in MUST_TRIGGER {
@@ -113,7 +81,7 @@ fn quoted_and_heredoc_text_never_triggers() {
 /// ...while a shell fed the same text runs it.
 #[test]
 fn text_fed_to_a_shell_is_parsed() {
-    let set = converted_set();
+    let set = guard_set();
     let project = corpus_repo();
     for cmd in [
         "sh <<'EOF'\ngit push --force\nEOF",
@@ -135,7 +103,7 @@ fn text_fed_to_a_shell_is_parsed() {
 
 #[test]
 fn reasons_are_neutral() {
-    let set = converted_set();
+    let set = guard_set();
     let project = corpus_repo();
     for (cmd, _) in MUST_TRIGGER {
         let out = set.evaluate(cmd, &ctx(project.path()));
@@ -148,7 +116,7 @@ fn reasons_are_neutral() {
             v.reason
         );
     }
-    // every description and target reason of the converted rules
+    // every description and target reason of the guard rules
     for r in set.rules() {
         assert!(
             forge_core::internals::find(&r.description).is_empty(),
@@ -166,7 +134,7 @@ fn reasons_are_neutral() {
 
 #[test]
 fn check_findings_in_reasons() {
-    let set = converted_set();
+    let set = guard_set();
     let project = corpus_repo();
     let reason = |cmd: &str| {
         set.evaluate(cmd, &ctx(project.path()))
@@ -188,7 +156,7 @@ fn check_findings_in_reasons() {
 
 #[test]
 fn pip_in_a_uv_project_is_denied() {
-    let set = converted_set();
+    let set = guard_set();
     let project = repo(&[("pyproject.toml", "[project]\nname='x'\n"), ("uv.lock", "")]);
     let uv = |cmd: &str| set.evaluate(cmd, &ctx(project.path()).with_python_pm(Some(PythonPm::Uv)));
     let deny = |cmd: &str| match uv(cmd) {
@@ -248,7 +216,7 @@ fn pip_in_a_uv_project_is_denied() {
 
 #[test]
 fn unparseable_input_is_handled_conservatively() {
-    let set = converted_set();
+    let set = guard_set();
     let project = corpus_repo();
     // an unterminated quote: the tokenizer still sees the push
     assert_eq!(

@@ -3,3 +3,6 @@ description: uv is the Python package manager.
 level: project
 detect:
   files_any: [uv.lock]
+context:
+  - text: |
+      The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).

@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::LazyLock;
 
-use forge_guard::{GuardCtx, GuardSet, converted};
+use forge_guard::{GuardCtx, GuardRule, GuardSet};
 use forge_packs::{Options, PackSet, Rule};
 
 pub static PACKS: LazyLock<PackSet> =
@@ -19,20 +19,15 @@ pub fn guard_rules() -> Vec<&'static Rule> {
         .collect()
 }
 
-/// All guard rules, converted to their structural form.
-pub fn converted_set() -> GuardSet {
+/// All guard rules of all packs.
+pub fn guard_set() -> GuardSet {
     GuardSet::new(
         guard_rules()
             .into_iter()
-            .filter_map(converted::rule)
+            .filter_map(GuardRule::from_pack)
             .collect(),
     )
-    .expect("converted rules compile")
-}
-
-/// All guard rules, their pack patterns matched per simple command.
-pub fn legacy_set() -> GuardSet {
-    GuardSet::from_pack_rules(guard_rules()).expect("pack patterns compile")
+    .expect("guard rules compile")
 }
 
 /// A repository holding `files` (and a `.git`).

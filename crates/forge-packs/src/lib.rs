@@ -8,7 +8,7 @@
 //! - local rules: `<repo>/.forge/rules/*.yaml`, standalone rules.
 //!
 //! A pack's id is its directory path; its directory holds `pack.yaml`, `rules/<name>.yaml`
-//! (the rule id is `<pack id>/<name>`), optional `context.md` and `init/`. `rules` and
+//! (the rule id is `<pack id>/<name>`) and an optional `init/`. `rules` and
 //! `init` are reserved; any other sub-directory is a child pack (with a pack.yaml, at its
 //! parent's level) or empty. A user-level pack has no `detect`.
 //!
@@ -147,7 +147,7 @@ fn load_local_tree(repo: &Path, opts: Options) -> Result<(Loaded, CacheOutcome),
     })
 }
 
-/// Every pack's `requires` names a loaded pack.
+/// Every pack's `requires`, and its context items' `when.packs`, name loaded packs.
 fn check_requires(
     packs: &IndexMap<String, Pack>,
     shown: impl Fn(&Pack) -> String,
@@ -158,6 +158,21 @@ fn check_requires(
                 file: shown(p),
                 kind: ErrorKind::Layout,
                 message: format!("pack {}: requires unknown pack {req}", p.id),
+            });
+        }
+        let named = p
+            .context
+            .iter()
+            .filter_map(|c| c.when.as_ref())
+            .flat_map(|w| &w.packs);
+        if let Some(unknown) = named.into_iter().find(|n| !packs.contains_key(*n)) {
+            return Err(LoadError {
+                file: shown(p),
+                kind: ErrorKind::Layout,
+                message: format!(
+                    "pack {}: a context item's when names unknown pack {unknown}",
+                    p.id
+                ),
             });
         }
     }

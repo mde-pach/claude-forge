@@ -4,22 +4,20 @@
 //! The command is parsed into the simple commands it runs ([`parse`], tree-sitter-bash), and
 //! rules are matched against each of them, never against the raw text: quoted arguments,
 //! commit messages and heredoc bodies are data, so `git commit -m "remove chmod 777"` or
-//! `gh pr create --body "… git push --force …"` trip nothing. A rule is written in one of
-//! three forms ([`rule`]): the current pack ERE, matched per simple command ([`ere`]), the
-//! structural form ([`rule::CommandMatch`]), or a built-in check ([`checks`]:
-//! `ephemeral-exec`, `package-add`, `python-pm`).
+//! `gh pr create --body "… git push --force …"` trip nothing. A rule's guard targets are
+//! written in the structural form ([`rule::CommandMatch`]), with or without a built-in check
+//! ([`checks`]: `ephemeral-exec`, `package-add`, `python-pm`).
 //!
 //! The answer is deny, ask or nothing. Its reason is the rule's description, plus "Here: …"
 //! when a check found something: no rule id, nothing about Forge itself.
 //!
-//! [`converted`] holds the structural form of every current pack guard rule; see
-//! `CONVERSION.md`.
+//! The rules are the packs' (`target: guard` in their YAML); `CONVERSION.md` records how the
+//! former whole-text patterns became structural forms.
 
 pub mod args;
 pub mod checks;
 pub mod converted;
 pub mod ctx;
-pub mod ere;
 mod lex;
 pub mod parse;
 pub mod rule;

@@ -1,14 +1,14 @@
 //! Guard rules: what a pack writes, and how it is matched.
 //!
-//! A guard target ([`GuardSpec`]) has a decision (`deny` or `ask`) and any of:
+//! A guard target ([`GuardSpec`], forge-packs' `GuardTarget`) has a decision (`deny` or `ask`)
+//! and one or both of:
 //!
-//! - `pattern`: the current pack form, a POSIX ERE matched per simple command ([`crate::ere`]);
 //! - `command`: the structural form, one [`CommandMatch`] or a list of them (any matches);
 //! - `check`: a built-in check ([`Check`]) that reads the whole parsed command line.
 //!
-//! The target matches when every filter it has matches (`pattern` and `command` each on some
-//! simple command); with a `check`, the check then decides, and its finding is the "Here: …"
-//! detail of the reason. A target with only a `check` runs it on every command line.
+//! The target matches when its `command` matches some simple command; with a `check`, the
+//! check then decides, and its finding is the "Here: …" detail of the reason. A target with
+//! only a `check` runs it on every command line.
 //!
 //! ```yaml
 //! - decision: deny
@@ -21,154 +21,18 @@
 //!   check: package-add
 //! ```
 
-use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 
 use crate::args::Args;
 use crate::parse::{Parsed, SimpleCommand, basename};
 use crate::text::Rendered;
 
-/// What a guard rule decides.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Decision {
-    Deny,
-    Ask,
-}
+pub use forge_packs::model::{CommandMatch, Decision, GuardCheck as Check, OneOrMany};
 
-impl From<forge_packs::model::Decision> for Decision {
-    fn from(d: forge_packs::model::Decision) -> Self {
-        match d {
-            forge_packs::model::Decision::Deny => Decision::Deny,
-            forge_packs::model::Decision::Ask => Decision::Ask,
-        }
-    }
-}
-
-/// The built-in checks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Check {
-    /// A package launcher that would fetch what it runs from a registry (§9.2).
-    EphemeralExec,
-    /// A command that adds a named package (read-only and lock-file installs pass).
-    PackageAdd,
-    /// pip into the project's environment where the project's packages are uv's.
-    PythonPm,
-}
-
-impl Check {
-    pub const ALL: &'static [Check] = &[Check::EphemeralExec, Check::PackageAdd, Check::PythonPm];
-}
-
-/// A value or a list of them.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OneOrMany<T> {
-    One(T),
-    Many(Vec<T>),
-}
-
-impl<T> OneOrMany<T> {
-    pub fn as_slice(&self) -> &[T] {
-        match self {
-            OneOrMany::One(t) => std::slice::from_ref(t),
-            OneOrMany::Many(v) => v,
-        }
-    }
-}
-
-/// One guard target.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GuardSpec {
-    pub decision: Decision,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pattern: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub command: Option<OneOrMany<CommandMatch>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub check: Option<Check>,
-    /// The reason for this target, in place of the rule's description.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-/// A simple command, described by its structure. Every field given must hold; lists hold
-/// when any of their entries does, except `flags_all`.
-///
-/// Names and values are matched whole; `*` in them matches any run of characters
-/// (`delete-*`, `python*`). A `sub` or `args_any` entry written `/regex/` is a regex
-/// searched in the positional instead. The command is matched at each of its command positions: the
-/// command itself, what a wrapper runs (`sudo`, `env`, `nice -n 5`, `timeout 5`…) and what a
-/// runner runs (`npx`, `bunx`, `bun x`, `npm exec`, `pnpm exec|dlx`, `uv run`, `uvx`,
-/// `poetry run`, `python <script>`, `python -m <module>`…): `name: prisma` matches
-/// `bunx prisma migrate reset`.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CommandMatch {
-    /// The command name (its basename: `./manage.py` is `manage.py`). Without a name, the
-    /// command's own name position is used.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<OneOrMany<String>>,
-    /// The first positionals, in order; each entry is alternatives separated by `|`
-    /// (`[stash, drop]`, `['up|refresh']`), or a `/regex/`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sub: Vec<String>,
-    /// Some positional after `sub` is one of these.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub args_any: Vec<String>,
-    /// The last positional matches this regex (searched).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_arg: Option<String>,
-    /// Some option is one of these: `--force` (and `--force=x`, not `--force-with-lease`),
-    /// `-f` (and the cluster `-uf`), `--require-approval=never` (or as two words).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flags_any: Vec<String>,
-    /// Every one of these options is given; an entry may be alternatives separated by `|`
-    /// (`['-d|--delete', '-f|--force']`).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flags_all: Vec<String>,
-    /// None of these options is given.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flags_none: Vec<String>,
-    /// Options that take the next word as their value, besides those Forge knows for the
-    /// command (`git -C <dir>`, `kubectl -n <ns>`…).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub value_flags: Vec<String>,
-    /// Some argument after the name matches this regex (searched).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub arg_regex: Option<String>,
-    /// `arg_regex` also searches the heredoc or here-string fed to the command (a program
-    /// it reads: `psql <<EOF`, `python3 - <<EOF`). Otherwise that text is data.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub stdin: bool,
-    /// The escape hatch: a regex searched in the command's words from its name, joined by
-    /// single spaces (a word holding whitespace is shown between single quotes).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub words: Option<String>,
-    /// Some option (a key: alternatives separated by `|`) has a value matching the regex
-    /// (searched): `{'-v|--volume': '^/:'}`. Options with a value in two words need to be
-    /// known to take one (`value_flags`).
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub option_values: BTreeMap<String, String>,
-    /// The command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`);
-    /// `NAME=value` requires that value (`*` wildcards allowed).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub env_any: Vec<String>,
-    /// The command position is reached through one of these wrappers (`sudo pip install`).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub wrapped_by: Vec<String>,
-    /// The command's output is piped into one of these commands (`*`: any).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pipe_to: Vec<String>,
-    /// The command writes, through a redirection, a file whose path matches this regex.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub redirect_to: Option<String>,
-}
+/// One guard target, as the pack writes it.
+pub type GuardSpec = forge_packs::model::GuardTarget;
 
 /// A regex compiled on first use.
 #[derive(Debug)]

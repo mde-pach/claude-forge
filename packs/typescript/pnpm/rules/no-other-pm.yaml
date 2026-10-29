@@ -4,7 +4,10 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(npm[[:space:]]+(install|i|ci|add)|yarn|bun[[:space:]]+(install|i|add))([[:space:];&|)]|$)'
+    command:
+      - {name: npm, sub: ['install|i|ci|add']}
+      - {name: yarn}
+      - {name: bun, sub: ['install|i|add']}
 examples:
   match: ["npm install lodash", "npm ci", "yarn", "yarn add zod", "bun add zod", "bun install"]
   no_match: ["pnpm add zod", "pnpm install --frozen-lockfile", "npm view zod version", "npm run build", "bun run build", "bunx tsc"]

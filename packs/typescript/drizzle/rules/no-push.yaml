@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])drizzle-kit[[:space:]]+push([[:space:];&|)]|$)'
+    command: {name: drizzle-kit, sub: [push]}
 examples:
   match: ["bunx drizzle-kit push", "npx drizzle-kit push --strict", "drizzle-kit push && bun dev"]
   no_match: ["bunx drizzle-kit generate", "bunx drizzle-kit migrate", "bunx drizzle-kit studio"]

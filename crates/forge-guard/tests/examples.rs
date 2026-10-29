@@ -9,7 +9,7 @@
 mod common;
 
 use common::*;
-use forge_guard::{GuardRule, GuardSet, Outcome, PythonPm, converted};
+use forge_guard::{GuardRule, GuardSet, Outcome, PythonPm};
 use forge_packs::model::{Example, Rule, Target};
 
 struct Case {
@@ -54,6 +54,19 @@ fn cases(rule: &Rule) -> Vec<Case> {
     out
 }
 
+/// The example project's `python.pm`, from its files as forge-detect reads them.
+fn python_pm(files: &[(String, String)]) -> Option<PythonPm> {
+    let dir = repo(
+        &files
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect::<Vec<_>>(),
+    );
+    let listed: Vec<String> = files.iter().map(|(a, _)| a.clone()).collect();
+    let facts = forge_detect::read_project_facts(dir.path(), &listed).ok()?;
+    PythonPm::from_fact(facts.root.fact(forge_detect::FACT_PYTHON_PM)?)
+}
+
 /// The failures of `guard` on the rule's examples.
 pub fn failures(rule: &Rule, guard: GuardRule) -> Vec<String> {
     let decisions: Vec<&str> = guard
@@ -65,7 +78,6 @@ pub fn failures(rule: &Rule, guard: GuardRule) -> Vec<String> {
         })
         .collect();
     let set = GuardSet::new(vec![guard]).expect("compiles");
-    let pm = rule.pack.starts_with("python/uv").then_some(PythonPm::Uv);
     let mut out = Vec::new();
     for c in cases(rule) {
         let files: Vec<(&str, &str)> = c
@@ -74,7 +86,7 @@ pub fn failures(rule: &Rule, guard: GuardRule) -> Vec<String> {
             .map(|(a, b)| (a.as_str(), b.as_str()))
             .collect();
         let dir = repo(&files);
-        let got = set.evaluate(&c.command, &ctx(dir.path()).with_python_pm(pm));
+        let got = set.evaluate(&c.command, &ctx(dir.path()).with_python_pm(python_pm(&c.files)));
         let ok = if c.must_match {
             got != Outcome::None && decisions.contains(&got.decision())
         } else {
@@ -94,47 +106,14 @@ pub fn failures(rule: &Rule, guard: GuardRule) -> Vec<String> {
 }
 
 #[test]
-fn every_guard_rule_is_converted() {
-    let ids: Vec<&str> = guard_rules().iter().map(|r| r.id.as_str()).collect();
-    assert_eq!(ids.len(), 58);
-    let conv = converted::all().expect("converted.yaml loads");
-    let missing: Vec<&&str> = ids.iter().filter(|i| !conv.contains_key(**i)).collect();
-    let unknown: Vec<&String> = conv.keys().filter(|k| !ids.contains(&k.as_str())).collect();
-    assert!(
-        missing.is_empty() && unknown.is_empty(),
-        "{missing:?} {unknown:?}"
-    );
-}
-
-#[test]
-fn converted_rules_pass_their_pack_examples() {
+fn guard_rules_pass_their_pack_examples() {
     let n: usize = guard_rules().iter().map(|r| cases(r).len()).sum();
     assert!(n > 600, "{n} examples");
-    let mut all = Vec::new();
-    for r in guard_rules() {
-        if let Some(g) = converted::rule(r) {
-            all.extend(failures(r, g));
-        }
-    }
-    assert!(all.is_empty(), "{all:#?}");
-}
-
-#[test]
-fn pack_patterns_per_simple_command_on_their_examples() {
-    // the pack patterns, matched per simple command, on the same examples: what fails is in
-    // CONVERSION.md ("works unchanged")
     let mut all = Vec::new();
     for r in guard_rules() {
         if let Some(g) = GuardRule::from_pack(r) {
             all.extend(failures(r, g));
         }
     }
-    let expected: Vec<&str> = include_str!("legacy-failures.txt")
-        .lines()
-        .filter(|l| !l.is_empty())
-        .collect();
-    assert_eq!(
-        all, expected,
-        "update tests/legacy-failures.txt and CONVERSION.md"
-    );
+    assert!(all.is_empty(), "{all:#?}");
 }

@@ -2,10 +2,8 @@
 
 use crate::checks::{self, Hit};
 use crate::ctx::GuardCtx;
-use crate::ere::Pattern;
 use crate::parse::{self, Dir, Parsed, Start};
 use crate::rule::{Check, Decision, GuardSpec, Matcher};
-use crate::text::Rendered;
 
 /// A guard rule: its id (never shown to the agent), the description that is the reason, the
 /// question a reviewer answers, its targets.
@@ -24,15 +22,7 @@ impl GuardRule {
             .enforce
             .iter()
             .filter_map(|t| match t {
-                forge_packs::model::Target::Guard(g) => Some(GuardSpec {
-                    decision: g.decision.into(),
-                    pattern: Some(g.pattern.clone()),
-                    command: None,
-                    check: g.check.map(|c| match c {
-                        forge_packs::model::GuardCheck::EphemeralExec => Check::EphemeralExec,
-                    }),
-                    reason: None,
-                }),
+                forge_packs::model::Target::Guard(g) => Some(g.clone()),
                 _ => None,
             })
             .collect();
@@ -84,7 +74,6 @@ pub struct Verdict {
 
 struct Target {
     decision: Decision,
-    pattern: Option<Pattern>,
     command: Vec<Matcher>,
     check: Option<Check>,
     reason: Option<String>,
@@ -109,9 +98,6 @@ impl GuardSet {
         let set = GuardSet::new_lazy(rules)?;
         for r in &set.rules {
             for t in &r.targets {
-                if let Some(p) = &t.pattern {
-                    p.check().map_err(|e| format!("{}: {e}", r.rule.id))?;
-                }
                 for m in &t.command {
                     m.check().map_err(|e| format!("{}: {e}", r.rule.id))?;
                 }
@@ -139,12 +125,6 @@ impl GuardSet {
                 };
                 targets.push(Target {
                     decision: t.decision,
-                    pattern: t
-                        .pattern
-                        .as_deref()
-                        .map(Pattern::new)
-                        .transpose()
-                        .map_err(|e| format!("{}: {e}", r.id))?,
                     command,
                     check: t.check,
                     reason: t.reason.clone(),
@@ -168,7 +148,7 @@ impl GuardSet {
         })
     }
 
-    /// The pack rules' guard targets, as written.
+    /// The pack rules' guard targets.
     pub fn from_pack_rules<'a>(
         rules: impl IntoIterator<Item = &'a forge_packs::Rule>,
     ) -> Result<Self, String> {
@@ -193,24 +173,10 @@ impl GuardSet {
     }
 
     pub fn evaluate_parsed(&self, parsed: &Parsed, command: &str, ctx: &GuardCtx) -> Outcome {
-        let mut pipelines: Option<Vec<Rendered>> = None;
         let mut hits: [Option<Option<Hit>>; 3] = [None, None, None];
         for &(i, j) in &self.order {
             let rule = &self.rules[i];
             let t = &rule.targets[j];
-            if let Some(p) = &t.pattern {
-                let ok = if p.pipeline {
-                    pipelines
-                        .get_or_insert_with(|| pipeline_texts(parsed))
-                        .iter()
-                        .any(|r| p.matches(r))
-                } else {
-                    parsed.commands.iter().any(|c| p.matches(&c.rendered))
-                };
-                if !ok {
-                    continue;
-                }
-            }
             if !t.command.is_empty()
                 && !parsed
                     .commands
@@ -256,29 +222,4 @@ impl GuardSet {
         }
         Outcome::None
     }
-}
-
-/// Each pipeline's stages joined by ` | `; a command in no pipeline is its own.
-fn pipeline_texts(parsed: &Parsed) -> Vec<Rendered> {
-    let mut out = Vec::new();
-    let mut seen = Vec::new();
-    for c in &parsed.commands {
-        match c.pipe {
-            None => out.push(c.rendered.clone()),
-            Some((id, _)) => {
-                if seen.contains(&id) {
-                    continue;
-                }
-                seen.push(id);
-                let mut stages: Vec<_> = parsed
-                    .commands
-                    .iter()
-                    .filter(|x| x.pipe.is_some_and(|(p, _)| p == id))
-                    .collect();
-                stages.sort_by_key(|x| x.pipe.map(|(_, s)| s));
-                out.push(Rendered::join(stages.iter().map(|x| &x.rendered)));
-            }
-        }
-    }
-    out
 }

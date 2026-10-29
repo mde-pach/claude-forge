@@ -2,86 +2,50 @@
 //! active pack with context. Their text depends only on the repository's content (they are
 //! committed and shared), never on machine state.
 //!
-//! A pack's context is a list of items `{id?, text, when?}`. Until the loader reads
-//! conditioned items from `pack.yaml`, a pack's `context.md` is one item with no condition.
-//! An item is rendered when its `when` holds; an item whose `id` an earlier pack (in id
-//! order) rendered is left out. A pack detected in only some workspace packages gets
+//! A pack's context is its pack.yaml's list of items `{id?, text, when?}`. An item is
+//! rendered when its `when` holds; an item whose `id` an earlier pack (in id order) rendered
+//! is left out. A pack detected in only some workspace packages gets
 //! `paths:` frontmatter, so Claude Code loads the file for those packages' files only.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use forge_detect::{Activation, DepFacts, ProjectFacts};
 use forge_packs::glob::glob_to_regex;
-use forge_packs::model::{DepSpec, OneOrMany, Pack};
-use serde::{Deserialize, Serialize};
+pub use forge_packs::model::{ContextItem, ContextWhen};
+use forge_packs::model::Pack;
 
 /// First lines of every rules file: the facts guide defaults, and an explicit instruction wins.
 pub const CONTEXT_INTRO: &str = "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n";
 
-/// A piece of a pack's context.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContextItem {
-    /// Items with the same id are rendered once.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<ContextWhen>,
-}
-
-/// When an item holds. Every condition given must hold, in one place the pack applies to (the
-/// root or a workspace package); `packs` is about the whole repository.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContextWhen {
-    /// Every dependency is declared, in its version range.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub deps: Vec<DepSpec>,
-    /// A file matches one of the globs.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub files: Vec<String>,
-    /// Every named fact has the value (or one of the values): `python.pm: uv`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub facts: BTreeMap<String, OneOrMany<String>>,
-    /// Every pack is active.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub packs: Vec<String>,
-}
-
-impl ContextWhen {
-    /// Whether it holds in one of `places`, with `active` the active packs.
-    pub fn holds(&self, places: &[&DepFacts], active: &Activation) -> bool {
-        if !self.packs.iter().all(|p| active.is_active(p)) {
-            return false;
-        }
-        places.iter().any(|f| self.holds_in(f))
+/// Whether an item's `when` holds in one of `places`, with `active` the active packs: one of
+/// its packs is active, and in one place every other condition holds.
+pub fn when_holds(w: &ContextWhen, places: &[&DepFacts], active: &Activation) -> bool {
+    if !w.packs.is_empty() && !w.packs.iter().any(|p| active.is_active(p)) {
+        return false;
     }
-
-    fn holds_in(&self, f: &DepFacts) -> bool {
-        self.deps.iter().all(|d| f.dep_matches(d))
-            && (self.files.is_empty()
-                || self.files.iter().any(|g| {
-                    let re = glob_to_regex(g);
-                    f.files.iter().any(|x| re.is_match(x).unwrap_or(false))
-                }))
-            && self.facts.iter().all(|(name, want)| {
-                f.fact(name)
-                    .is_some_and(|v| want.as_slice().iter().any(|w| w == v))
-            })
+    if places.is_empty() {
+        // no project facts (user level): only a condition on packs can hold
+        return w.deps.is_empty() && w.files.is_empty() && w.facts.is_empty();
     }
+    places.iter().any(|f| holds_in(w, f))
 }
 
-/// A pack's context items: today its context.md, as one unconditioned item.
-pub fn pack_context(pack: &Pack) -> Vec<ContextItem> {
-    pack.context
-        .iter()
-        .map(|text| ContextItem {
-            id: None,
-            text: text.clone(),
-            when: None,
+fn holds_in(w: &ContextWhen, f: &DepFacts) -> bool {
+    w.deps.iter().all(|d| f.dep_matches(d))
+        && (w.files.is_empty()
+            || w.files.iter().any(|g| {
+                let re = glob_to_regex(g);
+                f.files.iter().any(|x| re.is_match(x).unwrap_or(false))
+            }))
+        && w.facts.iter().all(|(name, want)| {
+            f.fact(name)
+                .is_some_and(|v| want.as_slice().iter().any(|w| w == v))
         })
-        .collect()
+}
+
+/// A pack's context items (its pack.yaml's `context`).
+pub fn pack_context(pack: &Pack) -> Vec<ContextItem> {
+    pack.context.clone()
 }
 
 /// The rules file name of a pack.
@@ -128,7 +92,7 @@ pub fn render_rules_files(
             }
             let holds = match &item.when {
                 None => true,
-                Some(w) => w.holds(&places, active),
+                Some(w) => when_holds(w, &places, active),
             };
             if !holds {
                 continue;

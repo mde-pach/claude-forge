@@ -4,3 +4,8 @@ level: project
 detect:
   files_any: [alembic.ini]
   deps_any: [{ecosystem: pypi, name: alembic}]
+context:
+  - text: |
+      Alembic with an async engine: `alembic/env.py` runs migrations through `run_async_migrations()` and `connection.run_sync()`. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
+  - text: |
+      Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.

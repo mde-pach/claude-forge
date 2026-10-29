@@ -205,11 +205,23 @@ fn walk(
         rules.push(rule);
     }
     let context_rel = join(dir, "context.md");
+    if place
+        .tree
+        .read(&context_rel)
+        .map_err(|e| place.err(&context_rel, ErrorKind::Io, e))?
+        .is_some()
+    {
+        return Err(place.err(
+            &context_rel,
+            ErrorKind::Layout,
+            "a pack's context is its pack.yaml's `context:` list (items `{id?, text, when?}`), not a context.md file",
+        ));
+    }
+    validate::validate_pack(&pack).map_err(|e| place.err(&pack_rel, ErrorKind::Schema, e))?;
     let init_rel = join(dir, "init");
     pack.dir = place.path(dir);
     pack.parent = parent.map(str::to_string);
     pack.children = Vec::new();
-    pack.context = place.text(&context_rel)?;
     pack.init_dir = place.tree.is_dir(&init_rel).then(|| place.path(&init_rel));
     pack.rules = rules;
     pack.source = place.source;
@@ -218,7 +230,6 @@ fn walk(
         &place.shown(&pack_rel),
         &text,
         &parsed.scalars,
-        &place.shown(&context_rel),
     ));
     out.packs.insert(id.to_string(), pack);
     if let Some(parent) = parent.and_then(|p| out.packs.get_mut(p)) {

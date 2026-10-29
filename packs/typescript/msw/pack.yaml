@@ -3,3 +3,6 @@ description: Mock Service Worker (msw) in tests.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: msw}]
+context:
+  - text: |
+      The msw server of the tests starts with `server.listen({ onUnhandledRequest: "error" })`, so a request no handler covers fails the test instead of reaching the network.

@@ -1,9 +1,12 @@
-//! The content lints' findings on the built-in packs, as a snapshot: fixing a pack (or
-//! adding a problem) shows up as a diff of `snapshots/lints__builtin_findings.snap`.
+//! The built-in packs have no content-lint findings: a finding fails the test, with the list.
 
 #[test]
-fn builtin_findings() {
+fn builtin_packs_have_no_findings() {
     let set =
         forge_packs::load_builtin(forge_packs::Options::default()).expect("built-in packs load");
-    insta::assert_snapshot!(forge_packs::lint::render(&set.findings));
+    assert!(
+        set.findings.is_empty(),
+        "forge packs lint:\n{}",
+        forge_packs::lint::render(&set.findings)
+    );
 }

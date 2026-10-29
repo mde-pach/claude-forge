@@ -1,0 +1,124 @@
+---
+source: crates/forge-packs/tests/lints.rs
+assertion_line: 8
+expression: "forge_packs::lint::render(&set.findings)"
+---
+packs/ai-models/rules/deprecated-model-ids.yaml:2: ai-models/deprecated-model-ids [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/ai-models/rules/model-ids.yaml: ai-models/model-ids [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/docker/compose/rules/datastore-loopback.yaml:2: docker/compose/datastore-loopback [enforcement-limit] description describes what is not enforced ("is not checked"); keep the norm and its reason
+packs/docker/rules/deps-before-copy.yaml:2: docker/deps-before-copy [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/docker/rules/image-size.yaml:2: docker/image-size [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/git/rules/editorconfig.yaml:2: git/editorconfig [forge-internals] description names Forge's internals: Forge
+packs/git/rules/generated-files.yaml:2: git/generated-files [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/git/rules/large-files.yaml:2: git/large-files [forge-internals] description names Forge's internals: .forge
+packs/git/rules/no-conflict-markers.yaml: git/no-conflict-markers [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/github-actions/pack.yaml:16: github-actions [enforcement-claim] context/4/text claims enforcement ("rejects"); state the norm and its reason
+packs/github-actions/pack.yaml:8: github-actions [enforcement-claim] context/0/text claims enforcement ("rejects"); state the norm and its reason
+packs/github-actions/rules/actionlint.yaml:2: github-actions/actionlint [forge-internals] description names Forge's internals: Forge
+packs/github-actions/rules/ci-ratchet.yaml:2: github-actions/ci-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/github-actions/rules/no-removed-jobs.yaml:2: github-actions/no-removed-jobs [forge-internals] description names Forge's internals: forge.yaml
+packs/github-actions/rules/zizmor-advice.yaml:2: github-actions/zizmor-advice [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/gitlab-ci/rules/ci-ratchet.yaml:2: gitlab-ci/ci-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/gitlab-ci/rules/pinned-images.yaml:2: gitlab-ci/pinned-images [enforcement-limit] description describes what is not enforced ("are not checked"); keep the norm and its reason
+packs/kubernetes/pack.yaml:9: kubernetes [enforcement-claim] context/0/text claims enforcement ("are linted by"); state the norm and its reason
+packs/kubernetes/pack.yaml:9: kubernetes [forge-internals] context/0/text names Forge's internals: Forge
+packs/kubernetes/rules/kube-linter.yaml:2: kubernetes/kube-linter [forge-internals] description names Forge's internals: Forge
+packs/kubernetes/rules/rbac-advice.yaml:2: kubernetes/rbac-advice [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/openapi/rules/config-ratchet.yaml:2: openapi/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/openapi/rules/no-breaking.yaml:2: openapi/no-breaking [forge-internals] description names Forge's internals: forge.yaml
+packs/python/anthropic/rules/no-budget-tokens.yaml:2: python/anthropic/no-budget-tokens [forge-internals] description names Forge's internals: models.tsv
+packs/python/anthropic/rules/no-version-header.yaml:2: python/anthropic/no-version-header [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/anthropic/rules/stream-long-requests.yaml:2: python/anthropic/stream-long-requests [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/asyncpg/rules/pool-acquire-ctx.yaml:2: python/asyncpg/pool-acquire-ctx [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/django/drf/rules/permission-classes.yaml:2: python/django/drf/permission-classes [enforcement-limit] description describes what is not enforced ("is not followed"); keep the norm and its reason
+packs/python/django/rules/no-template-unescape.yaml:2: python/django/no-template-unescape [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/django/rules/queryset-len.yaml:2: python/django/queryset-len [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/fastapi/rules/no-raw-request-body.yaml:2: python/fastapi/no-raw-request-body [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/fastapi/rules/testclient-lifespan.yaml:2: python/fastapi/testclient-lifespan [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/huggingface/rules/no-trust-remote-code.yaml:2: python/huggingface/no-trust-remote-code [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/langchain/rules/no-dangerous-flags.yaml:2: python/langchain/no-dangerous-flags [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/library/pack.yaml:12: python/library [forge-internals] context/2/text names Forge's internals: forge.yaml
+packs/python/library/rules/deprecation-shim.yaml:2: python/library/deprecation-shim [forge-internals] description names Forge's internals: forge.yaml
+packs/python/opentelemetry/rules/batch-processor.yaml:2: python/opentelemetry/batch-processor [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/pandas/rules/no-row-loops.yaml:2: python/pandas/no-row-loops [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/polars/rules/no-python-row-functions.yaml:2: python/polars/no-python-row-functions [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/psycopg/rules/placeholder-style.yaml:2: python/psycopg/placeholder-style [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/pydantic/rules/typeadapter-module-level.yaml:2: python/pydantic/typeadapter-module-level [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/pytest/pack.yaml:10: python/pytest [forge-internals] context/1/text names Forge's internals: Forge
+packs/python/pytest/rules/no-exitstatus.yaml:2: python/pytest/no-exitstatus [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/pytest/rules/no-hook-tamper.yaml:2: python/pytest/no-hook-tamper [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/redis/rules/no-keys.yaml:2: python/redis/no-keys [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/rules/config-ratchet.yaml:2: python/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/python/rules/no-new-suppressions.yaml:2: python/no-new-suppressions [cut-by-comment] description is cut at " #": YAML reads "No new suppression comments (# noqa," and drops "# ty: ignore, # type: ignore, # pyright: ignore) or coverage pragmas (# pragma: no cover, # pragma: no branch); a changed file may not have more than it had. Fix the finding instead." as a comment; quote the text
+packs/python/rules/typecheck.yaml:2: python/typecheck [forge-internals] description names Forge's internals: Forge
+packs/python/sqlalchemy/alembic/rules/data-migration-downgrade.yaml:2: python/sqlalchemy/alembic/data-migration-downgrade [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/sqlalchemy/alembic/rules/fk-index.yaml:2: python/sqlalchemy/alembic/fk-index [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/sqlalchemy/rules/fk-index.yaml:2: python/sqlalchemy/fk-index [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/sqlalchemy/rules/no-concurrent-session.yaml:2: python/sqlalchemy/no-concurrent-session [enforcement-limit] description describes what is not enforced ("is not followed"); keep the norm and its reason
+packs/python/sqlalchemy/rules/session-context.yaml:2: python/sqlalchemy/session-context [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/python/strawberry/rules/query-limits.yaml:2: python/strawberry/query-limits [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/release/rules/changeset-present.yaml:2: release/changeset-present [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/release/rules/no-hand-version.yaml:2: release/no-hand-version [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/safety/rules/forge-state-edit.yaml:2: safety/forge-state-edit [forge-internals] description names Forge's internals: Forge
+packs/safety/rules/forge-state-edit.yaml:2: safety/forge-state-edit [forge-internals] description names Forge's internals: forge-state
+packs/secrets/pack.yaml:11: secrets [enforcement-claim] context/2/text claims enforcement ("are scanned with"); state the norm and its reason
+packs/secrets/pack.yaml:11: secrets [forge-internals] context/2/text names Forge's internals: Forge
+packs/sql/rules/migration-lint.yaml:2: sql/migration-lint [forge-internals] description names Forge's internals: Forge
+packs/supply-chain/rules/audit-ignore-ratchet.yaml:2: supply-chain/audit-ignore-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/supply-chain/rules/new-npm-dep-exists.yaml:2: supply-chain/new-npm-dep-exists [forge-internals] description names Forge's internals: Forge
+packs/supply-chain/rules/new-pypi-dep-exists.yaml:2: supply-chain/new-pypi-dep-exists [forge-internals] description names Forge's internals: Forge
+packs/supply-chain/rules/no-tls-disable.yaml: supply-chain/no-tls-disable [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/terraform/pack.yaml:10: terraform [forge-internals] context/1/text names Forge's internals: forge.yaml
+packs/terraform/rules/misconfig.yaml:2: terraform/misconfig [forge-internals] description names Forge's internals: Forge
+packs/terraform/rules/no-unprotect.yaml:2: terraform/no-unprotect [forge-internals] description names Forge's internals: forge.yaml
+packs/terraform/rules/protection-ratchet.yaml:2: terraform/protection-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/terraform/rules/tflint.yaml:2: terraform/tflint [forge-internals] description names Forge's internals: Forge
+packs/typescript/anthropic/rules/no-budget-tokens.yaml:2: typescript/anthropic/no-budget-tokens [forge-internals] description names Forge's internals: models.tsv
+packs/typescript/anthropic/rules/no-forced-tool-choice.yaml:2: typescript/anthropic/no-forced-tool-choice [forge-internals] description names Forge's internals: models.tsv
+packs/typescript/aws-cdk/rules/removal-policy-destroy.yaml:2: typescript/aws-cdk/removal-policy-destroy [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/aws-s3/rules/no-public-acl.yaml:2: typescript/aws-s3/no-public-acl [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/bullmq/rules/worker-connection.yaml:2: typescript/bullmq/worker-connection [enforcement-limit] description describes what is not enforced ("is not followed"); keep the norm and its reason
+packs/typescript/bun/rules/release-age.yaml:2: typescript/bun/release-age [cut-by-comment] description is cut at " #": YAML reads "Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes; see Bun issues" and drops "#25305 and #45831 for its known gaps." as a comment; quote the text
+packs/typescript/cloudflare-workers/rules/no-pass-through-on-exception.yaml:2: typescript/cloudflare-workers/no-pass-through-on-exception [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/express/rules/no-async-handler.yaml:2: typescript/express/no-async-handler [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/express/rules/no-permissive-trust-proxy.yaml:2: typescript/express/no-permissive-trust-proxy [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/fastify/rules/no-permissive-trust-proxy.yaml:2: typescript/fastify/no-permissive-trust-proxy [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/graphql-codegen/pack.yaml:8: typescript/graphql-codegen [enforcement-claim] context/0/text claims enforcement ("rejects"); state the norm and its reason
+packs/typescript/hono/pack.yaml:10: typescript/hono [enforcement-limit] context/1/text describes what is not enforced ("are not checked"); keep the norm and its reason
+packs/typescript/jsonwebtoken/rules/no-decode-trust.yaml:2: typescript/jsonwebtoken/no-decode-trust [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/kysely/rules/write-with-where.yaml:2: typescript/kysely/write-with-where [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/langchain/rules/no-legacy-chains.yaml:2: typescript/langchain/no-legacy-chains [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/library/pack.yaml:10: typescript/library [forge-internals] context/1/text names Forge's internals: forge.yaml
+packs/typescript/library/rules/deprecation-shim.yaml:2: typescript/library/deprecation-shim [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/mongoose/rules/update-pipeline.yaml:2: typescript/mongoose/update-pipeline [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/nestjs/rules/express-path-syntax.yaml:2: typescript/nestjs/express-path-syntax [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/nestjs/rules/http-exception.yaml:2: typescript/nestjs/http-exception [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/nestjs/rules/validation-pipe-forbid-non-whitelisted.yaml:2: typescript/nestjs/validation-pipe-forbid-non-whitelisted [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/nextjs/cache-components/rules/no-unstable-cache.yaml:2: typescript/nextjs/cache-components/no-unstable-cache [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/nextjs/pack.yaml:20: typescript/nextjs [enforcement-limit] context/6/text describes what is not enforced ("not checked by"); keep the norm and its reason
+packs/typescript/nextjs/pack.yaml:20: typescript/nextjs [forge-internals] context/6/text names Forge's internals: Forge
+packs/typescript/opentelemetry/rules/init-before-imports.yaml:2: typescript/opentelemetry/init-before-imports [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/opentelemetry/rules/semconv-stable-keys.yaml:2: typescript/opentelemetry/semconv-stable-keys [forge-internals] description names Forge's internals: .forge
+packs/typescript/playwright/pack.yaml:12: typescript/playwright [forge-internals] context/2/text names Forge's internals: Forge
+packs/typescript/pnpm/rules/catalog.yaml:2: typescript/pnpm/catalog [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/pnpm/rules/overrides.yaml:2: typescript/pnpm/overrides [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/prettier/pack.yaml:9: typescript/prettier [enforcement-claim] context/0/text claims enforcement ("rejects"); state the norm and its reason
+packs/typescript/prisma/pack.yaml:23: typescript/prisma [forge-internals] context/7/text names Forge's internals: forge.yaml
+packs/typescript/prisma/rules/destructive-migration.yaml:11: typescript/prisma/destructive-migration [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/prisma/rules/no-network-in-transaction.yaml:8: typescript/prisma/no-network-in-transaction [enforcement-limit] description describes what is not enforced ("are not recognised"); keep the norm and its reason
+packs/typescript/prisma/rules/no-unscoped-bulk-write.yaml:2: typescript/prisma/no-unscoped-bulk-write [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/react-router/pack.yaml:10: typescript/react-router [enforcement-limit] context/1/text describes what is not enforced ("not checked by"); keep the norm and its reason
+packs/typescript/react-router/pack.yaml:10: typescript/react-router [forge-internals] context/1/text names Forge's internals: Forge
+packs/typescript/react/react-hook-form/rules/watch-all.yaml:2: typescript/react/react-hook-form/watch-all [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/rules/config-ratchet.yaml:2: typescript/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/testing-library/rules/no-container-queries.yaml:2: typescript/testing-library/no-container-queries [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/typeorm/rules/migration-present.yaml:2: typescript/typeorm/migration-present [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/typeorm/rules/synchronize-expression.yaml:2: typescript/typeorm/synchronize-expression [advice-prefix] description starts with "Advice": the prefix is written from the mode; start with the norm
+packs/typescript/vitest/pack.yaml:12: typescript/vitest [forge-internals] context/2/text names Forge's internals: Forge
+packs/typescript/vue/rules/no-setup-props-destructure.yaml:2: typescript/vue/no-setup-props-destructure [enforcement-limit] description describes what is not enforced ("is not detected"); keep the norm and its reason
+cut-by-comment: 2
+grep-scope: 3
+forge-internals: 41
+enforcement-claim: 6
+enforcement-limit: 10
+advice-prefix: 51

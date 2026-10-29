@@ -3,3 +3,6 @@ description: zustand stores in React.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: zustand, version: ">=5.0.0"}]
+context:
+  - text: |
+      zustand 5: a store hook compares selector results with `Object.is`; a selector returning a new object or array (`useStore((s) => ({ a: s.a }))`) re-renders forever ("Maximum update depth"). Select one value per call, or wrap the selector in `useShallow` from `zustand/react/shallow`.

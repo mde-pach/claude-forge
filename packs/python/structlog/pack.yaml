@@ -3,3 +3,8 @@ description: structlog structured logging.
 level: project
 detect:
   deps_any: [{ecosystem: pypi, name: structlog}]
+context:
+  - text: |
+      structlog. Events are constant strings and the data goes in key/value pairs: `log.info("user_login", user_id=uid)`, never an f-string, `.format()` or `%` in the event.
+  - text: |
+      `structlog.get_logger()` is typed `Any`: annotate the logger (`log: structlog.typing.FilteringBoundLogger = structlog.get_logger()`, or `structlog.stdlib.get_logger()` with the stdlib wrapper) so the checks see its calls.

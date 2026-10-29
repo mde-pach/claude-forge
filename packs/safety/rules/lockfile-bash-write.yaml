@@ -5,19 +5,15 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(sed|perl)[[:space:]]([^;&|]*[[:space:]])?(-[A-Za-z0-9]*i|--in-place)[^;&|]*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)([^A-Za-z0-9_.-]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(>|(^|[^A-Za-z0-9_-])tee[[:space:]]([^;&|]*[[:space:]])?)[[:space:]]*(\\?["''])?([^[:space:];&|<>"'']*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)([^A-Za-z0-9_.-]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(cp|mv|install|rsync)[[:space:]][^;&|]*[[:space:]](\\?["''])?([^[:space:];&|<>"'']*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)(\\?["''])?[[:space:]]*($|[;&|)])'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(dd[[:space:]][^;&|]*of=([^[:space:];&|]*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)|truncate[[:space:]][^;&|]*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json))([^A-Za-z0-9_.-]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(python[0-9.]*|node|bun|deno|ruby)[[:space:]].*((pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json).*(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["''])|(\.write\(|write_text|writeFile|Bun\.write|[(,][[:space:]]*\\?["'']w[+b]?\\?["'']).*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json))'
+    command:
+      - {name: [sed, perl], flags_any: [-i, --in-place], value_flags: [-e, --expression, -f, --file], arg_regex: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+      - {redirect_to: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+      - {name: [tee, truncate], args_any: ['/(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$/']}
+      - {name: [cp, mv, install, rsync], last_arg: '(^|/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+      - {name: dd, arg_regex: '^of=(.*/)?(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)$'}
+      - name: ['python*', 'pypy*', node, bun, deno, ruby]
+        stdin: true
+        arg_regex: '(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json).*(\.write\(|write_text|writeFile|Bun\.write|[(,]\s*["'']w[+b]?["''])|(\.write\(|write_text|writeFile|Bun\.write|[(,]\s*["'']w[+b]?["'']).*(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|uv\.lock|poetry\.lock|Cargo\.lock|deno\.lock|pdm\.lock|pixi\.lock|Pipfile\.lock|\.terraform\.lock\.hcl|flake\.lock|mise\.lock|go\.sum|Gemfile\.lock|composer\.lock|packages\.lock\.json)'
 examples:
   match:
     - "sed -i 's/0.25.4/0.25.5/' pnpm-lock.yaml"

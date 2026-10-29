@@ -43,7 +43,6 @@ fn loads_a_pack_tree() {
     let child = "id: acme/web\ndescription: Acme's web apps.\nlevel: project\n";
     let loaded = tree(&[
         ("acme/pack.yaml", PACK),
-        ("acme/context.md", "Acme writes tests first.\n"),
         ("acme/rules/no-todo.yaml", RULE),
         ("acme/rules/notes.txt", "not a rule"),
         ("acme/init/ruff.toml", "line-length = 100\n"),
@@ -63,8 +62,10 @@ fn loads_a_pack_tree() {
     write(
         dir.path(),
         &[
-            ("acme/pack.yaml", PACK),
-            ("acme/context.md", "ctx\n"),
+            (
+                "acme/pack.yaml",
+                &format!("{PACK}context:\n  - id: tests-first\n    text: |\n      ctx\n    when: {{facts: {{python.pm: uv}}, packs: [acme/web]}}\n"),
+            ),
             ("acme/rules/no-todo.yaml", RULE),
             ("acme/init/x", ""),
             ("acme/web/pack.yaml", child),
@@ -83,7 +84,10 @@ fn loads_a_pack_tree() {
     assert_eq!(ids, ["acme", "acme/web"]);
     let acme = &loaded.packs["acme"];
     assert_eq!(acme.children, ["acme/web"]);
-    assert_eq!(acme.context.as_deref(), Some("ctx\n"));
+    assert_eq!(acme.context.len(), 1);
+    assert_eq!(acme.context[0].id.as_deref(), Some("tests-first"));
+    assert_eq!(acme.context[0].text, "ctx\n");
+    assert_eq!(acme.context[0].when.as_ref().unwrap().packs, ["acme/web"]);
     assert_eq!(acme.dir, "p/acme");
     assert_eq!(acme.init_dir.as_deref(), Some("p/acme/init"));
     assert_eq!(acme.rules.len(), 1);
@@ -91,6 +95,21 @@ fn loads_a_pack_tree() {
     assert_eq!(acme.rules[0].pack, "acme");
     assert_eq!(acme.rules[0].hash.len(), 64);
     assert_eq!(loaded.packs["acme/web"].parent.as_deref(), Some("acme"));
+}
+
+#[test]
+fn context_is_pack_yaml_only() {
+    let err = error(&[("acme/pack.yaml", PACK), ("acme/context.md", "ctx\n")]);
+    assert_eq!(err.kind, ErrorKind::Layout);
+    assert!(err.to_string().contains("context:"), "{err}");
+    for (ctx, want) in [
+        ("[{text: x, when: {facts: {python.pm: conda}}}]", "has no value \"conda\""),
+        ("[{text: x, when: {facts: {os: linux}}}]", "unknown fact \"os\""),
+        ("[{id: a, text: x}, {id: a, text: y}]", "used twice"),
+    ] {
+        let err = error(&[("acme/pack.yaml", &format!("{PACK}context: {ctx}\n"))]);
+        assert!(err.to_string().contains(want), "{ctx}: {err}");
+    }
 }
 
 #[test]
@@ -497,10 +516,9 @@ fn lints_on_a_local_pack() {
     let cut = "id: acme/no-todo\ndescription: No TODO comments (# TODO, # FIXME) in code.\nscope: {language: any}\nenforce: [{target: grep, mode: forbid, pattern: TODO}]\n";
     let docs = "id: acme/docs\ndescription: \"Run forge apply after editing .forge/rules; see FORGE_DEBUG.\"\nscope: {language: any, files: [\"@docs\"]}\nenforce: [{target: grep, mode: forbid, pattern: TODO}]\n";
     let r = repo(&[
-        (".forge/packs/acme/pack.yaml", PACK),
         (
-            ".forge/packs/acme/context.md",
-            "Accepted findings go in forge.yaml (accept:).\n",
+            ".forge/packs/acme/pack.yaml",
+            &format!("{PACK}context:\n  - text: Accepted findings go in forge.yaml (accept:) # or ask\n  - text: kube-linter rejects it; this is not checked by Forge.\n"),
         ),
         (".forge/packs/acme/rules/no-todo.yaml", cut),
         (".forge/packs/acme/rules/docs.yaml", docs),

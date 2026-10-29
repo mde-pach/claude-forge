@@ -8,7 +8,7 @@
 
 use std::time::{Duration, Instant};
 
-use forge_guard::{GuardCtx, GuardRule, GuardSet, converted};
+use forge_guard::{GuardCtx, GuardRule, GuardSet};
 use forge_packs::Options;
 
 include!("../tests/common/corpus_data.rs");
@@ -51,7 +51,7 @@ fn main() {
 
     // cold
     let t0 = Instant::now();
-    let conv: Vec<GuardRule> = rules.iter().filter_map(|r| converted::rule(r)).collect();
+    let conv: Vec<GuardRule> = rules.iter().filter_map(|r| GuardRule::from_pack(r)).collect();
     let set = GuardSet::new_lazy(conv).expect("set");
     let built = t0.elapsed();
     let first = Instant::now();
@@ -61,19 +61,13 @@ fn main() {
     );
     let first = first.elapsed();
     println!(
-        "cold (converted rules: {} rules): build {:?}, first evaluate {:?}",
+        "cold ({} rules): build {:?}, first evaluate {:?}",
         set.rules().count(),
         built,
         first
     );
 
-    for (label, set) in [
-        ("converted (structural)", set),
-        (
-            "pack patterns per simple command",
-            GuardSet::from_pack_rules(rules.iter().copied()).expect("legacy"),
-        ),
-    ] {
+    for (label, set) in [("pack rules", set)] {
         for c in &commands {
             let _ = set.evaluate(c, &ctx);
         }

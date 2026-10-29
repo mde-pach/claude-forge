@@ -3,3 +3,6 @@ description: LangChain.js (legacy chains and agents).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: langchain}, {ecosystem: npm, name: "@langchain/core"}, {ecosystem: npm, name: "@langchain/classic"}]
+context:
+  - text: |
+      LangChain 1: agents are built with `createAgent` from `langchain` (and LangGraph); `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `AgentExecutor` and the like are legacy (`@langchain/classic`).

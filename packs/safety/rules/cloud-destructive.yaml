@@ -5,13 +5,18 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])aws[[:space:]]([^;&|]*[[:space:]])?([a-z0-9-]+[[:space:]]+)(delete-[a-z0-9-]+|terminate-instances|deregister-[a-z0-9-]+|rb|rm[[:space:]][^;&|]*--recursive)([[:space:];&|)]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(gcloud|az|doctl)[[:space:]]([^;&|]*[[:space:]])?delete([[:space:];&|)]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(gsutil[[:space:]]+(-m[[:space:]]+)?(rm|rb)|fly(ctl)?[[:space:]]+(apps|volumes?|postgres|machines?)[[:space:]]+(destroy|delete|remove|rm)|railway[[:space:]]+(down|volume[[:space:]]+delete|delete)|vercel[[:space:]]+(remove|rm)|heroku[[:space:]]+apps:destroy|netlify[[:space:]]+sites:delete|wrangler[[:space:]]+[a-z0-9:-]+([[:space:]]+[a-z0-9:-]+)?[[:space:]]+delete)([[:space:];&|)]|$)'
+    command:
+      - {name: aws, sub: ['*', 'delete-*|terminate-instances|deregister-*|rb']}
+      - {name: aws, sub: [s3, rm], flags_any: [--recursive]}
+      - {name: [gcloud, az, doctl], args_any: [delete]}
+      - {name: gsutil, sub: ['rm|rb']}
+      - {name: [fly, flyctl], sub: ['apps|volume|volumes|postgres|machine|machines', 'destroy|delete|remove|rm']}
+      - {name: railway, sub: ['down|delete']}
+      - {name: railway, sub: [volume, delete]}
+      - {name: vercel, sub: ['remove|rm']}
+      - {name: heroku, sub: ['apps:destroy']}
+      - {name: netlify, sub: ['sites:delete']}
+      - {name: wrangler, sub: ['*'], args_any: [delete]}
 examples:
   match:
     - "aws s3 rm s3://shop-assets --recursive"

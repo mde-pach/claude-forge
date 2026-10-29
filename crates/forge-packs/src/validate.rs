@@ -5,7 +5,10 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::model::{Language, Rule, Target};
+use crate::model::{
+    CheckTarget, Decision, Language, Level, Mode, OneOrMany, Pack, Rule, Stage, Target,
+    WhereCondition,
+};
 use crate::roles;
 
 /// The tool adapters (§16) a check command must ask through `forge_do <tool> <operation>`,
@@ -157,8 +160,134 @@ fn direct_dashed_tools(cmd: &str) -> Vec<&'static str> {
     out
 }
 
-/// Checks a rule's targets and roles (beyond the schema); the error is the TS message.
+/// The named facts `when.facts` and `detect.facts_any` may use, with their values (forge-detect
+/// computes them: `python.pm` from the packaging files, `js.pm` from the pinned manager or lock).
+pub const FACTS: &[(&str, &[&str])] = &[
+    ("python.pm", &["uv", "poetry", "pdm", "pipenv", "pip", "none"]),
+    ("js.pm", &["npm", "pnpm", "yarn", "bun", "none"]),
+];
+
+fn check_facts<'a>(
+    facts: impl IntoIterator<Item = (&'a String, &'a OneOrMany<String>)>,
+) -> Result<(), String> {
+    for (name, want) in facts {
+        let Some((_, values)) = FACTS.iter().find(|(n, _)| n == name) else {
+            let known: Vec<&str> = FACTS.iter().map(|(n, _)| *n).collect();
+            return Err(format!("unknown fact {name:?} (known: {})", known.join(", ")));
+        };
+        if let Some(v) = want.as_slice().iter().find(|v| !values.contains(&v.as_str())) {
+            return Err(format!(
+                "fact {name} has no value {v:?} (its values: {})",
+                values.join(", ")
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Checks a pack.yaml beyond its schema.
+pub fn validate_pack(pack: &Pack) -> Result<(), String> {
+    if pack.level == Level::User && pack.detect.is_some() {
+        return Err("invalid pack: a user-level pack has no detect".into());
+    }
+    if let Some(f) = pack.detect.as_ref().and_then(|d| d.facts_any.as_ref()) {
+        check_facts(f).map_err(|e| format!("invalid pack: detect.facts_any: {e}"))?;
+    }
+    let mut ids: Vec<&str> = Vec::new();
+    for (i, item) in pack.context.iter().enumerate() {
+        if let Some(w) = &item.when {
+            check_facts(&w.facts).map_err(|e| format!("invalid pack: /context/{i}/when: {e}"))?;
+        }
+        if let Some(id) = &item.id {
+            if ids.contains(&id.as_str()) {
+                return Err(format!(
+                    "invalid pack: /context/{i}: id {id:?} is used twice"
+                ));
+            }
+            ids.push(id);
+        }
+    }
+    Ok(())
+}
+
+/// A check target's fields that depend on each other.
+fn check_target_fields(c: &CheckTarget) -> Result<(), String> {
+    if c.rerun.is_some() && c.stage != Stage::Test {
+        return Err("invalid rule: rerun is for stage test".into());
+    }
+    if c.format_stdin.is_some() && !matches!(c.stage, Stage::Format | Stage::Lint) {
+        return Err("invalid rule: format_stdin is for stages format and lint".into());
+    }
+    if c.fix_lints.is_some() && (c.fix_run.is_none() || c.changed_run.is_none()) {
+        return Err("invalid rule: fix_lints needs fix_run and changed_run".into());
+    }
+    if c.config_files.is_some() && c.stage != Stage::Lint {
+        return Err("invalid rule: config_files is for stage lint".into());
+    }
+    Ok(())
+}
+
+fn where_ok(w: &WhereCondition) -> bool {
+    match w {
+        WhereCondition::Deprecated(b) => *b,
+        WhereCondition::Not(inner) => where_ok(inner),
+        _ => true,
+    }
+}
+
+/// The checks of a rule's fields that depend on each other.
+fn check_fields(rule: &Rule) -> Result<(), String> {
+    if rule.review.is_some()
+        && !rule.enforce.iter().any(|t| match t {
+            Target::Guard(g) => g.decision == Decision::Ask,
+            Target::Check(c) => c.run.trim() == "forge_test_edits",
+            _ => false,
+        })
+    {
+        return Err("invalid rule: review is the question for an ask: it needs a guard ask target or the test-edit check".into());
+    }
+    for deps in [
+        rule.when.as_ref().map(|w| &w.deps),
+        rule.examples.as_ref().and_then(|e| e.deps.as_ref()),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if let Some(d) = deps.iter().find(|d| d.version.is_none()) {
+            return Err(format!(
+                "invalid rule: dependency {} needs a version",
+                d.name
+            ));
+        }
+    }
+    for t in &rule.enforce {
+        match t {
+            Target::Guard(g) if g.command.is_none() && g.check.is_none() => {
+                return Err("invalid rule: a guard target needs command or check".into());
+            }
+            Target::AstGrep(a) if a.where_.is_some() || a.needs.is_some() => {
+                if a.where_.is_none() {
+                    return Err("invalid rule: needs requires where".into());
+                }
+                if !matches!(a.mode, Mode::Forbid | Mode::Advise) {
+                    return Err("invalid rule: a where target's mode is forbid or advise".into());
+                }
+                if !a.where_.iter().flatten().all(|(_, w)| where_ok(w)) {
+                    return Err(
+                        "invalid rule: where deprecated is written `deprecated: true`".into(),
+                    );
+                }
+            }
+            Target::Check(c) => check_target_fields(c)?,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Checks a rule's targets and roles (beyond the schema).
 pub fn validate_rule(rule: &Rule) -> Result<(), String> {
+    check_fields(rule)?;
     for t in &rule.enforce {
         match t {
             Target::Check(c) => {

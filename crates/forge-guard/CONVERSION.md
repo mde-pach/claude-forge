@@ -1,12 +1,13 @@
 # Converting the guard rules
 
-The 58 built-in guard rules (`grep -rl "target: guard" packs`) are written as a POSIX ERE run on
-the whole JSON-escaped command. forge-guard matches them per simple command instead
-(`src/ere.rs`), and proposes a structural form for each (`src/converted.yaml`, read by
-`converted::rule`; the field reference is `CommandMatch` in `src/rule.rs`). The packs are not
-edited yet; the loader can carry the structural form once the schema accepts it.
+The 58 built-in guard rules were written as a POSIX ERE run on the whole JSON-escaped command.
+They are now written in the structural form (`command:`, the field reference is `CommandMatch`
+in forge-packs' model) or as a built-in `check:`, in the packs themselves; the loader refuses a
+raw `pattern` on a guard target. `safety/forge-state` was dropped (its row below). This file
+records how each pattern became its structural form; the corpus (`tests/corpus.rs`) and every
+rule's pack examples (`tests/examples.rs`) run against the packs.
 
-## How a pack ERE is matched per simple command
+## How a pack ERE was matched per simple command (before the conversion)
 
 - The command line is parsed into simple commands. Each one is shown as one line: its
   assignments, words (quoting removed), redirections (`> target`) and input (`<< 'body'`),
@@ -22,9 +23,7 @@ edited yet; the loader can carry the structural form once the schema accepts it.
 - An ERE with an escaped pipe `\|` is matched against the whole pipeline: its stages joined
   by ` | `.
 
-All 58 rules pass their own pack examples this way (`tests/examples.rs`,
-`pack_patterns_per_simple_command_on_their_examples`). They also pass the §14.3 corpus
-(`tests/corpus.rs`).
+All 58 rules passed their own pack examples and the §14.3 corpus this way.
 
 Matching per simple command fixes the reported false positives:
 
@@ -50,8 +49,8 @@ regex cannot tell where an argument ends:
 | Need a built-in check: `python-pm`, `package-add`, `ephemeral-exec` (its pattern was only a pre-filter) | 3 |
 | Dropped: `safety/forge-state` (see its row) | 1 |
 
-The structural forms pass every pack example (`converted_rules_pass_their_pack_examples`) and
-the corpus with its false-positive cases (`corpus_with_the_converted_rules`).
+The structural forms pass every pack example (`guard_rules_pass_their_pack_examples`) and
+the corpus with its false-positive cases (`corpus_with_the_pack_rules`).
 
 Key for the "Per command" column:
 

@@ -4,10 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*checkout([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(--|\.)([[:space:];&|)]|$)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*restore([[:space:]]+([^-[:space:];&|][^[:space:];&|]*|-[^-S[:space:];&|][^[:space:];&|]*|--[^s[:space:];&|][^[:space:];&|]*|--?))+[[:space:]]*([;&|)]|$)'
+    command:
+      - {name: git, sub: [checkout], args_any: ['.']}
+      - {name: git, sub: [checkout], arg_regex: '^--$'}
+      - {name: git, sub: [restore], flags_none: [--staged, -S]}
+      - {name: git, sub: [restore], flags_any: [--worktree, -W]}
 examples:
   match: ["git checkout -- .", "git checkout .", "git checkout HEAD -- src/app.py", "git restore src/app.py", "git restore .", "cd x && git restore --worktree a.py"]
   no_match: ["git checkout -b feat", "git checkout main", "git restore --staged src/app.py", "git restore -S a.py", "git checkout-index -a"]

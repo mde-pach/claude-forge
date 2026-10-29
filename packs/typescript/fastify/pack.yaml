@@ -3,3 +3,10 @@ description: Fastify 5 plugins and route schemas.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: fastify, version: ">=5.0.0"}]
+context:
+  - text: |
+      Fastify 5: a plugin is `async (instance, opts)` or `(instance, opts, done)`, never async with `done`.
+  - text: |
+      Route schemas (`body`, `querystring`, `params`, `headers`, `response.<code>`) are full JSON Schemas (`{ type: "object", properties: … }`) or a schema builder's output; the v4 shorthand property map is removed.
+  - text: |
+      `trustProxy` is a hop count, the proxy addresses or a function, not `true` (advice).
