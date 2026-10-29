@@ -1,16 +1,27 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `terraform`
+
 ### terraform
 
-Detected by `**/*.tf` or `**/*.tofu`. The grep rules apply to those files; checks run the project's Terraform CLI, a system tool (§13.5): `tofu` in an OpenTofu project, else `terraform`.
+Terraform and OpenTofu modules, formatted, validated and linted.
 
-| Rule | Targets |
-|---|---|
-| `terraform/protection-ratchet` | `grep` no-decrease: `prevent_destroy = true`, `deletion_protection = true` |
-| `terraform/no-unprotect` | `grep` forbid: `force_destroy = true`, `skip_final_snapshot = true`, `deletion_protection = false` |
-| `terraform/no-new-suppressions` | `grep` no-increase: `#trivy:ignore:`, `#tfsec:ignore:`, `#checkov:skip=`, `# tflint-ignore:` (also after `//`) |
-| `terraform/state-not-committed` | `check` lint: `git ls-files -co --exclude-standard` lists no `*.tfstate`, `*.tfstate.backup`, `crash.log` or file under `.terraform/`; a `.terraform.lock.hcl` next to a tracked `*.tf` / `*.tofu` is not git-ignored |
-| `terraform/fmt` | `check` format: `terraform fmt -check -recursive`; changed files: `terraform fmt {files}` (on `*.tf`, `*.tfvars`, `*.tofu`) |
-| `terraform/validate` | `check` typecheck: `forge_tf_validate`: `validate -no-color` in each directory of a changed `.tf` / `.tofu` file; errors as `path:line: Error: summary`; a directory validate cannot judge before `init` (its output asks for `terraform init`: providers or modules not installed) is `skipped` |
-| `terraform/tflint` | `check` lint: `forge_tflint`: pinned tflint (§13.5) `--chdir <dir> --format compact` per changed module, with a config of Forge's own (`plugin "terraform"` with `preset = "recommended"`, plus the pinned `aws` 0.49.0 / `google` 0.40.0 / `azurerm` 0.32.0 ruleset when a `.terraform.lock.hcl` names that `hashicorp` provider, itself a pinned release binary (§13.5, sha256-checked; not `tflint --init`, which calls GitHub's rate-limited API), linked into a plugin directory of the run's own; offline: `skipped`; tflint runs with `TMPDIR=/tmp`, its plugins' sockets needing a short path); every issue counts, whatever tflint's severity |
-| `terraform/misconfig` | `check` lint: `forge_trivy_config`: pinned trivy (§13.5) `config --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --ignorefile <empty>` on each changed module and on its base copy (the directory's files with the change undone); a (check, resource) pair new in the change is a finding at line 0. Not with `--all` |
+Detected by: a file matching `**/*.tf`, `**/*.tofu`.
 
-context.md: `moved {}`, `removed {}` and `import {}` blocks instead of `terraform state mv|rm` and CLI import; protections are kept; suppressions and state as above.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Terraform / OpenTofu. Refactors use `moved {}` blocks, resources leave state through `removed {}` blocks and existing resources come in through `import {}` blocks, so the plan shows them; `terraform state mv|rm` and the CLI `import` ask first.
+- `prevent_destroy = true` and `deletion_protection = true` are never removed, and `force_destroy = true`, `skip_final_snapshot = true` and `deletion_protection = false` are rejected; decommissioning a protected resource is the user's decision: ask them.
+- Inline scanner suppressions (`#trivy:ignore:`, `#tfsec:ignore:`, `#checkov:skip=`, `# tflint-ignore:`) may not increase.
+- State (`*.tfstate`, `*.tfstate.backup`), `.terraform/` and `crash.log` are never committed; `.terraform.lock.hcl` is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `terraform/fmt` | Terraform and OpenTofu files are formatted (terraform fmt; tofu fmt in an OpenTofu project). | any: `**/*.tf`, `**/*.tfvars`, `**/*.tofu` | check format: `forge_do terraform format-check` |
+| `terraform/misconfig` | A change introduces no new HIGH or CRITICAL Terraform misconfiguration found by trivy (public buckets, ingress open to the world, unencrypted storage); a finding is fixed, not added to .trivyignore. | any: `**/*.tf`, `**/*.tofu` | check lint: `forge_trivy_config` |
+| `terraform/no-new-suppressions` | No new inline IaC scanner suppressions (#trivy:ignore:, #tfsec:ignore:, #checkov:skip=, # tflint-ignore:); a changed file may not have more than it had. Fix the finding instead. | any: `**/*.tf`, `**/*.tofu` | grep no-increase `(#\|//)[[:space:]]*(trivy:ignore:\|tfsec:ignore:\|checkov:skip=\|tflint-ignore:)` |
+| `terraform/no-unprotect` | No force_destroy = true, skip_final_snapshot = true or deletion_protection = false: they clear the way for destroying data. An intended decommission is the user's decision: ask them. | any: `**/*.tf`, `**/*.tofu` | grep forbid `(force_destroy\|skip_final_snapshot)[[:space:]]*=[[:space:]]*true\|deletion_protection[[:space:]]*=[[:space:]]*false` |
+| `terraform/protection-ratchet` | Deletion protections are not removed: a changed file may not have fewer prevent_destroy = true or deletion_protection = true than it had. An intended decommission is the user's decision: ask them. | any: `**/*.tf`, `**/*.tofu` | grep no-decrease `(prevent_destroy\|deletion_protection)[[:space:]]*=[[:space:]]*true` |
+| `terraform/state-not-committed` | No Terraform state is committed or added (*.tfstate, *.tfstate.backup, .terraform/, crash.log): state holds every secret Terraform manages; keep it in a remote backend. A .terraform.lock.hcl next to the configuration is committed, not git-ignored. | any | check lint: a shell script of 6 lines (when `**/*.tf`, `**/*.tofu`, `**/*.tfstate`, `**/*.tfstate.backup`, `**/.terraform/**`, `**/crash.log`, `**/.terraform.lock.hcl` or `**/.gitignore` changes) |
+| `terraform/tflint` | Changed modules pass tflint's terraform ruleset (recommended preset: required_version, required_providers, pinned module sources and versions, typed variables, no unused declarations, no deprecated syntax), plus the aws, google or azurerm ruleset when the lock file lists that provider (invalid instance types, engines, regions); rules are not disabled in .tflint.hcl to silence a finding. | any: `**/*.tf`, `**/*.tofu` | check lint: `forge_tflint` |
+| `terraform/validate` | Each changed Terraform or OpenTofu module passes validate (arguments and attributes checked against the provider schemas); a module validate cannot judge before init (providers or modules not installed) is reported skipped. | any: `**/*.tf`, `**/*.tofu` | check typecheck: `forge_tf_validate` |

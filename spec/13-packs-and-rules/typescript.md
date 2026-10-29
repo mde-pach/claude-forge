@@ -1,925 +1,1439 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `typescript`
+
 ### typescript
 
-| Rule | Targets |
-|---|---|
-| `typescript/a11y` | `tool` biome `lint/a11y/useAltText`, `lint/a11y/useButtonType` in `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro` and `.html` files (snippet: `html.experimentalFullSupportEnabled` and the whole `a11y` group at error; examples in each file type, §11) |
-| `typescript/format-lint` | `check` lint, on TypeScript and JavaScript files and the `.vue`, `.svelte`, `.astro` and `.html` files Biome also reads (their templates with `html.experimentalFullSupportEnabled`): `run: biome ci .`, `changed_run: biome check --write {files}`, `format_stdin: biome format --stdin-file-path={file}`; no `fix_run`: `changed_run` applies Biome's safe fixes itself (removing unused imports or variables is unsafe, so it is not done) |
-| `typescript/typecheck` | `check` typecheck: `run: tsc --noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile "$(forge_state_file tsc.tsbuildinfo)"` (plain diagnostics; incremental, TypeScript ≥ 4.0, with the build info under the repository root's `.forge/state/`, as an absolute path, one file per workspace package (`<package dir, / as ->.tsc.tsbuildinfo`), so a project's own or composite build info is never written and a package never gets a `.forge/` of its own) |
-| `typescript/no-implicit-any` | `tool` tsc: expects `TS7006` on an untyped parameter (`noImplicitAny`, part of `strict`) |
-| `typescript/strict-null-checks` | `tool` tsc: expects `TS18047` on a possibly-null access (`strictNullChecks`) |
-| `typescript/strict-function-types` | `tool` tsc: expects `TS2322` on a parameter-bivariant assignment (`strictFunctionTypes`) |
-| `typescript/no-explicit-any` | as §6.3 |
-| `typescript/no-ts-ignore` | `tool` biome `lint/suspicious/noTsIgnore`; `ast-grep` forbid comment `// @ts-ignore` or `/* @ts-ignore */` |
-| `typescript/no-non-null-assertion` | `tool` biome `lint/style/noNonNullAssertion`; `ast-grep` forbid `non_null_expression` |
-| `typescript/no-double-assertion` | `ast-grep` forbid: `$X as unknown as $T`, `$X as any as $T` |
-| `typescript/no-ts-nocheck` | `ast-grep` forbid comment `@ts-nocheck` |
-| `typescript/ts-expect-error-reason` | `ast-grep` forbid comment `@ts-expect-error` with nothing after it |
-| `typescript/no-deprecated` | `when` typescript `>=5.0.0` (the project's TypeScript answers); `ast-grep` forbid, `where` `{deprecated: true}` (§15.7) on every identifier, property, type and shorthand name: a use of a declaration marked `@deprecated` (the project's, a library's, `@types/node`'s: `url.parse`, `new Buffer()`, React's `ElementRef`) as TypeScript reports it, including the overload a call resolves to, and an object literal key of a deprecated property |
-| `typescript/no-ignore-deprecations` | `check` lint: no `"ignoreDeprecations"` in tracked `tsconfig*.json`, `when_changed: [tsconfig*.json]` |
-| `typescript/no-focused-tests` | `tool` biome `lint/suspicious/noFocusedTests`; `ast-grep` forbid `it.only(…)`, `test.only(…)`, `describe.only(…)`, `test.describe.only(…)` in test files and `e2e/**` |
-| `typescript/no-eval` | `tool` biome `lint/security/noGlobalEval`; `ast-grep` forbid `eval(…)`, `globalThis.eval(…)`, `window.eval(…)` |
-| `typescript/unchecked-index` | `tool` tsc: expects `TS18048` on an unchecked array element (`noUncheckedIndexedAccess`; snippet adds it to `strict`) |
-| `typescript/no-new-suppressions` | `grep` no-increase: `biome-ignore`, `eslint-disable`, `oxlint-disable` (every form), `deno-lint-ignore`, `prettier-ignore`, `@ts-expect-error`, and the coverage hints `istanbul ignore`, `c8 ignore`, `v8 ignore` (suppression budget; `@ts-ignore` and `@ts-nocheck` are forbidden outright) |
-| `typescript/no-empty-block` | `tool` biome `lint/suspicious/noEmptyBlockStatements` |
-| `typescript/no-swallowed-catch` | `ast-grep` forbid: a `catch` that neither throws nor uses its error; `.catch(() => {})`, `.catch(() => undefined)`, `.catch(() => null)` |
-| `typescript/no-console` | `tool` biome `lint/suspicious/noConsole` (snippet allows `warn` and `error`) |
-| `typescript/no-unused` | `tool` biome `lint/correctness/noUnusedImports`, `lint/correctness/noUnusedVariables` |
-| `typescript/no-secrets` | `tool` biome `lint/security/noSecrets` (snippet: error, `entropyThreshold` 50, off for tests and generated files) |
-| `typescript/no-unused-suppressions` | `check` lint: `biome lint` output has no `suppressions/unused` diagnostic (Biome reports it only as a warning, and no setting raises it) |
-| `typescript/no-stub` | `ast-grep` forbid, not in `*.d.ts`: a `throw` whose message starts with "Not implemented", "unimplemented" or "TODO"; a named function or method (not a constructor) whose body is empty or only comments |
-| `typescript/no-placeholder-comment` | `grep` forbid (case-insensitive): the Python list, after `//`, `/*` or `*` |
-| `typescript/config-files` | `permission` ask: `Edit(**/biome.json)`, `Edit(**/biome.jsonc)`, `Edit(**/tsconfig*.json)`, `Edit(**/eslint.config.*)`, `Edit(**/.oxlintrc.json)`, `Edit(**/deno.json)`, `Edit(**/deno.jsonc)`, `Edit(**/.prettierrc*)`, `Edit(**/prettier.config.*)`, `Edit(**/pnpm-workspace.yaml)`, `Edit(**/.npmrc)`, `Edit(**/.yarnrc.yml)`, `Edit(**/bunfig.toml)`, `Edit(**/turbo.json)` (code configs are not ratcheted, §10.4) |
-| `typescript/config-ratchet` | `check` lint: `forge_ratchet bun ratchet.mjs` (§10.4), `when_changed`: Biome, tsconfig and `package.json` files |
-| `typescript/node-version-file` | `check` lint: `forge_helper bun node_version.mjs` (§13.4), when `.nvmrc`, `.node-version` or `package.json` changed: the root `.nvmrc` / `.node-version` is a version (an alias such as `lts/*` is reported) satisfying `package.json` `engines.node` and `devEngines.runtime` (`name: node`) ranges; a partial version (`22`) stands for the newest release of its line (what nvm, fnm and setup-node install) |
-| `typescript/lockfile-updated` | `check` lint: `forge_lockfile_updated`: a `package.json` whose `dependencies`, `devDependencies` or `optionalDependencies` changed since the base needs its lock file (`pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `bun.lock`; next to it, else at the root) to have a changed line naming each changed dependency; `bun.lock` is skipped when `typescript/bun/lock-sync` is active (`forge_check_active`); blocks once per turn (`forge_once`) |
-| `typescript/env-example` | `check` lint: `forge_env_example ts`, as `python/env-example` for the UPPER_CASE keys of a Zod env schema (t3-env `createEnv`, or `z.object(…)` with `process.env`) whose value is a `z.` chain; a key with `.default()`, `.optional()` or `.catch()` counts as having a default |
-| `typescript/no-html-sinks` | `ast-grep` forbid, `where` the receiver is `typescript` `Element`, `Document`, `Range` or `ShadowRoot` (lib.dom): `innerHTML` / `outerHTML` assigned anything but a string or a template without substitutions; `insertAdjacentHTML`, `write`, `writeln`, `createContextualFragment`, `setHTMLUnsafe` whose last argument is not one |
-| `typescript/postmessage-origin` | `ast-grep` forbid, `where` the receiver is `typescript` `Window`: `postMessage(…)` with a `"*"` argument or `{targetOrigin: "*"}` |
-| `typescript/iframe-sandbox` | `tool` biome `lint/nursery/noUnsafeIframeSandbox` (tsx): no `sandbox` with both `allow-scripts` and `allow-same-origin` |
-| `typescript/cors-credentials-wildcard` | `ast-grep` forbid: an options object with `credentials: true` and `origin` `"*"`, `true` or a function that returns its first parameter (as its body, with a `??` / `||` fallback, or in a `return`), passed to a function declared (§15.6) by `cors` or as `hono`'s `cors`, as the second argument of `.register()` with a first argument declared by `@fastify/cors`, to `.enableCors()` on a value of type `@nestjs/common`'s `INestApplication`, or as `cors` in the second argument of `create()` on `@nestjs/core`'s `NestFactory` |
-| `typescript/no-hardcoded-session-secret` | `ast-grep` forbid, not in tests: a string or a template without `${}` (or an array of them) as `secret` in the first argument of a function declared (§15.6) as `express-session`'s `session`, `better-auth`'s `betterAuth` or `hono`'s `jwt`, or in the second argument of `.register()` with a first argument declared by `@fastify/cookie` or `@fastify/session`; as the second argument of `jsonwebtoken`'s or `hono`'s `sign` / `verify`; as the first argument of a function declared by `cookie-parser` |
-| `typescript/verbatim-imports` | `tool` biome `lint/style/useImportType`, `lint/style/useExportType` (snippet: error; recommended has them as warnings) |
-| `typescript/implicit-returns` | `tool` tsc: expects `TS7030` (`noImplicitReturns`) |
-| `typescript/no-banned-types` | `tool` biome `lint/complexity/noBannedTypes` (snippet: error) |
-| `typescript/no-const-enum` | `tool` biome `lint/suspicious/noConstEnum` (snippet: error) |
-| `typescript/no-object-literal-assertion` | `ast-grep` forbid: `$E as $T` where `E` is an object literal or a non-empty array literal and `T` is not `const` |
-| `typescript/no-unchecked-json` | `ast-grep` forbid: `JSON.parse(…) as T`, `const x: T = JSON.parse(…)`, and the same on `await $R.json()` where `R` is a `Response` (`typescript` lib.dom, `undici-types`); `T` other than `unknown` |
-| `typescript/error-cause` | `tool` biome `lint/style/useErrorCause` |
-| `typescript/array-sort-compare` | `tool` biome `lint/suspicious/useArraySortCompare` (strings too: Biome has no option to exempt them); `tool` eslint `@typescript-eslint/require-array-sort-compare` (`ignoreStringArrays: false`) |
-| `typescript/no-proto` | `tool` biome `lint/suspicious/noProto` (snippet: error) |
-| `typescript/no-dynamic-regexp` | `ast-grep` advise: `new RegExp($A, …)` / `RegExp($A, …)` whose pattern is not a string, a template without substitutions, or `RegExp.escape(…)` (a template whose substitutions are all `RegExp.escape(…)` counts as escaped) |
-
-context.md: strict TypeScript; TypeScript 6 deprecations are migrated, never silenced with `ignoreDeprecations`; no `!` or `as unknown as`; `import type` for type-only imports, parsed JSON stays `unknown` until a schema validates it, `satisfies` instead of asserting a literal; search for an existing helper (warn-once, logging, `util.*`) before writing one.
-
-### typescript/node
-
-Detected by `@types/node` (npm).
-
-| Rule | Targets |
-|---|---|
-| `typescript/node/no-shell-interpolation` | `ast-grep` forbid: a call declared (§15.6) in `node/child_process` as `exec` / `execSync` whose first argument is a template with `${}` or a `+` concatenation; a call declared there as `spawn`, `spawnSync`, `execFile`, `execFileSync` with an array second argument and `shell: true` in the third |
-| `typescript/node/no-sync-fs-in-async` | `ast-grep` advise: inside an `async` function, arrow function or method, a call whose callee ends in `Sync` (Node's naming) and is declared (§15.6) in `node/fs` |
-| `typescript/node/fetch-timeout` | `ast-grep` advise: a call declared (§15.6) as `fetch` by `typescript` (the DOM library), `node`, `undici-types` or `bun-types`, with one argument, or with an object literal second argument without `signal` (and no spread) |
-| `typescript/node/weak-crypto` | `ast-grep` advise: a call declared (§15.6) in `node/crypto` as `createHash` / `createHmac` whose first argument is the string `md5` or `sha1` (any case) |
-| `typescript/node/no-ecb-cipher` | `ast-grep` forbid: a call declared (§15.6) in `node/crypto` as `createCipheriv` / `createDecipheriv` whose first argument is a string ending in `-ecb` (any case) |
-| `typescript/node/no-ts-node` | `grep` forbid in `package.json`: `ts-node` (scripts or dependencies); `guard` ask: a `ts-node` command |
-| `typescript/node/no-vm-sandbox` | `ast-grep` advise: an import or `require` of `node:vm` / `vm` |
-| `typescript/node/esm-globals` | `ast-grep` forbid in `@esm-modules`: `__dirname`, `__filename`, `require(…)`, `module.exports`, `exports.x = …`, where the name is declared (§15.6) by `node` (`@types/node`'s globals; a module's own `const __dirname` or `createRequire` result is not); not Biome `noGlobalDirnameFilename` / `noCommonJs`, which ignore the module type |
-
-context.md: TypeScript runs with `node file.ts` or `tsx`, not `ts-node`; `node:vm` is not a security boundary.
-
-### typescript/library
-
-Detected by `library_any: [npm]` (§13.4).
-
-| Rule | Targets |
-|---|---|
-| `typescript/library/deprecation-shim` | `check` lint: `forge_helper bun public_api.mjs removed` (§13.4), `when_changed`: TypeScript and JavaScript files, `package.json` |
-| `typescript/library/exports-map` | `check` lint (with `bun`): a `package.json` that is not `"private": true` and has no `exports`, reported at its top-level `main`, `module`, `types` or `typings` line (so only when that line is added) |
-
-context.md: entry points are the public API; renamed exports stay as `@deprecated` aliases until a major version.
-
-### typescript/bun
-
-| Rule | Targets |
-|---|---|
-| `typescript/bun/lock-sync` | `check` lint: `run: bun install --frozen-lockfile`, `when_changed: [package.json]` |
-| `typescript/bun/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `pnpm`, `yarn` |
-| `typescript/bun/release-age` | `check` lint: `forge_bun_cooldown`: `bunfig.toml` `[install] minimumReleaseAge` ≥ 259200; `when_changed`: `bunfig.toml`, `package.json`, `bun.lock` |
-| `typescript/bun/trusted-deps` | `check` lint: `forge_trusted_deps`: no `trustedDependencies` entry added to a `package.json` since the base (with `bun`) |
-| `typescript/bun/test` | `check` test: `bun test` on the tracked test files that import from `bun:test` (nothing when there are none, so a Vitest suite is not run by Bun) |
-| `typescript/bun/no-new-skip` | `ast-grep` no-increase on test files (`*.test.*`, `*_test.*`, `*.spec.*`, `*_spec.*`) importing `bun:test`: `it`/`test`/`describe` `.skip`, `.todo`, `.only`, `.failing`, `.if`, `.skipIf`, `.todoIf` |
-| `typescript/bun/no-fewer-expects` | `ast-grep` no-decrease on the same files: `expect($$$)` |
-| `typescript/bun/no-mock-increase` | `ast-grep` no-increase on the same files: `mock(…)`, `mock.module(…)`, `spyOn(…)` (also under an import alias), `jest.fn/mock/spyOn`, `vi.fn/mock/spyOn` |
-| `typescript/bun/no-test-edits` | `check` lint: `forge_test_edits` on the in-scope files that import `bun:test` (§10.5) |
-| `typescript/bun/no-snapshot-update` | `guard` ask: `bun test` with `-u` or `--update-snapshots` |
-| `typescript/bun/no-shell-raw` | `ast-grep` forbid: a tagged template whose tag is declared (§15.6) as `bun-types`' `$` with an `${{ raw: … }}` substitution; a call declared as `bun-types`' `spawn` / `spawnSync` whose first argument is an array `["sh" \| "bash" \| "zsh", "-c", <template with ${} or + concatenation>]` |
-| `typescript/bun/text-lockfile` | `check` lint: no `bun.lockb` file (tracked or untracked, not ignored); `when_changed`: `bun.lockb`, `package.json` |
-
-context.md: Bun is the runtime and package manager; `bun:test` tests run with `bun test`, what the integrity rules reject in them, and "If an existing test looks wrong, stop and ask; never edit it to make the code pass."
-
-### typescript/eslint
-
-Detected by an `eslint.config.*` file or the `eslint` dependency at 9 or later.
-
-| Rule | Targets |
-|---|---|
-| `typescript/eslint/flat-config-only` | `check` lint: no `.eslintrc`, `.eslintrc.*` or `.eslintignore` file (tracked or untracked, not ignored); `when_changed`: those names |
-| `typescript/eslint/no-eslint-env` | `grep` forbid: `/* eslint-env` comments |
-| `typescript/eslint/lint` | `check` lint, `fail_on_warnings`: `run: eslint --max-warnings=0 .`, `changed_run: eslint --max-warnings=0 --no-warn-ignored --no-error-on-unmatched-pattern {files}`; ESLint's stylish output is attributed by file and line (§10.1) |
-| `typescript/eslint/type-checked` | `tool` eslint: typescript-eslint's `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`, `return-await`, `unbound-method`, `no-misused-spread`, `no-array-delete`, `no-for-in-array`, `restrict-template-expressions`, `prefer-promise-reject-errors`, `use-unknown-in-catch-callback-variable`, `no-unnecessary-type-assertion`, `no-unnecessary-condition`, `consistent-type-assertions` (`objectLiteralTypeAssertions: never`); snippet: error; type-aware (`parserOptions.projectService`) |
-| `typescript/eslint/ts-version` | `check` lint (with `bun`): the `typescript` that `@typescript-eslint/typescript-estree` resolves (directly, or through `typescript-eslint` / `@typescript-eslint/parser`) exports `createProgram`; TypeScript 7 has no compiler API, typescript-eslint supports `<6.1.0`; `when_changed`: `package.json` files and lock files |
-
-context.md: flat config only (ignores and globals in `eslint.config.*`); typescript-eslint needs TypeScript 6 or older; warnings block; the type-aware rules are errors.
-
-### typescript/oxlint
-
-Detected by `.oxlintrc.json`, `oxlint.config.ts` or the `oxlint` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/oxlint/lint` | `check` lint, `fail_on_warnings`: `run: oxlint --type-aware --deny-warnings --format unix`, `changed_run` the same on `{files}`; without `oxlint-tsgolint` the type-aware run fails ("Failed to find tsgolint executable"), so the type-aware rules are never skipped silently |
-
-context.md: `--type-aware` with oxlint-tsgolint; warnings block.
-
-### typescript/prettier
-
-Detected by a Prettier config file (`.prettierrc*`, `prettier.config.*`) or the `prettier` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/prettier/format` | `check` format: `run: prettier --check .`, `changed_run: prettier --write --ignore-unknown {files}`, `format_stdin: prettier --stdin-filepath {file}`; Prettier's `[warn] <path>` and `[error] <path>: …` lines name the files (§10.1) |
-
-context.md: Prettier formats; its options live in its config.
-
-### typescript/pnpm
-
-Detected by `pnpm-lock.yaml` or `pnpm-workspace.yaml`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/pnpm/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `yarn`, `bun install`, `bun i`, `bun add` |
-| `typescript/pnpm/lock-sync` | `check` lint: `forge_do pnpm lock-check` (`pnpm install --frozen-lockfile --lockfile-only`; not enforced before pnpm 8.6.12, which rewrites a stale lock; skipped when pnpm is not installed), `when_changed`: `package.json` files, `pnpm-lock.yaml`, `pnpm-workspace.yaml` |
-| `typescript/pnpm/settings-location` | `check` lint (with `bun`) on changed `package.json` and `.npmrc` files: a top-level `pnpm` field, and pnpm settings in `.npmrc` (`node-linker`, `shamefully-hoist`, `only-built-dependencies`, `minimum-release-age`, …), reported at their line |
-| `typescript/pnpm/no-removed-settings` | `grep` forbid in `pnpm-workspace.yaml`, `when` `pnpm >= 11` (`packageManager`): the top-level keys `onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, `ignoreDepScripts`, `allowNonAppliedPatches`, and `ignoreCves` (under `auditConfig`) |
-| `typescript/pnpm/allow-builds` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `pnpm-builds`, when `pnpm-workspace.yaml` changed, compared with the base: an `allowBuilds` entry newly `true`, a new `onlyBuiltDependencies` entry, `dangerouslyAllowAllBuilds: true`, `strictDepBuilds` or `blockExoticSubdeps` turned `false`; each at its line, accepted in `forge.yaml` |
-| `typescript/pnpm/workspace-protocol` | `check` lint: `pnpm-workspace`: in a changed `package.json`, a dependency on a package of the workspace (`pnpm-workspace.yaml` `packages`, `!` exclusions applied) whose spec has no protocol (`^1.2.0`, not `workspace:`), at its line |
-| `typescript/pnpm/catalog` | `check` lint, advisory (§10.7): `pnpm-catalog`: a dependency added or changed in a `package.json` whose name is a key of `catalog` or of a `catalogs` entry and whose spec is not `catalog:…` / `workspace:…`; nothing when `catalogMode: strict` |
-| `typescript/pnpm/overrides` | `check` lint, advisory (§10.7): `pnpm-overrides`: each `overrides` entry of `pnpm-workspace.yaml` added or changed since the base |
-
-context.md: pnpm manages dependencies; its settings live in `pnpm-workspace.yaml`; pnpm 11's `allowBuilds`, `allowUnusedPatches`, `auditConfig.ignoreGhsas`.
-
-### typescript/npm
-
-Detected by `package-lock.json` or `npm-shrinkwrap.json`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/npm/no-other-pm` | `guard` ask: `pnpm`, `yarn`, `bun install`, `bun i`, `bun add` |
-| `typescript/npm/lock-sync` | `check` lint: `forge_do npm lock-check` (`npm ci --dry-run --ignore-scripts --no-audit --no-fund` from npm 10.5.1; before, `npm ls --package-lock-only --all`, since `ci --dry-run` deletes `node_modules` there; skipped when npm is not installed), `when_changed`: `package.json` files, `package-lock.json`, `npm-shrinkwrap.json` |
-| `typescript/npm/no-exotic-sources` | `grep` forbid in `.npmrc`: `allow-git=all`, `allow-remote=all`; `guard` deny: the same settings in a command |
-| `typescript/npm/no-exotic-deps` | `check` lint: a `dependencies`, `devDependencies` or `optionalDependencies` entry added or changed since the base (`forge_pkg_deps`) whose spec is `git+…`, `git:`, `github:`, `gitlab:`, `bitbucket:`, `http(s)://…` or `user/repo` |
-| `typescript/npm/no-legacy-peer-deps` | `guard` deny: `npm install`, `i`, `ci`, `add` with `--legacy-peer-deps` or `--force` |
-| `typescript/npm/no-legacy-peer-deps-config` | `grep` forbid in `.npmrc`: `legacy-peer-deps=true`, `force=true` |
-| `typescript/npm/no-audit-fix-force` | `guard` ask: `npm audit fix … --force` |
-| `typescript/npm/release-age` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `npm-cooldown`, when `.npmrc`, `package.json` or `package-lock.json` changed: root `.npmrc` `min-release-age` is at least 3 (days), and `package.json` requires npm ≥ 11.10 (`devEngines.packageManager` `{name: npm}` version range, or `packageManager` `npm@…`), the first npm that reads it |
-| `typescript/npm/release-age-command` | `guard` ask: `--min-release-age=0` (or `0` as the next word) |
-| `typescript/npm/allow-scripts` | `check` lint: `npm-scripts`, compared with the base: root `package.json` `allowScripts` gains an entry that is not `false` (or one turns from `false`); `.npmrc` gains `ignore-scripts=false`, `dangerously-allow-all-scripts=true` or an `allow-scripts` package; accepted in `forge.yaml` |
-| `typescript/npm/allow-scripts-command` | `guard` ask: `npm approve-scripts` / `npm install-scripts approve` with a package, `--all` or `--no-allow-scripts-pin` (not the read-only `--allow-scripts-pending`), `--allow-scripts`, `--dangerously-allow-all-scripts` |
-| `typescript/npm/lockfile-lint` | `check` lint: `forge_lockfile_lint` on changed `package-lock.json` files (`@lockfiles`): pinned lockfile-lint 5.1.0 through `bunx`, `--type npm --allowed-hosts npm --validate-https --validate-integrity`; findings `path:0 <package>: <problem> (expected …, actual …)`; a private registry replaces the rule locally |
-
-context.md: npm manages dependencies; peer conflicts are resolved, not forced; dependencies come from the registry.
-
-### typescript/yarn
-
-Detected by `.yarnrc.yml` (Yarn 2 and later).
-
-| Rule | Targets |
-|---|---|
-| `typescript/yarn/no-other-pm` | `guard` ask: `npm install`, `npm i`, `npm ci`, `npm add`, `pnpm`, `bun install`, `bun i`, `bun add` |
-| `typescript/yarn/scripts-ratchet` | `check` lint: `.forge/helpers/pm_policy.mjs` (`forge_helper bun pm_policy.mjs <mode>`) `yarn-scripts`, compared with the base: `.yarnrc.yml` `enableScripts` turned `true`; a `package.json` `dependenciesMeta` entry gaining `built: true`; accepted in `forge.yaml` |
-| `typescript/yarn/lock-sync` | `check` lint: `yarn install --immutable --mode=skip-build` (skipped when yarn is not installed or is Yarn 1, §13.5), `when_changed`: `package.json` files, `yarn.lock`, `.yarnrc.yml` |
-
-context.md: Yarn manages dependencies.
-
-### typescript/turbo
-
-Detected by `turbo.json`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/turbo/tasks-key` | `grep` forbid in `turbo.json`: a `"pipeline"` key (Turborepo 2 uses `tasks`) |
-| `typescript/turbo/declared-env` | `tool` biome `lint/suspicious/noUndeclaredEnvVars` (snippet: error; Biome's turborepo domain enables it as a warning only) |
-| `typescript/turbo/no-env-loose` | `grep` forbid in `turbo.json`: `"envMode": "loose"` |
-| `typescript/turbo/no-env-loose-flag` | `guard` deny: `--env-mode=loose`, `--env-mode loose` |
-
-context.md: `tasks`, strict env mode, every env var read is declared in `env` or `globalEnv`.
-
-### typescript/jest
-
-Detected by the `jest` dependency at 30 or later.
-
-| Rule | Targets |
-|---|---|
-| `typescript/jest/no-test-path-pattern` | `grep` forbid in `package.json`: `--testPathPattern` (Jest 30: `--testPathPatterns`); `guard` deny: a `jest` command with it |
-
-### typescript/testing-library
-
-Detected by the `@testing-library/react` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/testing-library/no-hooks-lib` | `ast-grep` forbid: an import or `require` of `@testing-library/react-hooks` |
-| `typescript/testing-library/no-container-queries` | `ast-grep` advise in `@ts-tests`: `$R.container.querySelector(…)` / `querySelectorAll(…)` and `const { container } = $R`, where `R` is `@testing-library/react`'s `RenderResult` (§15.1: an alias of an intersection) |
-| `typescript/testing-library/lint` | `tool` eslint (test files, `@ts-tests`): `testing-library/await-async-queries`, `no-wait-for-side-effects`, `prefer-find-by`, `prefer-screen-queries`, `no-unnecessary-act`, `no-node-access` (snippet: error; eslint-plugin-testing-library) |
-
-context.md: `renderHook` from `@testing-library/react`; the testing-library ESLint rules' practices.
-
-### typescript/msw
-
-Detected by the `msw` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/msw/unhandled-error` | `ast-grep` advise: `$S.listen(…)` without `onUnhandledRequest: "error"` (or a function), where `S` is msw's `SetupServer` / `SetupServerCommon` (§15.1) |
-
-context.md: the test server starts with `onUnhandledRequest: "error"`.
-
-### typescript/storybook
-
-Detected by the `storybook` dependency at 9 or later.
-
-| Rule | Targets |
-|---|---|
-| `typescript/storybook/consolidated-imports` | `ast-grep` forbid: imports and re-exports from `@storybook/test`, `addon-actions`, `addon-viewport`, `addon-essentials`, `addon-interactions`, `manager-api`, `preview-api`, `theming`, `blocks` |
-| `typescript/storybook/consolidated-deps` | `grep` forbid in `package.json`: those packages as keys |
-
-context.md: the `storybook/*` entry points that replace them.
-
-### typescript/vite
-
-Detected by the `vite` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/vite/no-public-secret-env` | `ast-grep` forbid: `import.meta.env.VITE_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` (the `typescript/nextjs/no-public-secret-env` list) |
-| `typescript/vite/no-public-secret-env-file` | `grep` forbid in `.env` and `.env.*` files: such `VITE_` variables |
-| `typescript/vite/no-define-process-env` | `ast-grep` forbid in `vite.config.*`: a `"process.env"` key of `define` set to `process.env` or `JSON.stringify(process.env)` |
-| `typescript/vite/no-open-dev-host` | `ast-grep` forbid in `vite.config.*`: `allowedHosts: true` under `server` or `preview` |
-
-context.md: no secrets in `VITE_` variables, `define` never inlines `process.env`, `allowedHosts` lists hosts.
-
-### typescript/t3-env
-
-Detected by `@t3-oss/env-core`, `@t3-oss/env-nextjs` or `@t3-oss/env-nuxt`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/t3-env/no-process-env` | `tool` biome `lint/style/noProcessEnv` (snippet: error, off in `env.ts`, `env.mjs`, `env.js` and `*.config.*`, a convention the project edits in its biome.json) |
-
-context.md: read env vars through the validated `env`.
-
-### typescript/nextjs
-
-| Rule | Targets |
-|---|---|
-| `typescript/nextjs/no-pages-data` | `ast-grep` forbid in `app/**`, `src/app/**`: `getServerSideProps`, `getStaticProps` exports |
-| `typescript/nextjs/no-next-router` | `ast-grep` forbid: `import $$$ from "next/router"` |
-| `typescript/nextjs/proxy-not-middleware` | `ast-grep` forbid: any code in `middleware.ts` / `src/middleware.ts` (file renamed to `proxy.ts` in Next.js 16) |
-| `typescript/nextjs/revalidate-tag-profile` | `ast-grep` forbid: `revalidateTag($A)` with one argument |
-| `typescript/nextjs/no-legacy-image-config` | `ast-grep` forbid: imports of `next/legacy/image`; a `domains` key inside `images` |
-| `typescript/nextjs/no-public-secret-env` | `ast-grep` forbid: `process.env.NEXT_PUBLIC_*` names containing `SECRET`, `PRIVATE`, `PASSWORD`, `SERVICE_ROLE` or `DATABASE_URL` |
-| `typescript/nextjs/proxy-exports` | `ast-grep` forbid in `proxy.ts` / `src/proxy.ts`: a named export `middleware` (declared, or `export { x as middleware }`), an exported `runtime` |
-| `typescript/nextjs/no-ignore-build-errors` | `ast-grep` forbid in `next.config.*`: `ignoreBuildErrors: true` under `typescript` |
-| `typescript/nextjs/no-request-apis-in-use-cache` | `ast-grep` forbid, in a file importing `next/headers`: `cookies()`, `headers()`, `draftMode()` inside a function or file whose first statement is `'use cache'` (or `'use cache: <profile>'`) |
-| `typescript/nextjs/no-redirect-in-try` | `ast-grep` forbid, in a file importing `next/navigation`: `redirect`, `permanentRedirect`, `notFound`, `forbidden`, `unauthorized` called in a `try` block (same function) whose `catch` does not call `unstable_rethrow(…)` |
-| `typescript/nextjs/stable-cache-imports` | `ast-grep` forbid: `unstable_cacheLife`, `unstable_cacheTag` imported from `next/cache` |
-| `typescript/nextjs/no-next-head-in-app` | `ast-grep` forbid in `app/**`, `src/app/**`: imports of `next/head`, `next/document` |
-| `typescript/nextjs/image-remote-patterns-strict` | `ast-grep` forbid in `next.config.*`: `hostname: "*"` or `"**"` (or `*.*`, …) under `remotePatterns` |
-| `typescript/nextjs/image-unsafe-options` | `ast-grep` forbid in `next.config.*`, under `images`: `dangerouslyAllowSVG: true` without a sibling `contentSecurityPolicy`; `dangerouslyAllowLocalIP: true` |
-| `typescript/nextjs/no-sync-scripts` | `tool` biome `lint/performance/noSyncScripts` (tsx) |
-| `typescript/nextjs/parallel-route-default` | `check` lint, scope `app/**`, `src/app/**`: every `@*` directory under `app/` or `src/app/` has a `default.tsx`, `.ts`, `.jsx` or `.js` |
-| `typescript/nextjs/cookies-set-in-render` | `ast-grep` forbid in `page.*`, `layout.*`, `template.*`, `default.*` under `app/**`, `src/app/**`, in a file importing `next/headers` and not starting with `'use server'`: `.set(…)` / `.delete(…)` on `(await cookies())` or on a name bound to `await cookies()` in the same block, outside a function whose first statement is `'use server'` |
-
-context.md: Next.js 16 App Router: async request APIs, Server Components by default, `proxy.ts`, `revalidateTag(tag, profile)` / `updateTag(tag)`, `images.remotePatterns` without wildcard hosts, no `next lint`, Server Actions and route handlers are public endpoints (guidance only: validating input and checking the caller cannot be decided from syntax, so no rule checks it), no secrets in `NEXT_PUBLIC_`, no request APIs in `'use cache'`, no `redirect()` swallowed by a `try`, no `ignoreBuildErrors`, a `default.tsx` per `@slot`, the Metadata API.
-
-### typescript/nextjs/react
-
-| Rule | Targets |
-|---|---|
-| `typescript/nextjs/react/client-hooks` | `ast-grep` forbid in `app/**`, `src/app/**`: client-only hooks (`useState`, `useEffect`, `useRef`, `useContext`, …) in a file without `'use client'`, except inside a custom hook (a function named `use…`) |
-| `typescript/nextjs/react/no-server-in-client` | `ast-grep` forbid in `app/**`, `src/app/**`, `components/**`, `src/components/**` (tsx): a file starting with `'use client'` that imports `server-only`, `node:*`, `fs`, `child_process`, `next/headers`, `next/root-params`, `@prisma/client`, `@prisma/adapter-*` or a `generated/prisma` path |
-| `typescript/nextjs/react/client-env-public-only` | `ast-grep` forbid in a file starting with `'use client'`: `process.env.X` other than `NEXT_PUBLIC_*` and `NODE_ENV` |
-| `typescript/nextjs/react/no-ssr-false-in-server` | `ast-grep` forbid in `app/**`, `src/app/**`, in a file importing `next/dynamic` and not starting with `'use client'`: `ssr: false` in the arguments of `dynamic(…)` |
-| `typescript/nextjs/react/no-async-client-component` | `tool` biome `lint/correctness/noNextAsyncClientComponent` (tsx) |
-| `typescript/nextjs/react/server-functions-async` | `ast-grep` forbid in a file starting with `'use server'`: an export (named or default) of a non-async function or arrow, a class, or a literal, object, array or `new` value; a call or a name is not judged (it may return an async function) |
-
-context.md: "React 19 in the App Router: components are Server Components unless their file starts with `'use client'`. State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves. Server Actions are async functions marked `'use server'`. A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions."
-
-### typescript/nextjs/cache-components
-
-Detected by a `next.config.{js,mjs,cjs,ts,mts}` line matching `^\s*cacheComponents\s*:\s*true\b` (`content_any`, §5.1; `packs.add` / `packs.remove` override it).
-
-| Rule | Targets |
-|---|---|
-| `typescript/nextjs/cache-components/no-segment-config` | `ast-grep` forbid in `app/**`, `src/app/**`: an exported `const` named `dynamic`, `revalidate`, `fetchCache` or `experimental_ppr` (`next build` rejects them under `cacheComponents`) |
-| `typescript/nextjs/cache-components/no-unstable-cache` | `ast-grep` advise: `unstable_cache` imported from `next/cache` (use `'use cache'` with `cacheTag()` / `cacheLife()`) |
-
-context.md: caching with `'use cache'`, `cacheLife()`, `cacheTag()`; no segment config exports; `<Suspense>` around request data.
-
-### typescript/react
-
-Detected by `react >= 19` (npm); a sibling of `nextjs` and `astro`, so it applies to every React setup.
-
-| Rule | Targets |
-|---|---|
-| `typescript/react/no-forward-ref` | `tool` biome `lint/suspicious/noReactForwardRef`; `ast-grep` forbid calls to `forwardRef` / `React.forwardRef` (tsx) |
-| `typescript/react/no-prop-types` | `ast-grep` forbid: `$C.propTypes = $V`, `$C.defaultProps = $V` |
-| `typescript/react/use-action-state` | `ast-grep` forbid: `useFormState` imported from `react-dom` |
-| `typescript/react/no-dangerous-html` | `tool` biome `lint/security/noDangerouslySetInnerHtml`; `ast-grep` forbid the `dangerouslySetInnerHTML` attribute |
-| `typescript/react/hooks-rules` | `tool` biome `lint/correctness/useHookAtTopLevel`, `lint/correctness/useExhaustiveDependencies` |
-| `typescript/react/stable-keys` | `tool` biome `lint/suspicious/noArrayIndexKey` |
-| `typescript/react/no-nested-components` | `tool` biome `lint/correctness/noNestedComponentDefinitions`, `lint/nursery/noComponentHookFactories` (a function that defines and returns a component or hook) |
-| `typescript/react/a11y` | deprecated, replaced by `typescript/a11y` (which covers the Vue, Svelte, Astro and HTML templates too) |
-| `typescript/react/no-deprecated-types` | deprecated, replaced by `typescript/no-deprecated` (every deprecated use, React's types included, through the project's TypeScript) |
-| `typescript/react/compiler-rules` | `tool` biome `lint/nursery/useReactCompiler` (snippet: error, `compilationMode: infer`): no synchronous `setState` in an effect, no ref read or written while rendering, no impure call while rendering |
-| `typescript/react/no-prop-assign` | `tool` biome `lint/correctness/noReactPropAssignments` |
-| `typescript/react/stable-default-props` | `tool` biome `lint/nursery/noReactObjectTypeAsDefaultProp`: no object, array or function literal as a destructured prop's default |
-| `typescript/react/act-from-react` | `ast-grep` forbid: imports from `react-dom/test-utils` |
-
-context.md: React 19: `ref` is a prop (no `forwardRef`), `useActionState` and `act` from `react`, no `propTypes` / `defaultProps` (object defaults hoisted), `createRoot` instead of `ReactDOM.render`, React Compiler's checks, props never assigned to.
-
-### typescript/react/zustand
-
-Detected by `zustand >= 5` (npm), under `typescript/react`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/react/zustand/stable-selector` | `ast-grep` forbid: a call whose first argument is an arrow returning an object or array literal (`(s) => ({ … })`, `(s) => [ … ]`, or a block returning one), where the callee is `zustand`'s `UseBoundStore` (§15.1: an alias of an intersection); a selector wrapped in `useShallow(…)` is not an arrow argument |
-
-context.md: zustand 5 compares selector results with `Object.is`: one value per selector, or `useShallow`.
-
-### typescript/react/react-hook-form
-
-Detected by `react-hook-form >= 7` (npm), under `typescript/react`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/react/react-hook-form/watch-all` | `ast-grep` advise: `$W()` with no argument where `W` is `react-hook-form`'s `UseFormWatch` (§15.1: an alias of an object type literal), however `watch` is destructured or renamed |
-
-### typescript/astro
-
-| Rule | Targets |
-|---|---|
-| `typescript/astro/check` | `check` typecheck: `forge_do astro check`; without `@astrojs/check` (Astro 4 and later print why and exit 0) it is reported skipped, never passed; scope `**/*.astro`, `**/*.ts`, `**/*.tsx` |
-| `typescript/astro/no-set-html` | `grep` forbid in `**/*.astro`: `set:html=` |
-
-context.md: Astro renders on the server to static HTML; `astro check`; content collections in `src/content.config.ts` with `glob()` / `file()` loaders and `entry.id`; no `Astro.glob()`; `<ClientRouter />`.
-
-### typescript/astro/react
-
-context.md: "React components in Astro render to static HTML; they become interactive only with a `client:*` directive. Hooks and event handlers run only in hydrated islands. Props passed to a hydrated island must be serializable."
-
-### typescript/prisma
-
-| Rule | Targets |
-|---|---|
-| `typescript/prisma/validate` | `check` migration: `run: prisma validate`, `when_changed: [prisma/schema.prisma]` |
-| `typescript/prisma/migration-present` | `check` migration: `forge_do prisma migrations-check` (`prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`, Prisma 7 and later): exit 2 (a difference) fails, any other failure is reported skipped; `when_changed: [prisma/schema.prisma]`, `requires_local_db: true`; skipped with a message if `prisma.config.ts` has no `shadowDatabaseUrl`; passes in a db push workflow (no `prisma/migrations` directory and `prisma db push` in `package.json`) |
-| `typescript/prisma/no-reset` | `guard` deny: `prisma migrate reset`, `prisma db push --force-reset`, `prisma db push --accept-data-loss` |
-| `typescript/prisma/db-push` | `guard` ask: `prisma db push`, `prisma migrate deploy`, `prisma db execute` |
-| `typescript/prisma/generated-client-import` | `ast-grep` forbid: `import $$$ from "@prisma/client"` |
-| `typescript/prisma/no-middleware` | `ast-grep` forbid: `$C.$use($$$)` |
-| `typescript/prisma/no-raw-unsafe` | `ast-grep` forbid: `$C.$queryRawUnsafe($$$)`, `$C.$executeRawUnsafe($$$)` |
-| `typescript/prisma/no-raw-interpolation` | `ast-grep` forbid: a call `$CALL` of `raw(…)` / `<x>.raw(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is the runtime's `Sql` (`@prisma/client`, `@prisma/client-runtime-utils`): the generated client's path and import names never matter |
-| `typescript/prisma/no-unscoped-bulk-write` | `ast-grep` advise: `.deleteMany(…)` / `.updateMany(…)` without an object argument holding `where`, where the call is the runtime's `PrismaPromise` (`@prisma/client`; generated delegates are project code) |
-| `typescript/prisma/client-generator` | `check` lint: no `provider = "prisma-client-js"` in tracked `*.prisma` files, `when_changed: [**/*.prisma]` |
-| `typescript/prisma/migration-lint` | `check` migration: changed `prisma/migrations/*/migration.sql` linted with Squawk (§13.1); `--all`: the newest migration; `when_changed: [prisma/migrations/**]` |
-| `typescript/prisma/no-network-in-transaction` | `ast-grep` forbid: inside a function passed to `.$transaction(…)`, a call to the global `fetch` / `globalThis.fetch` / `$fetch`, or to a name (or a method of a name) imported from `axios`, `got`, `ky`, `ofetch`, `node-fetch` or `undici` |
-| `typescript/prisma/destructive-migration` | `check` migration: `DROP COLUMN` / `DROP TABLE` statements (not `--` or `/* */` comments) in the changed `prisma/migrations/*/migration.sql` (`--all`: the newest), read by `forge_prisma_drops`, which follows each table's columns through every `migration.sql`: a SQLite redefinition (`CREATE TABLE "new_X"`, `DROP TABLE "X"`, `RENAME TO "X"`) is reported only for the columns `new_X` lacks (`… (redefinition drops column "C")`), and not when no earlier migration creates `X`; printed `file:line: <statement>`; a line found in `forge.yaml` (an `accept` entry) passes; `when_changed: [prisma/migrations/**]` |
-| `typescript/prisma/no-query-in-loop` | `ast-grep` advise: `await $Q` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap`, where `Q` is `@prisma/client`'s `PrismaPromise` (§15.1): `findMany`, `count`, `aggregate`, `groupBy`, `*Many`, and the `Prisma__<Model>Client` of `findUnique`, `findFirst`, `create`, `update`, `upsert`, `delete`, which extends the generated client's type alias of it |
-| `typescript/prisma/applied-migrations` | `check` migration: `forge_applied_migrations @prisma-migrations`: a migration that exists in the base is not modified or deleted (not with `--all`) |
-
-context.md: Prisma 7: `prisma-client` generator with `output`, driver adapters, `prisma.config.ts` (no automatic `.env`), `prisma db seed`, `$extends` (no `$use`), tagged `$queryRaw` only (no `Prisma.raw()` from a template); no network calls in interactive transactions; migrations with schema changes (not under db push); drops accepted in `forge.yaml`.
-
-### typescript/vitest
-
-| Rule | Targets |
-|---|---|
-| `typescript/vitest/run` | `check` test: `run: vitest run`, `changed_run: vitest run --changed`; timeout 300 s |
-| `typescript/vitest/no-new-skip` | `ast-grep` no-increase on test files: `it.skip`, `test.skip`, `describe.skip`, `it.todo`, `test.todo`, `describe.todo`, `$X.skipIf`, `$X.runIf`, `$X.only` |
-| `typescript/vitest/no-fewer-expects` | `ast-grep` no-decrease on test files: `expect($$$)` |
-| `typescript/vitest/no-test-env-branch` | `ast-grep` forbid on non-test files: `process.env.VITEST`, `process.env.NODE_ENV === "test"` |
-| `typescript/vitest/no-tautological-expect` | `ast-grep` forbid on test files: `expect(<literal>).$M(…)` (`true`, `false`, `null`, `undefined`, a number or a string) |
-| `typescript/vitest/no-matcher-override` | `ast-grep` forbid, in `@ts-tests`, `vitest.setup.*` and `__mocks__/`: `$E.extend({…})` defining a built-in matcher name (`toBe`, `toEqual`, `toStrictEqual`, `toMatchObject`, `toThrow`, … the names of `@vitest/expect`'s assertion interfaces and the snapshot matchers) where `E` is Vitest's `ExpectStatic` (declared in `vitest` from 5, `@vitest/expect` before; §15.1) |
-| `typescript/vitest/no-exit-zero` | `ast-grep` forbid on test, setup and mock files: `process.exit(0)` |
-| `typescript/vitest/no-snapshot-update` | `guard` ask: `vitest` with `-u` or `--update` |
-| `typescript/vitest/no-workspace-file` | `check` lint: no tracked `vitest.workspace.*` (Vitest 4 ignores it), `when_changed: [vitest.*]` |
-| `typescript/vitest/no-pass-with-no-tests` | `guard` ask: `vitest … --passWithNoTests` |
-| `typescript/vitest/config-file` | `permission` ask: `Edit(**/vitest.config.*)` |
-
-| `typescript/vitest/no-mock-increase` | `ast-grep` no-increase on test files: `vi.mock`, `vi.doMock`, `vi.spyOn`, `vi.fn` calls, also through `import { vi as <alias> }`; `vi.stubEnv` / `vi.stubGlobal` are not counted |
-| `typescript/vitest/no-test-edits` | `check` lint: `forge_test_edits` on `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, not `e2e/**`; edits ask (§10.5); `review` as pytest's |
-| `typescript/vitest/untested-change` | `check` lint, advisory (§10.7): `forge_untested_change` on non-test TypeScript and JavaScript files (not `*.d.ts`, `*.config.*`, `e2e/**`) |
-| `typescript/vitest/snapshot-stale` | `check` lint, advisory (§10.7, `forge_once`): `forge_snapshot_stale`, Stop only (`--turn`): a changed non-test source file whose added lines hold a string or template literal in an expression (not an import or export source, a type annotation, a literal type, an interface or a type alias) or an object literal key (`pair`, shorthand property; ast-grep, `FORGE_SNAP_VALUES`), imported directly (relative import) by a test that uses `toMatchSnapshot`, `toMatchFileSnapshot`, `toMatchInlineSnapshot` or golden files (`testdata/`, `golden`), while no `.snap`, `__snapshots__/`, `testdata/` or golden file changed in the turn (a test using only inline snapshots counts as updated when it changed). It blocks once per turn, then prints `accepted` and passes (`forge_once`) |
-
-context.md: Vitest 4 `test.projects` and `maxWorkers`; assertions are never weakened to make a test pass; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
-
-### typescript/playwright
-
-| Rule | Targets |
-|---|---|
-| `typescript/playwright/run` | `check` test: `run: playwright test --reporter=line`, `when_changed: [e2e/**, playwright.config.*]` |
-| `typescript/playwright/no-new-skip` | `ast-grep` no-increase on `e2e/**`: `test.skip`, `test.fixme`, `test.fail`, `test.only`, `test.describe.skip`, `test.describe.fixme`, `test.describe.only` |
-| `typescript/playwright/no-wait-for-timeout` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$P.waitForTimeout($$$)` |
-| `typescript/playwright/locators` | `ast-grep` forbid in `e2e/**`, `**/*.spec.*`: `$`, `$$`, `$eval`, `$$eval`, `waitForSelector`, `waitForNavigation` calls |
-| `typescript/playwright/no-snapshot-update` | `guard` ask: `playwright test` with `--update-snapshots` or `-u` |
-| `typescript/playwright/config-file` | `permission` ask: `Edit(**/playwright.config.*)` |
-
-| `typescript/playwright/axe` | `check` lint: when `package.json` names `@axe-core/playwright`, a tracked `e2e/*` or `*.spec.*` file uses `AxeBuilder` |
-| `typescript/playwright/no-test-edits` | `check` lint: `forge_test_edits` on `e2e/**`; edits ask (§10.5); `review` as pytest's |
-
-context.md: locators (`getByRole`, `getByLabel`, `getByText`, `getByTestId`) and web-first assertions; never `waitForTimeout`; `@axe-core/playwright` for accessibility scans; "When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name; Forge asks for approval) and say so in your summary. Otherwise never edit an existing test to make the code pass."
-
-### typescript/zod
-
-| Rule | Targets |
-|---|---|
-| `typescript/zod/v4-string-formats` | `ast-grep` forbid: a string-format method (`email`, `uuid`, `url`, `datetime`, …) called on a chain rooted at `z.string()` |
-| `typescript/zod/error-param` | `ast-grep` forbid: a `message`, `required_error`, `invalid_type_error` or `errorMap` key in an object passed to a call on a `z.` chain |
-
-context.md: Zod at boundaries with `z.infer`; Zod 4 top-level formats, the single `error` parameter, `z.strictObject` / `z.looseObject`, `error.issues`, `z.treeifyError`.
-
-### typescript/drizzle
-
-Detected by `drizzle.config.*` or the `drizzle-orm` / `drizzle-kit` dependency. The checks read `schema`, `out` (default `./drizzle`) and `dialect` from `drizzle.config.*` (string values, arrays, globs and directories; values computed at run time are not read).
-
-| Rule | Targets |
-|---|---|
-| `typescript/drizzle/migration-present` | `check` migration: `forge_drizzle_migration_present`: a changed schema file whose content reaching the database changed (blank lines, comments, imports, type exports, `relations()` / `defineRelations()` calls aside) needs, among the changed files, a `.sql` in `out` plus `meta/_journal.json` and a `meta/*_snapshot.json`, or (drizzle-kit 1.x) `<out>/<name>/migration.sql` and a `snapshot.json`; not with `--all` |
-| `typescript/drizzle/applied-migrations` | `check` migration: `forge_drizzle_applied`: no `.sql` or snapshot in `out` that exists in the base is modified or deleted |
-| `typescript/drizzle/migration-lint` | `check` migration: with `dialect: "postgresql"`, changed `.sql` files in `out` linted with Squawk (§13.1); `--all`: the newest one; `when_changed: [**/*.sql]` |
-| `typescript/drizzle/meta-files` | `permission` deny: `Edit(**/meta/_journal.json)`, `Edit(**/meta/*_snapshot.json)` |
-| `typescript/drizzle/no-push` | `guard` ask: `drizzle-kit push` |
-| `typescript/drizzle/no-push-force` | `guard` deny: `drizzle-kit push … --force` (auto-approves data-loss statements) |
-| `typescript/drizzle/write-with-where` | `ast-grep` forbid: `$DB.delete(…)` / `$DB.update(…)` with no `.where` further along its method chain, where `DB` is a Drizzle database (`PgDatabase`, `MySqlDatabase`, `BaseSQLiteDatabase`, `SingleStoreDatabase`, `GelDatabase`; transactions extend them; `drizzle()`'s intersection `NodePgDatabase & { $client }` by its member, §15.1) |
-| `typescript/drizzle/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is `drizzle-orm`'s `QueryPromise` (§15.1) |
-| `typescript/drizzle/no-sql-raw` | `ast-grep` forbid: `sql.raw(…)` (or `<alias>.raw(…)` with `import { sql as <alias> } from "drizzle-orm"`) whose argument is a template with `${}` or a `+` concatenation, or a variable declared from one in an enclosing block or the module |
-
-context.md: schema, `out` and `dialect` in `drizzle.config.*`; `drizzle-kit generate` after a schema change, its files committed together and never written by hand; applied migrations are not edited; `push` needs confirmation, `push --force` is refused; deletes and updates have a `where`; the `sql` tag binds values.
-
-### typescript/trpc
-
-| Rule | Targets |
-|---|---|
-| `typescript/trpc/input-validate` | `ast-grep` forbid: `.input(…)` whose argument is `z.any()`, `z.unknown()`, `z.custom()` / `z.custom<T>()` without a check, `z.record(…)` of `z.any()` / `z.unknown()`, `(v) => v as T` or `(v: T) => v` |
-| `typescript/trpc/trpc-error` | `ast-grep` forbid: `throw new Error(…)` or `throw Error(…)` inside a function passed as the first argument of `.query()`, `.mutation()` or `.subscription()`, in a file importing `@trpc/server` or when that function destructures `ctx` or `input`; not inside a `try` block |
-
-context.md: `.input(<schema>)` and what is rejected; `TRPCError` with a `code` in procedures.
-
-### typescript/hono
-
-| Rule | Targets |
-|---|---|
-| `typescript/hono/validate-input` | `ast-grep` forbid, in files importing `hono`, `hono/*` or `@hono/*`: `.json()`, `.parseBody()`, `.formData()`, `.query()`, `.queries()` on `$C.req` or on a `req` destructured from the handler's parameter (`({ req })`, `({ req: r })`), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, …) or as the second argument of `parse(Schema, …)` / `v.parse(…)`; `c.req.param()` is not checked |
-| `typescript/hono/cors-credentials-wildcard` | deprecated, replaced by `typescript/cors-credentials-wildcard` (which anchors `cors` by its declaration and covers `cors`, `@fastify/cors` and Nest) |
-| `typescript/hono/no-raw-interpolation` | `ast-grep` forbid: a call of `raw` imported from `hono/html` (aliases included) whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher) |
-
-context.md: `zValidator` / `validator()` middleware and `c.req.valid()`; which raw reads are rejected; `cors()` with credentials names its origins; `raw()` is not built from templates.
-
-### typescript/react-router
-
-Detected by `@react-router/dev >= 7` (framework mode).
-
-| Rule | Targets |
-|---|---|
-| `typescript/react-router/route-types` | `ast-grep` advise in `app/routes/**`, `app/root.tsx`: `LoaderFunctionArgs`, `ActionFunctionArgs`, `ClientLoaderFunctionArgs`, `ClientActionFunctionArgs`, `MetaFunction`, `LinksFunction`, `HeadersFunction` imported from `react-router` or `@remix-run/*` (the generated `Route.*` types instead) |
-
-Whether an action validates its input and checks the caller cannot be decided from syntax (rules that guessed it from helper names were removed).
-
-context.md: route module `loader` / `action` with `Route.*Args` types; actions are public endpoints (guidance, not checked); `data()` and `redirect()`.
-
-### typescript/tanstack-router
-
-Detected by `@tanstack/react-router` or `@tanstack/solid-router` (npm).
-
-| Rule | Targets |
-|---|---|
-| `typescript/tanstack-router/no-generated-edits` | `permission` deny: `Edit(**/routeTree.gen.ts)` (the default `generatedRouteTree`) |
-
-context.md: `routeTree.gen.ts` is generated from the routes directory and never edited by hand.
-
-### typescript/vue
-
-Detected by `vue >= 3`. Biome lints `.vue` templates with `html.experimentalFullSupportEnabled` (every snippet sets it); `eslint-plugin-vue` is not audited.
-
-| Rule | Targets |
-|---|---|
-| `typescript/vue/typecheck` | `check` typecheck: `forge_exec_tool vue-tsc --noEmit` (`--build` when `tsconfig.json` has `references`); skipped while a Nuxt `tsconfig.json` points at a missing `.nuxt/`. A tool whose name has a `-` gets no wrapper function (not a POSIX function name) and is run as `forge_exec_tool <name>` |
-| `typescript/vue/v-for-key` | deprecated, replaced by `typescript/vue/valid-templates` (`tool` biome `lint/correctness/useVueVForKey`) |
-| `typescript/vue/valid-templates` | `tool` biome in `.vue` files: `lint/correctness/useVueVForKey`, `noVueVIfWithVFor`, `useVueValidVBind`, `useVueValidVOn`, `useVueValidVIf`, `useVueValidVElse`, `useVueValidVElseIf`, `useVueValidVHtml`, `useVueValidVText`, `useVueValidTemplateRoot`, `lint/nursery/useVueValidVFor` (snippet: error) |
-| `typescript/vue/ref-value` | `tool` biome `lint/nursery/noVueRefAsOperand` in `.vue` and `.ts` files: a ref as an operand, a condition or a template-literal value |
-| `typescript/vue/no-setup-props-destructure` | `tool` biome `lint/correctness/noVueSetupPropsReactivityLoss`: `setup({ a })` (destructuring in the body is not detected) |
-| `typescript/vue/no-v-html` | `grep` forbid in `**/*.vue`: `v-html=`, `:innerHTML=`, `v-bind:innerHTML=` |
-| `typescript/vue/no-vue2-template-syntax` | `grep` forbid in `**/*.vue`: `:x.sync=` / `v-bind:x.sync=`, `slot-scope=`, a `.native` modifier on `@x` / `v-on:x`, `@keyup.<digits>` (and `keydown`, `keypress`) |
-
-context.md: `<script setup lang="ts">`, `vue-tsc` for `.vue` types, valid templates (`:key` with `v-for`, no `v-if` with `v-for`), `.value` on refs, props not destructured in `setup()`, no `v-html`, no Vue 2 template syntax.
-
-### typescript/vue/nuxt
-
-| Rule | Targets |
-|---|---|
-| `typescript/vue/nuxt/server-validate` | `ast-grep` forbid in `server/**`: `readBody(…)`, `readFormData(…)`, `readMultipartFormData(…)`, `getQuery(…)`, `getRouterParams(…)`, `getRouterParam(…)` (h3's `readValidatedBody`, `getValidatedQuery`, `getValidatedRouterParams` instead), unless the call (or its `await`) is passed straight to `X.parse` / `safeParse` / `parseAsync` / `safeParseAsync` (not on `JSON`, `Date`, `Number`, `URL`) |
-| `typescript/vue/nuxt/no-public-secret` | `ast-grep` forbid in `nuxt.config.*`: a key under `runtimeConfig.public` whose name contains `secret`, `private`, `password` / `passwd`, `credential`, `token`, `api_key` / `apiKey`, `access_key`, `auth_key`, `service_role`, `dsn` or `database_url` (case-insensitive), unless it also says `publishable`, `public`, `anon` or `site_key` |
-| `typescript/vue/nuxt/no-process-flags` | `grep` forbid in `**/*.vue`: `process.client`, `process.server`, `process.browser`, `process.dev` (`.ts` files: Nuxt marks them `@deprecated`) |
-| `typescript/vue/nuxt/no-shared-module-state` | `ast-grep` forbid in `composables/**`, `app/composables/**`, `utils/**`, `app/utils/**`: `ref(…)`, `reactive(…)`, `shallowRef(…)`, `shallowReactive(…)` as the value of a top-level (or exported) `const` / `let` |
-
-context.md: validated h3 readers in server routes; `runtimeConfig.public` reaches the browser; `vue-tsc` after `nuxt prepare`; `import.meta.client` in `.vue` files; no module-level reactive state in composables.
-
-### typescript/vue/pinia
-
-| Rule | Targets |
-|---|---|
-| `typescript/vue/pinia/store-to-refs` | `ast-grep` advise, `where` the called function is `pinia` `StoreDefinition`: `const { … } = useStore()` (destructure `storeToRefs(useStore())` instead) |
-
-context.md: state and getters are destructured through `storeToRefs()`.
-
-### typescript/svelte
-
-Detected by `svelte >= 5`. Biome lints `.svelte` templates with `html.experimentalFullSupportEnabled` (the snippets set it); the syntax rules are `grep` targets.
-
-| Rule | Targets |
-|---|---|
-| `typescript/svelte/runes-only` | `grep` forbid in `**/*.svelte`: `export let`, `$:` statements, `on:<event>` directives, `<slot`, `$$slots` / `$$props` / `$$restProps`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, imports of `svelte/legacy` (in `.ts` files the deprecated APIs are `@deprecated` in Svelte's types) |
-| `typescript/svelte/no-at-html` | `grep` forbid in `**/*.svelte`: `{@html ` |
-| `typescript/svelte/each-key` | `tool` biome `lint/nursery/useSvelteRequireEachKey`: `{#each}` with a key |
-| `typescript/svelte/no-debug-tags` | `tool` biome `lint/nursery/noSvelteAtDebugTags`: no `{@debug}` |
-
-context.md: Svelte 5 runes, event attributes and snippets; legacy syntax and `{@html}` are rejected; keyed `{#each}`, no `{@debug}`.
-
-### typescript/svelte/kit
-
-| Rule | Targets |
-|---|---|
-| `typescript/svelte/kit/no-csrf-off` | `ast-grep` forbid in `svelte.config.*`, under `csrf`: `checkOrigin: false`, a `"*"` in `trustedOrigins` |
-| `typescript/svelte/kit/no-app-stores` | `grep` forbid in `.svelte`, `.ts`, `.js`, `.mts`, `.mjs` files, `when` `@sveltejs/kit >= 2.12`: an import (static or dynamic) of `$app/stores` |
-| `typescript/svelte/kit/no-env-modules` | `grep` forbid in the same files, `when` `@sveltejs/kit >= 3`: an import of `$env/static\|dynamic/private\|public` |
-| `typescript/svelte/kit/external-redirect` | `ast-grep` forbid, `when` `@sveltejs/kit >= 3`: a call declared as `@sveltejs/kit`'s `redirect` (§15.6) whose second argument is a string or template starting with `http://` / `https://` and that has no third argument |
-
-### typescript/angular
-
-Detected by `@angular/core >= 20`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/angular/control-flow` | `grep` forbid in `**/*.html`, `**/*.ts` (inline templates): `*ngIf=`, `*ngFor=`, `*ngSwitchCase=`, `*ngSwitchDefault=`, `[ngSwitch]=` |
-| `typescript/angular/no-bypass-sanitizer` | `ast-grep` forbid, `where` the receiver is `@angular/platform-browser` `DomSanitizer`: `bypassSecurityTrustHtml`, `…Script`, `…Style`, `…Url`, `…ResourceUrl` calls |
-| `typescript/angular/typecheck` | `check` typecheck: `ngc -p <tsconfig> --noEmit` for each file of role `@angular-tsconfig` (§15.4); the role naming no file prints `skipped`; on changes to `**/*.ts`, `**/*.html` |
-
-context.md: built-in control flow instead of `*ngIf` / `*ngFor` / `[ngSwitch]`; no `bypassSecurityTrust*`.
-
-### typescript/solid
-
-Detected by `solid-js` (npm).
-
-| Rule | Targets |
-|---|---|
-| `typescript/solid/no-destructured-props` | `tool` biome `lint/correctness/noSolidDestructuredProps` (tsx) |
-| `typescript/solid/for-component` | `tool` biome `lint/performance/useSolidForComponent` (tsx) |
-
-context.md: props read as `props.x` or through `splitProps`, lists with `<For>`.
-
-### typescript/tailwind
-
-Detected by `tailwindcss >= 4`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/tailwind/no-removed-utilities` | `grep` forbid in `**/*.{tsx,jsx,vue,svelte,astro,html,css}`: `bg-`, `text-`, `border-`, `divide-`, `ring-`, `placeholder-opacity-<n>`, `flex-shrink(-<n>)`, `flex-grow(-<n>)`, `overflow-ellipsis`, `decoration-slice`, `decoration-clone` as a whole class (not a CSS property: `flex-grow:`) |
-| `typescript/tailwind/config-referenced` | `check` lint, `when_changed`: `tailwind.config.*`, `**/*.css`: a root `tailwind.config.{js,ts,mjs,cjs}` needs a line starting with `@config` in a CSS file (tracked or untracked, not ignored) |
-| `typescript/tailwind/apply-reference` | `check` lint on `.vue`, `.svelte`, `.astro` and `*.module.css` files: one with `@apply` has `@reference` or `@import "tailwindcss"`; each `@apply` line is reported (`path:line`, so only added lines count) |
-
-context.md: CSS-first configuration, `@config` for a JS config, the removed utilities and their replacements, `@reference` with `@apply` in component styles.
-
-### typescript/openapi
-
-Detected by `openapi-typescript`, `orval` or `@hey-api/openapi-ts`. Both checks run only outside `--all`, and only when a tracked `package.json` has a script that runs one of the generators. An OpenAPI document is a changed `.json` / `.yaml` / `.yml` file with an `openapi:` or `swagger:` version in its first 4 KiB; a generated file is one whose first 15 lines say `auto-generated by openapi-typescript`, `auto-generated by @hey-api/openapi-ts` or `Generated by orval` (other generators' "do not edit" headers do not count).
-
-| Rule | Targets |
-|---|---|
-| `typescript/openapi/regenerate` | `check` lint: `forge_openapi_sync regenerate`: a changed OpenAPI document and no changed generated file fail |
-| `typescript/openapi/no-generated-edits` | `check` lint: `forge_openapi_sync hand-edits`: a changed generated file fails when no OpenAPI document, `orval.config.*`, `openapi-ts.config.*` or `redocly.*` changed, nor a `package.json` line naming the generator (its script or dependency version), and the repository tracks an OpenAPI document |
-
-context.md: the client comes from the document through a generator script; the two change together, generated files are never edited by hand.
-
-### typescript/nestjs
-
-Detected by `@nestjs/core` or `@nestjs/common`. Decorators are matched as the bindings imported from their package (`import { Body as B } from "@nestjs/common"` included), never by a name alone. `tool_off`: Biome's `lint/style/useImportType` (§5.1), whose fix turns a DTO import into `import type`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/nestjs/validation-pipe-whitelist` | `ast-grep` forbid: `new $N(…)` without `whitelist: true` in its object argument, where `N` is `@nestjs/common`'s `ValidationPipe` |
-| `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | `ast-grep` advise: the same without `forbidNonWhitelisted: true` |
-| `typescript/nestjs/dto-is-class` | `ast-grep` forbid: a parameter decorated `@Body()` / `@Query()` / `@Param()` (from `@nestjs/common`, no arguments) with no type, `any`, `unknown`, `object`, an object type literal or `Record<…>` |
-| `typescript/nestjs/dto-not-type-import` | `ast-grep` forbid: a parameter decorated by `@nestjs/common`'s `Body` / `Query` / `Param` whose type is a name bound by a type-only import (`import type { X }`, `import { type X }`, `import type X`, aliases included): `design:paramtypes` loses the class and `ValidationPipe` validates nothing |
-| `typescript/nestjs/validate-nested-type` | `ast-grep` forbid: a property decorated with class-validator's `ValidateNested` and no class-transformer `Type` decorator |
-| `typescript/nestjs/http-exception` | `ast-grep` advise: `throw new Error(…)` in a method of a class decorated with `@nestjs/common`'s `Controller`, not inside a `try` block |
-| `typescript/nestjs/express-path-syntax` | `ast-grep` advise, `when` `@nestjs/platform-express >= 11`: a string argument (or one in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` in a decorator call declared as `@nestjs/common`'s `Get`, `Post`, `Put`, `Patch`, `Delete`, `Options`, `Head` or `All` (§15.6), or in `$C.forRoutes(…)` where `C` is a `MiddlewareConfigProxy` (Nest converts the old syntax with a warning) |
-
-context.md: `ValidationPipe` with `whitelist` and `forbidNonWhitelisted`; DTO classes on `@Body()` / `@Query()` / `@Param()`, imported as values; `@ValidateNested()` with `@Type()`; `HttpException` subclasses in controllers; path-to-regexp 8 route paths on the Express platform.
-
-### typescript/kysely
-
-| Rule | Targets |
-|---|---|
-| `typescript/kysely/no-sql-raw` | `ast-grep` forbid: a call `$CALL` of `<x>.raw(…)` / `<x>.lit(…)` whose argument is a template with `${}`, a `+` concatenation or a variable declared from one (the `drizzle/no-sql-raw` matcher), where `CALL` is Kysely's `RawBuilder` |
-| `typescript/kysely/write-with-where` | `ast-grep` advise: `$DB.deleteFrom(…)` / `$DB.updateTable(…)` whose method chain reaches `execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` with no `where…` on the way, where `DB` is Kysely's `Kysely` or `Transaction` |
-| `typescript/kysely/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$B.execute()` / `executeTakeFirst()` / `executeTakeFirstOrThrow()` where `B` is typed `kysely` (§15.1) |
-
-context.md: the `sql` tag binds values, `sql.ref()` / `sql.id()` for names, no `sql.raw()` / `sql.lit()` from a template; deletes and updates have a `where`.
-
-### typescript/typeorm
-
-| Rule | Targets |
-|---|---|
-| `typescript/typeorm/no-synchronize` | `ast-grep` forbid: a pair `synchronize: true` / `dropSchema: true` in the object argument of `new $D(…)` where `D` is TypeORM's `DataSource`, of `TypeOrmModule.forRoot(…)`, or in an object a `TypeOrmModule.forRootAsync` `useFactory` returns (`TypeOrmModule` the binding imported from `@nestjs/typeorm`) |
-| `typescript/typeorm/synchronize-expression` | `ast-grep` advise: the same keys set from an expression (not `true` / `false`) |
-| `typescript/typeorm/no-raw-query-interpolation` | `ast-grep` forbid: `$R.query(…)` whose first argument is a template with `${}`, a `+` concatenation or a variable declared from one, where `R` is `DataSource`, `EntityManager`, `QueryRunner` or `Repository` |
-| `typescript/typeorm/no-qb-where-interpolation` | `ast-grep` forbid: `where` / `andWhere` / `orWhere` / `having` / `andHaving` / `orHaving` / `orderBy` / `addOrderBy` with such a first argument on a `SelectQueryBuilder`, `UpdateQueryBuilder`, `DeleteQueryBuilder`, `SoftDeleteQueryBuilder` or `WhereExpressionBuilder` |
-| `typescript/typeorm/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of `$R.$M(…)` where `R` is TypeORM's `Repository` or `EntityManager` (§15.1) |
-| `typescript/typeorm/schema-sync-guard` | `guard` deny: `typeorm` / `typeorm-ts-node-esm` / `typeorm-ts-node-commonjs` `schema:sync`, `schema:drop` |
-| `typescript/typeorm/migration-revert` | `guard` ask: the same bins with `migration:revert` |
-| `typescript/typeorm/migration-present` | `check` migration, local database only: `forge_typeorm_pending @typeorm-datasource @esm-modules`: the data source (role `@typeorm-datasource`, no default; unset: `skipped`) runs `migration:run`, then `migration:generate --check` fails on "Unexpected changes in database schema"; a TypeScript data source through `typeorm-ts-node-esm` (an `@esm-modules` file) or `typeorm-ts-node-commonjs`; another failure prints `skipped:` |
-
-context.md: migrations, never `synchronize` / `dropSchema`; parameters in `.query()` and in query builder conditions.
-
-### typescript/mongoose
-
-| Rule | Targets |
-|---|---|
-| `typescript/mongoose/no-request-filter` | `ast-grep` forbid: `$M.<op>($R.body \| query \| params, …)` or as the second argument, `<op>` one of `find`, `findOne`, `findOneAndUpdate`, `findOneAndDelete`, `findOneAndReplace`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `countDocuments`, `replaceOne`, where `M` is a Mongoose `Model` or `Query` and `R` an Express `Request` or a `FastifyRequest` |
-| `typescript/mongoose/no-where-operator` | `ast-grep` forbid: a `$where` key in the arguments of a call on `$M`, or `$M.$where(…)`, where `M` is a Mongoose `Model` or `Query` |
-| `typescript/mongoose/update-pipeline` | `ast-grep` advise, `when` `mongoose >= 9`: `$M.updateOne\|updateMany\|findOneAndUpdate\|findByIdAndUpdate(f, [<array>], …)` without an object argument holding `updatePipeline: true`, where `M` is a Mongoose `Model` or `Query` (advice: `mongoose.set("updatePipeline", true)` may be set elsewhere) |
-| `typescript/mongoose/no-query-in-loop` | `ast-grep` advise: `await` in the body of a `for`, `for…of`, `for…in`, `while` or `do`, or in a function passed to `.map` / `.forEach` / `.flatMap` (as `typescript/prisma/no-query-in-loop`), of a value whose type is Mongoose's `Query` or `Aggregate` (§15.1: `find()`'s `QueryWithHelpers` is an alias of an intersection with `Query`) |
-
-context.md: request input validated or `sanitizeFilter()`ed before a filter; no `$where`; update pipelines pass `updatePipeline: true`.
-
-### typescript/temporal
-
-| Rule | Targets |
-|---|---|
-| `typescript/temporal/workflow-determinism` | `ast-grep` forbid, in a file with a value import of `@temporalio/workflow`: a value import or `require()` of `node:*`, `fs`, `fs/promises`, `path`, `os`, `crypto`, `http`, `https`, `net`, `tls`, `dns`, `child_process`, `worker_threads`, `cluster`, `@temporalio/activity`, `@temporalio/client` or `@temporalio/worker`; `crypto.randomUUID()` / `crypto.getRandomValues()`. A project module holding activities imported by value is not detected (which module holds activities is not known without guessing) |
-
-context.md: the workflow sandbox; activities through `proxyActivities` with `import type`; `uuid4()`.
-
-### typescript/stripe
-
-| Rule | Targets |
-|---|---|
-| `typescript/stripe/webhook-raw-body` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)` / `constructEventAsync(…)` whose first argument is `JSON.stringify(…)`, `await <x>.json()` or a variable declared from one in an enclosing block or the module, where `S` is Stripe's `Stripe` |
-
-context.md: webhook payloads are the raw body.
-
-### typescript/cloudflare-workers
-
-Detected by `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` or the `wrangler` dependency.
-
-
-| Rule | Targets |
-|---|---|
-| `typescript/cloudflare-workers/no-ctx-destructure` | `ast-grep` forbid: `const { … } = $C` where `C: {type: {module: ["@cloudflare/workers-types", "@wrangler-types"], name: ExecutionContext}}` (the `wrangler types` output through role `@wrangler-types`, §15.4) |
-| `typescript/cloudflare-workers/no-pass-through-on-exception` | `ast-grep` advise: `$C.passThroughOnException()`, `C` as above |
-| `typescript/cloudflare-workers/env-types-generated` | `check` codegen (§10.1), `when` wrangler `>=4.153.0`: `wrangler types <file> --check` for each file of role `@wrangler-types` (the config hash the file records is the current config's); `when_changed: [@wrangler-config, @wrangler-types]` |
-| `kubernetes/helm/chart-api-v2` | `grep` forbid on `Chart.yaml`: a top-level `apiVersion: v1` |
-
-### typescript/cloudflare-workers/stripe
-
-| Rule | Targets |
-|---|---|
-| `typescript/cloudflare-workers/stripe/constructevent-async` | `ast-grep` forbid: `$S.webhooks.constructEvent(…)`, where `S` is Stripe's `Stripe` (on Workers only `constructEventAsync` works) |
-
-context.md: `await stripe.webhooks.constructEventAsync(…)` on Workers.
-
-### typescript/mcp
-
-Detected by `@modelcontextprotocol/sdk` or `@modelcontextprotocol/server`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/mcp/stdio-no-stdout` | `ast-grep` forbid, in a file importing `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js` or `@modelcontextprotocol/server`: `console.log`, `console.info`, `console.debug`, `process.stdout.write` |
-
-context.md: stdout is the JSON-RPC stream; logs on stderr.
-
-### typescript/upstash-ratelimit
-
-| Rule | Targets |
-|---|---|
-| `typescript/upstash-ratelimit/check-limit` | `ast-grep` forbid: an expression statement `$RL.limit(…)` or `await $RL.limit(…)` (result discarded), where `RL` is `@upstash/ratelimit`'s `Ratelimit` (the exported classes extend it) |
-
-context.md: `limit()` never throws; check `success`.
-
-### typescript/fastify
-
-Detected by `fastify >= 5`. `Fastify()` returns an intersection (`FastifyInstance & SafePromiseLike<…>`), whose `FastifyInstance` member counts (§15.1), like plugin parameters and annotated instances.
-
-| Rule | Targets |
-|---|---|
-| `typescript/fastify/plugin-style` | `ast-grep` forbid: an `async` arrow or function expression with a third parameter, passed first to `$F.register(…)` (where `F` is a `FastifyInstance`) or to fastify-plugin's default import |
-| `typescript/fastify/full-json-schema` | `ast-grep` forbid: in the `schema` of `$F.route({…})` / `$F.<method>(url, {…}, …)` (where `F` is a `FastifyInstance`), a `body`, `querystring`, `params` or `headers` value, or a `response` status value, that is an object literal with properties, no spread and no JSON Schema keyword key |
-| `typescript/fastify/no-permissive-trust-proxy` | `ast-grep` advise: `trustProxy: true` in the object passed to fastify's default or named `fastify` import (aliases included) |
-
-context.md: the two plugin signatures; full JSON Schemas in routes; `trustProxy` is not `true`.
-
-### typescript/elysia
-
-| Rule | Targets |
-|---|---|
-| `typescript/elysia/body-schema` | `ast-grep` forbid: `$APP.post` / `put` / `patch(path, handler, …)` whose handler's first parameter destructures `body`, without a third argument object holding `body`, where `APP` is an `Elysia` |
-
-context.md: a `body` schema on routes that read the body.
-
-### typescript/apollo
-
-| Rule | Targets |
-|---|---|
-| `typescript/apollo/csrf-prevention` | `ast-grep` forbid: `new $N({…, csrfPrevention: false})`, where `N` is `@apollo/server`'s `ApolloServer` |
-| `typescript/apollo/no-stacktrace` | `ast-grep` forbid: the same with `includeStacktraceInErrorResponses: true` |
-
-context.md: CSRF prevention on; no forced stack traces.
-
-### typescript/graphql-yoga
-
-| Rule | Targets |
-|---|---|
-| `typescript/graphql-yoga/masked-errors` | `ast-grep` forbid: a call of `createYoga` imported from `graphql-yoga` (aliases included) with `maskedErrors: false` |
-
-context.md: error masking on; `GraphQLError` for client errors.
-
-### typescript/graphql-codegen
-
-Detected by `@graphql-codegen/cli`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/graphql-codegen/up-to-date` | `check` codegen (§10.1): `graphql-codegen --check` (exit 1 and the stale files when an output would change), on changes to `.graphql`, `.gql`, TypeScript and JavaScript files and the codegen config |
-
-context.md: generated files are regenerated, never edited by hand.
-
-### typescript/effect
-
-`Effect` is the binding imported from `effect` (`import { Effect }`, aliases included) or the namespace import of `effect/Effect`. "In a generator" means the nearest enclosing function is the generator passed to `Effect.gen(…)`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/effect/no-run-inside-gen` | `ast-grep` forbid: `Effect.runPromise` / `runSync` / `runFork` (and `…Exit` / `…With`) called in an `Effect.gen` generator |
-| `typescript/effect/no-throw-in-gen` | `ast-grep` forbid: a `throw` statement in an `Effect.gen` generator |
-
-context.md: `yield*` inside generators, `run*` at the edge; `Effect.fail` with tagged errors.
-
-### typescript/mikro-orm
-
-Detected by `@mikro-orm/core`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/mikro-orm/no-global-context` | `ast-grep` forbid, outside test files (`*.test.*`, `*.spec.*`, `__tests__/`, `e2e/`): `allowGlobalContext: true` in the object passed to `MikroORM.init(…)`, `new MikroORM(…)` or `defineConfig(…)`, those names imported from `@mikro-orm/*` (aliases included) |
-| `typescript/mikro-orm/schema-guard` | `guard` deny: `mikro-orm` / `mikro-orm-esm` `schema:drop` or `schema:fresh` with `--run` / `-r` |
-| `typescript/mikro-orm/schema-update` | `guard` ask: `schema:update` with `--run` / `-r`, `migration:fresh` |
-| `typescript/mikro-orm/migration-present` | `check` migration, `requires_local_db`: `mikro-orm migration:up`, then `mikro-orm migration:check` (exit 1 when the entities differ from the migrated schema) |
-
-context.md: request contexts, never a global one; migrations; which schema commands are refused or asked.
-
-### typescript/redis
-
-Detected by `ioredis`, `redis` or `@redis/client`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/redis/no-keys` | `ast-grep` forbid: `$C.keys(…)` / `$C.KEYS(…)`, where `C` is ioredis's `Redis` or `Cluster`, or node-redis's `RedisClient` or `RedisCluster` (`createClient()`'s `RedisClientType`, an alias of an intersection with `RedisClient`, §15.1) |
-
-context.md: `SCAN` iterators instead of `KEYS`.
-
-### typescript/jsonwebtoken
-
-`verify`, `sign` and `decode` are members of jsonwebtoken's default or namespace import, or its named imports (aliases included).
-
-| Rule | Targets |
-|---|---|
-| `typescript/jsonwebtoken/verify-algorithms` | `ast-grep` forbid: `verify(…)` without a third argument that is an object with `algorithms` (or a variable / member holding options); `algorithms` containing `"none"` or `ignoreExpiration: true` in `verify`'s options; `algorithm: "none"` in `sign`'s options |
-| `typescript/jsonwebtoken/no-decode-trust` | `ast-grep` advise: every `decode(…)` call (it does not verify) |
-
-context.md: `verify` with an algorithm list, expiry kept; `decode` is not trust.
-
-### typescript/better-auth
-
-`betterAuth` is the binding imported from `better-auth` (aliases included).
-
-| Rule | Targets |
-|---|---|
-| `typescript/better-auth/no-csrf-disable` | `ast-grep` forbid: `disableCSRFCheck: true` or `useSecureCookies: false` anywhere in `betterAuth(…)`'s arguments |
-| `typescript/better-auth/trusted-origins` | `ast-grep` forbid: `trustedOrigins` in `betterAuth({…})` that is an array holding `"*"`, or a function whose returned array holds its first parameter's `.headers.get("origin")` (alone or with a `??` / `\|\|` fallback) |
-| `typescript/better-auth/schema-check` | `check` migration: `forge_do better-auth schema-check <file>` (`better-auth check schema --config <file>`, from `auth` 1.7.6, the release that added it; an older release is reported not enforced by its adapter, the one gate) (the `auth` package's CLI) on the first file of role `@better-auth-config`: exit 1 (`SCHEMA_MISMATCH`) fails, exit 2 (cannot check) prints `skipped`; a config without the Drizzle or Prisma adapter checks the live database, so it runs only with a local one (§10.1 step 5) |
-
-context.md: CSRF checks and Secure cookies on; real trusted origins.
-
-### typescript/aws-lambda
-
-Detected by `@types/aws-lambda` (or `aws-lambda`).
-
-| Rule | Targets |
-|---|---|
-| `typescript/aws-lambda/no-callback-handler` | `ast-grep` forbid: a parameter annotated with `Callback` / `Callback<…>` imported from `aws-lambda` (aliases included); `$C.callbackWaitsForEmptyEventLoop`, where `C` is aws-lambda's `Context`. `context.succeed` / `fail` / `done` are `@deprecated`, left to the deprecation rules |
-
-context.md: async handlers; callback handlers rejected.
-
-### typescript/resend
-
-| Rule | Targets |
-|---|---|
-| `typescript/resend/check-error` | `ast-grep` forbid: an expression statement `$R.emails.send(…)` / `$R.batch.send(…)`, awaited or not (result discarded), where `R` is Resend's `Resend` |
-
-context.md: `{ data, error }` results are handled.
-
-### typescript/pulumi
-
-| Rule | Targets |
-|---|---|
-| `typescript/pulumi/protect-ratchet` | `grep` no-decrease: `protect: true` (whole words) |
-| `typescript/pulumi/no-output-in-string` | `ast-grep` forbid: an expression in a `${…}` of an untagged template literal, or an operand of `+` with a string or template operand, whose type is `@pulumi/pulumi`'s `Output` / `OutputInstance` (§15.1: `Output<T>` is an alias of an intersection) |
-
-context.md: protected resources stay protected.
-
-### typescript/aws-cdk
-
-Detected by `cdk.json` or the `aws-cdk-lib` dependency.
-
-| Rule | Targets |
-|---|---|
-| `typescript/aws-cdk/removal-policy-destroy` | `ast-grep` advise: `$E.DESTROY`, where `E` is aws-cdk-lib's `RemovalPolicy`; `new $B(…, {autoDeleteObjects: true})`, where `B` is aws-cdk-lib's `Bucket` |
-| `typescript/aws-cdk/context-committed` | `check` lint: with `cdk.json`, `cdk.context.json` is not git-ignored (`git check-ignore`), `when_changed: [.gitignore, **/.gitignore, cdk.json]` |
-| `typescript/aws-cdk/nag-suppressions` | `ast-grep` no-increase: `NagSuppressions.add…Suppressions…(…)`, `NagSuppressions` imported from `cdk-nag` (aliases included) |
-
-context.md: destroy policies are advice; `cdk.context.json` committed; cdk-nag findings fixed, not suppressed.
-
-### typescript/express
-
-| Rule | Targets |
-|---|---|
-| `typescript/express/session-cookie-flags` | `ast-grep` forbid: `secure: false` / `httpOnly: false` in the `cookie` object of a call of express-session's default import, or in the object passed to cookie-session's default import |
-| `typescript/express/no-permissive-trust-proxy` | `ast-grep` advise: `$A.set("trust proxy", true)`, where `A` is an Express `Application` (`express-serve-static-core`) |
-| `typescript/express/path-syntax-v5` | `ast-grep` forbid, `when` `express >= 5`: a first argument of `$R.get\|post\|put\|patch\|delete\|options\|head\|all\|use\|route(…)` (a string, or a string in an array) with an unnamed `*` or `?`, `+`, `!`, `(`, `)`, `[`, `]` (path-to-regexp 8 throws), where `R` is an Express `IRouter` (`express-serve-static-core`: applications and routers) |
-| `typescript/express/no-req-query-assign` | `ast-grep` forbid, `when` `express >= 5`: an assignment (or `+=`, …) to `$R.query`, `$R.query.<p>` or `$R.query[<k>]`, where `R` is an Express `Request` (a getter in Express 5) |
-| `typescript/express/no-async-errors` | `ast-grep` forbid, `when` `express >= 5`: an import or `require` of `express-async-errors` |
-| `typescript/express/no-async-handler` | `ast-grep` advise, `when` `express >= 5`: an import or `require` of `express-async-handler` or `express-promise-router` (redundant: Express 5 handles rejected promises) |
-| `typescript/express/no-v4-response-signatures` | `ast-grep` forbid, `when` `express >= 5`: `$R.send(<number>)` (one argument) and `$R.redirect("back")`, where `R` is an Express `Response` |
-| `typescript/express/types-match` | `check` lint: `forge_dep_major_match express @types/express @types/express-serve-static-core`: in each changed `package.json` declaring both, the lowest major of the types package's range equals express's (`^4.17.21` on `^5.1.0` fails); a spec that is not a range (`catalog:`, `workspace:`, `*`) is reported as not compared; `when_changed: [**/package.json]` |
-
-context.md: no literal `secure: false` / `httpOnly: false` session cookies; `trust proxy` is not `true`; Express 5 path syntax, `req.query` read-only, no async wrappers, no Express 4 `res.send(<number>)` / `res.redirect("back")`.
-
-### typescript/bullmq
-
-| Rule | Targets |
-|---|---|
-| `typescript/bullmq/worker-connection` | `ast-grep` forbid: `connection: new $R(…)` without `maxRetriesPerRequest: null` in the options of `new $W(…)`, where `W` is BullMQ's `Worker` and `R` ioredis's `Redis` (a connection in a variable is not followed) |
-
-context.md: `maxRetriesPerRequest: null` on worker connections.
-
-### typescript/bcrypt
-
-Detected by `bcrypt` or `bcryptjs`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/bcrypt/no-sync-hash-in-async` | `ast-grep` forbid: `hashSync` / `compareSync` / `genSaltSync` of bcrypt's or bcryptjs's default, namespace or named import (aliases included), when the nearest enclosing function is `async` |
-
-context.md: await the async variants in async code.
-
-### typescript/aws-s3
-
-Detected by `@aws-sdk/client-s3` or `@aws-sdk/s3-presigned-post`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/aws-s3/no-public-acl` | `ast-grep` advise: the string `public-read` / `public-read-write` as the `ACL` of `new $C({…})`, where `C` is `PutObjectCommand`, `CreateMultipartUploadCommand` or `CopyObjectCommand` (`@aws-sdk/client-s3`), or anywhere in the arguments of `createPresignedPost` imported from `@aws-sdk/s3-presigned-post` |
-
-context.md: no public ACLs on uploads.
-
-### typescript/anthropic
-
-Detected by `@anthropic-ai/sdk` (npm).
-
-| Rule | Targets |
-|---|---|
-| `typescript/anthropic/no-budget-tokens` | `ast-grep` forbid: `$C.messages.$M({…})` / `$C.beta.messages.$M({…})` (`create`, `stream`, `parse`, `countTokens`), `$C` typed `@anthropic-ai/sdk` `Anthropic` / `BaseAnthropic`, whose options have a `model` string literal from the data file's `rejects budget_tokens` rows (`ai-models`) and a `thinking` object with a `budget_tokens` key |
-| `typescript/anthropic/no-forced-tool-choice` | `ast-grep` forbid: the same calls with a `model` literal from the `rejects forced_tool_choice` rows and `tool_choice: {type: 'any' \| 'tool'}` |
-
-### typescript/langchain
-
-Detected by `langchain`, `@langchain/core` or `@langchain/classic`.
-
-| Rule | Targets |
-|---|---|
-| `typescript/langchain/no-legacy-chains` | `ast-grep` advise: importing `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `ConversationalRetrievalQAChain`, `initializeAgentExecutorWithOptions` or `AgentExecutor` from `@langchain/classic…` or `langchain/chains…` / `langchain/agents…` |
-
-context.md: `createAgent`; the legacy chains live in `@langchain/classic`.
+TypeScript projects, type-checked with tsc.
+
+Detected by: a dependency on `typescript` (npm); or a file matching `tsconfig.json`.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- TypeScript, strict.
+- No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
+- `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+- Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/a11y` | Biome's accessibility rules are errors in JSX and in Vue, Svelte, Astro and HTML templates (the European Accessibility Act applies to e-commerce since June 2025); Biome lints templates with html.experimentalFullSupportEnabled. | any: `**/*.{tsx,jsx,vue,svelte,astro,html}` | tool biome `lint/a11y/useAltText`<br>tool biome `lint/a11y/useButtonType` |
+| `typescript/array-sort-compare` | .sort() and .toSorted() always get a compare function (strings too, (a, b) => a.localeCompare(b)); the default compares as strings, so [10, 9].sort() is [10, 9]. | typescript | tool biome `lint/suspicious/useArraySortCompare`<br>tool eslint `@typescript-eslint/require-array-sort-compare` |
+| `typescript/config-files` | Claude asks you before editing the Biome, TypeScript, ESLint, Oxlint, Deno, Prettier, package manager (pnpm-workspace.yaml, .npmrc, .yarnrc.yml, bunfig.toml) and Turborepo configs; package.json is covered by typescript/config-ratchet. | any | permission ask `Edit(**/biome.json)`<br>permission ask `Edit(**/biome.jsonc)`<br>permission ask `Edit(**/tsconfig*.json)`<br>permission ask `Edit(**/eslint.config.*)`<br>permission ask `Edit(**/.oxlintrc.json)`<br>permission ask `Edit(**/deno.json)`<br>permission ask `Edit(**/deno.jsonc)`<br>permission ask `Edit(**/.prettierrc*)`<br>permission ask `Edit(**/prettier.config.*)`<br>permission ask `Edit(**/pnpm-workspace.yaml)`<br>permission ask `Edit(**/.npmrc)`<br>permission ask `Edit(**/.yarnrc.yml)`<br>permission ask `Edit(**/bunfig.toml)`<br>permission ask `Edit(**/turbo.json)` |
+| `typescript/config-ratchet` | Biome, tsconfig and package.json test scripts are not loosened (rules lowered or turned off, strict flags removed, paths excluded, --passWithNoTests-like flags added); loosening one is the user's decision: ask them. | any: `**/biome.json`, `**/biome.jsonc`, `**/tsconfig*.json`, `**/package.json` | check lint: `forge_ratchet bun ratchet.mjs` (when `**/biome.json`, `**/biome.jsonc`, `**/tsconfig*.json` or `**/package.json` changes) |
+| `typescript/cors-credentials-wildcard` | CORS with credentials true names its allowed origins. origin "*" is refused by browsers with credentials; origin true, or a function that returns the origin it is given (alone or with a ?? / \|\| fallback, as an expression or a return), lets any site make credentialed requests. Covers cors (Express), hono/cors, @fastify/cors and Nest's enableCors. | typescript | ast-grep forbid (where `$CORS`, `$PLUGIN`, `$APP`, `$NEST`: types engine, §15) |
+| `typescript/env-example` | A key added to a Zod env schema (t3-env createEnv, or z.object(...) parsed from process.env) is listed in the .env template next to it (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always when it has no .default() or .optional(), and also otherwise when the template already lists at least half of the schema's keys. Checked at Stop and pre-commit. | typescript | check lint: `forge_env_example ts` |
+| `typescript/error-cause` | A catch block that throws a new error passes the caught one as its cause: new Error("…", { cause: err }). | typescript | tool biome `lint/style/useErrorCause` |
+| `typescript/format-lint` | TypeScript and JavaScript files, and the Vue, Svelte, Astro and HTML templates Biome reads, are formatted and linted with Biome. | any: `**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,html}` | check lint: `forge_do biome ci .` |
+| `typescript/iframe-sandbox` | No iframe sandbox with both allow-scripts and allow-same-origin: together they let the framed page remove its own sandbox. | tsx | tool biome `lint/nursery/noUnsafeIframeSandbox` |
+| `typescript/implicit-returns` | Every code path of a function that returns a value returns one (noImplicitReturns); a branch that falls through would yield undefined. | typescript | tool tsc `TS7030` |
+| `typescript/lockfile-updated` | A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one) whose changed lines name each changed dependency: run the package manager to update it. A lock change that names none of them (a blank line) does not count. bun.lock is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that rule is active. At Stop it blocks once per turn, then accepts. | any | check lint: `forge_once forge_lockfile_updated` (when `**/package.json` changes) |
+| `typescript/no-banned-types` | No Function, Object, String, Number, Boolean or {} as types; write the function signature, object shape or primitive type. | typescript | tool biome `lint/complexity/noBannedTypes` |
+| `typescript/no-console` | No console.log, info or debug in application code; console.warn and console.error stay allowed. | typescript | tool biome `lint/suspicious/noConsole` |
+| `typescript/no-const-enum` | No const enum; isolated transpilers and type stripping cannot inline it. Use a union of literals or an as const object. | typescript | tool biome `lint/suspicious/noConstEnum` |
+| `typescript/no-deprecated` | No use of a declaration marked @deprecated (the project's, a library's, @types/node's): a call, construction, property, type or import TypeScript reports as deprecated (for an overloaded function, the signature the call resolves to), or an object literal key whose property is deprecated. Use the replacement the deprecation names. | typescript | ast-grep forbid (where `$N`: types engine, §15)<br>applies where `typescript >=5.0.0` (npm) declared |
+| `typescript/no-double-assertion` | No double type assertions (x as unknown as T). Parse with a schema or narrow with a type guard. | typescript | ast-grep forbid |
+| `typescript/no-dynamic-regexp` | A RegExp built from a non-literal pattern (new RegExp(input), RegExp(`^${p}`)) escapes it (RegExp.escape() where the runtime has it, ES2025 / Node 24, else an escaping helper) unless the text is meant as a pattern: unescaped input changes what matches and can backtrack for ever. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/no-empty-block` | No empty block statements; an intentionally empty block says why in a comment. | typescript | tool biome `lint/suspicious/noEmptyBlockStatements` |
+| `typescript/no-eval` | No eval(). Parse data with JSON.parse or a schema; never run strings as code. | typescript | tool biome `lint/security/noGlobalEval`<br>ast-grep forbid |
+| `typescript/no-explicit-any` | No explicit any. Use unknown with narrowing, or a Zod schema. | typescript | tool biome `lint/suspicious/noExplicitAny`<br>ast-grep forbid |
+| `typescript/no-focused-tests` | No focused tests (.only). They silently turn every other test into a pass. | typescript: `@ts-tests`, `@e2e-tests` | tool biome `lint/suspicious/noFocusedTests`<br>ast-grep forbid |
+| `typescript/no-hardcoded-session-secret` | No string literal as a signing secret (express-session, cookie-parser, better-auth, hono/jwt, jsonwebtoken sign/verify, @fastify/cookie, @fastify/session). Read it from the environment or a secret store; a secret in the code signs every session for whoever reads the repository. | typescript: `!**/*.test.*`, `!**/*.spec.*`, `!**/__tests__/**`, `!e2e/**` | ast-grep forbid (where `$OPTS`, `$PLUGIN`, `$JWT`, `$COOKIES`: types engine, §15) |
+| `typescript/no-html-sinks` | No HTML built from a value written into the DOM (XSS): no innerHTML or outerHTML assigned anything but a constant string, and no insertAdjacentHTML, document.write, writeln, createContextualFragment or setHTMLUnsafe whose HTML argument is not constant. Set textContent, build elements, or sanitise in one place. | typescript | ast-grep forbid (where `$E`: types engine, §15) |
+| `typescript/no-ignore-deprecations` | No "ignoreDeprecations" in tsconfig files. TypeScript 7 removes the options it silences; migrate them instead. | any: `tsconfig*.json`, `**/tsconfig*.json` | check lint: `! grep -n '"ignoreDeprecations"' /dev/null $(git ls-files '*tsconfig*.json')` (when `tsconfig*.json` or `**/tsconfig*.json` changes) |
+| `typescript/no-implicit-any` | Implicit any is a type error (noImplicitAny, part of strict). | typescript | tool tsc `TS7006` |
+| `typescript/no-new-suppressions` | No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error) or coverage ignore hints (istanbul ignore, c8 ignore, v8 ignore); a changed file may not have more than it had. Fix the finding instead. | typescript | ast-grep no-increase |
+| `typescript/no-non-null-assertion` | No non-null assertions (x!). Check for null, use optional chaining, or narrow the type. | typescript | tool biome `lint/style/noNonNullAssertion`<br>ast-grep forbid |
+| `typescript/no-object-literal-assertion` | No type assertion on an object or array literal ({ … } as T, [x] as T[]); it hides missing and misspelled fields. Annotate the variable, use satisfies T, or pass a type argument; as const and an empty [] are fine. | typescript | ast-grep forbid |
+| `typescript/no-proto` | No __proto__; use Object.getPrototypeOf, Object.setPrototypeOf or Object.create. | typescript | tool biome `lint/suspicious/noProto` |
+| `typescript/no-secrets` | No API keys, tokens or private keys in code. Read them from the environment. | typescript | tool biome `lint/security/noSecrets` |
+| `typescript/no-stub` | No stub left behind. A throw of "Not implemented" (or "TODO", "unimplemented"), or a named function or method with an empty body, is a stub; overload signatures, interfaces and constructors with parameter properties are not. | typescript: `!**/*.d.ts` | ast-grep forbid |
+| `typescript/no-swallowed-catch` | A catch block rethrows or uses the error it caught; .catch(() => {}) is not allowed either. Handle the error, log it, or let it propagate. | typescript | ast-grep forbid |
+| `typescript/no-ts-ignore` | No @ts-ignore. Fix the type, or use @ts-expect-error with a reason. | typescript | tool biome `lint/suspicious/noTsIgnore`<br>ast-grep forbid |
+| `typescript/no-ts-nocheck` | No @ts-nocheck. It turns off type checking for the whole file. | typescript | ast-grep forbid |
+| `typescript/no-unchecked-json` | The result of JSON.parse() or a fetch Response's .json() is not asserted (as T) or annotated (const x: T =) to a type it was never checked against: take it as unknown and validate it with a schema. | typescript | ast-grep forbid (where `$R`: types engine, §15) |
+| `typescript/no-unused-suppressions` | No biome-ignore comment that suppresses nothing. Biome reports these as warnings only (no setting makes them errors), so this check fails on them. | typescript | check lint: `! forge_do biome lint . 2>&1 \| grep -E '^[^[:space:]]+:[0-9]+:[0-9]+ suppressions/unused'` |
+| `typescript/no-unused` | No unused imports or variables. | typescript | tool biome `lint/correctness/noUnusedImports`<br>tool biome `lint/correctness/noUnusedVariables` |
+| `typescript/node-version-file` | The root .nvmrc / .node-version is a Node version (not an alias like lts/*) that satisfies package.json engines.node and devEngines.runtime (name node); a partial version (22) stands for the newest release of that line. | any: `.nvmrc`, `.node-version`, `package.json` | check lint: `forge_helper bun node_version.mjs` (when `.nvmrc`, `.node-version` or `package.json` changes) |
+| `typescript/postmessage-origin` | window.postMessage is never sent to targetOrigin "*": the message reaches whatever page the frame has navigated to. Name the receiver's origin. | typescript | ast-grep forbid (where `$W`: types engine, §15) |
+| `typescript/strict-function-types` | Function parameters are checked contravariantly (strictFunctionTypes, part of strict). | typescript | tool tsc `TS2322` |
+| `typescript/strict-null-checks` | null and undefined are checked (strictNullChecks, part of strict). | typescript | tool tsc `TS18047` |
+| `typescript/ts-expect-error-reason` | Every @ts-expect-error says why, after the directive. | typescript | ast-grep forbid |
+| `typescript/typecheck` | The project passes tsc. | typescript | check typecheck: `forge_do tsc typecheck-incremental "$(forge_state_file tsc.tsbuildinfo)"` |
+| `typescript/unchecked-index` | Indexed access can be undefined (noUncheckedIndexedAccess); check the element before using it. | typescript | tool tsc `TS18048` |
+| `typescript/verbatim-imports` | Imports and re-exports used only as types are written import type / export type, so type stripping and isolated transpilers drop them instead of importing a module that has no such value at run time. | typescript | tool biome `lint/style/useImportType`<br>tool biome `lint/style/useExportType` |
 
 ### typescript/ai
 
-Detected by `ai` (the Vercel AI SDK).
+The Vercel AI SDK (ai).
 
-| Rule | Targets |
-|---|---|
-| `typescript/ai/no-system-in-messages` | `ast-grep` forbid, `when` `ai >= 7`: a call declared as `ai`'s `generateText` or `streamText` (§15.6) whose options object has a `messages` or `prompt` array literal holding an object with `role: "system"`, and no `allowSystemInMessages: true` |
+Detected by: a dependency on `ai` (npm).
+Child of `typescript`: active only where it is.
 
-context.md: system prompts go in `instructions`.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- (when `ai >=7.0.0` (npm) declared) AI SDK 7: system prompts go in `instructions`; a `role: "system"` message in `messages` / `prompt` is rejected unless `allowSystemInMessages: true`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/ai/no-system-in-messages` | No { role: "system" } entry in the messages (or prompt) array literal of a generateText or streamText call from ai 7, unless the same options set allowSystemInMessages: true: ai 7 rejects it with InvalidPromptError. Put it in instructions. | typescript | ast-grep forbid (where `$F`: types engine, §15)<br>applies where `ai >=7.0.0` (npm) declared |
+
+### typescript/angular
+
+Angular 20+ templates and security APIs.
+
+Detected by: a dependency on `@angular/core >=20.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Angular 20+: templates use built-in control flow (`@if`, `@for (x of xs; track x.id)`, `@switch`); `*ngIf`, `*ngFor` and `[ngSwitch]` are deprecated and rejected (`ng generate @angular/core:control-flow` migrates them).
+- `DomSanitizer.bypassSecurityTrust*` turns off Angular's XSS protection and is rejected; bind values and let Angular sanitise them.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/angular/control-flow` | Templates use built-in control flow (@if, @for (...; track ...), @switch), not the deprecated *ngIf, *ngFor, [ngSwitch], *ngSwitchCase or *ngSwitchDefault. ng generate @angular/core:control-flow migrates them. | any: `**/*.html`, `**/*.ts` | grep forbid `\*ng(If\|For\|SwitchCase\|SwitchDefault)[[:space:]]*=\|\[ngSwitch\][[:space:]]*=` |
+| `typescript/angular/no-bypass-sanitizer` | No DomSanitizer.bypassSecurityTrustHtml, Script, Style, Url or ResourceUrl: they turn off Angular's XSS protection for that value. Bind the value and let Angular sanitise it. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+| `typescript/angular/typecheck` | The Angular compiler type-checks the templates: ngc -p <tsconfig> --noEmit for each tsconfig of file role @angular-tsconfig (each angular.json project's build tsConfig, else tsconfig.app.json); tsc does not read templates. | any: `**/*.ts`, `**/*.html` | check typecheck: a shell script calling `forge_do ngc typecheck`, `forge_role_files` |
+
+### typescript/anthropic
+
+Anthropic TypeScript SDK.
+
+Detected by: a dependency on `@anthropic-ai/sdk` (npm).
+Child of `typescript`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/anthropic/no-budget-tokens` | No thinking: { type: 'enabled', budget_tokens } in a messages call whose model is a literal that rejects it with a 400 (Opus 4.7 and later, Sonnet 5 and 5.5, Fable 5 and 5.1, Mythos 5 and 5.1, Haiku 5.5; Bedrock's anthropic. prefix included): use thinking: { type: 'adaptive' } and output_config: { effort }. | typescript | ast-grep forbid (where `$C`: types engine, §15) |
+| `typescript/anthropic/no-forced-tool-choice` | No tool_choice: { type: 'any' } or { type: 'tool' } in a messages call whose model is a literal that rejects forced tool use with a 400 (claude-opus-5-5, claude-sonnet-5-5, claude-fable-5-1, claude-mythos-5-1): use tool_choice: { type: 'auto' } with strict: true tools and an instruction naming the tool, or structured outputs (output_config.format). | typescript | ast-grep forbid (where `$C`: types engine, §15) |
+
+### typescript/apollo
+
+Apollo Server (CSRF prevention, error responses).
+
+Detected by: a dependency on `@apollo/server` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Apollo Server: `csrfPrevention` stays on (no `csrfPrevention: false`), and `includeStacktraceInErrorResponses` is never set to a literal `true`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/apollo/csrf-prevention` | No csrfPrevention: false in new ApolloServer({...}): it re-opens CSRF through simple GET and POST requests that browsers send cross-site without a preflight. | typescript | ast-grep forbid (where `$N`: types engine, §15) |
+| `typescript/apollo/no-stacktrace` | No literal includeStacktraceInErrorResponses: true in new ApolloServer({...}): error responses then carry server stack traces in every environment, production included. | typescript | ast-grep forbid (where `$N`: types engine, §15) |
+
+### typescript/astro
+
+Astro sites and their type checking.
+
+Detected by: a dependency on `astro` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Astro. `.astro` components render on the server; the default output is static HTML.
+- `.astro` files are type-checked with `astro check`, not `tsc`.
+- Content collections are declared in `src/content.config.ts` with the `glob()` / `file()` loaders; entries are identified by `entry.id` (no `slug`).
+- `Astro.glob()` is removed: use `getCollection()` or `import.meta.glob()`. View transitions use `<ClientRouter />`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/astro/check` | The project passes astro check (types in .astro files). | any: `**/*.astro`, `**/*.ts`, `**/*.tsx` | check typecheck: a shell script calling `forge_do astro check` |
+| `typescript/astro/no-set-html` | No set:html in .astro files; it injects unescaped HTML. Render the content as text or sanitise it in a component. | any: `**/*.astro` | grep forbid `set:html[[:space:]]*=` |
+
+### typescript/astro/react
+
+React components as Astro islands.
+
+Detected by: a dependency on `@astrojs/react` (npm).
+Child of `typescript/astro`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- React components in Astro render to static HTML; they become interactive only with a `client:*` directive (`client:load`, `client:idle`, `client:visible`, `client:only="react"`).
+- Hooks and event handlers run only in hydrated islands.
+- Props passed to a hydrated island must be serializable.
+
+No rules of its own.
+
+### typescript/aws-cdk
+
+AWS CDK apps in TypeScript.
+
+Detected by: a dependency on `aws-cdk-lib` (npm); or a file matching `cdk.json`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- AWS CDK: `RemovalPolicy.DESTROY` and `autoDeleteObjects: true` delete data with the stack: use them only where losing the data is intended; `cdk.context.json` is committed, never git-ignored.
+- cdk-nag findings are fixed rather than suppressed: a changed file may not add `NagSuppressions.add…Suppressions` calls.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/aws-cdk/context-committed` | cdk.context.json is not git-ignored in a CDK app (cdk.json present); CDK caches context lookups there, and it is committed so synth stays deterministic. | any | check lint: a shell script of 1 lines (when `.gitignore`, `**/.gitignore` or `cdk.json` changes) |
+| `typescript/aws-cdk/nag-suppressions` | A changed file does not add cdk-nag suppressions (NagSuppressions.add…Suppressions calls, also under an import alias); fix the finding instead. | typescript | ast-grep no-increase |
+| `typescript/aws-cdk/removal-policy-destroy` | RemovalPolicy.DESTROY and autoDeleteObjects: true in a Bucket's props: they let cdk destroy (or a replacement) delete the data; keep them to throwaway stacks. | typescript | ast-grep advise (where `$E`, `$B`: types engine, §15)<br>advice, never blocks |
+
+### typescript/aws-lambda
+
+AWS Lambda Node.js handlers.
+
+Detected by: a dependency on one of `@types/aws-lambda` (npm), `aws-lambda` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- AWS Lambda: handlers are `async (event, context) => result` and return or throw; callback handlers (a `Callback` parameter, `context.callbackWaitsForEmptyEventLoop`) are rejected (the Node.js 24 runtime does not run them).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/aws-lambda/no-callback-handler` | No callback-style Lambda handler: no parameter annotated with aws-lambda's Callback and no context.callbackWaitsForEmptyEventLoop; the Node.js 24 runtime no longer runs callback handlers, async handlers work on every runtime. | typescript | ast-grep forbid (where `$C`: types engine, §15) |
+
+### typescript/aws-s3
+
+AWS SDK v3 S3 client.
+
+Detected by: a dependency on one of `@aws-sdk/client-s3` (npm), `@aws-sdk/s3-presigned-post` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- AWS S3: uploads set no `public-read` / `public-read-write` ACL; objects are served through CloudFront or presigned GET URLs.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/aws-s3/no-public-acl` | No public-read / public-read-write ACL on S3 uploads (PutObjectCommand, CreateMultipartUploadCommand, CopyObjectCommand inputs, createPresignedPost Fields / Conditions): new buckets enforce bucket-owner ownership, so the request fails, or the object becomes public; serve it through CloudFront or presigned GET URLs. | typescript | ast-grep advise (where `$C`: types engine, §15)<br>advice, never blocks |
+
+### typescript/bcrypt
+
+bcrypt / bcryptjs password hashing.
+
+Detected by: a dependency on one of `bcrypt` (npm), `bcryptjs` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- bcrypt / bcryptjs: async code awaits `hash()` / `compare()` / `genSalt()`; the `*Sync` variants block the event loop and are rejected in async functions.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/bcrypt/no-sync-hash-in-async` | No hashSync / compareSync / genSaltSync from bcrypt or bcryptjs (default, namespace or named import) in an async function: each call blocks the event loop for about 100 ms; await hash() / compare() / genSalt() instead. | typescript | ast-grep forbid |
+
+### typescript/better-auth
+
+Better Auth server configuration (CSRF, cookies, trusted origins).
+
+Detected by: a dependency on `better-auth` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Better Auth: CSRF / origin checks and Secure cookies stay on (no `disableCSRFCheck: true`, no `useSecureCookies: false`); `trustedOrigins` lists real origins, never `"*"` or the request's own `Origin` header.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/better-auth/no-csrf-disable` | No disableCSRFCheck: true and no useSecureCookies: false in betterAuth({...}) (also under an import alias): they turn off the CSRF / origin check and the Secure cookie flag. | typescript | ast-grep forbid |
+| `typescript/better-auth/schema-check` | Better Auth's own schema check passes (better-auth check schema --config <the file of role @better-auth-config>: the CLI of the auth package; its adapter drives it from 1.7.6, the first release with the command, and reports an older one not enforced): every table and field the config's plugins write exists in the Prisma client, the Drizzle schema or, with another adapter, the local database. A check that cannot run is reported, never passed. | any: `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs`, `**/*.prisma` | check migration: a shell script calling `forge_do better-auth schema-check`, `forge_role_files`, `forge_local_db` (timeout 180 s) |
+| `typescript/better-auth/trusted-origins` | trustedOrigins in betterAuth({...}) has no "*" entry and is not a function returning the request's own Origin header (alone, or with a ?? / \|\| fallback): it is the CSRF and redirect allowlist. | typescript | ast-grep forbid |
+
+### typescript/bullmq
+
+BullMQ queues and workers.
+
+Detected by: a dependency on `bullmq` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- BullMQ: the ioredis connection of a `Worker` is created with `maxRetriesPerRequest: null` (blocking commands must not fail after retries).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/bullmq/worker-connection` | A BullMQ Worker whose connection is an inline new IORedis(…) passes maxRetriesPerRequest: null in that client's options; otherwise blocking commands fail after the retries and the worker stops processing jobs. | typescript | ast-grep forbid (where `$W`, `$R`: types engine, §15) |
+
+### typescript/bun
+
+Bun is the package manager.
+
+Detected by: a file matching `bun.lock`, `bun.lockb`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/bun/lock-sync` | bun.lock matches package.json. | any | check lint: `forge_do bun lock-check` (when `package.json` changes) |
+| `typescript/bun/no-fewer-expects` | Assertions are not removed from tests that import from bun:test. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-decrease |
+| `typescript/bun/no-mock-increase` | A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn, also through an import alias such as import { mock as m }); test through the real code or a fake at the boundary. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-increase |
+| `typescript/bun/no-new-skip` | Tests that import from bun:test are not skipped, made conditional, marked failing or todo, or focused with .only. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-increase |
+| `typescript/bun/no-other-pm` | Dependencies are managed with bun, not npm, pnpm or yarn. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` |
+| `typescript/bun/no-shell-raw` | Bun Shell escapes what it interpolates: no { raw: … } in a $`…` command, and no Bun.spawn/spawnSync of sh, bash or zsh -c with a command built from values (both bypass the escaping: command injection). Interpolate the values, or pass them as argv. | typescript | ast-grep forbid (where `$TAG`, `$SPAWN`: types engine, §15) |
+| `typescript/bun/no-snapshot-update` | Updating bun test snapshots (-u, --update-snapshots) needs confirmation; the snapshots are part of the reviewed expectations. | any | guard ask: command `{name: bun, sub: [test], flags_any: [-u, --update-snapshots]}` |
+| `typescript/bun/no-test-edits` | Tests in bun:test files that existed at the start of the turn are not changed (anything in them, formatting aside) or removed by Claude; adding tests is fine. Checked at Stop. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | check lint: a shell script calling `forge_test_edits` |
+| `typescript/bun/release-age` | Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes. | any | check lint: `forge_bun_cooldown` (when `bunfig.toml`, `package.json` or `bun.lock` changes) |
+| `typescript/bun/test` | Tests that import from bun:test pass (bun test on those files). | typescript | check test: a shell script calling `forge_do bun test-files` |
+| `typescript/bun/text-lockfile` | No binary bun.lockb; Bun's lock file is the text bun.lock, which reviews and merges read (bun install --save-text-lockfile --frozen-lockfile, then delete bun.lockb). | any | check lint: a shell script of 2 lines (when `**/bun.lockb` or `**/package.json` changes) |
+| `typescript/bun/trusted-deps` | No new trustedDependencies entries in package.json: each one lets that package run its install scripts. The user trusts packages, not Claude. | any | check lint: `forge_trusted_deps` (when `**/package.json` changes) |
+
+### typescript/cloudflare-workers
+
+Cloudflare Workers projects (wrangler).
+
+Detected by: a dependency on `wrangler` (npm); or a file matching `wrangler.toml`, `wrangler.json`, `wrangler.jsonc`.
+Child of `typescript`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/cloudflare-workers/env-types-generated` | The wrangler types output (file role @wrangler-types) was generated from the current wrangler config: wrangler types <file> --check (wrangler 4.153.0 and later), which compares the config hash the file records. Regenerate with wrangler types after changing a binding. | any | check codegen: a shell script calling `forge_do wrangler codegen-check`, `forge_role_files` (when `@wrangler-config` or `@wrangler-types` changes)<br>applies where `wrangler >=4.153.0` (npm) declared |
+| `typescript/cloudflare-workers/no-ctx-destructure` | The Workers ExecutionContext is not destructured (const { waitUntil } = ctx): a method taken off it loses its this and throws Illegal invocation when called. Call ctx.waitUntil(...) on the context. | typescript | ast-grep forbid (where `$C`: types engine, §15) |
+| `typescript/cloudflare-workers/no-pass-through-on-exception` | No ctx.passThroughOnException(); it fails open to the origin and hides the error. Handle errors with try/catch and return a response; a proxy in front of an origin may keep it on purpose. | typescript | ast-grep advise (where `$C`: types engine, §15)<br>advice, never blocks |
+
+### typescript/cloudflare-workers/stripe
+
+Stripe on Cloudflare Workers (async webhook verification).
+
+Detected by: a dependency on `stripe` (npm).
+Child of `typescript/cloudflare-workers`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Stripe on Workers: webhooks are verified with `await stripe.webhooks.constructEventAsync(body, signature, secret)` (SubtleCrypto is async only; `constructEvent` throws there).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/cloudflare-workers/stripe/constructevent-async` | In a Workers project, Stripe webhooks are verified with await stripe.webhooks.constructEventAsync(…), not constructEvent(…): on Workers Stripe signs with SubtleCrypto, which is async only, so the synchronous call throws. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+### typescript/drizzle
+
+Drizzle ORM schema, drizzle-kit migrations and raw SQL.
+
+Detected by: a dependency on one of `drizzle-orm` (npm), `drizzle-kit` (npm); or a file matching `drizzle.config.*`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Drizzle: drizzle.config.* names the schema files (`schema`), the migrations folder (`out`, default `./drizzle`) and the `dialect`.
+- A schema change is followed by `drizzle-kit generate`; the SQL and the metadata it writes are committed together, never written by hand.
+- A migration that exists in the base is not modified or deleted; a change goes in a new migration. `drizzle-kit push` needs confirmation; `push --force` is refused.
+- Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` with a template or concatenation (or a variable built from one) is rejected.
+- `db.delete(t)` and `db.update(t).set(…)` are chained with `.where(…)`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/drizzle/applied-migrations` | Migrations already in the base (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration. | any | check migration: `forge_drizzle_applied` |
+| `typescript/drizzle/meta-files` | The migration journal and snapshots (meta/_journal.json, meta/*_snapshot.json) are written by drizzle-kit generate, never edited by hand. | any | permission deny `Edit(**/meta/_journal.json)`<br>permission deny `Edit(**/meta/*_snapshot.json)` |
+| `typescript/drizzle/migration-lint` | With the postgresql dialect, new migrations in the out folder do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `**/*.sql` | check migration: `forge_drizzle_squawk` (when `**/*.sql` changes) |
+| `typescript/drizzle/migration-present` | A change to the Drizzle schema files (drizzle.config schema) that reaches the database comes with a generated migration in the out folder, with its meta/_journal.json and snapshot (drizzle-kit 1.x, <name>/migration.sql with snapshot.json). Relations, types, imports and comments do not count. | any | check migration: `forge_drizzle_migration_present` |
+| `typescript/drizzle/no-push-force` | No drizzle-kit push --force; it auto-approves the data-loss statements push would otherwise ask about. | any | guard deny: command `{name: drizzle-kit, sub: [push], flags_any: [--force]}` |
+| `typescript/drizzle/no-push` | drizzle-kit push changes the database without a migration; it needs confirmation (it is for prototyping, never for a shared or production database); push --force is refused. | any | guard ask: command `{name: drizzle-kit, sub: [push]}` |
+| `typescript/drizzle/no-query-in-loop` | A Drizzle query (a QueryPromise: select, insert, update, delete, db.query.*.findMany / findFirst) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (inArray, a join, with: relations) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
+| `typescript/drizzle/no-sql-raw` | No sql.raw() (also under an import alias of drizzle-orm's sql) built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; the sql`...` tag binds values as parameters (sql.identifier() for names). | typescript | ast-grep forbid |
+| `typescript/drizzle/write-with-where` | A Drizzle delete(table) or update(table).set(…) on a database or transaction is chained with .where(…); without it every row of the table is deleted or updated. | typescript | ast-grep forbid (where `$DB`: types engine, §15) |
+
+### typescript/effect
+
+Effect programs (Effect.gen generators).
+
+Detected by: a dependency on `effect` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Effect: inside `Effect.gen`, effects are composed with `yield*`; `Effect.runPromise` / `runSync` / `runFork` run only at the edge of the program, never inside a generator.
+- Failures are typed: `yield* Effect.fail(new MyError())` (a `Data.TaggedError`), not `throw`, inside `Effect.gen`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/effect/no-run-inside-gen` | No Effect.runPromise / runSync / runFork (or their Exit / With variants) inside an Effect.gen generator: a nested runtime breaks interruption, context and tracing; compose with yield* instead. | typescript | ast-grep forbid |
+| `typescript/effect/no-throw-in-gen` | No throw directly in an Effect.gen generator (nested non-generator functions aside): a thrown error becomes a defect, not a typed failure; use yield* Effect.fail(...) with a tagged error. | typescript | ast-grep forbid |
+
+### typescript/elysia
+
+Elysia routes (request body validation).
+
+Detected by: a dependency on `elysia` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Elysia: a `post` / `put` / `patch` handler that reads `body` declares a `body` schema in its options (`{ body: t.Object(…) }`), so the body is validated and typed.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/elysia/body-schema` | An Elysia post / put / patch handler that destructures body passes a body schema in its options argument (t.Object(…), a Standard Schema); otherwise body is unvalidated input. | typescript | ast-grep forbid (where `$APP`: types engine, §15) |
+
+### typescript/eslint
+
+ESLint 9 and later (flat config) with typescript-eslint.
+
+Detected by: a dependency on `eslint >=9.0.0` (npm); or a file matching `eslint.config.js`, `eslint.config.mjs`, `eslint.config.cjs`, `eslint.config.ts`, `eslint.config.mts`, `eslint.config.cts`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- ESLint 9+ reads only the flat config `eslint.config.*`: ignores go in its `ignores`, globals in `languageOptions.globals`; `.eslintrc*`, `.eslintignore` and `/* eslint-env */` comments are rejected.
+- ESLint warnings on added lines are fixed like errors. The type-aware typescript-eslint rules (`no-unsafe-*`, `no-unnecessary-condition`, …) need `parserOptions.projectService`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/eslint/flat-config-only` | No .eslintrc* or .eslintignore files; ESLint 9 reads only eslint.config.*, so they configure nothing (move ignores to the config's ignores). | any | check lint: a shell script of 2 lines (when `.eslintrc`, `.eslintrc.*`, `**/.eslintrc`, `**/.eslintrc.*`, `.eslintignore` or `**/.eslintignore` changes) |
+| `typescript/eslint/lint` | ESLint passes on the added lines with no error and no warning (eslint --max-warnings=0 on the changed files; the whole project in CI). | typescript | check lint: `forge_do eslint lint .` (fails on warnings) |
+| `typescript/eslint/no-eslint-env` | No /* eslint-env */ comments; flat config ignores them (ESLint 10 reports them as errors). Declare globals in the config's languageOptions.globals. | typescript | grep forbid `/\*[[:space:]]*eslint-env` |
+| `typescript/eslint/ts-version` | The typescript package that typescript-eslint resolves has the compiler API (TypeScript below 6.1); TypeScript 7 ships none, so typescript-eslint cannot parse with it. | any | check lint: a shell script of 17 lines (when `**/package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock` or `bun.lock` changes) |
+| `typescript/eslint/type-checked` | typescript-eslint's type-aware rules that Biome has no equivalent for are errors: no any flowing through assignments, calls, member access, returns and arguments; return await in try; no unbound methods, misused spreads, array delete or for-in over arrays; template expressions, promise rejections and catch callbacks typed; no unnecessary assertions or conditions; no object literal assertions. They need parserOptions.projectService and TypeScript 6 or older. | typescript | tool eslint `@typescript-eslint/no-unsafe-assignment`<br>tool eslint `@typescript-eslint/no-unsafe-call`<br>tool eslint `@typescript-eslint/no-unsafe-member-access`<br>tool eslint `@typescript-eslint/no-unsafe-return`<br>tool eslint `@typescript-eslint/no-unsafe-argument`<br>tool eslint `@typescript-eslint/return-await`<br>tool eslint `@typescript-eslint/unbound-method`<br>tool eslint `@typescript-eslint/no-misused-spread`<br>tool eslint `@typescript-eslint/no-array-delete`<br>tool eslint `@typescript-eslint/no-for-in-array`<br>tool eslint `@typescript-eslint/restrict-template-expressions`<br>tool eslint `@typescript-eslint/prefer-promise-reject-errors`<br>tool eslint `@typescript-eslint/use-unknown-in-catch-callback-variable`<br>tool eslint `@typescript-eslint/no-unnecessary-type-assertion`<br>tool eslint `@typescript-eslint/no-unnecessary-condition`<br>tool eslint `@typescript-eslint/consistent-type-assertions` |
+
+### typescript/express
+
+Express applications (sessions).
+
+Detected by: a dependency on `express` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Express sessions: `express-session` cookie options and `cookie-session` options never set `secure: false` or `httpOnly: false` literally (an environment-dependent value is fine).
+- Behind a proxy, `trust proxy` (Express) is a hop count, the proxy subnets or a function, not `true`.
+- (when `express >=5.0.0` (npm) declared) Express 5 (path-to-regexp 8): a wildcard is named (`/*splat`, `/{*splat}`), an optional segment is `{...}`; `?`, `+`, `(…)` in paths are rejected.
+- (when `express >=5.0.0` (npm) declared) Express 5: `req.query` is a getter (keep parsed input in `res.locals`); async handlers need no wrapper (`express-async-errors` is rejected); `res.sendStatus(n)`, not `res.send(n)`; no `res.redirect("back")`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/express/no-async-errors` | No express-async-errors with Express 5: it patches Express 4's router, which Express 5 no longer has, and Express 5 already passes a rejected promise of a handler to next(err). | typescript | ast-grep forbid<br>applies where `express >=5.0.0` (npm) declared |
+| `typescript/express/no-async-handler` | express-async-handler and express-promise-router are redundant with Express 5, which passes a rejected promise of a handler to next(err); use plain async handlers and express.Router(). | typescript | ast-grep advise<br>applies where `express >=5.0.0` (npm) declared<br>advice, never blocks |
+| `typescript/express/no-permissive-trust-proxy` | app.set("trust proxy", true) on an Express app trusts every X-Forwarded-For hop, so the client sets req.ip (IP rate limits and logs are spoofable); give the hop count, the proxy subnets or a function. | typescript | ast-grep advise (where `$A`: types engine, §15)<br>advice, never blocks |
+| `typescript/express/no-req-query-assign` | No assignment to req.query or to a property of it on an Express 5 request: req.query is a getter that parses the query string again on each read, so the assignment is lost (or throws). Keep parsed input in res.locals or a typed variable. | typescript | ast-grep forbid (where `$R`: types engine, §15)<br>applies where `express >=5.0.0` (npm) declared |
+| `typescript/express/no-v4-response-signatures` | No Express 4 response signatures that Express 5 changed: res.send(<number>) sends the number as a JSON body with status 200 (use res.sendStatus(n) or res.status(n).send(...)), and res.redirect("back") redirects to a path named back (use req.get("Referrer") \|\| "/"). | typescript | ast-grep forbid (where `$R`: types engine, §15)<br>applies where `express >=5.0.0` (npm) declared |
+| `typescript/express/path-syntax-v5` | Express 5 route paths (path-to-regexp 8) have no unnamed * (write /*splat or /{*splat}) and no ?, +, !, (, ), [ or ] (an optional segment is {...}, e.g. /file{.:ext}): Express 5 throws on them when the route is registered. | typescript | ast-grep forbid (where `$R`: types engine, §15)<br>applies where `express >=5.0.0` (npm) declared |
+| `typescript/express/session-cookie-flags` | No literal secure: false or httpOnly: false in the cookie options of express-session's session({ cookie: {...} }) or in cookie-session's cookieSession({...}) (default imports, any local name): a literal false turns the protection off in every environment; set it from the environment if needed. | typescript | ast-grep forbid |
+| `typescript/express/types-match` | @types/express (and @types/express-serve-static-core) has the major version of express in the same package.json: v4 types on Express 5 hide every Express 5 change from the typecheck. | any | check lint: `forge_dep_major_match express @types/express @types/express-serve-static-core` (when `**/package.json` changes) |
+
+### typescript/fastify
+
+Fastify 5 plugins and route schemas.
+
+Detected by: a dependency on `fastify >=5.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Fastify 5: a plugin is `async (instance, opts)` or `(instance, opts, done)`, never async with `done`.
+- Route schemas (`body`, `querystring`, `params`, `headers`, `response.<code>`) are full JSON Schemas (`{ type: "object", properties: … }`) or a schema builder's output; the v4 shorthand property map is removed.
+- `trustProxy` is a hop count, the proxy addresses or a function, not `true`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/fastify/full-json-schema` | In a Fastify route schema, body, querystring, params, headers and each response status are a full JSON Schema ({type: "object", properties: …}) or a schema builder's result, not a v4 shorthand map of properties: Fastify 5 removed the shorthand, and the route fails at ready() (FST_ERR_SCH_VALIDATION_BUILD … unknown keyword), which tsc does not see. | typescript | ast-grep forbid (where `$F`: types engine, §15) |
+| `typescript/fastify/no-permissive-trust-proxy` | trustProxy: true in Fastify({...}) (fastify's default or named import, any local name) trusts every X-Forwarded-For hop, so the client sets request.ip (IP rate limits and logs are spoofable); give the hop count, the proxy addresses or a function. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/fastify/plugin-style` | A Fastify plugin is either async (instance, opts) or (instance, opts, done), never an async function with a third parameter: Fastify 5 rejects it at ready() (FST_ERR_PLUGIN_INVALID_ASYNC_HANDLER), which tsc does not see. | typescript | ast-grep forbid (where `$F`: types engine, §15) |
+
+### typescript/graphql-codegen
+
+GraphQL Code Generator (generated types up to date).
+
+Detected by: a dependency on `@graphql-codegen/cli` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- GraphQL Code Generator writes the generated types: after changing the schema, a `.graphql` document or a `gql` operation, run `graphql-codegen` and commit its output; generated files are never edited by hand.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/graphql-codegen/up-to-date` | The files GraphQL Code Generator writes match the schema and the operations (graphql-codegen --check): regenerate after a change, never edit them by hand. | any: `**/*.graphql`, `**/*.gql`, `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs`, `codegen.yml`, `codegen.yaml`, `codegen.json`, `.graphqlrc*` | check codegen: a shell script calling `forge_do graphql-codegen codegen-check` |
+
+### typescript/graphql-yoga
+
+GraphQL Yoga servers (error masking).
+
+Detected by: a dependency on `graphql-yoga` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- GraphQL Yoga: error masking stays on (no `maskedErrors: false`); errors meant for clients are thrown as `GraphQLError`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/graphql-yoga/masked-errors` | No maskedErrors: false in createYoga({...}) (graphql-yoga, also under an import alias): unexpected resolver errors then reach clients with their messages and internals; throw GraphQLError for errors meant for clients. | typescript | ast-grep forbid |
+
+### typescript/hono
+
+Hono routes (request validation, CORS).
+
+Detected by: a dependency on `hono` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Hono: request data is validated by middleware on the route, `zValidator("json" | "query" | "form" | "param", schema)` from `@hono/zod-validator` or `validator()` from `hono/validator`, and read back with `c.req.valid("json")` etc., which is typed.
+- In files that import from `hono` or `@hono/*`, `c.req.json()`, `c.req.parseBody()`, `c.req.formData()`, `c.req.query()` and `c.req.queries()` (also on a destructured `req`) are rejected unless passed straight to a schema (`Schema.parse(await c.req.json())`).
+- `cors()` with `credentials: true` names its origins; `origin: "*"` or a function returning the origin it receives (`(origin) => origin`, `o => o ?? ""`) with credentials is rejected.
+- `raw()` from `hono/html` built from a template or concatenation (or a variable built from one) is rejected; the `html` tag escapes values.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/hono/cors-credentials-wildcard` | cors() with credentials true names its allowed origins. A function that returns the origin it is given (alone or with a ?? / \|\| fallback, as an expression or a return) lets any site make credentialed requests; origin "*" with credentials is refused by browsers. | typescript | ast-grep forbid<br>deprecated: replaced by `typescript/cors-credentials-wildcard` |
+| `typescript/hono/no-raw-interpolation` | No raw() from hono/html (also under an import alias) given a template with ${}, a concatenation or a variable declared from one in the same function or module: raw() inserts its text unescaped (XSS); the html`...` tag escapes values. | typescript | ast-grep forbid |
+| `typescript/hono/validate-input` | Hono handlers read the body and query through a validator middleware (zValidator, validator) and c.req.valid(), or pass the read straight to a schema (Schema.parse(await c.req.json()), safeParse, parseAsync, valibot's parse(Schema, …)); not c.req.json(), parseBody(), formData(), query() or queries() whose result is used unvalidated. The request may come from c.req or a destructured ({ req }) parameter. | typescript | ast-grep forbid |
+
+### typescript/jest
+
+Jest 30 and later.
+
+Detected by: a dependency on `jest >=30.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/jest/no-test-path-pattern` | Jest 30 filters test files with --testPathPatterns; the old --testPathPattern flag is rejected by it, in package.json scripts and in commands. | any: `**/package.json` | grep forbid `--testPathPattern([^s]\|$)`<br>guard deny: command `{name: jest, flags_any: [--testPathPattern]}` |
+
+### typescript/jsonwebtoken
+
+jsonwebtoken (verification options).
+
+Detected by: a dependency on `jsonwebtoken` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- jsonwebtoken: `jwt.verify(token, key, { algorithms: ["HS256"] })` names its algorithms (never `none`) and keeps expiry checks (no `ignoreExpiration: true`); `decode()` does not verify and is not used for trust decisions.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/jsonwebtoken/no-decode-trust` | jsonwebtoken's decode() does not verify the signature; use verify() whenever the claims decide anything (identity, permissions, expiry). | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/jsonwebtoken/verify-algorithms` | jsonwebtoken's verify(token, key, options) gets an options object with an algorithms list that does not contain 'none' (or an options variable), and no ignoreExpiration: true; sign() gets no algorithm: 'none'. Without a fixed list the token's own header picks the algorithm (algorithm confusion). | typescript | ast-grep forbid |
+
+### typescript/kysely
+
+Kysely query builder (raw SQL, whole-table writes).
+
+Detected by: a dependency on `kysely` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Kysely: values reach SQL through the sql`...` tag, which binds them, and names through `sql.ref()` / `sql.id()` / `sql.table()`; `sql.raw()` and `sql.lit()` built from a template or concatenation are rejected (unescaped).
+- `deleteFrom()` and `updateTable()` chains have a `where…()` before `execute()`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/kysely/no-query-in-loop` | A Kysely query's execute() / executeTakeFirst() / executeTakeFirstOrThrow() is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (where … in, a join) or insert an array of values. | typescript | ast-grep advise (where `$B`: types engine, §15)<br>advice, never blocks |
+| `typescript/kysely/no-sql-raw` | No Kysely sql.raw() / sql.lit() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module (Kysely documents both as unescaped: SQL injection); use the sql`...` tag, which binds values, and sql.ref() / sql.id() for names. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
+| `typescript/kysely/write-with-where` | A Kysely deleteFrom(table) / updateTable(table) chain executed with execute*() has a where…(); without it the whole table is deleted or updated. | typescript | ast-grep advise (where `$DB`: types engine, §15)<br>advice, never blocks |
+
+### typescript/langchain
+
+LangChain.js (legacy chains and agents).
+
+Detected by: a dependency on one of `langchain` (npm), `@langchain/core` (npm), `@langchain/classic` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- `langchain-1` (when `langchain >=1.0.0` (npm) declared) LangChain 1: agents are built with `createAgent` from `langchain` (and LangGraph); `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `AgentExecutor` and the like are legacy (`@langchain/classic`).
+- `langchain-1` (when `@langchain/core >=1.0.0` (npm) declared) LangChain 1: agents are built with `createAgent` from `langchain` (and LangGraph); `LLMChain`, `ConversationChain`, `RetrievalQAChain`, `AgentExecutor` and the like are legacy (`@langchain/classic`).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/langchain/no-legacy-chains` | No new imports of LLMChain, ConversationChain, RetrievalQAChain, ConversationalRetrievalQAChain, initializeAgentExecutorWithOptions or AgentExecutor from @langchain/classic or langchain/chains / langchain/agents: LangChain 1 moved them to @langchain/classic as legacy; build agents with createAgent from langchain. | typescript | ast-grep advise<br>advice, never blocks |
+
+### typescript/library
+
+An npm library's public exports (deprecations).
+
+Detected by: the project publishes a library to npm.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- This project is an npm library: its public API is what the entry points in `package.json` `exports` (and `main`, `module`, `types`) export.
+- An exported name is not removed or renamed outright: it stays exported as a `/** @deprecated Use <new name> */` alias; removing it, even in a major version, is the user's decision: ask them. Removing an export, or turning it into an alias of a renamed export without that JSDoc tag, is rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/library/deprecation-shim` | A name exported by a package entry point (package.json exports, main, module, types, mapped from dist/ to src/; export * followed through relative modules) in the base is still exported, and a name that became an alias of another export (export const old = renamed, export { renamed as old }) carries a /** @deprecated */ JSDoc comment on that export. A major version bump does not allow a removal by itself: removing a name is the user's decision: ask them. | typescript: `!@ts-tests`, `!@e2e-tests` | check lint: `forge_helper bun public_api.mjs removed` (when `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.js`, `**/*.mjs` or `package.json` changes) |
+| `typescript/library/exports-map` | A published package (not private) declares its entry points in package.json exports, not only main, module or types; reported where main, module or types is added. | any: `**/package.json` | check lint: a shell script of 25 lines |
+
+### typescript/mcp
+
+Model Context Protocol servers (TypeScript SDK).
+
+Detected by: a dependency on one of `@modelcontextprotocol/sdk` (npm), `@modelcontextprotocol/server` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- MCP: a server on the stdio transport writes only JSON-RPC to stdout; logs go to stderr (`console.error`), and `console.log` / `info` / `debug` or `process.stdout.write` in a file importing `StdioServerTransport` are rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/mcp/stdio-no-stdout` | A file that imports StdioServerTransport (@modelcontextprotocol/sdk/server/stdio.js or @modelcontextprotocol/server) writes nothing to stdout: no console.log / info / debug, no process.stdout.write; stdout carries the JSON-RPC stream and any print corrupts it. Log with console.error (stderr). | typescript | ast-grep forbid |
+
+### typescript/mikro-orm
+
+MikroORM configuration and schema commands.
+
+Detected by: a dependency on `@mikro-orm/core` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- MikroORM: each request works in its own context (`RequestContext` middleware or `em.fork()`); `allowGlobalContext: true` is rejected outside tests.
+- Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run` / `schema:fresh --run` are refused, `schema:update --run` and `migration:fresh` need confirmation.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/mikro-orm/migration-present` | Entity changes come with a migration: once the migrations have run on the local database (mikro-orm migration:up), mikro-orm migration:check finds no schema change. | typescript | check migration: `forge_do mikro-orm migrate && forge_do mikro-orm migrations-check` (needs a local database; timeout 180 s) |
+| `typescript/mikro-orm/no-global-context` | No allowGlobalContext: true in the options of MikroORM.init(…), new MikroORM(…) or defineConfig(…) (bindings imported from @mikro-orm/*) outside test files: one identity map is then shared across requests (data leaks, stale entities); use RequestContext or em.fork(). | typescript: `!**/*.test.*`, `!**/*.spec.*`, `!**/__tests__/**`, `!e2e/**` | ast-grep forbid |
+| `typescript/mikro-orm/schema-guard` | No mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema. | any | guard deny: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop\|schema:fresh'], flags_any: [--run, -r]}` |
+| `typescript/mikro-orm/schema-update` | mikro-orm schema:update --run (changes the schema without a migration) and migration:fresh (drops the database and reruns every migration) need confirmation. | any | guard ask: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:update'], flags_any: [--run, -r]}` or `{name: [mikro-orm, mikro-orm-esm], sub: ['migration:fresh']}` |
+
+### typescript/mongoose
+
+Mongoose models and queries (operator injection, server-side JavaScript).
+
+Detected by: a dependency on `mongoose` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Mongoose: request input (`req.body`, `req.query`, `req.params`) is validated or passed through `sanitizeFilter()` before it reaches a filter or update; passing it whole is rejected (operator injection).
+- No `$where` (server-side JavaScript); use query operators or `$expr`.
+- (when `mongoose >=9.0.0` (npm) declared) Mongoose 9: an update pipeline (an array) needs `{ updatePipeline: true }` on the call or `mongoose.set("updatePipeline", true)`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/mongoose/no-query-in-loop` | A Mongoose query or aggregation (Model.find, findOne, findById, countDocuments, updateOne, aggregate, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the documents in one query ($in, populate, $lookup) or use bulkWrite. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
+| `typescript/mongoose/no-request-filter` | A request's body, query or params (Express or Fastify) is not passed whole as the filter or update of a Mongoose find / findOne / findOneAndUpdate / findOneAndDelete / findOneAndReplace / updateOne / updateMany / deleteOne / deleteMany / countDocuments / replaceOne: a client sends {"password": {"$ne": null}} (operator injection). Validate it first, or wrap it in sanitizeFilter(). | typescript | ast-grep forbid (where `$M`, `$R`: types engine, §15) |
+| `typescript/mongoose/no-where-operator` | No $where in a query passed to a Mongoose model or query, and no .$where(): it runs JavaScript on the database server (injection, denial of service) and is deprecated in MongoDB 8; use query operators or $expr. | typescript | ast-grep forbid (where `$M`: types engine, §15) |
+| `typescript/mongoose/update-pipeline` | Mongoose 9 rejects an update pipeline (an array) in updateOne, updateMany, findOneAndUpdate or findByIdAndUpdate unless the call passes { updatePipeline: true } or the app sets mongoose.set("updatePipeline", true); pass the option, or check the global setting. | typescript | ast-grep advise (where `$M`: types engine, §15)<br>applies where `mongoose >=9.0.0` (npm) declared<br>advice, never blocks |
+
+### typescript/msw
+
+Mock Service Worker (msw) in tests.
+
+Detected by: a dependency on `msw` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- The msw server of the tests starts with `server.listen({ onUnhandledRequest: "error" })`, so a request no handler covers fails the test instead of reaching the network.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/msw/unhandled-error` | An msw server is started with onUnhandledRequest: "error" (or a function deciding it), so a request no handler covers fails the test instead of passing through to the network. | typescript | ast-grep advise (where `$S`: types engine, §15)<br>advice, never blocks |
+
+### typescript/nestjs
+
+NestJS controllers, validation pipes and DTOs.
+
+Detected by: a dependency on one of `@nestjs/core` (npm), `@nestjs/common` (npm).
+Child of `typescript`: active only where it is.
+Switches off biome `lint/style/useImportType` where active: a DTO imported with import type erases design:paramtypes, so ValidationPipe stops validating the body; Biome's own docs advise turning useImportType off with decorators.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- NestJS: the global `ValidationPipe` is created with `whitelist: true` (and `forbidNonWhitelisted: true`), so undeclared body fields never reach a handler.
+- `@Body()`, `@Query()` and `@Param()` without a pipe argument are typed with a DTO class (class-validator decorators); `any`, `unknown`, `object`, inline object types and `Record<…>` are rejected, since only classes are validated.
+- A nested DTO property has `@ValidateNested()` together with `@Type(() => Child)` from class-transformer.
+- Controllers throw `HttpException` subclasses (`NotFoundException`, `BadRequestException`, …), not a plain `Error`.
+- On the Express platform (Nest 11), route paths use path-to-regexp 8 syntax: `*splat` / `{*splat}`, optional segments `{...}`.
+- A DTO used as a `@Body()`, `@Query()` or `@Param()` type is imported as a value, never with `import type` / `{ type X }` (that erases it from the decorator metadata and turns validation off).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/nestjs/dto-is-class` | A parameter decorated @Body(), @Query() or @Param() (from @nestjs/common, without a pipe argument) is typed with a DTO class: no type, any, unknown, object, an inline object type or Record<…> reaches the handler unvalidated, since ValidationPipe validates class types only. | typescript | ast-grep forbid |
+| `typescript/nestjs/dto-not-type-import` | The type of a @Body(), @Query() or @Param() parameter (from @nestjs/common) is not imported with import type / { type X }: a type-only import erases the class from design:paramtypes, and ValidationPipe then validates nothing. Import the DTO as a value. | typescript | ast-grep forbid |
+| `typescript/nestjs/express-path-syntax` | On Nest 11's Express platform (path-to-regexp 8), route paths in @Get/@Post/.../@All() and in forRoutes() have no unnamed * (write *splat or {*splat}) and no ?, +, !, (, ), [ or ] (an optional segment is {...}): Nest converts the old syntax with a warning, Express 5 itself rejects it. | typescript | ast-grep advise (where `$D`, `$C`: types engine, §15)<br>applies where `@nestjs/platform-express >=11.0.0` (npm) declared<br>advice, never blocks |
+| `typescript/nestjs/http-exception` | A method of a @Controller() class (from @nestjs/common) throws an HttpException subclass (NotFoundException, BadRequestException, …), not a plain Error, which becomes a generic 500. An Error thrown inside a try block is not concerned: it is caught there. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/nestjs/validate-nested-type` | A property decorated @ValidateNested() (class-validator) also has @Type(() => X) (class-transformer); without it the nested value stays a plain object and is not validated. | typescript | ast-grep forbid |
+| `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | new ValidationPipe({...}) sets forbidNonWhitelisted: true, so a request with undeclared fields is rejected (400) instead of silently stripped. | typescript | ast-grep advise (where `$N`: types engine, §15)<br>advice, never blocks |
+| `typescript/nestjs/validation-pipe-whitelist` | new ValidationPipe({...}) sets whitelist: true; without it, body fields the DTO does not declare (role, isAdmin) reach the handler (mass assignment). | typescript | ast-grep forbid (where `$N`: types engine, §15) |
+
+### typescript/nextjs
+
+Next.js 16 App Router.
+
+Detected by: a dependency on `next >=16.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`, `draftMode()`) are async: await them.
+- Components are Server Components unless the file starts with `'use client'`.
+- Request interception lives in `proxy.ts` (not `middleware.ts`).
+- `revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
+- Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
+- `next lint` no longer exists and `next build` does not lint: run the project's own linter.
+- Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
+- `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
+- `'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
+- `typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/nextjs/cookies-set-in-render` | cookies().set() and .delete() are not called while rendering a page, layout, template or default (Next.js throws: cookies can only be modified in a Server Action or route handler); move them into a 'use server' function or a route handler. | typescript: `app/**/page.*`, `app/**/layout.*`, `app/**/template.*`, `app/**/default.*`, `src/app/**/page.*`, `src/app/**/layout.*`, `src/app/**/template.*`, `src/app/**/default.*` | ast-grep forbid |
+| `typescript/nextjs/image-remote-patterns-strict` | images.remotePatterns has no hostname "*" or "**": the image optimizer would fetch from any host (an open proxy). Name the hosts. | typescript: `next.config.*` | ast-grep forbid |
+| `typescript/nextjs/image-unsafe-options` | images.dangerouslyAllowSVG: true only with a contentSecurityPolicy next to it (SVG can carry scripts), and no images.dangerouslyAllowLocalIP: true (the optimizer would fetch from the internal network). | typescript: `next.config.*` | ast-grep forbid |
+| `typescript/nextjs/no-ignore-build-errors` | next.config does not set typescript.ignoreBuildErrors: true; next build would ship code that does not type-check. Fix the errors. | typescript: `next.config.*` | ast-grep forbid |
+| `typescript/nextjs/no-legacy-image-config` | No next/legacy/image and no images.domains. Use next/image and images.remotePatterns. | typescript | ast-grep forbid |
+| `typescript/nextjs/no-next-head-in-app` | No next/head or next/document under app/; they do nothing in the App Router. Export metadata or generateMetadata instead. | typescript: `app/**`, `src/app/**` | ast-grep forbid |
+| `typescript/nextjs/no-next-router` | No next/router. Use next/navigation. | typescript | ast-grep forbid |
+| `typescript/nextjs/no-pages-data` | No getServerSideProps or getStaticProps in the App Router. Fetch in Server Components. | typescript: `app/**`, `src/app/**` | ast-grep forbid |
+| `typescript/nextjs/no-public-secret-env` | Secrets are never NEXT_PUBLIC_ variables, which are inlined into the browser bundle. | typescript | ast-grep forbid |
+| `typescript/nextjs/no-redirect-in-try` | redirect(), permanentRedirect(), notFound(), forbidden() and unauthorized() from next/navigation are not called in a try block whose catch does not call unstable_rethrow(error): they throw, and the catch would swallow the navigation. Call them after the try. | typescript | ast-grep forbid |
+| `typescript/nextjs/no-request-apis-in-use-cache` | cookies(), headers() and draftMode() from next/headers are not called inside a 'use cache' function or file (an error at run time); read them outside and pass the values in. | typescript | ast-grep forbid |
+| `typescript/nextjs/no-sync-scripts` | No synchronous <script src> in JSX; it blocks rendering. Use next/script (or async / defer). | tsx | tool biome `lint/performance/noSyncScripts` |
+| `typescript/nextjs/parallel-route-default` | Every parallel route slot (an @folder under app/) has a default.tsx (or .ts, .jsx, .js); next build fails without it in Next.js 16. | any: `app/**`, `src/app/**` | check lint: a shell script of 4 lines |
+| `typescript/nextjs/proxy-exports` | proxy.ts exports proxy (or a default export), not middleware, and no runtime segment config: Next.js 16 looks for the proxy export, and a proxy always runs on Node.js. | typescript: `proxy.ts`, `src/proxy.ts` | ast-grep forbid |
+| `typescript/nextjs/proxy-not-middleware` | middleware.ts is renamed to proxy.ts in Next.js 16. | typescript: `middleware.ts`, `src/middleware.ts` | ast-grep forbid |
+| `typescript/nextjs/revalidate-tag-profile` | revalidateTag takes a cacheLife profile (revalidateTag(tag, "max")); use updateTag(tag) in Server Actions for read-your-writes. | typescript | ast-grep forbid |
+| `typescript/nextjs/stable-cache-imports` | Import cacheLife and cacheTag from next/cache, not unstable_cacheLife or unstable_cacheTag (to be removed; no @deprecated tag shows it). | typescript | ast-grep forbid |
+
+### typescript/nextjs/cache-components
+
+Next.js with cacheComponents enabled ('use cache', cacheLife, cacheTag).
+
+Detected by: a line matching `^\s*cacheComponents\s*:\s*true\b` in a file matching `next.config.{js,mjs,cjs,ts,mts}`.
+Child of `typescript/nextjs`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Next.js runs with `cacheComponents: true`. Data is cached with the `'use cache'` directive plus `cacheLife()` and `cacheTag()` from `next/cache`, not with `unstable_cache`.
+- Route segment config exports (`dynamic`, `revalidate`, `fetchCache`, `experimental_ppr`) fail `next build` in this mode: use `'use cache'` and `cacheLife()` instead, and `<Suspense>` around what reads request data.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/nextjs/cache-components/no-segment-config` | With cacheComponents, route files under app/ export no dynamic, revalidate, fetchCache or experimental_ppr (next build rejects them); use 'use cache' with cacheLife(). | typescript: `app/**`, `src/app/**` | ast-grep forbid |
+| `typescript/nextjs/cache-components/no-unstable-cache` | With cacheComponents, cache with the 'use cache' directive and cacheTag() / cacheLife(), not unstable_cache from next/cache. | typescript | ast-grep advise<br>advice, never blocks |
+
+### typescript/nextjs/react
+
+React Server and Client Components in the App Router.
+
+Detected by: a dependency on `react >=19.0.0` (npm).
+Child of `typescript/nextjs`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
+- Server Actions are async functions in a file or function marked `'use server'`.
+- A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/nextjs/react/client-env-public-only` | A 'use client' file reads only NEXT_PUBLIC_ variables and NODE_ENV from process.env; any other variable is undefined in the browser. Read it in a Server Component and pass the value down. | typescript | ast-grep forbid |
+| `typescript/nextjs/react/client-hooks` | Client-only React hooks in app/ need a 'use client' file (custom hooks named use… are exempt). | typescript: `app/**`, `src/app/**` | ast-grep forbid |
+| `typescript/nextjs/react/no-async-client-component` | No async component in a 'use client' file; Client Components cannot be async. Fetch in a Server Component, or use a hook. | tsx | tool biome `lint/correctness/noNextAsyncClientComponent` |
+| `typescript/nextjs/react/no-server-in-client` | Client Components do not import server-only modules (server-only, node built-ins, next/headers, next/root-params, the Prisma client). | tsx: `app/**`, `src/app/**`, `components/**`, `src/components/**` | ast-grep forbid |
+| `typescript/nextjs/react/no-ssr-false-in-server` | dynamic(..., { ssr: false }) from next/dynamic is used only in a 'use client' file; in a Server Component it is a build error. Wrap it in a Client Component. | typescript: `app/**`, `src/app/**` | ast-grep forbid |
+| `typescript/nextjs/react/server-functions-async` | A 'use server' file exports only async functions (and types): no sync function, class, or literal value such as export const LIMIT = 10 (a build error). Move constants to another module. | typescript | ast-grep forbid |
+
+### typescript/node
+
+Node.js runtime APIs and how TypeScript runs on Node.
+
+Detected by: a dependency on `@types/node` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- TypeScript runs through the project's own runner (its package.json scripts), not `ts-node`, which is unmaintained and rejected in package.json.
+- `node:vm` is not a security boundary: never use it to run untrusted code.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/node/esm-globals` | An ES module (.mts / .mjs, or a .ts / .js file under a package.json with "type": "module") uses no CommonJS globals: no __dirname / __filename (import.meta.dirname / import.meta.filename, Node 20.11+), no require() (import, or createRequire), no module.exports or exports.x (export). @types/node declares them, so tsc accepts them, but they throw ReferenceError when the module runs. | typescript: `@esm-modules` | ast-grep forbid (where `$G`: types engine, §15) |
+| `typescript/node/fetch-timeout` | fetch() gets a signal (signal AbortSignal.timeout(ms)); the platform fetch has no overall timeout, so a stalled server hangs the request forever. | typescript | ast-grep advise (where `$F`: types engine, §15)<br>advice, never blocks |
+| `typescript/node/no-ecb-cipher` | No ECB mode in createCipheriv/createDecipheriv (equal plaintext blocks give equal ciphertext blocks); use an authenticated mode such as aes-256-gcm. | typescript | ast-grep forbid (where `$F`: types engine, §15) |
+| `typescript/node/no-shell-interpolation` | No shell command built from values. exec/execSync get a constant command; pass values as an argv array to execFile or spawn, without shell true. | typescript | ast-grep forbid (where `$EXEC`, `$SPAWN`: types engine, §15) |
+| `typescript/node/no-sync-fs-in-async` | No node:fs *Sync call inside an async function; await node:fs/promises instead (a sync call blocks the event loop for every request). | typescript | ast-grep advise (where `$F`: types engine, §15)<br>advice, never blocks |
+| `typescript/node/no-ts-node` | No ts-node in package.json (scripts or dependencies), and running ts-node asks; it is unmaintained since 2023 and breaks on modern ESM. Run TypeScript with node file.ts (type stripping) or tsx. | any: `**/package.json` | grep forbid `(^\|[^A-Za-z0-9_@/-])ts-node([^A-Za-z0-9_-]\|$)`<br>guard ask: command `{name: [ts-node, ts-node-esm, ts-node-script]}` |
+| `typescript/node/no-vm-sandbox` | Importing node:vm is reported for review; it is not a security boundary, so code from users or the network must not run in it. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/node/weak-crypto` | createHash/createHmac with md5 or sha1 only for checksums, never for passwords, tokens or signatures: use sha256 or better (and scrypt or argon2 for passwords). | typescript | ast-grep advise (where `$F`: types engine, §15)<br>advice, never blocks |
+
+### typescript/npm
+
+npm is the package manager.
+
+Detected by: a file matching `package-lock.json`, `npm-shrinkwrap.json`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.
+- Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` (flags or `.npmrc`) are rejected, and `npm audit fix --force` asks.
+- Dependencies come from the registry: git, GitHub and tarball URL specs, and `allow-git=all` / `allow-remote=all`, are rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/npm/allow-scripts-command` | Claude asks before approving dependency install scripts (npm approve-scripts, npm install-scripts approve, --allow-scripts, --dangerously-allow-all-scripts); npm 12 blocks them by default, and a failed build is not a reason to run them. | any | guard ask: command `{name: npm, sub: [approve-scripts, '*']}` or `{name: npm, sub: [approve-scripts], flags_any: [--all, --no-allow-scripts-pin]}` or `{name: npm, sub: [install-scripts, approve]}` or `{name: [npm, pnpm, yarn, bun, npx], flags_any: [--dangerously-allow-all-scripts]}` or `{name: [npm, pnpm, yarn, bun, npx], option_values: {--allow-scripts: '^[^-]'}}` |
+| `typescript/npm/allow-scripts` | No new install-script approvals: package.json allowScripts gains no entry that is not false, and .npmrc gains no ignore-scripts=false, allow-scripts entry or dangerously-allow-all-scripts=true. npm 12 blocks dependency install scripts by default; the user approves them, not Claude. | any | check lint: `forge_helper bun pm_policy.mjs npm-scripts \|\| forge_accept_hint` (when `package.json` or `.npmrc` changes) |
+| `typescript/npm/lock-sync` | package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules). | any | check lint: `forge_do npm lock-check` (when `**/package.json`, `package-lock.json` or `npm-shrinkwrap.json` changes) |
+| `typescript/npm/lockfile-lint` | package-lock.json resolves every package from registry.npmjs.org, over https, with a sha512 integrity (pinned lockfile-lint); a project on a private registry replaces the rule locally with its hosts. | any: `@lockfiles` | check lint: `forge_lockfile_lint` (when `@lockfiles` changes) |
+| `typescript/npm/no-audit-fix-force` | npm audit fix --force asks; it installs versions outside the declared ranges, major upgrades included. | any | guard ask: command `{name: npm, sub: [audit, fix], flags_any: [--force]}` |
+| `typescript/npm/no-exotic-deps` | No dependency added (or changed) with a git, GitHub, GitLab, Bitbucket or tarball URL spec (git+…, github:…, user/repo, https://…): they bypass the registry, its release-age checks and --ignore-scripts. Publish to a registry or vendor the code. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
+| `typescript/npm/no-exotic-sources` | npm is not allowed to install from any git or remote source (allow-git=all, allow-remote=all, in .npmrc or as a flag); such dependencies bypass the registry, its release-age checks and --ignore-scripts. | any: `**/.npmrc` | grep forbid `allow-(git\|remote)[[:space:]]*=[[:space:]]*all`<br>guard deny: command `{flags_any: [--allow-git=all, --allow-remote=all], value_flags: [--allow-git, --allow-remote]}` |
+| `typescript/npm/no-legacy-peer-deps-config` | No legacy-peer-deps=true or force=true in .npmrc; they hide every peer dependency conflict of every install. | any: `**/.npmrc` | grep forbid `^[[:space:]]*(legacy-peer-deps\|force)[[:space:]]*=[[:space:]]*true` |
+| `typescript/npm/no-legacy-peer-deps` | npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it. | any | guard deny: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
+| `typescript/npm/no-other-pm` | Dependencies are managed with npm; installing with pnpm, yarn or bun asks. | any | guard ask: command `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
+| `typescript/npm/release-age-command` | Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude. | any | guard ask: command `{option_values: {--min-release-age: ^0*$}}` |
+| `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. | any | check lint: `forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS` (when `.npmrc`, `package.json` or `package-lock.json` changes) |
+
+### typescript/openapi
+
+Clients generated from an OpenAPI document (openapi-typescript, orval, @hey-api/openapi-ts) stay in sync with it.
+
+Detected by: a dependency on one of `openapi-typescript` (npm), `orval` (npm), `@hey-api/openapi-ts` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- The API client is generated from the OpenAPI document by a package.json script (openapi-typescript, orval or @hey-api/openapi-ts); generated files say so in their header.
+- A change to a tracked OpenAPI document without a change to a generated file is rejected: run the generator script and keep both changes together.
+- A change to a generated file without a change to the document or the generator config is rejected: change the document (or the server it comes from) and regenerate.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/openapi/no-generated-edits` | Generated client files (their header names openapi-typescript, orval or @hey-api/openapi-ts) change only with the OpenAPI document or the generator config (orval.config.*, openapi-ts.config.*, redocly.*, or a package.json line naming the generator: its script or dependency version; any other package.json change does not count), never by hand; checked at Stop when the repository tracks the document. | any | check lint: `forge_openapi_sync hand-edits` |
+| `typescript/openapi/regenerate` | A change to a tracked OpenAPI document comes with the regenerated client (a file whose header names openapi-typescript, orval or @hey-api/openapi-ts), when a package.json script runs one of them; checked at Stop. | any | check lint: `forge_openapi_sync regenerate` |
 
 ### typescript/opentelemetry
 
-Detected by `@opentelemetry/api` or `@opentelemetry/sdk-node`.
+OpenTelemetry for Node.js (SDK start-up, span attributes).
 
-| Rule | Targets |
-|---|---|
-| `typescript/opentelemetry/init-before-imports` | `ast-grep` advise: in a file with a value import of `@opentelemetry/sdk-node`, a value import of a library the Node auto-instrumentations patch (`http`, `https`, `net`, `dns` and their `node:` forms, `express`, `fastify`, `koa`, `pg`, `mysql2`, `mongodb`, `mongoose`, `ioredis`, `redis`, `graphql`, `kafkajs`, `undici`, `pino`, `winston`, `@aws-sdk/*`, …) |
-| `typescript/opentelemetry/semconv-stable-keys` | `ast-grep` forbid: `$S.setAttribute(<key>, …)` / `$S.setAttributes({<key>: …})` with an old key (`http.method`, `http.status_code`, `http.url`, `http.target`, `http.scheme`, `http.user_agent`, `net.peer.name` / `port`, `net.host.name` / `port`, `db.statement`, `db.system`), where `S` is `@opentelemetry/api`'s `Span` |
+Detected by: a dependency on one of `@opentelemetry/api` (npm), `@opentelemetry/sdk-node` (npm).
+Child of `typescript`: active only where it is.
 
-context.md: the SDK in its own file loaded first; stable semantic convention keys.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- OpenTelemetry (Node): the SDK starts in its own file, loaded before the app (`node --import ./instrumentation.mjs`); importing instrumented libraries in that file is advised against (ES imports load them before the SDK patches them).
+- Span attributes use the stable semantic conventions (`http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `db.query.text`, `db.system.name`); the old keys are rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/opentelemetry/init-before-imports` | A file that imports @opentelemetry/sdk-node does not also import a library the Node auto-instrumentations patch (express, fastify, koa, http, pg, mysql2, ioredis, redis, mongodb, mongoose, graphql, …): ES imports are hoisted, so the library loads before the SDK starts and its spans go missing. Start the SDK in its own file loaded with node --import ./instrumentation.mjs. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/opentelemetry/semconv-stable-keys` | span.setAttribute(s) uses the stable semantic convention keys, not the old ones: http.request.method (not http.method), http.response.status_code (http.status_code), url.full (http.url), url.path / url.query (http.target), url.scheme (http.scheme), user_agent.original (http.user_agent), server.address / server.port (net.peer.name / net.peer.port, net.host.name / net.host.port), db.query.text (db.statement), db.system.name (db.system). Keeping the old keys for a backend that needs them is the user's decision: ask them. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+### typescript/oxlint
+
+oxlint with its type-aware rules (oxlint-tsgolint).
+
+Detected by: a dependency on `oxlint` (npm); or a file matching `.oxlintrc.json`, `oxlint.config.ts`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- oxlint warnings on added lines are fixed like errors. Its type-aware rules (such as `typescript/no-floating-promises`) need the `oxlint-tsgolint` package.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/oxlint/lint` | oxlint passes on the added lines with its type-aware rules and no warning (oxlint --type-aware --deny-warnings); without oxlint-tsgolint installed the type-aware run fails, so those rules are never skipped silently. | typescript | check lint: `forge_do oxlint lint` (fails on warnings) |
+
+### typescript/playwright
+
+Playwright end-to-end tests.
+
+Detected by: a dependency on `@playwright/test` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
+- `waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
+- Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/playwright/axe` | When @axe-core/playwright is a dependency, at least one end-to-end test scans pages with AxeBuilder. | any | check lint: a shell script of 1 lines (when `package.json`, `@e2e-tests` or `**/*.spec.*` changes) |
+| `typescript/playwright/config-file` | Claude asks you before editing the Playwright config (test paths, retries, projects). | any | permission ask `Edit(**/playwright.config.*)` |
+| `typescript/playwright/locators` | Use locators (getByRole, getByLabel, locator()), not element handles or waitForSelector/waitForNavigation. | typescript: `@e2e-tests`, `**/*.spec.*` | ast-grep forbid |
+| `typescript/playwright/no-new-skip` | End-to-end tests are not skipped, marked fixme or fail, or focused. | typescript: `@e2e-tests` | ast-grep no-increase |
+| `typescript/playwright/no-snapshot-update` | Updating Playwright snapshots needs confirmation; the snapshots are part of the reviewed expectations. | any | guard ask: command `{name: playwright, sub: [test], flags_any: [--update-snapshots, -u]}` |
+| `typescript/playwright/no-test-edits` | Changing an end-to-end test that existed at the start of the turn (anything in it, formatting aside, the pages it visits and its control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop. | typescript: `@e2e-tests` | check lint: `forge_test_edits` |
+| `typescript/playwright/no-wait-for-timeout` | No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL. | typescript: `@e2e-tests`, `**/*.spec.*` | ast-grep forbid |
+| `typescript/playwright/run` | End-to-end tests pass. | any | check test: `forge_do playwright test` (when `@e2e-tests` or `playwright.config.*` changes) |
+
+### typescript/pnpm
+
+pnpm is the package manager.
+
+Detected by: a file matching `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
+- pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
+- (when `pnpm >=11.0.0` (npm) declared) pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/pnpm/allow-builds` | No new build approvals in pnpm-workspace.yaml: no allowBuilds entry set to true (pnpm 11) or onlyBuiltDependencies entry (pnpm 10) is added, dangerouslyAllowAllBuilds is not turned on, and strictDepBuilds and blockExoticSubdeps are not turned off. Install scripts are the main npm malware vector; the user approves them, not Claude. | any | check lint: `forge_helper bun pm_policy.mjs pnpm-builds \|\| forge_accept_hint` (when `pnpm-workspace.yaml` changes) |
+| `typescript/pnpm/catalog` | A dependency added or changed in a package.json whose name is in the pnpm catalog (catalog or catalogs in pnpm-workspace.yaml) uses catalog: (or catalog:<name>), so every package gets the same version; not reported when catalogMode is strict (pnpm enforces it). | any: `**/package.json` | check lint: `forge_advise forge_helper bun pm_policy.mjs pnpm-catalog` (when `**/package.json` changes)<br>advice, never blocks |
+| `typescript/pnpm/lock-sync` | pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes). | any | check lint: `forge_do pnpm lock-check` (when `**/package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml` changes) |
+| `typescript/pnpm/no-other-pm` | Dependencies are managed with pnpm; installing with npm, yarn or bun asks. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
+| `typescript/pnpm/no-removed-settings` | No pnpm-workspace.yaml settings removed in pnpm 11: onlyBuiltDependencies, neverBuiltDependencies, ignoredBuiltDependencies, ignoreDepScripts (use allowBuilds), allowNonAppliedPatches (use allowUnusedPatches), auditConfig.ignoreCves (use auditConfig.ignoreGhsas). | any: `**/pnpm-workspace.yaml` | grep forbid `^["']?(onlyBuiltDependencies\|neverBuiltDependencies\|ignoredBuiltDependencies\|ignoreDepScripts\|allowNonAppliedPatches)["']?[[:space:]]*:\|^[[:space:]]+["']?ignoreCves["']?[[:space:]]*:`<br>applies where `pnpm >=11.0.0` (npm) declared |
+| `typescript/pnpm/overrides` | Each overrides entry added or changed in pnpm-workspace.yaml is reported once, so Claude says why (a security fix, an incompatible transitive version): an override can hide a vulnerability or force a version its dependents do not support. | any | check lint: `forge_advise forge_helper bun pm_policy.mjs pnpm-overrides` (when `pnpm-workspace.yaml` changes)<br>advice, never blocks |
+| `typescript/pnpm/settings-location` | pnpm settings are in pnpm-workspace.yaml: no pnpm field in package.json, and no pnpm settings in .npmrc (it keeps registry and auth only); pnpm 11 reads neither. | any: `**/package.json`, `**/.npmrc` | check lint: a shell script of 28 lines |
+| `typescript/pnpm/workspace-protocol` | A dependency on a package of the pnpm workspace (pnpm-workspace.yaml packages) uses the workspace: protocol; since pnpm 9 a plain version range can install a registry copy instead of linking the local package (linkWorkspacePackages is false by default). | any: `**/package.json` | check lint: `forge_helper bun pm_policy.mjs pnpm-workspace` (when `**/package.json` or `pnpm-workspace.yaml` changes) |
+
+### typescript/prettier
+
+Prettier formats the project (prettier --check).
+
+Detected by: a dependency on `prettier` (npm); or a file matching `.prettierrc`, `.prettierrc.json`, `.prettierrc.json5`, `.prettierrc.yaml`, `.prettierrc.yml`, `.prettierrc.toml`, `.prettierrc.js`, `.prettierrc.mjs`, `.prettierrc.cjs`, `.prettierrc.ts`, `.prettierrc.mts`, `.prettierrc.cts`, `prettier.config.js`, `prettier.config.mjs`, `prettier.config.cjs`, `prettier.config.ts`, `prettier.config.mts`, `prettier.config.cts`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Prettier formats the project; its options live in the Prettier config, never in a file's own comments.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/prettier/format` | Files are formatted with the project's Prettier (prettier --check; a changed file is written with prettier --write). | any | check format: `forge_do prettier format-check .` |
+
+### typescript/prisma
+
+Prisma 7 schema, migrations and client.
+
+Detected by: a dependency on `prisma >=7.0.0` (npm); or a file matching `prisma/schema.prisma`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
+- SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
+- CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
+- `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
+- Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants, and `Prisma.raw()` built from a template or concatenation, are rejected.
+- `$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
+- A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
+- Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/prisma/applied-migrations` | Prisma migrations already in the base (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev). | any | check migration: `forge_applied_migrations @prisma-migrations` |
+| `typescript/prisma/client-generator` | The Prisma schema uses the prisma-client generator (Prisma 7), not prisma-client-js. | any | check lint: a shell script of 1 lines (when `**/*.prisma` changes) |
+| `typescript/prisma/db-push` | Commands that change a database outside migrations need confirmation. | any | guard ask: command `{name: prisma, sub: [db, push\|execute]}` or `{name: prisma, sub: [migrate, deploy]}` |
+| `typescript/prisma/destructive-migration` | A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user approved that drop: ask them first, and drop only after a deploy in which no code reads it (expand and contract). | any: `prisma/migrations/**/migration.sql` | check migration: a shell script calling `forge_prisma_drops` (when `prisma/migrations/**` changes) |
+| `typescript/prisma/generated-client-import` | Import the Prisma client from the generator output path, not @prisma/client. | typescript | ast-grep forbid |
+| `typescript/prisma/migration-lint` | New migrations do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `prisma/migrations/**/migration.sql` | check migration: `forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' \| sort \| tail -n 1)` (when `prisma/migrations/**` changes) |
+| `typescript/prisma/migration-present` | Schema changes come with a migration (not in a db push workflow - no prisma/migrations and a package.json script running prisma db push). | any | check migration: a shell script calling `forge_do prisma migrations-check` (when `prisma/schema.prisma` changes; needs a local database) |
+| `typescript/prisma/no-middleware` | No Prisma middleware ($use). Use Client Extensions. | typescript | ast-grep forbid |
+| `typescript/prisma/no-network-in-transaction` | An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. | typescript | ast-grep forbid |
+| `typescript/prisma/no-query-in-loop` | A Prisma query whose result type is PrismaPromise (findMany, count, aggregate, groupBy, the *Many methods) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (include, in, a relation filter) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
+| `typescript/prisma/no-raw-interpolation` | No Prisma.raw() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; raw() inserts its text unescaped. Use the tagged $queryRaw`...` / Prisma.sql`...` forms, which bind values. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
+| `typescript/prisma/no-raw-unsafe` | No $queryRawUnsafe / $executeRawUnsafe. Use the tagged $queryRaw`...` form, which binds parameters. | typescript | ast-grep forbid |
+| `typescript/prisma/no-reset` | Prisma commands that wipe the database are not run by Claude. | any | guard deny: command `{name: prisma, sub: [migrate, reset]}` or `{name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}` |
+| `typescript/prisma/no-unscoped-bulk-write` | A Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose). | typescript | ast-grep advise (where `$CALL`: types engine, §15)<br>advice, never blocks |
+| `typescript/prisma/validate` | The Prisma schema is valid. | any | check migration: `forge_do prisma validate` (when `prisma/schema.prisma` changes) |
+
+### typescript/pulumi
+
+Pulumi programs in TypeScript.
+
+Detected by: a dependency on `@pulumi/pulumi` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Pulumi: `protect: true` resource options are kept (a changed file may not have fewer); unprotecting or deleting protected resources is the user's call.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/pulumi/no-output-in-string` | An Output<T> is not put in a template literal or concatenated with a string: it is a promise-like value, so the text gets "Calling [toString] on an [Output<T>] is not supported" instead of the value. Use pulumi.interpolate`…`, pulumi.concat(…) or output.apply((v) => …). | typescript | ast-grep forbid (where `$E`: types engine, §15) |
+| `typescript/pulumi/protect-ratchet` | A changed file keeps its protect: true resource options (their count does not decrease): removing protection is the step before deleting a resource; that change is the user's to make. | typescript | grep no-decrease `(^\|[^A-Za-z0-9_$])protect[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_$]\|$)` |
+
+### typescript/react
+
+React 19 components, shared by every React setup (Next.js, Astro islands, SPAs).
+
+Detected by: a dependency on `react >=19.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
+- Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`, not `react-dom/test-utils`.
+- Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values; an object, array or function default is hoisted to a module constant.
+- `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
+- Components follow the React Compiler's rules: no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/react/a11y` | Biome's accessibility rules are errors (the European Accessibility Act applies to e-commerce since June 2025). | tsx | tool biome `lint/a11y/useAltText`<br>tool biome `lint/a11y/useButtonType`<br>deprecated: replaced by `typescript/a11y` |
+| `typescript/react/act-from-react` | act comes from react, not react-dom/test-utils (deprecated in React 19). | typescript | ast-grep forbid |
+| `typescript/react/compiler-rules` | Components and hooks pass React Compiler's checks: no setState called synchronously in an effect (derive the value while rendering), no ref read or written while rendering, no impure call (Date.now(), Math.random()) while rendering. | tsx | tool biome `lint/nursery/useReactCompiler` |
+| `typescript/react/hooks-rules` | Hooks run at the top level of a component or hook, and effects list every dependency they read. | tsx | tool biome `lint/correctness/useHookAtTopLevel`<br>tool biome `lint/correctness/useExhaustiveDependencies` |
+| `typescript/react/no-dangerous-html` | No dangerouslySetInnerHTML. Render text as children, or a sanitizing Markdown component. | tsx | tool biome `lint/security/noDangerouslySetInnerHtml`<br>ast-grep forbid |
+| `typescript/react/no-deprecated-types` | No imports React's types mark @deprecated (ElementRef, MutableRefObject, LegacyRef, ...). Use the replacement the deprecation names. Biome reads the tags from node_modules, and only from real directories (not pnpm's symlinks). | tsx | tool biome `lint/suspicious/noDeprecatedImports`<br>deprecated: replaced by `typescript/no-deprecated` |
+| `typescript/react/no-forward-ref` | No forwardRef. In React 19, ref is a regular prop. | tsx | tool biome `lint/suspicious/noReactForwardRef`<br>ast-grep forbid |
+| `typescript/react/no-nested-components` | No component defined inside another component, and no function that defines and returns a component or hook (a factory): each render or call makes a new component type, which remounts. | tsx | tool biome `lint/correctness/noNestedComponentDefinitions`<br>tool biome `lint/nursery/noComponentHookFactories` |
+| `typescript/react/no-prop-assign` | Props are never assigned to (props.x = ...): they are read-only, and a mutation breaks rendering and memoization. Derive a local value instead. | tsx | tool biome `lint/correctness/noReactPropAssignments` |
+| `typescript/react/no-prop-types` | No propTypes or defaultProps assignments. React 19 ignores them on function components; use types and default parameters. | tsx | ast-grep forbid |
+| `typescript/react/stable-default-props` | Destructured props do not default to an object, array or function literal ({ items = [] }): it is a new value on every render, which defeats memo and re-runs effects. Hoist the default to a module constant. | tsx | tool biome `lint/nursery/noReactObjectTypeAsDefaultProp` |
+| `typescript/react/stable-keys` | List keys are stable ids, never the array index. | tsx | tool biome `lint/suspicious/noArrayIndexKey` |
+| `typescript/react/use-action-state` | Form action state comes from useActionState in react, not useFormState from react-dom. | tsx | ast-grep forbid |
+
+### typescript/react/react-hook-form
+
+React Hook Form.
+
+Detected by: a dependency on `react-hook-form >=7.0.0` (npm).
+Child of `typescript/react`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/react/react-hook-form/watch-all` | Watch named fields (useWatch({ control, name: "email" }) or watch("email")), not watch() with no argument: it subscribes to the whole form, so every keystroke re-renders the component, and it defeats React Compiler's memoization. | typescript | ast-grep advise (where `$W`: types engine, §15)<br>advice, never blocks |
+
+### typescript/react/zustand
+
+zustand stores in React.
+
+Detected by: a dependency on `zustand >=5.0.0` (npm).
+Child of `typescript/react`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- zustand 5: a store hook compares selector results with `Object.is`; a selector returning a new object or array (`useStore((s) => ({ a: s.a }))`) re-renders forever ("Maximum update depth"). Select one value per call, or wrap the selector in `useShallow` from `zustand/react/shallow`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/react/zustand/stable-selector` | A zustand store hook's selector does not return a new object or array literal (useStore((s) => ({ a: s.a })), (s) => [s.a, s.b]): zustand 5 compares with Object.is, so every render gets a new value and the component re-renders until React gives up (Maximum update depth exceeded). Select one value per call or wrap the selector in useShallow(). | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+### typescript/react-router
+
+React Router framework mode (route module actions).
+
+Detected by: a dependency on `@react-router/dev >=7.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- React Router framework mode: route modules export `loader` (GET data) and `action` (mutations), typed with `Route.LoaderArgs` / `Route.ActionArgs` from `./+types/<route>`.
+- An `action` is a public POST endpoint: validate what it reads from `request.formData()` or `request.json()` with a schema and check who is calling.
+- Responses use `data()` and `redirect()`; `json()` and `defer()` are gone.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/react-router/route-types` | Route modules type their exports with the generated Route types (Route.LoaderArgs, Route.ActionArgs, Route.MetaArgs, ... from ./+types/<route>), not the generic LoaderFunctionArgs, ActionFunctionArgs, MetaFunction or LinksFunction, which lose the route's params and loader data. | typescript: `app/routes/**`, `app/root.tsx` | ast-grep advise<br>advice, never blocks |
+
+### typescript/redis
+
+Redis clients (ioredis, node-redis).
+
+Detected by: a dependency on one of `ioredis` (npm), `redis` (npm), `@redis/client` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Redis: no `KEYS` (`client.keys(pattern)`) in application code; iterate with `scanStream()` (ioredis), `scanIterator()` (node-redis) or `SCAN`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/redis/no-keys` | No KEYS command on a Redis client (client.keys(pattern) / client.KEYS(…)): it walks the whole keyspace in O(N) and blocks the server; iterate with scanStream() / scanIterator() / SCAN. | typescript | ast-grep forbid (where `$C`: types engine, §15) |
+
+### typescript/resend
+
+Resend email SDK.
+
+Detected by: a dependency on `resend` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (a discarded result is rejected).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/resend/check-error` | The result of resend.emails.send(…) / resend.batch.send(…) is used (const { data, error } = await …, then error handled), not discarded: Resend returns errors instead of throwing, so a failed send is otherwise silent. | typescript | ast-grep forbid (where `$R`: types engine, §15) |
+
+### typescript/solid
+
+SolidJS components (fine-grained reactivity).
+
+Detected by: a dependency on `solid-js` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- SolidJS: a component runs once; props are reactive getters, so they are read as `props.x` (or split with `splitProps`), never destructured.
+- Lists render with `<For each={...}>` (or `<Index>`), not `.map()` in JSX.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/solid/for-component` | Lists in JSX render with <For each={...}>, not .map(): .map() recreates every node when the array changes. | tsx | tool biome `lint/performance/useSolidForComponent` |
+| `typescript/solid/no-destructured-props` | Solid components do not destructure props: the value is read once and stops updating. Read props.x, or use splitProps / mergeProps. | tsx | tool biome `lint/correctness/noSolidDestructuredProps` |
+
+### typescript/storybook
+
+Storybook 9 and later.
+
+Detected by: a dependency on `storybook >=9.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Storybook 9+ ships its test, actions, viewport, manager and preview APIs and theming in the `storybook` package: import `storybook/test`, `storybook/actions`, `storybook/viewport`, `storybook/manager-api`, `storybook/preview-api`, `storybook/theming`, and doc blocks from `@storybook/addon-docs/blocks`. The old `@storybook/*` packages for them, and `@storybook/addon-essentials` / `addon-interactions`, are rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/storybook/consolidated-deps` | package.json does not depend on the packages Storybook 9 folded into storybook (@storybook/test, addon-actions, addon-viewport, addon-essentials, addon-interactions, manager-api, preview-api, theming, blocks): remove them; storybook provides those APIs. | any: `**/package.json` | grep forbid `"@storybook/(test\|addon-actions\|addon-viewport\|addon-essentials\|addon-interactions\|manager-api\|preview-api\|theming\|blocks)"[[:space:]]*:` |
+| `typescript/storybook/consolidated-imports` | No imports from the packages Storybook 9 folded into storybook (@storybook/test, addon-actions, addon-viewport, addon-essentials, addon-interactions, manager-api, preview-api, theming, blocks): import storybook/test, storybook/actions, storybook/viewport, storybook/manager-api, storybook/preview-api, storybook/theming, @storybook/addon-docs/blocks. | typescript | ast-grep forbid |
+
+### typescript/stripe
+
+Stripe Node SDK (webhook signature verification).
+
+Detected by: a dependency on `stripe` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Stripe webhooks: `stripe.webhooks.constructEvent` / `constructEventAsync` get the raw body (`await req.text()`, `express.raw()`'s Buffer), never `JSON.stringify(…)` or a parsed body; the signature covers the exact bytes.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/stripe/webhook-raw-body` | The payload given to stripe.webhooks.constructEvent / constructEventAsync is the raw request body (text or Buffer), not JSON.stringify(…), await req.json() or a variable declared from one in the same function: the signature is computed over the exact bytes Stripe sent, so a re-serialised body never verifies. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+### typescript/svelte
+
+Svelte 5 components (runes).
+
+Detected by: a dependency on `svelte >=5.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Svelte 5 components use runes: `$props()`, `$state()`, `$derived()`, `$effect()`, event attributes (`onclick`), snippets and `{@render}`.
+- Legacy syntax (`export let`, `$:`, `on:click`, `<slot>`, `$$props`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, `svelte/legacy`) is rejected: it compiles silently in legacy mode.
+- `{@html}` renders unescaped HTML and is rejected; render text, or sanitise in one component.
+- `{#each}` blocks have a key (`{#each items as item (item.id)}`); no `{@debug}` tag is left in.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/svelte/each-key` | An {#each} block has a key ({#each items as item (item.id)}), so Svelte can track each item instead of patching in place. | any: `**/*.svelte` | tool biome `lint/nursery/useSvelteRequireEachKey` |
+| `typescript/svelte/no-at-html` | No {@html ...} in .svelte files; it renders unescaped HTML (XSS). Render the content as text, or sanitise it in one component. | any: `**/*.svelte` | grep forbid `\{@html[[:space:]]` |
+| `typescript/svelte/no-debug-tags` | No {@debug} tag is left in a .svelte file: it pauses the browser's devtools on every update. | any: `**/*.svelte` | tool biome `lint/nursery/noSvelteAtDebugTags` |
+| `typescript/svelte/runes-only` | Svelte components use runes, not legacy syntax that silently switches the component to legacy mode: no export let ($props()), $: ($derived / $effect), on:event (onevent), <slot> or $$slots ({@render}), $$props / $$restProps, createEventDispatcher (callback props), beforeUpdate / afterUpdate ($effect.pre / $effect), svelte/legacy. | any: `**/*.svelte` | grep forbid `^[[:space:]]*\$:[[:space:]]\|^[[:space:]]*export[[:space:]]+let[[:space:]]\|[[:space:]]on:[a-zA-Z]+[\|=>[:space:]]\|<slot([[:space:]/>]\|$)\|\$\$(slots\|props\|restProps)\|createEventDispatcher\|(beforeUpdate\|afterUpdate)[[:space:]]*[,}(]\|['"]svelte/legacy['"]` |
+
+### typescript/svelte/kit
+
+SvelteKit configuration.
+
+Detected by: a dependency on `@sveltejs/kit` (npm).
+Child of `typescript/svelte`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/svelte/kit/external-redirect` | SvelteKit 3: redirect() to a literal http(s):// URL passes a third argument ({ external: true } or an allowlist of origins); without it SvelteKit 3 throws on an external location. | typescript | ast-grep forbid (where `$F`: types engine, §15)<br>applies where `@sveltejs/kit >=3.0.0` (npm) declared |
+| `typescript/svelte/kit/no-app-stores` | No imports of $app/stores (deprecated since SvelteKit 2.12, removed in 3): use page, navigating and updated from $app/state. | any: `**/*.svelte`, `**/*.ts`, `**/*.js`, `**/*.mts`, `**/*.mjs` | grep forbid `(from\|import)[[:space:]]*\(?[[:space:]]*["']\$app/stores["']`<br>applies where `@sveltejs/kit >=2.12.0` (npm) declared |
+| `typescript/svelte/kit/no-csrf-off` | svelte.config does not turn off SvelteKit's CSRF protection: no csrf.checkOrigin: false, no "*" in csrf.trustedOrigins. Name the trusted origins. | typescript: `svelte.config.*` | ast-grep forbid |
+| `typescript/svelte/kit/no-env-modules` | No imports of $env/static/private, $env/static/public, $env/dynamic/private or $env/dynamic/public on SvelteKit 3 (deprecated): import from $app/env/private or $app/env/public. | any: `**/*.svelte`, `**/*.ts`, `**/*.js`, `**/*.mts`, `**/*.mjs` | grep forbid `(from\|import)[[:space:]]*\(?[[:space:]]*["']\$env/(static\|dynamic)/(private\|public)["']`<br>applies where `@sveltejs/kit >=3.0.0` (npm) declared |
+
+### typescript/t3-env
+
+Environment variables validated with t3-env (createEnv).
+
+Detected by: a dependency on one of `@t3-oss/env-core` (npm), `@t3-oss/env-nextjs` (npm), `@t3-oss/env-nuxt` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Environment variables are read through the validated `env` object of the env module (`createEnv`), never `process.env` elsewhere; tool config files (`*.config.*`) are exempt.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/t3-env/no-process-env` | No process.env outside the env module (env.ts, env.mjs) and tool config files; import the validated env instead. | typescript | tool biome `lint/style/noProcessEnv` |
+
+### typescript/tailwind
+
+Tailwind CSS 4 utilities and configuration.
+
+Detected by: a dependency on `tailwindcss >=4.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Tailwind CSS 4: configuration lives in CSS (`@import "tailwindcss"`, `@theme`); a `tailwind.config.*` is read only when a CSS file loads it with `@config`.
+- Utilities removed in v4 generate nothing and are rejected: `bg-opacity-*` and the other `*-opacity-*` (use `bg-black/50`), `flex-shrink-*` / `flex-grow-*` (`shrink-*` / `grow-*`), `overflow-ellipsis` (`text-ellipsis`), `decoration-slice` / `decoration-clone` (`box-decoration-*`).
+- A `<style>` block in a `.vue`, `.svelte` or `.astro` file, or a CSS module, that uses `@apply` starts with `@reference "<path to the main CSS>"`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/tailwind/apply-reference` | A .vue, .svelte or .astro file, or a CSS module, that uses @apply also has @reference (or @import "tailwindcss"): Tailwind 4 builds these stylesheets on their own, and @apply fails with 'Cannot apply unknown utility class'. | any: `**/*.vue`, `**/*.svelte`, `**/*.astro`, `**/*.module.css` | check lint: a shell script of 8 lines |
+| `typescript/tailwind/config-referenced` | A tailwind.config.js, .ts, .mjs or .cjs at the root is loaded by a CSS file with @config: Tailwind 4 ignores it otherwise, without a word. Add @config, or move the theme to @theme and delete the file. | any: `tailwind.config.*`, `**/*.css` | check lint: a shell script of 7 lines (when `tailwind.config.*` or `**/*.css` changes) |
+| `typescript/tailwind/no-removed-utilities` | No Tailwind 3 utilities removed in v4, which generate nothing: *-opacity-N (bg-black/50), flex-shrink-* and flex-grow-* (shrink-*, grow-*), overflow-ellipsis (text-ellipsis), decoration-slice and decoration-clone (box-decoration-*). | any: `**/*.tsx`, `**/*.jsx`, `**/*.vue`, `**/*.svelte`, `**/*.astro`, `**/*.html`, `**/*.css` | grep forbid `(^\|[^a-zA-Z0-9-])((bg\|text\|border\|divide\|ring\|placeholder)-opacity-[0-9]+\|flex-(shrink\|grow)(-[0-9]+)?\|overflow-ellipsis\|decoration-(slice\|clone))([^a-zA-Z0-9:-]\|$)` |
+
+### typescript/tanstack-router
+
+TanStack Router's generated route tree.
+
+Detected by: a dependency on one of `@tanstack/react-router` (npm), `@tanstack/solid-router` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- TanStack Router: `routeTree.gen.ts` is generated from the routes directory (by the bundler plugin or `tsr generate`) and is never edited by hand; change the route files instead.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/tanstack-router/no-generated-edits` | routeTree.gen.ts is generated from the route files and never edited by hand (TanStack Router's default generatedRouteTree name); edit the routes and regenerate. | any | permission deny `Edit(**/routeTree.gen.ts)` |
+
+### typescript/temporal
+
+Temporal TypeScript SDK workflows (deterministic sandbox).
+
+Detected by: a dependency on `@temporalio/workflow` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Temporal: workflow code runs in a deterministic sandbox. A file importing `@temporalio/workflow` imports no Node built-ins and no `@temporalio/activity` / `client` / `worker`; activities are reached through `proxyActivities<typeof activities>()` with `import type * as activities`.
+- In workflows, `uuid4()` from `@temporalio/workflow` replaces `crypto.randomUUID()`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/temporal/workflow-determinism` | A workflow file (one with a value import of @temporalio/workflow) imports no Node built-in (fs, path, os, crypto, http, https, net, tls, dns, child_process, worker_threads, cluster, node:*) nor @temporalio/activity, client or worker, by import or require(), and calls no crypto.randomUUID() / getRandomValues(): workflow code runs in a deterministic sandbox bundle, where they fail to bundle or break replay. Activities are called through proxyActivities<typeof activities>() with an import type; uuid4() comes from @temporalio/workflow. | typescript | ast-grep forbid |
+
+### typescript/testing-library
+
+React Testing Library.
+
+Detected by: a dependency on `@testing-library/react` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Hooks are tested with `renderHook` from `@testing-library/react` (`@testing-library/react-hooks` is for React 16 and 17, and is rejected).
+- Async queries are awaited, `findBy*` replaces `waitFor` + `getBy*`, queries go through `screen`, `waitFor` callbacks have no side effects, no needless `act()` and no DOM node access.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/testing-library/lint` | In ESLint projects, eslint-plugin-testing-library's rules are errors: async queries are awaited, waitFor callbacks have no side effects, findBy instead of waitFor + getBy, queries through screen, no unnecessary act(), no DOM node access. | typescript: `@ts-tests` | tool eslint `testing-library/await-async-queries`<br>tool eslint `testing-library/no-wait-for-side-effects`<br>tool eslint `testing-library/prefer-find-by`<br>tool eslint `testing-library/prefer-screen-queries`<br>tool eslint `testing-library/no-unnecessary-act`<br>tool eslint `testing-library/no-node-access` |
+| `typescript/testing-library/no-container-queries` | A test queries what the user sees through screen (getByRole, getByLabelText, getByText), not render()'s container with querySelector / querySelectorAll: a CSS selector ties the test to the markup and passes for elements no user can reach. | typescript: `@ts-tests` | ast-grep advise (where `$R`: types engine, §15)<br>advice, never blocks |
+| `typescript/testing-library/no-hooks-lib` | No imports from @testing-library/react-hooks (React 16 and 17 only); renderHook comes from @testing-library/react. | typescript | ast-grep forbid |
+
+### typescript/trpc
+
+tRPC procedures (input validation, authorization, errors).
+
+Detected by: a dependency on `@trpc/server` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- tRPC: a procedure that takes input declares `.input(<schema>)` (Zod or another validator) and reads it from `input`; `.input(z.any())`, `.input(z.unknown())`, a check-less `z.custom()`, a `z.record()` of `z.any()` and a cast-only function are rejected.
+- Errors thrown in a procedure are `TRPCError` with a `code` (`NOT_FOUND`, `FORBIDDEN`, `BAD_REQUEST`, …); a plain `Error` is sent as INTERNAL_SERVER_ERROR, and `throw new Error()` / `throw Error()` in a resolver (outside a `try` block) is rejected.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/trpc/input-validate` | A procedure's .input() validates. No .input(z.any()), .input(z.unknown()), .input(z.custom<T>()) without a check, .input(z.record(..., z.any())) or a function that only casts its argument. | typescript | ast-grep forbid |
+| `typescript/trpc/trpc-error` | A procedure resolver (the function passed to .query(), .mutation() or .subscription(), in a file importing @trpc/server or taking tRPC's { ctx, input } options) throws TRPCError with a code, not a plain Error, with or without new (it reaches the client as INTERNAL_SERVER_ERROR). An Error thrown inside a try block is not concerned: it is caught there. | typescript | ast-grep forbid |
+
+### typescript/turbo
+
+Turborepo (2 and later) runs the workspace's tasks.
+
+Detected by: a file matching `turbo.json`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Turborepo 2: tasks are under `tasks` in `turbo.json` (not `pipeline`), and env mode stays strict.
+- Every environment variable the code reads is declared in `turbo.json` `env` (per task) or `globalEnv`, so it is part of the cache key.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/turbo/declared-env` | Every environment variable read through process.env is declared in turbo.json (env or globalEnv); an undeclared one is not part of the cache key, so a cached build can carry another environment's value. | typescript | tool biome `lint/suspicious/noUndeclaredEnvVars` |
+| `typescript/turbo/no-env-loose-flag` | turbo runs without --env-mode=loose; declare the variables a task needs (env, passThroughEnv) instead. | any | guard deny: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
+| `typescript/turbo/no-env-loose` | turbo.json keeps the strict env mode (no "envMode": "loose"): in loose mode tasks see every variable and the cache ignores the undeclared ones. | any: `**/turbo.json` | grep forbid `"envMode"[[:space:]]*:[[:space:]]*"loose"` |
+| `typescript/turbo/tasks-key` | turbo.json declares its tasks under tasks; Turborepo 2 rejects the old pipeline key. | any: `**/turbo.json` | grep forbid `"pipeline"[[:space:]]*:` |
+
+### typescript/typeorm
+
+TypeORM data sources, raw queries, query builders and schema commands.
+
+Detected by: a dependency on `typeorm` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are rejected, `schema:sync` / `schema:drop` are refused and `migration:revert` needs confirmation.
+- Raw `.query()` takes its values as parameters (`query(sql, [values])`); query builder conditions and orderings use `:name` parameters, never `${}` or concatenation.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/typeorm/migration-present` | Entity changes come with a migration: once the migrations have run on the local database, TypeORM's migration:generate --check finds no schema change. | typescript | check migration: `forge_typeorm_pending @typeorm-datasource @esm-modules` (needs a local database; timeout 180 s) |
+| `typescript/typeorm/migration-revert` | typeorm migration:revert runs the last migration's down() against the database; it needs confirmation. | any | guard ask: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['migration:revert']}` |
+| `typescript/typeorm/no-qb-where-interpolation` | No TypeORM query builder where / andWhere / orWhere / having / andHaving / orHaving / orderBy / addOrderBy whose condition is a template with ${}, a concatenation or a variable declared from one; use :name parameters with their values. | typescript | ast-grep forbid (where `$QB`: types engine, §15) |
+| `typescript/typeorm/no-query-in-loop` | A TypeORM Repository or EntityManager call (find, findOne, findOneBy, count, save, update, delete, query, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (In([...]), relations, a join) or save an array. | typescript | ast-grep advise (where `$R`: types engine, §15)<br>advice, never blocks |
+| `typescript/typeorm/no-raw-query-interpolation` | No TypeORM .query() (DataSource, EntityManager, QueryRunner, Repository) whose SQL is a template with ${}, a concatenation or a variable declared from one in the same function or module; pass the values as parameters (query(sql, [values])). | typescript | ast-grep forbid (where `$R`: types engine, §15) |
+| `typescript/typeorm/no-synchronize` | No literal synchronize: true or dropSchema: true in new DataSource({...}), TypeOrmModule.forRoot({...}) or the object a TypeOrmModule.forRootAsync useFactory returns: schema auto-sync alters and drops columns, dropSchema wipes the database at every start; schema changes go through migrations. | typescript | ast-grep forbid (where `$D`: types engine, §15) |
+| `typescript/typeorm/schema-sync-guard` | No typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration. | any | guard deny: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync\|schema:drop']}` |
+| `typescript/typeorm/synchronize-expression` | synchronize or dropSchema set from an expression in new DataSource({...}), TypeOrmModule.forRoot({...}) or a forRootAsync useFactory result is on whenever that expression is true, possibly in production; prefer false and migrations everywhere. | typescript | ast-grep advise (where `$D`: types engine, §15)<br>advice, never blocks |
+
+### typescript/upstash-ratelimit
+
+Upstash rate limiting (@upstash/ratelimit).
+
+Detected by: a dependency on `@upstash/ratelimit` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Upstash Ratelimit: `limit()` never throws; its result is checked (`const { success } = await ratelimit.limit(id)`), never discarded.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/upstash-ratelimit/check-limit` | The result of ratelimit.limit(id) is used and its success checked, not discarded: limit() never throws, so a bare call (awaited or not) rate-limits nothing. | typescript | ast-grep forbid (where `$RL`: types engine, §15) |
+
+### typescript/vite
+
+Vite builds and serves the app.
+
+Detected by: a dependency on `vite` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- `VITE_` variables are inlined into the client bundle: secrets never get the prefix (names with SECRET, PRIVATE, PASSWORD, SERVICE_ROLE or DATABASE_URL are rejected in code and `.env` files).
+- `define` in `vite.config.*` never inlines the whole `process.env`, and `server.allowedHosts` / `preview.allowedHosts` list hosts instead of `true`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/vite/no-define-process-env` | define in vite.config.* does not inline the whole process.env ("process.env": process.env or JSON.stringify(process.env)): every server variable, secrets included, would land in the client bundle. Define the variables you need, or use import.meta.env. | typescript: `**/vite.config.*` | ast-grep forbid |
+| `typescript/vite/no-open-dev-host` | No server.allowedHosts: true or preview.allowedHosts: true in vite.config.*; it lets any site reach the dev server through DNS rebinding. List the hosts. | typescript: `**/vite.config.*` | ast-grep forbid |
+| `typescript/vite/no-public-secret-env-file` | No VITE_ variable named as a secret (SECRET, PRIVATE, PASSWORD, SERVICE_ROLE, DATABASE_URL) in .env files; Vite inlines VITE_ variables into the client bundle. | any: `.env`, `.env.*`, `**/.env`, `**/.env.*` | grep forbid `^[[:space:]]*(export[[:space:]]+)?VITE_[A-Z0-9_]*(SECRET\|PRIVATE\|PASSWORD\|SERVICE_ROLE\|DATABASE_URL)` |
+| `typescript/vite/no-public-secret-env` | Secrets are never VITE_ variables, which Vite inlines into the client bundle (import.meta.env.VITE_… named with SECRET, PRIVATE, PASSWORD, SERVICE_ROLE or DATABASE_URL). | typescript | ast-grep forbid |
+
+### typescript/vitest
+
+Vitest runs and test integrity.
+
+Detected by: a dependency on `vitest` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- (when `vitest >=4.0.0` (npm) declared) Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/vitest/config-file` | Claude asks you before editing the Vitest config (test paths, coverage thresholds). | any | permission ask `Edit(**/vitest.config.*)` |
+| `typescript/vitest/no-exit-zero` | Test, setup and mock files never call process.exit(0): the run reports success whatever the tests did. | typescript: `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, `!e2e/**` | ast-grep forbid |
+| `typescript/vitest/no-fewer-expects` | Assertions are not removed from tests. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-decrease |
+| `typescript/vitest/no-matcher-override` | expect.extend does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name. The receiver is Vitest's expect by its type, whatever it is called. | typescript: `@ts-tests`, `**/vitest.setup.*`, `**/__mocks__/**` | ast-grep forbid (where `$E`: types engine, §15) |
+| `typescript/vitest/no-mock-increase` | A test file may not gain mocks: vi.mock, vi.doMock, vi.spyOn, vi.fn, also through an import alias (import { vi as v }); test through the real code or a fake at the boundary. vi.stubEnv and vi.stubGlobal are not counted: they set configuration for a test, like pytest's monkeypatch. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-increase |
+| `typescript/vitest/no-new-skip` | Tests are not skipped, made conditional, left as todo or focused with .only. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-increase |
+| `typescript/vitest/no-pass-with-no-tests` | Running Vitest with --passWithNoTests needs confirmation; it turns a missing or mistyped test file into a pass. | any | guard ask: command `{name: vitest, flags_any: [--passWithNoTests]}` |
+| `typescript/vitest/no-snapshot-update` | Updating Vitest snapshots needs confirmation; the snapshots are part of the reviewed expectations. | any | guard ask: command `{name: vitest, flags_any: [-u, --update]}` |
+| `typescript/vitest/no-tautological-expect` | Assertions test something. No expect() on a literal, such as expect(true).toBe(true). | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep forbid |
+| `typescript/vitest/no-test-edits` | Changing a test that existed at the start of the turn (anything in it, formatting aside, input data, .each tables and control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop. Changed test support code (helpers, vi.mock factories, __mocks__, test utils) is reported once. | typescript: `@ts-tests`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, `!@e2e-tests` | check lint: `forge_test_edits` |
+| `typescript/vitest/no-test-env-branch` | Application code does not branch on whether it runs under Vitest. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests`, `!vitest.config.*`, `!vitest.setup.*` | ast-grep forbid |
+| `typescript/vitest/no-workspace-file` | No vitest.workspace file. Vitest 4 ignores it silently; declare test.projects in vitest.config instead. | any | check lint: `! git ls-files 'vitest.workspace.*' \| grep .` (when `vitest.*` changes) |
+| `typescript/vitest/run` | Tests pass. | typescript | check test: `forge_do vitest test` (reruns failing tests; timeout 300 s) |
+| `typescript/vitest/snapshot-stale` | Output-producing code changed but its snapshots did not: a source file whose added lines hold a string literal in an expression or an object literal key (not an import, a type annotation, an interface or a type alias), imported by a test that uses toMatchSnapshot, toMatchFileSnapshot, toMatchInlineSnapshot or golden files (testdata/), while no .snap, __snapshots__ or testdata file changed in the turn. Run the snapshot tests with inputs that exercise the new output and update them. Checked at Stop; it blocks once per turn, then accepts. | typescript: `!@ts-tests`, `!@e2e-tests`, `!**/*.d.ts` | check lint: `forge_advise forge_snapshot_stale`<br>advice, never blocks |
+| `typescript/vitest/untested-change` | A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn. | typescript: `!@ts-tests`, `!@e2e-tests`, `!**/*.d.ts`, `!**/*.config.*` | check lint: `forge_advise forge_untested_change`<br>advice, never blocks |
+
+### typescript/vue
+
+Vue 3 single-file components (vue-tsc, v-for keys, v-html).
+
+Detected by: a dependency on `vue >=3.0.0` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Vue 3 with `<script setup lang="ts">` single-file components; `vue-tsc` type-checks `.vue` files (tsc does not).
+- Templates: an element with `v-for` binds a `:key` that uses its item, no `v-if` with `v-for` on one element, directives have their value.
+- Refs are read with `.value` in script code (never as a condition or operand), and `setup()` does not destructure its props (`toRefs(props)` instead).
+- `v-html` and `:innerHTML` in `.vue` files are rejected: they render unescaped HTML. Render text with `{{ }}`, or sanitise in one dedicated component.
+- Vue 2 template syntax is rejected (Vue 3 ignores it): `v-model:prop` instead of `.sync`, `v-slot` / `#name` instead of `slot-scope`, no `.native`, key names instead of key codes.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/vue/no-setup-props-destructure` | setup() does not destructure its props parameter: the destructured values are read once and lose reactivity (use props.x, toRefs(props) or toRef(props, "x")). | any: `**/*.vue`, `**/*.ts`, `**/*.mts`, `**/*.cts` | tool biome `lint/correctness/noVueSetupPropsReactivityLoss` |
+| `typescript/vue/no-v-html` | No v-html or :innerHTML in .vue files; they render unescaped HTML (XSS). Render text with {{ }}, or sanitise in one dedicated component. | any: `**/*.vue` | grep forbid `(^\|[[:space:]])(v-html\|:innerHTML\|v-bind:innerHTML)[[:space:]]*=` |
+| `typescript/vue/no-vue2-template-syntax` | No Vue 2 template syntax, which Vue 3 compiles without a word and ignores: the .sync modifier (v-model:prop), slot-scope (v-slot / #name), the .native modifier, numeric key codes (@keyup.enter). | any: `**/*.vue` | grep forbid `[[:space:]](:\|v-bind:)[a-zA-Z-]+\.sync[[:space:]]*=\|[[:space:]]slot-scope[[:space:]]*=\|[[:space:]](@\|v-on:)[a-zA-Z-]+(\.[a-z]+)*\.native([.=[:space:]]\|$)\|[[:space:]](@\|v-on:)key(up\|down\|press)\.[0-9]+` |
+| `typescript/vue/ref-value` | A ref is read through .value in script code: a ref used as an operand, a condition or a template-literal value is the Ref object itself (always truthy), which vue-tsc reports only for arithmetic. | any: `**/*.vue`, `**/*.ts`, `**/*.mts`, `**/*.cts` | tool biome `lint/nursery/noVueRefAsOperand` |
+| `typescript/vue/typecheck` | The project passes vue-tsc, which type-checks .vue files (vue-tsc --build for a tsconfig with references). Skipped until nuxt prepare has written .nuxt/ in a Nuxt project. | any: `**/*.vue`, `**/*.ts`, `**/*.tsx`, `**/*.mts` | check typecheck: a shell script calling `forge_do vue-tsc typecheck-build`, `forge_do vue-tsc typecheck` |
+| `typescript/vue/v-for-key` | An element with v-for in a .vue template binds :key, so Vue can track each item instead of patching in place. | any: `**/*.vue` | tool biome `lint/correctness/useVueVForKey`<br>deprecated: replaced by `typescript/vue/valid-templates` |
+| `typescript/vue/valid-templates` | Vue templates are valid, as Biome checks them with html.experimentalFullSupportEnabled: v-for binds :key and has a valid expression, no v-if with v-for on one element, v-bind / v-on / v-if / v-else / v-else-if / v-html / v-text with what they need, and a valid root <template>. | any: `**/*.vue` | tool biome `lint/correctness/useVueVForKey`<br>tool biome `lint/correctness/noVueVIfWithVFor`<br>tool biome `lint/correctness/useVueValidVBind`<br>tool biome `lint/correctness/useVueValidVOn`<br>tool biome `lint/correctness/useVueValidVIf`<br>tool biome `lint/correctness/useVueValidVElse`<br>tool biome `lint/correctness/useVueValidVElseIf`<br>tool biome `lint/correctness/useVueValidVHtml`<br>tool biome `lint/correctness/useVueValidVText`<br>tool biome `lint/correctness/useVueValidTemplateRoot`<br>tool biome `lint/nursery/useVueValidVFor` |
+
+### typescript/vue/nuxt
+
+Nuxt server routes and runtime config.
+
+Detected by: a dependency on `nuxt >=3.0.0` (npm).
+Child of `typescript/vue`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Nuxt: server routes in `server/api/` and `server/routes/` read input with h3's validated helpers, `readValidatedBody(event, schema.parse)`, `getValidatedQuery(event, schema.parse)`, `getValidatedRouterParams(event, schema.parse)`; `readBody`, `readFormData`, `readMultipartFormData`, `getQuery`, `getRouterParams` and `getRouterParam` under `server/` are rejected unless passed straight to a schema (`Schema.parse(await readBody(event))`).
+- `runtimeConfig.public` is sent to the browser: keys naming a secret, private key, password, credential, token, API or access key, service role, DSN or database URL there are rejected (unless they say publishable, public, anon or site key); secrets stay at the top level of `runtimeConfig`.
+- In `.vue` files, `import.meta.client` / `.server` / `.dev`, never `process.client` / `.server` / `.dev`.
+- No module-level `ref()` / `reactive()` in `composables/` or `utils/` (shared by every SSR request): `useState("key", …)` instead.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/vue/nuxt/no-process-flags` | In .vue files, use import.meta.client, .server, .browser and .dev, not process.client, process.server, process.browser or process.dev (deprecated in Nuxt; .ts files get the deprecation from tsc). | any: `**/*.vue` | grep forbid `(^\|[^.a-zA-Z0-9_$])process\.(client\|server\|browser\|dev)([^a-zA-Z0-9_$]\|$)` |
+| `typescript/vue/nuxt/no-public-secret` | runtimeConfig.public is sent to the browser; no key there names a secret, private key, password, credential, token, API key, access key, service role, DSN or database URL (keys that say publishable, public, anon or site are allowed: those values are meant for the browser). | typescript: `nuxt.config.*` | ast-grep forbid |
+| `typescript/vue/nuxt/no-shared-module-state` | No ref(), reactive(), shallowRef() or shallowReactive() at module level in composables/ or utils/: on the server it is shared by every request (one user's data leaks to another). Use useState('key', ...) or create it inside the composable. | typescript: `composables/**`, `app/composables/**`, `utils/**`, `app/utils/**` | ast-grep forbid |
+| `typescript/vue/nuxt/server-validate` | Nuxt server handlers read input with readValidatedBody, getValidatedQuery or getValidatedRouterParams and a schema, or pass the read straight to a schema (Schema.parse(await readBody(event)), safeParse, parseAsync); not readBody, readFormData, readMultipartFormData, getQuery, getRouterParams or getRouterParam whose result is used unvalidated. | typescript: `server/**` | ast-grep forbid |
+
+### typescript/vue/pinia
+
+Pinia stores in Vue.
+
+Detected by: a dependency on `pinia` (npm).
+Child of `typescript/vue`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Pinia: state and getters destructured from a store lose reactivity; destructure `storeToRefs(useStore())` (actions can be destructured from the store itself).
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/vue/pinia/store-to-refs` | State and getters destructured from a Pinia store go through storeToRefs(); a plain destructure copies the values and loses reactivity (actions may be destructured directly, so this is advice). | typescript | ast-grep advise (where `$F`: types engine, §15)<br>advice, never blocks |
+
+### typescript/yarn
+
+Yarn (Berry, 2 and later) is the package manager.
+
+Detected by: a file matching `.yarnrc.yml`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Yarn (Berry) is the package manager: `yarn add`, `yarn install`; npm, pnpm and bun installs ask.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/yarn/lock-sync` | yarn.lock matches the package.json files (yarn install --immutable --mode=skip-build, Yarn 2 and later; it fails instead of changing the lock file). | any | check lint: `forge_do yarn lock-check` (when `**/package.json`, `yarn.lock` or `.yarnrc.yml` changes) |
+| `typescript/yarn/no-other-pm` | Dependencies are managed with Yarn; installing with npm, pnpm or bun asks. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: bun, sub: [install\|i\|add]}` |
+| `typescript/yarn/scripts-ratchet` | Install scripts stay a decision of the user: .yarnrc.yml enableScripts is not turned on (Yarn 4 defaults it to false), and no package.json dependenciesMeta entry gains built: true. | any | check lint: `forge_helper bun pm_policy.mjs yarn-scripts \|\| forge_accept_hint` (when `.yarnrc.yml` or `**/package.json` changes) |
+
+### typescript/zod
+
+Zod validation at boundaries.
+
+Detected by: a dependency on `zod` (npm).
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
+- (when `zod >=4.0.0` (npm) declared) Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
+- (when `zod >=4.0.0` (npm) declared) Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
+- (when `zod >=4.0.0` (npm) declared) Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/zod/error-param` | Zod 4 custom messages use the single error parameter ({ error }), not message, required_error, invalid_type_error or errorMap. | typescript | ast-grep forbid<br>applies where `zod >=4.0.0` (npm) declared |
+| `typescript/zod/v4-string-formats` | Zod 4 string formats are top-level (z.email(), z.uuid(), z.iso.datetime()), not z.string().email(). | typescript | ast-grep forbid (where `$S`: types engine, §15) |
