@@ -27,8 +27,19 @@ pub fn is_excluded(path: &str) -> bool {
 
 /// The glob as an anchored regular expression with shell `case` semantics.
 pub fn glob_regex(glob: &str) -> Regex {
-    Regex::new(&format!("^(?:{})$", glob_source(glob)))
-        .unwrap_or_else(|_| Regex::new("[^\\s\\S]").expect("never-matching regex"))
+    // the same globs compile again and again (every rule's scope, every role): once per process
+    static COMPILED: std::sync::LazyLock<
+        std::sync::Mutex<std::collections::HashMap<String, Regex>>,
+    > = std::sync::LazyLock::new(Default::default);
+    if let Some(r) = COMPILED.lock().ok().and_then(|m| m.get(glob).cloned()) {
+        return r;
+    }
+    let r = Regex::new(&format!("^(?:{})$", glob_source(glob)))
+        .unwrap_or_else(|_| Regex::new("[^\\s\\S]").expect("never-matching regex"));
+    if let Ok(mut m) = COMPILED.lock() {
+        m.insert(glob.to_string(), r.clone());
+    }
+    r
 }
 
 fn glob_source(glob: &str) -> String {
@@ -191,13 +202,15 @@ impl Roles {
         out
     }
 
-    /// Whether `path` is one of the role's files (exclusions first).
+    /// Whether `path` is one of the role's files (exclusions first). A role with no include
+    /// pattern (one the project sets, not set) has no files.
     pub fn matches(&self, role: &str, path: &str) -> bool {
         let name = role.trim_start_matches('@');
         let Some(globs) = self.map.get(name) else {
             return false;
         };
-        GlobList::new(globs).matches(path)
+        let list = GlobList::new(globs);
+        list.has_include() && list.matches(path)
     }
 }
 
@@ -287,6 +300,15 @@ impl RuleScope {
             files: GlobList::new(&files),
             lang: GlobList::new(&lang),
         }
+    }
+
+    /// The scope of a rule's check target (its `config_files` included).
+    pub fn of_check(rule: &Rule, roles: &Roles, dirs: Option<&[String]>) -> RuleScope {
+        let config = rule.enforce.iter().find_map(|t| match t {
+            forge_packs::model::Target::Check(c) => c.config_files.clone(),
+            _ => None,
+        });
+        RuleScope::new(rule, roles, dirs, config.as_deref())
     }
 
     pub fn matches(&self, path: &str) -> bool {

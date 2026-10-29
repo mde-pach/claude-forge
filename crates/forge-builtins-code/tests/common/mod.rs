@@ -132,8 +132,7 @@ impl Repo {
                 rule: rule.clone(),
                 dirs: None,
             }),
-            checks: vec![],
-            snapshot: None,
+            ..Extra::default()
         }
     }
 }
@@ -207,25 +206,40 @@ pub fn words(s: &str) -> Vec<String> {
     out
 }
 
-/// The tools on PATH, then Forge's cache (installing when `FORGE_TEST_INSTALL_TOOLS=1`).
-pub struct TestTools(forge_builtins_code::Provisioned<forge_tools::Provisioner>);
-
-impl forge_builtins_code::PinnedTools for TestTools {
-    fn pinned(&self, name: &str) -> Result<PathBuf, forge_core::Note> {
-        forge_builtins_code::OnPath::default()
-            .pinned(name)
-            .or_else(|_| self.0.pinned(name))
+/// The tools on PATH, then Forge's cache (installing when `FORGE_TEST_INSTALL_TOOLS=1`), through
+/// the checker's adapters.
+pub fn options() -> forge_builtins_code::Options {
+    use forge_check::builtins::AdapterTools;
+    use forge_check::tools::LocalTools;
+    let home = forge_home::Home::from_env().expect("home");
+    let install = std::env::var("FORGE_TEST_INSTALL_TOOLS").is_ok_and(|v| v == "1");
+    let pinned = forge_tools::PinnedTools::new(forge_tools::Provisioner::new(home), install);
+    let resolver = OnPathFirst(LocalTools::with_pinned(
+        std::sync::Arc::new(pinned),
+        install,
+    ));
+    forge_builtins_code::Options {
+        tools: std::sync::Arc::new(AdapterTools::new(
+            std::sync::Arc::new(resolver),
+            forge_tools::lock_pins(),
+        )),
+        ..forge_builtins_code::Options::default()
     }
 }
 
-pub fn options() -> forge_builtins_code::Options {
-    let home = forge_home::Home::from_env().expect("home");
-    forge_builtins_code::Options {
-        tools: std::sync::Arc::new(TestTools(forge_builtins_code::Provisioned {
-            resolver: forge_tools::Provisioner::new(home),
-            install: std::env::var("FORGE_TEST_INSTALL_TOOLS").is_ok_and(|v| v == "1"),
-        })),
-        ..forge_builtins_code::Options::default()
+/// A tool on PATH (any version) before Forge's cache.
+struct OnPathFirst(forge_check::tools::LocalTools);
+
+impl forge_core::tools::ToolResolver for OnPathFirst {
+    fn on_path(&self, name: &str) -> Option<PathBuf> {
+        self.0.on_path(name)
+    }
+
+    fn pinned(&self, name: &str, version: &str) -> Result<forge_core::tools::ToolCmd, String> {
+        match self.0.on_path(name) {
+            Some(p) => Ok(forge_core::tools::ToolCmd::exe(p)),
+            None => self.0.pinned(name, version),
+        }
     }
 }
 

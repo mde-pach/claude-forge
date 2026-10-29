@@ -4,10 +4,10 @@
 mod common;
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
-use common::{Case, DirTools, ctx, fake_bin, repo};
-use forge_builtins_infra::{Extra, Options, PathTools};
+use common::{Case, check, ctx, fake_bin, path_tools, repo};
+use forge_builtins_infra::Options;
+use forge_check::builtins::CheckCtx;
 use forge_core::NoteKind;
 use forge_core::builtin::Scope;
 
@@ -36,13 +36,7 @@ fn case(rule: &str, files: &[(&str, &str)]) -> Case {
 }
 
 fn opts(bin: &std::path::Path) -> Options {
-    Options {
-        pinned: Arc::new(DirTools(bin.to_path_buf())),
-        project: Arc::new(PathTools {
-            path: Some(bin.to_string_lossy().into_owned()),
-        }),
-        cache_dir: None,
-    }
+    path_tools(bin.to_string_lossy().into_owned())
 }
 
 #[test]
@@ -55,19 +49,18 @@ fn a_dockerfile_hadolint_cannot_parse_is_reported_once_per_run_at_its_line() {
     );
     let r = repo(&c);
     let tmp = tempfile::tempdir().unwrap();
-    let extra = || Extra {
-        files: Some(vec!["Dockerfile".into()]),
+    let extra = || CheckCtx {
         tmp: Some(tmp.path().to_path_buf()),
-        ..Extra::default()
+        ..check(None, vec!["Dockerfile".into()])
     };
     let args = ["DL3045".to_string()];
-    let first = forge_builtins_infra::run(&o, "hadolint", &ctx(&c, &r), extra(), &args).unwrap();
+    let first = forge_builtins_infra::run(&o, "hadolint", &ctx(&c, &r), &extra(), &args).unwrap();
     assert_eq!(
         first.agent_text(10),
         "Dockerfile:2 this Dockerfile does not parse (column 4: missing whitespace); fix its syntax"
     );
     // the next rule of the same run: hadolint's output is reused, the error not repeated
-    let second = forge_builtins_infra::run(&o, "hadolint", &ctx(&c, &r), extra(), &args).unwrap();
+    let second = forge_builtins_infra::run(&o, "hadolint", &ctx(&c, &r), &extra(), &args).unwrap();
     assert!(second.findings.is_empty() && second.notes.is_empty());
 }
 
@@ -122,11 +115,8 @@ fn a_missing_tool_is_a_note_and_never_a_finding() {
     for (rule, b, path, text) in calls {
         let c = case(rule, &[(path, text)]);
         let r = repo(&c);
-        let extra = Extra {
-            files: Some(vec![path.to_string()]),
-            ..Extra::default()
-        };
-        let rep = forge_builtins_infra::run(&o, b, &ctx(&c, &r), extra, &[]).unwrap();
+        let extra = check(None, vec![path.to_string()]);
+        let rep = forge_builtins_infra::run(&o, b, &ctx(&c, &r), &extra, &[]).unwrap();
         assert!(rep.findings.is_empty(), "{b}: {:?}", rep.findings);
         assert!(
             rep.notes
@@ -150,15 +140,12 @@ fn a_tool_that_cannot_run_is_a_note() {
         )],
     );
     let r = repo(&c);
-    let extra = Extra {
-        files: Some(vec!["deploy/a.yaml".into()]),
-        ..Extra::default()
-    };
+    let extra = check(None, vec!["deploy/a.yaml".into()]);
     let rep = forge_builtins_infra::run(
         &o,
         "kube_linter",
         &ctx(&c, &r),
-        extra,
+        &extra,
         &["no-such-check".into()],
     )
     .unwrap();
@@ -191,7 +178,7 @@ fn comparisons_with_the_base_do_nothing_with_all() {
         ctx.scope = Scope::All;
         ctx.base = None;
         ctx.changed.clear();
-        let rep = forge_builtins_infra::run(&o, b, &ctx, Extra::default(), &[]).unwrap();
+        let rep = forge_builtins_infra::run(&o, b, &ctx, &CheckCtx::default(), &[]).unwrap();
         assert!(
             rep.findings.is_empty() && rep.notes.is_empty(),
             "{b}: {rep:?}"

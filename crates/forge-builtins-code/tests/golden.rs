@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use common::{Case, Repo, attribute, not_run, options, pack_cases, run_port};
-use forge_builtins_code::code_builtins;
+use forge_builtins_code::builtins as code_builtins;
 use regex::Regex;
 
 fn workspace() -> PathBuf {
@@ -85,7 +85,6 @@ fn library(check_sh: &Path, dir: &Path) -> PathBuf {
     let home = forge_home::Home::from_env().unwrap();
     let tools = home.tools_dir();
     // the snapshot check's ast-grep, from Forge's cache
-    use forge_tools::ToolResolver;
     let p = forge_tools::Provisioner::new(home);
     let sg = p
         .resolve("ast-grep")

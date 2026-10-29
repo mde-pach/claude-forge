@@ -45,14 +45,16 @@ pub fn zizmor(cx: &Cx<'_>, audits: &[String]) -> Report {
             return r;
         }
     };
-    let mut argv = vec![
-        path_arg(&bin),
-        "--offline".into(),
-        "--no-progress".into(),
-        "--no-ignores".into(),
-        "--format".into(),
-        "github".into(),
-    ];
+    let mut argv = cx::with(
+        &bin,
+        vec![
+            "--offline".into(),
+            "--no-progress".into(),
+            "--no-ignores".into(),
+            "--format".into(),
+            "github".into(),
+        ],
+    );
     argv.extend(files);
     let o = cx::run(&argv, cx.root(), &[]);
     // 0 clean, 11-14 findings; 1-3 an error, a usage error, no input it could read
@@ -124,16 +126,18 @@ pub fn actionlint(cx: &Cx<'_>, _args: &[String]) -> Report {
         .path()
         .join(format!("infra-actionlint.{}.yaml", std::process::id()));
     let _ = std::fs::write(&cfg, config);
-    let mut argv = vec![
-        path_arg(&bin),
-        "-shellcheck=".into(),
-        "-pyflakes=".into(),
-        "-no-color".into(),
-        "-format".into(),
-        ACTIONLINT_FORMAT.into(),
-        "-config-file".into(),
-        path_arg(&cfg),
-    ];
+    let mut argv = cx::with(
+        &bin,
+        vec![
+            "-shellcheck=".into(),
+            "-pyflakes=".into(),
+            "-no-color".into(),
+            "-format".into(),
+            ACTIONLINT_FORMAT.into(),
+            "-config-file".into(),
+            path_arg(&cfg),
+        ],
+    );
     argv.extend(files);
     let o = cx::run(&argv, cx.root(), &[]);
     let _ = std::fs::remove_file(&cfg);

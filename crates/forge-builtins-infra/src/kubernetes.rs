@@ -248,15 +248,17 @@ pub fn kube_linter(cx: &Cx<'_>, args: &[String]) -> Report {
         text.push_str(&format!("    - {c}\n"));
     }
     let _ = std::fs::write(&cfg, text);
-    let mut argv = vec![
-        path_arg(&bin),
-        "lint".into(),
-        "--format".into(),
-        "plain".into(),
-        "--with-color=false".into(),
-        "--config".into(),
-        path_arg(&cfg),
-    ];
+    let mut argv = cx::with(
+        &bin,
+        vec![
+            "lint".into(),
+            "--format".into(),
+            "plain".into(),
+            "--with-color=false".into(),
+            "--config".into(),
+            path_arg(&cfg),
+        ],
+    );
     argv.extend(files);
     let o = cx::run(&argv, cx.root(), &[]);
     let _ = std::fs::remove_file(&cfg);
@@ -310,19 +312,21 @@ fn kubeconform(cx: &Cx<'_>, label: &str, file: &Path, r: &mut Report) {
     };
     let scratch = cx.scratch();
     let cache = cx.cache("kubeconform", &scratch);
-    let argv = vec![
-        path_arg(&bin),
-        "-strict".into(),
-        "-output".into(),
-        "json".into(),
-        "-schema-location".into(),
-        "default".into(),
-        "-schema-location".into(),
-        CRDS.into(),
-        "-cache".into(),
-        path_arg(&cache),
-        path_arg(file),
-    ];
+    let argv = cx::with(
+        &bin,
+        vec![
+            "-strict".into(),
+            "-output".into(),
+            "json".into(),
+            "-schema-location".into(),
+            "default".into(),
+            "-schema-location".into(),
+            CRDS.into(),
+            "-cache".into(),
+            path_arg(&cache),
+            path_arg(file),
+        ],
+    );
     let o = cx::run(&argv, cx.root(), &[]);
     let json: Option<serde_json::Value> = serde_json::from_str(&o.stdout).ok();
     let resources = json
@@ -397,16 +401,13 @@ pub fn helm(cx: &Cx<'_>, _args: &[String]) -> Report {
     }
     let scratch = cx.scratch();
     for c in charts {
-        let lint = match cx.project("helm", "lint") {
-            Ok(v) => v,
+        let o = match cx.project("helm", "lint", std::slice::from_ref(&c), cx.root()) {
+            Ok(o) => o,
             Err(n) => {
                 r.notes.push(n);
                 return r;
             }
         };
-        let mut argv = lint;
-        argv.extend(["lint".into(), "--strict".into(), c.clone()]);
-        let o = cx::run(&argv, cx.root(), &[]);
         let out = o.both();
         if out.contains("chart directory is missing these dependencies") {
             r.notes.push(cx.note(
@@ -429,15 +430,13 @@ pub fn helm(cx: &Cx<'_>, _args: &[String]) -> Report {
             }
             continue;
         }
-        let mut argv = match cx.project("helm", "template") {
-            Ok(v) => v,
+        let o = match cx.project("helm", "template", std::slice::from_ref(&c), cx.root()) {
+            Ok(o) => o,
             Err(n) => {
                 r.notes.push(n);
                 return r;
             }
         };
-        argv.extend(["template".into(), "forge".into(), c.clone()]);
-        let o = cx::run(&argv, cx.root(), &[]);
         if o.code != Some(0) {
             let err = cx::strip_ansi(&o.stderr);
             let first = err

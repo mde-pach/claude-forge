@@ -5,18 +5,15 @@
 //! OpenAPI (`forge_openapi_lint`, `forge_openapi_ratchet`, `forge_oasdiff`, `forge_openapi_sync`).
 //! Rust ports of `templates/engine/{docker,kubernetes,terraform,github-actions,openapi}.sh`.
 //!
-//! Each is a [`Builtin`] named after its shell function without `forge_`. What a builtin reads:
-//! forge-core's [`BuiltinCtx`], plus what the checker sets for a check command ([`Extra`]: the
-//! check's files, the file roles, the running rule, the run's scratch directory).
+//! Each is a [`CheckBuiltin`] named after its shell function without `forge_`: it reads
+//! forge-core's [`BuiltinCtx`] and the checker's [`CheckCtx`] (the check's files, the file roles,
+//! the running rule, the run's scratch directory).
 //!
-//! Tools:
-//! - Forge's pinned tools (hadolint, zizmor, actionlint, kube-linter, kubeconform, tflint and its
-//!   rulesets, trivy, oasdiff, redocly, spectral) come from a [`forge_tools::ToolResolver`]. In
-//!   the hooks ([`Scope::Turn`](forge_core::builtin::Scope::Turn)) a builtin only `resolve`s
-//!   (never downloads: the person is not waiting, and session start provisions them); under
-//!   `forge check` and CI (`changed`, `all`) it `ensure`s, which may download.
-//! - The project's own tools (terraform / tofu, helm) come from a [`ProjectTools`]; the
-//!   checker's adapter layer implements it (version ranges), [`PathTools`] finds them on PATH.
+//! Tools come from forge-check's [`BuiltinTools`]: Forge's pinned tools (hadolint, zizmor,
+//! actionlint, kube-linter, kubeconform, tflint and its rulesets, trivy, oasdiff, redocly,
+//! spectral) and the project's own (terraform / tofu, helm) as the checker's adapters drive
+//! them. Whether a missing pinned tool may be downloaded is the checker's to say (Stop and
+//! `forge check`, never after an edit).
 //!
 //! A tool that is missing, or that cannot run, is a note for the person and never fails the
 //! check; what the change got wrong is a finding for the agent.
@@ -28,64 +25,35 @@ mod kubernetes;
 mod openapi;
 mod terraform;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
-use forge_core::builtin::{Builtin, BuiltinCtx};
-use forge_core::{Note, NoteKind, Report};
+use forge_check::builtins::{BuiltinTools, CheckBuiltin, CheckCtx, NoTools};
+use forge_core::Report;
+use forge_core::builtin::BuiltinCtx;
 
-pub use cx::{Cx, Extra};
-
-/// The project's own infrastructure CLIs (terraform, tofu, helm), as the checker's adapters
-/// resolve them.
-pub trait ProjectTools: Send + Sync {
-    /// The words that run `tool` for `op` (`validate`, `lint`, `template`), before the
-    /// builtin's own arguments; a note when it is not installed or its version cannot do `op`.
-    fn command(&self, root: &Path, tool: &str, op: &str) -> Result<Vec<String>, Note>;
-}
-
-/// The project tools on PATH, any version.
-#[derive(Debug, Clone, Default)]
-pub struct PathTools {
-    /// PATH, when not the process's.
-    pub path: Option<String>,
-}
-
-impl ProjectTools for PathTools {
-    fn command(&self, _root: &Path, tool: &str, _op: &str) -> Result<Vec<String>, Note> {
-        let path = self
-            .path
-            .clone()
-            .or_else(|| std::env::var("PATH").ok())
-            .unwrap_or_default();
-        path.split(':')
-            .filter(|d| !d.is_empty())
-            .map(|d| Path::new(d).join(tool))
-            .find(|p| cx::is_exe(p))
-            .map(|p| vec![p.to_string_lossy().into_owned()])
-            .ok_or_else(|| Note::new(NoteKind::MissingTool, format!("{tool} is not installed")))
-    }
-}
-
-/// Forge's pinned tools.
-pub type Pinned = Arc<dyn forge_tools::ToolResolver + Send + Sync>;
+pub use cx::Cx;
 
 /// What the builtins run tools with.
 #[derive(Clone)]
 pub struct Options {
-    pub pinned: Pinned,
-    pub project: Arc<dyn ProjectTools>,
+    pub tools: Arc<dyn BuiltinTools>,
     /// A cache directory of Forge's (kubeconform's schemas, trivy's checks); None: a temporary one.
     pub cache_dir: Option<PathBuf>,
 }
 
 impl Options {
-    pub fn new(pinned: Pinned) -> Options {
+    pub fn new(tools: Arc<dyn BuiltinTools>) -> Options {
         Options {
-            pinned,
-            project: Arc::new(PathTools::default()),
+            tools,
             cache_dir: None,
         }
+    }
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options::new(Arc::new(NoTools))
     }
 }
 
@@ -125,20 +93,18 @@ struct Infra {
     opts: Arc<Options>,
 }
 
-impl Builtin for Infra {
+impl CheckBuiltin for Infra {
     fn name(&self) -> &'static str {
         self.name
     }
 
-    fn run(&self, ctx: &BuiltinCtx, args: &[String]) -> Report {
-        let cx = Cx::new(ctx, Extra::from_env(), &self.opts);
-        (self.run)(&cx, args)
+    fn run(&self, ctx: &BuiltinCtx, check: &CheckCtx, args: &[String]) -> Report {
+        (self.run)(&Cx::new(ctx, check, &self.opts), args)
     }
 }
 
-/// Every builtin, for the checker's registry. Each reads [`Extra`] from the environment the
-/// checker sets for a check command.
-pub fn builtins(opts: &Options) -> Vec<Box<dyn Builtin + Send>> {
+/// Every builtin, for the checker's registry.
+pub fn builtins(opts: &Options) -> Vec<Box<dyn CheckBuiltin>> {
     let opts = Arc::new(opts.clone());
     TABLE
         .iter()
@@ -147,20 +113,19 @@ pub fn builtins(opts: &Options) -> Vec<Box<dyn Builtin + Send>> {
                 name,
                 run: *run,
                 opts: opts.clone(),
-            }) as Box<dyn Builtin + Send>
+            }) as Box<dyn CheckBuiltin>
         })
         .collect()
 }
 
-/// Runs builtin `name` in-process with an explicit [`Extra`]; None when there is no such builtin.
+/// Runs builtin `name` in-process; None when there is no such builtin.
 pub fn run(
     opts: &Options,
     name: &str,
     ctx: &BuiltinCtx,
-    extra: Extra,
+    check: &CheckCtx,
     args: &[String],
 ) -> Option<Report> {
     let (_, f) = TABLE.iter().find(|(n, _)| *n == name)?;
-    let cx = Cx::new(ctx, extra, opts);
-    Some(f(&cx, args))
+    Some(f(&Cx::new(ctx, check, opts), args))
 }

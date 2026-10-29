@@ -6,7 +6,7 @@
 mod common;
 
 use common::{Case, cases, ctx, gate, repo, tools};
-use forge_builtins_infra::{Extra, Options, names};
+use forge_builtins_infra::{Options, names};
 use forge_core::Report;
 
 fn run(case: &Case, opts: &Options) -> (Report, bool) {
@@ -15,12 +15,8 @@ fn run(case: &Case, opts: &Options) -> (Report, bool) {
         return (Report::default(), false);
     };
     let ctx = ctx(case, &r);
-    let extra = Extra {
-        files: Some(files),
-        rule: Some(case.rule.clone()),
-        ..Extra::default()
-    };
-    let report = forge_builtins_infra::run(opts, &case.builtin, &ctx, extra, &case.args)
+    let extra = common::check(Some(case.rule.clone()), files);
+    let report = forge_builtins_infra::run(opts, &case.builtin, &ctx, &extra, &case.args)
         .expect("a builtin of this crate");
     (report, true)
 }

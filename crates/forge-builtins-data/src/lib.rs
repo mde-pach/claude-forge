@@ -1,16 +1,15 @@
 //! The builtins of the data packs, ported from the engine's shell modules `sql.sh`, `python.sh`,
-//! `env.sh`, `release.sh` and `docs.sh` (and `forge_env_files` of `repository.sh`): migration
+//! `env.sh`, `release.sh` and `docs.sh`: migration
 //! linting and immutability (Squawk, Alembic, Prisma, Drizzle, TypeORM, sqlfluff), models a
 //! migration would miss, type stubs, uv's release cooldown, `.env` templates, hand-edited
 //! versions and release notes, immutable ADRs and docs that mention changed identifiers.
 //!
-//! Each is a [`Builtin`] named after the shell function without `forge_`. What a builtin reads
-//! beyond its [`BuiltinCtx`] comes from [`Facts`]: the check's files, the run's mode, the file
-//! roles (the variables the checker sets for each check command, see [`Facts::from_env`]).
-//! Tools run through two seams: the project's own tools (alembic, sqlfluff, typeorm) through
-//! [`ProjectTools`], which the checker's adapter layer implements, and Forge's pinned Squawk
-//! through [`PinnedTools`] (implemented for every `forge_tools::ToolResolver`). A tool that is
-//! absent, or a run that fails, is a [`forge_core::Note`] for the person; the check passes.
+//! Each is a [`CheckBuiltin`] named after the shell function without `forge_`: it reads
+//! forge-core's [`BuiltinCtx`] and the checker's [`CheckCtx`] (the check's files, the run's
+//! mode, the file roles). Tools come from forge-check's [`BuiltinTools`]: the project's own
+//! (alembic, sqlfluff, typeorm) as the checker's adapters drive them, and Forge's pinned Squawk.
+//! A tool that is absent, or a run that fails, is a [`forge_core::Note`] for the person; the
+//! check passes.
 //!
 //! Two builtins produce data for the pack command around them rather than findings for the
 //! agent: `alembic_files` (revision files, one per line, for `$(…)`) and `prisma_drops` (the
@@ -23,41 +22,32 @@ mod env;
 mod python;
 mod release;
 mod sql;
-mod tools;
 mod util;
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use forge_check::builtins::{BuiltinTools, CheckBuiltin, CheckCtx, NoTools};
 use forge_core::Report;
-use forge_core::builtin::{Builtin, BuiltinCtx};
+use forge_core::builtin::BuiltinCtx;
 
-pub use ctx::{ENV_FILES, ENV_MODE, ENV_ROLES, Facts, Mode, glob_matches};
-pub use tools::{
-    NoPinnedTools, NoProjectTools, PinnedTools, ProjectTools, ResolverPinned, SQUAWK_VERSION,
-    ToolOutput, ToolRun,
-};
+pub use ctx::glob_matches;
+pub use forge_check::builtins::{RunMode as Mode, ToolOutput, ToolRun};
 
-/// How the builtins reach tools and the checker's context.
+/// How the builtins reach tools.
 #[derive(Clone)]
 pub struct Options {
-    /// The project's own tools (alembic, sqlfluff, typeorm…), through the checker's adapters.
-    pub project_tools: Arc<dyn ProjectTools>,
-    /// Forge's pinned tools (squawk).
-    pub pinned: Arc<dyn PinnedTools>,
+    /// The project's own tools (alembic, sqlfluff, typeorm…) and Forge's pinned Squawk.
+    pub tools: Arc<dyn BuiltinTools>,
     /// The minimum age of a version that the package managers' cooldown settings must ask for.
     pub cooldown: Duration,
-    /// The checker's context; None: read from the environment at each run ([`Facts::from_env`]).
-    pub facts: Option<Facts>,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Options {
-            project_tools: Arc::new(NoProjectTools),
-            pinned: Arc::new(NoPinnedTools),
+            tools: Arc::new(NoTools),
             cooldown: Duration::from_secs(259_200),
-            facts: None,
         }
     }
 }
@@ -70,22 +60,20 @@ struct DataBuiltin {
     opts: Arc<Options>,
 }
 
-impl Builtin for DataBuiltin {
+impl CheckBuiltin for DataBuiltin {
     fn name(&self) -> &'static str {
         self.name
     }
 
-    fn run(&self, ctx: &BuiltinCtx, args: &[String]) -> Report {
-        let facts = match &self.opts.facts {
-            Some(f) => f.clone(),
-            None => Facts::from_env(),
-        };
-        let run = Run {
-            ctx,
-            facts,
-            opts: &self.opts,
-        };
-        (self.run)(&run, args)
+    fn run(&self, ctx: &BuiltinCtx, check: &CheckCtx, args: &[String]) -> Report {
+        (self.run)(
+            &Run {
+                ctx,
+                check,
+                opts: &self.opts,
+            },
+            args,
+        )
     }
 }
 
@@ -111,7 +99,6 @@ const ALL: &[(&str, RunFn)] = &[
     ("stub_sync", python::stub_sync),
     ("uv_cooldown", python::uv_cooldown),
     ("env_example", env::env_example),
-    ("env_files", env::env_files),
     ("version_changed", release::version_changed),
     ("release_notes", release::release_notes),
     ("adr_edits", docs::adr_edits),
@@ -124,7 +111,7 @@ pub fn names() -> Vec<&'static str> {
 }
 
 /// Every builtin of this crate.
-pub fn builtins(opts: Options) -> Vec<Box<dyn Builtin + Send>> {
+pub fn builtins(opts: Options) -> Vec<Box<dyn CheckBuiltin>> {
     let opts = Arc::new(opts);
     ALL.iter()
         .map(|(name, run)| {
@@ -132,7 +119,7 @@ pub fn builtins(opts: Options) -> Vec<Box<dyn Builtin + Send>> {
                 name,
                 run: *run,
                 opts: opts.clone(),
-            }) as Box<dyn Builtin + Send>
+            }) as Box<dyn CheckBuiltin>
         })
         .collect()
 }

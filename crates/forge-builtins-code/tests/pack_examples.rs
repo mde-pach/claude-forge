@@ -9,7 +9,7 @@
 mod common;
 
 use common::{not_run, options, pack_cases, run_port};
-use forge_builtins_code::code_builtins;
+use forge_builtins_code::builtins as code_builtins;
 
 #[test]
 fn pack_examples_hold() {

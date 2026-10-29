@@ -298,9 +298,17 @@ fn forge_engine_want(text: &str) -> String {
     format!("{:016x}", h.finish())
 }
 
-/// The engine for a check that may wait for it (`forge check`, Stop): the daemon running with
-/// this configuration, or one started now (`<exe> engine serve <config>`). `None` and notes when
-/// it cannot be had: the typed rules are then not checked.
+/// Where the configuration of `root`'s engine is written for `forge engine serve --config`.
+fn config_file(root: &Path) -> Option<PathBuf> {
+    let home = forge_home::Home::from_env().ok()?;
+    let id = forge_home::RepoId::for_root(root).ok()?;
+    Some(home.repo_state_dir(&id).join("engine.json"))
+}
+
+/// The engine for a check that may wait for it (`forge check`, Stop) or for a session (the
+/// detached start after SessionStart, which registers `session`): the daemon running with this
+/// configuration, or one started now (`<exe> engine serve --config <file>`). `None` and notes
+/// when it cannot be had: the typed rules are then not checked.
 pub fn start(
     root: &Path,
     rules: &[ActiveRule],
@@ -308,6 +316,7 @@ pub fn start(
     download: bool,
     exe: &Path,
     forge_version: &str,
+    session: Option<&str>,
 ) -> (Option<EngineOracle>, Vec<Note>) {
     if typed_languages(rules).is_empty() {
         return (None, Vec::new());
@@ -324,11 +333,30 @@ pub fn start(
     if let Some(dir) = forge_engine::socket_addr(&cfg.socket).parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    let json = serde_json::to_string(&cfg).unwrap_or_default();
-    let started = forge_engine::ensure(&cfg, None, Duration::from_secs(30), || {
+    let Some(file) = config_file(root) else {
+        return (None, notes);
+    };
+    let written = file
+        .parent()
+        .is_some_and(|d| std::fs::create_dir_all(d).is_ok())
+        && serde_json::to_vec(&cfg)
+            .ok()
+            .is_some_and(|b| write_atomic(&file, &b));
+    if !written {
+        notes.push(Note::new(
+            NoteKind::ForgeFailure,
+            format!(
+                "the types engine's configuration could not be written ({}); the rules that ask for types are not checked",
+                file.display()
+            ),
+        ));
+        return (None, notes);
+    }
+    let started = forge_engine::ensure(&cfg, session, Duration::from_secs(60), || {
         forge_engine::spawn_detached(
             Command::new(exe)
-                .args(["engine", "serve", "--config", &json])
+                .args(["engine", "serve", "--config"])
+                .arg(&file)
                 .current_dir(root),
         )
     });
@@ -348,4 +376,16 @@ pub fn start(
             (None, notes)
         }
     }
+}
+
+fn write_atomic(path: &Path, bytes: &[u8]) -> bool {
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    std::fs::write(&tmp, bytes).is_ok() && std::fs::rename(&tmp, path).is_ok()
+}
+
+/// `forge engine serve --config <file>`: runs the daemon with the configuration [`start`] wrote.
+pub fn serve(file: &Path) -> Result<(), String> {
+    let bytes = std::fs::read(file).map_err(|e| format!("{}: {e}", file.display()))?;
+    let cfg: EngineConfig = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    forge_engine::serve(cfg)
 }

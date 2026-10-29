@@ -310,13 +310,44 @@ impl ChangeSet {
                 }
             }
         }
+        // a turn's base commit is fixed: its blobs are kept in the snapshot, so the edits of a
+        // turn after the first ask git nothing
+        let cache = snapshot
+            .as_ref()
+            .zip(base_rev.as_ref())
+            .map(|(s, rev)| s.join("base-cache").join(rev));
+        if let Some(c) = &cache {
+            from_rev.retain(|p| {
+                let dst = base.path().join(p);
+                if c.join("present").join(p).is_file() {
+                    if copy_to(&c.join("present").join(p), &dst).is_ok() {
+                        inbase.push(p.clone());
+                    }
+                    false
+                } else {
+                    !c.join("absent").join(p).is_file()
+                }
+            });
+        }
         if let Some(rev) = &base_rev
             && !from_rev.is_empty()
         {
-            for (p, bytes) in git.cat_files(rev, &from_rev) {
-                let dst = base.path().join(&p);
-                if write_file(&dst, &bytes).is_ok() {
-                    inbase.push(p);
+            let found = git.cat_files(rev, &from_rev);
+            for (p, bytes) in found.iter().flatten() {
+                let dst = base.path().join(p);
+                if write_file(&dst, bytes).is_ok() {
+                    inbase.push(p.clone());
+                }
+                if let Some(c) = &cache {
+                    let _ = write_file(&c.join("present").join(p), bytes);
+                }
+            }
+            if let (Some(c), Some(found)) = (&cache, &found) {
+                for p in from_rev
+                    .iter()
+                    .filter(|p| !found.iter().any(|(f, _)| f == *p))
+                {
+                    let _ = write_file(&c.join("absent").join(p), b"");
                 }
             }
         }
@@ -464,6 +495,29 @@ fn base_hashes(
         out.entry(p.clone()).or_insert_with(|| "-".into());
     }
     out
+}
+
+/// The blob of `path` at a turn's base commit `rev`, through the turn snapshot's cache of base
+/// blobs (the commit is fixed for the turn); None when the path is not in it or git fails.
+pub fn turn_base_blob(root: &Path, snapshot: &Path, rev: &str, path: &str) -> Option<Vec<u8>> {
+    let c = snapshot.join("base-cache").join(rev);
+    if let Ok(b) = std::fs::read(c.join("present").join(path)) {
+        return Some(b);
+    }
+    if c.join("absent").join(path).is_file() {
+        return None;
+    }
+    let found = Git::new(root).cat_files(rev, &[path.to_string()])?;
+    match found.into_iter().next() {
+        Some((_, b)) => {
+            let _ = write_file(&c.join("present").join(path), &b);
+            Some(b)
+        }
+        None => {
+            let _ = write_file(&c.join("absent").join(path), b"");
+            None
+        }
+    }
 }
 
 fn copy_to(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -657,11 +711,10 @@ impl Git {
     }
 
     /// The content of each path in `rev`'s tree (absent paths left out): one `cat-file --batch`.
-    pub fn cat_files(&self, rev: &str, paths: &[String]) -> Vec<(String, Vec<u8>)> {
+    /// The blobs of `paths` at `rev` (a path not there is left out); None when git failed.
+    pub fn cat_files(&self, rev: &str, paths: &[String]) -> Option<Vec<(String, Vec<u8>)>> {
         let input: String = paths.iter().map(|p| format!("{rev}:{p}\n")).collect();
-        let Some(o) = self.run_input(&["cat-file", "--batch"], input.as_bytes()) else {
-            return Vec::new();
-        };
+        let o = self.run_input(&["cat-file", "--batch"], input.as_bytes())?;
         let mut out = Vec::new();
         let mut i = 0;
         for p in paths {
@@ -680,7 +733,7 @@ impl Git {
                 }
             }
         }
-        out
+        Some(out)
     }
 }
 

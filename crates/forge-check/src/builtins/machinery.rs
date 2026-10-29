@@ -412,7 +412,7 @@ pub(crate) fn package_deps(file: &std::path::Path) -> Vec<String> {
     out
 }
 
-fn database_url(cwd: &std::path::Path) -> Option<String> {
+pub fn database_url(cwd: &std::path::Path) -> Option<String> {
     if let Ok(u) = std::env::var("DATABASE_URL")
         && !u.is_empty()
     {
@@ -489,17 +489,8 @@ impl<'a> Invocation<'a> {
     pub fn with_args(&self, args: Vec<String>) -> Invocation<'a> {
         Invocation {
             ctx: self.ctx.clone(),
+            cx: self.cx.clone(),
             args,
-            files: self.files.clone(),
-            snapshot: self.snapshot.clone(),
-            mode: self.mode.clone(),
-            advised: self.advised.clone(),
-            roles: self.roles.clone(),
-            added: self.added.clone(),
-            check: self.check.clone(),
-            checks: self.checks.clone(),
-            cwd: self.cwd.clone(),
-            ws_root: self.ws_root.clone(),
             registry: self.registry,
             tools: self.tools.clone(),
         }

@@ -52,12 +52,11 @@ pub fn session_start(rt: &Runtime, input: &HookInput) -> Output {
         if let Some(client) = engine::running(&rt.home, &p.id, Duration::from_millis(200)) {
             let _ = client.register(&p.session);
         } else if !c.typed.is_empty() && rt.env.engine && !starting {
-            let langs: Vec<String> = c.typed.iter().map(ToString::to_string).collect();
             let r = forge_engine::spawn_detached(
                 Command::new(&rt.exe)
                     .args(["engine", "start", "--root"])
                     .arg(&p.root)
-                    .args(["--session", &p.session, "--langs", &langs.join(",")])
+                    .args(["--session", &p.session])
                     .current_dir(&p.root),
             );
             if let Err(e) = r {

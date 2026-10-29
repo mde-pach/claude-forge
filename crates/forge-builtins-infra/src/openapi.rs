@@ -60,11 +60,8 @@ pub fn openapi_lint(cx: &Cx<'_>, _args: &[String]) -> Report {
         match cx.pinned("redocly") {
             Err(n) => r.notes.push(n),
             Ok(bin) => {
-                let mut argv = vec![
-                    path_arg(&bin),
-                    "lint".into(),
-                    "--format=github-actions".into(),
-                ];
+                let mut argv =
+                    cx::with(&bin, vec!["lint".into(), "--format=github-actions".into()]);
                 argv.extend(roots.iter().cloned());
                 let o = cx::run(&argv, cx.root(), &[]);
                 let errors: Vec<&str> = o
@@ -100,16 +97,18 @@ pub fn openapi_lint(cx: &Cx<'_>, _args: &[String]) -> Report {
         match cx.pinned("spectral") {
             Err(n) => r.notes.push(n),
             Ok(bin) => {
-                let mut argv = vec![
-                    path_arg(&bin),
-                    "lint".into(),
-                    "--format".into(),
-                    "text".into(),
-                    "--fail-severity".into(),
-                    "error".into(),
-                    "--ruleset".into(),
-                    ruleset.into(),
-                ];
+                let mut argv = cx::with(
+                    &bin,
+                    vec![
+                        "lint".into(),
+                        "--format".into(),
+                        "text".into(),
+                        "--fail-severity".into(),
+                        "error".into(),
+                        "--ruleset".into(),
+                        ruleset.into(),
+                    ],
+                );
                 argv.extend(roots.iter().cloned());
                 let o = cx::run(&argv, cx.root(), &[]);
                 let out = o.both();
@@ -377,16 +376,18 @@ pub fn oasdiff(cx: &Cx<'_>, _args: &[String]) -> Report {
         if !b.is_file() {
             continue;
         }
-        let argv = vec![
-            path_arg(&bin),
-            "breaking".into(),
-            path_arg(&b),
-            f.clone(),
-            "--fail-on".into(),
-            "ERR".into(),
-            "--format".into(),
-            "singleline".into(),
-        ];
+        let argv = cx::with(
+            &bin,
+            vec![
+                "breaking".into(),
+                path_arg(&b),
+                f.clone(),
+                "--fail-on".into(),
+                "ERR".into(),
+                "--format".into(),
+                "singleline".into(),
+            ],
+        );
         let o = cx::run(&argv, cx.root(), &[]);
         // 0 no breaking change, 1 one (--fail-on ERR), 100-107 could not compare
         if !matches!(o.code, Some(0) | Some(1)) {

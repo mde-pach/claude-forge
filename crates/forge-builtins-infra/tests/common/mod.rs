@@ -16,9 +16,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
-use forge_builtins_infra::{Extra, Options, PathTools, names};
+use forge_builtins_infra::{Options, names};
+use forge_check::builtins::{AdapterTools, CheckCtx, CheckRule};
+use forge_check::tools::LocalTools;
 use forge_core::builtin::{BuiltinCtx, Scope};
-use forge_core::{Note, NoteKind};
 use forge_packs::model::{Example, Language, Rule, Target};
 
 pub fn fakes_dir() -> PathBuf {
@@ -191,17 +192,12 @@ pub fn ctx(case: &Case, r: &Repo) -> BuiltinCtx {
 
 /// The check's files as the checker computes them, or None when it would not run the check:
 /// with `when_changed`, a changed file must match it; without, an in-scope file must have changed.
-pub fn gate(case: &Case, r: &Repo, opts: &Options) -> Option<Vec<String>> {
-    let ctx = ctx(case, r);
-    let extra = |rule: Rule| Extra {
-        rule: Some(rule),
-        ..Extra::default()
-    };
-    let cx = forge_builtins_infra::Cx::new(&ctx, extra(case.rule.clone()), opts);
+pub fn gate(case: &Case, r: &Repo, _opts: &Options) -> Option<Vec<String>> {
+    let cx = check(Some(case.rule.clone()), vec![]);
     let files: Vec<String> = r
         .changed
         .iter()
-        .filter(|p| r.root.join(p).is_file() && cx.in_rule_scope(p))
+        .filter(|p| r.root.join(p).is_file() && cx.in_scope(p))
         .cloned()
         .collect();
     match &case.when_changed {
@@ -209,29 +205,31 @@ pub fn gate(case: &Case, r: &Repo, opts: &Options) -> Option<Vec<String>> {
             let mut wr = case.rule.clone();
             wr.scope.files = Some(w.clone());
             wr.scope.language = Language::Any;
-            let wcx = forge_builtins_infra::Cx::new(&ctx, extra(wr), opts);
-            r.changed
-                .iter()
-                .any(|p| wcx.in_rule_scope(p))
-                .then_some(files)
+            let wcx = check(Some(wr), vec![]);
+            r.changed.iter().any(|p| wcx.in_scope(p)).then_some(files)
         }
         None => (!files.is_empty()).then_some(files),
     }
 }
 
-/// Pinned tools from a directory of executables named after the tools.
-pub struct DirTools(pub PathBuf);
-
-impl forge_tools::ToolResolver for DirTools {
-    fn resolve(&self, tool: &str) -> Option<PathBuf> {
-        let p = self.0.join(tool);
-        p.is_file().then_some(p)
+/// The checker's context of a check: its rule and files.
+pub fn check(rule: Option<Rule>, files: Vec<String>) -> CheckCtx {
+    CheckCtx {
+        files,
+        check: rule.map(|rule| CheckRule { rule, dirs: None }),
+        ..CheckCtx::default()
     }
+}
 
-    fn ensure(&self, tool: &str) -> Result<PathBuf, Note> {
-        self.resolve(tool)
-            .ok_or_else(|| Note::new(NoteKind::MissingTool, format!("{tool} is not installed")))
-    }
+/// The tools on `path` (pinned ones included, any version), through the checker's adapters.
+pub fn path_tools(path: String) -> Options {
+    Options::new(Arc::new(AdapterTools::new(
+        Arc::new(LocalTools {
+            path: Some(path),
+            ..LocalTools::default()
+        }),
+        forge_tools::lock_pins(),
+    )))
 }
 
 fn install(dir: &Path, name: &str, text: &str) {
@@ -333,34 +331,24 @@ pub fn tools() -> (Options, Vec<tempfile::TempDir>, String) {
                     ver("spectral")
                 ),
             );
-            let opts = Options {
-                pinned: Arc::new(DirTools(real.path().to_path_buf())),
-                project: Arc::new(PathTools {
-                    path: Some(format!("{sys}:{fake_path}")),
-                }),
-                cache_dir: None,
-            };
+            let opts = path_tools(format!("{}:{sys}:{fake_path}", real.path().display()));
             (opts, vec![fakes, real], mode)
         }
         "download" => {
             let home = forge_home::Home::from_env().expect("home");
-            let opts = Options {
-                pinned: Arc::new(forge_tools::Provisioner::new(home)),
-                project: Arc::new(PathTools {
+            let pinned = forge_tools::PinnedTools::new(forge_tools::Provisioner::new(home), true);
+            let opts = Options::new(Arc::new(AdapterTools::new(
+                Arc::new(LocalTools {
                     path: Some(format!("{sys}:{fake_path}")),
+                    pinned: Some(Arc::new(pinned)),
+                    download: true,
                 }),
-                cache_dir: None,
-            };
+                forge_tools::lock_pins(),
+            )));
             (opts, vec![fakes], mode)
         }
         _ => {
-            let opts = Options {
-                pinned: Arc::new(DirTools(fakes.path().to_path_buf())),
-                project: Arc::new(PathTools {
-                    path: Some(fake_path),
-                }),
-                cache_dir: None,
-            };
+            let opts = path_tools(fake_path);
             (opts, vec![fakes], "fake".into())
         }
     }

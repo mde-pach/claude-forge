@@ -2,7 +2,6 @@
 //! files, editorconfig (the original `repository.sh`).
 
 use std::collections::BTreeSet;
-use std::process::Command;
 use std::sync::{Arc, LazyLock};
 
 use forge_core::builtin::BuiltinCtx;
@@ -10,10 +9,11 @@ use forge_core::{Finding, NoteKind, Report};
 use forge_packs::model::{Stage, Target};
 use regex::Regex;
 
+use crate::Options;
 use crate::ctx::{Extra, existing, is_all, read};
-use crate::scope::RuleScope;
 use crate::util::{attr, git, git_lines, last_line, note};
-use crate::{CodeBuiltin, Options};
+use forge_check::builtins::CheckBuiltin;
+use forge_check::scope::RuleScope;
 
 macro_rules! re {
     ($name:ident, $src:expr) => {
@@ -48,22 +48,22 @@ keywords = ["pcsk_"]
 /// checker keeps those on added lines.
 pub struct Gitleaks(pub Arc<Options>);
 
-impl CodeBuiltin for Gitleaks {
+impl CheckBuiltin for Gitleaks {
     fn name(&self) -> &'static str {
         "gitleaks"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         let files: Vec<String> = x
-            .scope_files(ctx)
+            .scope_files(&ctx.root)
             .into_iter()
             .filter(|f| ctx.root.join(f).is_file())
             .collect();
         if files.is_empty() {
             return r;
         }
-        let bin = match self.0.tools.pinned("gitleaks") {
+        let bin = match crate::tools::pinned(&self.0, "gitleaks") {
             Ok(b) => b,
             Err(n) => {
                 r.notes.push(n.for_rule(ctx.rule.clone()));
@@ -101,7 +101,7 @@ impl CodeBuiltin for Gitleaks {
             ));
             return r;
         }
-        let out = Command::new(&bin)
+        let out = crate::tools::command(&bin)
             .args([
                 "dir",
                 "--no-banner",
@@ -182,12 +182,12 @@ re!(
 /// line giving `_authToken`, `_auth` or `_password` a literal value.
 pub struct CredentialFiles;
 
-impl CodeBuiltin for CredentialFiles {
+impl CheckBuiltin for CredentialFiles {
     fn name(&self) -> &'static str {
         "credential_files"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
         re!(NPM_AUTH, r"(_authToken|_auth|_password)\s*=\s*[^$\s]");
         let mut r = Report::default();
         for f in tracked_and_changed(ctx) {
@@ -223,12 +223,12 @@ impl CodeBuiltin for CredentialFiles {
 /// git would not ignore.
 pub struct EnvFiles;
 
-impl CodeBuiltin for EnvFiles {
+impl CheckBuiltin for EnvFiles {
     fn name(&self) -> &'static str {
         "env_files"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         let files = tracked_and_changed(ctx);
         for f in files.iter().filter(|f| x.roles.matches("@env-files", f)) {
@@ -274,12 +274,12 @@ impl CodeBuiltin for EnvFiles {
 /// reported once per shallowest such directory.
 pub struct Artifacts;
 
-impl CodeBuiltin for Artifacts {
+impl CheckBuiltin for Artifacts {
     fn name(&self) -> &'static str {
         "artifacts"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
         let role = args.first().map_or("@build-artifacts", String::as_str);
         let mut hits = BTreeSet::new();
         for f in existing(ctx) {
@@ -323,12 +323,12 @@ impl CodeBuiltin for Artifacts {
 /// .gitattributes, or `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines).
 pub struct GeneratedEdits;
 
-impl CodeBuiltin for GeneratedEdits {
+impl CheckBuiltin for GeneratedEdits {
     fn name(&self) -> &'static str {
         "generated_edits"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         re!(HEADER, r"@generated|Code generated .* DO NOT EDIT\.");
         let mut r = Report::default();
         for f in &x.files {
@@ -361,21 +361,21 @@ impl CodeBuiltin for GeneratedEdits {
 /// own (the project's .editorconfig-checker.json excludes and disables do not apply).
 pub struct Editorconfig(pub Arc<Options>);
 
-impl CodeBuiltin for Editorconfig {
+impl CheckBuiltin for Editorconfig {
     fn name(&self) -> &'static str {
         "editorconfig"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         if !ctx.root.join(".editorconfig").is_file() {
             return r;
         }
-        let files = unformatted(ctx, x, x.scope_files(ctx));
+        let files = unformatted(ctx, x, x.scope_files(&ctx.root));
         if files.is_empty() {
             return r;
         }
-        let bin = match self.0.tools.pinned("editorconfig-checker") {
+        let bin = match crate::tools::pinned(&self.0, "editorconfig-checker") {
             Ok(b) => b,
             Err(n) => {
                 r.notes.push(n.for_rule(ctx.rule.clone()));
@@ -389,7 +389,7 @@ impl CodeBuiltin for Editorconfig {
         if std::fs::write(&config, "{}\n").is_err() {
             return r;
         }
-        let out = Command::new(&bin)
+        let out = crate::tools::command(&bin)
             .args(["-no-color", "-format", "gcc", "-config"])
             .arg(&config)
             .args(&files)

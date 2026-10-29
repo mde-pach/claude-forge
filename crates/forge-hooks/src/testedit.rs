@@ -101,6 +101,10 @@ fn base_text(p: &Project, file: &str) -> Option<String> {
             return std::fs::read_to_string(s.join("files").join(file)).ok();
         }
         rev = state::read_trim(&s.join("head"));
+        if let Some(r) = &rev {
+            let b = forge_check::change::turn_base_blob(&p.root, s, r, file)?;
+            return Some(String::from_utf8_lossy(&b).into_owned());
+        }
     }
     let rev = rev.unwrap_or_else(|| "HEAD".into());
     let out = git(

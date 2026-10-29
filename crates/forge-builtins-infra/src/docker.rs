@@ -235,16 +235,18 @@ fn run_hadolint(
             NoteKind::ForgeFailure,
         )
     })?;
-    let mut argv = vec![
-        path_arg(&bin),
-        "--disable-ignore-pragma".into(),
-        "--no-fail".into(),
-        "--no-color".into(),
-        "-f".into(),
-        "tty".into(),
-        "-c".into(),
-        path_arg(&cfg),
-    ];
+    let mut argv = cx::with(
+        &bin,
+        vec![
+            "--disable-ignore-pragma".into(),
+            "--no-fail".into(),
+            "--no-color".into(),
+            "-f".into(),
+            "tty".into(),
+            "-c".into(),
+            path_arg(&cfg),
+        ],
+    );
     argv.extend(files.iter().cloned());
     let o = cx::run(&argv, cx.root(), &[]);
     // --no-fail: 0 whatever it finds; 1 it could not run (an unreadable file)

@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use forge_core::{NoteKind, Report};
 
 use crate::Run;
-use crate::tools::ToolRun;
+use crate::ToolRun;
 use crate::util::{basename, dirname, join, last_line, re};
 
 // ---- sqlfluff
@@ -42,11 +42,11 @@ pub fn sqlfluff(run: &Run<'_>, args: &[String]) -> Report {
     }
     let out = match run
         .opts
-        .project_tools
-        .run(run.root(), "sqlfluff", "lint", &files)
+        .tools
+        .run(run.root(), run.root(), "sqlfluff", "lint", &files)
     {
         ToolRun::Ran(o) => o,
-        ToolRun::Missing => {
+        ToolRun::Missing(_) => {
             return run.only_note(
                 NoteKind::MissingTool,
                 "sqlfluff is not installed, so the SQL files are not linted",
@@ -124,7 +124,7 @@ struct SquawkHit {
 /// comments are made plain comments of the same length, run from the copies' directory so the
 /// reported paths are the repository's. Err: why it could not run (for the person).
 fn squawk(run: &Run<'_>, input: SquawkInput<'_>) -> Result<Vec<SquawkHit>, String> {
-    let cmd = run.opts.pinned.command("squawk")?;
+    let cmd = run.opts.tools.pinned("squawk")?;
     let dir = tempfile::tempdir().map_err(|e| format!("squawk could not run ({e})"))?;
     let src = dir.path().join("src");
     let toml = dir.path().join("squawk.toml");
@@ -343,14 +343,15 @@ pub fn squawk_alembic(run: &Run<'_>, args: &[String]) -> Report {
                 .into_owned();
             format!("{d}:{rev}")
         };
-        let out = match run.opts.project_tools.run(
+        let out = match run.opts.tools.run(
+            run.root(),
             run.root(),
             "alembic",
             "upgrade-sql",
             std::slice::from_ref(&range),
         ) {
             ToolRun::Ran(o) => o,
-            ToolRun::Missing => {
+            ToolRun::Missing(_) => {
                 r.notes.push(run.note(
                     NoteKind::MissingTool,
                     "alembic is not installed, so the revisions' SQL is not linted",
@@ -1477,10 +1478,10 @@ pub fn typeorm_pending(run: &Run<'_>, args: &[String]) -> Report {
     } else {
         "typeorm"
     };
-    let tools = &run.opts.project_tools;
-    let ran = |op: &str, a: Vec<String>| match tools.run(run.root(), bin, op, &a) {
+    let tools = &run.opts.tools;
+    let ran = |op: &str, a: Vec<String>| match tools.run(run.root(), run.root(), bin, op, &a) {
         ToolRun::Ran(o) => Ok(o),
-        ToolRun::Missing => Err(run.only_note(
+        ToolRun::Missing(_) => Err(run.only_note(
             NoteKind::MissingTool,
             format!("{bin} is not installed, so entity changes are not checked for a migration"),
         )),

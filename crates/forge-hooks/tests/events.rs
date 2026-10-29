@@ -646,7 +646,7 @@ fn session_start_starts_the_engine_for_typed_rules() {
     std::thread::sleep(Duration::from_millis(50));
     let args = std::fs::read_to_string(&log).unwrap();
     assert!(args.starts_with("engine start --root"), "{args}");
-    assert!(args.contains("--session s1 --langs python"), "{args}");
+    assert!(args.trim_end().ends_with("--session s1"), "{args}");
 }
 
 #[test]

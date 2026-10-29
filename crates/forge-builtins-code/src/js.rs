@@ -1,16 +1,16 @@
 //! JavaScript packages: the release cooldown, install scripts, lock file sources, major versions
 //! of related packages (the original `javascript.sh`).
 
-use std::process::Command;
 use std::sync::Arc;
 
 use forge_core::builtin::BuiltinCtx;
 use forge_core::{Finding, NoteKind, Report};
 use serde_json::Value;
 
+use crate::Options;
 use crate::ctx::{Extra, base_copy, existing, read};
 use crate::util::{last_line, note};
-use crate::{CodeBuiltin, Options};
+use forge_check::builtins::CheckBuiltin;
 
 fn is_package_json(p: &str) -> bool {
     p == "package.json" || p.ends_with("/package.json")
@@ -19,12 +19,12 @@ fn is_package_json(p: &str) -> bool {
 /// `forge_bun_cooldown`: bunfig.toml `[install] minimumReleaseAge` is at least the cooldown.
 pub struct BunCooldown(pub Arc<Options>);
 
-impl CodeBuiltin for BunCooldown {
+impl CheckBuiltin for BunCooldown {
     fn name(&self) -> &'static str {
         "bun_cooldown"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
         let want = self.0.cooldown_seconds;
         let value = read(&ctx.root, "bunfig.toml").and_then(|t| install_value(&t));
         let mut r = Report::default();
@@ -88,12 +88,12 @@ fn trusted(text: Option<String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-impl CodeBuiltin for TrustedDeps {
+impl CheckBuiltin for TrustedDeps {
     fn name(&self) -> &'static str {
         "trusted_deps"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         for f in existing(ctx).iter().filter(|f| is_package_json(f)) {
             let before = trusted(base_copy(ctx, f).and_then(|p| std::fs::read_to_string(p).ok()));
@@ -120,15 +120,15 @@ impl CodeBuiltin for TrustedDeps {
 /// package resolves from registry.npmjs.org, over https, with a sha512 integrity.
 pub struct LockfileLint(pub Arc<Options>);
 
-impl CodeBuiltin for LockfileLint {
+impl CheckBuiltin for LockfileLint {
     fn name(&self) -> &'static str {
         "lockfile_lint"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
         let mut r = Report::default();
         let locks: Vec<String> = x
-            .scope_files(ctx)
+            .scope_files(&ctx.root)
             .into_iter()
             .filter(|f| {
                 (f == "package-lock.json" || f.ends_with("/package-lock.json"))
@@ -138,7 +138,7 @@ impl CodeBuiltin for LockfileLint {
         if locks.is_empty() {
             return r;
         }
-        let bin = match self.0.tools.pinned("lockfile-lint") {
+        let bin = match crate::tools::pinned(&self.0, "lockfile-lint") {
             Ok(b) => b,
             Err(n) => {
                 r.notes.push(n.for_rule(ctx.rule.clone()));
@@ -146,7 +146,7 @@ impl CodeBuiltin for LockfileLint {
             }
         };
         for f in locks {
-            let out = Command::new(&bin)
+            let out = crate::tools::command(&bin)
                 .args([
                     "--type",
                     "npm",
@@ -259,17 +259,21 @@ pub fn lowest_major(spec: &str) -> Option<u64> {
 /// both, the lowest majors their ranges allow are the same.
 pub struct DepMajorMatch;
 
-impl CodeBuiltin for DepMajorMatch {
+impl CheckBuiltin for DepMajorMatch {
     fn name(&self) -> &'static str {
         "dep_major_match"
     }
 
-    fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
         let mut r = Report::default();
         let Some((pkg, types)) = args.split_first() else {
             return r;
         };
-        for f in x.scope_files(ctx).iter().filter(|f| is_package_json(f)) {
+        for f in x
+            .scope_files(&ctx.root)
+            .iter()
+            .filter(|f| is_package_json(f))
+        {
             let Some(text) = read(&ctx.root, f) else {
                 continue;
             };

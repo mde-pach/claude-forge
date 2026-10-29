@@ -212,30 +212,6 @@ fn forge_do_drives_a_fake_tool_and_notes_what_it_cannot() {
     assert!(notes.iter().any(|n| n["kind"] == "not-enforced"), "{v}");
 }
 
-#[test]
-fn unregistered_builtins_are_notes() {
-    let r = Repo::new(&files(&[("a.txt", "a\n")]));
-    write(
-        r.path(),
-        &files(&[
-            ("a.txt", "b\n"),
-            (
-                ".forge/rules/y.yaml",
-                "id: local/y\ndescription: Something.\nscope: {language: any}\nenforce:\n  - {target: check, stage: lint, run: \"forge_hadolint DL3020\"}\n",
-            ),
-        ]),
-    );
-    let (code, v) = r.turn(&["local/y"]);
-    // a builtin no crate registered yet: a note, never a failure
-    assert_eq!(code, 0, "{v}");
-    assert!(
-        notes_of(&v, "local/y")
-            .iter()
-            .any(|n| n["kind"] == "not-enforced"),
-        "{v}"
-    );
-}
-
 /// Every check rule example the machinery here can run behaves as declared: a `match` example
 /// fails its check (or gives its advice), a `no_match` example passes. Examples whose tool or
 /// builtin is not available are skipped (by the run's notes).

@@ -6,15 +6,17 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use forge_hooks::{Checker, Env, NoChecker, Runtime};
+use forge_check::Status;
+use forge_core::{Note, NoteKind, Report};
+use forge_hooks::{Checker, Env, Runtime, StopOutcome, StopStatus, TestBlock, TestEditRule};
+use forge_packs::model::Target;
 
 #[derive(Subcommand, Debug)]
 pub enum EngineCommand {
-    /// Runs the types engine daemon with a configuration file.
+    /// Runs the types engine daemon with the configuration file the checker wrote.
     Serve {
-        /// The configuration: JSON, or the path of a file holding it.
         #[arg(long)]
-        config: String,
+        config: PathBuf,
     },
     /// Makes sure the engine of a repository runs and registers a session (detached, from SessionStart).
     Start {
@@ -22,15 +24,136 @@ pub enum EngineCommand {
         root: PathBuf,
         #[arg(long)]
         session: String,
-        /// Comma-separated: python, typescript.
-        #[arg(long, default_value = "")]
-        langs: String,
     },
 }
 
-/// The checker the hooks run.
-fn checker() -> Box<dyn Checker> {
-    Box::new(NoChecker)
+/// The checker the hooks run: forge-check on the rules `forge apply` selected (cached in the
+/// state directory, see [`crate::check::select_cached`]).
+pub struct HookChecker {
+    /// This executable (check commands call its builtins; the engine is started with it).
+    pub exe: PathBuf,
+}
+
+/// Where the last hook check spent its time (Forge's own work, the project's tools), in the
+/// repository's state directory: for `forge status` and the budget tests.
+fn record_timings(root: &Path, phase: &str, t: &forge_check::checker::Timings) {
+    let Ok(home) = forge_home::Home::from_env() else {
+        return;
+    };
+    let Ok(id) = forge_home::RepoId::for_root(root) else {
+        return;
+    };
+    let v = serde_json::json!({
+        "phase": phase,
+        "forge_ms": t.forge.as_secs_f64() * 1000.0,
+        "tools_ms": t.tools.as_secs_f64() * 1000.0,
+    });
+    let dir = home.repo_state_dir(&id);
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(dir.join(format!("timings.{phase}.json")), v.to_string());
+    }
+}
+
+fn forge_failure(what: String) -> Report {
+    Report {
+        findings: Vec::new(),
+        notes: vec![Note::new(NoteKind::ForgeFailure, what)],
+    }
+}
+
+impl Checker for HookChecker {
+    fn post_edit(&self, root: &Path, files: &[String], snapshot: Option<&Path>) -> Report {
+        let selected = match crate::check::select_cached(root) {
+            Ok(s) => s,
+            Err(e) => return forge_failure(format!("The checks after an edit did not run: {e}.")),
+        };
+        let mut checker = crate::check::checker_of(root, selected, false);
+        let mut notes = crate::check::with_engine(&mut checker, &self.exe, false);
+        let mut report = match checker.check_files(
+            files,
+            snapshot,
+            &forge_check::Options::post_edit(self.exe.clone()),
+        ) {
+            Ok(o) => {
+                record_timings(root, "post-edit", &o.timings);
+                o.report
+            }
+            Err(e) => forge_failure(format!("The checks after an edit did not run: {e}.")),
+        };
+        report.notes.append(&mut notes);
+        report
+    }
+
+    fn stop(&self, root: &Path, snapshot: Option<&Path>) -> StopOutcome {
+        let selected = match crate::check::select_cached(root) {
+            Ok(s) => s,
+            Err(e) => {
+                return StopOutcome {
+                    report: forge_failure(format!("The Stop check did not run: {e}.")),
+                    status: StopStatus::Pass,
+                };
+            }
+        };
+        let mut checker = crate::check::checker_of(root, selected, true);
+        let mut notes = crate::check::with_engine(&mut checker, &self.exe, true);
+        let mode = match snapshot {
+            Some(s) => forge_check::Mode::Turn(s.to_path_buf()),
+            None => forge_check::Mode::Changed,
+        };
+        let mut outcome = match checker.check(mode, &forge_check::Options::stop(self.exe.clone())) {
+            Ok(o) => StopOutcome {
+                report: {
+                    record_timings(root, "stop", &o.timings);
+                    o.report
+                },
+                status: match o.status {
+                    Status::Pass => StopStatus::Pass,
+                    Status::Fail => StopStatus::Fail,
+                    Status::Unverified => StopStatus::Unverified,
+                    Status::AdviceOnly => StopStatus::AdviceOnly,
+                },
+            },
+            Err(e) => StopOutcome {
+                report: forge_failure(format!("The Stop check did not run: {e}.")),
+                status: StopStatus::Pass,
+            },
+        };
+        outcome.report.notes.append(&mut notes);
+        outcome
+    }
+
+    fn test_edit_rule(&self, root: &Path, path: &str) -> Option<TestEditRule> {
+        let selected = crate::check::select_cached(root).ok()?;
+        let roles = forge_check::scope::Roles::from_map(selected.roles);
+        selected.rules.iter().find_map(|a| {
+            a.rule.enforce.iter().find_map(|t| {
+                let Target::Check(c) = t else { return None };
+                if !c.commands().any(|cmd| cmd.contains("forge_test_edits")) {
+                    return None;
+                }
+                let scope = forge_check::scope::RuleScope::new(
+                    &a.rule,
+                    &roles,
+                    a.dirs.as_deref(),
+                    c.config_files.as_deref(),
+                );
+                scope.matches(path).then(|| TestEditRule {
+                    id: a.rule.id.clone(),
+                    review: a.rule.review.clone(),
+                })
+            })
+        })
+    }
+
+    fn test_blocks(&self, path: &str, source: &str) -> Vec<TestBlock> {
+        forge_check::builtins::blocks(path, source)
+            .into_iter()
+            .map(|b| TestBlock {
+                key: b.key,
+                print: b.print,
+            })
+            .collect()
+    }
 }
 
 /// Answers one hook call: the hook input on stdin, the answer on stdout (stderr and exit 2 for
@@ -43,12 +166,13 @@ pub fn run(event: &str, launcher_notes: Vec<forge_launcher::Note>) -> ExitCode {
     };
     let mut stdin = Vec::new();
     let _ = std::io::stdin().lock().read_to_end(&mut stdin);
-    let checker = checker();
+    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("claude-forge"));
+    let checker = HookChecker { exe: exe.clone() };
     let rt = Runtime {
         home,
         env: Env::from_process(),
-        checker: checker.as_ref(),
-        exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("claude-forge")),
+        checker: &checker,
+        exe,
         launcher_notes,
     };
     let out = forge_hooks::run(&rt, event, &stdin);
@@ -63,30 +187,13 @@ pub fn run(event: &str, launcher_notes: Vec<forge_launcher::Note>) -> ExitCode {
 
 pub fn engine(cmd: EngineCommand) -> ExitCode {
     match cmd {
-        EngineCommand::Serve { config } if config.trim_start().starts_with('{') => {
-            crate::check::engine_serve(&config)
-        }
-        EngineCommand::Serve { config } => match forge_hooks::engine::serve(Path::new(&config)) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => {
-                eprintln!("forge engine: {e}");
-                ExitCode::from(1)
-            }
-        },
-        EngineCommand::Start {
-            root,
-            session,
-            langs,
-        } => {
+        EngineCommand::Serve { config } => crate::check::engine_serve(&config),
+        EngineCommand::Start { root, session } => {
             let Ok(home) = forge_home::Home::from_env() else {
                 return ExitCode::SUCCESS;
             };
-            let langs: Vec<forge_engine::Lang> = langs
-                .split(',')
-                .filter_map(|l| serde_json::from_value(serde_json::json!(l.trim())).ok())
-                .collect();
             let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("claude-forge"));
-            let notes = forge_hooks::engine::start(&home, &exe, &root, &session, &langs);
+            let notes = crate::check::engine_start(&root, &session, &exe);
             if let Ok(id) = forge_home::RepoId::for_root(&root) {
                 forge_hooks::state::record_notes(&home.repo_state_dir(&id), &notes);
             }

@@ -57,17 +57,14 @@ pub fn tf_validate(cx: &Cx<'_>, _args: &[String]) -> Report {
         return r;
     }
     let bin = tf_bin(cx);
-    let cmd = match cx.project(bin, "validate") {
-        Ok(c) => c,
-        Err(n) => {
-            r.notes.push(n);
-            return r;
-        }
-    };
     for d in dirs {
-        let mut argv = cmd.clone();
-        argv.extend(["validate".into(), "-no-color".into()]);
-        let o = cx::run(&argv, &cx.path(&d), &[]);
+        let o = match cx.project(bin, "validate", &[], &cx.path(&d)) {
+            Ok(o) => o,
+            Err(n) => {
+                r.notes.push(n);
+                return r;
+            }
+        };
         if o.code == Some(0) {
             continue;
         }
@@ -177,7 +174,7 @@ pub fn tflint(cx: &Cx<'_>, _args: &[String]) -> Report {
             .join(&name)
             .join(spec.version);
         let _ = std::fs::create_dir_all(&dir);
-        let _ = std::os::unix::fs::symlink(&path, dir.join(&name));
+        let _ = std::os::unix::fs::symlink(cx::exe_path(&path), dir.join(&name));
         hcl.push_str(&format!(
             "plugin \"{p}\" {{\n  enabled = true\n  version = \"{}\"\n  source  = \"github.com/terraform-linters/{name}\"\n}}\n",
             spec.version
@@ -187,16 +184,18 @@ pub fn tflint(cx: &Cx<'_>, _args: &[String]) -> Report {
     let _ = std::fs::write(&cfg, hcl);
     let plugin_dir = path_arg(&plugins);
     for d in dirs {
-        let argv = vec![
-            path_arg(&bin),
-            "--format".into(),
-            "compact".into(),
-            "--force".into(),
-            "--chdir".into(),
-            d.clone(),
-            "--config".into(),
-            path_arg(&cfg),
-        ];
+        let argv = cx::with(
+            &bin,
+            vec![
+                "--format".into(),
+                "compact".into(),
+                "--force".into(),
+                "--chdir".into(),
+                d.clone(),
+                "--config".into(),
+                path_arg(&cfg),
+            ],
+        );
         // rulesets are plugin processes reached through a Unix socket under TMPDIR, whose path
         // macOS caps at 104 bytes
         let o = cx::run(
@@ -288,25 +287,27 @@ pub fn trivy_config(cx: &Cx<'_>, _args: &[String]) -> Report {
             }
         }
         let scan = |target: &Path| {
-            let argv = vec![
-                path_arg(&bin),
-                "config".into(),
-                "--quiet".into(),
-                "--misconfig-scanners".into(),
-                "terraform".into(),
-                "--severity".into(),
-                "HIGH,CRITICAL".into(),
-                "--skip-check-update".into(),
-                "--format".into(),
-                "template".into(),
-                "--cache-dir".into(),
-                path_arg(&cache),
-                "--ignorefile".into(),
-                path_arg(&ignore),
-                "--template".into(),
-                format!("@{}", path_arg(&tpl)),
-                path_arg(target),
-            ];
+            let argv = cx::with(
+                &bin,
+                vec![
+                    "config".into(),
+                    "--quiet".into(),
+                    "--misconfig-scanners".into(),
+                    "terraform".into(),
+                    "--severity".into(),
+                    "HIGH,CRITICAL".into(),
+                    "--skip-check-update".into(),
+                    "--format".into(),
+                    "template".into(),
+                    "--cache-dir".into(),
+                    path_arg(&cache),
+                    "--ignorefile".into(),
+                    path_arg(&ignore),
+                    "--template".into(),
+                    format!("@{}", path_arg(&tpl)),
+                    path_arg(target),
+                ],
+            );
             cx::run(&argv, cx.root(), &[])
         };
         let now = scan(&cx.path(d));
