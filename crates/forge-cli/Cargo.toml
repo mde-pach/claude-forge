@@ -1,0 +1,22 @@
+[package]
+name = "forge-cli"
+description = "Claude Forge's command line: forge (also installed as claude-forge)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "forge"
+path = "src/main.rs"
+
+[[bin]]
+name = "claude-forge"
+path = "src/bin/claude-forge.rs"
+
+[dependencies]
+clap.workspace = true
+forge-launcher.workspace = true
+forge-packs.workspace = true
+serde_json.workspace = true

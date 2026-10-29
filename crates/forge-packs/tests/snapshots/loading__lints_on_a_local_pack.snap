@@ -1,0 +1,12 @@
+---
+source: crates/forge-packs/tests/loading.rs
+expression: "local.join(\"\\n\")"
+---
+.forge/packs/acme/rules/docs.yaml: acme/docs [grep-scope] grep target whose scope.files reaches docs (README.md, docs/index.md, docs/guide.mdx, docs/api.rst, doc/notes.md)
+.forge/packs/acme/rules/docs.yaml:2: acme/docs [forge-internals] description names Forge's internals: forge apply
+.forge/packs/acme/rules/docs.yaml:2: acme/docs [forge-internals] description names Forge's internals: .forge
+.forge/packs/acme/rules/docs.yaml:2: acme/docs [forge-internals] description names Forge's internals: FORGE_DEBUG
+.forge/packs/acme/rules/no-todo.yaml:2: acme/no-todo [cut-by-comment] description is cut at " #": YAML reads "No TODO comments (# TODO," and drops "# FIXME) in code." as a comment; quote the text
+.forge/packs/acme/rules/no-todo.yaml: acme/no-todo [grep-scope] grep target with no scope.files: it reads every file, docs included
+.forge/packs/acme/context.md:1: acme [forge-internals] context.md names Forge's internals: forge.yaml
+.forge/packs/acme/context.md:1: acme [forge-internals] context.md names Forge's internals: accept:

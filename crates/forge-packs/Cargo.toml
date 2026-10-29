@@ -1,0 +1,29 @@
+[package]
+name = "forge-packs"
+description = "Claude Forge's pack loader: packs and rules (YAML), validated, linted and cached."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+blake3.workspace = true
+fancy-regex.workspace = true
+include_dir.workspace = true
+indexmap.workspace = true
+jsonschema.workspace = true
+regex.workspace = true
+rmp-serde.workspace = true
+saphyr-parser.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[build-dependencies]
+blake3.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tempfile.workspace = true

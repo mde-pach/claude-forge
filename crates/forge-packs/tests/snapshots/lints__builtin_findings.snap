@@ -1,0 +1,44 @@
+---
+source: crates/forge-packs/tests/lints.rs
+expression: "forge_packs::lint::render(&set.findings)"
+---
+packs/ai-models/rules/model-ids.yaml: ai-models/model-ids [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/git/rules/large-files.yaml:2: git/large-files [forge-internals] description names Forge's internals: .forge
+packs/git/rules/no-conflict-markers.yaml: git/no-conflict-markers [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/github-actions/rules/ci-ratchet.yaml:2: github-actions/ci-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/github-actions/rules/no-removed-jobs.yaml:2: github-actions/no-removed-jobs [forge-internals] description names Forge's internals: forge.yaml
+packs/gitlab-ci/rules/ci-ratchet.yaml:2: gitlab-ci/ci-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/openapi/rules/config-ratchet.yaml:2: openapi/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/openapi/rules/no-breaking.yaml:2: openapi/no-breaking [forge-internals] description names Forge's internals: forge.yaml
+packs/python/anthropic/rules/no-budget-tokens.yaml:2: python/anthropic/no-budget-tokens [forge-internals] description names Forge's internals: models.tsv
+packs/python/celery/rules/no-pickle.yaml: python/celery/no-pickle [grep-scope] grep target with no scope.files: only its language (.py .pyi) scopes it
+packs/python/library/context.md:3: python/library [forge-internals] context.md names Forge's internals: forge.yaml
+packs/python/library/rules/deprecation-shim.yaml:2: python/library/deprecation-shim [forge-internals] description names Forge's internals: forge.yaml
+packs/python/rules/config-ratchet.yaml:2: python/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/python/rules/no-new-suppressions.yaml: python/no-new-suppressions [grep-scope] grep target with no scope.files: only its language (.py .pyi) scopes it
+packs/python/rules/no-new-suppressions.yaml:2: python/no-new-suppressions [cut-by-comment] description is cut at " #": YAML reads "No new suppression comments (# noqa," and drops "# ty: ignore, # type: ignore, # pyright: ignore) or coverage pragmas (# pragma: no cover, # pragma: no branch); a changed file may not have more than it had. Fix the finding instead." as a comment; quote the text
+packs/python/rules/no-placeholder-comment.yaml: python/no-placeholder-comment [grep-scope] grep target with no scope.files: only its language (.py .pyi) scopes it
+packs/safety/rules/forge-state-edit.yaml:2: safety/forge-state-edit [forge-internals] description names Forge's internals: forge-state
+packs/safety/rules/forge-state.yaml:2: safety/forge-state [forge-internals] description names Forge's internals: forge-state
+packs/supply-chain/rules/audit-ignore-ratchet.yaml:2: supply-chain/audit-ignore-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/supply-chain/rules/no-tls-disable.yaml: supply-chain/no-tls-disable [grep-scope] grep target with no scope.files: it reads every file, docs included
+packs/terraform/context.md:2: terraform [forge-internals] context.md names Forge's internals: forge.yaml
+packs/terraform/rules/no-unprotect.yaml:2: terraform/no-unprotect [forge-internals] description names Forge's internals: forge.yaml
+packs/terraform/rules/protection-ratchet.yaml:2: terraform/protection-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/anthropic/rules/no-budget-tokens.yaml:2: typescript/anthropic/no-budget-tokens [forge-internals] description names Forge's internals: models.tsv
+packs/typescript/anthropic/rules/no-forced-tool-choice.yaml:2: typescript/anthropic/no-forced-tool-choice [forge-internals] description names Forge's internals: models.tsv
+packs/typescript/bun/rules/release-age.yaml:2: typescript/bun/release-age [cut-by-comment] description is cut at " #": YAML reads "Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes; see Bun issues" and drops "#25305 and #45831 for its known gaps." as a comment; quote the text
+packs/typescript/eslint/rules/no-eslint-env.yaml: typescript/eslint/no-eslint-env [grep-scope] grep target with no scope.files: only its language (.ts .tsx .mts .cts .js .jsx .mjs .cjs) scopes it
+packs/typescript/library/context.md:2: typescript/library [forge-internals] context.md names Forge's internals: forge.yaml
+packs/typescript/library/rules/deprecation-shim.yaml:2: typescript/library/deprecation-shim [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/opentelemetry/rules/semconv-stable-keys.yaml:2: typescript/opentelemetry/semconv-stable-keys [forge-internals] description names Forge's internals: .forge
+packs/typescript/prisma/context.md:8: typescript/prisma [forge-internals] context.md names Forge's internals: forge.yaml
+packs/typescript/prisma/rules/destructive-migration.yaml:11: typescript/prisma/destructive-migration [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/pulumi/rules/protect-ratchet.yaml: typescript/pulumi/protect-ratchet [grep-scope] grep target with no scope.files: only its language (.ts .tsx .mts .cts .js .jsx .mjs .cjs) scopes it
+packs/typescript/rules/config-ratchet.yaml:2: typescript/config-ratchet [forge-internals] description names Forge's internals: forge.yaml
+packs/typescript/rules/no-new-suppressions.yaml: typescript/no-new-suppressions [grep-scope] grep target with no scope.files: only its language (.ts .tsx .mts .cts .js .jsx .mjs .cjs) scopes it
+packs/typescript/rules/no-placeholder-comment.yaml: typescript/no-placeholder-comment [grep-scope] grep target with no scope.files: only its language (.ts .tsx .mts .cts .js .jsx .mjs .cjs) scopes it
+packs/typescript/typeorm/rules/migration-present.yaml:2: typescript/typeorm/migration-present [forge-internals] description names Forge's internals: forge.yaml
+cut-by-comment: 2
+grep-scope: 10
+forge-internals: 25
