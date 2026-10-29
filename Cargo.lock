@@ -548,10 +548,20 @@ name = "forge-cli"
 version = "0.6.0-dev"
 dependencies = [
  "clap",
+ "forge-core",
+ "forge-detect",
+ "forge-home",
  "forge-launcher",
  "forge-packs",
+ "forge-render",
  "forge-tools",
+ "include_dir",
+ "insta",
+ "regex",
+ "serde",
  "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -561,6 +571,22 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "forge-detect"
+version = "0.6.0-dev"
+dependencies = [
+ "fancy-regex",
+ "forge-packs",
+ "indexmap",
+ "nodejs-semver",
+ "regex",
+ "saphyr-parser",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -629,6 +655,23 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "forge-render"
+version = "0.6.0-dev"
+dependencies = [
+ "forge-core",
+ "forge-detect",
+ "forge-launcher",
+ "forge-packs",
+ "indexmap",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]

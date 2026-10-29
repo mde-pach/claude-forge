@@ -42,6 +42,8 @@ globset = "0.4"
 nodejs-semver = "7"
 saphyr = "0.3"
 forge-engine = { path = "crates/forge-engine" }
+forge-detect = { path = "crates/forge-detect" }
+forge-render = { path = "crates/forge-render" }
 
 # Dependencies optimised in debug builds: the tests load every pack, which is slow unoptimised.
 [profile.dev.package."*"]

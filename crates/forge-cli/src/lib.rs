@@ -7,6 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
+pub mod project;
 mod provisioning;
 
 #[derive(Parser)]
@@ -22,6 +23,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    #[command(flatten)]
+    Project(project::ProjectCommand),
     /// The rule packs Forge loads.
     Packs {
         #[command(subcommand)]
@@ -107,6 +110,7 @@ pub fn main() -> ExitCode {
             }
         }),
         Command::Hook { .. } => Err("forge hook: not implemented yet".into()),
+        Command::Project(c) => Ok(project::run(c)),
     };
     result.unwrap_or_else(|e| {
         eprintln!("forge: {e}");
