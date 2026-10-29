@@ -7,6 +7,8 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
+mod provisioning;
+
 #[derive(Parser)]
 #[command(
     name = "forge",
@@ -69,9 +71,12 @@ fn load(args: &LoadArgs) -> Result<forge_packs::PackSet, String> {
 
 pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one.
-    // Its notes are recorded for `forge status`; downloading comes with provisioning.
+    // Its notes are recorded for `forge status`.
+    if let Some(code) = provisioning::intercept() {
+        return code;
+    }
     let _notes =
-        forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &forge_launcher::NoFetcher);
+        forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher());
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Packs {
