@@ -6,6 +6,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Every job starts from read-only; the Pages deploy alone gets more.
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its older run. Runs on main (and manual ones) each get
+# their own group, so none is cancelled or held back, and every commit of main keeps its CI.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -14,18 +24,24 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35 # macOS takes about 17
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: 0.13.6
       - name: Shells for the guard matrix (dash, BusyBox)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q dash busybox
+      # The version is TOOL_VERSIONS.ruff in tests/helpers.ts.
       - name: ruff on PATH (used by the hook and check.sh specs)
         run: |
-          uv tool install ruff
+          uv tool install ruff==0.17.1
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
@@ -36,11 +52,35 @@ jobs:
       # The spec run: its JUnit report (test-results/<platform>.xml) is what the docs show.
       - run: bun run test:report
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ runner.os }}
           path: test-results/
           if-no-files-found: error
+
+  # The Rust rewrite (crates/): format, lints and tests. The pack loader's parity test compares
+  # with dist/packs.json, so the TypeScript build runs first while both exist.
+  rust:
+    name: rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # rust-toolchain.toml pins the toolchain; the runners' rustup installs it
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
 
   # The adapters' real-binary matrix (§16.5): every release each adapter is proven on,
   # installed into one shared store under a disk budget, removed when done.
@@ -51,35 +91,80 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20 # about 8 at most
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: 0.13.6
       - run: bun install --frozen-lockfile
       - name: The version matrix on real releases
         env:
           FORGE_ADAPTER_MATRIX: "1"
         run: bun test --timeout 900000 tests/spec/16-2-adapter-matrix.test.ts
 
+  # The site: the specification pages are the test files of this commit and the JUnit results
+  # of this run; the pack pages come from packs/. Built on every run, published from main only.
+  # Failing specs still publish: the site shows them failing.
   docs:
     name: docs build (with this run's results)
     needs: test
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # about 2
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # last-updated dates
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: test-results-*
           merge-multiple: true
           path: test-results/
+      - name: Run metadata
+        env:
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p test-results
+          printf '{"sha":"%s","runUrl":"%s","date":"%s"}\n' "$SHA" "$RUN_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > test-results/meta.json
       - run: bun run docs:build
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}
+      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/dist
+
+  deploy:
+    name: docs deploy (GitHub Pages)
+    needs: docs
+    if: ${{ !cancelled() && needs.docs.result == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # under a minute
+    permissions:
+      pages: write # publish the site
+      id-token: write # deploy-pages authenticates to Pages with an OIDC token
+    # One deployment at a time; a newer one waits instead of interrupting a deployment midway.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
