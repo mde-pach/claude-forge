@@ -3,7 +3,7 @@
 `.forge/forge.lock.json` and `~/.claude/forge.lock.json`:
 
 ```json
-{"forge_version":"0.5.0","claude_code_min":"2.1.295",
+{"forge_version":"0.5.0","claude_code_min":"2.1.284",
  "rules":{"<rule-id>":"<sha256 of rule file>"},
  "files":{"<path>":"<sha256>"},
  "settings":[{"file":".claude/settings.json","path":"permissions.ask","value":"Edit(.forge/**)"}]}

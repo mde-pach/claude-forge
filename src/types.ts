@@ -27,6 +27,8 @@ export interface PackDetect {
   content_any?: { files: string[]; pattern: string }[];
   /** A .yaml / .yml file whose first document is a mapping with all these top-level keys (Kubernetes: apiVersion, kind). */
   yaml_keys?: string[];
+  /** A source file matching one of these globs, outside vendored, generated and virtual-environment directories (packs.ts isVendored): a plain-scripts project with no packaging file. */
+  sources_any?: string[];
 }
 
 export interface Pack {

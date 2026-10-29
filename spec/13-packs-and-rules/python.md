@@ -1,5 +1,7 @@
 ### python
 
+Detected by a packaging file at the root (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`, `Pipfile`), else by a `.py` file of the project's own (`sources_any: ["**/*.py"]`, §5.1: one is enough, vendored, generated and virtual-environment directories left out), so a plain-scripts project has the Python checks too. Without a packaging file there is nowhere to configure a tool, so ruff and Forge's ty count as configured and run with their defaults (`python/format`, `python/lint`, `python/typecheck` are enforced; ruff's audits show what to select); ruff not installed is reported by `forge apply` and `forge status`, not to Claude (§10.1). The project declares no dependencies: its environment is the first interpreter that answers (§9.1), and no child pack that needs packaging facts (`python/uv`, `python/library`, the dependency-detected packs) activates.
+
 | Rule | Targets |
 |---|---|
 | `python/format` | `check` format through ruff's adapter (§16.4): `run: forge_do ruff format-check .`, `changed_run: forge_do ruff format {files}`, `format_stdin: forge_do ruff format-stdin {file}` |

@@ -624,6 +624,35 @@ describe("detection by content", () => {
     expect(activeIn(PACKS, { ...pkg, "next.config.ts": "const config = {\n  // cacheComponents: true,\n};\nexport default config;\n" })).not.toContain("typescript/nextjs/cache-components");
   });
 
+  /** @pack python */
+  test("a plain-scripts Python project (.py files, no packaging) activates python, its lint and type check with the tools' defaults; data and docs only, or .py only in vendored, generated or environment directories, do not; packaging-only child packs stay off", () => {
+    const scripts = { "navigation.py": "def route() -> None:\n    pass\n", "data/flights.json": "[]\n" };
+    const active = activeIn(PACKS, scripts);
+    // nowhere to configure a tool: ruff and Forge's ty run with their defaults, so lint and the type check are enforced
+    const repo = mkdtempSync(join(tmpdir(), "forge-detect-"));
+    for (const [rel, text] of Object.entries(scripts)) put(repo, rel, text);
+    sh("git", ["init", "-q"], { cwd: repo });
+    const rules = plan({ level: "project", base: repo, packs: PACKS, ...readProjectInputs(repo) }).active;
+    for (const id of ["python/lint", "python/format", "python/typecheck"]) expect({ id, enforced: rules.find((r) => r.rule.id === id)?.enforced.length }).toEqual({ id, enforced: 1 });
+    expect(active).toContain("python");
+    for (const child of ["python/uv", "python/library", "python/pytest"]) expect(active).not.toContain(child);
+    expect(activeIn(PACKS, { "data/flights.json": "[]\n", "README.md": "# Flights\n", "notes.txt": "x\n" })).not.toContain("python");
+    expect(
+      activeIn(PACKS, {
+        "vendor/lib/x.py": "X = 1\n",
+        "node_modules/pkg/y.py": "Y = 1\n",
+        ".venv/lib/python3.12/site-packages/z.py": "Z = 1\n",
+        "build/lib/w.py": "W = 1\n",
+        "proto/api_pb2.py": "V = 1\n",
+        "pkg.egg-info/v.py": "V = 1\n",
+        ".forge/helpers/ratchet.py": "R = 1\n",
+        "data/flights.json": "[]\n",
+      }),
+    ).not.toContain("python");
+    // a packaging file alone is enough, as before
+    expect(activeIn(PACKS, { "requirements.txt": "requests\n" })).toContain("python");
+  });
+
   test("a content_any pattern that is not a regular expression is rejected when the packs load", () => {
     expect(() => packsDir({ "x/pack.yaml": 'id: x\ndescription: X.\nlevel: project\ndetect: {content_any: [{files: [a], pattern: "("}]}\n' })).toThrow("is not a regular expression");
   });

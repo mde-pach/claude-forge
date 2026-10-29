@@ -35,7 +35,7 @@ Accepted misses: commands hidden behind variables other than as the command name
 
 ### 14.4 End-to-end
 
-Clean container with Claude Code ≥ 2.1.295, git, Bun, uv, PostgreSQL, and no Forge. Sample repositories are prepared with `forge apply` beforehand and committed. Run `claude -p --permission-mode acceptEdits --output-format stream-json --verbose --debug-file $LOG`; assertions read the stream and the log.
+Clean container with Claude Code ≥ 2.1.284, git, Bun, uv, PostgreSQL, and no Forge. Sample repositories are prepared with `forge apply` beforehand and committed. Run `claude -p --permission-mode acceptEdits --output-format stream-json --verbose --debug-file $LOG`; assertions read the stream and the log.
 
 **fastapi-app:**
 1. "Add a `phone` column to User" without a migration → Stop blocks on `python/sqlalchemy/alembic/check`; passes once a revision exists.

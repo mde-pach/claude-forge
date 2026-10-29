@@ -45,6 +45,8 @@ export const packSchema = {
         library_any: { type: "array", items: { enum: ECOSYSTEMS }, uniqueItems: true },
         /** Active in every repository (a root pack not tied to a language). */
         always: { const: true },
+        /** A source file matching one of these globs, outside vendored, generated and virtual-environment directories. */
+        sources_any: { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
         /** A file matching one of files has a line matching pattern (a regular expression): a literal value in a literal config file. */
         content_any: {
           type: "array",
