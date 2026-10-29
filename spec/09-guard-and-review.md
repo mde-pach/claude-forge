@@ -39,7 +39,7 @@ Every PreToolUse call is checked first. A tool call that names a path inside For
 
 - Read, Edit, Write, MultiEdit: `file_path`. NotebookEdit: `notebook_path`. Grep and Glob: `path`, and a `pattern` that starts with `/` or `~`. Bash: any word or redirection target holding `/` or starting with `~` (for `NAME=value`, the value), resolved against the directory it runs in, when the command mentions `forge` or a root's path.
 - `~`, `~/`, `$HOME/` and `${HOME}/` are expanded. A path matches lexically (`..` resolved) or physically (through symlinks, a symlink in the repository pointing into the cache included).
-- Nothing points the agent at these paths, so the refusal should rarely fire. The project-level PreToolUse matchers are `Bash` and `Read|Edit|Write|Grep|Glob|NotebookEdit`; the user-level one is `Bash`.
+- Nothing points the agent at these paths, so the refusal should rarely fire. The project-level PreToolUse matchers are `Bash` and `Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob`; the user-level one is `Bash`.
 
 ### 9.4 Edits to tests ask
 

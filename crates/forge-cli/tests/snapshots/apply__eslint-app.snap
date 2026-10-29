@@ -86,7 +86,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
         ]
       },
       {
-        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
+        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -98,7 +98,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -390,12 +390,12 @@ json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.PreToolUse"
-json = """{"matcher":"Read|Edit|Write|Grep|Glob|NotebookEdit","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
+json = """{"matcher":"Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
 
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.PostToolUse"
-json = """{"matcher":"Edit|Write|Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+json = """{"matcher":"Edit|Write|MultiEdit|NotebookEdit|Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
 
 [[settings]]
 file = ".claude/settings.json"

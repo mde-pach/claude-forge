@@ -247,6 +247,16 @@ fn forge_files_are_refused_neutrally() {
         bash(&format!("cat {}", cache_file.display()), "b1"),
         bash(&format!("ls {} | head", state_dir.display()), "b2"),
     ];
+    // every file tool the PreToolUse entry matches is refused
+    let by_matcher = forge_render::hooks::FILE_TOOLS.split('|').map(|tool| {
+        let field = match tool {
+            "NotebookEdit" => "notebook_path",
+            "Grep" | "Glob" => "path",
+            _ => "file_path",
+        };
+        json!({"tool_name": tool, "tool_input": {field: cache_file, "pattern": "x"}})
+    });
+    let cases: Vec<Value> = cases.into_iter().chain(by_matcher).collect();
     for c in cases {
         let out = s.run(&f, "pre-tool-use", c.clone());
         let v = json_out(&out);
@@ -477,6 +487,11 @@ fn test_edits_ask() {
     let add = json!({"tool_name": "Edit", "tool_input": {"file_path": file,
         "old_string": "== 100\n", "new_string": "== 100\n\n\ndef test_empty():\n    assert total([]) == 0\n"}});
     assert_eq!(s.run(&f, "pre-tool-use", add).stdout, "");
+    // so does a MultiEdit changing it
+    let multi = json!({"tool_name": "MultiEdit", "tool_input": {"file_path": file,
+        "edits": [{"old_string": "== 100", "new_string": "== 90"}]}});
+    let v = json_out(&s.run(&f, "pre-tool-use", multi));
+    assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "ask");
     // removing it by Write asks too
     let write = json!({"tool_name": "Write", "tool_input": {"file_path": file, "content": "\n"}});
     assert!(
