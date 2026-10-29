@@ -19,7 +19,7 @@ use forge_render::changes::{
 };
 use forge_render::lock::{CLAUDE_CODE_MIN, Lock, LockBlock};
 use forge_render::plan::{Plan, PlanInput, plan};
-use forge_render::report::{NoProbe, ToolProbe};
+use forge_render::report::ToolProbe;
 
 pub use io::Error;
 
@@ -88,7 +88,8 @@ pub enum ProjectCommand {
 }
 
 pub fn run(cmd: ProjectCommand) -> ExitCode {
-    let probe = NoProbe;
+    // what the machine's tools can do, as the checker sees them (machine state: for the person)
+    let probe = forge_check::probe::CheckerProbe::new(crate::check::probe_tools(false));
     let r = match cmd {
         ProjectCommand::Init { flags } => apply::init(&flags, &probe),
         ProjectCommand::Apply { flags } => apply::apply(&flags, &probe),
@@ -205,11 +206,18 @@ pub fn context(flags: &Flags) -> Result<Ctx, Error> {
     .map_err(fail)?;
     let lock = read_lock(&base, level, &p.lock_path).map_err(fail)?;
     let migration = detect_migration(&base, level).map_err(fail)?;
-    let prev = match (&lock, &migration) {
+    let mut prev = match (&lock, &migration) {
         (Some(l), _) => Previous::from(l),
         (None, Some(m)) => m.previous.clone(),
         (None, None) => Previous::default(),
     };
+    // the lock pins this Forge's tools (`[tools]`): what apply provisions
+    if level == Level::Project {
+        prev.tools = forge_tools::lock_pins()
+            .into_iter()
+            .map(|(k, v)| (k, toml::Value::String(v)))
+            .collect();
+    }
     keep_pre_commit_hook(&mut p, &prev);
     let blocks = prev.blocks.clone();
     Ok(Ctx {
@@ -264,6 +272,23 @@ pub fn claude_gate() -> Result<(), Error> {
             v.as_deref().unwrap_or("(unknown version)")
         ))),
     }
+}
+
+/// The tool pins of the lock on disk that differ from this Forge's: `(tool, locked, ours)`
+/// (an empty side: not pinned there).
+pub fn pin_differences(ctx: &Ctx) -> Vec<(String, String, String)> {
+    let Some(lock) = &ctx.lock else {
+        return Vec::new();
+    };
+    if ctx.level != Level::Project {
+        return Vec::new();
+    }
+    let locked: std::collections::BTreeMap<String, String> = lock
+        .tools
+        .iter()
+        .map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), str::to_owned)))
+        .collect();
+    forge_tools::pin_differences(&locked)
 }
 
 /// The person's notes: what the launcher left for this repository, and the probe's.

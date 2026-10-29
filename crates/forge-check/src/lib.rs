@@ -11,8 +11,12 @@
 //! - [`adapters`]: the tool adapters as data (`adapters/<tool>.yaml`);
 //! - [`builtins`]: what `forge internal <name>` dispatches (the `forge_*` functions of check
 //!   commands), with a [`builtins::Registry`] other crates add domain builtins and helpers to;
-//! - [`tools`]: where a tool is ([`tools::ToolResolver`]);
-//! - [`select`]: which rules apply, until forge-detect's selection replaces it.
+//! - [`tools`]: where a tool is (forge-core's [`tools::ToolResolver`], answered by
+//!   [`tools::LocalTools`] and, for Forge's pinned tools, forge-tools' cache);
+//! - [`select`]: which rules apply: forge-detect's facts and placement, forge-render's plan;
+//! - [`engine`]: the types engine (forge-engine's daemon) as the [`astgrep::TypeOracle`];
+//! - [`probe`]: what the machine's tools can do, for the person (forge-render's
+//!   [`forge_render::report::ToolProbe`]).
 //!
 //! Everything a run says is a [`forge_core::Finding`] (the agent's) or a [`forge_core::Note`]
 //! (the person's); Forge's own failures are notes and never fail a check.
@@ -24,8 +28,10 @@ pub mod builtins;
 pub mod change;
 pub mod checker;
 pub mod diagnostics;
+pub mod engine;
 pub mod grep;
 pub mod output;
+pub mod probe;
 pub mod scope;
 pub mod select;
 pub mod shell;

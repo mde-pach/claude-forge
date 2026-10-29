@@ -10,6 +10,7 @@
 
 pub mod builtin;
 pub mod internals;
+pub mod tools;
 
 use std::fmt;
 

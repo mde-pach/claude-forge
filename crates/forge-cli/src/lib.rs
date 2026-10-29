@@ -7,9 +7,9 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
-mod check;
+pub mod check;
 pub mod project;
-mod provisioning;
+pub mod provisioning;
 
 #[derive(Parser)]
 #[command(
@@ -36,11 +36,27 @@ enum Command {
     /// Runs a builtin of a check command (`forge_<name>`).
     #[command(hide = true)]
     Internal(check::InternalArgs),
+    /// The types engine (internal).
+    #[command(hide = true)]
+    Engine {
+        #[command(subcommand)]
+        command: EngineCommand,
+    },
     /// Runs a Claude Code hook (not implemented yet).
     #[command(hide = true)]
     Hook {
         /// The hook event (PreToolUse, PostToolUse, Stop, ...).
         event: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum EngineCommand {
+    /// Runs the daemon of one repository (started detached by `forge check` and the hooks).
+    Serve {
+        /// Its configuration, as JSON.
+        #[arg(long)]
+        config: String,
     },
 }
 
@@ -85,7 +101,7 @@ pub fn main() -> ExitCode {
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
     // its notes are recorded for `forge status`. A builtin of a check command is run by the binary
     // that runs the check: no launch.
-    if std::env::args().nth(1).as_deref() != Some("internal") {
+    if !matches!(std::env::args().nth(1).as_deref(), Some("internal" | "engine")) {
         let _notes =
             forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher());
     }
@@ -93,6 +109,9 @@ pub fn main() -> ExitCode {
     let cli = match cli.command {
         Command::Check(args) => return check::run(args),
         Command::Internal(args) => return check::internal(args),
+        Command::Engine {
+            command: EngineCommand::Serve { config },
+        } => return check::engine_serve(&config),
         command => Cli { command },
     };
     let result = match cli.command {
@@ -125,7 +144,9 @@ pub fn main() -> ExitCode {
         }),
         Command::Hook { .. } => Err("forge hook: not implemented yet".into()),
         Command::Project(c) => Ok(project::run(c)),
-        Command::Check(_) | Command::Internal(_) => unreachable!("handled above"),
+        Command::Check(_) | Command::Internal(_) | Command::Engine { .. } => {
+            unreachable!("handled above")
+        }
     };
     result.unwrap_or_else(|e| {
         eprintln!("forge: {e}");

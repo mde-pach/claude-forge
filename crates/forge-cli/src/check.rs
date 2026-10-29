@@ -4,10 +4,15 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use clap::Args;
 use forge_check::builtins::Registry;
+use forge_check::tools::ToolResolver;
 use forge_check::{Checker, Mode, Options, checker::ActiveRule};
+use forge_core::Note;
+
+use crate::provisioning;
 
 #[derive(Args, Debug)]
 #[command(group = clap::ArgGroup::new("mode").multiple(false))]
@@ -41,14 +46,43 @@ pub struct InternalArgs {
     args: Vec<String>,
 }
 
-/// The builtins `forge internal` runs: the checker's, and (as they land) the domain builtins
-/// and helpers of other crates.
+/// How the helpers that ask package registries behave: answers cached in Forge's cache.
+fn helper_options() -> forge_helpers::Options {
+    forge_helpers::Options {
+        cache_dir: forge_home::Home::from_env()
+            .ok()
+            .map(|h| h.cache_root().join("registry")),
+        ..forge_helpers::Options::default()
+    }
+}
+
+/// The builtins `forge internal` runs: the checker's machinery, the helpers (forge-helpers:
+/// `forge_helper <runtime> <file>`, `forge_ratchet <runtime> <file>`), and the domain
+/// builtins. A crate of builtins is one line here.
+pub fn default_registry() -> Registry {
+    let mut r = Registry::new();
+    for b in forge_helpers::builtins(&helper_options()) {
+        r.register_helper(b);
+    }
+    // the domain builtins, as their crates land:
+    // for b in forge_builtins_data::builtins(&opts) { r.register(b); }
+    // for b in forge_builtins_infra::builtins(&opts) { r.register(b); }
+    // for b in forge_builtins_code::builtins(&opts) { r.register(b); }
+    r
+}
+
+/// The same as [`default_registry`] (the name the hooks used first).
 pub fn registry() -> Registry {
-    Registry::new()
+    default_registry()
 }
 
 pub fn internal(args: InternalArgs) -> ExitCode {
-    let code = forge_check::builtins::internal_main(&registry(), &args.name, args.args);
+    let code = forge_check::builtins::internal_main(
+        &default_registry(),
+        &args.name,
+        args.args,
+        provisioning::builtin_tools(),
+    );
     ExitCode::from(code.clamp(0, 255) as u8)
 }
 
@@ -63,8 +97,10 @@ fn repo_root() -> Result<PathBuf, String> {
     Ok(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
 }
 
-/// The checker for a repository: its packs, local rules, forge.yaml.
-pub fn checker_for(root: &Path, only: Option<&str>) -> Result<Checker, String> {
+/// The checker for a repository: the rules `forge apply` selects there (its packs, local rules,
+/// forge.yaml), the file roles, and where tools are. `download`: a missing pinned tool may be
+/// installed (`forge check`, Stop; not after an edit). No types engine: see [`with_engine`].
+pub fn checker_with(root: &Path, only: Option<&str>, download: bool) -> Result<Checker, String> {
     let cache = forge_home::Home::from_env().ok().map(|h| h.packs_dir());
     let set = forge_packs::load(
         Some(root),
@@ -74,6 +110,7 @@ pub fn checker_for(root: &Path, only: Option<&str>) -> Result<Checker, String> {
     )
     .map_err(|e| e.to_string())?;
     let config = forge_packs::load_project_config(root).map_err(|e| e.to_string())?;
+    let selection = forge_check::select::project(root, &set, config.as_ref())?;
     let rules: Vec<ActiveRule> = match only {
         Some(ids) => {
             let want: Vec<&str> = ids.split(',').map(str::trim).collect();
@@ -86,12 +123,58 @@ pub fn checker_for(root: &Path, only: Option<&str>) -> Result<Checker, String> {
                 .map(ActiveRule::new)
                 .collect()
         }
-        None => forge_check::select::active_rules(root, &set, config.as_ref()),
+        None => selection.rules,
     };
     let mut c = Checker::new(root.to_path_buf(), rules);
-    c.roles = forge_check::scope::Roles::with_config(config.as_ref());
+    c.roles = selection.roles;
     c.accept = config.and_then(|c| c.accept).unwrap_or_default();
+    c.tools = provisioning::tools(download);
     Ok(c)
+}
+
+/// The checker as `forge check` runs it (downloads allowed).
+pub fn checker_for(root: &Path, only: Option<&str>) -> Result<Checker, String> {
+    checker_with(root, only, true)
+}
+
+/// Gives the checker the types engine: started when none runs (`start`: `forge check`, Stop),
+/// else only the daemon already running (after an edit). What could not be set up is notes.
+pub fn with_engine(checker: &mut Checker, exe: &Path, start: bool) -> Vec<Note> {
+    if start {
+        let (oracle, notes) = forge_check::engine::start(
+            &checker.root,
+            &checker.rules,
+            checker.tools.as_ref(),
+            !provisioning::downloads_off(),
+            exe,
+            env!("CARGO_PKG_VERSION"),
+        );
+        checker.types = oracle.map(|o| Arc::new(o) as Arc<dyn forge_check::astgrep::TypeOracle>);
+        notes
+    } else {
+        checker.types = forge_check::engine::running(&checker.root)
+            .map(|o| Arc::new(o) as Arc<dyn forge_check::astgrep::TypeOracle>);
+        Vec::new()
+    }
+}
+
+/// `forge engine serve --config <json>`: the types engine daemon (started detached).
+pub fn engine_serve(config: &str) -> ExitCode {
+    match serde_json::from_str::<forge_engine::EngineConfig>(config)
+        .map_err(|e| e.to_string())
+        .and_then(forge_engine::serve)
+    {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("forge engine: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// The tools as `forge status` and `forge apply` ask them.
+pub fn probe_tools(download: bool) -> Arc<dyn ToolResolver> {
+    provisioning::tools(download)
 }
 
 pub fn run(args: CheckArgs) -> ExitCode {
@@ -105,11 +188,14 @@ pub fn run(args: CheckArgs) -> ExitCode {
         Mode::All
     };
     let result = repo_root().and_then(|root| {
-        let checker = checker_for(&root, args.rules.as_deref())?;
+        let mut checker = checker_for(&root, args.rules.as_deref())?;
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        checker
+        let notes = with_engine(&mut checker, &exe, true);
+        let mut o = checker
             .check(mode, &Options::stop(exe))
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        o.report.notes.extend(notes);
+        Ok(o)
     });
     match result {
         Ok(o) => {

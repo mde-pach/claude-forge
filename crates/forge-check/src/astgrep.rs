@@ -254,14 +254,10 @@ pub fn example_matches(c: &Compiled, code: &str) -> bool {
 
 /// Answers a rule's `where` conditions (§15.1) on its matches: the types engine.
 pub trait TypeOracle: Send + Sync {
-    /// For each match, whether the conditions hold; `Err` (with why, for the person) when the
-    /// engine cannot answer.
-    fn confirm(
-        &self,
-        root: &Path,
-        rule: &Compiled,
-        matches: &[AstMatch],
-    ) -> Result<Vec<bool>, String>;
+    /// For each match, whether the conditions hold (a match it cannot confirm does not stand),
+    /// and the notes for the person: what it could not check, and why.
+    fn confirm(&self, root: &Path, rule: &Compiled, matches: &[AstMatch])
+    -> (Vec<bool>, Vec<forge_core::Note>);
 }
 
 #[cfg(test)]

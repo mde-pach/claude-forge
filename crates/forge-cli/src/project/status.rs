@@ -11,7 +11,10 @@ use serde::Serialize;
 use serde_json::json;
 
 use super::io::Error;
-use super::{Ctx, FORGE_VERSION, Flags, base_of, context, load_packs, person_notes, precommit};
+use super::{
+    Ctx, FORGE_VERSION, Flags, base_of, context, load_packs, person_notes, pin_differences,
+    precommit,
+};
 
 #[derive(Debug, Serialize)]
 struct RoleFiles {
@@ -150,6 +153,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
         ));
     }
     let pre = (ctx.level == Level::Project).then(|| precommit::state(&ctx));
+    let pins = pin_differences(&ctx);
     if json_out {
         let enforced = rules.iter().filter(|r| r.enforced).count();
         let v = json!({
@@ -168,6 +172,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             "audits": audits,
             "missing_tools": missing,
             "tool_versions": versions,
+            "tool_pins": pins.iter().map(|(t, l, o)| json!({"tool": t, "locked": l, "forge": o})).collect::<Vec<_>>(),
             "pre_commit": pre,
             "drift": drift,
             "files": role_files(&ctx),
@@ -284,6 +289,23 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             println!("Tool versions:");
             for v in &versions {
                 println!("  {v}");
+            }
+        }
+        if ctx.lock.is_some() {
+            if pins.is_empty() {
+                println!("Tool pins: as this Forge pins them");
+            } else {
+                println!("Tool pins (forge.lock, then this Forge's; forge apply rewrites them):");
+                for (t, locked, ours) in &pins {
+                    let side = |v: &str| {
+                        if v.is_empty() {
+                            "not pinned".to_string()
+                        } else {
+                            v.to_string()
+                        }
+                    };
+                    println!("  {t}: {} -> {}", side(locked), side(ours));
+                }
             }
         }
         println!();

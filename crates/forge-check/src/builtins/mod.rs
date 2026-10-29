@@ -27,7 +27,7 @@ use forge_packs::model::Rule;
 
 use crate::change::Added;
 use crate::scope::{Roles, RuleScope};
-use crate::tools::{LocalTools, ToolResolver};
+use crate::tools::ToolResolver;
 
 /// The check's files: its in-scope changed files, newline-separated (also `$FORGE_FILES` in
 /// the command).
@@ -275,17 +275,29 @@ impl Registry {
         self.builtins.insert(b.name(), b);
     }
 
-    /// An engine helper, by its script name (`ratchet.py`, `new_deps.mjs`).
-    pub fn register_helper(&mut self, script: &str, b: Box<dyn Builtin + Send>) {
-        self.helpers.insert(script.to_string(), b);
+    /// An engine helper (forge-helpers' builtins), by its name: the stem of the script packs
+    /// name (`forge_helper python ratchet.py` runs the helper `ratchet`).
+    pub fn register_helper(&mut self, b: Box<dyn Builtin + Send>) {
+        self.helpers.insert(b.name().to_string(), b);
     }
 
     pub fn has(&self, name: &str) -> bool {
         self.raw.contains_key(name) || self.builtins.contains_key(name)
     }
 
+    /// The helper a pack's script name stands for (`ratchet.py`, `new_deps.mjs`, `ratchet`).
     pub fn helper(&self, script: &str) -> Option<&(dyn Builtin + Send)> {
-        self.helpers.get(script).map(|b| b.as_ref())
+        let stem = script.rsplit('/').next().unwrap_or(script);
+        let stem = stem
+            .strip_suffix(".py")
+            .or_else(|| stem.strip_suffix(".mjs"))
+            .unwrap_or(stem);
+        self.helpers.get(stem).map(|b| b.as_ref())
+    }
+
+    /// The helpers it has, by name.
+    pub fn helper_names(&self) -> Vec<&str> {
+        self.helpers.keys().map(String::as_str).collect()
     }
 
     /// The names it implements.
@@ -347,9 +359,14 @@ pub fn finish(inv: &Invocation<'_>, mut report: Report, out: &mut dyn Write) -> 
     0
 }
 
-/// `forge internal <name> [args…]`: the entry point of a builtin process.
-pub fn internal_main(registry: &Registry, name: &str, args: Vec<String>) -> i32 {
-    let tools: Arc<dyn ToolResolver> = Arc::new(LocalTools::default());
+/// `forge internal <name> [args…]`: the entry point of a builtin process; `tools` answers
+/// where its tools are (see [`crate::tools::ENV_DOWNLOAD`] for whether it may download).
+pub fn internal_main(
+    registry: &Registry,
+    name: &str,
+    args: Vec<String>,
+    tools: Arc<dyn ToolResolver>,
+) -> i32 {
     let inv = Invocation::from_env(registry, args, tools);
     let stdout = std::io::stdout();
     let stderr = std::io::stderr();

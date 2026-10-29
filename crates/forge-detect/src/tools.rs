@@ -94,16 +94,27 @@ pub fn tools_in_command(cmd: &str) -> Vec<&'static str> {
 /// The tools a check target runs: named in its commands, or run by the builtins it calls.
 pub fn check_tools(t: &CheckTarget) -> Vec<&'static str> {
     let commands: Vec<&str> = t.commands().collect();
+    tools_of_commands(&commands)
+}
+
+/// The tools shell commands run: named as commands, in order of first use, then those the
+/// builtins they call run. The one list of the checker, the planner and the person's report.
+pub fn tools_of_commands(commands: &[&str]) -> Vec<&'static str> {
     let mut out: Vec<&'static str> = Vec::new();
-    for c in &commands {
+    for c in commands {
         for tool in tools_in_command(c) {
             if !out.contains(&tool) {
                 out.push(tool);
             }
         }
     }
-    for (re, tool) in HELPER_TOOLS {
-        let re = Regex::new(re).expect("helper regex");
+    static HELPERS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+        HELPER_TOOLS
+            .iter()
+            .map(|(re, tool)| (Regex::new(re).expect("helper regex"), *tool))
+            .collect()
+    });
+    for (re, tool) in HELPERS.iter() {
         if commands.iter().any(|c| re.is_match(c).unwrap_or(false)) && !out.contains(tool) {
             out.push(tool);
         }

@@ -13,7 +13,7 @@ use common::{Route, Server, leak, names, sha256, tar_gz, zip};
 use forge_core::NoteKind;
 use forge_home::Home;
 use forge_tools::catalog::{Asset, Catalog, Source, ToolSpec};
-use forge_tools::{Http, Platform, Provisioner, ToolResolver};
+use forge_tools::{Http, Platform, Provisioner};
 
 const SCRIPT: &[u8] = b"#!/bin/sh\necho hi \"$@\"\n";
 
