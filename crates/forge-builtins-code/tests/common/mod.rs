@@ -206,3 +206,130 @@ pub fn words(s: &str) -> Vec<String> {
     }
     out
 }
+
+/// The tools on PATH, then Forge's cache (installing when `FORGE_TEST_INSTALL_TOOLS=1`).
+pub struct TestTools(forge_builtins_code::Provisioned<forge_tools::Provisioner>);
+
+impl forge_builtins_code::PinnedTools for TestTools {
+    fn pinned(&self, name: &str) -> Result<PathBuf, forge_core::Note> {
+        forge_builtins_code::OnPath::default()
+            .pinned(name)
+            .or_else(|_| self.0.pinned(name))
+    }
+}
+
+pub fn options() -> forge_builtins_code::Options {
+    let home = forge_home::Home::from_env().expect("home");
+    forge_builtins_code::Options {
+        tools: std::sync::Arc::new(TestTools(forge_builtins_code::Provisioned {
+            resolver: forge_tools::Provisioner::new(home),
+            install: std::env::var("FORGE_TEST_INSTALL_TOOLS").is_ok_and(|v| v == "1"),
+        })),
+        ..forge_builtins_code::Options::default()
+    }
+}
+
+/// One builtin call on one fixture.
+#[derive(Debug, Clone)]
+pub struct Case {
+    pub label: String,
+    pub rule: Rule,
+    pub name: String,
+    pub args: Vec<String>,
+    /// Run under `forge_advise`: no attribution to added lines.
+    pub advised: bool,
+    /// Some(true): must find something; Some(false): must find nothing.
+    pub want: Option<bool>,
+    pub head: BTreeMap<String, String>,
+    pub files: BTreeMap<String, String>,
+}
+
+impl Case {
+    pub fn repo(&self) -> Repo {
+        Repo::new(&self.head, &self.files)
+    }
+}
+
+/// The builtin call of a rule's check: name, arguments, whether advice wraps it.
+pub fn call_of(rule: &Rule, names: &[&str]) -> Option<(String, Vec<String>, bool)> {
+    let call = regex::Regex::new(r"forge_([a-z_]+)").unwrap();
+    rule.enforce.iter().find_map(|t| {
+        let forge_packs::model::Target::Check(c) = t else {
+            return None;
+        };
+        c.commands().find_map(|cmd| {
+            call.find_iter(cmd).find_map(|m| {
+                let n = &cmd[m.start() + 6..m.end()];
+                names.contains(&n).then(|| {
+                    (
+                        n.to_string(),
+                        words(&cmd[m.end()..]),
+                        cmd[..m.start()].contains("forge_advise"),
+                    )
+                })
+            })
+        })
+    })
+}
+
+/// The rules calling one of `names`, and a case per fixture example of theirs.
+pub fn pack_cases(names: &[&str]) -> (Vec<Rule>, Vec<Case>) {
+    let set = forge_packs::load_builtin(forge_packs::Options::default()).expect("packs");
+    let mut rules = vec![];
+    let mut out = vec![];
+    for rule in set.packs.values().flat_map(|p| p.rules.iter()) {
+        let Some((name, args, advised)) = call_of(rule, names) else {
+            continue;
+        };
+        rules.push(rule.clone());
+        let Some(ex) = &rule.examples else { continue };
+        for (want, list) in [(true, &ex.match_), (false, &ex.no_match)] {
+            for (i, e) in list.iter().flatten().enumerate() {
+                let forge_packs::model::Example::Fixture(f) = e else {
+                    continue;
+                };
+                out.push(Case {
+                    label: format!(
+                        "{} {}[{i}]",
+                        rule.id,
+                        if want { "match" } else { "no_match" }
+                    ),
+                    rule: rule.clone(),
+                    name: name.clone(),
+                    args: args.clone(),
+                    advised,
+                    want: Some(want),
+                    head: f.head.clone().unwrap_or_default().into_iter().collect(),
+                    files: f.files.clone().into_iter().collect(),
+                });
+            }
+        }
+    }
+    (rules, out)
+}
+
+/// What the Rust builtin reports on a case: the lines that count, the notes.
+pub fn run_port(
+    opts: &forge_builtins_code::Options,
+    case: &Case,
+    repo: &Repo,
+) -> (Vec<String>, Vec<forge_core::Note>) {
+    let ctx = repo.ctx(&case.rule.id);
+    let x = repo.extra(&case.rule);
+    let report = forge_builtins_code::run(opts, &case.name, &ctx, &x, &case.args).expect("builtin");
+    let lines: Vec<String> = report.findings.iter().map(|f| f.agent_text()).collect();
+    let counted = if case.advised {
+        lines
+    } else {
+        attribute(&lines, repo)
+    };
+    (counted, report.notes)
+}
+
+/// Whether a note says the builtin could not do its work (a tool it lacks, a tool that failed).
+pub fn not_run(notes: &[forge_core::Note]) -> Option<&forge_core::Note> {
+    use forge_core::NoteKind;
+    notes
+        .iter()
+        .find(|n| matches!(n.kind, NoteKind::MissingTool | NoteKind::ForgeFailure))
+}

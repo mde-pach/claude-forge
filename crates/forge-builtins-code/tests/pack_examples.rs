@@ -8,116 +8,57 @@
 
 mod common;
 
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use common::{Repo, attribute, words};
-use forge_builtins_code::{Options, PinnedTools, Provisioned, code_builtins};
-use forge_core::{Note, NoteKind};
-use forge_packs::model::{Example, Target};
-
-/// The tools on PATH, then Forge's cache (installing when asked).
-struct TestTools(Provisioned<forge_tools::Provisioner>);
-
-impl PinnedTools for TestTools {
-    fn pinned(&self, name: &str) -> Result<PathBuf, Note> {
-        forge_builtins_code::OnPath::default()
-            .pinned(name)
-            .or_else(|_| self.0.pinned(name))
-    }
-}
-
-pub fn options() -> Options {
-    let home = forge_home::Home::from_env().expect("home");
-    Options {
-        tools: Arc::new(TestTools(Provisioned {
-            resolver: forge_tools::Provisioner::new(home),
-            install: std::env::var("FORGE_TEST_INSTALL_TOOLS").is_ok_and(|v| v == "1"),
-        })),
-        ..Options::default()
-    }
-}
+use common::{not_run, options, pack_cases, run_port};
+use forge_builtins_code::code_builtins;
 
 #[test]
 fn pack_examples_hold() {
     let opts = options();
     let names: Vec<&str> = code_builtins(&opts).iter().map(|b| b.name()).collect();
-    let set = forge_packs::load_builtin(forge_packs::Options::default()).expect("packs");
-    let (mut rules, mut ran, mut not_run) = (0, 0, vec![]);
-    let mut failures = vec![];
-    let call = regex::Regex::new(r"forge_([a-z_]+)").unwrap();
-    for rule in set.packs.values().flat_map(|p| p.rules.iter()) {
-        for t in &rule.enforce {
-            let Target::Check(c) = t else { continue };
-            // the call of one of this crate's builtins, and whether advice wraps it
-            let Some((name, args, advised)) = c.commands().find_map(|cmd| {
-                call.find_iter(cmd).find_map(|m| {
-                    let n = &cmd[m.start() + 6..m.end()];
-                    names.contains(&n).then(|| {
-                        let w = words(&cmd[m.end()..]);
-                        let advised = cmd[..m.start()].contains("forge_advise");
-                        (n.to_string(), w, advised)
-                    })
-                })
-            }) else {
-                continue;
-            };
-            rules += 1;
-            let Some(ex) = &rule.examples else {
-                failures.push(format!("{}: no examples", rule.id));
-                continue;
-            };
-            for (want, list) in [(true, &ex.match_), (false, &ex.no_match)] {
-                for (i, e) in list.iter().flatten().enumerate() {
-                    let Example::Fixture(f) = e else { continue };
-                    let head = f.head.clone().unwrap_or_default().into_iter().collect();
-                    let files = f.files.clone().into_iter().collect();
-                    let repo = Repo::new(&head, &files);
-                    let ctx = repo.ctx(&rule.id);
-                    let x = repo.extra(rule);
-                    let report =
-                        forge_builtins_code::run(&opts, &name, &ctx, &x, &args).expect("builtin");
-                    let label = format!(
-                        "{} {}[{i}]",
-                        rule.id,
-                        if want { "match" } else { "no_match" }
-                    );
-                    if report.notes.iter().any(|n| {
-                        n.kind == NoteKind::MissingTool || n.kind == NoteKind::ForgeFailure
-                    }) {
-                        not_run.push(format!("{label}: {}", report.notes[0].text));
-                        continue;
-                    }
-                    ran += 1;
-                    let lines: Vec<String> =
-                        report.findings.iter().map(|f| f.agent_text()).collect();
-                    for l in &lines {
-                        assert!(
-                            forge_core::internals::find(l).is_empty(),
-                            "{label}: internals in {l:?}"
-                        );
-                    }
-                    let counted = if advised {
-                        lines.clone()
-                    } else {
-                        attribute(&lines, &repo)
-                    };
-                    if counted.is_empty() == want {
-                        failures.push(format!(
-                            "{label}: {} (findings {lines:?}, notes {:?})",
-                            if want { "nothing found" } else { "found" },
-                            report.notes
-                        ));
-                    }
+    let (rules, cases) = pack_cases(&names);
+    let (mut ran, mut skipped, mut failures) = (0, vec![], vec![]);
+    for r in &rules {
+        if r.examples.is_none() {
+            failures.push(format!("{}: no examples", r.id));
+        }
+    }
+    for case in &cases {
+        let repo = case.repo();
+        let (lines, notes) = run_port(&opts, case, &repo);
+        if let Some(n) = not_run(&notes) {
+            skipped.push(format!("{}: {}", case.label, n.text));
+            continue;
+        }
+        ran += 1;
+        for l in &lines {
+            assert!(
+                forge_core::internals::find(l).is_empty(),
+                "{}: internals in {l:?}",
+                case.label
+            );
+        }
+        if case.want == Some(lines.is_empty()) {
+            failures.push(format!(
+                "{}: {} (findings {lines:?}, notes {notes:?})",
+                case.label,
+                if lines.is_empty() {
+                    "nothing found"
+                } else {
+                    "found"
                 }
-            }
+            ));
         }
     }
     eprintln!(
-        "{rules} rules, {ran} examples run, {} not run:\n  {}",
-        not_run.len(),
-        not_run.join("\n  ")
+        "{} rules, {ran} examples run, {} not run:\n  {}",
+        rules.len(),
+        skipped.len(),
+        skipped.join("\n  ")
     );
-    assert!(rules >= 13, "{rules} rules use this crate's builtins");
+    assert!(
+        rules.len() >= 13,
+        "{} rules use this crate's builtins",
+        rules.len()
+    );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

@@ -426,10 +426,8 @@ impl CodeBuiltin for Editorconfig {
         );
         for l in text.lines() {
             if let Some(c) = GCC.captures(l) {
-                r.findings.push(
-                    Finding::error(&ctx.rule, format!("{}: {}", &c[3], &c[4]))
-                        .at(&c[1], c[2].parse::<u32>().ok()),
-                );
+                r.findings
+                    .push(Finding::error(&ctx.rule, &c[4]).at(&c[1], c[2].parse::<u32>().ok()));
             }
         }
         r

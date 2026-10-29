@@ -92,8 +92,9 @@ impl CodeBuiltin for ModelIds {
     }
 
     fn run_with(&self, ctx: &BuiltinCtx, x: &Extra, args: &[String]) -> Report {
+        // quotes of code: a JavaScript template literal is one (Markdown files are left out)
         static QUOTED: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r#"["'][A-Za-z0-9._:/@-]+["']"#).expect("regex"));
+            LazyLock::new(|| Regex::new(r#"["'`][A-Za-z0-9._:/@-]+["'`]"#).expect("regex"));
         static PREFIX: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"^(anthropic|openai)[:/]").expect("regex"));
         static DATED: LazyLock<Regex> = LazyLock::new(|| {
