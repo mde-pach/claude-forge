@@ -1,0 +1,31 @@
+#!/bin/sh
+# Fake actionlint 1.7.12 for the pack examples: the errors they exercise, in the format Forge
+# asks for ("path:line:column: kind: message", messages captured from the real binary); exit 1
+# with errors, 3 for a config file it cannot read.
+cfg=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    -format) shift 2 ;;
+    -config-file) cfg=$2; shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+[ -f "$cfg" ] || { echo "could not read config file \"$cfg\": open $cfg: no such file or directory"; exit 3; }
+labels=$(sed -n 's/^    - //p' "$cfg")
+rc=0
+for f in "$@"; do
+  out=$(awk -v f="$f" -v labels=" $(echo $labels) " '
+    /fetch-dept:/ { print f ":" NR ":11: action: input \"fetch-dept\" is not defined in action \"actions/checkout@v4\". available inputs are \"clean\", \"fetch-depth\", \"fetch-tags\"" }
+    /::set-output/ { print f ":" NR ":14: deprecated-commands: workflow command \"set-output\" was deprecated. use `echo \"{name}={value}\" >> $GITHUB_OUTPUT` instead: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions" }
+    /cron: .0 25/ { print f ":" NR ":13: events: invalid CRON format \"0 25 * * *\" in schedule event: end of range (25) above maximum (23): 25" }
+    /^  [a-z][a-z0-9_-]*:/ { j = $1; sub(/:$/, "", j); jobs[j] = 1; cur = j; curl = NR }
+    /needs: \[/ { n = $0; sub(/^.*\[/, "", n); sub(/\].*$/, "", n); need[cur] = n; needl[cur] = curl }
+    /runs-on: \[self-hosted, / { l = $0; sub(/^.*self-hosted, /, "", l); sub(/\].*$/, "", l); if (index(labels, " " l " ") == 0) print f ":" NR ":28: runner-label: label \"" l "\" is unknown. available labels are \"ubuntu-latest\", \"self-hosted\". if it is a custom label for self-hosted runner, set list of labels in actionlint.yaml config file" }
+    END { for (j in need) if (!(need[j] in jobs)) print f ":" needl[j] ":3: job-needs: job \"" j "\" needs job \"" need[j] "\" which does not exist in this workflow" }
+  ' "$f")
+  [ -n "$out" ] || continue
+  printf '%s\n' "$out"
+  rc=1
+done
+exit "$rc"
