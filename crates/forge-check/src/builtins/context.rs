@@ -9,8 +9,8 @@ use forge_core::builtin::{BuiltinCtx, Scope};
 use forge_packs::model::Rule;
 
 use super::{
-    ENV_ADDED, ENV_ADVISED, ENV_CHECK_RULE, ENV_CHECKS, ENV_FILES, ENV_MODE, ENV_ROLES,
-    ENV_SNAPSHOT, ENV_TMP, ENV_WS_ROOT,
+    ENV_ADDED, ENV_ADVISED, ENV_ATTRIBUTED, ENV_CHECK_RULE, ENV_CHECKS, ENV_FILES, ENV_MODE,
+    ENV_ROLES, ENV_SNAPSHOT, ENV_TMP, ENV_WS_ROOT,
 };
 use crate::change::Added;
 use crate::scope::{Roles, RuleScope, is_excluded};
@@ -68,6 +68,8 @@ pub struct CheckCtx {
     pub snapshot: Option<PathBuf>,
     /// The file whose creation marks the check's failure as advice.
     pub advised: Option<PathBuf>,
+    /// The file whose creation tells the checker the findings are already the change's own.
+    pub attributed: Option<PathBuf>,
     /// Every file role's effective patterns.
     pub roles: Roles,
     /// The added lines of the change, by file.
@@ -91,6 +93,7 @@ impl Default for CheckCtx {
             mode: RunMode::All,
             snapshot: None,
             advised: None,
+            attributed: None,
             roles: Roles::defaults(),
             added: BTreeMap::new(),
             check: None,
@@ -116,6 +119,7 @@ impl CheckCtx {
             mode: RunMode::parse(&std::env::var(ENV_MODE).unwrap_or_default()),
             snapshot: var(ENV_SNAPSHOT),
             advised: var(ENV_ADVISED),
+            attributed: var(ENV_ATTRIBUTED),
             roles: read(ENV_ROLES)
                 .and_then(|t| serde_json::from_str::<BTreeMap<String, Vec<String>>>(&t).ok())
                 .map(Roles::from_map)
@@ -178,6 +182,21 @@ impl CheckCtx {
             .filter(|p| !is_excluded(p) && root.join(p).is_file())
             .filter(|p| scope.as_ref().is_none_or(|s| s.matches(p)))
             .collect()
+    }
+
+    /// Marks the running check's failure as advice.
+    pub fn mark_advised(&self) {
+        if let Some(p) = &self.advised {
+            let _ = std::fs::write(p, b"");
+        }
+    }
+
+    /// Tells the checker the findings are the change's own: a builtin that compared with the
+    /// base itself, whose findings may be in files the change did not touch.
+    pub fn mark_attributed(&self) {
+        if let Some(p) = &self.attributed {
+            let _ = std::fs::write(p, b"");
+        }
     }
 
     /// Whether the file has added lines.

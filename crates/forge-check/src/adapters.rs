@@ -759,7 +759,7 @@ mod tests {
     #[test]
     fn every_adapter_loads() {
         let all = Adapter::all().unwrap();
-        assert_eq!(all.len(), 50);
+        assert_eq!(all.len(), 51);
         for a in &all {
             assert!(!a.ranges.is_empty(), "{}", a.tool);
             // oldest first, without gaps

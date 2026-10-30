@@ -46,6 +46,7 @@ These are this project's defaults. When the task or the user explicitly asks for
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
+A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
 === .claude/rules/forge-secrets.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
@@ -195,7 +196,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "b6195708e3cd800a7cfb846b9c189051a1517891c60df03becfba958d75e7958"
+rule_set = "74303b356d1cfb6386eae42da93891379740fbe118de6a3d351f3a29aa7d32d5"
 
 [rules]
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
@@ -244,6 +245,7 @@ rule_set = "b6195708e3cd800a7cfb846b9c189051a1517891c60df03becfba958d75e7958"
 "python/no-commented-out-code" = "487d2f33d65136e87513575b109b4b569117c2d674531283b5832f79d92cb101"
 "python/no-commonprefix" = "7cbe29348a97eaaf7ebf9e045bddd7ebd01b65f01f8d9aea07cb9dfcc8c885d3"
 "python/no-dangling-task" = "c09a3fd256995061f4760b21789aecc7588fdb4b3ef80458eb79a15d3ecba901"
+"python/no-dead-code" = "981da8e2d474a19c1a1959233fcc944f459b0bbfbb5eb0fa6426a114ee8f1cfb"
 "python/no-debugger" = "164e5665b19459d1d4fd670ef634ee12ed0ee35d20700ca3c3fafed08f281b7b"
 "python/no-deprecated" = "4cf9e03410696c5de2a2f099a11c58768679e9f34cc87eb6d2d74c4a64f59afd"
 "python/no-dev-server-in-image" = "bf54df0f55252d6cb4c2f445aaea0cc23fc99bc947f7b7e98125cee996e48141"
@@ -373,7 +375,7 @@ rule_set = "b6195708e3cd800a7cfb846b9c189051a1517891c60df03becfba958d75e7958"
 ".claude/rules/forge-python-sqlalchemy-asyncio.md" = "46f57b59c98499886cd59ef89044c3da47ec2a251d4fb7408554b420161e74bb"
 ".claude/rules/forge-python-sqlalchemy.md" = "6f79b515badbe12e6d4e2bfcd1d32658b5e0dccff0fb011edc46ba2fdc612cba"
 ".claude/rules/forge-python-uv.md" = "797c3c897f13b19e2590ae8a28fa31e78039d1a3123fd58a7bae7a75e76ca828"
-".claude/rules/forge-python.md" = "7f69193c7c00d8796b8f19a9cff6c0f72bd38faf7f8d38b8ca1759e7318c8c54"
+".claude/rules/forge-python.md" = "e28d36812f9ee8d75ec6268eeaff9649e9012ef1371d05cb23fda573e8dd10ea"
 ".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
 
@@ -384,6 +386,7 @@ django-migrations = ["**/migrations/[0-9]*.py"]
 dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "!**/*.dockerignore"]
 env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
 env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+gunicorn-config = ["**/gunicorn.conf.py"]
 procfile = ["Procfile", "Procfile.*"]
 python-tests = ["**/test_*.py", "**/*_test.py", "**/conftest.py"]
 
@@ -391,6 +394,7 @@ python-tests = ["**/test_*.py", "**/*_test.py", "**/conftest.py"]
 actionlint = "1.7.12"
 ast-grep = "0.45.3"
 bun = "1.4.3"
+condor = "0.2.0"
 editorconfig-checker = "4.0.2"
 gitleaks = "8.30.1"
 hadolint = "2.15.1"

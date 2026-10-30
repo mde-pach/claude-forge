@@ -18,7 +18,7 @@ pub use context::{CheckCtx, CheckRule, RunMode, parse_added, render_added};
 pub use domain::{
     AdapterTools, BuiltinTools, CheckBuiltin, NoTools, ToolOutput, ToolRun, rule_note,
 };
-pub use machinery::{ACCEPT_HINT, RATCHET_HINT, database_url, is_local_db};
+pub use machinery::{ACCEPT_HINT, RATCHET_HINT, database_url, is_local_db, not_reported};
 mod repo;
 mod tests;
 pub use tests::{Block, blocks};
@@ -40,6 +40,10 @@ pub const ENV_FILES: &str = "FORGE_FILES";
 pub const ENV_SNAPSHOT: &str = "FORGE_SNAPSHOT";
 /// A file a builtin creates when its failure is advice (§10.7), not a failing check.
 pub const ENV_ADVISED: &str = "FORGE_ADVISED";
+/// A file a builtin creates when its findings are already the change's own (it compared with
+/// the base itself): the checker takes them as they are, without attributing them to added
+/// lines or changed files (§10.4).
+pub const ENV_ATTRIBUTED: &str = "FORGE_ATTRIBUTED";
 /// A JSON file: every file role's effective patterns.
 pub const ENV_ROLES: &str = "FORGE_ROLES";
 /// A file of the added lines: `<path><TAB><line>`, `<path><TAB>*` for a new file.
@@ -109,9 +113,7 @@ impl Invocation<'_> {
 
     /// Marks the running check's failure as advice.
     pub fn mark_advised(&self) {
-        if let Some(p) = &self.advised {
-            let _ = std::fs::write(p, b"");
-        }
+        self.cx.mark_advised();
     }
 
     /// The base copy of a changed file.
@@ -262,10 +264,22 @@ pub fn finish(inv: &Invocation<'_>, mut report: Report, out: &mut dyn Write) -> 
         .findings
         .retain(|f| !inv.ctx.accepted.iter().any(|a| *a == f.agent_text()));
     inv.ctx.write_notes(&report.notes);
+    let fails = report.fails();
     for f in &report.findings {
-        let _ = writeln!(out, "{}", f.agent_text());
+        // advice alone is printed without its prefix: the checker reads the check as advice
+        // and writes the prefix itself
+        let text = if fails || f.severity != Severity::Advice {
+            f.agent_text()
+        } else {
+            forge_core::Finding {
+                severity: Severity::Error,
+                ..f.clone()
+            }
+            .agent_text()
+        };
+        let _ = writeln!(out, "{text}");
     }
-    if report.fails() {
+    if fails {
         return 1;
     }
     if report
@@ -330,6 +344,54 @@ mod registry_tests {
         assert!(
             text.contains("not-enforced") && text.contains("local/y"),
             "{text}"
+        );
+    }
+
+    /// Advice alone is printed without its prefix (the checker writes it) and marks the
+    /// check as advice; next to an error it keeps it.
+    #[test]
+    fn advice_alone_is_printed_without_its_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let advised = dir.path().join("advised");
+        let registry = Registry::new();
+        let inv = Invocation {
+            ctx: BuiltinCtx {
+                root: dir.path().to_path_buf(),
+                base: None,
+                changed: vec![],
+                rule: "local/y".into(),
+                scope: Scope::Changed,
+                accepted: vec![],
+                notes_file: None,
+            },
+            cx: CheckCtx {
+                advised: Some(advised.clone()),
+                ..CheckCtx::default()
+            },
+            args: vec![],
+            registry: &registry,
+            tools: Arc::new(crate::tools::LocalTools::default()),
+        };
+        let advice = forge_core::Finding::advice("local/y", "x is unused").at("a.py", Some(2));
+        let mut out = Vec::new();
+        let report = Report {
+            findings: vec![advice.clone()],
+            notes: vec![],
+        };
+        assert_eq!(finish(&inv, report, &mut out), 1);
+        assert_eq!(String::from_utf8(out).unwrap(), "a.py:2 x is unused\n");
+        assert!(advised.exists());
+        let mut out = Vec::new();
+        let error = forge_core::Finding::error("local/y", "y is wrong").at("a.py", Some(3));
+        let report = Report {
+            findings: vec![advice, error],
+            notes: vec![],
+        };
+        assert_eq!(finish(&inv, report, &mut out), 1);
+        assert!(
+            String::from_utf8(out)
+                .unwrap()
+                .contains("a.py:2 Advice: x is unused")
         );
     }
 }

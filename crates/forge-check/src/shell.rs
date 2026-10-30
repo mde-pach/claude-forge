@@ -30,6 +30,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "artifacts",
     "bun_cooldown",
     "chart_version",
+    "condor",
     "ci_jobs",
     "credential_files",
     "db_url",

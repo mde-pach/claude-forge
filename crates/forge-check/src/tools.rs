@@ -21,6 +21,7 @@ const UVX_PACKAGES: &[(&str, &str, &str)] = &[
     ("ty", "ty", "ty"),
     ("ast-grep", "ast-grep-cli", "ast-grep"),
     ("zizmor", "zizmor", "zizmor"),
+    ("condor", "cndr", "condor"),
     ("hadolint", "hadolint-bin", "hadolint"),
     ("squawk", "squawk-cli", "squawk"),
 ];

@@ -52,6 +52,8 @@ When it cannot run the operation, `forge_do` exits 0 and leaves a note for the p
 - `<tool> <version> is newer than the releases Forge's adapter was proven on (up to <verified>): driven as <verified>` (compared by major and minor version)
 - `<tool> <version> cannot <operation> (it needs <tool> <release> or later): <rule id> not enforced`
 
+**Builtins that run a tool.** A builtin that runs a tool itself (`forge_squawk`, `forge_condor`) asks the same adapters for the operation, so the cases above are notes for it too. `forge_condor` (`python/no-dead-code`) runs Forge's pinned condor from the tree's root, so that condor reads the project's `[tool.condor]` / `[tool.vulture]`, with Forge's excludes (environments, `node_modules`, nested worktrees, `.forge`) anchored at the tree and added to the project's, and `.` only when that config names no paths. It runs a second time on a copy of the base holding only `*.py`, `*.pyi` and `pyproject.toml`. A file condor cannot parse in one of the two runs but not the other is a note (`not checked`), since their findings cannot be compared. When the run also has the `python/lint` check and the adapters can run `ruff lint`, condor's unused imports are dropped: ruff's F401 reports them (on the added lines), and the agent reads one finding, not two. A method, and a class nested in a class's body (read from the source's indentation), is advice unless its name is private: a framework calls the methods its base classes declare and reads nested classes (`get_queryset`, Django's `class Meta`), which condor cannot see.
+
 **Codes.** The audit of a `tool` target (§11) whose expected code has a history, on a project tool older than the code's `since`, is `unavailable`: `<code> needs <tool> ≥ <since>; this project has <version>`. It prints no snippet: a code the release does not know would break the project's config. The other codes of the same tool stay enforced.
 
 ### 16.4 Adapters
@@ -76,6 +78,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [better-auth](#better-auth) | the project's own | `better-auth --version` | `1.7.14` | exit 1, a line matching `^error: (unknown option\|unknown command\|too many arguments\|option .* argument missing\|missing required argument)` |  |
 | [biome](#biome) | the project's own | `biome --version` | `2.6.3` | exit 1, a line matching `^(flags/invalid\|Error: )` |  |
 | [bun](#bun) | `PATH` | `bun --version` | `1.4.4` | exit 1, a line matching `^error: bun [a-z]+ has no .* flag` |  |
+| [condor](#condor) | Forge's pin `0.2.0` | the pin | `0.2.0` | exit 2, a line matching `^condor: error: ` |  |
 | [docker](#docker) | `PATH` | `docker compose version` | `5.6.1` | exit 1 or 16, a line matching `^unknown (shorthand )?flag: \|^invalid argument .+ flag\|^flag needs an argument` |  |
 | [editorconfig-checker](#editorconfig-checker) | Forge's pin `4.0.2` | the pin | `4.0.2` | exit 2, a line matching `^(flag provided but not defined: \|invalid (boolean )?value )` |  |
 | [eslint](#eslint) | the project's own | `eslint --version` | `10.13.0` | exit 2, a line matching `^Invalid (option .--\|value for option )` |  |
@@ -120,7 +123,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [yarn](#yarn) | `PATH` | `yarn --version` | `4.18.1` | exit 1, a line matching `(Unknown Syntax Error\|Usage Error)` |  |
 | [zizmor](#zizmor) | Forge's pin `1.30.1` | the pin | `1.30.1` | exit 2, a line matching `^For more information, try .--help.` |  |
 
-50 adapters.
+51 adapters.
 
 #### actionlint
 
@@ -192,6 +195,14 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 1.0.0 – 1.0.16: bun 1.0.0–1.0.15 binaries: bun test ./file runs 0 files, exit 0 (release notes silent; fixed in 1.0.16, bun.sh/blog/bun-v1.0.16)
 - 1.0.16 –: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.4.4 (unknown flags are errors in package-manager commands)
 - A check command runs it itself (§16.1) when it matches ``(^\|[;&\|`!{]\|\$\(\|\b(?:then\|do\|else\|exec\|time)\s)\s*bun\s+(?:install\|i\|add\|a\|remove\|rm\|update\|upgrade\|outdated\|link\|unlink\|pm\|test\|ci\|audit\|publish\|patch\|patch-commit\|why\|info)(?=$\|[\s;&\|)`])``.
+
+#### condor
+
+| Operation | 0.2.0 – |
+|---|---|
+| `dead-code` | `--format json` |
+
+- 0.2.0 –: condor 0.2.0: condor --help; https://mde-pach.github.io/condor/ (exit codes)
 
 #### docker
 
@@ -596,4 +607,4 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - §16.2: `crates/forge-check/src/adapters.rs (unit)` (`every_adapter_loads`, `ranges_and_ops`, `args_by_rank`, `versions`, `version_facts_drop_the_least_recently_used`), `crates/forge-check/tests/spec_adapters.rs::ranges_are_consecutive_and_name_every_operation`, `::caller_arguments_by_rank`.
 - §16.3: `crates/forge-check/tests/spec_adapters.rs` (`a_release_newer_than_proven_is_driven_as_the_newest_range`, `a_release_that_cannot_is_not_enforced_and_passes`, `a_usage_error_is_a_note_never_a_finding`, `an_absent_tool_is_skipped_with_a_note`), `crates/forge-cli/tests/check.rs::forge_do_drives_a_fake_tool_and_notes_what_it_cannot`. The `Tool versions` report lines: (no test of their text: `forge status` with stand-in tools is not covered here). The version facts cache: (no test).
 - §16.4: `crates/forge-check/tests/spec_adapters.rs::spec_16_tables_are_generated_from_the_adapters`.
-- Each adapter against real releases of its tool: (no test: the TypeScript Forge's opt-in release matrix was not ported; adapters are proven by the pack examples on the tools installed where the tests run, `crates/forge-cli/tests/check.rs::check_examples`).
+- Each adapter against real releases of its tool: (no test: the TypeScript Forge's opt-in release matrix was not ported; adapters are proven by the pack examples on the tools installed where the tests run, `crates/forge-cli/tests/check.rs::check_examples`). condor: `crates/forge-builtins-data/tests/dead_code.rs` runs `python/no-dead-code`'s examples on a stand-in (`tests/fake_condor.py`), and on the pinned cndr with `FORGE_REAL_CONDOR=1` (opt-in: it downloads through uvx); `::unused_imports_are_left_to_ruff_when_it_lints`; nesting and what blocks: `crates/forge-builtins-data/src/dead_code.rs` (unit).

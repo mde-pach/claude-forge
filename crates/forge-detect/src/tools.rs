@@ -49,7 +49,7 @@ pub const SYSTEM_TOOLS: &[&str] = &[
 
 /// Tools that builtins run, which their name in a command does not show.
 const HELPER_TOOLS: &[(&str, &str)] = &[
-    (r"\bforge_(zizmor|hadolint)\b", "uvx"),
+    (r"\bforge_(zizmor|hadolint|condor)\b", "uvx"),
     (
         r"\bforge_(trusted_deps|openapi_lint|lockfile_lint)\b",
         "bun",

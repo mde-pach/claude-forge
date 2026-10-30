@@ -2,7 +2,7 @@
 //! sha256: the one table `forge apply` writes into `forge.lock`'s tool pins ([`lock_pins`]).
 //!
 //! Versions follow Forge's pinning rule: the newest release older than 14 days when the pin
-//! was taken. The sha256 of each download asset was computed from the asset and checked
+//! was taken (one exception, condor, says why at its entry). The sha256 of each download asset was computed from the asset and checked
 //! against the release's own checksum file.
 //!
 //! Platform keys are `uname -s`-`uname -m` (`Darwin-arm64` on Apple silicon), with a
@@ -239,6 +239,18 @@ pub static TOOLS: &[ToolSpec] = &[
         source: Source::UvTool {
             package: "zizmor",
             binary: "zizmor",
+            binary_sha256: &[],
+        },
+    },
+    // Python dead code (PyPI `cndr`, executable `condor`). An exception to the 14-day rule:
+    // 0.2.0 was pinned days after its release, because Forge's owner publishes Condor and
+    // vouches for the release (spec §17.2).
+    ToolSpec {
+        name: "condor",
+        version: "0.2.0",
+        source: Source::UvTool {
+            package: "cndr",
+            binary: "condor",
             binary_sha256: &[],
         },
     },

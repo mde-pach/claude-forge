@@ -1020,6 +1020,15 @@ impl Checker {
             }
             return CheckResult::Advice(f);
         }
+        // a builtin that compared with the base itself: its findings are the change's, wherever
+        // they are
+        if run.files.path(&attributed_name(c.id())).exists() {
+            return CheckResult::Fail(cap(
+                diagnostics::findings_of(&out, c.id(), &self.root),
+                15,
+                c.id(),
+            ));
+        }
         let level = diagnostics::level_of(c.target.stage, whole);
         let warn = c.target.fail_on_warnings == Some(true);
         if let Some(level) = level {
@@ -1504,6 +1513,10 @@ impl Checker {
             builtins::ENV_ADVISED.into(),
             s(&run.files.path(&advised_name(c.id()))),
         );
+        env.insert(
+            builtins::ENV_ATTRIBUTED.into(),
+            s(&run.files.path(&attributed_name(c.id()))),
+        );
         env.insert(builtins::ENV_ROLES.into(), s(&run.files.path("roles.json")));
         env.insert(builtins::ENV_ADDED.into(), s(&run.files.path("added")));
         env.insert(builtins::ENV_CHECKS.into(), s(&run.files.path("checks")));
@@ -1736,6 +1749,10 @@ fn safe(id: &str) -> String {
 
 fn advised_name(id: &str) -> String {
     format!("advised.{}", safe(id))
+}
+
+fn attributed_name(id: &str) -> String {
+    format!("attributed.{}", safe(id))
 }
 
 fn rule_finding(rule: &Rule, mode: RuleMode, path: &str, line: u32) -> Finding {

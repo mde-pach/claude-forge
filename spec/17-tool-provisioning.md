@@ -19,7 +19,7 @@ Version and tool names are checked before they become path components, so a valu
 
 ### 17.2 Pins
 
-One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin is the newest release older than 14 days when it was taken. `forge apply` writes the whole table into `forge.lock`'s `[tools]`, plus `python = "3.12"`, the Python the uv-installed tools run on (uv installs it as a managed Python, so it never depends on the machine's). A tool adapter that names a `pinned` version (§16) names this table's version: a test checks they agree.
+One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin is the newest release older than 14 days when it was taken. One exception: condor (PyPI `cndr`, Python dead code) is pinned at 0.2.0 days after its release, because Forge's owner publishes Condor and vouches for that release; its catalog entry says so. `forge apply` writes the whole table into `forge.lock`'s `[tools]`, plus `python = "3.12"`, the Python the uv-installed tools run on (uv installs it as a managed Python, so it never depends on the machine's). A tool adapter that names a `pinned` version (§16) names this table's version: a test checks they agree.
 
 `forge status` compares the lock's pins with the running Forge's: `Tool pins: as this Forge pins them`, or `Tool pins (forge.lock, then this Forge's; forge apply rewrites them):` and one line per difference (`--json`: `tool_pins`).
 
@@ -30,6 +30,7 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | bun | 1.4.3 | release asset, `https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-x86_64-musl`, `Linux-aarch64`, `Linux-aarch64-musl`, `Darwin-arm64`, `Darwin-x86_64` |
 | ty | 0.0.86 | PyPI `ty`, installed by Forge's uv | the version only |
 | zizmor | 1.30.1 | PyPI `zizmor`, installed by Forge's uv | the version only |
+| condor | 0.2.0 | PyPI `cndr`, installed by Forge's uv | the version only |
 | hadolint | 2.15.1 | PyPI `hadolint-bin`, installed by Forge's uv | the upstream binary's sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | squawk | 2.70.0 | PyPI `squawk-cli`, installed by Forge's uv | the version only |
 | ast-grep | 0.45.3 | PyPI `ast-grep-cli`, installed by Forge's uv | the version only |
@@ -58,7 +59,7 @@ Platform keys are `uname -s`-`uname -m`: `Linux-x86_64`, `Linux-aarch64`, `Darwi
 Every install runs under a lock file of the tool version (`tools/<name>/.<version>.lock`), and checks again once it holds the lock, so concurrent processes download once.
 
 - **Release asset** (uv, Bun, and the release binaries in 17.2). Forge downloads the platform's asset into a temporary sibling of the tool directory and computes its sha256 while it streams. A sha256 other than the pinned one installs nothing: `The downloaded <tool> <version> (<url>) does not match its pinned sha256 <want> (got <got>), so it was not installed. The checks that use it are skipped.` Forge then extracts only the named executables (`uv` and `uvx`, `bun`, or the tool's binary) from the `.tar.gz` or `.zip` (or takes a raw binary as is) and renames the directory into place, so `tools/<name>/<version>/` exists only when complete.
-- **PyPI package** (ty, zizmor, hadolint, squawk, ast-grep). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
+- **PyPI package** (ty, zizmor, condor, hadolint, squawk, ast-grep). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
 - **npm package** (redocly, spectral, lockfile-lint). Forge first provisions its pinned Bun, writes a `package.json` with the exact version, runs `bun install --production --ignore-scripts`, and writes `<dir>/bin/<binary>`, a script that runs `bun --bun <the package's bin script>`. Forge pins the version, not the hash.
 - A PyPI or npm install counts as installed only once its `.forge-installed` marker is written, last. An install without its marker is removed and done again.
 
@@ -81,7 +82,7 @@ Downloads happen only where a person waits anyway, or in the background:
 
 With `FORGE_NO_DOWNLOAD` set to a non-empty value, Forge downloads no tool: `forge apply` notes `Forge's tools were not installed: downloads are turned off (FORGE_NO_DOWNLOAD)`. The launcher downloads no pinned Forge version either (§18.3): it runs the installed one, and the note for the person says `The download did not happen: downloads are turned off.`
 
-When a pinned tool is not in the cache and may not be downloaded, Forge runs an executable of that name on `PATH`, whatever its version; with none, the check that needs it is skipped with a note. Without a cache at all (no `HOME` and no `FORGE_HOME`), ty, ast-grep, zizmor, hadolint and squawk run through the machine's `uvx` (`uvx -q --from <package>==<version> <binary>`).
+When a pinned tool is not in the cache and may not be downloaded, Forge runs an executable of that name on `PATH`, whatever its version; with none, the check that needs it is skipped with a note. Without a cache at all (no `HOME` and no `FORGE_HOME`), ty, ast-grep, zizmor, condor, hadolint and squawk run through the machine's `uvx` (`uvx -q --from <package>==<version> <binary>`).
 
 ### 17.6 Forge's uv on the agent's PATH
 
