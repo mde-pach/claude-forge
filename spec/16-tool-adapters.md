@@ -76,6 +76,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [better-auth](#better-auth) | the project's own | `better-auth --version` | `1.7.14` | exit 1, a line matching `^error: (unknown option\|unknown command\|too many arguments\|option .* argument missing\|missing required argument)` |  |
 | [biome](#biome) | the project's own | `biome --version` | `2.6.3` | exit 1, a line matching `^(flags/invalid\|Error: )` |  |
 | [bun](#bun) | `PATH` | `bun --version` | `1.4.4` | exit 1, a line matching `^error: bun [a-z]+ has no .* flag` |  |
+| [condor](#condor) | Forge's pin `0.2.0` | the pin | `0.2.0` | exit 2, a line matching `^condor: error: ` |  |
 | [docker](#docker) | `PATH` | `docker compose version` | `5.6.1` | exit 1 or 16, a line matching `^unknown (shorthand )?flag: \|^invalid argument .+ flag\|^flag needs an argument` |  |
 | [editorconfig-checker](#editorconfig-checker) | Forge's pin `4.0.2` | the pin | `4.0.2` | exit 2, a line matching `^(flag provided but not defined: \|invalid (boolean )?value )` |  |
 | [eslint](#eslint) | the project's own | `eslint --version` | `10.13.0` | exit 2, a line matching `^Invalid (option .--\|value for option )` |  |
@@ -120,7 +121,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [yarn](#yarn) | `PATH` | `yarn --version` | `4.18.1` | exit 1, a line matching `(Unknown Syntax Error\|Usage Error)` |  |
 | [zizmor](#zizmor) | Forge's pin `1.30.1` | the pin | `1.30.1` | exit 2, a line matching `^For more information, try .--help.` |  |
 
-50 adapters.
+51 adapters.
 
 #### actionlint
 
@@ -192,6 +193,14 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 1.0.0 – 1.0.16: bun 1.0.0–1.0.15 binaries: bun test ./file runs 0 files, exit 0 (release notes silent; fixed in 1.0.16, bun.sh/blog/bun-v1.0.16)
 - 1.0.16 –: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.4.4 (unknown flags are errors in package-manager commands)
 - A check command runs it itself (§16.1) when it matches ``(^\|[;&\|`!{]\|\$\(\|\b(?:then\|do\|else\|exec\|time)\s)\s*bun\s+(?:install\|i\|add\|a\|remove\|rm\|update\|upgrade\|outdated\|link\|unlink\|pm\|test\|ci\|audit\|publish\|patch\|patch-commit\|why\|info)(?=$\|[\s;&\|)`])``.
+
+#### condor
+
+| Operation | 0.2.0 – |
+|---|---|
+| `dead-code` | `--format json` |
+
+- 0.2.0 –: condor 0.2.0: condor --help; https://mde-pach.github.io/condor/ (exit codes)
 
 #### docker
 
