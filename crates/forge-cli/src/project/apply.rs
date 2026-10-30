@@ -126,10 +126,7 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     for s in ch.settings.iter().filter(|s| s.shared) {
         show_diff(Some(&s.before), s.after.as_deref(), &s.file);
-        if !confirm(
-            &format!("apply these changes to {}?", s.file),
-            flags.yes,
-        )? {
+        if !confirm(&format!("apply these changes to {}?", s.file), flags.yes)? {
             return Err(Error::new("forge: cancelled; nothing written"));
         }
     }

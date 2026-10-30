@@ -1109,7 +1109,9 @@ impl Checker {
                 let (exit, base_out) = self.exec(run, c, cmd, files, uses_files, Some(&tree));
                 let target = DiagTarget::of(&*run.change);
                 match exit {
-                    Exit::Status(0) => return self.typecheck_result(c, &now, &all_now, &[]),
+                    Exit::Status(0) => {
+                        return self.typecheck_result(run, c, &now, &all_now, &[]);
+                    }
                     Exit::TimedOut(s) | Exit::Budget(s) => {
                         why = format!("the run there was stopped after {s}s")
                     }
@@ -1126,7 +1128,7 @@ impl Checker {
                             why = "the run there failed naming no file".into();
                         } else {
                             let base = diagnostics::diag_keys(&base_out, tree.path(), &target);
-                            return self.typecheck_result(c, &now, &all_now, &base);
+                            return self.typecheck_result(run, c, &now, &all_now, &base);
                         }
                     }
                 }
@@ -1142,24 +1144,31 @@ impl Checker {
 
     fn typecheck_result(
         &self,
+        run: &mut Run<'_>,
         c: &Check<'_>,
         now: &[diagnostics::DiagKey],
         all: &[diagnostics::DiagKey],
         base: &[diagnostics::DiagKey],
     ) -> CheckResult {
         let (new, old) = diagnostics::compare_with_base(now, all, base);
+        // errors the base already had are not the agent's to act on: the person reads them
+        if old > 0 {
+            run.report.notes.push(note(
+                NoteKind::Environment,
+                c.id(),
+                format!(
+                    "{old} error(s) in the changed files were already there before this change"
+                ),
+            ));
+        }
         if new.is_empty() {
             return CheckResult::Pass;
         }
-        let mut f = cap(
+        CheckResult::Fail(cap(
             diagnostics::findings_of(&new.join("\n"), c.id(), &self.root),
             15,
             c.id(),
-        );
-        if old > 0 {
-            f.push(Finding::error(c.id(), format!("({old} other error(s) in the changed files were already there before this change)")));
-        }
-        CheckResult::Fail(f)
+        ))
     }
 
     /// `forge_test_compare` (§10.6).

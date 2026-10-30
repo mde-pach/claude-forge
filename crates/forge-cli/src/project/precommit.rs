@@ -57,12 +57,7 @@ pub fn offer(ctx: &mut Ctx, flags: &Flags) -> Result<bool, Error> {
         return Ok(false);
     };
     show_diff(before.as_deref(), Some(&after), &file);
-    if !flags.pre_commit
-        && !confirm(
-            &format!("add \"{CHECK}\" to {file} ({})?", m.name),
-            false,
-        )?
-    {
+    if !flags.pre_commit && !confirm(&format!("add \"{CHECK}\" to {file} ({})?", m.name), false)? {
         return Ok(false);
     }
     ctx.blocks.push(LockBlock {

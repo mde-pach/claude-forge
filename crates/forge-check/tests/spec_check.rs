@@ -493,7 +493,8 @@ fn person_text_json_and_agent_text() {
 }
 
 /// A typecheck error the base already has in a changed file does not count (the command runs
-/// again in a copy of the base tree); one more of a new text fails, naming only that one.
+/// again in a copy of the base tree); one more of a new text fails, naming only that one, and
+/// the errors already there are a note for the person.
 #[test]
 fn typecheck_errors_the_base_already_has() {
     let run = "n=0; while read -r l; do n=$((n+1)); case $l in *bad*) echo \"a.py:$n:1: error: $l is bad\"; st=1 ;; esac; done < a.py; exit ${st:-0}";
@@ -508,13 +509,14 @@ fn typecheck_errors_the_base_already_has() {
         .check(Mode::Changed, &stop())
         .unwrap();
     assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-    let texts: Vec<String> = o.report.findings.iter().map(|f| f.agent_text()).collect();
-    assert_eq!(
-        texts,
-        [
-            "a.py:3 error: bad2 is bad",
-            "(1 other error(s) in the changed files were already there before this change)"
-        ]
+    // the agent reads only its new error; the person also reads that one was already there
+    assert_eq!(o.report.agent_text(20), "a.py:3 error: bad2 is bad");
+    assert!(
+        forge_check::output::person_text(&o).contains(
+            "acme/types: 1 error(s) in the changed files were already there before this change"
+        ),
+        "{}",
+        forge_check::output::person_text(&o)
     );
 }
 

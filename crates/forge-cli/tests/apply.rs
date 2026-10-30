@@ -328,7 +328,10 @@ fn migration_from_the_old_layout() {
     let out = s.forge(&["apply"]);
     assert_eq!(out.status.code(), Some(1));
     let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("forge: delete them? Re-run with --yes"), "{err}");
+    assert!(
+        err.contains("forge: delete them? Re-run with --yes"),
+        "{err}"
+    );
     assert!(!err.contains("forge: forge:"), "{err}");
     assert!(s.read(".forge/check.sh").is_some());
 
