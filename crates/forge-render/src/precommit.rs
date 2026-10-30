@@ -12,6 +12,15 @@ use crate::lock::sha256;
 
 /// The check commits run.
 pub const CHECK: &str = "claude-forge check --changed";
+/// The command a hook manager's block runs: the check, and nothing without Forge installed (a
+/// teammate's clone commits normally; a missing command would refuse every commit, and its
+/// error would reach Claude when it commits). It contains [`CHECK`], so blocks are recognised
+/// by it either way.
+pub const GUARDED: &str =
+    "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge check --changed'";
+/// The same, as a line of a shell hook (Husky, core.hooksPath).
+const SHELL_LINE: &str =
+    "! command -v claude-forge >/dev/null 2>&1 || claude-forge check --changed || exit 1";
 /// What the TypeScript Forge's hooks ran (an old block is replaced).
 pub const OLD_CHECK: &str = "sh .forge/check.sh --changed";
 pub const BEGIN: &str = "# forge: begin (forge remove deletes this block)";
@@ -247,7 +256,9 @@ fn without_forge(kind: BlockKind, doc: Value) -> Value {
     };
     if kind == BlockKind::PreCommit {
         if let Some(Value::Array(repos)) = out.get_mut("repos") {
-            repos.retain(|r| *r != our_repo(CHECK) && *r != our_repo(OLD_CHECK));
+            repos.retain(|r| {
+                *r != our_repo(GUARDED) && *r != our_repo(CHECK) && *r != our_repo(OLD_CHECK)
+            });
         }
         if out.get("repos").is_some_and(is_empty) {
             out.remove("repos");
@@ -361,7 +372,7 @@ fn pre_commit_insert(lines: &[String]) -> Option<Vec<String>> {
         }
         let mut out = lines.to_vec();
         let mut body = vec!["repos:".to_string()];
-        body.extend(repo_lines(CHECK));
+        body.extend(repo_lines(GUARDED));
         out.extend(block(&body, ""));
         return Some(out);
     };
@@ -372,13 +383,13 @@ fn pre_commit_insert(lines: &[String]) -> Option<Vec<String>> {
     };
     let end = block_end(lines, at, pad.is_empty());
     let mut out = lines[..=end].to_vec();
-    out.extend(block(&repo_lines(CHECK), &pad));
+    out.extend(block(&repo_lines(GUARDED), &pad));
     out.extend(lines[end + 1..].iter().cloned());
     Some(out)
 }
 
 fn lefthook_insert(lines: &[String]) -> Option<Vec<String>> {
-    let cmd = vec!["forge-check:".to_string(), format!("  run: {CHECK}")];
+    let cmd = vec!["forge-check:".to_string(), format!("  run: {GUARDED}")];
     let Some(at) = lines.iter().position(|l| top_key(l, "pre-commit")) else {
         if lines.iter().any(|l| l.starts_with("pre-commit:")) {
             return None;
@@ -453,7 +464,7 @@ fn shell_depth_change(line: &str) -> i32 {
 }
 
 fn shell_insert(lines: &[String], created: bool) -> Vec<String> {
-    let ours = block(&[format!("{CHECK} || exit 1")], "");
+    let ours = block(&[SHELL_LINE.to_string()], "");
     if created {
         let mut out = vec!["#!/bin/sh".to_string()];
         out.extend(ours);
@@ -490,7 +501,7 @@ fn verify(kind: BlockKind, before: &str, after: &str) -> bool {
             let Some(repos) = a.get("repos").and_then(Value::as_array) else {
                 return false;
             };
-            if repos.last() != Some(&our_repo(CHECK)) {
+            if repos.last() != Some(&our_repo(GUARDED)) {
                 return false;
             }
             let mut restored = a.clone();
@@ -504,7 +515,7 @@ fn verify(kind: BlockKind, before: &str, after: &str) -> bool {
         _ => {
             if a.pointer("/pre-commit/commands/forge-check/run")
                 .and_then(Value::as_str)
-                != Some(CHECK)
+                != Some(GUARDED)
             {
                 return false;
             }
@@ -580,7 +591,7 @@ mod tests {
         let before =
             "repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: z\n";
         let after = insert_block(BlockKind::PreCommit, Some(before)).unwrap();
-        assert!(after.contains("entry: claude-forge check --changed"));
+        assert!(after.contains(&format!("entry: {GUARDED}")), "{after}");
         assert!(has_block(&after));
         assert_eq!(remove_block(BlockKind::PreCommit, &after).unwrap(), before);
         let created = insert_block(BlockKind::PreCommit, None).unwrap();
@@ -595,7 +606,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            l.contains("    forge-check:\n      run: claude-forge check --changed"),
+            l.contains(&format!("    forge-check:\n      run: {GUARDED}")),
             "{l}"
         );
         let h = insert_block(
@@ -605,11 +616,39 @@ mod tests {
         .unwrap();
         assert_eq!(
             h,
-            format!("#!/bin/sh\nnpx lint-staged\n{BEGIN}\n{CHECK} || exit 1\n{END}\nexit 0\n")
+            format!("#!/bin/sh\nnpx lint-staged\n{BEGIN}\n{SHELL_LINE}\n{END}\nexit 0\n")
         );
         let created = insert_block(BlockKind::Husky, None).unwrap();
         let removed = remove_block(BlockKind::Husky, &created).unwrap();
         assert!(only_forge(&removed));
+    }
+
+    /// Without Forge installed, a hook manager's block lets the commit through and prints
+    /// nothing; with it, the check's status decides.
+    #[test]
+    fn blocks_pass_without_forge_installed() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = dir.path().join("claude-forge");
+        std::fs::write(&fake, "#!/bin/sh\nexit 1\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let run = |cmd: &str, path: &str| {
+            Command::new("/bin/sh")
+                .args(["-c", cmd])
+                .env("PATH", path)
+                .output()
+                .unwrap()
+        };
+        for cmd in [GUARDED, SHELL_LINE] {
+            let missing = run(cmd, "/usr/bin:/bin");
+            assert!(missing.status.success(), "{cmd}");
+            assert!(
+                missing.stdout.is_empty() && missing.stderr.is_empty(),
+                "{cmd}"
+            );
+            let failing = run(cmd, &format!("{}:/usr/bin:/bin", dir.path().display()));
+            assert!(!failing.status.success(), "{cmd}");
+        }
     }
 
     #[test]
