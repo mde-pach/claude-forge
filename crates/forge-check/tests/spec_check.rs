@@ -193,7 +193,9 @@ fn a_failing_codegen_stage_stops_before_the_typecheck() {
     assert!(!ran(d.path(), "types-ran"));
     let m = &o.report.findings[0].message;
     assert!(
-        m.starts_with("The generated code is not up to date:\nthe client is stale"),
+        m.starts_with(
+            "The generated code is not up to date (expected: acme/codegen):\nthe client is stale"
+        ),
         "{m}"
     );
     let o = checker(d.path(), rules("true"))
@@ -394,7 +396,7 @@ fn failure_text_and_caps() {
     .unwrap();
     assert_eq!(
         o.report.findings[0].message,
-        "Tests failed:\none\ntwo\nthree\nfour"
+        "Tests failed (expected: acme/tests):\none\ntwo\nthree\nfour"
     );
 }
 

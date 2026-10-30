@@ -30,6 +30,33 @@ pub fn fetcher() -> ReleaseFetcher {
 }
 
 /// Whether downloads are turned off ([`ENV_NO_DOWNLOAD`]).
+/// Puts Forge's PATH directory (uv and uvx only) first on this process's PATH, as the
+/// SessionStart hook does for Claude's Bash commands: the checks, their builtins and the commands
+/// they run then use the uv Claude uses. Otherwise a machine's older uv can read the project
+/// differently (a lock it calls stale, settings it cannot parse) and Claude is asked to fix
+/// what its own uv sees as fine.
+pub fn use_forge_path() {
+    let Ok(home) = forge_home::Home::from_env() else {
+        return;
+    };
+    let dir = home.path_dir();
+    if !dir.join("uv").is_file() {
+        return;
+    }
+    let path = std::env::var("PATH").unwrap_or_default();
+    let d = dir.to_string_lossy();
+    if path.split(':').next() == Some(d.as_ref()) {
+        return;
+    }
+    let joined = if path.is_empty() {
+        d.into_owned()
+    } else {
+        format!("{d}:{path}")
+    };
+    // SAFETY: called first thing in main, before any thread is started.
+    unsafe { std::env::set_var("PATH", joined) };
+}
+
 pub fn downloads_off() -> bool {
     forge_launcher::downloads_off()
 }

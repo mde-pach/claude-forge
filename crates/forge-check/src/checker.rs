@@ -1063,10 +1063,22 @@ impl Checker {
         } else {
             text
         };
-        vec![Finding::error(
-            id,
-            format!("{}\n{body}", stage_header(stage)),
-        )]
+        // the rule's own description says what should hold, so the agent knows what to fix
+        // when the output alone does not tell
+        let header = stage_header(stage).trim_end_matches(':');
+        let header = match self.rules.iter().find(|a| a.rule.id == id) {
+            Some(a) => {
+                let d = a.rule.description.trim().trim_end_matches('.');
+                let mut c = d.chars();
+                let d = match c.next() {
+                    Some(f) => f.to_lowercase().chain(c).collect::<String>(),
+                    None => String::new(),
+                };
+                format!("{header} (expected: {d}):")
+            }
+            None => format!("{header}:"),
+        };
+        vec![Finding::error(id, format!("{header}\n{body}"))]
     }
 
     /// `forge_typecheck_compare`: errors in the changed files that the base already has are not

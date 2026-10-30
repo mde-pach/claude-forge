@@ -92,9 +92,7 @@ pub fn main() -> ExitCode {
     if let Some(code) = provisioning::intercept() {
         return code;
     }
-    // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
-    // its notes are recorded for `forge status`. A builtin of a check command is run by the binary
-    // that runs the check: no launch.
+    provisioning::use_forge_path();
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;
     // its notes are recorded for `forge status`. Builtins of a check command and the types engine
     // are run by the binary that started them: no launch.
