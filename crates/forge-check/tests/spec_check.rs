@@ -318,6 +318,40 @@ fn lint_is_attributed_by_added_line() {
     assert_eq!(o.status, Status::Fail);
 }
 
+/// A check that compared with the base itself (it created `$FORGE_ATTRIBUTED`) keeps its
+/// findings wherever they are: a function the change left unused in a file it did not touch.
+#[test]
+fn self_attributed_findings_are_taken_as_they_are() {
+    let d = repo(&[("a.py", "a = 1\n"), ("b.py", "def f(): pass\n")]);
+    put(d.path(), "a.py", "a = 2\n");
+    let rule = |touch: bool| {
+        check_rule(
+            "acme/dead",
+            "lint",
+            &format!(
+                "{}echo 'b.py:1 function `f` is unused'; exit 1",
+                if touch {
+                    ": > \"$FORGE_ATTRIBUTED\"; "
+                } else {
+                    ""
+                }
+            ),
+        )
+    };
+    let o = checker(d.path(), vec![rule(false)])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    let o = checker(d.path(), vec![rule(true)])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail);
+    assert_eq!(
+        o.report.findings[0].agent_text(),
+        "b.py:1 function `f` is unused"
+    );
+}
+
 /// A run failing with warnings only passes (a note); with `fail_on_warnings` a warning on an
 /// added line fails.
 #[test]

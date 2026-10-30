@@ -13,6 +13,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Parameters and return types are annotated.
 - Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 - Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
+- A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
 - (when `python.pm` is `none`) This project has no Python packaging file: when a third-party package is needed, create the project with `uv init --bare`, then `uv add <pkg>`.
 
 | Rule | Description | Scope | Enforced by |
@@ -47,6 +48,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/no-commented-out-code` | No commented-out code. Delete it; git keeps history. | python | tool ruff `ERA001` |
 | `python/no-commonprefix` | Use os.path.commonpath, not os.path.commonprefix, for paths: commonprefix compares characters (/usr/lib and /usr/local give /usr/l). | python | tool ruff `RUF071` |
 | `python/no-dangling-task` | asyncio.create_task results are kept: an unreferenced task can be garbage-collected mid-flight. | python | tool ruff `RUF006` |
+| `python/no-dead-code` | A change leaves no Python code unused, wherever it is:no unused import, no unreachable code, no unused private name (a leading `_`) and, in an application, no unused function, class or method. In a library only private names and imports count. Other new unused names (public variables, attributes, properties) are advice at Stop, once per turn. | python: `!**/*.pyi`, `!@alembic-migrations`, `!@django-migrations`, `!@gunicorn-config`, `!**/docs/conf.py` | check lint: `forge_condor` |
 | `python/no-debugger` | No breakpoint(), pdb.set_trace() or other debugger hooks in committed code. | python | tool ruff `T100` |
 | `python/no-deprecated` | No use of APIs their library marks deprecated (PEP 702, typeshed). Use the replacement the warning names. | python | tool ty `deprecated` |
 | `python/no-dev-server-in-image` | Dockerfile CMD / ENTRYPOINT and Procfile processes run no development server: no --reload, fastapi dev or flask run --debug (a reloader wastes CPU in production, and Flask's debugger runs code from the browser). Use fastapi run, uvicorn without --reload, flask run without --debug, or gunicorn. | any: `@dockerfile`, `@procfile` | grep forbid `^[[:space:]]*(CMD\|ENTRYPOINT\|[A-Za-z0-9_-]+:).*(--reload([^-A-Za-z]\|$)\|fastapi["',[:space:]]+dev([^A-Za-z]\|$)\|flask["',[:space:]]+(.*["',[:space:]])?--debug)` |

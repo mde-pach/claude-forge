@@ -2,7 +2,8 @@
 //! `env.sh`, `release.sh` and `docs.sh`: migration
 //! linting and immutability (Squawk, Alembic, Prisma, Drizzle, TypeORM, sqlfluff), models a
 //! migration would miss, type stubs, uv's release cooldown, `.env` templates, hand-edited
-//! versions and release notes, immutable ADRs and docs that mention changed identifiers.
+//! versions and release notes, immutable ADRs and docs that mention changed identifiers, and
+//! the Python code a change leaves unused (Forge's pinned condor, `forge_condor`).
 //!
 //! Each is a [`CheckBuiltin`] named after the shell function without `forge_`: it reads
 //! forge-core's [`BuiltinCtx`] and the checker's [`CheckCtx`] (the check's files, the run's
@@ -17,6 +18,7 @@
 //! Their lines are findings without a path, so they print exactly as they are.
 
 mod ctx;
+mod dead_code;
 mod docs;
 mod env;
 mod python;
@@ -97,6 +99,7 @@ const ALL: &[(&str, RunFn)] = &[
     ("applied_migrations", sql::applied_migrations),
     ("typeorm_pending", sql::typeorm_pending),
     ("stub_sync", python::stub_sync),
+    ("condor", dead_code::condor),
     ("uv_cooldown", python::uv_cooldown),
     ("env_example", env::env_example),
     ("version_changed", release::version_changed),

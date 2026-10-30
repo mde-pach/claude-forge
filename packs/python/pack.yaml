@@ -13,5 +13,7 @@ context:
   - text: |
       Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
   - text: |
+      A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
+  - text: |
       This project has no Python packaging file: when a third-party package is needed, create the project with `uv init --bare`, then `uv add <pkg>`.
     when: {facts: {python.pm: none}}

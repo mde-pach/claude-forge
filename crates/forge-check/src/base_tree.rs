@@ -87,16 +87,19 @@ fn link(to: &Path, at: &Path) -> std::io::Result<()> {
     std::os::unix::fs::symlink(to, at)
 }
 
-/// Builds the base tree; `Err` says why the copy cannot be made or isolated (for the person).
-pub fn build(change: &ChangeSet) -> Result<BaseTree, String> {
-    let root = std::fs::canonicalize(&change.root).unwrap_or_else(|_| change.root.clone());
-    let git = Git::new(&root);
-    let dir = tempfile::Builder::new()
-        .prefix("forge-base-tree.")
-        .tempdir()
-        .map_err(|e| format!("the copy of the tree could not be made ({e})"))?;
-    let dest = dir.path().to_path_buf();
-    let files = git
+/// The files git sees in `root` (tracked, and untracked but not ignored) that `keep` accepts,
+/// as they are in the base, copied into `dest`: a changed file from its base copy (`inbase`,
+/// `base_copy`), a file the change added left out. The first step of [`build`], and the whole
+/// copy for a tool that reads only source files (`forge_condor`).
+pub fn copy_sources(
+    root: &Path,
+    dest: &Path,
+    is_changed: &dyn Fn(&str) -> bool,
+    inbase: &[String],
+    base_copy: &dyn Fn(&str) -> Option<PathBuf>,
+    keep: &dyn Fn(&str) -> bool,
+) -> Result<(), String> {
+    let files = Git::new(root)
         .run(&[
             "ls-files",
             "-z",
@@ -106,7 +109,7 @@ pub fn build(change: &ChangeSet) -> Result<BaseTree, String> {
         ])
         .map_err(|_| "the files of the tree could not be listed".to_string())?;
     for f in split_z(&files) {
-        if change.is_changed(&f) {
+        if is_changed(&f) || !keep(&f) {
             continue;
         }
         let src = root.join(&f);
@@ -114,11 +117,31 @@ pub fn build(change: &ChangeSet) -> Result<BaseTree, String> {
             copy_rec(&src, &dest.join(&f)).map_err(|e| format!("{f} could not be copied ({e})"))?;
         }
     }
-    for f in &change.inbase {
-        if let Some(b) = change.base_copy(f) {
+    for f in inbase.iter().filter(|f| keep(f)) {
+        if let Some(b) = base_copy(f) {
             copy_rec(&b, &dest.join(f)).map_err(|e| format!("{f} could not be copied ({e})"))?;
         }
     }
+    Ok(())
+}
+
+/// Builds the base tree; `Err` says why the copy cannot be made or isolated (for the person).
+pub fn build(change: &ChangeSet) -> Result<BaseTree, String> {
+    let root = std::fs::canonicalize(&change.root).unwrap_or_else(|_| change.root.clone());
+    let git = Git::new(&root);
+    let dir = tempfile::Builder::new()
+        .prefix("forge-base-tree.")
+        .tempdir()
+        .map_err(|e| format!("the copy of the tree could not be made ({e})"))?;
+    let dest = dir.path().to_path_buf();
+    copy_sources(
+        &root,
+        &dest,
+        &|f| change.is_changed(f),
+        &change.inbase,
+        &|f| change.base_copy(f),
+        &|_| true,
+    )?;
     let ignored = git
         .run(&[
             "ls-files",

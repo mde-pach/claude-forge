@@ -3,6 +3,7 @@
 //! and the small readers commands use (`forge_toml_get`, `forge_pkg_deps`, `forge_db_url`…).
 
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use forge_core::NoteKind;
@@ -216,6 +217,29 @@ fn run_words(inv: &Invocation<'_>, words: &[String]) -> (i32, String) {
     }
 }
 
+/// Advice given once per turn (§10.7): of `lines`, those the turn snapshot's `reported` file
+/// does not hold yet for `rule`, which are added to it.
+pub fn not_reported(snapshot: &Path, rule: &str, lines: &[String]) -> Vec<String> {
+    let seen_file = snapshot.join("reported");
+    let seen = std::fs::read_to_string(&seen_file).unwrap_or_default();
+    let new: Vec<String> = lines
+        .iter()
+        .filter(|l| !l.is_empty() && !seen.lines().any(|s| *s == format!("{rule}\t{l}")))
+        .cloned()
+        .collect();
+    if !new.is_empty()
+        && let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&seen_file)
+    {
+        for l in &new {
+            let _ = writeln!(f, "{rule}\t{l}");
+        }
+    }
+    new
+}
+
 /// `forge_once <command…>` (§10.7): each line the command prints is a finding. At Stop it is
 /// advice reported once per finding and turn; elsewhere any output fails the check.
 fn once(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) -> i32 {
@@ -239,24 +263,8 @@ fn once(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) -> i32 
         let _ = writeln!(out, "{}", lines.join("\n"));
         return 1;
     };
-    let seen_file = snap.join("reported");
-    let seen = std::fs::read_to_string(&seen_file).unwrap_or_default();
-    let rule = inv.rule();
-    let new: Vec<&String> = lines
-        .iter()
-        .filter(|l| !l.is_empty() && !seen.lines().any(|s| *s == format!("{rule}\t{l}")))
-        .collect();
-    if new.is_empty() {
+    if not_reported(snap, inv.rule(), &lines).is_empty() {
         return 0;
-    }
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&seen_file)
-    {
-        for l in &new {
-            let _ = writeln!(f, "{rule}\t{l}");
-        }
     }
     inv.mark_advised();
     let _ = writeln!(out, "{}", lines.join("\n"));

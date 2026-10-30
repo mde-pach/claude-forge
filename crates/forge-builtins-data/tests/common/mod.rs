@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use forge_builtins_data::{Mode, Options, ToolOutput, ToolRun, glob_matches};
-use forge_check::builtins::{BuiltinTools, CheckCtx};
+use forge_check::builtins::{BuiltinTools, CheckCtx, CheckRule};
 
 /// The Squawk release Forge pins.
 pub const SQUAWK_VERSION: &str = "2.70.0";
@@ -225,8 +225,27 @@ fn uvx_pinned(name: &str) -> Result<Vec<String>, String> {
 }
 
 /// The project tools the examples need, run as their adapters run them: sqlfluff through uvx,
-/// the machine's alembic.
+/// the machine's alembic, and condor: a stand-in (`tests/fake_condor.py`), or the pinned cndr
+/// through uvx when `FORGE_REAL_CONDOR` is set.
 pub struct LocalProjectTools;
+
+/// The pinned condor release (PyPI `cndr`).
+pub const CONDOR_VERSION: &str = "0.2.0";
+
+/// condor as the adapter runs it (`dead-code`: `--format json`), from `root`.
+pub fn condor(root: &Path, args: &[String]) -> ToolRun {
+    let mut c = if std::env::var_os("FORGE_REAL_CONDOR").is_some() {
+        let mut c = Command::new("uvx");
+        c.args(["-q", "--from", &format!("cndr=={CONDOR_VERSION}"), "condor"]);
+        c
+    } else {
+        let mut c = Command::new("python3");
+        c.arg("-I")
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fake_condor.py"));
+        c
+    };
+    output(c.args(["--format", "json"]).args(args).current_dir(root))
+}
 
 pub fn output(c: &mut Command) -> ToolRun {
     match c.stdin(Stdio::null()).output() {
@@ -260,6 +279,7 @@ impl BuiltinTools for LocalProjectTools {
                     .arg("--sql")
                     .current_dir(root),
             ),
+            ("condor", "dead-code") => condor(root, args),
             _ => ToolRun::Missing(format!("{tool} is not installed")),
         }
     }
@@ -400,7 +420,10 @@ pub struct Outcome {
 
 impl Case {
     pub fn needs_uvx(&self) -> bool {
-        self.cmd.contains("squawk") || self.cmd.contains("sqlfluff")
+        self.cmd.contains("squawk")
+            || self.cmd.contains("sqlfluff")
+            || (self.cmd.contains("forge_condor")
+                && std::env::var_os("FORGE_REAL_CONDOR").is_some())
     }
 
     /// The check's files: the in-scope changed files that exist (none with `--all`).
@@ -450,8 +473,10 @@ impl Case {
             counted.retain(|l| !yaml.contains(l.as_str()));
         }
         // a lint check fails on what names the change: an added line, or a changed file as a
-        // whole (the checker's attribution); output naming no file counts as a whole
-        if self.lint && self.mode != Mode::All && names_file && !names_change {
+        // whole (the checker's attribution); output naming no file counts as a whole. A
+        // builtin that compared with the base itself (`$FORGE_ATTRIBUTED`) is taken as it is.
+        let attributed = r.dir.path().join("attributed").exists();
+        if self.lint && self.mode != Mode::All && names_file && !names_change && !attributed {
             counted.clear();
         }
         counted
@@ -466,7 +491,12 @@ pub fn port(case: &Case, r: &Repo) -> Outcome {
     }
     let files = case.check_files(r);
     let (name, args) = call(&case.cmd, &files).expect("a builtin of this crate");
-    let check = facts(case.mode, files);
+    let mut check = facts(case.mode, files);
+    check.check = case
+        .scope
+        .clone()
+        .map(|rule| CheckRule { rule, dirs: None });
+    check.attributed = Some(r.dir.path().join("attributed"));
     let all = forge_builtins_data::builtins(options());
     let b = all.iter().find(|b| b.name() == name).unwrap();
     let mut ctx = r.ctx(&case.rule, case.accepted());

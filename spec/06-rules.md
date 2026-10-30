@@ -146,13 +146,14 @@ A check command calls Forge's builtins as shell functions named `forge_<name>` (
 
 `forge_helper` and `forge_ratchet` accept, and ignore, the runtime word the TypeScript Forge's packs wrote before the script name (`forge_helper python new_deps.py`, `forge_ratchet bun ratchet.mjs`): the helpers are builtins, so that word is not a tool the check needs (§10.3). The command is the body of a shell function, so `return` works in it. `{files}` becomes `$FORGE_FILES` (the check's files, one per line) and `{file}` becomes `"$FORGE_FILE"`. Every `forge_<name>` a shipped pack calls is a registered builtin with a shell function (a test enforces it).
 
-`forge internal <name> [args]` runs one builtin. It reads its context from the environment the checker set: `FORGE_ROOT` (the repository), `FORGE_BASE` (a directory holding the base copy of each changed file; unset with `--all`), `FORGE_CHANGED` (a file listing the changed files; unset with `--all`), `FORGE_RULE`, `FORGE_SCOPE` (`all`, `changed` or `turn`), `FORGE_NOTES` (where notes go), `FORGE_ACCEPTED` (the rule's accepted changes, §10.5), and the checker's own: `FORGE_FILES`, `FORGE_MODE` (`changed`, `since`, `all`, `turn`), `FORGE_SNAPSHOT`, `FORGE_ADDED`, `FORGE_ROLES`, `FORGE_CHECK_RULE`, `FORGE_CHECKS`, `FORGE_ADVISED`, `FORGE_TMP`, `FORGE_WS_ROOT`.
+`forge internal <name> [args]` runs one builtin. It reads its context from the environment the checker set: `FORGE_ROOT` (the repository), `FORGE_BASE` (a directory holding the base copy of each changed file; unset with `--all`), `FORGE_CHANGED` (a file listing the changed files; unset with `--all`), `FORGE_RULE`, `FORGE_SCOPE` (`all`, `changed` or `turn`), `FORGE_NOTES` (where notes go), `FORGE_ACCEPTED` (the rule's accepted changes, §10.5), and the checker's own: `FORGE_FILES`, `FORGE_MODE` (`changed`, `since`, `all`, `turn`), `FORGE_SNAPSHOT`, `FORGE_ADDED`, `FORGE_ROLES`, `FORGE_CHECK_RULE`, `FORGE_CHECKS`, `FORGE_ADVISED`, `FORGE_ATTRIBUTED`, `FORGE_TMP`, `FORGE_WS_ROOT`.
 
 **Output protocol of a builtin.**
 
 - stdout: its findings, as the agent reads them: `path:line message`, one per line; a line starting with whitespace continues the previous finding.
 - Notes for the person: JSON lines appended to the `FORGE_NOTES` file, never on stdout.
-- Exit status: 0 when nothing fails, 1 when a finding fails the check. A builtin whose findings are all advice marks the check as advice (§10.7).
+- Exit status: 0 when nothing fails, 1 when a finding fails the check. A builtin whose findings are all advice marks the check as advice (§10.7) and prints them without the `Advice: ` prefix, which the checker writes.
+- A builtin that compared the tree with its base itself, so that its findings are the change's wherever they are (`forge_condor`: a function whose last caller the change removed is in a file it did not touch), creates the `FORGE_ATTRIBUTED` file: the checker takes its findings as they are (§10.4).
 - A finding whose text equals one of the rule's accepted changes is dropped.
 - A builtin that cannot run (a missing tool, a failure of Forge itself) writes a note and exits 0: Forge's own problems never fail a check. A builtin name no crate registered writes the note `not enforced: forge_<name> is not available yet in this Forge` and exits 0.
 
@@ -207,7 +208,7 @@ examples:
 - §6.1 scope and globs: `crates/forge-check/src/scope.rs` (unit), `crates/forge-packs/src/glob.rs` (unit).
 - §6.2 targets, modes, prose files, tool stand-in: `crates/forge-check/tests/spec_check.rs`, `crates/forge-cli/tests/check.rs`, `crates/forge-check/tests/pack_examples.rs`; guard format: `crates/forge-packs/tests/schemas.rs::guard_targets_are_structural`, `crates/forge-guard/tests/corpus.rs`.
 - §6.3 refusals: `crates/forge-check/tests/spec_rules.rs`, `crates/forge-packs/tests/loading.rs::target_kind_checks`, `crates/forge-packs/src/validate.rs` (unit).
-- §6.4 builtins: `crates/forge-cli/src/check.rs` (unit: every builtin the packs call is registered), `crates/forge-check/src/shell.rs` (unit), `crates/forge-check/src/builtins/mod.rs` (unit: an unregistered builtin is a note), `crates/forge-check/tests/spec_check.rs::builtin_protocol_accepts_and_notes`.
+- §6.4 builtins: `crates/forge-cli/src/check.rs` (unit: every builtin the packs call is registered), `crates/forge-check/src/shell.rs` (unit), `crates/forge-check/src/builtins/mod.rs` (unit: an unregistered builtin is a note), `crates/forge-check/tests/spec_check.rs::builtin_protocol_accepts_and_notes`, `::self_attributed_findings_are_taken_as_they_are`.
 - §6.5 examples: `crates/forge-check/tests/pack_examples.rs`, `crates/forge-cli/tests/check.rs::check_examples`, `crates/forge-guard/tests/examples.rs`, the domain crates' `tests/examples.rs` and `tests/pack_examples.rs`.
 - §6.6 lints: `crates/forge-packs/tests/lints.rs`, `crates/forge-packs/tests/loading.rs::lints_on_a_local_pack`, `crates/forge-packs/src/lint.rs` (unit), `crates/forge-core/src/internals.rs` (unit).
 - The tool-target stand-in (ast-grep used only where the tool is not configured): no dedicated test in `crates/` (covered indirectly by the e2e samples in `crates/forge-cli/tests/e2e.rs`).
