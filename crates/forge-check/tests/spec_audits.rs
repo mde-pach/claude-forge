@@ -8,7 +8,7 @@ use forge_check::probe::audit_target;
 use forge_check::tools::LocalTools;
 use forge_packs::model::{Rule, Target, ToolTarget};
 use forge_render::report::{
-    AuditResult, AuditStatus, Enforcement, enforcement_summary, format_audit,
+    AuditResult, AuditStatus, Enforcement, enforcement_summary, format_audit, format_audits,
 };
 use serde_json::json;
 
@@ -185,6 +185,119 @@ fn a_warning_is_unsatisfied() {
         .filter(|n| n != "node_modules")
         .collect();
     assert!(left.is_empty(), "{left:?}");
+}
+
+/// ty is Forge's pinned tool: where the project leaves ty to its defaults, Forge's runs set the
+/// rule's level (`--error <rule>`), so the audit does too and the rule is satisfied with no config
+/// to add. Where the project configures ty, its config decides, and the snippet is written for
+/// the file it uses.
+#[test]
+fn ty_without_a_project_config_runs_at_the_rules_levels() {
+    home();
+    let bin = tempfile::tempdir().unwrap();
+    // reports redundant-cast for a cast() example: as an error only when asked to
+    exe(
+        bin.path(),
+        "ty",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'ty 0.0.86'; exit 0 ;; esac\nfor a; do case $a in *.py) f=$a ;; esac; done\ngrep -q 'cast(' \"$f\" || { echo '[]'; exit 0; }\nsev=minor; case \" $* \" in *' --error redundant-cast '*) sev=major ;; esac\necho \"[{\\\"check_name\\\": \\\"redundant-cast\\\", \\\"severity\\\": \\\"$sev\\\"}]\"; exit 1\n",
+    );
+    let tools = LocalTools {
+        path: Some(bin.path().to_string_lossy().into_owned()),
+        ..Default::default()
+    };
+    let r: Rule = serde_json::from_value(json!({
+        "id": "acme/cast", "description": "No redundant cast.",
+        "scope": {"language": "python"},
+        "enforce": [{"target": "tool", "tool": "ty", "expects": "redundant-cast",
+            "snippet": "[tool.ty.rules] redundant-cast = \"error\""}],
+        "examples": {"match": ["from typing import cast\nx = cast(int, 1)\n"], "no_match": ["x = 1\n"]},
+    }))
+    .unwrap();
+    let Target::Tool(t) = r.enforce[0].clone() else {
+        unreachable!()
+    };
+    // no ty config (a plain-scripts project, or a pyproject.toml without [tool.ty])
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("pyproject.toml"), "[project]\nname = \"x\"\n").unwrap();
+    let a = audit_target(&tools, d.path(), &r, &t, "");
+    assert_eq!(a.status, AuditStatus::Satisfied, "{a:?}");
+    // [tool.ty]: the project's levels; the rule is only a warning there
+    std::fs::write(
+        d.path().join("pyproject.toml"),
+        "[project]\nname = \"x\"\n\n[tool.ty.rules]\npossibly-unresolved-reference = \"error\"\n",
+    )
+    .unwrap();
+    let a = audit_target(&tools, d.path(), &r, &t, "");
+    assert_eq!(a.status, AuditStatus::Unsatisfied, "{a:?}");
+    assert_eq!(
+        a.snippet.as_deref(),
+        Some("[tool.ty.rules] redundant-cast = \"error\"")
+    );
+    // ty.toml: its tables have no tool.ty prefix
+    std::fs::write(d.path().join("ty.toml"), "[rules]\n").unwrap();
+    let a = audit_target(&tools, d.path(), &r, &t, "");
+    assert_eq!(a.status, AuditStatus::Unsatisfied, "{a:?}");
+    assert_eq!(
+        a.snippet.as_deref(),
+        Some("[rules] redundant-cast = \"error\"")
+    );
+}
+
+/// The config the unsatisfied audits lack is one block per tool and directory, merged by table,
+/// not one line per rule.
+#[test]
+fn unsatisfied_audits_suggest_one_block() {
+    let a = |rule: &str, tool: &str, expects: &str, snippet: &str| AuditResult {
+        rule: rule.into(),
+        tool: tool.into(),
+        expects: expects.into(),
+        status: AuditStatus::Unsatisfied,
+        dir: None,
+        detail: Some(format!("{expects} not reported for: x")),
+        snippet: Some(snippet.into()),
+    };
+    let audits = [
+        a(
+            "python/no-useless-cast",
+            "ty",
+            "redundant-cast",
+            "[tool.ty.rules] redundant-cast = \"error\"",
+        ),
+        a(
+            "python/no-deprecated",
+            "ty",
+            "deprecated",
+            "[tool.ty.rules] deprecated = \"error\"",
+        ),
+        a(
+            "python/a",
+            "ruff",
+            "S110",
+            "[tool.ruff.lint] extend-select = [\"S110\", \"S112\"]",
+        ),
+        a(
+            "python/b",
+            "ruff",
+            "TID251",
+            "[tool.ruff.lint]\nextend-select = [\"TID251\"]\n\n[tool.ruff.lint.flake8-tidy-imports.banned-api]\n\"x.y\".msg = \"no\"\n",
+        ),
+    ];
+    assert_eq!(
+        format_audits(&audits),
+        "forge: python/no-useless-cast ty redundant-cast: unsatisfied (redundant-cast not reported for: x)
+forge: python/no-deprecated ty deprecated: unsatisfied (deprecated not reported for: x)
+forge: python/a ruff S110: unsatisfied (S110 not reported for: x)
+forge: python/b ruff TID251: unsatisfied (TID251 not reported for: x)
+forge: add to the ty config:
+  [tool.ty.rules]
+  redundant-cast = \"error\"
+  deprecated = \"error\"
+forge: add to the ruff config:
+  [tool.ruff.lint]
+  extend-select = [\"S110\", \"S112\", \"TID251\"]
+  [tool.ruff.lint.flake8-tidy-imports.banned-api]
+  \"x.y\".msg = \"no\""
+    );
 }
 
 #[test]

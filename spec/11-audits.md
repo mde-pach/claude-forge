@@ -14,6 +14,8 @@ A rule's `tool` target is audited where its tool is configured; elsewhere the ru
 | tsc | `tsconfig.json` | `typescript` |
 | ESLint | `eslint.config.{js,mjs,cjs,ts,mts,cts}` | `eslint` |
 
+**ty's levels.** ty is Forge's own pinned tool (§17), and Forge runs it: the `typecheck` check (`forge_do ty …`) and the types engine's servers (§15). Where the project leaves ty to its defaults (no `ty.toml` and no `[tool.ty]` table in the `pyproject.toml` ty reads, looking up from the directory to the repository root), Forge sets the levels the active `tool: ty` targets expect: `--error <rule>` for each on `ty check`'s command line, and `rules: {<rule>: "error"}` in the servers' inline configuration. Those rules are then enforced with no config to add, and their audits run ty the same way, so they are satisfied. Where the project configures ty itself, its config is the authority: Forge adds no level, and an unsatisfied audit suggests the config (written for `ty.toml` without the `tool.ty.` prefix when that is the file).
+
 In a monorepo, a tool's audits run in each workspace package that configures it or depends on it, and at the root when the root configures it (or only depends on it while no package has its config file). A target switched off by an active pack (`tool_off`, §5) is not audited: `forge status` reports `not enforced here: <tool> <expects> switched off by <pack> (<reason>)`.
 
 ### 11.2 Running an audit
@@ -47,8 +49,12 @@ Each audit prints as:
 
 ```
 forge: <rule-id> <tool> <expects>[ (in <dir>)]: satisfied | unsatisfied | skipped | unavailable[ (<detail>)]
-  add to the <tool> config: <snippet>        # unsatisfied only
+…
+forge: add to the <tool> config[ (in <dir>)]:     # once per tool and directory, after the audits
+  <the unsatisfied audits' snippets, merged>
 ```
+
+The snippets of one tool and directory are merged into one block: TOML snippets (`[table] key = value`, or a `[table]` line and its keys) grouped under each table once, the arrays of a key joined (`extend-select = ["S110", "S112", "TID251"]`); other snippets once each, as they are.
 
 - `forge apply` prints the unsatisfied audits.
 - `forge status` prints every audit under `Audit:`, and `--json` gives them as `audits` (`rule`, `tool`, `expects`, `status`, `dir`, `detail`, `snippet`).
@@ -59,6 +65,6 @@ A rule is enforced by its tool when every place's audit of that tool is satisfie
 ### Tests
 
 - §11.1 where a tool is configured: `crates/forge-detect/src/place.rs` (no dedicated test of `tool_places`: covered through the plans of `crates/forge-cli/tests/apply.rs` and `crates/forge-cli/tests/e2e.rs`).
-- §11.2 and §11.3: `crates/forge-check/tests/spec_audits.rs` (`ruff_satisfied_unsatisfied_and_noisy`, `the_installed_release_decides_first`, `a_tool_not_installed_is_skipped`, `a_warning_is_unsatisfied`), `crates/forge-check/src/probe.rs` (unit: example paths, verdicts).
-- §11.4: `crates/forge-check/tests/spec_audits.rs::enforcement_summary_counts_reasons`, `crates/forge-cli/tests/e2e.rs::status_reports_tools_and_pin_differences`.
+- §11.2 and §11.3: `crates/forge-check/tests/spec_audits.rs` (`ruff_satisfied_unsatisfied_and_noisy`, `the_installed_release_decides_first`, `a_tool_not_installed_is_skipped`, `a_warning_is_unsatisfied`, `ty_without_a_project_config_runs_at_the_rules_levels`), `crates/forge-cli/tests/check.rs::ty_runs_at_the_active_rules_levels_unless_the_project_configures_it`, `crates/forge-engine/tests/engine.rs::python_engine` (the inline levels, against the real ty; skipped without uv), `crates/forge-check/src/probe.rs` (unit: example paths, verdicts).
+- §11.4: `crates/forge-check/tests/spec_audits.rs::enforcement_summary_counts_reasons`, `::unsatisfied_audits_suggest_one_block`, `crates/forge-cli/tests/e2e.rs::status_reports_tools_and_pin_differences`.
 - ESLint, tsc and ty audits against the real tools: no test in `crates/` (they need the tools installed).

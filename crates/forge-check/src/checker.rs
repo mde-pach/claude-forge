@@ -52,6 +52,22 @@ impl ActiveRule {
     }
 }
 
+/// The ty rules the active rules' `tool: ty` targets expect at error, sorted and once each: what
+/// Forge's own runs of ty set where the project does not configure ty (§11.2).
+pub fn ty_rule_levels(rules: &[ActiveRule]) -> Vec<String> {
+    let set: BTreeSet<String> = rules
+        .iter()
+        .flat_map(|a| a.rule.enforce.iter())
+        .filter_map(|t| match t {
+            Target::Tool(t) if t.tool == forge_packs::model::AuditedTool::Ty => {
+                Some(t.expects.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    set.into_iter().collect()
+}
+
 /// When the checker runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
@@ -1491,6 +1507,10 @@ impl Checker {
         env.insert(builtins::ENV_ROLES.into(), s(&run.files.path("roles.json")));
         env.insert(builtins::ENV_ADDED.into(), s(&run.files.path("added")));
         env.insert(builtins::ENV_CHECKS.into(), s(&run.files.path("checks")));
+        let ty_rules = ty_rule_levels(&self.rules);
+        if !ty_rules.is_empty() {
+            env.insert(builtins::ENV_TY_RULES.into(), ty_rules.join("\n").into());
+        }
         let rule_file = run.files.path(&format!("rule.{}.json", safe(c.id())));
         if !rule_file.exists() {
             let _ = std::fs::write(

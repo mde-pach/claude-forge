@@ -54,6 +54,9 @@ pub const ENV_MODE: &str = "FORGE_MODE";
 pub const ENV_WS_ROOT: &str = "FORGE_WS_ROOT";
 /// The run's scratch directory, shared by the checks of one run.
 pub const ENV_TMP: &str = "FORGE_TMP";
+/// The ty rules the active rules need at error, one per line (§11.2): `forge_do ty` passes
+/// them as `--error <rule>` where the project does not configure ty itself.
+pub const ENV_TY_RULES: &str = "FORGE_TY_RULES";
 
 /// What a builtin call knows: forge-core's context, the checker's ([`CheckCtx`], which the
 /// invocation derefs to), its arguments, and where tools are.

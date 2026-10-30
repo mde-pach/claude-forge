@@ -523,10 +523,12 @@ fn first_line(s: &str) -> String {
 }
 
 /// Runs the tool on one example.
+#[allow(clippy::too_many_arguments)]
 fn run_example(
     tool: AuditedTool,
     cmd: &ToolCmd,
     words: &str,
+    extra: &[String],
     dir: &Path,
     rel: &str,
     code: &str,
@@ -553,7 +555,9 @@ fn run_example(
         }
         _ => {
             let _files = TempFiles::write(dir, &[(rel, code)])?;
-            run(cmd, &build_args(words, &[rel.to_string()]), dir, None)
+            let mut args = build_args(words, &[rel.to_string()]);
+            args.extend(extra.iter().cloned());
+            run(cmd, &args, dir, None)
         }
     }
 }
@@ -645,6 +649,20 @@ pub fn audit_target(
             None,
         );
     }
+    // ty: where the project leaves it to its defaults, Forge's checks run its pinned ty with the
+    // active rules' levels, so the audit does too; where the project configures it, its config
+    // decides, and the snippet is written for the file it uses
+    let mut extra = Vec::new();
+    let mut snippet = t.snippet.clone();
+    if tool == AuditedTool::Ty {
+        match forge_detect::place::ty_config(&cwd, repo) {
+            None => extra = crate::adapters::error_args([t.expects.as_str()]),
+            Some(forge_detect::place::TyConfig::TyToml) => {
+                snippet = snippet.replace("[tool.ty.", "[")
+            }
+            Some(forge_detect::place::TyConfig::Pyproject) => {}
+        }
+    }
     let matching = tool_examples(rule, true);
     let not_matching = tool_examples(rule, false);
     if matching.is_empty() {
@@ -670,7 +688,7 @@ pub fn audit_target(
             Some(p) => format!("{p}: {code}"),
             None => code.clone(),
         };
-        let Some(r) = run_example(tool, &cmd, &words, &cwd, &rel, code, n) else {
+        let Some(r) = run_example(tool, &cmd, &words, &extra, &cwd, &rel, code, n) else {
             return result(
                 AuditStatus::Skipped,
                 Some(format!("{name} could not run on the examples")),
@@ -700,7 +718,7 @@ pub fn audit_target(
                 );
             }
         };
-        let snippet = Some(t.snippet.clone());
+        let snippet = Some(snippet.clone());
         if expect_match {
             match v {
                 Verdict::Absent => {

@@ -23,6 +23,38 @@ pub const ESLINT_CONFIGS: &[&str] = &[
     "eslint.config.cts",
 ];
 
+/// Where a project configures ty itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TyConfig {
+    /// `ty.toml` (its tables have no `tool.ty.` prefix).
+    TyToml,
+    /// A `[tool.ty]` table in `pyproject.toml`.
+    Pyproject,
+}
+
+/// The ty configuration ty would read for `dir`, looking up to `root` as ty does: `ty.toml`,
+/// else a `[tool.ty]` table of `pyproject.toml`; the first `pyproject.toml` found ends the
+/// search. `None`: the project leaves ty to its defaults, so Forge's own runs of its pinned ty
+/// set the rule levels the active rules need (§11.2).
+pub fn ty_config(dir: &Path, root: &Path) -> Option<TyConfig> {
+    let mut d = dir;
+    loop {
+        if d.join("ty.toml").is_file() {
+            return Some(TyConfig::TyToml);
+        }
+        let py = d.join("pyproject.toml");
+        if py.is_file() {
+            return read_toml(&py)
+                .is_some_and(|p| p.pointer("/tool/ty").is_some())
+                .then_some(TyConfig::Pyproject);
+        }
+        if d == root {
+            return None;
+        }
+        d = d.parent()?;
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 struct ToolHere {
     config: bool,

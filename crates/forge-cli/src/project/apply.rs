@@ -2,7 +2,7 @@
 
 use forge_packs::model::{Level, PackSource};
 use forge_render::changes::{Changes, line_diff};
-use forge_render::report::{ToolProbe, audit_rules, format_audit};
+use forge_render::report::{ToolProbe, audit_rules, format_audits};
 
 use super::io::{Error, confirm, delete_path, prune_dirs, show_diff, write_settings, write_text};
 use super::{Ctx, Flags, claude_gate, context, person_notes, precommit};
@@ -206,11 +206,13 @@ fn write(ctx: &Ctx, ch: &Changes) -> Result<(), Error> {
 /// what tool versions cannot do, notes. Machine state: never in the rules files.
 fn report(ctx: &Ctx, probe: &dyn ToolProbe) {
     if ctx.level == Level::Project {
-        for a in audit_rules(&ctx.plan, probe)
+        let audits = audit_rules(&ctx.plan, probe);
+        let unsatisfied: Vec<_> = audits
             .iter()
             .filter(|a| a.status == forge_render::report::AuditStatus::Unsatisfied)
-        {
-            println!("{}", format_audit(a));
+            .collect();
+        if !unsatisfied.is_empty() {
+            println!("{}", format_audits(unsatisfied));
         }
         let pre = precommit::state(ctx);
         if pre.activate.is_some() {

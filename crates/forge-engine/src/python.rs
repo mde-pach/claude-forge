@@ -43,15 +43,24 @@ impl TyServer {
                 json!({"activeEnvironment": {"executable": {"uri": uri(py), "sysPrefix": prefix}}}),
             );
         }
+        let mut inline = serde_json::Map::new();
         if !untyped.is_empty() {
             let any: Vec<String> = untyped
                 .iter()
                 .flat_map(|n| [n.clone(), format!("{n}.**")])
                 .collect();
-            settings.insert(
-                "configuration".into(),
-                json!({"analysis": {"replace-imports-with-any": any}}),
-            );
+            inline.insert("analysis".into(), json!({"replace-imports-with-any": any}));
+        }
+        if !cfg.rules.is_empty() {
+            let levels: serde_json::Map<String, Value> = cfg
+                .rules
+                .iter()
+                .map(|r| (r.clone(), json!("error")))
+                .collect();
+            inline.insert("rules".into(), Value::Object(levels));
+        }
+        if !inline.is_empty() {
+            settings.insert("configuration".into(), Value::Object(inline));
         }
         let settings = if settings.is_empty() {
             Value::Null

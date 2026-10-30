@@ -210,6 +210,46 @@ fn forge_do_drives_a_fake_tool_and_notes_what_it_cannot() {
     assert!(notes.iter().any(|n| n["kind"] == "not-enforced"), "{v}");
 }
 
+/// Forge's pinned ty runs with the levels the active `tool: ty` rules need (`--error <rule>`)
+/// where the project leaves ty to its defaults; a project's own ty config is left to decide.
+#[test]
+fn ty_runs_at_the_active_rules_levels_unless_the_project_configures_it() {
+    // a ty that reports redundant-cast as a warning unless told it is an error
+    let ty = "#!/bin/sh\ncase \"$1\" in --version) echo 'ty 0.0.86'; exit 0 ;; esac\ngrep -q 'cast(' a.py || exit 0\ncase \" $* \" in *' --error redundant-cast '*) echo 'a.py:1:5: error[redundant-cast] Value is already of type `int`'; exit 1 ;; esac\necho 'a.py:1:5: warning[redundant-cast] Value is already of type `int`'; exit 0\n";
+    let r = Repo::new(&files(&[("a.py", "x = 1\n")]));
+    let bin = tempfile::tempdir().unwrap();
+    write(bin.path(), &files(&[("ty", ty)]));
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(
+        bin.path().join("ty"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let path = format!("{}:{PATH}", bin.path().display());
+    let snap = r.snap.path().display().to_string();
+    write(r.path(), &files(&[("a.py", "x = cast(int, 1)\n")]));
+    let rules = ["python/typecheck", "python/no-useless-cast"];
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, "python/typecheck")[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("error[redundant-cast]"),
+        "{v}"
+    );
+    // [tool.ty]: the project's config decides (a warning there passes)
+    write(
+        r.path(),
+        &files(&[(
+            "pyproject.toml",
+            "[project]\nname = \"x\"\n\n[tool.ty.rules]\n",
+        )]),
+    );
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 0, "{v}");
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as

@@ -283,6 +283,147 @@ pub fn enforcement_summary(rules: &[Enforcement]) -> String {
     )
 }
 
+/// A suggestion block's tool and directory.
+type BlockKey = (String, Option<String>);
+
+/// Audits as apply, status and explain print them: one line each (as [`format_audit`], without
+/// its snippet), then, per tool and directory, one block holding the config the unsatisfied
+/// ones lack, merged: TOML snippets by table (arrays of one key joined), others once each.
+pub fn format_audits<'a>(audits: impl IntoIterator<Item = &'a AuditResult>) -> String {
+    let mut lines = Vec::new();
+    let mut blocks: Vec<(BlockKey, Vec<&str>)> = Vec::new();
+    for a in audits {
+        let mut one = a.clone();
+        one.snippet = None;
+        lines.push(format_audit(&one));
+        if a.status != AuditStatus::Unsatisfied {
+            continue;
+        }
+        let Some(sn) = a.snippet.as_deref() else {
+            continue;
+        };
+        let key = (a.tool.clone(), a.dir.clone());
+        match blocks.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, v)) => v.push(sn),
+            None => blocks.push((key, vec![sn])),
+        }
+    }
+    for ((tool, dir), snippets) in blocks {
+        let dir = dir.map(|d| format!(" (in {d})")).unwrap_or_default();
+        lines.push(format!("forge: add to the {tool} config{dir}:"));
+        for l in merge_snippets(&snippets) {
+            lines.push(format!("  {l}"));
+        }
+    }
+    lines.join("\n")
+}
+
+/// Config snippets as one: TOML (`[table] key = value`, or a `[table]` line then `key = value`
+/// lines) grouped by table, a key's arrays joined; anything else once each, as it is.
+fn merge_snippets(snippets: &[&str]) -> Vec<String> {
+    // (table, [(key, value)]) in first-seen order
+    let mut tables: Vec<(String, Vec<(String, String)>)> = Vec::new();
+    let mut other: Vec<String> = Vec::new();
+    let header = |l: &str| -> Option<(String, String)> {
+        let rest = l.strip_prefix('[')?;
+        let end = rest.find(']')?;
+        let name = &rest[..end];
+        (!name.is_empty() && !name.contains(['"', '{', ' ']))
+            .then(|| (name.to_string(), rest[end + 1..].trim().to_string()))
+    };
+    for sn in snippets {
+        let is_toml = sn
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .is_some_and(|l| header(l.trim()).is_some());
+        if !is_toml {
+            if !other.iter().any(|o| o == sn.trim()) {
+                other.push(sn.trim().to_string());
+            }
+            continue;
+        }
+        let mut table = String::new();
+        for raw in sn.lines() {
+            let l = raw.trim();
+            if l.is_empty() {
+                continue;
+            }
+            let entry = match header(l) {
+                Some((t, rest)) => {
+                    table = t;
+                    if rest.is_empty() {
+                        if !tables.iter().any(|(n, _)| *n == table) {
+                            tables.push((table.clone(), Vec::new()));
+                        }
+                        continue;
+                    }
+                    rest
+                }
+                None => l.to_string(),
+            };
+            let (k, v) = match entry.split_once('=') {
+                Some((k, v)) => (k.trim().to_string(), v.trim().to_string()),
+                None => (entry.clone(), String::new()),
+            };
+            let pos = match tables.iter().position(|(n, _)| *n == table) {
+                Some(i) => i,
+                None => {
+                    tables.push((table.clone(), Vec::new()));
+                    tables.len() - 1
+                }
+            };
+            let entries = &mut tables[pos].1;
+            match entries.iter_mut().find(|(ek, _)| *ek == k) {
+                Some((_, ev)) => {
+                    if let (Some(a), Some(b)) = (array_items(ev), array_items(&v)) {
+                        let mut items = a;
+                        for i in b {
+                            if !items.contains(&i) {
+                                items.push(i);
+                            }
+                        }
+                        *ev = format!("[{}]", items.join(", "));
+                    } else if *ev != v {
+                        entries.push((k, v));
+                    }
+                }
+                None => entries.push((k, v)),
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for (name, entries) in tables {
+        if !name.is_empty() {
+            out.push(format!("[{name}]"));
+        }
+        for (k, v) in entries {
+            out.push(if v.is_empty() {
+                k
+            } else {
+                format!("{k} = {v}")
+            });
+        }
+    }
+    out.extend(other);
+    out
+}
+
+/// The items of a one-line TOML array of plain values (`["A", "B"]`).
+fn array_items(v: &str) -> Option<Vec<String>> {
+    let inner = v.strip_prefix('[')?.strip_suffix(']')?;
+    if inner.contains(['[', '{']) {
+        return None;
+    }
+    Some(
+        inner
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+
 /// One audit, as apply and status print it.
 pub fn format_audit(a: &AuditResult) -> String {
     let status = match a.status {

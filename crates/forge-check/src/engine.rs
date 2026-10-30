@@ -270,6 +270,9 @@ pub fn config(
                     ty: cmd.argv.clone(),
                     ..PythonConfig::default()
                 };
+                if forge_detect::place::ty_config(root, root).is_none() {
+                    py.rules = crate::checker::ty_rule_levels(rules);
+                }
                 if let Some((python, prefix, sites, version)) = python_env(root) {
                     py.python = Some(python);
                     py.prefix = Some(prefix);

@@ -5,7 +5,7 @@ use forge_packs::glob::glob_to_regex;
 use forge_packs::model::{Level, Origin, PackSource};
 use forge_render::changes::role_summary;
 use forge_render::report::{
-    ToolProbe, audit_rules, enforcement, enforcement_summary, format_audit,
+    ToolProbe, audit_rules, enforcement, enforcement_summary, format_audits,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -261,9 +261,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
     }
     if !audits.is_empty() {
         println!("\nAudit:");
-        for a in &audits {
-            println!("  {}", format_audit(a).replace('\n', "\n  "));
-        }
+        println!("  {}", format_audits(&audits).replace('\n', "\n  "));
     }
     println!();
     if drift.is_empty() {
@@ -389,8 +387,10 @@ pub fn explain(id: &str, flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Err
             println!("  nowhere");
         }
         if ctx.level == Level::Project {
-            for a in audit_rules(p, probe).iter().filter(|a| a.rule == id) {
-                println!("{}", format_audit(a));
+            let audits = audit_rules(p, probe);
+            let mine: Vec<_> = audits.iter().filter(|a| a.rule == id).collect();
+            if !mine.is_empty() {
+                println!("{}", format_audits(mine));
             }
         }
     } else {
