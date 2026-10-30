@@ -19,7 +19,7 @@ A whole-project type check blocks only for errors in files that are part of the 
 
 ## Tests that were already failing
 
-When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. When every failing test also failed then (typically no database or no network), Claude is told once which tests, and to set up what they need and run them again; if it cannot, the stop is allowed and `forge status` lists the tests that could not be verified.
+When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. A test that also failed then (typically no database or no network) is not Claude's change, so it never blocks: `forge status` lists the tests that could not be verified, with the errors that look environmental and what to set up.
 
 ## Advice
 

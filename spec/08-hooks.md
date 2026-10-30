@@ -139,7 +139,7 @@ The Stop check runs the turn's checks (§10) and blocks with the findings: `{"de
 5. Otherwise the checker runs on the turn's change (against the turn snapshot; without one, on every uncommitted change), with a 300 s budget.
    - Error findings: block. The reason holds errors first, then advice, at most 40 lines and 6000 characters. The tree as the checks left it (formatters may have run) is recorded as failed.
    - Advice only: block once; the same tree then passes.
-   - Only tests that also fail at the start of the turn (§10): block once. Stopping again on the same tree is let through, with the note "Some tests could not be verified: they fail with and without Claude's change. Run them once the environment is set up."
+   - Only tests that also fail at the start of the turn (§10.6): never a block. They fail without Claude's change too, so they are not its to fix: the checker's note tells the person, and the stop passes (advice found next to them still blocks once).
    - No error finding (a pass, a skipped check, a Forge failure): pass, and the tree is recorded as passed.
 6. After 3 blocks in one turn the stop is let through, with the note "The Stop check failed 3 times in one turn, so Claude was let stop with the failures left; run `forge check` to see them." A new prompt resets the count.
 
@@ -211,7 +211,7 @@ Verified against the Claude Code hooks documentation and, where noted, on real s
 - 8.5 UserPromptSubmit: `events.rs::prompt_snapshots_the_turn_silently`, `crates/forge-hooks/src/snapshot.rs (unit)`. The engine resync: (no test: needs a running engine; covered only by reading).
 - 8.6 PreToolUse / PostToolUse: `events.rs::post_tool_use_reports_findings_on_the_changed_files`, `spec_hooks.rs::a_snapshot_past_its_time_is_skipped_and_left_to_stop`, `spec_hooks.rs::bash_changes_leave_the_users_index_alone_and_skip_tool_directories`, `spec_hooks.rs::bash_snapshots_beyond_the_fifty_newest_are_dropped`.
 - 8.7 Typecheck: `events.rs::typecheck_reports_new_errors_through_the_engine`, `crates/forge-cli/tests/engine_typecheck.rs` (a typecheck rule alone: SessionStart starts the engine, an added error is reported; skipped without uvx), `spec_hooks.rs::edit_typecheck_never_is_silent`. The stream-json ancestor lookup: (no test: needs a real ancestor process with those arguments).
-- 8.8 Stop: `events.rs::stop_blocks_on_findings_not_on_notes`, `events.rs::advice_blocks_once`, `spec_hooks.rs::stop_remembers_a_passing_tree`, `spec_hooks.rs::stop_without_a_turn_snapshot_checks_every_change`, `spec_hooks.rs::a_commit_during_the_turn_is_part_of_it`, `spec_hooks.rs::the_block_reason_is_capped_and_a_new_prompt_resets_the_count`, `spec_hooks.rs::tests_failing_before_the_turn_too_block_once`.
+- 8.8 Stop: `events.rs::stop_blocks_on_findings_not_on_notes`, `events.rs::advice_blocks_once`, `spec_hooks.rs::stop_remembers_a_passing_tree`, `spec_hooks.rs::stop_without_a_turn_snapshot_checks_every_change`, `spec_hooks.rs::a_commit_during_the_turn_is_part_of_it`, `spec_hooks.rs::the_block_reason_is_capped_and_a_new_prompt_resets_the_count`, `spec_hooks.rs::tests_failing_before_the_turn_too_never_block`.
 - 8.9 PermissionRequest, SessionEnd, Notification: `events.rs::notification_and_session_end`, `spec_hooks.rs::notifications_use_osc_9_where_the_terminal_reads_it`; reviewer tests under §9.
 - 8.10 Environment variables: covered by the tests of the behaviour each one changes.
 - 8.11 Budgets: as in the table.

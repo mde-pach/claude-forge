@@ -166,7 +166,9 @@ impl Check<'_> {
 enum CheckResult {
     Pass,
     Fail(Vec<Finding>),
-    Unverified(Vec<Finding>, Vec<String>),
+    /// Only tests that also fail at the start of the turn: noted for the person, never a
+    /// finding; the `unverified` entries.
+    Unverified(Vec<String>),
     Advice(Vec<Finding>),
 }
 
@@ -861,8 +863,7 @@ impl Checker {
                     run.report.findings.extend(f);
                     failed = true;
                 }
-                CheckResult::Unverified(f, u) => {
-                    run.report.findings.extend(f);
+                CheckResult::Unverified(u) => {
                     run.unverified.extend(u);
                     unverified = true;
                 }
@@ -1198,6 +1199,18 @@ impl Checker {
                 }
             }
         }
+        let names = |v: &[&String]| {
+            let mut t = v
+                .iter()
+                .take(8)
+                .map(|t| t.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            if v.len() > 8 {
+                t.push_str(&format!(" and {} more", v.len() - 8));
+            }
+            t
+        };
         let list = |v: &[&String]| {
             v.iter()
                 .take(8)
@@ -1236,18 +1249,29 @@ impl Checker {
                 new.len(),
                 list(&new)
             );
-            if !old.is_empty() {
-                msg.push_str(&format!("\n({} other failing test(s) also fail at the start of the turn: not caused by this change)", old.len()));
-            }
             msg.push('\n');
             msg.push_str(&diagnostics::excerpt(out, 20));
+            if !old.is_empty() {
+                // not the agent's change: the person reads them
+                run.report.notes.push(note(
+                    NoteKind::Environment,
+                    c.id(),
+                    format!(
+                        "{} other failing test(s) also fail at the start of the turn, so the change did not cause them: {}",
+                        old.len(),
+                        names(&old)
+                    ),
+                ));
+            }
             return CheckResult::Fail(vec![Finding::error(c.id(), msg)]);
         }
+        // Every failing test also fails without the change: not the agent's to fix, so a note
+        // for the person and never a finding (§10.6).
         let env = env_errors(out);
-        let mut msg = format!(
-            "{} failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n{}\n",
+        let mut text = format!(
+            "{} failing test(s) also fail at the start of the turn, so the change did not cause them, but it is not verified by them either: {}.",
             old.len(),
-            list(&old)
+            names(&old)
         );
         let compose = [
             "compose.yaml",
@@ -1257,28 +1281,31 @@ impl Checker {
         ]
         .into_iter()
         .find(|f| self.root.join(f).is_file());
-        if !env.is_empty() {
-            msg.push_str("Their errors look environmental:\n");
-            for e in &env {
-                msg.push_str(&format!("  {e}\n"));
-            }
-            match compose {
-                Some(f) => msg.push_str(&format!("Set up what they need (e.g. docker compose up -d with {f}) and run them again. ")),
-                None => msg.push_str("Set up what they need (the services, the network) and run them again. "),
-            }
+        if env.is_empty() {
+            text.push_str(" Run them once what they need is set up.");
         } else {
-            msg.push_str(
-                "Check whether they relate to the task: fix them if so, and run them again. ",
-            );
+            text.push_str(&format!(
+                " Their errors look environmental ({}): ",
+                env.join("; ")
+            ));
+            match compose {
+                Some(f) => text.push_str(&format!(
+                    "set up what they need (e.g. docker compose up -d with {f}) and run them again."
+                )),
+                None => text.push_str(
+                    "set up what they need (the services, the network) and run them again.",
+                ),
+            }
         }
-        msg.push_str("If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n");
-        msg.push_str(&diagnostics::excerpt(out, 12));
+        run.report
+            .notes
+            .push(note(NoteKind::Environment, c.id(), text));
         let mut unverified: Vec<String> = old
             .iter()
             .map(|t| format!("test\t{} {t}", c.id()))
             .collect();
         unverified.extend(env.iter().map(|e| format!("env\t{e}")));
-        CheckResult::Unverified(vec![Finding::error(c.id(), msg)], unverified)
+        CheckResult::Unverified(unverified)
     }
 
     /// Runs one of a check's commands, in each workspace package when it has some; in the base

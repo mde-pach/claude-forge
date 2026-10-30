@@ -267,7 +267,8 @@ fn check_examples() {
 }
 
 /// §10.6: failing tests are re-run in the tree as it was at the start of the turn; only new
-/// failures fail the check, old ones are "unverified" (exit 3).
+/// failures fail the check, old ones are "unverified" (exit 3): a note for the person, no
+/// finding.
 #[test]
 fn failing_tests_compared_with_the_start_of_the_turn() {
     let pytest = "#!/bin/sh\ncase \"$1\" in --version) echo 'pytest 8.3.0'; exit 0 ;; esac\necho 'E   OSError: connect ECONNREFUSED 127.0.0.1:5432'\necho 'FAILED tests/test_a.py::test_old - OSError'\nif grep -q BROKEN a.py; then echo 'FAILED tests/test_a.py::test_new - assert 1 == 2'; fi\nexit 1\n";
@@ -295,11 +296,14 @@ fn failing_tests_compared_with_the_start_of_the_turn() {
             .any(|u| u.as_str().unwrap().contains("test_old")),
         "{v}"
     );
+    assert!(findings_of(&v, id).is_empty(), "{v}");
     assert!(
-        findings_of(&v, id)[0]["message"]
-            .as_str()
-            .unwrap()
-            .contains("Postgres refused the connection"),
+        v["notes"].as_array().unwrap().iter().any(|n| {
+            let t = n["text"].as_str().unwrap();
+            n["rule"] == id
+                && t.contains("tests/test_a.py::test_old")
+                && t.contains("Postgres refused the connection")
+        }),
         "{v}"
     );
     write(r.path(), &files(&[("a.py", "x = 2  # BROKEN\n")]));

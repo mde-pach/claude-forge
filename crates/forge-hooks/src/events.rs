@@ -499,22 +499,10 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     };
     let read = |f: &Path| state::read_trim(f);
     let reason_file = fail.with_extension("reason");
-    let unverified_file = fail.with_extension("unverified");
     if read(&pass).as_deref() == Some(hash.as_str()) {
         return Output::silent();
     }
     let same_failure = read(&fail).as_deref() == Some(hash.as_str());
-    if same_failure && unverified_file.is_file() {
-        // only tests failing at the start of the turn too, and nothing changed: let it stop
-        state::write_atomic(&pass, hash.as_bytes());
-        let _ = std::fs::remove_file(&fail);
-        let _ = std::fs::remove_file(&unverified_file);
-        p.note(&[Note::new(
-            NoteKind::Environment,
-            "Some tests could not be verified: they fail with and without Claude's change. Run them once the environment is set up.",
-        )]);
-        return Output::silent();
-    }
     let count: u32 = read(&counter).and_then(|c| c.parse().ok()).unwrap_or(0);
     if count >= MAX_BLOCKS {
         let _ = std::fs::remove_file(&counter);
@@ -552,17 +540,14 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     let text = cap(&outcome.report.agent_text(40));
     let has_findings = !outcome.report.findings.is_empty();
     match outcome.status {
-        StopStatus::Fail | StopStatus::Unverified if outcome.report.fails() => {
+        StopStatus::Fail if outcome.report.fails() => {
             state::write_atomic(&fail, now.as_bytes());
             state::write_atomic(&reason_file, text.as_bytes());
-            if outcome.status == StopStatus::Unverified {
-                state::write_atomic(&unverified_file, b"1\n");
-            } else {
-                let _ = std::fs::remove_file(&unverified_file);
-            }
             block(text)
         }
-        StopStatus::AdviceOnly if has_findings => {
+        // tests that fail with and without the change are the person's (a note), never a
+        // block; advice next to them is still given once
+        StopStatus::AdviceOnly | StopStatus::Unverified if has_findings => {
             // advice is given once: the same tree then passes
             state::write_atomic(&pass, now.as_bytes());
             let _ = std::fs::remove_file(&fail);
@@ -571,7 +556,7 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
         _ => {
             // passed, or failed with nothing for the agent (Forge's own failures never block)
             state::write_atomic(&pass, now.as_bytes());
-            for f in [&fail, &reason_file, &unverified_file, &counter] {
+            for f in [&fail, &reason_file, &counter] {
                 let _ = std::fs::remove_file(f);
             }
             Output::silent()
