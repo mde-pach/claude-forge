@@ -16,6 +16,8 @@
 //!   attributes and properties) is advice at Stop, given once per turn, and
 //!   neither the commit-time check nor CI reports it. The project's `min_confidence` still
 //!   decides what condor reports at all.
+//! - Unused imports are left to ruff's F401 when the run also runs `python/lint` and ruff can
+//!   lint (one finding, not two); otherwise condor's count.
 //! - A Python library (the `python/library` facts: a published package) is used from outside:
 //!   only its private names and unused imports count.
 //! - The project's own `[tool.condor]` or `[tool.vulture]` applies: condor reads it from
@@ -38,6 +40,9 @@ use forge_packs::model::Ecosystem;
 
 use crate::Run;
 use crate::util::{last_line, re};
+
+/// The rule that lints with ruff, whose F401 reports unused imports.
+pub const RUFF_LINT_RULE: &str = "python/lint";
 
 /// What the agent reads after a finding of code left unused.
 pub const UNUSED_HINT: &str = "remove it, or use it where it is needed. If it is used dynamically (a framework hook, an entry point), ask the user.";
@@ -474,6 +479,10 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
         let source = std::fs::read_to_string(root.join(&h.path)).unwrap_or_default();
         h.nested = in_class_body(&source, h.line);
     }
+    // ruff's F401 reports unused imports when the run lints with it: not twice
+    let ruff_imports = run.check.checks.iter().any(|c| c == RUFF_LINT_RULE)
+        && run.opts.tools.available(&root, &root, "ruff", "lint");
+    hits.retain(|h| !(ruff_imports && h.kind == "import"));
     let libraries = library_dirs(run);
     let in_library = |h: &Hit| libraries.iter().any(|d| in_dir(&h.path, d));
     let (blocking, advice): (Vec<Hit>, Vec<Hit>) = hits

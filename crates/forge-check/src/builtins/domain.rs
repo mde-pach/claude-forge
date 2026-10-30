@@ -68,6 +68,12 @@ pub trait BuiltinTools: Send + Sync {
     /// Forge's pinned `tool`: the words that run it. `Err` says why it cannot be had, for the
     /// person.
     fn pinned(&self, tool: &str) -> Result<Vec<String>, String>;
+
+    /// Whether `op` of `tool` can run from `cwd`: the tool is there, and its adapter covers
+    /// the installed version (`forge_condor` leaves unused imports to ruff when it runs).
+    fn available(&self, _root: &Path, _cwd: &Path, _tool: &str, _op: &str) -> bool {
+        false
+    }
 }
 
 /// The checker's adapters over a tool resolver.
@@ -118,6 +124,17 @@ impl BuiltinTools for AdapterTools {
             stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         })
+    }
+
+    fn available(&self, root: &Path, cwd: &Path, tool: &str, op: &str) -> bool {
+        let ctx = DoCtx {
+            root,
+            cwd,
+            rule: "",
+            tools: self.resolver.as_ref(),
+            stdin: None,
+        };
+        resolve(tool, op, &[], &ctx).is_ok()
     }
 
     fn pinned(&self, tool: &str) -> Result<Vec<String>, String> {
