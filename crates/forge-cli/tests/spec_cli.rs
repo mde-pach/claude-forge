@@ -202,6 +202,7 @@ fn shared_settings_need_yes_without_a_terminal_and_local_does_not() {
         "{}",
         stderr(&out)
     );
+    assert!(!stderr(&out).contains("forge: forge:"), "{}", stderr(&out));
     assert!(!s.exists("forge.lock") && !s.exists(".claude/settings.json"));
 
     // --local: the entries go to settings.local.json, with no confirmation

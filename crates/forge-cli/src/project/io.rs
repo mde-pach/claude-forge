@@ -103,6 +103,7 @@ pub fn show_diff(before: Option<&str>, after: Option<&str>, path: &str) {
 
 /// Asks a yes/no question on the terminal (`yes`: the answer is yes); without a terminal,
 /// fails with how to confirm.
+/// Asks the person `question` (without the `forge: ` prefix, which this adds).
 pub fn confirm(question: &str, yes: bool) -> Result<bool, Error> {
     if yes {
         return Ok(true);
@@ -112,7 +113,7 @@ pub fn confirm(question: &str, yes: bool) -> Result<bool, Error> {
             "forge: {question} Re-run with --yes to confirm non-interactively."
         )));
     }
-    print!("{question} [y/N] ");
+    print!("forge: {question} [y/N] ");
     let _ = std::io::stdout().flush();
     let mut line = String::new();
     let _ = std::io::stdin().lock().read_line(&mut line);

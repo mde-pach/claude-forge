@@ -84,7 +84,7 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
             continue;
         }
         show_diff(Some(before), after.as_deref(), file);
-        if !confirm(&format!("forge: apply these changes to {file}?"), flags.yes)? {
+        if !confirm(&format!("apply these changes to {file}?"), flags.yes)? {
             return Err(Error::new("forge: cancelled; nothing removed"));
         }
     }

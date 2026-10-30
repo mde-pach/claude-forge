@@ -34,7 +34,7 @@ pub fn offer(ctx: &mut Ctx, flags: &Flags) -> Result<bool, Error> {
             return Ok(false);
         }
         if !confirm(
-            &format!("forge: create {p} running \"{CHECK}\"?"),
+            &format!("create {p} running \"{CHECK}\"?"),
             flags.yes || flags.pre_commit,
         )? {
             return Ok(false);
@@ -59,7 +59,7 @@ pub fn offer(ctx: &mut Ctx, flags: &Flags) -> Result<bool, Error> {
     show_diff(before.as_deref(), Some(&after), &file);
     if !flags.pre_commit
         && !confirm(
-            &format!("forge: add \"{CHECK}\" to {file} ({})?", m.name),
+            &format!("add \"{CHECK}\" to {file} ({})?", m.name),
             false,
         )?
     {
