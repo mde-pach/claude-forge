@@ -418,6 +418,8 @@ fn python_engine() {
     config.log = Some(root.join("engine.log"));
     config.python = Some(PythonConfig {
         ty: vec![ty.to_string_lossy().into_owned()],
+        // an active rule's level, set inline (§11.2): redundant-cast is a warning by default
+        rules: vec!["redundant-cast".into()],
         ..PythonConfig::default()
     });
     let (client, cold) = start(config.clone(), Lang::Python);
@@ -455,6 +457,27 @@ fn python_engine() {
     assert_eq!(
         (added[0].line, added[0].code.as_deref()),
         (1, Some("invalid-assignment"))
+    );
+    std::fs::write(
+        root.join("diag/b.py"),
+        "from typing import cast\n\n\ndef f(n: int) -> int:\n    return cast(int, n)\n",
+    )
+    .unwrap();
+    let added = client
+        .diagnostics(
+            Lang::Python,
+            &[DiagFile {
+                path: "diag/b.py".into(),
+                base: None,
+            }],
+            false,
+        )
+        .unwrap();
+    assert!(
+        added
+            .iter()
+            .any(|d| d.code.as_deref() == Some("redundant-cast") && d.severity == "error"),
+        "{added:?}"
     );
 
     // the last session out stops it

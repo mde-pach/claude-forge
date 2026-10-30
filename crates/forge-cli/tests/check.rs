@@ -210,6 +210,46 @@ fn forge_do_drives_a_fake_tool_and_notes_what_it_cannot() {
     assert!(notes.iter().any(|n| n["kind"] == "not-enforced"), "{v}");
 }
 
+/// Forge's pinned ty runs with the levels the active `tool: ty` rules need (`--error <rule>`)
+/// where the project leaves ty to its defaults; a project's own ty config is left to decide.
+#[test]
+fn ty_runs_at_the_active_rules_levels_unless_the_project_configures_it() {
+    // a ty that reports redundant-cast as a warning unless told it is an error
+    let ty = "#!/bin/sh\ncase \"$1\" in --version) echo 'ty 0.0.86'; exit 0 ;; esac\ngrep -q 'cast(' a.py || exit 0\ncase \" $* \" in *' --error redundant-cast '*) echo 'a.py:1:5: error[redundant-cast] Value is already of type `int`'; exit 1 ;; esac\necho 'a.py:1:5: warning[redundant-cast] Value is already of type `int`'; exit 0\n";
+    let r = Repo::new(&files(&[("a.py", "x = 1\n")]));
+    let bin = tempfile::tempdir().unwrap();
+    write(bin.path(), &files(&[("ty", ty)]));
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(
+        bin.path().join("ty"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let path = format!("{}:{PATH}", bin.path().display());
+    let snap = r.snap.path().display().to_string();
+    write(r.path(), &files(&[("a.py", "x = cast(int, 1)\n")]));
+    let rules = ["python/typecheck", "python/no-useless-cast"];
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, "python/typecheck")[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("error[redundant-cast]"),
+        "{v}"
+    );
+    // [tool.ty]: the project's config decides (a warning there passes)
+    write(
+        r.path(),
+        &files(&[(
+            "pyproject.toml",
+            "[project]\nname = \"x\"\n\n[tool.ty.rules]\n",
+        )]),
+    );
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 0, "{v}");
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as
@@ -267,7 +307,8 @@ fn check_examples() {
 }
 
 /// §10.6: failing tests are re-run in the tree as it was at the start of the turn; only new
-/// failures fail the check, old ones are "unverified" (exit 3).
+/// failures fail the check, old ones are "unverified" (exit 3): a note for the person, no
+/// finding.
 #[test]
 fn failing_tests_compared_with_the_start_of_the_turn() {
     let pytest = "#!/bin/sh\ncase \"$1\" in --version) echo 'pytest 8.3.0'; exit 0 ;; esac\necho 'E   OSError: connect ECONNREFUSED 127.0.0.1:5432'\necho 'FAILED tests/test_a.py::test_old - OSError'\nif grep -q BROKEN a.py; then echo 'FAILED tests/test_a.py::test_new - assert 1 == 2'; fi\nexit 1\n";
@@ -295,11 +336,14 @@ fn failing_tests_compared_with_the_start_of_the_turn() {
             .any(|u| u.as_str().unwrap().contains("test_old")),
         "{v}"
     );
+    assert!(findings_of(&v, id).is_empty(), "{v}");
     assert!(
-        findings_of(&v, id)[0]["message"]
-            .as_str()
-            .unwrap()
-            .contains("Postgres refused the connection"),
+        v["notes"].as_array().unwrap().iter().any(|n| {
+            let t = n["text"].as_str().unwrap();
+            n["rule"] == id
+                && t.contains("tests/test_a.py::test_old")
+                && t.contains("Postgres refused the connection")
+        }),
         "{v}"
     );
     write(r.path(), &files(&[("a.py", "x = 2  # BROKEN\n")]));

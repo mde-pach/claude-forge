@@ -365,6 +365,53 @@ fn typecheck_errors_in_unchanged_files_are_a_note() {
     );
 }
 
+/// An unresolved import of a dependency the project declares is the environment's state (the
+/// dependency is not installed where the type check looks): a note, not a finding. One of a
+/// package the project does not declare stays a finding.
+#[test]
+fn an_uninstalled_declared_dependency_is_a_note() {
+    let d = repo(&[
+        ("app.py", "x = 1\n"),
+        ("requirements.txt", "beautifulsoup4==4.12.3\n"),
+    ]);
+    put(
+        d.path(),
+        "app.py",
+        "from bs4 import BeautifulSoup\nimport numpy\n",
+    );
+    let ty = |modules: &str| {
+        format!(
+            "st=0; for m in {modules}; do grep -q \"$m\" app.py || continue; st=1; echo \"app.py:1:6: error[unresolved-import] Cannot resolve imported module \\`$m\\`\"; done; echo 'Found 1 diagnostic'; exit $st"
+        )
+    };
+    let o = checker(
+        d.path(),
+        vec![check_rule("acme/types", "typecheck", &ty("bs4"))],
+    )
+    .check(Mode::Changed, &stop())
+    .unwrap();
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    assert_eq!(o.report.agent_text(20), "");
+    assert!(
+        o.report.notes.iter().any(|n| n.text
+            == "dependencies are not installed in the environment Forge type-checks with: beautifulsoup4 (bs4); their imports are not checked until they are"),
+        "{:?}",
+        o.report.notes
+    );
+    let o = checker(
+        d.path(),
+        vec![check_rule("acme/types", "typecheck", &ty("bs4 numpy"))],
+    )
+    .check(Mode::Changed, &stop())
+    .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    let text = o.report.agent_text(20);
+    assert!(
+        text.contains("`numpy`") && !text.contains("`bs4`"),
+        "{text}"
+    );
+}
+
 /// A failure that names no location is shown under the stage's header with an excerpt; more
 /// than 15 attributed findings are capped with a count.
 #[test]
@@ -493,7 +540,8 @@ fn person_text_json_and_agent_text() {
 }
 
 /// A typecheck error the base already has in a changed file does not count (the command runs
-/// again in a copy of the base tree); one more of a new text fails, naming only that one.
+/// again in a copy of the base tree); one more of a new text fails, naming only that one, and
+/// the errors already there are a note for the person.
 #[test]
 fn typecheck_errors_the_base_already_has() {
     let run = "n=0; while read -r l; do n=$((n+1)); case $l in *bad*) echo \"a.py:$n:1: error: $l is bad\"; st=1 ;; esac; done < a.py; exit ${st:-0}";
@@ -508,13 +556,14 @@ fn typecheck_errors_the_base_already_has() {
         .check(Mode::Changed, &stop())
         .unwrap();
     assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-    let texts: Vec<String> = o.report.findings.iter().map(|f| f.agent_text()).collect();
-    assert_eq!(
-        texts,
-        [
-            "a.py:3 error: bad2 is bad",
-            "(1 other error(s) in the changed files were already there before this change)"
-        ]
+    // the agent reads only its new error; the person also reads that one was already there
+    assert_eq!(o.report.agent_text(20), "a.py:3 error: bad2 is bad");
+    assert!(
+        forge_check::output::person_text(&o).contains(
+            "acme/types: 1 error(s) in the changed files were already there before this change"
+        ),
+        "{}",
+        forge_check::output::person_text(&o)
     );
 }
 

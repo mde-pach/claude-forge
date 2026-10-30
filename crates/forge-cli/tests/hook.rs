@@ -199,6 +199,36 @@ fn hooks_on_an_applied_sample() {
     assert!(out.status.success() && out.stdout.is_empty());
 }
 
+/// Packaging created during a session activates packs the rules files written at apply time
+/// do not cover: the next PostToolUse gives the agent their context, once.
+#[test]
+fn context_of_packs_activated_mid_session() {
+    let s = Sandbox::new("astro-app");
+    let out = s.hook("user-prompt-submit", &json!({"prompt": "add a script"}));
+    assert!(out.status.success());
+    // what `uv init --bare` and `uv add` leave, then a script
+    std::fs::write(
+        s.repo.join("pyproject.toml"),
+        "[project]\nname = \"tools\"\nversion = \"0.1.0\"\nrequires-python = \">=3.12\"\ndependencies = [\"httpx>=0.27\"]\n",
+    )
+    .unwrap();
+    std::fs::write(s.repo.join("uv.lock"), "version = 1\n").unwrap();
+    std::fs::write(s.repo.join("fetch.py"), "import httpx\n").unwrap();
+    let edit = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": s.repo.join("fetch.py")}});
+    let out = s.hook("post-tool-use", &edit);
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let ctx = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(ctx.contains("This project now uses uv:\n"), "{ctx}");
+    assert!(ctx.contains("uv add"), "{ctx}");
+    // given once in the session
+    let out = s.hook("post-tool-use", &edit);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(!text.contains("This project now uses"), "{text}");
+}
+
 /// Runs `event` `n` times; the median and p99 wall times of the whole process.
 fn measure(s: &Sandbox, event: &str, input: &Value, n: usize) -> (Duration, Duration) {
     let mut times: Vec<Duration> = (0..n)

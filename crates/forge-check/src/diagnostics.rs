@@ -469,6 +469,12 @@ pub fn parse_location(line: &str) -> Option<(String, Option<u32>, String)> {
     None
 }
 
+/// Whether a line is an error diagnostic: it names a location and its text says `error`.
+pub fn is_error_diagnostic(line: &str) -> bool {
+    let line = strip_ansi(line);
+    parse_location(&line).is_some_and(|(_, _, text)| text.to_lowercase().contains("error"))
+}
+
 /// A run's output as findings of `rule`: a line naming a location is a finding there, a line
 /// starting with whitespace continues the previous one, any other line is a finding of its own.
 pub fn findings_of(output: &str, rule: &str, root: &Path) -> Vec<Finding> {

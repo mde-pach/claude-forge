@@ -202,6 +202,7 @@ fn shared_settings_need_yes_without_a_terminal_and_local_does_not() {
         "{}",
         stderr(&out)
     );
+    assert!(!stderr(&out).contains("forge: forge:"), "{}", stderr(&out));
     assert!(!s.exists("forge.lock") && !s.exists(".claude/settings.json"));
 
     // --local: the entries go to settings.local.json, with no confirmation
@@ -586,7 +587,7 @@ fn user_level_setup() {
         "{settings}"
     );
     let lock = std::fs::read_to_string(s.home.join(".claude/forge-user.lock")).unwrap();
-    assert!(lock.starts_with("# Written by forge apply"), "{lock}");
+    assert!(lock.starts_with("# Generated file: do not edit."), "{lock}");
     assert!(!s.exists("forge.lock"), "the repository is untouched");
     assert!(
         s.ok(&["apply", "--user", "--yes"])

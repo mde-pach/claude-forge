@@ -43,6 +43,18 @@ fn holds_in(w: &ContextWhen, f: &DepFacts) -> bool {
         })
 }
 
+/// A rendered rules file's items, as the agent reads them: without its `paths:` frontmatter
+/// and the introduction every file starts with.
+pub fn rules_file_items(text: &str) -> &str {
+    let body = match text.strip_prefix("---\n") {
+        Some(rest) => rest
+            .find("\n---\n")
+            .map_or(text, |i| rest[i + 5..].trim_start_matches('\n')),
+        None => text,
+    };
+    body.strip_prefix(CONTEXT_INTRO).unwrap_or(body)
+}
+
 /// A pack's context items (its pack.yaml's `context`).
 pub fn pack_context(pack: &Pack) -> Vec<ContextItem> {
     pack.context.clone()

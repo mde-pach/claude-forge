@@ -39,7 +39,9 @@ use std::time::Duration;
 use forge_home::{Home, RepoId};
 use serde_json::{Value, json};
 
-pub use checker::{Checker, NoChecker, StopOutcome, StopStatus, TestBlock, TestEditRule};
+pub use checker::{
+    Checker, NoChecker, PackContextNow, StopOutcome, StopStatus, TestBlock, TestEditRule,
+};
 pub use input::HookInput;
 
 /// The reason the agent reads when it reaches for Forge's own files.

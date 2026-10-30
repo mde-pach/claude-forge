@@ -154,6 +154,12 @@ impl Checker for HookChecker {
             })
             .collect()
     }
+
+    fn rules_context(&self, root: &Path) -> Vec<forge_hooks::PackContextNow> {
+        crate::check::select_cached(root)
+            .map(|s| s.context)
+            .unwrap_or_default()
+    }
 }
 
 /// Answers one hook call: the hook input on stdin, the answer on stdout (stderr and exit 2 for

@@ -39,6 +39,15 @@ pub struct TestEditRule {
     pub review: Option<String>,
 }
 
+/// A rules file the active packs give now (forge-render's rules files): its path, its pack and
+/// its items as the agent reads them (no frontmatter, no introduction).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PackContextNow {
+    pub path: String,
+    pub pack: String,
+    pub text: String,
+}
+
 /// A test (or test support code) of a file: its key and its fingerprint (forge-check's
 /// `builtins::tests::Block`). Support code is keyed `support:<name>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +72,12 @@ pub trait Checker {
 
     /// The tests of a file's text.
     fn test_blocks(&self, path: &str, source: &str) -> Vec<TestBlock>;
+
+    /// The rules files the packs active now give, as the repository is (a pack may have become
+    /// active since `forge apply`: packaging files created during the session).
+    fn rules_context(&self, _root: &Path) -> Vec<PackContextNow> {
+        Vec::new()
+    }
 }
 
 /// No checks: the hooks that need the checker stay silent.

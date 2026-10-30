@@ -590,13 +590,41 @@ pub fn resolve(tool: &str, op: &str, args: &[String], ctx: &DoCtx<'_>) -> Result
             ));
         }
     };
+    let mut args = build_args(&words, args);
+    if name == "ty" {
+        args.extend(ty_level_args(ctx.cwd, ctx.root));
+    }
     Ok(Resolved {
-        args: build_args(&words, args),
+        args,
         adapter: a,
         name,
         version,
         cmd,
     })
+}
+
+/// The rule levels Forge's pinned ty is run with: `--error <rule>` for each rule the checker
+/// lists (`FORGE_TY_RULES`), where the project leaves ty to its defaults. A project that
+/// configures ty itself (`ty.toml`, `[tool.ty]`) is the authority on its levels: nothing is
+/// added, and the audit says what its config lacks (§11.2). ty 0.0.86: `ty check --error <RULE>`.
+pub fn ty_level_args(cwd: &Path, root: &Path) -> Vec<String> {
+    let Some(rules) = std::env::var_os(crate::builtins::ENV_TY_RULES) else {
+        return Vec::new();
+    };
+    if forge_detect::place::ty_config(cwd, root).is_some() {
+        return Vec::new();
+    }
+    error_args(rules.to_string_lossy().lines())
+}
+
+/// `--error <rule>` for each rule.
+pub fn error_args<'a>(rules: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    rules
+        .into_iter()
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .flat_map(|r| ["--error".to_string(), r.to_string()])
+        .collect()
 }
 
 /// `forge_do <tool> <op> [args]` (§16.1): runs `op` by the installed tool as its adapter says,

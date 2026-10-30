@@ -255,9 +255,32 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
+    let event = match input.hook_event_name.as_deref() {
+        Some("PostToolUseFailure") => "PostToolUseFailure",
+        _ => "PostToolUse",
+    };
     let mut files = changed_files(rt, input, &p);
+    // packs that became active (packaging files created during the session): their context,
+    // once, after the findings
+    let fresh = new_pack_context(rt, &p);
+    let answer = |findings: String| -> Output {
+        let mut text = findings;
+        if let Some((ctx, paths)) = &fresh {
+            if !text.is_empty() {
+                text.push_str("\n\n");
+            }
+            text.push_str(ctx);
+            mark_context_shown(rt, &p, paths);
+        }
+        if text.is_empty() {
+            return Output::silent();
+        }
+        Output::json(json!({
+            "hookSpecificOutput": {"hookEventName": event, "additionalContext": text}
+        }))
+    };
     if files.is_empty() {
-        return Output::silent();
+        return answer(String::new());
     }
     files.truncate(EDIT_FILES_MAX);
     let snap = p.snapshot();
@@ -266,16 +289,87 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     }))
     .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
     p.note(&report.notes);
-    if report.findings.is_empty() {
-        return Output::silent();
+    answer(report.agent_text(20))
+}
+
+// ---- Context of packs that became active
+
+/// What the session's context bookkeeping holds (`<session>/context.json`): the key of the
+/// repository state last looked at, and the rules files already shown.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+struct ContextSeen {
+    key: String,
+    shown: Vec<String>,
+}
+
+fn context_seen(p: &Project) -> ContextSeen {
+    std::fs::read(p.session_dir.join("context.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// The context the agent has not seen: the rules files of the packs active now that the lock
+/// does not record (the rules files were rendered before those packs became active), as
+/// "This project now uses <pack>:" and the pack's items. Each is given once per session; the
+/// repository's files are never rewritten. None when nothing is new, or the state is unchanged
+/// since the last look (the packaging files, the lock).
+fn new_pack_context(rt: &Runtime, p: &Project) -> Option<(String, Vec<String>)> {
+    let cache = p.rules(&rt.home)?;
+    let key = format!(
+        "{}|{}|{}",
+        cache.rule_set,
+        cache.lock_meta,
+        cache.facts_key.as_deref().unwrap_or("")
+    );
+    let mut seen = context_seen(p);
+    if seen.key == key {
+        return None;
     }
-    let event = match input.hook_event_name.as_deref() {
-        Some("PostToolUseFailure") => "PostToolUseFailure",
-        _ => "PostToolUse",
-    };
-    Output::json(json!({
-        "hookSpecificOutput": {"hookEventName": event, "additionalContext": report.agent_text(20)}
-    }))
+    let fresh: Vec<_> = rt
+        .checker
+        .rules_context(&p.root)
+        .into_iter()
+        .filter(|c| !cache.rules_files.contains(&c.path) && !seen.shown.contains(&c.path))
+        .filter(|c| !c.text.trim().is_empty())
+        .collect();
+    if fresh.is_empty() {
+        seen.key = key;
+        if state::ensure_dir(&p.session_dir)
+            && let Ok(b) = serde_json::to_vec(&seen)
+        {
+            state::write_atomic(&p.session_dir.join("context.json"), &b);
+        }
+        return None;
+    }
+    let text = fresh
+        .iter()
+        .map(|c| {
+            let name = c.pack.rsplit('/').next().unwrap_or(&c.pack);
+            format!("This project now uses {name}:\n{}", c.text.trim_end())
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    Some((text, fresh.into_iter().map(|c| c.path).collect()))
+}
+
+/// Records `paths` as shown in this session.
+fn mark_context_shown(rt: &Runtime, p: &Project, paths: &[String]) {
+    let mut seen = context_seen(p);
+    seen.shown.extend(paths.iter().cloned());
+    if let Some(cache) = p.rules(&rt.home) {
+        seen.key = format!(
+            "{}|{}|{}",
+            cache.rule_set,
+            cache.lock_meta,
+            cache.facts_key.as_deref().unwrap_or("")
+        );
+    }
+    if state::ensure_dir(&p.session_dir)
+        && let Ok(b) = serde_json::to_vec(&seen)
+    {
+        state::write_atomic(&p.session_dir.join("context.json"), &b);
+    }
 }
 
 fn failure(what: &str) -> Report {
@@ -416,6 +510,17 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
         }
     }
     let _ = std::fs::remove_dir_all(&tmp);
+    // a declared dependency the environment lacks is not the edit's error (§10.4)
+    if lines
+        .iter()
+        .any(|l| forge_check::pydeps::unresolved_module(l).is_some())
+    {
+        let (kept, missing) = forge_check::pydeps::Declared::of(&p.root).split(&lines.join("\n"));
+        if !missing.is_empty() {
+            notes.push(forge_check::pydeps::missing_note(&missing, ""));
+            lines = kept.lines().map(str::to_owned).collect();
+        }
+    }
     p.note(&notes);
     if lines.is_empty() {
         return Output::silent();
@@ -499,22 +604,10 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     };
     let read = |f: &Path| state::read_trim(f);
     let reason_file = fail.with_extension("reason");
-    let unverified_file = fail.with_extension("unverified");
     if read(&pass).as_deref() == Some(hash.as_str()) {
         return Output::silent();
     }
     let same_failure = read(&fail).as_deref() == Some(hash.as_str());
-    if same_failure && unverified_file.is_file() {
-        // only tests failing at the start of the turn too, and nothing changed: let it stop
-        state::write_atomic(&pass, hash.as_bytes());
-        let _ = std::fs::remove_file(&fail);
-        let _ = std::fs::remove_file(&unverified_file);
-        p.note(&[Note::new(
-            NoteKind::Environment,
-            "Some tests could not be verified: they fail with and without Claude's change. Run them once the environment is set up.",
-        )]);
-        return Output::silent();
-    }
     let count: u32 = read(&counter).and_then(|c| c.parse().ok()).unwrap_or(0);
     if count >= MAX_BLOCKS {
         let _ = std::fs::remove_file(&counter);
@@ -526,7 +619,15 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     }
     let block = |text: String| -> Output {
         state::write_atomic(&counter, (count + 1).to_string().as_bytes());
-        Output::json(json!({"decision": "block", "reason": cap(&text)}))
+        // a pack that became active: its context, which the findings may follow from
+        let reason = match new_pack_context(rt, &p) {
+            Some((ctx, paths)) => {
+                mark_context_shown(rt, &p, &paths);
+                format!("{ctx}\n\n{}", cap(&text))
+            }
+            None => cap(&text),
+        };
+        Output::json(json!({"decision": "block", "reason": reason}))
     };
     if same_failure && reason_file.is_file() {
         // Claude was shown these findings and stopped again without changing anything: it chose
@@ -552,17 +653,14 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     let text = cap(&outcome.report.agent_text(40));
     let has_findings = !outcome.report.findings.is_empty();
     match outcome.status {
-        StopStatus::Fail | StopStatus::Unverified if outcome.report.fails() => {
+        StopStatus::Fail if outcome.report.fails() => {
             state::write_atomic(&fail, now.as_bytes());
             state::write_atomic(&reason_file, text.as_bytes());
-            if outcome.status == StopStatus::Unverified {
-                state::write_atomic(&unverified_file, b"1\n");
-            } else {
-                let _ = std::fs::remove_file(&unverified_file);
-            }
             block(text)
         }
-        StopStatus::AdviceOnly if has_findings => {
+        // tests that fail with and without the change are the person's (a note), never a
+        // block; advice next to them is still given once
+        StopStatus::AdviceOnly | StopStatus::Unverified if has_findings => {
             // advice is given once: the same tree then passes
             state::write_atomic(&pass, now.as_bytes());
             let _ = std::fs::remove_file(&fail);
@@ -571,7 +669,7 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
         _ => {
             // passed, or failed with nothing for the agent (Forge's own failures never block)
             state::write_atomic(&pass, now.as_bytes());
-            for f in [&fail, &reason_file, &unverified_file, &counter] {
+            for f in [&fail, &reason_file, &counter] {
                 let _ = std::fs::remove_file(f);
             }
             Output::silent()

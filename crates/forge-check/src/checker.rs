@@ -52,6 +52,22 @@ impl ActiveRule {
     }
 }
 
+/// The ty rules the active rules' `tool: ty` targets expect at error, sorted and once each: what
+/// Forge's own runs of ty set where the project does not configure ty (§11.2).
+pub fn ty_rule_levels(rules: &[ActiveRule]) -> Vec<String> {
+    let set: BTreeSet<String> = rules
+        .iter()
+        .flat_map(|a| a.rule.enforce.iter())
+        .filter_map(|t| match t {
+            Target::Tool(t) if t.tool == forge_packs::model::AuditedTool::Ty => {
+                Some(t.expects.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    set.into_iter().collect()
+}
+
 /// When the checker runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
@@ -166,7 +182,9 @@ impl Check<'_> {
 enum CheckResult {
     Pass,
     Fail(Vec<Finding>),
-    Unverified(Vec<Finding>, Vec<String>),
+    /// Only tests that also fail at the start of the turn: noted for the person, never a
+    /// finding; the `unverified` entries.
+    Unverified(Vec<String>),
     Advice(Vec<Finding>),
 }
 
@@ -861,8 +879,7 @@ impl Checker {
                     run.report.findings.extend(f);
                     failed = true;
                 }
-                CheckResult::Unverified(f, u) => {
-                    run.report.findings.extend(f);
+                CheckResult::Unverified(u) => {
                     run.unverified.extend(u);
                     unverified = true;
                 }
@@ -977,6 +994,24 @@ impl Checker {
             }
             Exit::Status(_) => {}
         }
+        // a declared dependency the environment lacks is the environment's state, not the
+        // change's: the person is told, and only what remains can fail (§10.4)
+        let out = if c.target.stage == Stage::Typecheck {
+            let (kept, missing) = crate::pydeps::Declared::of(&self.root).split(&out);
+            if missing.is_empty() {
+                out
+            } else {
+                run.report
+                    .notes
+                    .push(crate::pydeps::missing_note(&missing, c.id()));
+                if !kept.lines().any(diagnostics::is_error_diagnostic) {
+                    return CheckResult::Pass;
+                }
+                kept
+            }
+        } else {
+            out
+        };
         if advised {
             let mut f =
                 diagnostics::findings_of(&diagnostics::excerpt(&out, 15), c.id(), &self.root);
@@ -1109,7 +1144,9 @@ impl Checker {
                 let (exit, base_out) = self.exec(run, c, cmd, files, uses_files, Some(&tree));
                 let target = DiagTarget::of(&*run.change);
                 match exit {
-                    Exit::Status(0) => return self.typecheck_result(c, &now, &all_now, &[]),
+                    Exit::Status(0) => {
+                        return self.typecheck_result(run, c, &now, &all_now, &[]);
+                    }
                     Exit::TimedOut(s) | Exit::Budget(s) => {
                         why = format!("the run there was stopped after {s}s")
                     }
@@ -1126,7 +1163,7 @@ impl Checker {
                             why = "the run there failed naming no file".into();
                         } else {
                             let base = diagnostics::diag_keys(&base_out, tree.path(), &target);
-                            return self.typecheck_result(c, &now, &all_now, &base);
+                            return self.typecheck_result(run, c, &now, &all_now, &base);
                         }
                     }
                 }
@@ -1142,24 +1179,31 @@ impl Checker {
 
     fn typecheck_result(
         &self,
+        run: &mut Run<'_>,
         c: &Check<'_>,
         now: &[diagnostics::DiagKey],
         all: &[diagnostics::DiagKey],
         base: &[diagnostics::DiagKey],
     ) -> CheckResult {
         let (new, old) = diagnostics::compare_with_base(now, all, base);
+        // errors the base already had are not the agent's to act on: the person reads them
+        if old > 0 {
+            run.report.notes.push(note(
+                NoteKind::Environment,
+                c.id(),
+                format!(
+                    "{old} error(s) in the changed files were already there before this change"
+                ),
+            ));
+        }
         if new.is_empty() {
             return CheckResult::Pass;
         }
-        let mut f = cap(
+        CheckResult::Fail(cap(
             diagnostics::findings_of(&new.join("\n"), c.id(), &self.root),
             15,
             c.id(),
-        );
-        if old > 0 {
-            f.push(Finding::error(c.id(), format!("({old} other error(s) in the changed files were already there before this change)")));
-        }
-        CheckResult::Fail(f)
+        ))
     }
 
     /// `forge_test_compare` (§10.6).
@@ -1189,6 +1233,18 @@ impl Checker {
                 }
             }
         }
+        let names = |v: &[&String]| {
+            let mut t = v
+                .iter()
+                .take(8)
+                .map(|t| t.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            if v.len() > 8 {
+                t.push_str(&format!(" and {} more", v.len() - 8));
+            }
+            t
+        };
         let list = |v: &[&String]| {
             v.iter()
                 .take(8)
@@ -1227,18 +1283,29 @@ impl Checker {
                 new.len(),
                 list(&new)
             );
-            if !old.is_empty() {
-                msg.push_str(&format!("\n({} other failing test(s) also fail at the start of the turn: not caused by this change)", old.len()));
-            }
             msg.push('\n');
             msg.push_str(&diagnostics::excerpt(out, 20));
+            if !old.is_empty() {
+                // not the agent's change: the person reads them
+                run.report.notes.push(note(
+                    NoteKind::Environment,
+                    c.id(),
+                    format!(
+                        "{} other failing test(s) also fail at the start of the turn, so the change did not cause them: {}",
+                        old.len(),
+                        names(&old)
+                    ),
+                ));
+            }
             return CheckResult::Fail(vec![Finding::error(c.id(), msg)]);
         }
+        // Every failing test also fails without the change: not the agent's to fix, so a note
+        // for the person and never a finding (§10.6).
         let env = env_errors(out);
-        let mut msg = format!(
-            "{} failing test(s) also fail at the start of the turn (re-run there), so this change did not cause them, but it is not verified by them either:\n{}\n",
+        let mut text = format!(
+            "{} failing test(s) also fail at the start of the turn, so the change did not cause them, but it is not verified by them either: {}.",
             old.len(),
-            list(&old)
+            names(&old)
         );
         let compose = [
             "compose.yaml",
@@ -1248,28 +1315,31 @@ impl Checker {
         ]
         .into_iter()
         .find(|f| self.root.join(f).is_file());
-        if !env.is_empty() {
-            msg.push_str("Their errors look environmental:\n");
-            for e in &env {
-                msg.push_str(&format!("  {e}\n"));
-            }
-            match compose {
-                Some(f) => msg.push_str(&format!("Set up what they need (e.g. docker compose up -d with {f}) and run them again. ")),
-                None => msg.push_str("Set up what they need (the services, the network) and run them again. "),
-            }
+        if env.is_empty() {
+            text.push_str(" Run them once what they need is set up.");
         } else {
-            msg.push_str(
-                "Check whether they relate to the task: fix them if so, and run them again. ",
-            );
+            text.push_str(&format!(
+                " Their errors look environmental ({}): ",
+                env.join("; ")
+            ));
+            match compose {
+                Some(f) => text.push_str(&format!(
+                    "set up what they need (e.g. docker compose up -d with {f}) and run them again."
+                )),
+                None => text.push_str(
+                    "set up what they need (the services, the network) and run them again.",
+                ),
+            }
         }
-        msg.push_str("If that is not possible, stop again without changing files: the stop is then allowed and the user is told these tests could not be verified.\n");
-        msg.push_str(&diagnostics::excerpt(out, 12));
+        run.report
+            .notes
+            .push(note(NoteKind::Environment, c.id(), text));
         let mut unverified: Vec<String> = old
             .iter()
             .map(|t| format!("test\t{} {t}", c.id()))
             .collect();
         unverified.extend(env.iter().map(|e| format!("env\t{e}")));
-        CheckResult::Unverified(vec![Finding::error(c.id(), msg)], unverified)
+        CheckResult::Unverified(unverified)
     }
 
     /// Runs one of a check's commands, in each workspace package when it has some; in the base
@@ -1437,6 +1507,10 @@ impl Checker {
         env.insert(builtins::ENV_ROLES.into(), s(&run.files.path("roles.json")));
         env.insert(builtins::ENV_ADDED.into(), s(&run.files.path("added")));
         env.insert(builtins::ENV_CHECKS.into(), s(&run.files.path("checks")));
+        let ty_rules = ty_rule_levels(&self.rules);
+        if !ty_rules.is_empty() {
+            env.insert(builtins::ENV_TY_RULES.into(), ty_rules.join("\n").into());
+        }
         let rule_file = run.files.path(&format!("rule.{}.json", safe(c.id())));
         if !rule_file.exists() {
             let _ = std::fs::write(

@@ -70,6 +70,9 @@ pub struct HookCache {
     pub python_pm: Option<String>,
     #[serde(default)]
     pub js_pm: Option<String>,
+    /// The rules files the lock records (`.claude/rules/…`): what the agent was given.
+    #[serde(default)]
+    pub rules_files: Vec<String>,
 }
 
 impl HookCache {
@@ -195,6 +198,12 @@ pub fn load(state_dir: &Path, source: &Source) -> Option<HookCache> {
                 ..fresh
             };
         }
+        cache.rules_files = lock
+            .files
+            .keys()
+            .filter(|f| f.starts_with(".claude/rules/"))
+            .cloned()
+            .collect();
         cache.lock_meta = meta;
         dirty = true;
     }

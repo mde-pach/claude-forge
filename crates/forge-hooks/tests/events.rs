@@ -566,10 +566,14 @@ fn typecheck_reports_new_errors_through_the_engine() {
         assert_eq!(req["files"][0]["path"], "app/main.py");
         assert!(req["files"][0]["base"].is_string());
         let resp = json!({"diagnostics": [{"path": "app/main.py", "line": 1, "column": 5,
-            "severity": "error", "code": "invalid-assignment", "message": "bad"}]});
+            "severity": "error", "code": "invalid-assignment", "message": "bad"},
+            {"path": "app/main.py", "line": 2, "column": 6, "severity": "error",
+            "code": "unresolved-import", "message": "Cannot resolve imported module `yaml`"}]});
         (&stream).write_all(format!("{resp}\n").as_bytes()).unwrap();
     });
-    std::fs::write(s.root.join("app/main.py"), "x: int = 'a'\n").unwrap();
+    std::fs::write(s.root.join("app/main.py"), "x: int = 'a'\nimport yaml\n").unwrap();
+    // declared, not installed: the person's environment, not the edit's error
+    std::fs::write(s.root.join("requirements.txt"), "PyYAML==6.0.2\n").unwrap();
     let edit =
         json!({"tool_name": "Edit", "tool_input": {"file_path": s.root.join("app/main.py")}});
     let out = s.run(&Fake::default(), "post-tool-use-typecheck", edit.clone());
@@ -580,6 +584,14 @@ fn typecheck_reports_new_errors_through_the_engine() {
             .contains("app/main.py:1:5: error[invalid-assignment] bad"),
         "{}",
         out.stderr
+    );
+    assert!(!out.stderr.contains("yaml"), "{}", out.stderr);
+    assert!(
+        s.notes().iter().any(|n| n
+            .text
+            .contains("not installed in the environment Forge type-checks with: pyyaml (yaml)")),
+        "{:?}",
+        s.notes()
     );
     // under claude -p (no streaming input) it is the Stop check's
     let env = Env {

@@ -168,7 +168,7 @@ impl Lock {
             blocks: self.blocks.clone(),
         };
         let body = toml::to_string(&s).expect("the lock serializes");
-        format!("# Written by forge apply. Do not edit.\n{body}")
+        format!("# Generated file: do not edit.\n{body}")
     }
 }
 
@@ -306,6 +306,10 @@ mod tests {
             }],
         };
         let text = lock.render();
+        // The agent may read the lock: its header names no Forge command.
+        let header = text.lines().next().unwrap();
+        assert_eq!(header, "# Generated file: do not edit.");
+        assert!(forge_core::internals::find(header).is_empty(), "{header}");
         assert_eq!(Lock::parse(&text).unwrap(), lock);
         assert_eq!(
             forge_launcher::parse_lock(&text).unwrap().forge.as_deref(),

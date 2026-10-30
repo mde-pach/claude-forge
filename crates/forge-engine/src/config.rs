@@ -64,6 +64,10 @@ pub struct PythonConfig {
     /// The whole list, as `ty check` gets it, for the diagnostics; `None`: the same as `untyped`.
     #[serde(default)]
     pub untyped_all: Option<Vec<String>>,
+    /// The ty rules set to error in the servers' inline configuration: the active rules' levels,
+    /// where the project does not configure ty itself (§11.2). Empty: ty's own levels.
+    #[serde(default)]
+    pub rules: Vec<String>,
 }
 
 /// TypeScript's engine: the project's own TypeScript (`node_modules/typescript`, resolved from the
