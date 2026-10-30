@@ -81,8 +81,17 @@ static TOOL_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
         .collect()
 });
 
+/// The runtime word a pack writes after a helper (`forge_helper python new_deps.py`): the
+/// helpers are builtins of Forge, so it names no tool the check needs.
+static HELPER_RUNTIME: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(forge_(?:helper|ratchet))[\t ]+(?:python3?|bun|node)(?=$|[\s;&|)`])")
+        .expect("helper runtime regex")
+});
+
 /// Tools invoked as commands in a shell string, in order of first use.
 pub fn tools_in_command(cmd: &str) -> Vec<&'static str> {
+    let cmd = HELPER_RUNTIME.replace_all(cmd, "$1");
+    let cmd = cmd.as_ref();
     let mut found: Vec<(usize, &'static str)> = TOOL_RES
         .iter()
         .filter_map(|(tool, re)| re.find(cmd).ok().flatten().map(|m| (m.start(), *tool)))
@@ -158,5 +167,23 @@ mod tests {
         );
         assert!(tools_in_command("echo the pnpm field").is_empty());
         assert_eq!(tools_in_command("cd x && pnpm install"), ["pnpm"]);
+    }
+
+    /// The helpers are builtins: the runtime word after them is an argument, not a tool.
+    #[test]
+    fn a_helpers_runtime_is_not_a_tool() {
+        assert!(
+            tools_in_command("forge_helper python new_deps.py $FORGE_COOLDOWN_SECONDS").is_empty()
+        );
+        assert!(
+            tools_in_command("forge_advise forge_helper bun pm_policy.mjs pnpm-catalog").is_empty()
+        );
+        assert!(tools_in_command("forge_ratchet bun ratchet.mjs").is_empty());
+        assert!(tools_in_command("forge_ratchet python ratchet.py").is_empty());
+        assert_eq!(
+            tools_in_command("forge_helper python fk_index.py && python -m x"),
+            ["python"]
+        );
+        assert!(tools_of_commands(&["forge_helper bun new_deps.mjs 0"]).is_empty());
     }
 }
