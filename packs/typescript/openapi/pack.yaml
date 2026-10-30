@@ -3,3 +3,10 @@ description: Clients generated from an OpenAPI document (openapi-typescript, orv
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: openapi-typescript}, {ecosystem: npm, name: orval}, {ecosystem: npm, name: "@hey-api/openapi-ts"}]
+context:
+  - text: |
+      The API client is generated from the OpenAPI document by a package.json script (openapi-typescript, orval or @hey-api/openapi-ts); generated files say so in their header.
+  - text: |
+      A change to a tracked OpenAPI document without a change to a generated file is rejected: run the generator script and keep both changes together.
+  - text: |
+      A change to a generated file without a change to the document or the generator config is rejected: change the document (or the server it comes from) and regenerate.

@@ -3,3 +3,24 @@ description: Next.js 16 App Router.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: next, version: ">=16.0.0"}]
+context:
+  - text: |
+      Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`, `draftMode()`) are async: await them.
+  - text: |
+      Components are Server Components unless the file starts with `'use client'`.
+  - text: |
+      Request interception lives in `proxy.ts` (not `middleware.ts`).
+  - text: |
+      `revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
+  - text: |
+      Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
+  - text: |
+      `next lint` no longer exists and `next build` does not lint: run the project's own linter.
+  - text: |
+      Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
+  - text: |
+      `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
+  - text: |
+      `'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
+  - text: |
+      `typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.

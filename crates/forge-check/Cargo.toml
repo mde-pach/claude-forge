@@ -1,0 +1,32 @@
+[package]
+name = "forge-check"
+description = "Claude Forge's checker: the change set, ast-grep and grep rules, check stages, tool adapters and the builtins pack checks call."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-detect.workspace = true
+forge-engine.workspace = true
+forge-helpers.workspace = true
+forge-home.workspace = true
+forge-packs.workspace = true
+forge-render.workspace = true
+ast-grep-config.workspace = true
+ast-grep-core.workspace = true
+ast-grep-language = { workspace = true, features = ["tree-sitter-python", "tree-sitter-typescript", "tree-sitter-yaml"] }
+fancy-regex.workspace = true
+imara-diff.workspace = true
+include_dir.workspace = true
+indexmap.workspace = true
+libc.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+wait-timeout.workspace = true
+
+[dev-dependencies]

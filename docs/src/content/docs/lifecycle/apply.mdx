@@ -1,61 +1,27 @@
 ---
 title: forge apply
-description: Detection, generation, settings, the lock and tool audits.
+description: Detection, what gets written, the lock and tool audits.
 ---
 
-import Spec from "../../../components/Spec.astro";
-
-`forge apply` reads the packs, decides which are active in this repository, writes the files Forge owns, appends permission entries to `.claude/settings.json` with your consent, records everything in `.forge/forge.lock.json`, and audits your tool configs. It is idempotent.
-
-## Running it
-
-<Spec file="03-cli" describe="Claude Code version gate" />
-<Spec file="03-cli" describe="apply" />
+`forge apply` reads the packs, decides which are active in this repository, writes the rules files and the settings entries (asking before a shared settings change), records everything in `forge.lock`, provisions the pinned tools into the cache, and audits your tool configs. A second run with nothing changed reports that the setup is up to date. `forge diff` shows what it would change; `--dry-run` prints the plan and writes nothing.
 
 ## Which packs are active
 
-Packs are a tree: language, then package, then sub-package. See any [pack page](../../packs/python/) for what activates it.
-
-<Spec file="05-inputs" describe="the pack tree" />
-
-### Detection by content
-
-Some packs are active in every repository (`secrets`, `git`); others are detected by a literal value in a config file (Next.js `cacheComponents: true`) or by the structure of a YAML document (a Kubernetes manifest has top-level `apiVersion` and `kind`). `packs.add` and `packs.remove` in `forge.yaml` still decide last.
-
-<Spec file="05-inputs" describe="detection by content" />
+Packs are a tree: language, then package, then sub-package, and a child pack is active only when its parent is. A pack is detected by any one of: `always`, a file glob (`files_any`), a source file outside vendored and generated directories (`sources_any`), a declared dependency in a version range (`deps_any`), a published library (`library_any`), a line of a config file (`content_any`), the top-level keys of a YAML document (`yaml_keys`), or a project fact such as the Python package manager (`facts_any: {python.pm: uv}`). Every [pack page](../../packs/python/) shows what activates it. `packs.add` and `packs.remove` in `forge.yaml` decide last.
 
 ### Monorepos
 
-In a workspace (pnpm, npm, Yarn, Bun or uv), detection also reads each workspace package: its manifest, its dependencies and its files. A check whose tool is configured in a package rather than at the root runs in that package.
+In a workspace (pnpm, npm, Yarn, Bun or uv), detection also reads each workspace package. A pack detected in only some packages gets `paths:` frontmatter on its rules file, so Claude reads it there only, and a check whose tool is configured in a package runs in that package.
 
-<Spec file="05-inputs" describe="workspaces" />
+## What is written
 
-## What each rule becomes
+- `.claude/rules/forge-<pack>.md`: each active pack's context, the items whose condition holds. The text depends only on the repository's content, never on what this machine has installed, since it is committed and shared.
+- `.claude/settings.json` (or `.claude/settings.local.json` with `--local`): the hook entries and the rules' permission entries, appended next to your own.
+- `forge.lock`: the Forge version, the active rule set's hash, the tool pins and the settings entries written, so `forge remove` takes out exactly those.
+- The pre-commit hook or a hook manager block, when you accept it.
 
-<Spec file="06-rules" />
-
-## Files Forge owns
-
-<Spec file="04-ownership" describe="owned files" />
-
-## The lock and the manifest
-
-`.forge/forge.lock.json` records what Forge wrote, for the CLI. `.forge/manifest.sha256` lists the same hashes in `sha256sum` format for `check.sh`.
-
-<Spec file="04-ownership" describe="the lock" />
-
-## Your formatter and Forge's JSON
-
-Forge formats the JSON it generates with your Biome, and hashes JSON without whitespace, so your formatter can run over Forge's files freely.
-
-<Spec file="04-ownership" describe="formatters and Forge's JSON" />
-
-## Settings Forge appends
-
-<Spec file="04-ownership" describe="appended settings" />
+Machine state (missing tools, what is not enforced here, environment notes) goes to `forge status`, never into these files.
 
 ## Tool audits
 
-For each rule with a `tool` target, Forge runs your own tool, with your own config, on the rule's examples. Forge never edits a tool config: when the audit fails it prints the snippet to add.
-
-<Spec file="11-audits" />
+For each rule with a `tool` target, Forge runs your own tool, with your own config, on the rule's examples. Forge never edits a tool config: when the audit fails, `forge status` prints the snippet to add.

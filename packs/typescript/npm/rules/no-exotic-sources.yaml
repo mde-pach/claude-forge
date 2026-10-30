@@ -7,7 +7,7 @@ enforce:
     pattern: "allow-(git|remote)[[:space:]]*=[[:space:]]*all"
   - target: guard
     decision: deny
-    pattern: "allow-(git|remote)[= ]all"
+    command: {flags_any: ['--allow-git=all', '--allow-remote=all'], value_flags: [--allow-git, --allow-remote]}
 examples:
   match: ["allow-git=all\n", "npm install --allow-remote=all https://example.com/pkg.tgz"]
   no_match: ["allow-git=none\n", "npm install --allow-git=root"]

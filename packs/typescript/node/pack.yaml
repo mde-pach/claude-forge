@@ -3,3 +3,8 @@ description: Node.js runtime APIs and how TypeScript runs on Node.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@types/node"}]
+context:
+  - text: |
+      TypeScript runs through the project's own runner (its package.json scripts), not `ts-node`, which is unmaintained and rejected in package.json.
+  - text: |
+      `node:vm` is not a security boundary: never use it to run untrusted code.

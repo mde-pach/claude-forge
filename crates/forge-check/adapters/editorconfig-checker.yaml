@@ -1,0 +1,16 @@
+# editorconfig-checker, Forge's own pinned .editorconfig checker (§13.5 release binary, §16.2
+# pinned tools): one range, the pin (RELEASE_BINARIES["editorconfig-checker"]), proven on
+# 4.0.2. Forge's invocation (repository.sh forge_editorconfig): `-config <json> -no-color
+# -format gcc <files>`. Exit: 0 clean, 1 violations (and a file it cannot stat: no gcc line
+# then), 2 a usage error or an unparsable config.
+
+tool: "editorconfig-checker"
+pinned: "4.0.2"
+verified: "4.0.2"
+runner: pinned
+usage: {exit: [2], pattern: "^(flag provided but not defined: |invalid (boolean )?value )"}
+ranges:
+  - from: "4.0.2"
+    source: "editorconfig-checker 4.0.2: https://github.com/editorconfig-checker/editorconfig-checker/releases/tag/v4.0.2; editorconfig-checker -help"
+    ops:
+      "lint": "-no-color -format gcc -config"

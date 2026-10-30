@@ -1,0 +1,54 @@
+# uv as the project's package manager, found on PATH (§16). Forge also launches its own pinned
+# tools through `uvx` (ty, hadolint, zizmor, squawk): that stays direct, and `direct` matches
+# `uv` as a command only (never `uvx`, never `uv add` inside a message).
+#
+# What Forge asks of it: `lock-check` (python/uv/lock-sync: `uv lock --check`), `build-wheel`
+# (python/library/py-typed: `uv build --wheel --quiet -o <dir>`) and `run-python`
+# (python/library/py-typed: `uv run --no-project --quiet python -I -c <code> <args>`). What
+# changed between releases (astral-sh/uv changelogs/0.x.md):
+#
+# - 0.3.0 made the project interface (`uv lock`, `uv run`, uv.lock) stable (changelogs/0.3.x.md
+#   0.3.0: "the interfaces are stable and ready for production-use"); `uv lock --locked` fails
+#   on a stale lock there. 0.2.x had it behind preview with another lock format: 0.3.0 is the
+#   oldest covered release. `uv run --no-project` exists since 0.2.32 ("Add `--no-workspace`
+#   and `--no-project` in lieu of `--isolated`").
+# - 0.4.5 added `uv build` ("Implement `uv build`", #6895): before, `unrecognized subcommand
+#   'build'`. Same release: "Reflect exit code in `uv tool run` and `uv run`": before, `uv run`
+#   exits 1 whatever the child's non-zero status (0.3.0, 0.4.4: child 3 → 1; still a failure,
+#   so run-python is the same op on both sides). `--quiet` is ignored by `uv build` until
+#   0.4.17 ("Respect `--quiet` flag in `uv build`"): it prints `Building wheel...`, which the
+#   rule sends to a log anyway.
+# - 0.5.8 added `uv lock --check` ("Reframe `--locked` and `--frozen` as `--check` operations
+#   for `uv lock`"): before, `--check` is `unexpected argument`, so the older range uses
+#   `--locked` (same meaning; still accepted by 0.13.6).
+# - 0.8.0: a stale lock exits 1 instead of 2 ("Update `--check` to return an exit code of 1",
+#   #14167). Before 0.8.0 it is 2 like a usage error, told apart by the line: a stale lock says
+#   `error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.`, never
+#   clap's `For more information, try '--help'.` (checked on 0.3.0 and 0.7.22).
+
+tool: "uv"
+verified: "0.13.6"
+runner: path
+direct: "(^|[;&|`!{]|\\$\\(|\\b(?:then|do|else|exec|time)\\s)\\s*uv(?=$|[\\s;&|)`])"
+usage: {exit: [2], pattern: "^For more information, try .--help."}
+ranges:
+  - from: "0.3.0"
+    to: "0.4.5"
+    source: "uv changelogs/0.3.x.md 0.3.0 (projects stable); changelogs/0.4.x.md 0.4.5 (uv build, #6895)"
+    ops:
+      "build-wheel": null
+      "lock-check": "lock --locked"
+      "run-python": "run --no-project --quiet python -I -c"
+  - from: "0.4.5"
+    to: "0.5.8"
+    source: "uv changelogs/0.4.x.md 0.4.5 (Implement uv build, #6895; uv run reflects the exit code)"
+    ops:
+      "build-wheel": "build --wheel --quiet -o"
+      "lock-check": "lock --locked"
+      "run-python": "run --no-project --quiet python -I -c"
+  - from: "0.5.8"
+    source: "uv changelogs/0.5.x.md 0.5.8 (--locked/--frozen reframed as --check for uv lock); changelogs/0.8.x.md 0.8.0 (#14167: stale lock exits 1)"
+    ops:
+      "build-wheel": "build --wheel --quiet -o"
+      "lock-check": "lock --check"
+      "run-python": "run --no-project --quiet python -I -c"

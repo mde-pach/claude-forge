@@ -1,16 +1,13 @@
 ---
 title: Configuration
-description: Adjust detected packs and rules with forge.yaml and project-local rules.
+description: Adjust detected packs and rules with forge.yaml, local packs and local rules.
 ---
 
-import Spec from "../../../components/Spec.astro";
-
-Most projects need no configuration: Forge activates packs from your manifests and lock files. Two optional inputs adjust the result. Forge never rewrites them, and Claude must ask before editing them.
+Most projects need no configuration: Forge activates packs from your manifests, lock files and sources. Three optional inputs adjust the result. Forge never rewrites them, and Claude must ask before editing them.
 
 ## `forge.yaml`
 
 ```yaml
-forge: "0.5"
 packs:
   add: [typescript/zod]           # activate a pack (and its ancestors)
   remove: [typescript/playwright] # deactivate a pack and its sub-packs
@@ -23,16 +20,13 @@ accept:                           # a config change the ratchet reported, made o
     reason: Migrating the legacy API client; back to error by Q3.
 ```
 
-Every rule blocks, so a rule you don't want is disabled with a reason.
+A rule you don't want is disabled with a reason.
 
-`accept` answers the config ratchet (`python/config-ratchet`, `typescript/config-ratchet`): when a tool config is loosened (a lint rule lowered, a strict flag removed, a path excluded, a coverage threshold lowered, `--passWithNoTests` added), `check.sh` fails at Stop, at pre-commit and in CI with one line per setting. Copying that line into `accept` with a reason records the change as deliberate; once it is committed, the ratchet measures against the new config. The file format is in [Schemas](../../reference/schemas/#forge).
-
-<Spec file="05-inputs" describe="forge.yaml" />
-<Spec file="05-inputs" top />
+`accept` answers the config ratchet (`python/config-ratchet`, `typescript/config-ratchet`): when a tool config is loosened (a lint rule lowered, a strict flag removed, a path excluded, a coverage threshold lowered), the check fails at Stop, at pre-commit and in CI with one line per setting. Copying that line into `accept` with a reason records the change as deliberate. The file format is in [Schemas](../../reference/schemas/#forge).
 
 ## File roles
 
-Rules name the files they are about by role (`@python-tests`, `@alembic-migrations`, `@dockerfile`, …), never by globs of their own. A role starts from Forge's defaults, which the tool's own config replaces when Forge can read it as data: pytest's `testpaths` and `python_files`, `alembic.ini`'s `script_location`, `schema.prisma`'s generator `output`, `package.json`'s `prisma.schema`. Code configs (`vitest.config.ts`, `playwright.config.ts`, …) are never run, so a layout they set goes in `forge.yaml`:
+Rules name the files they are about by role (`@python-tests`, `@alembic-migrations`, `@dockerfile`, …), never by globs of their own. A role starts from Forge's defaults, which the tool's own config replaces when Forge can read it as data: pytest's `testpaths` and `python_files`, `alembic.ini`'s `script_location`, `schema.prisma`'s generator `output`. Code configs (`vitest.config.ts`, …) are never run, so a layout they set goes in `forge.yaml`:
 
 ```yaml
 files:
@@ -41,22 +35,15 @@ files:
   typeorm-datasource: {set: [src/data-source.ts]}      # a role with no default
 ```
 
-`forge status` lists each role the active rules use, its patterns and where each comes from, and says when one matches no file; a rule whose role has no pattern at all is reported as not enforced rather than run on other files. A changed tool config or `files:` entry shows as drift until the next `forge apply`. SPECS.md §15.4 lists the roles and their defaults.
+`forge status` lists each role the active rules use, its patterns and where each comes from, and says when one matches no file; a rule whose role has no pattern is reported as not enforced rather than run on other files.
 
-<Spec file="15-4-file-roles" describe="defaults from the tool's config" />
-<Spec file="15-4-file-roles" describe="forge.yaml" />
-<Spec file="15-4-file-roles" describe="status and drift" />
+## Local packs and rules
 
-## Project-local rules
+- `.forge/packs/<id>/` holds a pack in the same layout as the built-in ones (`pack.yaml`, `rules/*.yaml`). See [Writing packs](../../contributing/writing-packs/).
+- `.forge/rules/*.yaml` holds standalone rules in the same format. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule.
 
-Rule files in `.forge/rules/` use the same format as pack rules. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule. `forge test`, run inside the repository, validates them and runs their examples (a local rule replacing a pack rule is tested as written); it does not re-run the bundled packs, which Forge's own test suite proves. Without local rules it has nothing to test.
-
-Rules have no parameters; a local rule of the same id is how you adapt one: copy the rule from its pack page into `.forge/rules/<name>.yaml` and change it, for example add `"!path/to/file.ts"` to `scope.files` to exempt a file.
-
-<Spec file="05-inputs" describe="project-local rules" />
+Rules have no parameters; a local rule of the same id is how you adapt one: copy the rule from its pack page into `.forge/rules/<name>.yaml` and change it, for example add `"!path/to/file.ts"` to `scope.files` to exempt a file. `claude-forge packs lint --repo .` reports the content lints on your local packs and rules.
 
 ## YAML
 
-Pack files, rule files and `forge.yaml` are read with a strict YAML parser.
-
-<Spec file="05-inputs" describe="strict YAML" />
+Pack files, rule files and `forge.yaml` are read with a strict YAML parser: no anchors, aliases or tags, and duplicate keys are rejected.

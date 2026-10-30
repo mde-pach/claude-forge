@@ -3,3 +3,11 @@ description: pnpm is the package manager.
 level: project
 detect:
   files_any: [pnpm-lock.yaml, pnpm-workspace.yaml]
+context:
+  - text: |
+      pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
+  - text: |
+      pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
+  - when: {deps: [{ecosystem: npm, name: pnpm, version: ">=11.0.0"}]}
+    text: |
+      pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.

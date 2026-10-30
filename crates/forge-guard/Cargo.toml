@@ -1,0 +1,19 @@
+[package]
+name = "forge-guard"
+description = "Claude Forge's PreToolUse Bash guard: commands parsed into simple commands, matched on their structure."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-detect.workspace = true
+forge-packs.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tree-sitter.workspace = true
+tree-sitter-bash.workspace = true

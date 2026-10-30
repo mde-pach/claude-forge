@@ -1,1 +1,0 @@
-Litestar. A sync `def` route handler states `sync_to_thread=True` when it blocks (database drivers, file I/O) and `sync_to_thread=False` when it does not; async handlers use async clients. `Litestar(debug=True)` is rejected outside tests.

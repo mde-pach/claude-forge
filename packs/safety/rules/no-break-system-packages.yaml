@@ -4,7 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '--break-system-packages|PIP_BREAK_SYSTEM_PACKAGES=|(^|[;&|(][[:space:]]*|\\n[[:space:]]*)sudo[[:space:]]+(-[A-Za-z]+[[:space:]]+)*((python[0-9.]*[[:space:]]+-m[[:space:]]+)?pip[0-9.]*[[:space:]]+install|(npm|pnpm|yarn|bun)[[:space:]]+(i|install|add|global)([[:space:]]|$))'
+    command:
+      - {name: [pip, pip3, 'pip3.*', uv, pipx], flags_any: [--break-system-packages]}
+      - {env_any: [PIP_BREAK_SYSTEM_PACKAGES]}
+      - {name: [pip, pip3, 'pip3.*'], sub: [install], wrapped_by: [sudo, doas]}
+      - {name: [npm, pnpm, yarn, bun], sub: ['i|install|add|global'], wrapped_by: [sudo, doas]}
 examples:
   match: ["pip install --break-system-packages requests", "PIP_BREAK_SYSTEM_PACKAGES=1 pip install x", "sudo pip install requests", "sudo npm i -g typescript", "sudo -H python3 -m pip install x", "cd /tmp && sudo pnpm add -g serve"]
   no_match: ["pip install requests", "sudo apt-get install -y python3-pip", "npm i -g typescript", "uv tool install ruff", "git commit -m \"drop sudo pip install from docs\""]

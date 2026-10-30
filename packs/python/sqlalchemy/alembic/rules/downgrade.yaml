@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])alembic[[:space:]]([^;&|]*[[:space:]])?(downgrade|stamp)([[:space:];&|)]|$)'
+    command: {name: alembic, sub: ['downgrade|stamp']}
 examples:
   match: ["alembic downgrade -1", "uv run alembic stamp head"]
   no_match: ["alembic upgrade head", "alembic revision --autogenerate -m x"]

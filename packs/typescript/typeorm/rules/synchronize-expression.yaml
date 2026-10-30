@@ -1,5 +1,5 @@
 id: typescript/typeorm/synchronize-expression
-description: "Advice: synchronize or dropSchema set from an expression in new DataSource({...}), TypeOrmModule.forRoot({...}) or a forRootAsync useFactory result is on whenever that expression is true, possibly in production; prefer false and migrations everywhere."
+description: "synchronize or dropSchema set from an expression in new DataSource({...}), TypeOrmModule.forRoot({...}) or a forRootAsync useFactory result is on whenever that expression is true, possibly in production; prefer false and migrations everywhere."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

@@ -1,0 +1,581 @@
+---
+source: crates/forge-cli/tests/apply.rs
+expression: s.snapshot()
+---
+=== .claude/rules/forge-code.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
+Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
+When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
+=== .claude/rules/forge-secrets.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
+A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
+A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
+Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
+=== .claude/rules/forge-typescript-bun.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
+=== .claude/rules/forge-typescript-nextjs-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
+Server Actions are async functions in a file or function marked `'use server'`.
+A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions.
+=== .claude/rules/forge-typescript-nextjs.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`, `draftMode()`) are async: await them.
+Components are Server Components unless the file starts with `'use client'`.
+Request interception lives in `proxy.ts` (not `middleware.ts`).
+`revalidateTag(tag, "max")` takes a cacheLife profile; `updateTag(tag)` in a Server Action gives read-your-writes.
+Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
+`next lint` no longer exists and `next build` does not lint: run the project's own linter.
+Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
+`NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
+`'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
+`typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
+=== .claude/rules/forge-typescript-playwright.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
+`waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
+Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
+=== .claude/rules/forge-typescript-prisma.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
+SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
+CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
+`prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
+Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants, and `Prisma.raw()` built from a template or concatenation, are rejected.
+`$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
+A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
+Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).
+=== .claude/rules/forge-typescript-react.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
+Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`, not `react-dom/test-utils`.
+Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values; an object, array or function default is hoisted to a module constant.
+`ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
+Components follow the React Compiler's rules: no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.
+=== .claude/rules/forge-typescript-vitest.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
+=== .claude/rules/forge-typescript-zod.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
+Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
+Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
+Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
+=== .claude/rules/forge-typescript.md
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+TypeScript, strict.
+No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
+`!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
+=== .claude/settings.json
+{
+  "permissions": {
+    "ask": [
+      "Edit(.forge/**)",
+      "Edit(forge.yaml)",
+      "Edit(forge.lock)",
+      "Edit(.claude/rules/forge-*.md)",
+      "Edit(**/biome.json)",
+      "Edit(**/biome.jsonc)",
+      "Edit(**/tsconfig*.json)",
+      "Edit(**/eslint.config.*)",
+      "Edit(**/.oxlintrc.json)",
+      "Edit(**/deno.json)",
+      "Edit(**/deno.jsonc)",
+      "Edit(**/.prettierrc*)",
+      "Edit(**/prettier.config.*)",
+      "Edit(**/pnpm-workspace.yaml)",
+      "Edit(**/.npmrc)",
+      "Edit(**/.yarnrc.yml)",
+      "Edit(**/bunfig.toml)",
+      "Edit(**/turbo.json)",
+      "Edit(**/playwright.config.*)",
+      "Edit(**/vitest.config.*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+=== forge.lock
+# Generated file: do not edit.
+forge = "<forge version>"
+claude_code_min = "2.1.295"
+rule_set = "c9ae083b78cfa1493b2d179f466513efa5506eb5002f69f295b4d6587bb14ba4"
+
+[rules]
+"git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
+"git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
+"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
+"git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
+"git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
+"secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
+"secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
+"secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
+"supply-chain/audit-ignore-ratchet" = "82a2babb74414d41b371004b17f3bdf779527c67debfe682963c7c1442cea2c6"
+"supply-chain/insecure-download" = "e1f9edbbfa16c6ab1204560b746fb3406d8e53a13ec114b326242bc948953d3c"
+"supply-chain/new-npm-dep-exists" = "677b63966774292f89846c9ce2167eb6dd89942e579e90648a6d66b7cad9ae5b"
+"supply-chain/new-pypi-dep-exists" = "c56fab0b19b74025e2a13ddcd0e50b7057618603df676b54768c542f9020f13c"
+"supply-chain/no-dependency-confusion" = "4e0383c11354e5613840743118e7be1640b087b2178ad668b02d46ac6b3c14ff"
+"supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
+"supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
+"supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
+"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+"typescript/a11y" = "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6"
+"typescript/array-sort-compare" = "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7"
+"typescript/bun/lock-sync" = "2e78b7e238ebb87b8b23c0803175145f8d336562f5d246f491a45a7945afc11c"
+"typescript/bun/no-fewer-expects" = "d39ef28d4c918ccd050f1017d83623c984b090d379eff2868ba2300b89b64d87"
+"typescript/bun/no-mock-increase" = "59da686537b2fe781f69a285892669bfee36a4a6458c0e46c8ba898544046442"
+"typescript/bun/no-new-skip" = "26cfa8b0a0ad346a30b14bf8de071fe2802eaa1aa9dce056d063c7b033f7faf0"
+"typescript/bun/no-other-pm" = "203a38865edae1d09a8604b27a73be96b9cd8d270240c9b81b4b9073b3d8d8b5"
+"typescript/bun/no-shell-raw" = "348c79f815619635b75105e35100d354bf05bc3ae290898f133346e48719b7e6"
+"typescript/bun/no-snapshot-update" = "ca531569532a888ee34da1558498c347dee030c01f73186a92d4af5e10201f4d"
+"typescript/bun/no-test-edits" = "4ae92104baca408cf8bac7598a5a8690da1dd8125f5070349349254dd52c73cd"
+"typescript/bun/release-age" = "f1b61845176fd9689c9d866643967da7729178cf24f548c24d19d5478c409485"
+"typescript/bun/test" = "d6980775d1c6d8726b085a0dcd09455629a709ff34a3dba66f93abc3da2c5a8a"
+"typescript/bun/text-lockfile" = "cbdb95a24e3862815c0c3d78ee5911f35e64012228b9a63d9553accb3a3a4384"
+"typescript/bun/trusted-deps" = "a23199c6bb088f245f833db63f304fdc1c8f304167257caab8125af55bbda732"
+"typescript/config-files" = "b98d7d7059861901460da6a7912e65a2b6c0d6cd85d66954b307e761f750a4e9"
+"typescript/config-ratchet" = "cd15b235882efa9d5ca66acf048912dcb6eb43443d21874e7f991d9bdaaf25f4"
+"typescript/cors-credentials-wildcard" = "e779826c44c3e0c5af614b60821892466df49297cf4c3b651c2ce1ef9831145b"
+"typescript/env-example" = "7eab3b03486670f6274d4db65487ccaaf7f2b1fddd39c86a13469cdf46d2140c"
+"typescript/error-cause" = "9170931e3ac2d03952e9fc2636764ce7dcdbe2c9f79b1609eab1765b95d94b7a"
+"typescript/format-lint" = "f3c1c7a3201dc7873ee6391e60502b47631007eb844ee3c52de6732a9fc30110"
+"typescript/iframe-sandbox" = "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6"
+"typescript/implicit-returns" = "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629"
+"typescript/lockfile-updated" = "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7"
+"typescript/nextjs/cookies-set-in-render" = "bfbccdaddd26a22e56a25ac3db2a5ea01f6193a37d783c3ef230694a80ea6b15"
+"typescript/nextjs/image-remote-patterns-strict" = "f76fe121ee305899265890efe11d37b1e919a8457dca6ca96b1ce83e80a3636f"
+"typescript/nextjs/image-unsafe-options" = "e2189ab383a3545e8ac1acc141101bc3a99d908cd77695769bbf065d022dca11"
+"typescript/nextjs/no-ignore-build-errors" = "e8b6c62746fbe53ea7651ae136edba36bc3c1deb742f79504b30e930deeedba3"
+"typescript/nextjs/no-legacy-image-config" = "3fe00293c75da57b6623c1880c86eadb54aa9fce686ac52ffc1720780763fec7"
+"typescript/nextjs/no-next-head-in-app" = "e1a7d74eb70df5cbeee9cd5a55906f3215a461e2a175fd47d563bbaba06ae9be"
+"typescript/nextjs/no-next-router" = "e935af017296ba5db9752bf63ad22bea52eb27816f357b18532a1052590d14ea"
+"typescript/nextjs/no-pages-data" = "a4d7c707f125ee1f103d922b8765e619c4c293479797d9dbdb81c7e3bbe782fa"
+"typescript/nextjs/no-public-secret-env" = "41daab06f32411dacc7b8cd23a5953a407b00761bb07f75827b0a10bdfa50c64"
+"typescript/nextjs/no-redirect-in-try" = "e2c7d465f2372a98efe8359fbb2d442c5ec66a7a0b8f689558c9e93c9fbc4b67"
+"typescript/nextjs/no-request-apis-in-use-cache" = "6561ecdf0f6bcbfa0342cabb6e1fc6e1b2cbb1a0bc942a53abc29674ead9784a"
+"typescript/nextjs/no-sync-scripts" = "24f3e3fd9311e9011eac6f367d95fa720d56afd1ad5bddc0f2a9c908a7224cb1"
+"typescript/nextjs/parallel-route-default" = "1f9b5b2eed8de15b6c013533ab270d961843cf37255546fd1411822a0f09fd3a"
+"typescript/nextjs/proxy-exports" = "0de990af6ae4a7a4aaf3c745656ffa99b042d7d599e25906420ff4c09328bd50"
+"typescript/nextjs/proxy-not-middleware" = "c336db03ccf715b6ab786ed10bc073699e2d984144820cbe27d5bc16e072644a"
+"typescript/nextjs/react/client-env-public-only" = "fe46bf1e08c71d9785d1fbd106e58ae886196922f6d12aa53928d130d7f8b047"
+"typescript/nextjs/react/client-hooks" = "a5eea520cac5df94a521491b676d69d68dc846a8a289f3d1c306b5977c2eedb6"
+"typescript/nextjs/react/no-async-client-component" = "5fbf42edba5bdb44c586959e78b6d2b56fec358f3faedf90bf2781e2a9792c69"
+"typescript/nextjs/react/no-server-in-client" = "ab4b52967840b5031d5cf4726152e35152424825f81af3565c75d60c1bc7d136"
+"typescript/nextjs/react/no-ssr-false-in-server" = "192c1c1062d3f753e3bbba6576b49f4b1bb180e3e98c42420d99f6d866b61744"
+"typescript/nextjs/react/server-functions-async" = "36d19b81813d1f674a71c61535f4beb7db5e0b88cd10048e48014bb074605ea0"
+"typescript/nextjs/revalidate-tag-profile" = "493bbc01d9566347829e9ea78c93e047a6f692868c5f099b6c142c8d9cb9cb37"
+"typescript/nextjs/stable-cache-imports" = "c2d7aca9c0fd78a6c156e0755bd88fa4080d8a2eeb71c03390d46d902e61e8bf"
+"typescript/no-banned-types" = "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e"
+"typescript/no-console" = "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5"
+"typescript/no-const-enum" = "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d"
+"typescript/no-deprecated" = "95b64775b8c70d6e81054960efe4619b9cc7641fa5ab0c6f8eca20bcbf89953c"
+"typescript/no-double-assertion" = "2c5b17cd8daa6bd598b4aa79b30259626c86e6a3afd00630a3a4a2918316ce80"
+"typescript/no-dynamic-regexp" = "3d04181994b739993ddee0ee066f8da462840579f38de7ecf73be47c27880170"
+"typescript/no-empty-block" = "e615b8d48575392c885e65f5b5e69cfaba918ae070473fb229086fe36501a31f"
+"typescript/no-eval" = "695bc504e485395796c1500ec90804609a4f5e8c9a5867062271b9caa5f58143"
+"typescript/no-explicit-any" = "66e8f9968e8c88a77229e6c092e4489cffced1186a72fa257017fa6a2e612d28"
+"typescript/no-focused-tests" = "8450a2111244ef53e5c5451aa9a127f215f3ff26b9de3ec189ddbb775de6cd53"
+"typescript/no-hardcoded-session-secret" = "3b0d415cf4fa417e518bc9f11ef6fd6e63687bdd4a6a5e132388342895558e26"
+"typescript/no-html-sinks" = "b00e86949464b9fce716e918ff071a59d34a3299b64a41976fd3ef10afcdd024"
+"typescript/no-ignore-deprecations" = "63044c1f4bd2f841800843fa17b4db5a29e5d8cc32053591a25622f15902c888"
+"typescript/no-implicit-any" = "7ac25a953e4d6df85abee5379ea5496788f5d15776ae37623ceff5ebcc034108"
+"typescript/no-new-suppressions" = "d52b04fe85396d74e40cd1dbffb33eb8d51825ef18ffb6aa4c04865fe111f4be"
+"typescript/no-non-null-assertion" = "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2"
+"typescript/no-object-literal-assertion" = "7324c436b6acce6a07f2441bf1a45d3b0a5e89f2ac0cc92cd1119ed75a8cd241"
+"typescript/no-proto" = "c6f0adc46d66d273c8a812e9f690ee0dd3cab37b5b6e05dc1a939212d217ec41"
+"typescript/no-secrets" = "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c"
+"typescript/no-stub" = "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8"
+"typescript/no-swallowed-catch" = "80a3b4c0071c2d325aefdd8e158b950847eca9159276eb6ab126f21e26015de4"
+"typescript/no-ts-ignore" = "afe518e61003a905fe90ca0548a0c472bc26a897d64cb5509ee1b3534297beee"
+"typescript/no-ts-nocheck" = "25caeef679e03c9b88f75f961ce1b5d13c0f28538112f9642c513658a10f4213"
+"typescript/no-unchecked-json" = "0edc9ae044271697c2d2bea389c11c3b79311c68d282ace56a58f6d9e9e73360"
+"typescript/no-unused" = "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413"
+"typescript/no-unused-suppressions" = "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d"
+"typescript/node-version-file" = "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1"
+"typescript/playwright/axe" = "e951813b377a71e9224293df5a8c9ef62a4b3bdd0c91c66374bd2087ab200981"
+"typescript/playwright/config-file" = "b257557ca4312f58fe449d1cb237fe8c9806b92cd934a3cf955efbb1923b7287"
+"typescript/playwright/locators" = "061b7ca2b98ee5568b93550913aa29a309dffaa5ccb2869df1add76c59624187"
+"typescript/playwright/no-new-skip" = "1b4319e7b932b8a178b9cb920a335a9bb18bcd1091a5522a1fe1562969c540c8"
+"typescript/playwright/no-snapshot-update" = "b13678179f0f9f30373254f76ce59e87a0f14470efd43c17cc24263575c0ae1f"
+"typescript/playwright/no-test-edits" = "8791405a87b605a6a2b11343878db18ab330daa100414b8cddd692c312280161"
+"typescript/playwright/no-wait-for-timeout" = "b8fec15a285fcc0bc18cfe89465455882f5610ae440f1ac501cbb1141d1285ce"
+"typescript/playwright/run" = "468f6b091253eec471e211167bafc948edacfdcb3884379ac2f68a13501d22b6"
+"typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
+"typescript/prisma/applied-migrations" = "d5dc9eba1997a1e77d5bd748936c830d712c918f796d5c176e0ec9a95abef686"
+"typescript/prisma/client-generator" = "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01"
+"typescript/prisma/db-push" = "8e6ec17d53fafd1125feacabd0d2935f456a8f94cf322b699000a8b8eff27c28"
+"typescript/prisma/destructive-migration" = "e6988f0fb8e58d55b2a5c9ed1a8b55018c106b602d622db0e1808fb281231d3a"
+"typescript/prisma/generated-client-import" = "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45"
+"typescript/prisma/migration-lint" = "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9"
+"typescript/prisma/migration-present" = "468e4f6ea4a32f8bc571fa06cbce0917151ba2cbe7cd79a19fababb57ac4bc48"
+"typescript/prisma/no-middleware" = "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1"
+"typescript/prisma/no-network-in-transaction" = "98232fc3c8d734c3ad07ee8aa7b3db114b312e79713475bea1301e7bb4113ae0"
+"typescript/prisma/no-query-in-loop" = "68a5d28979fd4769b4da8bad4d6d654792ed373c3c2876a2fdb7d8d0c7d524a3"
+"typescript/prisma/no-raw-interpolation" = "c2ae2476097df3df6abc95bd4249c5f393512d9cfc225cb3fd9c295a5f2f74a0"
+"typescript/prisma/no-raw-unsafe" = "b889b504c953cab447f027b52f6abd10c61002854b05ae1ed41c2d2a075365f9"
+"typescript/prisma/no-reset" = "9f07c0c671890f832e50dbb7e4673acb373a3b64a2a1c7d4eca4df1eca7b4508"
+"typescript/prisma/no-unscoped-bulk-write" = "535d0c575b9a30bdcb82437940e4707ed9448923f6c9a2470edfe8ecf39c9c05"
+"typescript/prisma/validate" = "21fa58745959dc37b68516cbebb13ea09ca8c060d2afb7df64e1fa7015dcdbd1"
+"typescript/react/act-from-react" = "6ce6eecb002259cfa74be55c1f0fee63bb28e3fc0d1170fd700584e20b563610"
+"typescript/react/compiler-rules" = "c52d51ae79ed6796f3bcb200d1709ef50b5fd063f57eb95f80bca4756993eba1"
+"typescript/react/hooks-rules" = "84b1b31e6f7aace5c2873499123884279cb92d9177bccc8fab5e40b2767b4047"
+"typescript/react/no-dangerous-html" = "8003159a1f2e7bfff7e2969b76516240e61ea57c583f97ae5df1f47360895854"
+"typescript/react/no-forward-ref" = "36a40a23adb17d7651f8f7ed849fe1341540551ab7c0940943555aca6cff8e07"
+"typescript/react/no-nested-components" = "f52f05f4eaabacf0a3434d22d29ceff778b8be4a5cdc163d9619b66d1fd0c5b0"
+"typescript/react/no-prop-assign" = "acb8dde126deb46161d45483181aaff41d2adbc134d8be358e54de12a762b134"
+"typescript/react/no-prop-types" = "76b76db62c10d08486cd50217e27d8108355b161ef558d8b764106023764acb1"
+"typescript/react/stable-default-props" = "69a87d67b23a52a36e56f7b141f24a87f5d05d63afd1fed22cee1cc598ea7f03"
+"typescript/react/stable-keys" = "7cd742b7ff4eced78ec4ae0dda88fe9cbe7f984429632d9a2da63bb0ce29c79d"
+"typescript/react/use-action-state" = "4fb479e74dbdfadf6a395d761fe269009bc694454e9c0bc845f8df8c0aa68c81"
+"typescript/strict-function-types" = "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263"
+"typescript/strict-null-checks" = "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6"
+"typescript/ts-expect-error-reason" = "2d40d771a013778c75bc79c0e3965b3ecc94aea938e6db87ba92d2bee63ddf90"
+"typescript/typecheck" = "e2035c29acae905181896aefc37e91288b1d67c36f09553c1f631ab67b2a54cd"
+"typescript/unchecked-index" = "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
+"typescript/verbatim-imports" = "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8"
+"typescript/vitest/config-file" = "abe466390dd426b11ccbd6526a81a8a6ea3a720e06604c84ec0ca0d8c51dd3dd"
+"typescript/vitest/no-exit-zero" = "72f80ed3f8f01917969112ce7dc7ad9f2d1217cbdd4decc6aaf6d3945fbdaa80"
+"typescript/vitest/no-fewer-expects" = "024fda235e5a51a89a17228a7c50b20252b0d5754775f6c72c4c336ef06e03c9"
+"typescript/vitest/no-matcher-override" = "75a66954dbd8322e3c5a264b303a6bbd8546ccc3324a37a651fb6e9457364e48"
+"typescript/vitest/no-mock-increase" = "ba0ee04f03ef25ace93d3f4f3d871d14d73fa3a70fb42d5ea5efbef38d8a164a"
+"typescript/vitest/no-new-skip" = "a11e5b84ac571a56a3e001501a3940c6304b239f50cb1655c49e1f6fe1ef61eb"
+"typescript/vitest/no-pass-with-no-tests" = "479959d32c45c7d71d5b5e10faa4c17ac8f1430bb1d3cdf405132138db224811"
+"typescript/vitest/no-snapshot-update" = "684dca2ef95a45ffcd95f1e6bab9879956c758c694fe39eb7cad459d3b2fe62e"
+"typescript/vitest/no-tautological-expect" = "7649e807659538b0cd4cd18de3c3a75a35fac5d185c157d314ae4e158ba36764"
+"typescript/vitest/no-test-edits" = "19c2e23c6879075c92aa85265b9ff50cd66fc2bbb91b1253c447a7ca0cf3e172"
+"typescript/vitest/no-test-env-branch" = "31e48565cf429e4ed86651a26b3bbe204e3693c897740053650954224a567466"
+"typescript/vitest/no-workspace-file" = "239ef7e6cb5e8cf05438582b554b786c681c8a162bafb3d3cb0e033aab96948a"
+"typescript/vitest/run" = "ffed07c248aacf6ab9544906dee79dfbf08bb464600b5fb333d92b2b9eff49c9"
+"typescript/vitest/snapshot-stale" = "5cfed406c2567dbc25cc4e46f73207f6d76e807866bd2874f08d8824ecdd49b8"
+"typescript/vitest/untested-change" = "696e3e1851c3610fa5172c3e4505081b9d25411760ee494cbc54f1eaa8fd2a99"
+"typescript/zod/error-param" = "bd3c91f9f0d1b58c07a8fb2ae0e32c78cb12a08ce71c2929fe3124b2097bd4a8"
+"typescript/zod/v4-string-formats" = "7e7373a687ac781f4dc75661e0f5bd51b89998d46d4e836055620fc965723f57"
+
+[files]
+".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
+".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
+".claude/rules/forge-typescript-bun.md" = "599620ad79bdf40e48be70e3e3bf55cfc5f54edb148a361a78d3245c5571f185"
+".claude/rules/forge-typescript-nextjs-react.md" = "d148cef72f3d3481e2c5402b37c0fddcd75d95c0475ab2a3090a0dc60fd95655"
+".claude/rules/forge-typescript-nextjs.md" = "e388de4485513a2357390e8d3fbb9a910df0feaffcc51cb6c0cb7f5aef981d11"
+".claude/rules/forge-typescript-playwright.md" = "1bd1707928807d6d91d7cd70e03aa1e18625c03864d7529a32a441e51a8f528c"
+".claude/rules/forge-typescript-prisma.md" = "0da6eba9d7c50a3db59195030fcfe938a925abc42dd6f0c6522585042d037b91"
+".claude/rules/forge-typescript-react.md" = "0e1dc61c2eb3afe867e7b5883eda6cca5ef2b55c4215c2e6d07112c040a3ae7c"
+".claude/rules/forge-typescript-vitest.md" = "d65401793082507c0160deff9847689b24c8ed45e997e8d811f6488c2bb6bf11"
+".claude/rules/forge-typescript-zod.md" = "666ae9d42880f4988b1ff4f55792ef37c1cabb603a949d813cc2180d33f29d9c"
+".claude/rules/forge-typescript.md" = "12333902d85b6b4aecf9cad356a91549fa9732e49c16efb18eee5bebff244580"
+".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
+
+[roles]
+build-artifacts = ["**/node_modules/**", "**/__pycache__/**", "**/*.pyc", "**/.next/**", "**/.nuxt/**", "**/.svelte-kit/**", "**/.turbo/**", "**/.coverage", "**/.DS_Store"]
+dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "!**/*.dockerignore"]
+e2e-tests = ["e2e/**", "tests/e2e/**"]
+env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
+env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+prisma-migrations = ["prisma/migrations/**"]
+ts-tests = ["**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}", "**/__tests__/**"]
+
+[tools]
+actionlint = "1.7.12"
+ast-grep = "0.45.3"
+bun = "1.4.3"
+condor = "0.3.0"
+editorconfig-checker = "4.0.2"
+gitleaks = "8.30.1"
+hadolint = "2.15.1"
+kube-linter = "0.8.3"
+kubeconform = "0.8.0"
+lockfile-lint = "5.1.0"
+oasdiff = "1.33.0"
+osv-scanner = "2.7.0"
+python = "3.12"
+redocly = "2.62.1"
+spectral = "6.17.0"
+squawk = "2.70.0"
+tflint = "0.64.0"
+tflint-ruleset-aws = "0.49.0"
+tflint-ruleset-azurerm = "0.32.0"
+tflint-ruleset-google = "0.40.0"
+trivy = "0.75.0"
+ty = "0.0.86"
+uv = "0.13.1"
+zizmor = "1.30.1"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.forge/**)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.yaml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(forge.lock)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(.claude/rules/forge-*.md)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/biome.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/biome.jsonc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/tsconfig*.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/eslint.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.oxlintrc.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/deno.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/deno.jsonc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.prettierrc*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/prettier.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/pnpm-workspace.yaml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.npmrc)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/.yarnrc.yml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/bunfig.toml)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/turbo.json)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/playwright.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.ask"
+value = "Edit(**/vitest.config.*)"
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionStart"
+json = '''{"matcher":"startup|resume|clear|compact","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || { printf \"{\\\"systemMessage\\\":\\\"Forge is not installed, so this project\\047s checks are off. Install it with: curl -LsSf https://github.com/mde-pach/claude-forge/releases/latest/download/install.sh | sh\\\"}\\n\"; exit 0; }; exec claude-forge hook session-start'","timeout":10}]}'''
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.UserPromptSubmit"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":10}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180,"onFailure":"block"}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PreToolUse"
+json = """{"matcher":"Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUse"
+json = """{"matcher":"Edit|Write|MultiEdit|NotebookEdit|Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolUseFailure"
+json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.Stop"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook stop'","timeout":600}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PermissionRequest"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook permission-request'","timeout":180}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.SessionEnd"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook session-end'","timeout":10}]}"""
+=== .git/hooks/pre-commit
+#!/bin/sh
+# Generated by forge. Remove with forge remove.
+command -v claude-forge >/dev/null 2>&1 || { [ -n "$CLAUDECODE" ] || echo "forge: claude-forge is not installed, so this commit is not checked" >&2; exit 0; }
+exec claude-forge check --changed

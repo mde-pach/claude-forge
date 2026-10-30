@@ -1,1 +1,0 @@
-psycopg 3. SQL takes `%s` or `%(name)s` placeholders with a params tuple or dict (not asyncpg's `$1`); dynamic identifiers go through `psycopg.sql` (`sql.SQL`, `sql.Identifier`). Pools are created with `open=False` and opened with `await pool.open()` in the application's startup, or used as a context manager.

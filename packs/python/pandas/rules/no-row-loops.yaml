@@ -1,5 +1,5 @@
 id: python/pandas/no-row-loops
-description: "Advice: no row loops over a DataFrame (iterrows(), itertuples(), apply(..., axis=1)): they run Python per row, orders of magnitude slower than column operations. Write vectorized expressions (df[\"a\"] * df[\"b\"], np.where, merge)."
+description: "No row loops over a DataFrame (iterrows(), itertuples(), apply(..., axis=1)): they run Python per row, orders of magnitude slower than column operations. Write vectorized expressions (df[\"a\"] * df[\"b\"], np.where, merge)."
 scope: {language: python}
 enforce:
   - target: ast-grep

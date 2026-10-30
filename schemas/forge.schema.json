@@ -1,17 +1,48 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "forge:project",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "forge"
-  ],
   "properties": {
     "forge": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+$"
     },
     "packs": {
+      "$ref": "#/$defs/PackChanges"
+    },
+    "disable": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Disable"
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/RoleChange"
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*$"
+      }
+    },
+    "python": {
+      "$ref": "#/$defs/PythonConfig"
+    },
+    "accept": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Accept"
+      }
+    }
+  },
+  "required": [
+    "forge"
+  ],
+  "title": "project",
+  "description": "forge.yaml (`ProjectConfig`).",
+  "$id": "forge:project",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "PackChanges": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -31,61 +62,54 @@
         }
       }
     },
-    "disable": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "reason"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
-          },
-          "reason": {
+    "Disable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "reason"
+      ]
+    },
+    "RoleChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "type": "array",
+          "items": {
             "type": "string",
             "minLength": 1
-          }
-        }
-      }
-    },
-    "files": {
-      "type": "object",
-      "propertyNames": {
-        "pattern": "^[a-z][a-z0-9-]*$"
-      },
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "minProperties": 1,
-        "properties": {
-          "add": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
           },
-          "set": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
+          "minItems": 1
+        },
+        "set": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
         }
-      }
+      },
+      "minProperties": 1
     },
-    "python": {
+    "PythonConfig": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "untyped-packages": {
+          "type": "string",
+          "description": "\"any\" or \"source\".",
           "enum": [
             "any",
             "source"
@@ -93,32 +117,28 @@
         }
       }
     },
-    "accept": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "rule",
-          "change",
-          "reason"
-        ],
-        "properties": {
-          "rule": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
-          },
-          "change": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[^\\n]+$"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1
-          }
+    "Accept": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+        },
+        "change": {
+          "type": "string",
+          "pattern": "^[^\\n]+$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
         }
-      }
+      },
+      "required": [
+        "rule",
+        "change",
+        "reason"
+      ]
     }
   }
 }

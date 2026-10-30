@@ -3,3 +3,6 @@ description: Resend email SDK.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: resend}]
+context:
+  - text: |
+      Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (a discarded result is rejected).

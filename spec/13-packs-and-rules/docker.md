@@ -1,40 +1,60 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `docker`
+
 ### docker
 
-Detected by `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile` or a compose file (a repository may use Compose only for a local database). Rules are `check` lint targets on the Dockerfiles of the change (every tracked one with `--all`).
+Docker images and Compose files.
 
-| Rule | Targets |
-|---|---|
-| `docker/pin-base-image` | `forge_hadolint DL3006 DL3007` (§13.3) |
-| `docker/copy-not-add` | `forge_hadolint DL3020` |
-| `docker/exec-form` | `forge_hadolint DL3025` |
-| `docker/workdir` | `forge_hadolint DL3045` |
-| `docker/pipefail` | `forge_hadolint DL4006` (DL3008, pinned apt versions, is not enforced: they disappear from mirrors) |
-| `docker/non-root-user` | `forge_docker_nonroot`: the final stage has a `USER` other than `root` / `0`, set in it or inherited from the named stage it builds on; base images under `cgr.dev/` or `dhi.io/`, or named `*nonroot*`, `*unprivileged*`, `*rootless*`, are exempt (hadolint's DL3002 misses a Dockerfile with no `USER`) |
-| `docker/no-secret-arg-env` | `forge_docker_secrets`: no `ARG` / `ENV` named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*`, `*PRIVATE_KEY*`, `*CREDENTIALS*` (`*_FILE` is fine); use `RUN --mount=type=secret` |
-| `docker/locked-install` | `forge_docker_locked`: in `RUN` (continuations joined, commands split on `&&`, `\|\|`, `;`): no `npm install` / `npm i` (except `-g`), `bun install` with `--frozen-lockfile` and no `bun add`, `uv sync` with `--locked` or `--frozen` and no `uv add`, `pnpm install` with `--frozen-lockfile`, `yarn` with `--immutable` or `--frozen-lockfile` |
-| `docker/dockerignore` | `forge_docker_ignore`: each Dockerfile has a `.dockerignore` (`<Dockerfile>.dockerignore`, its directory's, or the root's) that excludes `.env` files |
-| `docker/hadolint-correctness` | `forge_hadolint DL3000 DL3004 DL3014 DL3022 DL3023 DL3024 DL3027 DL3044 DL3061 DL3063 DL3067 DL4000 DL4003 DL4004` (relative `WORKDIR`, `sudo`, `apt-get install` without `-y`, stage references and aliases, `apt`, self-referencing `ENV`, instruction order, `COPY --from` to `/`, `MAINTAINER`, several `CMD` / `ENTRYPOINT`) |
-| `docker/image-size` | advisory (§10.7): `forge_advise forge_hadolint DL3009 DL3015 DL3042 DL3059` (apt lists, `--no-install-recommends`, pip cache, consecutive `RUN`) |
-| `docker/deps-before-copy` | advisory (§10.7): `forge_advise forge_docker_copy_order`: in a stage, a `RUN` installing dependencies (`npm ci` / `install`, `bun install`, `uv sync`, `pnpm install`, `yarn`, `pip install -r`) after a `COPY` / `ADD` of `.` or `./` |
+Detected by: a file matching `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`, `**/compose*.yml`, `**/compose*.yaml`, `**/docker-compose*.yml`, `**/docker-compose*.yaml`.
 
-Structural findings (`non-root-user`, `dockerignore`) are reported at line 0, so they count whenever the Dockerfile changed (removing a `USER` adds no line). context.md: multi-stage builds, a non-root final stage, lock-file installs with cache mounts, build secrets, pinned base images; the sandbox blocks docker unless the user lists it in `sandbox.excludedCommands`. Forge does not write that setting; `forge status` prints the line to add when the pack is active.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) `ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `docker/copy-not-add` | COPY, not ADD, for files and folders (hadolint DL3020). | any: `@dockerfile` | check lint: `forge_hadolint DL3020` (when `@dockerfile` changes) |
+| `docker/deps-before-copy` | In a build stage, copy the manifest and lock file and install dependencies before COPY . ., so a code change does not rebuild the dependency layer. | any: `@dockerfile` | check lint: `forge_advise forge_docker_copy_order` (when `@dockerfile` changes)<br>advice, never blocks |
+| `docker/dockerignore` | Each Dockerfile has a .dockerignore (Dockerfile.dockerignore next to it, one in its directory, or one at the root) that excludes .env files from the build context. | any: `@dockerfile` | check lint: `forge_docker_ignore` (when `@dockerfile`, `**/.dockerignore` or `**/*.dockerignore` changes) |
+| `docker/exec-form` | CMD and ENTRYPOINT use the JSON (exec) form, so signals reach the process (hadolint DL3025). | any: `@dockerfile` | check lint: `forge_hadolint DL3025` (when `@dockerfile` changes) |
+| `docker/hadolint-correctness` | Dockerfiles avoid build-breaking and wrong-behaviour mistakes hadolint finds: a relative WORKDIR (DL3000), sudo (DL3004), apt-get install without -y (DL3014), COPY --from a missing or own stage or an alias used twice (DL3022, DL3023, DL3024), apt instead of apt-get (DL3027), an ENV referencing itself (DL3044), instructions before FROM (DL3061), DL3063, COPY --from a stage to / (DL3067), MAINTAINER (DL4000), several CMD or ENTRYPOINT (DL4003, DL4004). | any: `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile` | check lint: a shell script calling `forge_hadolint` (when `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` or `**/Containerfile` changes) |
+| `docker/image-size` | Smaller images (hadolint DL3009: delete the apt lists; DL3015: apt-get install --no-install-recommends; DL3042: pip install --no-cache-dir or a cache mount; DL3059: consecutive RUN instructions merged). | any: `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile` | check lint: `forge_advise forge_hadolint DL3009 DL3015 DL3042 DL3059` (when `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile` or `**/Containerfile` changes)<br>advice, never blocks |
+| `docker/locked-install` | Images install dependencies from the lock file (npm ci, bun install --frozen-lockfile, uv sync --locked, pnpm install --frozen-lockfile, yarn --immutable) and never add packages. | any: `@dockerfile` | check lint: `forge_docker_locked` (when `@dockerfile` changes) |
+| `docker/no-secret-arg-env` | No ARG or ENV named like a secret (PASSWORD, SECRET, TOKEN, API_KEY, PRIVATE_KEY, CREDENTIALS); they stay in the image history. *_FILE names are fine; use RUN --mount=type=secret. | any: `@dockerfile` | check lint: `forge_docker_secrets` (when `@dockerfile` changes) |
+| `docker/non-root-user` | The final stage runs as a non-root USER, set in it or inherited from the named stage it builds on (images that run non-root by default, cgr.dev/, dhi.io/ or *nonroot*, are exempt). | any: `@dockerfile` | check lint: `forge_docker_nonroot` (when `@dockerfile` changes) |
+| `docker/pin-base-image` | Base images name a version tag (or a digest), never latest or nothing (hadolint DL3006, DL3007). | any: `@dockerfile` | check lint: `forge_hadolint DL3006 DL3007` (when `@dockerfile` changes) |
+| `docker/pipefail` | A RUN with a pipe sets SHELL with -o pipefail first, so a failing left side fails the build (hadolint DL4006). | any: `@dockerfile` | check lint: `forge_hadolint DL4006` (when `@dockerfile` changes) |
+| `docker/workdir` | COPY to a relative destination only after WORKDIR (hadolint DL3045). | any: `@dockerfile` | check lint: `forge_hadolint DL3045` (when `@dockerfile` changes) |
 
 ### docker/compose
 
-Detected by `**/compose*.y*ml` or `**/docker-compose*.y*ml`. ast-grep rules use `scope.language: yaml` on the compose files.
+Docker Compose files.
 
-| Rule | Targets |
-|---|---|
-| `docker/compose/config-valid` | `check` lint: `docker compose config --quiet --no-interpolate --no-env-resolution` on the root compose file (no `.env` is read) |
-| `docker/compose/no-version-key` | `ast-grep` forbid: a top-level `version` key |
-| `docker/compose/no-docker-sock` | `ast-grep` forbid: a scalar naming `/run/docker.sock` or `/var/run/docker.sock` |
-| `docker/compose/no-host-root-mounts` | `ast-grep` forbid: under `volumes`, a short-syntax source or a long-syntax `source` of `/`, `/etc`, `/root`, `/home`, `~`, `$HOME` |
-| `docker/compose/no-privileged` | `ast-grep` forbid: `privileged: true`; `network_mode`, `pid`, `ipc`, `userns_mode` or `uts` set to `host`; `cap_add` with `ALL` or `SYS_ADMIN`; a `security_opt` entry with `unconfined` |
-| `docker/compose/datastore-loopback` | `ast-grep` forbid: a short-syntax `ports` entry publishing 5432, 3306, 6379, 27017, 9200, 5672, 11211 or 1433 that does not start with `127.0.0.1:` (or `localhost:`, `[::1]:`); Docker-published ports bypass ufw and firewalld. Long syntax is not checked |
-| `docker/compose/no-inline-secrets` | `ast-grep` forbid: under `environment` or `args`, a secret-like key (map form) or `KEY=value` entry (list form) whose value is neither empty nor a `${VAR}` reference; `*_FILE` keys are fine |
-| `docker/compose/healthy-depends` | `ast-grep` forbid: `depends_on` as a list (block or flow); the long form with `condition:` is required |
-| `docker/compose/pinned-images` | `ast-grep` forbid: `image:` with `:latest` or no tag or digest, unless the service also has `build:`; `${VAR}` images are not checked |
-| `docker/compose/no-links` | `ast-grep` forbid: `links` / `external_links` in a service |
-| `docker/compose/env-not-committed` | deprecated, replaced by `secrets/env-not-committed` (every repository, not only Compose projects) |
+Detected by: a file matching `**/compose*.yml`, `**/compose*.yaml`, `**/docker-compose*.yml`, `**/docker-compose*.yaml`.
+Child of `docker`: active only where it is.
 
-context.md: `compose.yaml` + `compose.override.yaml`, healthchecks with `condition: service_healthy`, `develop.watch`, profiles, secrets, loopback-bound database ports, and that docker compose runs outside the sandbox, which makes these rules a real boundary.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- Docker Compose. The base compose file (`compose.yaml`, or `docker-compose.yml`) holds the shared setup; its override file (`compose.override.yaml`, or `docker-compose.override.yml`, loaded automatically) holds local changes.
+- `depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
+- `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
+- Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
+- Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `docker/compose/config-valid` | The root compose file is valid (docker compose config --quiet --no-interpolate --no-env-resolution: variables are not substituted and env_file files are not read; Compose still parses the project .env). | any: `@compose` | check lint: a shell script calling `forge_do docker validate` (when `@compose` or `**/.env.example` changes) |
+| `docker/compose/datastore-loopback` | Published database and broker ports (5432, 3306, 6379, 27017, 9200, 5672, 11211, 1433) bind to 127.0.0.1; Docker-published ports bypass ufw and firewalld. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/env-not-committed` | No .env file is committed (.env.example, .env.sample and .env.template are fine). | any | check lint: `! git ls-files \| grep -E '(^\|/)\.env(\..+)?$' \| grep -vE '(^\|/)\.env\.(example\|sample\|template)$'` (when `**/.env` or `**/.env.*` changes)<br>deprecated: replaced by `secrets/env-not-committed` |
+| `docker/compose/healthy-depends` | depends_on uses the long form with a condition (service_healthy for databases), never the bare list, which only waits for the container to start. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/no-docker-sock` | No service mounts the Docker socket; it gives the container root on the host. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/no-host-root-mounts` | No service mounts /, /etc, /root, /home or the home directory from the host. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/no-inline-secrets` | Secret-like variables under environment or build args (PASSWORD, SECRET, TOKEN, API_KEY, PRIVATE_KEY, CREDENTIALS) hold a ${VAR} reference or nothing, never a value; *_FILE variables are fine. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/no-links` | No links: or external_links: in services; services reach each other by name on a shared network. | yaml: `**/compose*.yml`, `**/compose*.yaml`, `**/docker-compose*.yml`, `**/docker-compose*.yaml` | ast-grep forbid |
+| `docker/compose/no-privileged` | No privileged service, host namespaces (network_mode, pid, ipc, userns_mode, uts: host), ALL or SYS_ADMIN capabilities, or unconfined security options. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/no-version-key` | No top-level version key; Compose ignores it and warns. | yaml: `@compose` | ast-grep forbid |
+| `docker/compose/pinned-images` | Images name a version tag (or a digest), never latest or nothing, except in a service that builds its own image. | yaml: `@compose` | ast-grep forbid |

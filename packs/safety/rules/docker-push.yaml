@@ -4,10 +4,12 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+((image[[:space:]]+)?push|buildx[[:space:]][^;&|]*--push)([[:space:]=;&|)]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])docker[- ]compose[[:space:]][^;&|]*push([[:space:];&|)]|$)'
+    command:
+      - {name: [docker, podman], sub: [push]}
+      - {name: [docker, podman], sub: [image, push]}
+      - {name: [docker, podman], sub: [buildx], flags_any: [--push]}
+      - {name: [docker, podman], sub: [compose], args_any: [push]}
+      - {name: docker-compose, sub: [push]}
 examples:
   match: ["docker push ghcr.io/acme/shop:1.2", "docker image push acme/shop", "docker compose push", "docker-compose -f prod.yml push api", "docker buildx build --platform linux/amd64 -t acme/shop --push ."]
   no_match: ["docker build -t shop .", "docker compose pull", "docker pull postgres:17", "docker buildx build -t shop --load ."]

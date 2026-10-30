@@ -1,0 +1,11 @@
+id: python/sqlalchemy/asyncio
+description: SQLAlchemy's asyncio extension.
+level: project
+detect:
+  deps_any: [{ecosystem: pypi, name: asyncpg}, {ecosystem: pypi, name: aiosqlite}, {ecosystem: pypi, name: aiomysql}, {ecosystem: pypi, name: asyncmy}]
+  content_any: [{files: ["**/pyproject.toml", "**/requirements*.txt", "**/setup.cfg", "**/setup.py", "**/Pipfile"], pattern: "(?i)sqlalchemy\\[[^\\]]*asyncio"}]
+context:
+  - text: |
+      SQLAlchemy asyncio: sessions come from `async_sessionmaker(engine, expire_on_commit=False)` and are opened with `async with`.
+  - text: |
+      Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (`asyncio.gather()` over one session is rejected).

@@ -1,13 +1,13 @@
 ---
 import { Code } from "@astrojs/starlight/components";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import { packSchema, projectConfigSchema, ruleSchema } from "../../../../src/schemas";
+import { REPO_URL, schema } from "../../lib/data";
 
 const schemas = [
-  { id: "pack", title: "pack.yaml", schema: packSchema },
-  { id: "rule", title: "Rule file", schema: ruleSchema },
-  { id: "forge", title: "forge.yaml", schema: projectConfigSchema },
-];
+  { id: "pack", title: "pack.yaml", file: "pack.schema.json" },
+  { id: "rule", title: "Rule file", file: "rule.schema.json" },
+  { id: "forge", title: "forge.yaml", file: "forge.schema.json" },
+] as const;
 ---
 
 <StarlightPage
@@ -15,14 +15,15 @@ const schemas = [
   headings={schemas.map((s) => ({ depth: 2, slug: s.id, text: s.title }))}
 >
   <p>
-    These are the schemas Forge itself validates with, imported from its source and shipped in the package under
-    <code>schemas/</code>. Point your editor's YAML language server at them for completion.
+    These are the schemas Forge validates with. They are generated from the loader's own types in <code>crates/forge-packs</code>, whose tests fail while
+    <a href={`${REPO_URL}/tree/main/schemas`}><code>schemas/</code></a> differs from them. Point your editor's YAML language server at them for completion.
   </p>
   {
     schemas.map((s) => (
       <>
         <h2 id={s.id}>{s.title}</h2>
-        <Code code={JSON.stringify(s.schema, null, 2)} lang="json" />
+        <p><a href={`${REPO_URL}/blob/main/schemas/${s.file}`}><code>schemas/{s.file}</code></a></p>
+        <Code code={JSON.stringify(schema(s.id), null, 2)} lang="json" />
       </>
     ))
   }

@@ -1,20 +1,33 @@
 ---
 import { Code } from "@astrojs/starlight/components";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import Spec from "../../components/Spec.astro";
-import { url } from "../../lib/data";
-import { USAGE } from "../../../../src/usage";
+import { cliHelp, url } from "../../lib/data";
+
+const help = cliHelp();
+const slug = (c: string) => (c ? c.replaceAll(" ", "-") : "usage");
 ---
 
-<StarlightPage frontmatter={{ title: "CLI", description: "forge --help, and where each command is described." }}>
-  <p>The output of <code>forge --help</code>, taken from the CLI's own source. Until the package is published, <code>forge</code> means <code>node dist/forge.js</code> in a built clone (see <a href={url("guide/getting-started/#get-the-cli")}>Getting started</a>); after that, <code>bunx @maximedepachtere/forge</code> or <code>npx @maximedepachtere/forge</code>.</p>
-  <Code code={USAGE} lang="txt" />
+<StarlightPage
+  frontmatter={{ title: "CLI", description: "claude-forge --help and each command's help, from the binary itself." }}
+  headings={help.map((h) => ({ depth: 2, slug: slug(h.command), text: h.command ? `claude-forge ${h.command}` : "Usage" }))}
+>
+  <p>
+    The output of <code>claude-forge --help</code> and of each command's <code>--help</code>, taken from the binary when the site is built. The binary is installed as both
+    <code>forge</code> and <code>claude-forge</code>; hook entries call <code>claude-forge</code>, so a Foundry <code>forge</code> on PATH never runs in their place. See
+    <a href={url("guide/getting-started/")}>Getting started</a> to install it.
+  </p>
   <ul>
-    <li><code>init</code>: <a href={url("guide/getting-started/#a-new-project")}>Getting started</a></li>
-    <li><code>apply</code>, <code>--user</code>, <code>--local</code>, <code>--dry-run</code>, <code>--yes</code>, <code>--force</code>: <a href={url("lifecycle/apply/")}>forge apply</a>, <a href={url("guide/user-level/")}>User level</a></li>
+    <li><code>init</code>, <code>apply</code>: <a href={url("guide/getting-started/")}>Getting started</a>, <a href={url("lifecycle/apply/")}>forge apply</a></li>
     <li><code>status</code>, <code>explain</code>, <code>diff</code>, <code>remove</code>: <a href={url("lifecycle/maintenance/")}>Status, diff and remove</a></li>
-    <li><code>test</code>: <a href={url("contributing/writing-packs/#examples-are-tests")}>Writing packs</a></li>
+    <li><code>check</code>: <a href={url("lifecycle/commit-ci/")}>Commit and CI</a></li>
+    <li><code>packs</code>: <a href={url("contributing/writing-packs/")}>Writing packs</a></li>
   </ul>
-  <h2 id="usage-errors">Usage errors</h2>
-  <Spec file="03-cli" describe="usage errors exit 2" />
+  {
+    help.map((h) => (
+      <>
+        <h2 id={slug(h.command)}>{h.command ? `claude-forge ${h.command}` : "Usage"}</h2>
+        <Code code={h.help.trimEnd()} lang="txt" />
+      </>
+    ))
+  }
 </StarlightPage>

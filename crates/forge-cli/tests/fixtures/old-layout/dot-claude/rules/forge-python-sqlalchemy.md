@@ -1,0 +1,5 @@
+These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
+
+SQLAlchemy 2.0 async. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Sessions: `async_sessionmaker(engine, expire_on_commit=False)`, opened with `async with`; the project depends on `sqlalchemy[asyncio]`.
+Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`; large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected). One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
+Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.

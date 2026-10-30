@@ -1,7 +1,7 @@
 # Model ids for the ai-models rules, as of 2026-10-26, from Anthropic's model deprecations page
 # (platform.claude.com/docs/en/about-claude/model-deprecations) and models overview, and OpenAI's
 # deprecations page (developers.openai.com/api/docs/deprecations). Regenerate the rules after an
-# edit: bun scripts/models.ts (tests/spec/13-packs.test.ts fails while they differ).
+# edit: FORGE_BLESS=1 cargo test -p forge-packs --test models_tsv (which fails while they differ).
 # status: active | deprecated (still served, retires on <retires>) | retired (every call fails).
 # An id ending in * also covers its suffixed variants (gpt-4-turbo* covers gpt-4-turbo-2024-04-09).
 # rejects: request features the API rejects (400) on the model: budget_tokens (thinking type

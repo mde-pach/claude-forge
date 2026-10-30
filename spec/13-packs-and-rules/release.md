@@ -1,9 +1,15 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `release`
+
 ### release
 
-Detected by `.changeset/config.json`, `release-please-config.json`, `.release-please-manifest.json`, `.releaserc`, `.releaserc.*`, `release.config.*`, `cliff.toml`, `towncrier.toml`, `changelog.d/*`, or a dependency on `semantic-release`, `@changesets/cli` (npm) or `towncrier` (PyPI).
+Releases whose changelog and versions are written by release tooling (Changesets, release-please, semantic-release, towncrier, git-cliff).
 
-| Rule | Targets |
-|---|---|
-| `release/no-hand-changelog` | `permission` ask: `Edit(**/CHANGELOG.md)` (the release tooling writes it) |
-| `release/no-hand-version` | `check` lint, advisory (§10.7): `forge_advise forge_version_changed`: a changed `package.json` `version` or `pyproject.toml` `[project] version` (the split-off advisory half of the no-hand-changelog proposal) |
-| `release/changeset-present` | `check` lint, advisory: `forge_advise forge_release_notes @python-tests`: with `.changeset/config.json`, a changed file of a package whose nearest `package.json` is not `"private": true` and no `.changeset/*.md` added; with `[tool.towncrier] directory` (`towncrier.toml` or `pyproject.toml`), a changed `.py` file outside `@python-tests` and that directory and no file added there |
+Detected by: a dependency on one of `semantic-release` (npm), `@changesets/cli` (npm), `towncrier` (PyPI); or a file matching `.changeset/config.json`, `release-please-config.json`, `.release-please-manifest.json`, `.releaserc`, `.releaserc.*`, `release.config.*`, `cliff.toml`, `towncrier.toml`, `changelog.d/*`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `release/changeset-present` | With Changesets, a change to a package whose package.json is not "private": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there. | any | check lint: `forge_advise forge_release_notes @python-tests`<br>advice, never blocks |
+| `release/no-hand-changelog` | CHANGELOG.md is written by the release tooling: an Edit or Write of it needs confirmation. Add a changeset, a news fragment or a conventional commit instead. | any | permission ask `Edit(**/CHANGELOG.md)` |
+| `release/no-hand-version` | A changed package.json version or pyproject.toml [project] version, which the release tooling sets; revert it unless the change is the release itself. | any: `**/package.json`, `**/pyproject.toml` | check lint: `forge_advise forge_version_changed` (when `**/package.json` or `**/pyproject.toml` changes)<br>advice, never blocks |

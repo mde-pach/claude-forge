@@ -4,7 +4,9 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])prisma[[:space:]]+(db[[:space:]]+(push|execute)|migrate[[:space:]]+deploy)([[:space:];&|)]|$)'
+    command:
+      - {name: prisma, sub: [db, 'push|execute']}
+      - {name: prisma, sub: [migrate, deploy]}
 examples:
   match: ["bunx prisma db push", "prisma migrate deploy", "prisma db execute --file x.sql"]
   no_match: ["prisma migrate dev", "prisma db pull"]

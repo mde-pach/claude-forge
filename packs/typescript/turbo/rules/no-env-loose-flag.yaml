@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '--env-mode[= ]loose'
+    command: {name: turbo, flags_any: ['--env-mode=loose'], value_flags: [--env-mode]}
 examples:
   match: ["turbo run build --env-mode=loose", "pnpm turbo build --env-mode loose"]
   no_match: ["turbo run build", "turbo run build --env-mode=strict"]

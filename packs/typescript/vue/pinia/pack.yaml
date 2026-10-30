@@ -3,3 +3,6 @@ description: Pinia stores in Vue.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: pinia}]
+context:
+  - text: |
+      Pinia: state and getters destructured from a store lose reactivity; destructure `storeToRefs(useStore())` (actions can be destructured from the store itself).

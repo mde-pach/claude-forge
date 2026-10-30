@@ -3,3 +3,10 @@ description: React components as Astro islands.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@astrojs/react"}]
+context:
+  - text: |
+      React components in Astro render to static HTML; they become interactive only with a `client:*` directive (`client:load`, `client:idle`, `client:visible`, `client:only="react"`).
+  - text: |
+      Hooks and event handlers run only in hydrated islands.
+  - text: |
+      Props passed to a hydrated island must be serializable.

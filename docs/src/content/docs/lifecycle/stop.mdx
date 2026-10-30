@@ -1,53 +1,26 @@
 ---
 title: When Claude stops
-description: The Stop hook and the steps of check.sh.
+description: The Stop hook and the checks it runs on the turn's changes.
 ---
 
-import Spec from "../../../components/Spec.astro";
+When you send a prompt, `claude-forge hook user-prompt-submit` snapshots the working tree. When Claude ends its turn, `claude-forge hook stop` compares: if nothing changed during the turn, Claude stops freely. Otherwise it runs the active checks on **what changed during the turn**, commits made during the turn included. Your own work in progress is not part of it, and in a file you had already changed, only the lines Claude added count. If the check fails, the stop is blocked and Claude gets the findings, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again. The project's own checks (tests, type checks) are capped in time; Forge's overhead has a tight budget of its own.
 
-When you send a prompt, `turn-start.sh` (UserPromptSubmit) snapshots the working tree: the commit, and a copy of every file you have not committed yet. When Claude ends its turn, `stop.sh` compares: if nothing changed during the turn — Claude only answered a question, while your own uncommitted work sits in the tree — Claude stops freely. Otherwise it runs `.forge/check.sh` on **what changed during the turn**: files whose content differs from the snapshot, commits made during the turn included. Your own work in progress is not part of it, and in a file you had already changed, only the lines Claude added count. If the check fails, the stop is blocked and Claude gets the output, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again.
+## The steps
 
-<Spec file="08-project-hooks" describe="Stop" />
-
-## The steps of check.sh
-
-`check.sh` runs these steps in order and stops at the first that fails: integrity of Forge's files, test integrity, ast-grep `forbid` rules, format, lint and typecheck, migration checks, tests.
-
-<Spec file="10-check" describe="steps" />
-
-Forge's own files (`.forge/`, and the hooks and `guard.rules` under `.claude/skills/forge-project/`) are never part of the change, so the rules' own patterns never match themselves. Advisory checks report what Claude may have a reason to leave as it is, once per turn; a check that could not run says `skipped`, which is a note, not advice.
-
-<Spec file="10-check" describe="Forge's own files and helper scopes" />
+The checks run in stages and stop at the first that fails: test integrity, `forbid` rules, format, lint, codegen, typecheck, migrations, tests. `forge check` runs the same steps outside a session.
 
 ## Added lines
 
-Outside `--all`, an ast-grep `forbid` match or a lint finding counts only on a line the change added: `git diff -U0` against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). An edited line counts, a match spanning an edited line counts, and moved code counts; a new file counts fully. Formatting rewrites whole files, so after Claude edits one function, `ruff format` or Biome may also change lines Claude never touched; those are not Claude's. When the formatter can read stdin (`format_stdin` on the check), the base copy is formatted the same way and a line counts only when it is added against both. If the formatter is missing or fails on the base (it does not parse), the plain comparison applies. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
-
-<Spec file="10-check" describe="added lines" />
+Outside `--all`, a `forbid` match or a lint finding counts only on a line the change added, against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). A new file counts fully. A formatter may rewrite lines Claude never touched; when it can format from stdin, the base copy is formatted the same way and a line counts only when it is added against both. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
 
 ## Errors that were already there
 
-A whole-project type check blocks only for errors in files that are part of the change, and a lint run only for findings on added lines. Errors already present elsewhere are reported as remaining and do not block; CI (`check.sh --all`) still fails on them.
-
-<Spec file="10-check" describe="errors in unchanged files" />
-<Spec file="08-project-hooks" describe="errors in unchanged files" />
-
-## Workspace packages
-
-In a monorepo whose tool config lives in a workspace package, the checks run in that package, with the tools installed there or hoisted to the root; their diagnostics are read back as repository paths.
-
-<Spec file="10-check" describe="workspace packages" />
+A whole-project type check blocks only for errors in files that are part of the change, and a lint run only for findings on added lines. Errors already present elsewhere do not block; CI with `--all` still fails on them.
 
 ## Tests that were already failing
 
-When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. When every failing test also failed then — typically because the machine has no database or no network — Claude is told once which tests, which errors look environmental (`Postgres refused the connection at 127.0.0.1:5432`), and to set up what they need (e.g. `docker compose up -d`) and run them again. If it cannot, it stops again without changing anything: the stop is allowed, and you get a message listing the tests that could not be verified and why.
+When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. A test that also failed then (typically no database or no network) is not Claude's change, so it never blocks: `forge status` lists the tests that could not be verified, with the errors that look environmental and what to set up.
 
-A tree that failed is not checked again: if Claude stops again without changing a file, it gets the same result at once instead of another full test run, and the block still counts toward the hand-over.
+## Advice
 
-<Spec file="08-project-hooks" describe="failing tests at the start of the turn" />
-
-## Local databases
-
-Migration checks that need a database run only when it is local.
-
-<Spec file="10-check" describe="local database detection" />
+Advisory checks report what Claude may have a reason to leave as it is: each finding blocks Stop once per turn, after any failing check, so Claude acts on it or says why it does not apply. A check that could not run is a note for you, never advice.

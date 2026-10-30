@@ -1,0 +1,23 @@
+[package]
+name = "forge-render"
+description = "What forge apply writes: the rules files, the settings entries (hooks, permissions), the lock and the pre-commit block; and what it reports to the person."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-detect.workspace = true
+forge-launcher.workspace = true
+forge-packs.workspace = true
+indexmap.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

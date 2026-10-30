@@ -1,3 +1,0 @@
-Temporal (temporalio): workflow code is deterministic. Inside `@workflow.defn` classes, time, randomness and ids come from `workflow.now()`, `workflow.time()`, `workflow.random()` and `workflow.uuid4()`, waits from `asyncio.sleep` / `workflow.sleep`, `workflow.wait()` and `workflow.as_completed()`; I/O (HTTP, files, environment variables, threads) runs in activities.
-Every `workflow.execute_activity()` / `start_activity()` call (local, `_method` and `_class` variants too) passes `start_to_close_timeout=` or `schedule_to_close_timeout=`.
-The workflow sandbox stays on: `sandboxed=False`, `UnsandboxedWorkflowRunner()` and `workflow.unsafe.sandbox_unrestricted()` are the user's decision.

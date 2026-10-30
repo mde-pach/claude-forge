@@ -1,5 +1,5 @@
 id: terraform/tflint
-description: "Changed modules pass tflint's terraform ruleset (recommended preset: required_version, required_providers, pinned module sources and versions, typed variables, no unused declarations, no deprecated syntax), plus the aws, google or azurerm ruleset when the lock file lists that provider (invalid instance types, engines, regions); Forge's config: a project .tflint.hcl cannot disable rules."
+description: "Changed modules pass tflint's terraform ruleset (recommended preset: required_version, required_providers, pinned module sources and versions, typed variables, no unused declarations, no deprecated syntax), plus the aws, google or azurerm ruleset when the lock file lists that provider (invalid instance types, engines, regions); rules are not disabled in .tflint.hcl to silence a finding."
 scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
 enforce:
   - target: check

@@ -5,7 +5,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(curl[[:space:]]([^;&|]*[[:space:]])?(-[A-Za-z]*k[A-Za-z]*|--insecure)|wget[[:space:]]([^;&|]*[[:space:]])?--no-check-certificate)([[:space:];&|)]|$)'
+    command:
+      - name: curl
+        flags_any: [-k, --insecure]
+        value_flags: [-o, --output, -H, --header, -d, --data, --data-raw, --data-binary, -u, --user, -X, --request, -A, --user-agent, -e, --referer, -b, --cookie, -c, --cookie-jar, -T, --upload-file, -w, --write-out, -x, --proxy, -m, --max-time, --connect-timeout, -r, --range, -F, --form, --keepalive-time]
+      - {name: wget, flags_any: [--no-check-certificate]}
 examples:
   match: ["curl -k https://localhost:8443/health", "curl -fsSLk https://localhost:8443/health", "curl --insecure -o tool.tgz https://downloads.example.com/tool.tgz", "wget --no-check-certificate https://example.com/x.sh"]
   no_match: ["curl -fsSL https://example.com/x.json", "curl -o out-k https://example.com/x", "curl --keepalive-time 5 https://example.com", "wget https://example.com/x.tgz"]

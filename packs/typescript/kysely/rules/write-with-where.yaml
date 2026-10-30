@@ -1,5 +1,5 @@
 id: typescript/kysely/write-with-where
-description: "Advice: a Kysely deleteFrom(table) / updateTable(table) chain executed with execute*() has a where…(); without it the whole table is deleted or updated."
+description: "A Kysely deleteFrom(table) / updateTable(table) chain executed with execute*() has a where…(); without it the whole table is deleted or updated."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

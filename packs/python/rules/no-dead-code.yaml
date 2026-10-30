@@ -1,0 +1,61 @@
+id: python/no-dead-code
+description: "A change leaves no Python code unused, wherever it is: no unused import, no unreachable code, no unused private name (a leading `_`) and, in an application, no unused top-level function or class. In a library only private names and imports count. Other new unused names (public methods, which may override a framework's, classes nested in a class such as Django's Meta, public variables, attributes, properties) are advice at Stop, once per turn."
+# migrations, stubs and the configuration files a tool calls by name are not dead code
+scope: {language: python, files: ["!**/*.pyi", "!@alembic-migrations", "!@django-migrations", "!@gunicorn-config", "!**/docs/conf.py"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_condor"}
+examples:
+  match:
+    # a new unused import
+    - head:
+        app/main.py: "def main():\n    return 1\n\n\nmain()\n"
+      files: {app/main.py: "import os\n\n\ndef main():\n    return 1\n\n\nmain()\n"}
+    # unreachable code
+    - head:
+        app/main.py: "def main():\n    return 1\n\n\nmain()\n"
+      files: {app/main.py: "def main():\n    return 1\n    print(\"done\")\n\n\nmain()\n"}
+    # a new top-level function nothing calls
+    - head:
+        app/main.py: "def main():\n    return 1\n\n\nmain()\n"
+      files: {app/main.py: "def main():\n    return 1\n\n\ndef unused_helper():\n    return 2\n\n\nmain()\n"}
+    # the change removed the last call: dead in a file it did not touch
+    - head:
+        app/util.py: "def helper():\n    return 1\n"
+        app/main.py: "from app.util import helper\n\nprint(helper())\n"
+      files: {app/main.py: "print(1)\n"}
+    # in a library, a new unused private function
+    - head:
+        pyproject.toml: "[project]\nname = \"acme\"\nversion = \"1.0.0\"\nclassifiers = [\"Programming Language :: Python :: 3\"]\n\n[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n"
+        src/acme/api.py: "def area(w, h):\n    return w * h\n"
+      files: {src/acme/api.py: "def area(w, h):\n    return w * h\n\n\ndef _check(w):\n    return w > 0\n"}
+  no_match:
+    # dead code the base already had
+    - head:
+        app/util.py: "def helper():\n    return 1\n"
+        app/main.py: "print(1)\n"
+      files: {app/main.py: "print(2)\n"}
+    # in a library, a new public function is its API
+    - head:
+        pyproject.toml: "[project]\nname = \"acme\"\nversion = \"1.0.0\"\nclassifiers = [\"Programming Language :: Python :: 3\"]\n\n[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n"
+        src/acme/api.py: "def area(w, h):\n    return w * h\n"
+      files: {src/acme/api.py: "def area(w, h):\n    return w * h\n\n\ndef perimeter(w, h):\n    return 2 * (w + h)\n"}
+    # a class nested in a class is read by its framework (Django's Meta): advice, not a failure
+    - head:
+        app/models.py: "from django.db import models\n\n\nclass Book(models.Model):\n    title = models.CharField(max_length=100)\n"
+        app/views.py: "from app.models import Book\n\nprint(Book)\n"
+      files: {app/models.py: "from django.db import models\n\n\nclass Book(models.Model):\n    title = models.CharField(max_length=100)\n\n    class Meta:\n        ordering = [\"title\"]\n"}
+    # a method overriding a framework's (a ListView's get_queryset): advice, not a failure
+    - head:
+        app/models.py: "class Book:\n    objects = []\n"
+        app/views.py: "from django.views.generic import ListView\n\nfrom app.models import Book\n\n\nclass BookList(ListView):\n    model = Book\n"
+        app/urls.py: "from app.views import BookList\n\nurlpatterns = [BookList.as_view()]\n"
+      files: {app/views.py: "from django.views.generic import ListView\n\nfrom app.models import Book\n\n\nclass BookList(ListView):\n    model = Book\n\n    def get_queryset(self):\n        return Book.objects\n"}
+    # a new public setting is advice at Stop, not a failure
+    - head:
+        app/settings.py: "DEBUG = False\n"
+      files: {app/settings.py: "DEBUG = False\nTIMEOUT = 30\n"}
+    # a migration's functions are called by the migration tool
+    - head:
+        alembic.ini: "[alembic]\nscript_location = migrations\n"
+        migrations/env.py: "\n"
+      files: {migrations/versions/0001_init.py: "revision = \"0001\"\n\n\ndef upgrade():\n    pass\n\n\ndef downgrade():\n    pass\n"}

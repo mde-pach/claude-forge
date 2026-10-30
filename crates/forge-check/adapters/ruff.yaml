@@ -1,0 +1,165 @@
+# ruff, the project's own (§16). What changed between its releases, for what Forge asks of it:
+#
+# - 0.1.4 added `--output-format` to `ruff rule` (changelogs/0.1.x.md, 0.1.4: "Add
+#   `--output-format` to `ruff rule` and `ruff linter`", #8203): from then, the binary says
+#   which rules it has (`ruff rule --all --output-format json`: code, name, preview). Forge
+#   reads that and nothing older: 0.1.3 and earlier are not covered.
+# - 0.2.0 added the `concise` and `full` output formats and deprecated `text`
+#   (changelogs/0.2.x.md, 0.2.0, Deprecations: "`--output-format text`; use `full` or
+#   `concise` instead"). Before, `text` is the one-line format `concise` is now. 0.2.0 also
+#   moved the linter's settings under `[tool.ruff.lint]` (same section: "The following
+#   settings have moved and the previous name is deprecated"): before it, there is no current
+#   name to check the project's settings against.
+# - Rule codes come and go, and are renamed: TCH to TC in 0.8.0 (changelogs/0.8.x.md:
+#   "`flake8-type-checking`: `TCH` to `TC`"), flake8-trio merged into flake8-async in 0.5.0
+#   (TRIO100 is ASYNC100, the old ASYNC100 is ASYNC210). Their history is ruff's own rule
+#   tables.
+
+tool: "ruff"
+verified: "0.17.3"
+usage: {exit: [2], pattern: "^For more information, try .--help."}
+ranges:
+  - from: "0.1.4"
+    to: "0.2.0"
+    source: "changelogs/0.1.x.md 0.1.4 (#8203); changelogs/0.2.x.md 0.2.0 Deprecations"
+    ops:
+      "fix": "check --fix --fixable I,UP --show-fixes --output-format text"
+      "format": "format"
+      "format-check": "format --check"
+      "format-stdin": "format --stdin-filename {args} -"
+      "lint": "check --output-format text"
+      "lint-json": "check --output-format json"
+      "lint-json-stdin": "check --no-cache --no-fix --output-format json --stdin-filename {args} -"
+      "rules": "rule --all --output-format json"
+      "settings-warnings": null
+  - from: "0.2.0"
+    source: "changelogs/0.2.x.md 0.2.0 (concise output format; settings moved under lint)"
+    ops:
+      "fix": "check --fix --fixable I,UP --show-fixes --output-format concise"
+      "format": "format"
+      "format-check": "format --check"
+      "format-stdin": "format --stdin-filename {args} -"
+      "lint": "check --output-format concise"
+      "lint-json": "check --output-format json"
+      "lint-json-stdin": "check --no-cache --no-fix --output-format json --stdin-filename {args} -"
+      "rules": "rule --all --output-format json"
+      "settings-warnings": "check --exit-zero --no-cache"
+codes:
+  op: "rules"
+  history:
+    "AIR002": {since: "0.13.0", codes: ["AIR002", "AIR301"], names: ["airflow-dag-no-schedule-argument"]}
+    "AIR301": {since: "0.13.0", codes: ["AIR301", "AIR302"], names: ["airflow3-removal"]}
+    "AIR302": {since: "0.13.0", codes: ["AIR302", "AIR303"], names: ["airflow3-moved-to-provider"]}
+    "AIR303": {since: "0.16.0", codes: ["AIR303"], names: ["airflow3-incompatible-function-signature"]}
+    "AIR311": {since: "0.14.14", codes: ["AIR311"], names: ["airflow3-suggested-update"]}
+    "AIR312": {since: "0.13.0", codes: ["AIR312"], names: ["airflow3-suggested-to-move-to-provider"]}
+    "ANN001": {since: "0.1.4", codes: ["ANN001"], names: ["missing-type-function-argument"]}
+    "ANN002": {since: "0.1.4", codes: ["ANN002"], names: ["missing-type-args"]}
+    "ANN003": {since: "0.1.4", codes: ["ANN003"], names: ["missing-type-kwargs"]}
+    "ANN201": {since: "0.1.4", codes: ["ANN201"], names: ["missing-return-type-undocumented-public-function"]}
+    "ANN202": {since: "0.1.4", codes: ["ANN202"], names: ["missing-return-type-private-function"]}
+    "ANN204": {since: "0.1.4", codes: ["ANN204"], names: ["missing-return-type-special-method"]}
+    "ANN205": {since: "0.1.4", codes: ["ANN205"], names: ["missing-return-type-static-method"]}
+    "ANN206": {since: "0.1.4", codes: ["ANN206"], names: ["missing-return-type-class-method"]}
+    "ANN401": {since: "0.1.4", codes: ["ANN401"], names: ["any-type"]}
+    "ARG001": {since: "0.1.4", codes: ["ARG001"], names: ["unused-function-argument"]}
+    "ARG002": {since: "0.1.4", codes: ["ARG002"], names: ["unused-method-argument"]}
+    "ASYNC100": {since: "0.2.0", codes: ["ASYNC100", "TRIO100"], names: ["cancel-scope-no-checkpoint", "trio-timeout-without-await"]}
+    "ASYNC105": {since: "0.2.0", codes: ["ASYNC105", "TRIO105"], names: ["trio-sync-call"]}
+    "ASYNC110": {since: "0.6.0", codes: ["ASYNC110", "TRIO110"], names: ["async-busy-wait", "trio-unneeded-sleep"]}
+    "ASYNC210": {since: "0.1.4", codes: ["ASYNC210", "ASYNC100"], names: ["blocking-http-call-in-async-function"]}
+    "ASYNC212": {since: "0.15.0", codes: ["ASYNC212"], names: ["blocking-http-call-httpx-in-async-function"]}
+    "ASYNC220": {since: "0.5.0", codes: ["ASYNC220"], names: ["create-subprocess-in-async-function"]}
+    "ASYNC221": {since: "0.5.0", codes: ["ASYNC221"], names: ["run-process-in-async-function"]}
+    "ASYNC222": {since: "0.5.0", codes: ["ASYNC222"], names: ["wait-for-process-in-async-function"]}
+    "ASYNC230": {since: "0.5.0", codes: ["ASYNC230"], names: ["blocking-open-call-in-async-function"]}
+    "ASYNC240": {since: "0.15.0", codes: ["ASYNC240"], names: ["blocking-path-method-in-async-function"]}
+    "ASYNC250": {since: "0.15.0", codes: ["ASYNC250"], names: ["blocking-input-in-async-function"]}
+    "ASYNC251": {since: "0.5.0", codes: ["ASYNC251"], names: ["blocking-sleep-in-async-function"]}
+    "B003": {since: "0.1.4", codes: ["B003"], names: ["assignment-to-os-environ"]}
+    "B006": {since: "0.1.4", codes: ["B006"], names: ["mutable-argument-default"]}
+    "B012": {since: "0.1.4", codes: ["B012"], names: ["jump-statement-in-finally"]}
+    "B017": {since: "0.1.4", codes: ["B017"], names: ["assert-raises-exception"]}
+    "B019": {since: "0.1.4", codes: ["B019"], names: ["cached-instance-method"]}
+    "B023": {since: "0.1.4", codes: ["B023"], names: ["function-uses-loop-variable"]}
+    "B039": {since: "0.8.0", codes: ["B039"], names: ["mutable-contextvar-default"]}
+    "B904": {since: "0.1.4", codes: ["B904"], names: ["raise-without-from-inside-except"]}
+    "B905": {since: "0.1.4", codes: ["B905"], names: ["zip-without-explicit-strict"]}
+    "BLE001": {since: "0.1.4", codes: ["BLE001"], names: ["blind-except"]}
+    "DJ001": {since: "0.1.4", codes: ["DJ001"], names: ["django-nullable-model-string-field"]}
+    "DJ003": {since: "0.1.4", codes: ["DJ003"], names: ["django-locals-in-render-function"]}
+    "DJ006": {since: "0.1.4", codes: ["DJ006"], names: ["django-exclude-with-model-form"]}
+    "DJ007": {since: "0.1.4", codes: ["DJ007"], names: ["django-all-with-model-form"]}
+    "DJ013": {since: "0.1.4", codes: ["DJ013"], names: ["django-non-leading-receiver-decorator"]}
+    "DTZ001": {since: "0.1.4", codes: ["DTZ001"], names: ["call-datetime-without-tzinfo"]}
+    "DTZ002": {since: "0.1.4", codes: ["DTZ002"], names: ["call-datetime-today"]}
+    "DTZ005": {since: "0.1.4", codes: ["DTZ005"], names: ["call-datetime-now-without-tzinfo"]}
+    "DTZ006": {since: "0.1.4", codes: ["DTZ006"], names: ["call-datetime-fromtimestamp"]}
+    "DTZ011": {since: "0.1.4", codes: ["DTZ011"], names: ["call-date-today"]}
+    "DTZ012": {since: "0.1.4", codes: ["DTZ012"], names: ["call-date-fromtimestamp"]}
+    "DTZ901": {since: "0.10.0", codes: ["DTZ901"], names: ["datetime-min-max"]}
+    "E722": {since: "0.1.4", codes: ["E722"], names: ["bare-except"]}
+    "ERA001": {since: "0.1.4", codes: ["ERA001"], names: ["commented-out-code"]}
+    "FAST002": {since: "0.8.0", codes: ["FAST002"], names: ["fast-api-non-annotated-dependency"]}
+    "FAST003": {since: "0.10.0", codes: ["FAST003"], names: ["fast-api-unused-path-parameter"]}
+    "LOG001": {since: "0.2.0", codes: ["LOG001"], names: ["direct-logger-instantiation"]}
+    "LOG002": {since: "0.2.0", codes: ["LOG002"], names: ["invalid-get-logger-argument"]}
+    "LOG015": {since: "0.10.0", codes: ["LOG015"], names: ["root-logger-call"]}
+    "NPY002": {since: "0.1.4", codes: ["NPY002"], names: ["numpy-legacy-random"]}
+    "PGH003": {since: "0.1.4", codes: ["PGH003"], names: ["blanket-type-ignore"]}
+    "PGH004": {since: "0.1.4", codes: ["PGH004"], names: ["blanket-noqa"]}
+    "PLE0704": {since: "0.5.0", codes: ["PLE0704"], names: ["misplaced-bare-raise"]}
+    "PLE2502": {since: "0.1.4", codes: ["PLE2502"], names: ["bidirectional-unicode"]}
+    "PLE2515": {since: "0.1.4", codes: ["PLE2515"], names: ["invalid-character-zero-width-space"]}
+    "PLW0603": {since: "0.1.4", codes: ["PLW0603"], names: ["global-statement"]}
+    "PLW1507": {since: "0.10.0", codes: ["PLW1507"], names: ["shallow-copy-environ"]}
+    "PLW1508": {since: "0.1.4", codes: ["PLW1508"], names: ["invalid-envvar-default"]}
+    "PLW1509": {since: "0.1.4", codes: ["PLW1509"], names: ["subprocess-popen-preexec-fn"]}
+    "PLW1510": {since: "0.1.4", codes: ["PLW1510"], names: ["subprocess-run-without-check"]}
+    "PLW2101": {since: "0.5.0", codes: ["PLW2101"], names: ["useless-with-lock"]}
+    "PTH210": {since: "0.10.0", codes: ["PTH210"], names: ["invalid-pathlib-with-suffix"]}
+    "PYI019": {since: "0.1.4", codes: ["PYI019"], names: ["custom-type-var-for-self", "custom-type-var-return-type"]}
+    "PYI034": {since: "0.14.14", codes: ["PYI034"], names: ["non-self-return-type"]}
+    "RUF006": {since: "0.1.4", codes: ["RUF006"], names: ["asyncio-dangling-task"]}
+    "RUF008": {since: "0.1.4", codes: ["RUF008"], names: ["mutable-dataclass-default"]}
+    "RUF009": {since: "0.1.4", codes: ["RUF009"], names: ["function-call-in-dataclass-default-argument"]}
+    "RUF032": {since: "0.9.0", codes: ["RUF032"], names: ["decimal-from-float-literal"]}
+    "RUF033": {since: "0.9.0", codes: ["RUF033"], names: ["post-init-default"]}
+    "RUF063": {since: "0.16.0", codes: ["RUF063"], names: ["access-annotations-from-class-dict"]}
+    "RUF071": {since: "0.17.0", codes: ["RUF071"], names: ["os-path-commonprefix"]}
+    "RUF100": {since: "0.1.4", codes: ["RUF100"], names: ["unused-noqa"]}
+    "RUF200": {since: "0.1.4", codes: ["RUF200"], names: ["invalid-pyproject-toml"]}
+    "S102": {since: "0.1.4", codes: ["S102"], names: ["exec-builtin"]}
+    "S105": {since: "0.1.4", codes: ["S105"], names: ["hardcoded-password-string"]}
+    "S106": {since: "0.1.4", codes: ["S106"], names: ["hardcoded-password-func-arg"]}
+    "S110": {since: "0.1.4", codes: ["S110"], names: ["try-except-pass"]}
+    "S112": {since: "0.1.4", codes: ["S112"], names: ["try-except-continue"]}
+    "S113": {since: "0.5.7", codes: ["S113"], names: ["request-without-timeout"]}
+    "S201": {since: "0.2.0", codes: ["S201"], names: ["flask-debug-true"]}
+    "S301": {since: "0.1.4", codes: ["S301"], names: ["suspicious-pickle-usage"]}
+    "S302": {since: "0.1.4", codes: ["S302"], names: ["suspicious-marshal-usage"]}
+    "S304": {since: "0.1.4", codes: ["S304"], names: ["suspicious-insecure-cipher-usage"]}
+    "S305": {since: "0.1.4", codes: ["S305"], names: ["suspicious-insecure-cipher-mode-usage"]}
+    "S307": {since: "0.1.4", codes: ["S307"], names: ["suspicious-eval-usage"]}
+    "S308": {since: "0.1.4", codes: ["S308"], names: ["suspicious-mark-safe-usage"]}
+    "S323": {since: "0.1.4", codes: ["S323"], names: ["suspicious-unverified-context-usage"]}
+    "S324": {since: "0.1.4", codes: ["S324"], names: ["hashlib-insecure-hash-function"]}
+    "S501": {since: "0.1.4", codes: ["S501"], names: ["request-with-no-cert-validation"]}
+    "S502": {since: "0.2.0", codes: ["S502"], names: ["ssl-insecure-version"]}
+    "S505": {since: "0.2.0", codes: ["S505"], names: ["weak-cryptographic-key"]}
+    "S506": {since: "0.1.4", codes: ["S506"], names: ["unsafe-yaml-load"]}
+    "S602": {since: "0.1.4", codes: ["S602"], names: ["subprocess-popen-with-shell-equals-true"]}
+    "S605": {since: "0.1.4", codes: ["S605"], names: ["start-process-with-a-shell"]}
+    "S608": {since: "0.1.4", codes: ["S608"], names: ["hardcoded-sql-expression"]}
+    "S610": {since: "0.5.0", codes: ["S610"], names: ["django-extra"]}
+    "S611": {since: "0.2.0", codes: ["S611"], names: ["django-raw-sql"]}
+    "S701": {since: "0.1.4", codes: ["S701"], names: ["jinja2-autoescape-false"]}
+    "S704": {since: "0.10.0", codes: ["S704", "RUF035"], names: ["unsafe-markup-use"]}
+    "SIM115": {since: "0.1.4", codes: ["SIM115"], names: ["open-file-with-context-handler"]}
+    "T100": {since: "0.1.4", codes: ["T100"], names: ["debugger"]}
+    "T201": {since: "0.1.4", codes: ["T201"], names: ["print"]}
+    "TC004": {since: "0.1.4", codes: ["TC004", "TCH004"], names: ["runtime-import-in-type-checking-block"]}
+    "TID251": {since: "0.1.4", codes: ["TID251"], names: ["banned-api"]}
+    "TRY002": {since: "0.1.4", codes: ["TRY002"], names: ["raise-vanilla-class"]}
+    "TRY201": {since: "0.1.4", codes: ["TRY201"], names: ["verbose-raise"]}
+    "TRY203": {since: "0.1.4", codes: ["TRY203", "TRY302"], names: ["useless-try-except"]}

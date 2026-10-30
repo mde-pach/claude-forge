@@ -1,0 +1,57 @@
+#!/bin/sh
+# Fake kube-linter 0.8.3 for the pack examples: a few checks, in the plain format of the real
+# binary (captured: colour codes despite --with-color=false, absolute paths, "Error: found N lint
+# errors" and exit 1 on findings).
+[ "$1" = version ] && { echo 0.8.3; exit 0; }
+[ "$1" = lint ] || { echo 'Error: unknown command'; exit 1; }
+shift
+cfg=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    --config) cfg=$2; shift 2 ;;
+    --format) shift 2 ;;
+    --*) shift ;;
+    *) break ;;
+  esac
+done
+checks=$(sed -n 's/^    - //p' "$cfg")
+for c in $checks; do
+  case $c in
+    run-as-non-root|privilege-escalation-container|privileged-container|no-read-only-root-fs|unset-memory-requirements|latest-tag|host-network|host-pid|host-ipc|docker-sock|sensitive-host-mounts|drop-net-raw-capability|mismatching-selector|dangling-service|deprecated-service-account-field|invalid-target-ports|liveness-port|readiness-port|startup-port|unsafe-sysctls|duplicate-env-var|wildcard-in-rules|cluster-admin-role-binding) ;;
+    *) echo "Error: enabled checks validation error: check \"$c\" not found" >&2; exit 1 ;;
+  esac
+done
+echo 'KubeLinter 0.8.3'
+echo
+labels=$(cat "$@" | sed -n 's/.*labels: {app: \([a-z]*\)}.*/\1/p')
+n=0
+for f in "$@"; do
+  abs=$(cd "$(dirname "$f")" && pwd)/$(basename "$f")
+  out=$(awk -v f="$abs" -v checks=" $(echo $checks) " -v labels=" $(echo $labels) " '
+    function on(c) { return index(checks, " " c " ") > 0 }
+    function say(msg, check, fix) {
+      printf "\033[1m%s\033[22m: (object: \033[1m<no namespace>/%s %s, Kind=%s\033[22m) \033[31m%s\033[0m (check: \033[33m%s\033[0m, remediation: \033[33m%s\033[0m)\n\n", f, name, (api ~ /\// ? api : "/" api), kind, msg, check, fix
+    }
+    /^apiVersion:/ { api = $2 } /^kind:/ { kind = $2 }
+    /^  name:/ && !name { name = $2 }
+    /^ *- name:/ && !cname { cname = $3 }
+    /image: .*:latest/ { latest = $0; sub(/^.*image: /, "", latest) }
+    /privileged: true/ { priv = 1 }
+    /runAsNonRoot: true/ { nonroot = 1 }
+    /containers:/ { containers = 1 }
+    /selector: \{app: / { sel = $0; sub(/^.*\{app: /, "", sel); sub(/\}.*$/, "", sel) }
+    /resources: \["\*"\]/ { wres = 1 } /verbs: \["\*"\]/ { wverb = 1 }
+    /name: cluster-admin/ { admin = 1 }
+    END {
+      if (on("latest-tag") && latest != "") say("The container \"" cname "\" is using an invalid container image, \"" latest "\". Please use images that are not blocked by the `BlockList` criteria : [\".*:(latest)$\" \"^[^:]*$\" \"(.*/[^:]+)$\"]", "latest-tag", "Use a container image with a specific tag other than latest.")
+      if (on("privileged-container") && priv) say("container \"" cname "\" is privileged", "privileged-container", "Do not run your container as privileged unless it is required.")
+      if (on("run-as-non-root") && containers && !nonroot) say("container \"" cname "\" is not set to runAsNonRoot", "run-as-non-root", "Set runAsUser to a non-zero number and runAsNonRoot to true in your pod or container securityContext.")
+      if (on("dangling-service") && kind == "Service" && index(labels, " " sel " ") == 0) say("no pods found matching service labels (map[app:" sel "])", "dangling-service", "Confirm that your service'"'"'s selector correctly matches the labels on one of your deployments.")
+      if (on("wildcard-in-rules") && wres) say("wildcard \"*\" in resource specification", "wildcard-in-rules", "Where possible replace any use of wildcards in clusterroles and roles with specific objects or actions.")
+      if (on("wildcard-in-rules") && wverb) say("wildcard \"*\" in verb specification", "wildcard-in-rules", "Where possible replace any use of wildcards in clusterroles and roles with specific objects or actions.")
+      if (on("cluster-admin-role-binding") && kind == "ClusterRoleBinding" && admin) say("cluster-admin role is bound to subjects", "cluster-admin-role-binding", "Create and assign a separate role that has access to specific resources/actions needed for the service account.")
+    }' "$f")
+  if [ -n "$out" ]; then printf '%s\n\n' "$out"; n=$((n + $(printf '%s\n' "$out" | grep -c 'object:'))); fi
+done
+if [ "$n" -gt 0 ]; then echo "Error: found $n lint errors" >&2; exit 1; fi
+echo 'No lint errors found!'

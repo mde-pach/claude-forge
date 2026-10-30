@@ -1,0 +1,21 @@
+#!/bin/sh
+# Fake trivy 0.75.0 for the pack examples: AWS-0107 (SSH open to the world), printed through
+# Forge's template as the real binary prints it (captured: target relative to the scanned
+# directory, tab-separated); a template without the .tpl extension is a fatal error.
+tpl=''
+for a in "$@"; do
+  case $a in @*) tpl=${a#@} ;; esac
+  dir=$a
+done
+case $tpl in *.tpl) ;; *) printf '2026-10-29T17:34:04+01:00\tFATAL\tFatal error\tflag error: unable to convert flags to options: template file must have .tpl extension: %s\n' "$tpl" >&2; exit 1 ;; esac
+[ -d "$dir" ] || { printf '2026-10-29T17:34:04+01:00\tFATAL\tFatal error\trun error: fs scan error: lstat %s: no such file or directory\n' "$dir" >&2; exit 1; }
+cd "$dir" || exit 1
+for f in *.tf; do
+  [ -f "$f" ] || continue
+  awk -v f="$f" '
+    /^resource "aws_security_group"/ { r = $2 "." $3; gsub(/"/, "", r) }
+    /from_port *= *22$/ { ssh = 1 }
+    /cidr_blocks *= *\["0\.0\.0\.0\/0"\]/ && ssh { printf "%s\tAWS-0107\t%s\t%d\tSecurity groups should not allow unrestricted ingress to SSH or RDP from any IP address.\n", f, r, NR }
+  ' "$f"
+done
+exit 0

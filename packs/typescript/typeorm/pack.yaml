@@ -3,3 +3,8 @@ description: TypeORM data sources, raw queries, query builders and schema comman
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: typeorm}]
+context:
+  - text: |
+      TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are rejected, `schema:sync` / `schema:drop` are refused and `migration:revert` needs confirmation.
+  - text: |
+      Raw `.query()` takes its values as parameters (`query(sql, [values])`); query builder conditions and orderings use `:name` parameters, never `${}` or concatenation.

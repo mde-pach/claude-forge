@@ -3,3 +3,6 @@ description: Upstash rate limiting (@upstash/ratelimit).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@upstash/ratelimit"}]
+context:
+  - text: |
+      Upstash Ratelimit: `limit()` never throws; its result is checked (`const { success } = await ratelimit.limit(id)`), never discarded.

@@ -1,5 +1,5 @@
 id: release/changeset-present
-description: "Advice, once per turn at Stop: with Changesets, a change to a package whose package.json is not \"private\": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there."
+description: "With Changesets, a change to a package whose package.json is not \"private\": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there."
 scope: {language: any}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_release_notes @python-tests"}

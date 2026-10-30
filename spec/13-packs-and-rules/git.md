@@ -1,11 +1,17 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `git`
+
 ### git
 
-Active in every repository (`detect: {always: true}`, §5.1).
+Repository hygiene, whatever the language.
 
-| Rule | Targets |
-|---|---|
-| `git/no-conflict-markers` | `grep` forbid, any file: `^(<<<<<<<\|>>>>>>>\|\|\|\|\|\|\|\|)( \|$)` (`=======` is left out: a Markdown or reStructuredText heading underline) |
-| `git/large-files` | `check` lint: `forge_large_files 1048576`: a file of the change over 1 MiB, new or grown, whose `git check-attr filter` is not `lfs` (line 0); the threshold is the argument (replace the rule locally). Proved by a spec test: its files do not fit in examples |
-| `git/generated-files` | `check` lint, advisory (§10.7): `forge_generated_edits`: a changed file marked `linguist-generated` (`git check-attr`) or with `@generated` / `Code generated … DO NOT EDIT.` in its first 15 lines: regenerate it rather than edit it |
-| `git/editorconfig` | `check` lint: `forge_editorconfig`, when `.editorconfig` exists: pinned editorconfig-checker (§13.5) with an empty config of Forge's (`.editorconfig-checker.json` excludes and disables do not apply), `-format gcc`, on the changed files no format check of the setup covers |
-| `git/no-build-artifacts` | `check` lint: `forge_artifacts @build-artifacts`: each file of the change (ignored files are not part of it) in the role, or under a directory holding `pyvenv.cfg` (a virtualenv) or `CACHEDIR.TAG` (a tagged cache: pytest, ruff, mypy, uv), reported once per shallowest such directory: add it to `.gitignore` |
+Detected by: every repository.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `git/editorconfig` | When the repository has an .editorconfig, changed files that no formatter of this setup formats respect it. | any | check lint: `forge_editorconfig` |
+| `git/generated-files` | A changed file marked generated (linguist-generated in .gitattributes, or @generated or "Code generated ... DO NOT EDIT." in its first 15 lines) is regenerated from its source, not edited by hand. | any | check lint: `forge_advise forge_generated_edits`<br>advice, never blocks |
+| `git/large-files` | No file of the change over 1 MiB is added or grown unless Git LFS stores it (its filter attribute is lfs); a larger file is the user's decision: ask them. | any | check lint: `forge_large_files 1048576` |
+| `git/no-build-artifacts` | No dependency, cache or build output enters the change (file role @build-artifacts: node_modules/, __pycache__/, *.pyc, .next/, .nuxt/, .svelte-kit/, .turbo/, .coverage, .DS_Store), nor a directory holding pyvenv.cfg (a virtualenv) or CACHEDIR.TAG (pytest, ruff, mypy and uv caches): add it to .gitignore. | any | check lint: `forge_artifacts @build-artifacts` |
+| `git/no-conflict-markers` | No added line starts with a merge conflict marker (<<<<<<< , >>>>>>> , \|\|\|\|\|\|\| ), in any file. | any | grep forbid `^(<<<<<<<\|>>>>>>>\|\\|\\|\\|\\|\\|\\|\\|)( \|$)` |

@@ -1,13 +1,25 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `github-actions`
+
 ### github-actions
 
-Detected by `.github/workflows/*.yml` or `*.yaml`.
+GitHub Actions workflows, audited with zizmor.
 
-| Rule | Targets |
-|---|---|
-| `github-actions/zizmor` | `check` lint: `forge_zizmor` (§13.2) on changed workflows, actions and `.github/dependabot.y*ml`, failing on the `unpinned-uses`, `template-injection`, `dangerous-triggers`, `excessive-permissions`, `artipacked`, `cache-poisoning`, `github-env`, `insecure-commands`, `overprovisioned-secrets`, `unredacted-secrets`, `secrets-inherit`, `bot-conditions`, `obfuscation`, `unsound-condition`, `unsound-contains`, `unsound-ternary`, `hardcoded-container-credentials`, `unpinned-images`, `ref-version-mismatch`, `archived-uses`, `typosquat-uses`, `use-trusted-publishing`, `dependabot-cooldown` and `dependabot-execution` audits |
-| `github-actions/zizmor-advice` | `check` lint, advisory (§10.7): `forge_advise forge_zizmor adhoc-packages unpinned-tools superfluous-actions` |
-| `github-actions/ci-ratchet` | `grep` no-increase on workflows: `continue-on-error: true`, a run line ending in `\|\| true` / `\|\| exit 0` / `\|\| :`, `if: false` (or `${{ false }}`), `paths-ignore:` |
-| `github-actions/no-removed-jobs` | `check` lint: `forge_ci_jobs`: a job of a changed workflow that ran on `push` or `pull_request` in the base and is gone now (the whole file deleted included), `path:0 job <id> was removed …`, unless `forge.yaml` accepts that line |
-| `github-actions/actionlint` | `check` lint: `forge_actionlint`: pinned actionlint (§13.5) on the changed workflows (every tracked one with `--all`), `-shellcheck= -pyflakes=` (results do not depend on what is installed), with a config of Forge's own holding only the `self-hosted-runner` and `config-variables` blocks of `.github/actionlint.y*ml` (its `paths: … ignore:` do not apply); `path:line:column: kind: message` |
+Detected by: a file matching `.github/workflows/*.yml`, `.github/workflows/*.yaml`.
 
-context.md: actions pinned to a commit SHA, `permissions: {}` then per job, `persist-credentials: false`, no `${{ }}` inside `run:`, no `pull_request_target` / `workflow_run` on untrusted code.
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`), never a tag or branch, which can be moved.
+- Workflows set `permissions: {}` at the top and grant each job only what it needs.
+- `actions/checkout` sets `persist-credentials: false` unless a later step pushes.
+- Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) are never expanded inside `run:`: pass them through `env:` and use the shell variable.
+- `pull_request_target` and `workflow_run` run with secrets on untrusted code: do not add them.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `github-actions/actionlint` | Workflows pass actionlint: expression type errors, unknown with: inputs of known actions, deprecated set-output / save-state / set-env commands, invalid cron, needs cycles, unknown runner labels (self-hosted labels come from .github/actionlint.yaml). | any: `.github/workflows/*.yml`, `.github/workflows/*.yaml` | check lint: `forge_actionlint` (when `.github/workflows/**`, `.github/actionlint.yaml` or `.github/actionlint.yml` changes) |
+| `github-actions/ci-ratchet` | Workflow changes do not switch checks off: a changed workflow may not have more continue-on-error: true, run lines ending in \|\| true / \|\| exit 0 / \|\| :, if: false or paths-ignore than it had. Fix the failing step instead; switching a check off is the user's decision: ask them. | any: `.github/workflows/*.yml`, `.github/workflows/*.yaml` | grep no-increase `continue-on-error:[[:space:]]*(true\|\$\{\{[[:space:]]*true[[:space:]]*\}\})\|\\|\\|[[:space:]]*(true\|exit[[:space:]]+0\|:)([[:space:];)"']\|$)\|^[[:space:]]*-?[[:space:]]*if:[[:space:]]*(false\|\$\{\{[[:space:]]*false[[:space:]]*\}\})[[:space:]]*$\|paths-ignore:` |
+| `github-actions/no-removed-jobs` | A job removed from a workflow that runs on push or pull_request (the whole workflow deleted included) is reported: restore it rather than switching a check off; removing a check is the user's decision: ask them. | any: `.github/workflows/*.yml`, `.github/workflows/*.yaml` | check lint: `forge_ci_jobs` (when `.github/workflows/*.yml` or `.github/workflows/*.yaml` changes) |
+| `github-actions/zizmor-advice` | zizmor's adhoc-packages (packages installed in run: steps outside a lock file), unpinned-tools and superfluous-actions (actions that duplicate what the runner image provides) audits. | any: `.github/workflows/*.yml`, `.github/workflows/*.yaml`, `.github/actions/**/action.yml`, `.github/actions/**/action.yaml`, `action.yml`, `action.yaml` | check lint: `forge_advise forge_zizmor adhoc-packages unpinned-tools superfluous-actions` (when `.github/workflows/**`, `.github/actions/**`, `action.yml` or `action.yaml` changes)<br>advice, never blocks |
+| `github-actions/zizmor` | Workflows, actions and dependabot.yml pass zizmor's unpinned-uses (actions pinned to a commit SHA, cf. the tj-actions/changed-files compromise, CVE-2025-30066), template-injection, dangerous-triggers, excessive-permissions, artipacked, cache-poisoning, github-env, insecure-commands, overprovisioned-secrets, unredacted-secrets, secrets-inherit, bot-conditions, obfuscation, unsound-condition, unsound-contains, unsound-ternary, hardcoded-container-credentials, unpinned-images, ref-version-mismatch, archived-uses, typosquat-uses, use-trusted-publishing, dependabot-cooldown and dependabot-execution audits. | any: `.github/workflows/*.yml`, `.github/workflows/*.yaml`, `.github/actions/**/action.yml`, `.github/actions/**/action.yaml`, `action.yml`, `action.yaml`, `.github/dependabot.yml`, `.github/dependabot.yaml` | check lint: a shell script calling `forge_zizmor` (when `.github/workflows/**`, `.github/actions/**`, `action.yml`, `action.yaml`, `.github/dependabot.yml` or `.github/dependabot.yaml` changes) |

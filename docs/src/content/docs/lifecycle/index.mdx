@@ -3,39 +3,32 @@ title: Lifecycle
 description: What Forge does at each step, from forge apply to CI.
 ---
 
-import Spec from "../../../components/Spec.astro";
 import LifecycleSchema from "../../../components/LifecycleSchema.astro";
 
-Forge does not add a lifecycle of its own. It plugs pieces into Claude Code's hook events, plus `forge apply` before the session and git and CI after it. The schema below is Claude Code's lifecycle with every Forge piece attached; grey filled pieces always run, dashed ones run when a rule needs them. Every rule and pack page shows this same schema with only its own pieces lit up.
+Forge does not add a lifecycle of its own. It plugs into Claude Code's hook events, plus `forge apply` before the session and git and CI after it. The schema below is Claude Code's lifecycle with every Forge piece attached; grey filled pieces always run, dashed ones run when a rule needs them. Every rule and pack page shows this same schema with only its own pieces lit up.
 
 <LifecycleSchema variant="overview" events={[]} />
 
-Forge acts at seven moments. These pages explain each one and carry its tests.
+Forge acts at seven moments:
 
 | Step | What runs | What it can do |
 |---|---|---|
 | [**forge apply**](./apply/) | you run `forge apply` (and `forge status`) | detects packs, writes the setup, **audits** your tool configs |
-| [**Session start**](./session/#session-start) | SessionStart hook | **informs** Claude: branch, changes, packs, missing tools; context files |
-| [**Tool call**](./session/#tool-call) | Claude Code permissions and sandbox; PreToolUse guard | **blocks** or **asks** before a Bash command, a read or an edit |
-| [**After an edit**](./session/#after-an-edit) | PostToolUse hooks | **fixes** formatting, **tells Claude** lint and ast-grep findings, **wakes Claude** on type errors |
-| [**Claude stops**](./stop/) | UserPromptSubmit snapshots the tree; Stop hook → `check.sh` on what the turn changed | **blocks** the stop until the change passes; hands over after 3 tries |
-| [**git commit**](./commit-ci/#pre-commit) | pre-commit hook → `check.sh --changed` | **blocks** the commit |
-| [**CI**](./commit-ci/#ci) | `check.sh --since <base>` on a pull request, `--all` on the default branch | **blocks** the build: what the branch added, or the whole project |
+| [**Session start**](./session/#session-start) | `claude-forge hook session-start`; the rules files | **informs** Claude: the active packs' context |
+| [**Tool call**](./session/#tool-call) | Claude Code permissions and sandbox; `claude-forge hook pre-tool-use` | **blocks** or **asks** before a Bash command, a read or an edit |
+| [**After an edit**](./session/#after-an-edit) | `claude-forge hook post-tool-use` and its async type check | **fixes** formatting, **tells Claude** findings, **wakes Claude** on type errors |
+| [**Claude stops**](./stop/) | `user-prompt-submit` snapshots the tree; `stop` checks what the turn changed | **blocks** the stop until the change passes; hands over after 3 tries |
+| [**git commit**](./commit-ci/#pre-commit) | pre-commit hook → `claude-forge check --changed` | **blocks** the commit |
+| [**CI**](./commit-ci/#ci) | `claude-forge check --since <base>` on a pull request, `--all` on the default branch | **blocks** the build |
 
 Effects use the same colours everywhere: <span class="forge-effect" data-effect="blocks">blocks</span><span class="forge-effect" data-effect="asks">asks</span><span class="forge-effect" data-effect="feedback">tells Claude</span><span class="forge-effect" data-effect="wakes">wakes Claude</span><span class="forge-effect" data-effect="fixes">fixes</span><span class="forge-effect" data-effect="audits">audits config</span><span class="forge-effect" data-effect="informs">informs Claude</span>
 
 ## How the hooks are wired
 
-The project setup is a Claude Code plugin in `.claude/skills/forge-project/`. Its `hooks/hooks.json`:
+`forge apply` writes the hook entries into `.claude/settings.json`. Each is a short `sh -c` wrapper around `claude-forge hook <event>`, one process per event. When `claude-forge` is not installed, the SessionStart entry shows you one message saying the checks are off and how to install Forge; every other entry exits 0, so Claude sees nothing.
 
-<Spec file="08-project-hooks" test="hooks.json wires SessionStart, UserPromptSubmit, PreToolUse(Bash) twice and PreToolUse(Edit|Write), PermissionRequest, PostToolUse(Edit|Write|Bash) twice and PostToolUse(Edit|Write), PostToolUseFailure(Bash) twice and Stop, with the specified timeouts" />
-
-A missing runtime never breaks a session; every hook exits cleanly, and the missing tool is reported to the person (`forge apply`, `forge status`), not to Claude:
-
-<Spec file="08-project-hooks" test="without bun on PATH in a TypeScript repository every hook exits 0, and SessionStart does not report bun (forge status does)" />
+A failure of Forge itself (a tool that could not run, an engine that did not start, a budget that ran out) is a note for you, shown by `forge status`, and never blocks Claude.
 
 ## How fast the hooks are
 
-Every hook runs on Claude's critical path, so each has a budget it is tested against, warm, after an edit: the commands it starts by name (a process costs about 25 ms on an emulated machine, so their number is what keeps a hook fast everywhere) and its median time.
-
-<Spec file="08-5-hook-budgets" />
+Every hook runs on Claude's critical path, so each has a budget it is tested against (`FORGE_BUDGETS=1 cargo test --release -p forge-cli --test hook -- --ignored budgets`): a PreToolUse guard decision within 10 ms at p99, Forge's overhead after an edit within 30 ms, a session start within 200 ms, and Forge's own overhead at Stop within 300 ms (the project's own checks are capped separately).

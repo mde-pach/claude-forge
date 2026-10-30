@@ -1,0 +1,17 @@
+#!/bin/sh
+# Fake Redocly CLI 2.62.1 for the pack examples: operation-operationId-unique, as GitHub
+# annotations (captured from the real CLI); exit 1 with an error.
+[ "$1" = lint ] || { echo 'Unknown argument: x' >&2; exit 1; }
+shift; shift
+echo 'No configurations were provided -- using built in recommended configuration by default.' >&2
+rc=0
+for f in "$@"; do
+  echo "validating $f..." >&2
+  out=$(awk -v f="$f" '
+    /operationId:/ { id = $2; if (id in seen) printf "::error title=operation-operationId-unique,file=%s,line=%d,col=7,endLine=%d,endColumn=42::Every operation must have a unique `operationId`.%%0A%%0AReference: https://redocly.com/docs/cli/rules/oas/operation-operationId-unique%%0A%%0A\n", f, NR, NR + 4; seen[id] = 1 }
+    /url: https:\/\/api\.example\.com/ { printf "::warning title=no-server-example.com,file=%s,line=%d,col=10,endLine=%d,endColumn=33::Server `url` should not point to example.com or localhost.%%0A%%0A\n", f, NR, NR }
+  ' "$f")
+  [ -n "$out" ] && printf '%s\n' "$out"
+  case $out in *"::error "*) rc=1 ;; esac
+done
+exit "$rc"

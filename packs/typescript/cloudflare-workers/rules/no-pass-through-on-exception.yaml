@@ -1,5 +1,5 @@
 id: typescript/cloudflare-workers/no-pass-through-on-exception
-description: "Advice: no ctx.passThroughOnException(); it fails open to the origin and hides the error. Handle errors with try/catch and return a response; a proxy in front of an origin may keep it on purpose."
+description: "No ctx.passThroughOnException(); it fails open to the origin and hides the error. Handle errors with try/catch and return a response; a proxy in front of an origin may keep it on purpose."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

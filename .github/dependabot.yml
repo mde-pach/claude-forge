@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # The SHA-pinned actions of .github/workflows: one weekly pull request for all of them,
+  # each release at least 7 days old (time for a compromised release to be caught and pulled).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]

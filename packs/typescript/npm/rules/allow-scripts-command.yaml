@@ -5,7 +5,12 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])npm[[:space:]]+(approve-scripts|install-scripts[[:space:]]+approve)[[:space:]]+([^-[:space:]]|--all([[:space:];&|)]|$)|--no-allow-scripts-pin)|--allow-scripts([[:space:]]*=|[[:space:]]+[^-])|--dangerously-allow-all-scripts'
+    command:
+      - {name: npm, sub: [approve-scripts, '*']}
+      - {name: npm, sub: [approve-scripts], flags_any: [--all, --no-allow-scripts-pin]}
+      - {name: npm, sub: [install-scripts, approve]}
+      - {name: [npm, pnpm, yarn, bun, npx], flags_any: [--dangerously-allow-all-scripts]}
+      - {name: [npm, pnpm, yarn, bun, npx], option_values: {'--allow-scripts': '^[^-]'}}
 examples:
   match: ["npm approve-scripts --all", "npm approve-scripts --no-allow-scripts-pin sharp", "npm install-scripts approve sharp", "npm install -g --allow-scripts=canvas,sharp canvas", "npm ci --dangerously-allow-all-scripts"]
   no_match: ["npm approve-scripts --allow-scripts-pending", "npm install-scripts ls", "npm deny-scripts core-js", "npm install sharp"]

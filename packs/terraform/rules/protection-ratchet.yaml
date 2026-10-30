@@ -1,5 +1,5 @@
 id: terraform/protection-ratchet
-description: "Deletion protections are not removed: a changed file may not have fewer prevent_destroy = true or deletion_protection = true than it had. An intended decommission is accepted in forge.yaml."
+description: "Deletion protections are not removed: a changed file may not have fewer prevent_destroy = true or deletion_protection = true than it had. An intended decommission is the user's decision: ask them."
 scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
 enforce:
   - target: grep
