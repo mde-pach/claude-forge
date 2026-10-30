@@ -1,9 +1,9 @@
 ## 12. Lock
 
-`forge.lock` is TOML, at the repository root, written by `forge apply` and committed. The user level's lock is `~/.claude/forge-user.lock`, with the same format.
+`forge.lock` is TOML, at the repository root, written by `forge apply` and committed. The user level's lock is `~/.claude/forge-user.lock`, with the same format. Its first line, `# Generated file: do not edit.`, names no Forge command: the agent may read the file (§8.1).
 
 ```toml
-# Written by forge apply. Do not edit.
+# Generated file: do not edit.
 forge = "0.6.0"                    # the Forge version that wrote it; the launcher runs this version (§3.4)
 claude_code_min = "2.1.295"        # the Claude Code minimum of that version (§2.3)
 rule_set = "<sha256>"              # the active rule set (below)

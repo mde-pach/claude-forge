@@ -153,7 +153,7 @@ fn main() {
 }
 
 fn realistic_lock() -> String {
-    let mut s = String::from("# Written by forge apply. Do not edit.\nschema = 1\n");
+    let mut s = String::from("# Generated file: do not edit.\nschema = 1\n");
     s.push_str(&format!("forge = \"{LOCKED}\"\n"));
     for i in 0..40 {
         s.push_str(&format!(

@@ -586,7 +586,7 @@ fn user_level_setup() {
         "{settings}"
     );
     let lock = std::fs::read_to_string(s.home.join(".claude/forge-user.lock")).unwrap();
-    assert!(lock.starts_with("# Written by forge apply"), "{lock}");
+    assert!(lock.starts_with("# Generated file: do not edit."), "{lock}");
     assert!(!s.exists("forge.lock"), "the repository is untouched");
     assert!(
         s.ok(&["apply", "--user", "--yes"])
