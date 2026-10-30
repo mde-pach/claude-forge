@@ -255,9 +255,32 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
+    let event = match input.hook_event_name.as_deref() {
+        Some("PostToolUseFailure") => "PostToolUseFailure",
+        _ => "PostToolUse",
+    };
     let mut files = changed_files(rt, input, &p);
+    // packs that became active (packaging files created during the session): their context,
+    // once, after the findings
+    let fresh = new_pack_context(rt, &p);
+    let answer = |findings: String| -> Output {
+        let mut text = findings;
+        if let Some((ctx, paths)) = &fresh {
+            if !text.is_empty() {
+                text.push_str("\n\n");
+            }
+            text.push_str(ctx);
+            mark_context_shown(rt, &p, paths);
+        }
+        if text.is_empty() {
+            return Output::silent();
+        }
+        Output::json(json!({
+            "hookSpecificOutput": {"hookEventName": event, "additionalContext": text}
+        }))
+    };
     if files.is_empty() {
-        return Output::silent();
+        return answer(String::new());
     }
     files.truncate(EDIT_FILES_MAX);
     let snap = p.snapshot();
@@ -266,16 +289,87 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     }))
     .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
     p.note(&report.notes);
-    if report.findings.is_empty() {
-        return Output::silent();
+    answer(report.agent_text(20))
+}
+
+// ---- Context of packs that became active
+
+/// What the session's context bookkeeping holds (`<session>/context.json`): the key of the
+/// repository state last looked at, and the rules files already shown.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+struct ContextSeen {
+    key: String,
+    shown: Vec<String>,
+}
+
+fn context_seen(p: &Project) -> ContextSeen {
+    std::fs::read(p.session_dir.join("context.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// The context the agent has not seen: the rules files of the packs active now that the lock
+/// does not record (the rules files were rendered before those packs became active), as
+/// "This project now uses <pack>:" and the pack's items. Each is given once per session; the
+/// repository's files are never rewritten. None when nothing is new, or the state is unchanged
+/// since the last look (the packaging files, the lock).
+fn new_pack_context(rt: &Runtime, p: &Project) -> Option<(String, Vec<String>)> {
+    let cache = p.rules(&rt.home)?;
+    let key = format!(
+        "{}|{}|{}",
+        cache.rule_set,
+        cache.lock_meta,
+        cache.facts_key.as_deref().unwrap_or("")
+    );
+    let mut seen = context_seen(p);
+    if seen.key == key {
+        return None;
     }
-    let event = match input.hook_event_name.as_deref() {
-        Some("PostToolUseFailure") => "PostToolUseFailure",
-        _ => "PostToolUse",
-    };
-    Output::json(json!({
-        "hookSpecificOutput": {"hookEventName": event, "additionalContext": report.agent_text(20)}
-    }))
+    let fresh: Vec<_> = rt
+        .checker
+        .rules_context(&p.root)
+        .into_iter()
+        .filter(|c| !cache.rules_files.contains(&c.path) && !seen.shown.contains(&c.path))
+        .filter(|c| !c.text.trim().is_empty())
+        .collect();
+    if fresh.is_empty() {
+        seen.key = key;
+        if state::ensure_dir(&p.session_dir)
+            && let Ok(b) = serde_json::to_vec(&seen)
+        {
+            state::write_atomic(&p.session_dir.join("context.json"), &b);
+        }
+        return None;
+    }
+    let text = fresh
+        .iter()
+        .map(|c| {
+            let name = c.pack.rsplit('/').next().unwrap_or(&c.pack);
+            format!("This project now uses {name}:\n{}", c.text.trim_end())
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    Some((text, fresh.into_iter().map(|c| c.path).collect()))
+}
+
+/// Records `paths` as shown in this session.
+fn mark_context_shown(rt: &Runtime, p: &Project, paths: &[String]) {
+    let mut seen = context_seen(p);
+    seen.shown.extend(paths.iter().cloned());
+    if let Some(cache) = p.rules(&rt.home) {
+        seen.key = format!(
+            "{}|{}|{}",
+            cache.rule_set,
+            cache.lock_meta,
+            cache.facts_key.as_deref().unwrap_or("")
+        );
+    }
+    if state::ensure_dir(&p.session_dir)
+        && let Ok(b) = serde_json::to_vec(&seen)
+    {
+        state::write_atomic(&p.session_dir.join("context.json"), &b);
+    }
 }
 
 fn failure(what: &str) -> Report {
@@ -525,7 +619,15 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     }
     let block = |text: String| -> Output {
         state::write_atomic(&counter, (count + 1).to_string().as_bytes());
-        Output::json(json!({"decision": "block", "reason": cap(&text)}))
+        // a pack that became active: its context, which the findings may follow from
+        let reason = match new_pack_context(rt, &p) {
+            Some((ctx, paths)) => {
+                mark_context_shown(rt, &p, &paths);
+                format!("{ctx}\n\n{}", cap(&text))
+            }
+            None => cap(&text),
+        };
+        Output::json(json!({"decision": "block", "reason": reason}))
     };
     if same_failure && reason_file.is_file() {
         // Claude was shown these findings and stopped again without changing anything: it chose

@@ -121,6 +121,10 @@ pub struct Selected {
     pub rules: Vec<ActiveRule>,
     pub roles: BTreeMap<String, Vec<String>>,
     pub accept: Vec<forge_packs::model::Accept>,
+    /// The rules files the active packs give now, for the hooks to tell a pack that became
+    /// active since `forge apply` (§8.6).
+    #[serde(default)]
+    pub context: Vec<forge_hooks::PackContextNow>,
 }
 
 /// Plans the repository as `forge apply` does (`only`: these rule ids, whatever the detection).
@@ -149,10 +153,25 @@ pub fn select(root: &Path, only: Option<&str>) -> Result<Selected, String> {
         }
         None => selection.rules,
     };
+    let context = selection
+        .plan
+        .packs
+        .iter()
+        .filter_map(|pk| {
+            let path = forge_render::context::rules_file_path(&pk.id);
+            let text = selection.plan.files.get(&path)?;
+            Some(forge_hooks::PackContextNow {
+                text: forge_render::context::rules_file_items(text).to_string(),
+                pack: pk.id.clone(),
+                path,
+            })
+        })
+        .collect();
     Ok(Selected {
         rules,
         roles: selection.roles.map().clone(),
         accept: config.and_then(|c| c.accept).unwrap_or_default(),
+        context,
     })
 }
 

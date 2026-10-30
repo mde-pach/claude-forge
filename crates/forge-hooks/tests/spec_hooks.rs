@@ -21,6 +21,7 @@ struct Fake {
     panic: bool,
     asked_post: RefCell<Vec<Vec<String>>>,
     asked_stop: RefCell<Vec<Option<PathBuf>>>,
+    context: Vec<forge_hooks::PackContextNow>,
 }
 
 impl Checker for Fake {
@@ -42,6 +43,10 @@ impl Checker for Fake {
             id: "python/pytest/no-test-edits".into(),
             review: Some("Does the user's request require changing this test?".into()),
         })
+    }
+
+    fn rules_context(&self, _: &Path) -> Vec<forge_hooks::PackContextNow> {
+        self.context.clone()
     }
 
     fn test_blocks(&self, _: &str, source: &str) -> Vec<TestBlock> {
@@ -725,6 +730,62 @@ fn tests_failing_before_the_turn_too_never_block() {
         s.run(&f, "stop", json!({"stop_hook_active": true})),
         Output::silent()
     );
+}
+
+/// A pack that became active during the session (packaging files created by a command): its
+/// context, which the rules files written at apply time do not hold, reaches the agent once,
+/// after the findings; the packs the rules files hold are never repeated, and the repository's
+/// files are not rewritten.
+#[test]
+fn a_pack_that_became_active_gives_its_context_once() {
+    let s = Sandbox::new(&[]);
+    let mut lock = std::fs::read_to_string(s.root.join("forge.lock")).unwrap();
+    lock.push_str("\n[files]\n\".claude/rules/forge-python.md\" = \"h\"\n");
+    std::fs::write(s.root.join("forge.lock"), lock).unwrap();
+    let ctx = |pack: &str, text: &str| forge_hooks::PackContextNow {
+        path: format!(".claude/rules/forge-{}.md", pack.replace('/', "-")),
+        pack: pack.into(),
+        text: text.into(),
+    };
+    let f = Fake {
+        post: Report {
+            findings: vec![
+                Finding::error("python/no-eval", "No eval().").at("app/main.py", Some(1)),
+            ],
+            notes: vec![],
+        },
+        context: vec![
+            ctx("python", "Python text the agent has.\n"),
+            ctx("python/uv", "The project is managed with uv.\n"),
+        ],
+        ..Fake::default()
+    };
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    std::fs::write(s.root.join("app/main.py"), "x = eval('2')\n").unwrap();
+    let edit = json!({"hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": {"file_path": s.root.join("app/main.py")}});
+    let v = json_out(&s.run(&f, "post-tool-use", edit.clone()));
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "app/main.py:1 No eval().\n\nThis project now uses uv:\nThe project is managed with uv."
+    );
+    // once per session
+    let v = json_out(&s.run(&f, "post-tool-use", edit.clone()));
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "app/main.py:1 No eval()."
+    );
+    // another session is told again; nothing in the repository was written
+    let mut other = edit;
+    other["session_id"] = json!("s2");
+    let v = json_out(&s.run(&f, "post-tool-use", other));
+    assert!(
+        v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap()
+            .contains("This project now uses uv:"),
+        "{v}"
+    );
+    assert!(!s.root.join(".claude/rules").exists());
 }
 
 // ---- §9 guard

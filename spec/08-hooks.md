@@ -46,7 +46,7 @@ User level (`~/.claude/settings.json`):
 ### 8.3 The project and its state
 
 - A project-level hook works on the repository of the input's `cwd` (else `CLAUDE_PROJECT_DIR`, else the process's directory). Forge walks up from there to the nearest directory holding `forge.lock`, else the nearest holding `forge.yaml`, and stops at the git root. Outside such a repository every project-level hook is silent.
-- The hooks read the active rules through a cache in the state directory (`hook-cache.json`): the guard rules, the languages with a type check or typed rules, the active rule ids, and the `python.pm` and `js.pm` facts (§5). The cache is rebuilt when the lock's size or mtime changes and its `rule_set` differs, or when another Forge build runs. The facts are read again when a packaging file at the root (`uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*`, `package.json`, the JS lock files, `pnpm-workspace.yaml`) changes name, size or mtime. Without a lock the project has no active rules and the hooks that need them say nothing.
+- The hooks read the active rules through a cache in the state directory (`hook-cache.json`): the guard rules, the languages with a type check or typed rules, the active rule ids, the rules files the lock records, and the `python.pm` and `js.pm` facts (§5). The cache is rebuilt when the lock's size or mtime changes and its `rule_set` differs, or when another Forge build runs. The facts are read again when a packaging file at the root (`uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*`, `package.json`, the JS lock files, `pnpm-workspace.yaml`) changes name, size or mtime. Without a lock the project has no active rules and the hooks that need them say nothing.
 - State lives in the state root (§4), never in the repository, so the agent's Bash cannot forge a verdict, an approval or a Stop result. Directories are created readable by the user only (mode 0700); files are written through a temporary file and a rename.
 
 ```text
@@ -60,6 +60,7 @@ User level (`~/.claude/settings.json`):
 <state>/<repo-id>/sessions/<session>/blocks   Stop blocks this turn
 <state>/<repo-id>/sessions/<session>/prompt   the user's prompt for the turn
 <state>/<repo-id>/sessions/<session>/review-cache, rewake
+<state>/<repo-id>/sessions/<session>/context.json the packs' context already given this session (§8.6)
 <state>/user/                                 the user-level hooks' state outside a project
 ```
 
@@ -114,6 +115,8 @@ Prints nothing. It:
 ```
 
 with `PostToolUseFailure` as the event name after a failed command, and at most 20 lines (`(<n> more lines)` last when there were more). No findings: nothing is printed. A clean edit, a check skipped for a missing tool and a Forge failure all print nothing.
+
+**Context of packs that became active.** The rules files (§7) are written by `forge apply`, but the checker selects the packs as the repository is now (§10.1): packaging files created during the session (`uv init --bare` and `uv add` in a plain-scripts project) activate packs whose context the agent never read. When the packaging files or the lock changed since the session last looked, PostToolUse compares the rules files the active packs give now with those the lock records. Each one the lock does not record is given once per session, after the findings in the same `additionalContext`, as `This project now uses <pack>:` (the last segment of the pack id) and the file's items, true under their `when`, without its introduction. A Stop that blocks puts it before its findings. Hooks never rewrite the repository's files: the next `forge apply` writes the rules file.
 
 **Test edits.** A PostToolUse of an Edit or Write records the file in `<turn>/touched` and moves the tests the PreToolUse asked about to `<turn>/tests-approved`: the call ran, so they were approved (§9.4).
 
@@ -210,7 +213,7 @@ Verified against the Claude Code hooks documentation and, where noted, on real s
 - 8.3 Project and state: `spec_hooks.rs::state_lives_outside_the_repository_readable_by_the_user_only`, `spec_hooks.rs::notes_keep_the_fifty_newest`, `crates/forge-hooks/src/state.rs (unit)`, `crates/forge-hooks/src/rules.rs (unit)`, `crates/forge-hooks/src/proc.rs (unit)`, `crates/forge-home/src/lib.rs (unit)`.
 - 8.4 SessionStart: `events.rs::session_start_gives_repository_context_only`, `events.rs::session_start_starts_the_engine_for_typed_rules`, `spec_hooks.rs::session_start_shows_a_missing_pinned_version_to_the_person_only`, `spec_hooks.rs::session_start_puts_uv_on_path_only_for_uv_or_unpackaged_projects`, `crates/forge-tools/tests/env_file.rs`.
 - 8.5 UserPromptSubmit: `events.rs::prompt_snapshots_the_turn_silently`, `crates/forge-hooks/src/snapshot.rs (unit)`. The engine resync: (no test: needs a running engine; covered only by reading).
-- 8.6 PreToolUse / PostToolUse: `events.rs::post_tool_use_reports_findings_on_the_changed_files`, `spec_hooks.rs::a_snapshot_past_its_time_is_skipped_and_left_to_stop`, `spec_hooks.rs::bash_changes_leave_the_users_index_alone_and_skip_tool_directories`, `spec_hooks.rs::bash_snapshots_beyond_the_fifty_newest_are_dropped`.
+- 8.6 PreToolUse / PostToolUse: `events.rs::post_tool_use_reports_findings_on_the_changed_files`, `spec_hooks.rs::a_snapshot_past_its_time_is_skipped_and_left_to_stop`, `spec_hooks.rs::bash_changes_leave_the_users_index_alone_and_skip_tool_directories`, `spec_hooks.rs::bash_snapshots_beyond_the_fifty_newest_are_dropped`, `spec_hooks.rs::a_pack_that_became_active_gives_its_context_once`, `crates/forge-cli/tests/hook.rs::context_of_packs_activated_mid_session`.
 - 8.7 Typecheck: `events.rs::typecheck_reports_new_errors_through_the_engine`, `crates/forge-cli/tests/engine_typecheck.rs` (a typecheck rule alone: SessionStart starts the engine, an added error is reported; skipped without uvx), `spec_hooks.rs::edit_typecheck_never_is_silent`. The stream-json ancestor lookup: (no test: needs a real ancestor process with those arguments).
 - 8.8 Stop: `events.rs::stop_blocks_on_findings_not_on_notes`, `events.rs::advice_blocks_once`, `spec_hooks.rs::stop_remembers_a_passing_tree`, `spec_hooks.rs::stop_without_a_turn_snapshot_checks_every_change`, `spec_hooks.rs::a_commit_during_the_turn_is_part_of_it`, `spec_hooks.rs::the_block_reason_is_capped_and_a_new_prompt_resets_the_count`, `spec_hooks.rs::tests_failing_before_the_turn_too_never_block`.
 - 8.9 PermissionRequest, SessionEnd, Notification: `events.rs::notification_and_session_end`, `spec_hooks.rs::notifications_use_osc_9_where_the_terminal_reads_it`; reviewer tests under §9.
