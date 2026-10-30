@@ -1,5 +1,5 @@
 id: python/no-dead-code
-description: "A change leaves no Python code unused, wherever it is:no unused import, no unreachable code, no unused private name (a leading `_`) and, in an application, no unused top-level function or class. In a library only private names and imports count. Other new unused names (public methods, which may override a framework's, classes nested in a class such as Django's Meta, public variables, attributes, properties) are advice at Stop, once per turn."
+description: "A change leaves no Python code unused, wherever it is: no unused import, no unreachable code, no unused private name (a leading `_`) and, in an application, no unused top-level function or class. In a library only private names and imports count. Other new unused names (public methods, which may override a framework's, classes nested in a class such as Django's Meta, public variables, attributes, properties) are advice at Stop, once per turn."
 # migrations, stubs and the configuration files a tool calls by name are not dead code
 scope: {language: python, files: ["!**/*.pyi", "!@alembic-migrations", "!@django-migrations", "!@gunicorn-config", "!**/docs/conf.py"]}
 enforce:
