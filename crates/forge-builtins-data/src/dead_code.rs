@@ -11,8 +11,9 @@
 //! - What fails is decided by kind and name, not by condor's confidence (0.2.0 gives every
 //!   function, class and variable 60): an unused import, unreachable code, an unused private
 //!   name (a leading `_`: function, method, class, variable, attribute) and, in an
-//!   application, an unused function, class or method. The rest (public variables,
-//!   attributes, properties of an application) is advice at Stop, given once per turn, and
+//!   application, an unused top-level function or class. The rest (public methods, which may
+//!   override a framework's, classes nested in a class like `class Meta`, public variables,
+//!   attributes and properties) is advice at Stop, given once per turn, and
 //!   neither the commit-time check nor CI reports it. The project's `min_confidence` still
 //!   decides what condor reports at all.
 //! - A Python library (the `python/library` facts: a published package) is used from outside:
@@ -76,6 +77,8 @@ pub struct Hit {
     pub name: String,
     pub message: String,
     pub confidence: u32,
+    /// A class defined in a class's body (`class Meta`, `class Config`), read from the source.
+    pub nested: bool,
 }
 
 impl Hit {
@@ -89,8 +92,11 @@ impl Hit {
     pub fn blocks(&self, library: bool) -> bool {
         match self.kind.as_str() {
             "import" | "unreachable_code" => true,
-            "function" | "method" | "class" => !library || self.private(),
-            "variable" | "attribute" => self.private(),
+            "function" => !library || self.private(),
+            // a framework calls the methods its base classes declare (`get_queryset`, `setUp`)
+            // and reads the classes nested in a class (`class Meta`): condor cannot see it
+            "class" => (!library && !self.nested) || self.private(),
+            "method" | "variable" | "attribute" => self.private(),
             _ => false,
         }
     }
@@ -206,6 +212,7 @@ pub fn parse_json(text: &str, root: &Path) -> Result<Vec<Hit>, String> {
             name: s("name"),
             message: s("message"),
             confidence: n("confidence"),
+            nested: false,
         });
     }
     Ok(out)
@@ -317,6 +324,35 @@ pub fn new_hits(
     }
     out.sort_by(|a, b| (&a.path, a.line).cmp(&(&b.path, b.line)));
     out
+}
+
+/// Whether the definition at `line` (1-based) of `source` is in a class's body: the first
+/// block above it with less indentation is a `class` (a `def` in between: it is not).
+pub fn in_class_body(source: &str, line: u32) -> bool {
+    let lines: Vec<&str> = source.lines().collect();
+    let Some(at) = lines.get((line as usize).wrapping_sub(1)) else {
+        return false;
+    };
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let mut level = indent(at);
+    for l in lines[..line as usize - 1].iter().rev() {
+        let t = l.trim_start();
+        if level == 0 {
+            return false;
+        }
+        if t.is_empty() || t.starts_with('#') || indent(l) >= level {
+            continue;
+        }
+        if t.starts_with("class ") || t.starts_with("class\t") {
+            return true;
+        }
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            return false;
+        }
+        // `if`, `try`, `with`…: look further up
+        level = indent(l);
+    }
+    false
 }
 
 /// The workspace directories ("" for the root) that are Python libraries.
@@ -433,6 +469,11 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
         let gone = |p: &str| !run.exists(p);
         new_hits(&now.hits, &base.hits, &on_added, &gone)
     };
+    let mut hits = hits;
+    for h in hits.iter_mut().filter(|h| h.kind == "class") {
+        let source = std::fs::read_to_string(root.join(&h.path)).unwrap_or_default();
+        h.nested = in_class_body(&source, h.line);
+    }
     let libraries = library_dirs(run);
     let in_library = |h: &Hit| libraries.iter().any(|d| in_dir(&h.path, d));
     let (blocking, advice): (Vec<Hit>, Vec<Hit>) = hits
@@ -489,6 +530,7 @@ mod tests {
             name: name.into(),
             message: format!("unused {kind} '{name}'"),
             confidence: 60,
+            nested: false,
         }
     }
 
@@ -538,15 +580,32 @@ mod tests {
             assert!(!b("attribute", "seen", lib));
             assert!(!b("property", "size", lib));
         }
-        // an application's own functions, classes and methods
+        // an application's own top-level functions and classes
         assert!(b("function", "helper", false));
         assert!(b("class", "Impl", false));
-        assert!(b("method", "parse", false));
+        // a public method may override a framework's; a nested class is read by one
+        assert!(!b("method", "get_queryset", false));
+        let mut meta = hit("a.py", 1, "class", "Meta");
+        meta.nested = true;
+        assert!(!meta.blocks(false));
+        meta.name = "_Meta".into();
+        assert!(meta.blocks(false));
         // a library's public ones are used from outside
         assert!(!b("function", "helper", true));
         assert!(!b("class", "Impl", true));
         // a dunder is not private
         assert!(!b("method", "__repr__", true));
+    }
+
+    #[test]
+    fn nested_is_read_from_the_enclosing_block() {
+        let src = "class Book(Model):\n    title = 1\n\n    class Meta:\n        ordering = []\n\n\nclass Top:\n    pass\n\n\ndef f():\n    class Local:\n        pass\n\n\nclass Outer:\n    if True:\n        # a comment\n        class Inner:\n            pass\n";
+        assert!(in_class_body(src, 4)); // Meta
+        assert!(!in_class_body(src, 8)); // Top
+        assert!(!in_class_body(src, 13)); // Local, in a function
+        assert!(in_class_body(src, 20)); // Inner, under an if in a class
+        assert!(!in_class_body(src, 99));
+        assert!(!in_class_body(src, 0));
     }
 
     #[test]
