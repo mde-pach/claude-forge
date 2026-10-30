@@ -39,6 +39,7 @@ Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`,
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
+`pyproject.toml` keeps `[tool.uv]` with `exclude-newer` set to a relative duration of at least 3 days (`exclude-newer = "7 days"`) and `required-version = ">=0.9.17"`, so freshly published versions are not resolved.
 === .claude/rules/forge-python.md
 These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
@@ -371,7 +372,7 @@ rule_set = "b6195708e3cd800a7cfb846b9c189051a1517891c60df03becfba958d75e7958"
 ".claude/rules/forge-python-sqlalchemy-alembic.md" = "d31eb60b501c6493062a9930a592d4fa4ab310557a4958d40c2729f516fd8208"
 ".claude/rules/forge-python-sqlalchemy-asyncio.md" = "46f57b59c98499886cd59ef89044c3da47ec2a251d4fb7408554b420161e74bb"
 ".claude/rules/forge-python-sqlalchemy.md" = "6f79b515badbe12e6d4e2bfcd1d32658b5e0dccff0fb011edc46ba2fdc612cba"
-".claude/rules/forge-python-uv.md" = "dfeecfb2197268dd67d8b071c05a6e5cad921f181da8d78bf5228b6f93688b2c"
+".claude/rules/forge-python-uv.md" = "797c3c897f13b19e2590ae8a28fa31e78039d1a3123fd58a7bae7a75e76ca828"
 ".claude/rules/forge-python.md" = "7f69193c7c00d8796b8f19a9cff6c0f72bd38faf7f8d38b8ca1759e7318c8c54"
 ".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"

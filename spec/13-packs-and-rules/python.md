@@ -884,6 +884,7 @@ Child of `python`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
+- `pyproject.toml` keeps `[tool.uv]` with `exclude-newer` set to a relative duration of at least 3 days (`exclude-newer = "7 days"`) and `required-version = ">=0.9.17"`, so freshly published versions are not resolved.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
