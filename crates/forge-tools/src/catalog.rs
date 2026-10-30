@@ -243,11 +243,11 @@ pub static TOOLS: &[ToolSpec] = &[
         },
     },
     // Python dead code (PyPI `cndr`, executable `condor`). An exception to the 14-day rule:
-    // 0.2.0 was pinned days after its release, because Forge's owner publishes Condor and
+    // 0.3.0 was pinned the day of its release, because Forge's owner publishes Condor and
     // vouches for the release (spec §17.2).
     ToolSpec {
         name: "condor",
-        version: "0.2.0",
+        version: "0.3.0",
         source: Source::UvTool {
             package: "cndr",
             binary: "condor",

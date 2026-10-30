@@ -1,4 +1,4 @@
-"""A stand-in for condor 0.2.0 (PyPI cndr) for the hermetic pack examples of
+"""A stand-in for condor 0.3.0 (PyPI cndr) for the hermetic pack examples of
 python/no-dead-code: the same arguments (`--format json`, `--exclude a,b`, paths), the same
 config (`[tool.condor]` / `[tool.vulture]` in ./pyproject.toml: paths, exclude, ignore_names,
 min_confidence), the same JSON, confidences (imports 90, unreachable code 100, the rest 60)

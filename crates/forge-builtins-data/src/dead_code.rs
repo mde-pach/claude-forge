@@ -8,7 +8,7 @@
 //!   base, those on added lines first. A finding whose file the change deleted or renamed is
 //!   matched by kind and name alone, so moved code does not bring its dead code along.
 //! - With `--all` (CI's full run) every finding counts.
-//! - What fails is decided by kind and name, not by condor's confidence (0.2.0 gives every
+//! - What fails is decided by kind and name, not by condor's confidence (0.2.0 and 0.3.0 give every
 //!   function, class and variable 60): an unused import, unreachable code, an unused private
 //!   name (a leading `_`: function, method, class, variable, attribute) and, in an
 //!   application, an unused top-level function or class. The rest (public methods, which may
@@ -47,7 +47,7 @@ pub const RUFF_LINT_RULE: &str = "python/lint";
 /// What the agent reads after a finding of code left unused.
 pub const UNUSED_HINT: &str = "remove it, or use it where it is needed. If it is used dynamically (a framework hook, an entry point), ask the user.";
 
-/// The kinds of condor 0.2.0 that are code; `whitelist_entry` (a whitelist line naming
+/// The kinds of condor (0.2.0, 0.3.0) that are code; `whitelist_entry` (a whitelist line naming
 /// nothing) is the project's own file.
 const KINDS: &[&str] = &[
     "function",

@@ -19,7 +19,7 @@ Version and tool names are checked before they become path components, so a valu
 
 ### 17.2 Pins
 
-One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin is the newest release older than 14 days when it was taken. One exception: condor (PyPI `cndr`, Python dead code) is pinned at 0.2.0 days after its release, because Forge's owner publishes Condor and vouches for that release; its catalog entry says so. `forge apply` writes the whole table into `forge.lock`'s `[tools]`, plus `python = "3.12"`, the Python the uv-installed tools run on (uv installs it as a managed Python, so it never depends on the machine's). A tool adapter that names a `pinned` version (§16) names this table's version: a test checks they agree.
+One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin is the newest release older than 14 days when it was taken. One exception: condor (PyPI `cndr`, Python dead code) is pinned at 0.3.0 the day of its release, because Forge's owner publishes Condor and vouches for that release; its catalog entry says so. `forge apply` writes the whole table into `forge.lock`'s `[tools]`, plus `python = "3.12"`, the Python the uv-installed tools run on (uv installs it as a managed Python, so it never depends on the machine's). A tool adapter that names a `pinned` version (§16) names this table's version: a test checks they agree.
 
 `forge status` compares the lock's pins with the running Forge's: `Tool pins: as this Forge pins them`, or `Tool pins (forge.lock, then this Forge's; forge apply rewrites them):` and one line per difference (`--json`: `tool_pins`).
 
@@ -30,7 +30,7 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | bun | 1.4.3 | release asset, `https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-x86_64-musl`, `Linux-aarch64`, `Linux-aarch64-musl`, `Darwin-arm64`, `Darwin-x86_64` |
 | ty | 0.0.86 | PyPI `ty`, installed by Forge's uv | the version only |
 | zizmor | 1.30.1 | PyPI `zizmor`, installed by Forge's uv | the version only |
-| condor | 0.2.0 | PyPI `cndr`, installed by Forge's uv | the version only |
+| condor | 0.3.0 | PyPI `cndr`, installed by Forge's uv | the version only |
 | hadolint | 2.15.1 | PyPI `hadolint-bin`, installed by Forge's uv | the upstream binary's sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | squawk | 2.70.0 | PyPI `squawk-cli`, installed by Forge's uv | the version only |
 | ast-grep | 0.45.3 | PyPI `ast-grep-cli`, installed by Forge's uv | the version only |

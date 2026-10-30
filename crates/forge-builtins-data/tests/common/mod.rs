@@ -230,7 +230,7 @@ fn uvx_pinned(name: &str) -> Result<Vec<String>, String> {
 pub struct LocalProjectTools;
 
 /// The pinned condor release (PyPI `cndr`).
-pub const CONDOR_VERSION: &str = "0.2.0";
+pub const CONDOR_VERSION: &str = "0.3.0";
 
 /// condor as the adapter runs it (`dead-code`: `--format json`), from `root`.
 pub fn condor(root: &Path, args: &[String]) -> ToolRun {
