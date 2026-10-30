@@ -978,6 +978,24 @@ impl Checker {
             }
             Exit::Status(_) => {}
         }
+        // a declared dependency the environment lacks is the environment's state, not the
+        // change's: the person is told, and only what remains can fail (§10.4)
+        let out = if c.target.stage == Stage::Typecheck {
+            let (kept, missing) = crate::pydeps::Declared::of(&self.root).split(&out);
+            if missing.is_empty() {
+                out
+            } else {
+                run.report
+                    .notes
+                    .push(crate::pydeps::missing_note(&missing, c.id()));
+                if !kept.lines().any(diagnostics::is_error_diagnostic) {
+                    return CheckResult::Pass;
+                }
+                kept
+            }
+        } else {
+            out
+        };
         if advised {
             let mut f =
                 diagnostics::findings_of(&diagnostics::excerpt(&out, 15), c.id(), &self.root);

@@ -416,6 +416,17 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
         }
     }
     let _ = std::fs::remove_dir_all(&tmp);
+    // a declared dependency the environment lacks is not the edit's error (§10.4)
+    if lines
+        .iter()
+        .any(|l| forge_check::pydeps::unresolved_module(l).is_some())
+    {
+        let (kept, missing) = forge_check::pydeps::Declared::of(&p.root).split(&lines.join("\n"));
+        if !missing.is_empty() {
+            notes.push(forge_check::pydeps::missing_note(&missing, ""));
+            lines = kept.lines().map(str::to_owned).collect();
+        }
+    }
     p.note(&notes);
     if lines.is_empty() {
         return Output::silent();

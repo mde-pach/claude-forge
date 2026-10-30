@@ -125,6 +125,7 @@ The entry is `asyncRewake`: Claude Code runs it in the background, and exit 2 wa
 
 - It runs for the edited file (Bash: the files in `<tool_use_id>.files`, waiting up to 60 s for PostToolUse to write the list), for the languages whose type check is active: `.py`, `.pyi` (Python) and `.ts`, `.tsx`, `.mts`, `.cts` (TypeScript).
 - It asks the running types engine (§15) for the diagnostics the edit added, against the file's base copy (the turn snapshot's copy, else HEAD's). It never starts the engine and never runs a type checker itself: with no engine running, or an engine still loading, it says nothing, and Stop runs the type check.
+- An unresolved import of a declared dependency is the environment's, as at Stop (§10.4): a note, never in the text.
 - New errors: exit 2 with `This edit added type errors:` and at most 20 diagnostic lines (`(<n> more)` after them) on stderr. An engine error is a `ForgeFailure` note.
 - Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input. Under `claude -p "<prompt>"` every edit would wait for it, so when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli` and no ancestor process (up to 12) runs with `--input-format stream-json` or `--sdk-url`, the hook exits 0 at once and Stop runs the type check. The answer is kept per session (`<session>/rewake`). `FORGE_EDIT_TYPECHECK=always` runs it anyway; `never` never runs it.
 
