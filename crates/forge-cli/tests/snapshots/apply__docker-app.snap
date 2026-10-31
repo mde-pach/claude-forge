@@ -7,43 +7,31 @@ These are this project's defaults. When the task or the user explicitly asks for
 
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 === .claude/rules/forge-docker-compose.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Docker Compose. The base compose file (`compose.yaml`, or `docker-compose.yml`) holds the shared setup; its override file (`compose.override.yaml`, or `docker-compose.override.yml`, loaded automatically) holds local changes.
 `depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
 `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
 Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
 Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
 === .claude/rules/forge-docker.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
 `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
 `ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
 Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
 === .claude/rules/forge-github-actions.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`), never a tag or branch, which can be moved.
 Workflows set `permissions: {}` at the top and grant each job only what it needs.
 `actions/checkout` sets `persist-credentials: false` unless a later step pushes.
 Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) are never expanded inside `run:`: pass them through `env:` and use the shell variable.
 `pull_request_target` and `workflow_run` run with secrets on untrusted code: do not add them.
 === .claude/rules/forge-python-uv.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
 `pyproject.toml` keeps `[tool.uv]` with `exclude-newer` set to a relative duration of at least 3 days (`exclude-newer = "7 days"`) and `required-version = ">=0.9.17"`, so freshly published versions are not resolved.
 === .claude/rules/forge-python.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
 === .claude/rules/forge-secrets.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
 A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
@@ -340,12 +328,12 @@ rule_set = "4a4bc38fe271e8d0cfdd5d0da85b33933ace05b8212cd7c25ddfac06e2656fb2"
 
 [files]
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
-".claude/rules/forge-docker-compose.md" = "a0371e0c8311cfb509b03aaedb5fe2529d00673b8ed85e6a958bf22f99e0963a"
-".claude/rules/forge-docker.md" = "41946e7b1a91c757c52a251514deec31ea0710cfdfc3404e6155581f82cd8ca0"
-".claude/rules/forge-github-actions.md" = "2ea08024102f867ac97c29ea92d65a4a2bf921159c217ad0ec8a25e9777a1cfd"
-".claude/rules/forge-python-uv.md" = "797c3c897f13b19e2590ae8a28fa31e78039d1a3123fd58a7bae7a75e76ca828"
-".claude/rules/forge-python.md" = "e28d36812f9ee8d75ec6268eeaff9649e9012ef1371d05cb23fda573e8dd10ea"
-".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
+".claude/rules/forge-docker-compose.md" = "750f5b2392a48b51e38aedd249db49bade0915bf76c5a7ace1cbd4fd08bab1a8"
+".claude/rules/forge-docker.md" = "ca10301bd5c893e37123d35f7cf804b271c3d439e00fb1e905ac55e4271c450e"
+".claude/rules/forge-github-actions.md" = "e81a526f9757bb80529d3c52c63366159a61a50594a9120dfb9d30fe8266f88d"
+".claude/rules/forge-python-uv.md" = "8edc3b9667ec711801256bf30d55a149de5f4545a2f3e87ebe81f2c3cfc17b2d"
+".claude/rules/forge-python.md" = "ae124b4c073fd385363076ac012a883690cda2618e4191f046a02e548983c6fe"
+".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
 
 [roles]
@@ -374,6 +362,7 @@ oasdiff = "1.33.0"
 osv-scanner = "2.7.0"
 python = "3.12"
 redocly = "2.62.1"
+ruff = "0.17.1"
 spectral = "6.17.0"
 squawk = "2.70.0"
 tflint = "0.64.0"

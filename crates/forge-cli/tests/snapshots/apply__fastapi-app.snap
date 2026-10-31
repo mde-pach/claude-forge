@@ -9,47 +9,31 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
 Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-python-fastapi.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected).
 FastAPI reads request and response bodies from Pydantic v2 models.
 `FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
 HTTP Basic credentials (`HTTPBasicCredentials.username` / `.password`) are compared with `secrets.compare_digest`, never `==`.
 === .claude/rules/forge-python-pydantic.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`), with the adapter built once at module level.
 === .claude/rules/forge-python-sqlalchemy-alembic.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Alembic. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
 With an async engine, `alembic/env.py` runs the migrations through `connection.run_sync()` (the async template's `run_async_migrations()`).
 Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.
 === .claude/rules/forge-python-sqlalchemy-asyncio.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 SQLAlchemy asyncio: sessions come from `async_sessionmaker(engine, expire_on_commit=False)` and are opened with `async with`.
 Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
 === .claude/rules/forge-python-sqlalchemy.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
 Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 === .claude/rules/forge-python-uv.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
 `pyproject.toml` keeps `[tool.uv]` with `exclude-newer` set to a relative duration of at least 3 days (`exclude-newer = "7 days"`) and `required-version = ">=0.9.17"`, so freshly published versions are not resolved.
 === .claude/rules/forge-python.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
 === .claude/rules/forge-secrets.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
 A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
@@ -369,14 +353,14 @@ rule_set = "3570b3e4e56d293e363a1e87550d770a652dbd853c8e14b11a72847f4eeece84"
 
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
-".claude/rules/forge-python-fastapi.md" = "cea3e7b8d001717728b3fc3af62a85f2924399cb8d4aff4631617be1d43ba6b5"
-".claude/rules/forge-python-pydantic.md" = "cfe0903149609caed4e6ba29390fe72ca5fbe4bfad82f960d82ee3751f60e75d"
-".claude/rules/forge-python-sqlalchemy-alembic.md" = "d31eb60b501c6493062a9930a592d4fa4ab310557a4958d40c2729f516fd8208"
-".claude/rules/forge-python-sqlalchemy-asyncio.md" = "46f57b59c98499886cd59ef89044c3da47ec2a251d4fb7408554b420161e74bb"
-".claude/rules/forge-python-sqlalchemy.md" = "6f79b515badbe12e6d4e2bfcd1d32658b5e0dccff0fb011edc46ba2fdc612cba"
-".claude/rules/forge-python-uv.md" = "797c3c897f13b19e2590ae8a28fa31e78039d1a3123fd58a7bae7a75e76ca828"
-".claude/rules/forge-python.md" = "e28d36812f9ee8d75ec6268eeaff9649e9012ef1371d05cb23fda573e8dd10ea"
-".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
+".claude/rules/forge-python-fastapi.md" = "7907ea27d815f51fe063bc4b45abcaa966dea191173821564af1da6f41bda793"
+".claude/rules/forge-python-pydantic.md" = "dc4d8daa1f16ce3a64e3c54ea248ce04a9b61dd5a18529bfe245a57ac7fec67f"
+".claude/rules/forge-python-sqlalchemy-alembic.md" = "918cc4710effea34ba8aa4f388f64a0edb77eb80e891855d9738499844005f47"
+".claude/rules/forge-python-sqlalchemy-asyncio.md" = "c1df65a1549d9dd15d3590a36f90c59c651819ddcdb101bef8a594bfbab95860"
+".claude/rules/forge-python-sqlalchemy.md" = "efde86eda933bf284e258d9e99dcc74e40bab0467eff18ceb652d1f154af091c"
+".claude/rules/forge-python-uv.md" = "8edc3b9667ec711801256bf30d55a149de5f4545a2f3e87ebe81f2c3cfc17b2d"
+".claude/rules/forge-python.md" = "ae124b4c073fd385363076ac012a883690cda2618e4191f046a02e548983c6fe"
+".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
 
 [roles]
@@ -405,6 +389,7 @@ oasdiff = "1.33.0"
 osv-scanner = "2.7.0"
 python = "3.12"
 redocly = "2.62.1"
+ruff = "0.17.1"
 spectral = "6.17.0"
 squawk = "2.70.0"
 tflint = "0.64.0"

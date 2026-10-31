@@ -16,6 +16,9 @@
 #   tables.
 
 tool: "ruff"
+# Forge's pinned ruff, run where the project does not configure ruff, with Forge's own config
+# as `--config` overrides (§11.2).
+fallback: "0.17.1"
 verified: "0.17.3"
 usage: {exit: [2], pattern: "^For more information, try .--help."}
 ranges:

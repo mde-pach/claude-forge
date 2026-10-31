@@ -95,6 +95,13 @@ fn in_dirs(dirs: &Option<Vec<String>>) -> String {
     }
 }
 
+/// The settings file permission and sandbox entries go to, and how the person reads its name.
+#[derive(Clone, Copy)]
+pub struct SettingsTarget<'a> {
+    pub file: &'a str,
+    pub label: &'a str,
+}
+
 /// Selects and plans the rules. `site` knows the repository; `level`, the settings file and
 /// forge.yaml decide the rest.
 pub fn select(
@@ -103,7 +110,7 @@ pub fn select(
     level: Level,
     config: Option<&ProjectConfig>,
     roles: &Roles,
-    settings_file: &str,
+    settings: SettingsTarget,
     warnings: &mut Vec<String>,
 ) -> Result<Selected, String> {
     let project = level == Level::Project;
@@ -184,7 +191,7 @@ pub fn select(
             out.role_use.entry(name).or_default().push(r.id.clone());
         }
         let (rule, empty) = apply_roles(r, roles).map_err(|e| format!("{}: {e}", r.file))?;
-        let st = plan_rule(rule, &empty, site, level, settings_file, &mut out, warnings)?;
+        let st = plan_rule(rule, &empty, site, level, settings, &mut out, warnings)?;
         out.active.push(st);
     }
     Ok(out)
@@ -195,10 +202,12 @@ fn plan_rule(
     empty_roles: &[String],
     site: &Site,
     level: Level,
-    settings_file: &str,
+    settings: SettingsTarget,
     out: &mut Selected,
     warnings: &mut Vec<String>,
 ) -> Result<RuleStatus, String> {
+    let settings_file = settings.file;
+    let settings_label = settings.label;
     let dirs = site.rule_dirs(&rule);
     let mut st = RuleStatus {
         rule: rule.clone(),
@@ -262,8 +271,11 @@ fn plan_rule(
                     st.enforced
                         .push(format!("{} ({}), audited", t.tool, t.expects));
                 } else {
-                    st.not_enforced
-                        .push(format!("not enforced here: {} not configured", t.tool));
+                    // one line per tool, however many of its diagnostics the rule expects
+                    let why = format!("not enforced here: {} not configured", t.tool);
+                    if !st.not_enforced.contains(&why) {
+                        st.not_enforced.push(why);
+                    }
                 }
             }
             Target::AstGrep(a) => {
@@ -316,7 +328,7 @@ fn plan_rule(
                     append: true,
                 });
                 st.enforced.push(format!(
-                    "permission {} {} ({settings_file})",
+                    "permission {} {} ({settings_label})",
                     p.decision, p.rule
                 ));
             }
@@ -356,7 +368,7 @@ fn plan_rule(
                     }),
                 }
                 st.enforced
-                    .push(format!("sandbox {} ({settings_file})", s.path));
+                    .push(format!("sandbox {} ({settings_label})", s.path));
             }
             Target::Check(c) => {
                 if level == Level::User {

@@ -133,13 +133,47 @@ fn when_filters_items() {
     );
     assert_eq!(
         out[".claude/rules/forge-python.md"],
-        format!(
-            "{CONTEXT_INTRO}always\nuv project\npydantic 2\nhas app\nwith python\nshared norm\n"
-        )
+        "always\nuv project\npydantic 2\nhas app\nwith python\nshared norm\n"
     );
+    // the intro is written once, in the first file (by name) Claude Code always loads
     assert_eq!(
         out[".claude/rules/forge-python-uv.md"],
         format!("{CONTEXT_INTRO}own\n")
+    );
+}
+
+/// A file for some packages only is loaded with the files Claude Code always loads: the intro
+/// those carry covers it.
+#[test]
+fn the_intro_is_written_once() {
+    let t = tempfile::tempdir().unwrap();
+    let files: Vec<String> = vec![];
+    let facts = read_project_facts(t.path(), &files).unwrap();
+    let out = render_rules_files(
+        &[
+            PackContext {
+                id: "typescript",
+                items: vec![item(None, "x\n", None)],
+                dirs: Some(vec!["packages/core".into()]),
+                places: Some(vec!["packages/core".into()]),
+            },
+            PackContext {
+                id: "secrets",
+                items: vec![item(None, "y\n", None)],
+                dirs: None,
+                places: None,
+            },
+        ],
+        Some(&facts),
+        &Activation::default(),
+    );
+    assert_eq!(
+        out[".claude/rules/forge-typescript.md"],
+        "---\npaths:\n  - \"packages/core/**\"\n---\n\nx\n"
+    );
+    assert_eq!(
+        out[".claude/rules/forge-secrets.md"],
+        format!("{CONTEXT_INTRO}y\n")
     );
 }
 

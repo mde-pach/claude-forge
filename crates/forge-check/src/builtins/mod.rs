@@ -61,6 +61,9 @@ pub const ENV_TMP: &str = "FORGE_TMP";
 /// The ty rules the active rules need at error, one per line (§11.2): `forge_do ty` passes
 /// them as `--error <rule>` where the project does not configure ty itself.
 pub const ENV_TY_RULES: &str = "FORGE_TY_RULES";
+/// Forge's own ruff config, one `--config` override per line (§11.2, [`crate::ruff_config`]):
+/// `forge_do ruff` passes them where the project does not configure ruff itself.
+pub const ENV_RUFF_CONFIG: &str = "FORGE_RUFF_CONFIG";
 
 /// What a builtin call knows: forge-core's context, the checker's ([`CheckCtx`], which the
 /// invocation derefs to), its arguments, and where tools are.

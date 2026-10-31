@@ -121,17 +121,21 @@ pub struct Ctx {
     pub blocks: Vec<LockBlock>,
 }
 
-fn home_dir() -> Result<PathBuf, Error> {
-    std::env::var_os("HOME")
-        .filter(|h| !h.is_empty())
-        .map(PathBuf::from)
-        .ok_or_else(|| Error::new("forge: HOME is not set"))
+/// Claude Code's user config directory: `$CLAUDE_CONFIG_DIR`, else `~/.claude`.
+fn claude_config_dir() -> Result<PathBuf, Error> {
+    let var = |k: &str| std::env::var_os(k).map(PathBuf::from);
+    forge_render::lock::claude_config_dir(
+        var("CLAUDE_CONFIG_DIR"),
+        var("HOME").filter(|h| !h.as_os_str().is_empty()),
+    )
+    .ok_or_else(|| Error::new("forge: HOME is not set"))
 }
 
-/// The base of a level: the repository's top (project), or the home directory (user).
+/// The base of a level: the repository's top (project), or Claude Code's user config
+/// directory (user).
 pub fn base_of(level: Level) -> Result<PathBuf, Error> {
     match level {
-        Level::User => home_dir(),
+        Level::User => claude_config_dir(),
         Level::Project => {
             let cwd = std::env::current_dir().map_err(|e| Error::new(format!("forge: {e}")))?;
             forge_detect::git_toplevel(&cwd).ok_or_else(|| {
@@ -309,5 +313,35 @@ pub fn person_notes(ctx: &Ctx, probe: &dyn ToolProbe) -> Vec<String> {
         out.extend(forge_hooks::state::take_repo_notes(&home, &ctx.base));
     }
     out.extend(probe.notes(&ctx.plan).into_iter().map(|n| n.to_string()));
+    out.extend(sandbox_note(ctx));
     out
+}
+
+/// The sandbox the settings turn on, when this Linux machine lacks what it runs on: Claude Code
+/// then runs commands without it, saying so only on its own stderr.
+fn sandbox_note(ctx: &Ctx) -> Option<String> {
+    if !cfg!(target_os = "linux")
+        || !ctx
+            .plan
+            .settings
+            .iter()
+            .any(|e| e.entry.path.starts_with("sandbox"))
+    {
+        return None;
+    }
+    let path = std::env::var("PATH").unwrap_or_default();
+    let missing: Vec<&str> = ["bwrap", "socat"]
+        .into_iter()
+        .filter(|t| {
+            !path
+                .split(':')
+                .any(|d| !d.is_empty() && forge_check::tools::is_exe(&Path::new(d).join(t)))
+        })
+        .collect();
+    (!missing.is_empty()).then(|| {
+        format!(
+            "Claude Code's sandbox is turned on but cannot run here ({} not installed; e.g. apt install bubblewrap socat): Claude Code runs commands without it.",
+            missing.join(" and ")
+        )
+    })
 }

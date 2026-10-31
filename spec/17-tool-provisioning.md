@@ -1,6 +1,6 @@
 ## 17. Tool provisioning
 
-Forge downloads what it runs into its per-user cache (§4): uv, the tools Forge pins, Bun when an npm-only tool needs it, and Forge's own releases (§18). It never installs anything into the repository or the project's environment. The project's own tools (ruff, Biome, tsc, pytest, …) are the project's: Forge finds them (§16) and never downloads them.
+Forge downloads what it runs into its per-user cache (§4): uv, the tools Forge pins, Bun when an npm-only tool needs it, and Forge's own releases (§18). It never installs anything into the repository or the project's environment. The project's own tools (ruff, Biome, tsc, pytest, …) are the project's: Forge finds them (§16) and never downloads them, except ruff where the project does not configure it: Forge then runs its pinned ruff with its own config (§11.1).
 
 ### 17.1 Cache layout
 
@@ -29,6 +29,7 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | uv | 0.13.1 | release asset, `https://github.com/astral-sh/uv/releases/download/0.13.1/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | bun | 1.4.3 | release asset, `https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-x86_64-musl`, `Linux-aarch64`, `Linux-aarch64-musl`, `Darwin-arm64`, `Darwin-x86_64` |
 | ty | 0.0.86 | PyPI `ty`, installed by Forge's uv | the version only |
+| ruff | 0.17.1 | PyPI `ruff`, installed by Forge's uv | the version only |
 | zizmor | 1.30.1 | PyPI `zizmor`, installed by Forge's uv | the version only |
 | condor | 0.3.0 | PyPI `cndr`, installed by Forge's uv | the version only |
 | hadolint | 2.15.1 | PyPI `hadolint-bin`, installed by Forge's uv | the upstream binary's sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
@@ -59,7 +60,7 @@ Platform keys are `uname -s`-`uname -m`: `Linux-x86_64`, `Linux-aarch64`, `Darwi
 Every install runs under a lock file of the tool version (`tools/<name>/.<version>.lock`), and checks again once it holds the lock, so concurrent processes download once.
 
 - **Release asset** (uv, Bun, and the release binaries in 17.2). Forge downloads the platform's asset into a temporary sibling of the tool directory and computes its sha256 while it streams. A sha256 other than the pinned one installs nothing: `The downloaded <tool> <version> (<url>) does not match its pinned sha256 <want> (got <got>), so it was not installed. The checks that use it are skipped.` Forge then extracts only the named executables (`uv` and `uvx`, `bun`, or the tool's binary) from the `.tar.gz` or `.zip` (or takes a raw binary as is) and renames the directory into place, so `tools/<name>/<version>/` exists only when complete.
-- **PyPI package** (ty, zizmor, condor, hadolint, squawk, ast-grep). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
+- **PyPI package** (ty, ruff, zizmor, condor, hadolint, squawk, ast-grep). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
 - **npm package** (redocly, spectral, lockfile-lint). Forge first provisions its pinned Bun, writes a `package.json` with the exact version, runs `bun install --production --ignore-scripts`, and writes `<dir>/bin/<binary>`, a script that runs `bun --bun <the package's bin script>`. Forge pins the version, not the hash.
 - A PyPI or npm install counts as installed only once its `.forge-installed` marker is written, last. An install without its marker is removed and done again.
 

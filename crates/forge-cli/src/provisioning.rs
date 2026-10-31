@@ -53,7 +53,8 @@ pub fn use_forge_path() {
     } else {
         format!("{d}:{path}")
     };
-    // SAFETY: called first thing in main, before any thread is started.
+    // SAFETY: called first thing in main, and by apply once provisioning is done; no other
+    // thread is running at either point.
     unsafe { std::env::set_var("PATH", joined) };
 }
 
@@ -115,13 +116,15 @@ mod tests {
     use forge_check::adapters::Adapter;
     use forge_tools::Catalog;
 
-    /// The adapters' `pinned` versions (what the checker asks for) are the cache's pins (what
+    /// The adapters' `pinned` and `fallback` versions (what the checker asks for) are the cache's pins (what
     /// apply installs and the lock records): one table, checked here.
     #[test]
     fn adapter_pins_are_the_catalog_pins() {
         let catalog = Catalog::builtin();
         for a in Adapter::all().unwrap() {
-            let Some(pin) = &a.pinned else { continue };
+            let Some(pin) = a.pinned.as_ref().or(a.fallback.as_ref()) else {
+                continue;
+            };
             let spec = catalog
                 .get(&a.tool)
                 .unwrap_or_else(|| panic!("{} is pinned but not in Forge's tool table", a.tool));

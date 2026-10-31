@@ -34,7 +34,13 @@ fn runner(a: &Adapter) -> String {
         (Some(p), _) => format!("Forge's pin {}", code(p)),
         (None, Runner::Pinned) => "Forge's pinned release".into(),
         (None, Runner::Path) => "`PATH`".into(),
-        (None, Runner::Project) => "the project's own".into(),
+        (None, Runner::Project) => match &a.fallback {
+            Some(f) => format!(
+                "Forge's pin {} where the project does not configure it, else the project's own",
+                code(f)
+            ),
+            None => "the project's own".into(),
+        },
     }
 }
 
@@ -313,10 +319,12 @@ impl ToolResolver for Absent {
     }
 }
 
-/// A stand-in script in its own directory: it says `version` and runs `body`.
+/// A stand-in script in its own directory: it says `version` and runs `body`. The directory
+/// configures ruff, so a ruff stand-in is the project's own (not Forge's pinned one).
 fn fake(version: &str, body: &str) -> (tempfile::TempDir, Fake) {
     forge_home();
     let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("ruff.toml"), "line-length = 100\n").unwrap();
     let bin = d.path().join("tool");
     std::fs::write(
         &bin,

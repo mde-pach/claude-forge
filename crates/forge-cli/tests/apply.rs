@@ -100,6 +100,7 @@ impl Sandbox {
             .env("PATH", path)
             .env("HOME", &self.home)
             .env("FORGE_HOME", &self.forge_home)
+            .env_remove("CLAUDE_CONFIG_DIR")
             .env("FORGE_NO_DOWNLOAD", "1")
             .env_remove("XDG_CACHE_HOME")
             .env_remove("XDG_STATE_HOME")

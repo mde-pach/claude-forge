@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::input::HookInput;
-use crate::{Output, REVIEW_CAP, Runtime, pre_decision, proc, state};
+use crate::{Output, REVIEW_CAP, Runtime, pre_decision, proc, snapshot, state};
 
 /// A rule's ask, for the reviewer: the rule's concern and the question to answer.
 pub struct Ask<'a> {
@@ -84,7 +84,8 @@ pub fn review_ask(
     let (allow, reason) = match cached {
         Some(v) => v,
         None => {
-            let v = run_reviewer(rt, input.tool(), &tool_input, Some(ask), cwd)?;
+            let facts = turn_facts(rt, input);
+            let v = run_reviewer(rt, input.tool(), &tool_input, Some(ask), &facts, cwd)?;
             if let Some(c) = &cache {
                 state::append_line(
                     c,
@@ -113,7 +114,9 @@ pub fn permission_request(rt: &Runtime, input: &HookInput, user: bool) -> Output
     }
     let cwd = rt.cwd(input);
     let tool_input = input.tool_input.to_string();
-    let Some((allow, reason)) = run_reviewer(rt, input.tool(), &tool_input, None, &cwd) else {
+    let facts = turn_facts(rt, input);
+    let Some((allow, reason)) = run_reviewer(rt, input.tool(), &tool_input, None, &facts, &cwd)
+    else {
         return Output::silent();
     };
     let state = project.map_or_else(|| rt.user_state(), |p| p.state);
@@ -151,12 +154,109 @@ fn log(state_dir: &Path, input: &HookInput, allow: bool, tool_input: &str, reaso
 
 const SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["allow","deny"]},"reason":{"type":"string"}},"required":["decision","reason"],"additionalProperties":false}"#;
 
+/// The most files [`turn_facts`] lists in each group.
+const FACTS_MAX: usize = 20;
+
+/// What the turn did to the repository, from the turn snapshot (taken when the user's request
+/// arrived) and the tree now: the files it created and the ones it changed. Empty without a
+/// snapshot. The reviewer sees neither the conversation nor git's history of the turn, so
+/// without it a file the agent's own command generated looks like the user's.
+fn turn_facts(rt: &Runtime, input: &HookInput) -> String {
+    let Some(p) = rt.project(input) else {
+        return String::new();
+    };
+    let Some(dir) = p.snapshot() else {
+        return String::new();
+    };
+    let Some(now) = snapshot::status(&p.root) else {
+        return String::new();
+    };
+    let before: std::collections::BTreeMap<String, String> =
+        std::fs::read_to_string(dir.join("dirty"))
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|l| l.split_once('\t'))
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
+    let head = std::fs::read_to_string(dir.join("head")).unwrap_or_default();
+    let head = head.trim();
+    let changed: Vec<&String> = now
+        .dirty
+        .iter()
+        .filter(|(path, hash)| before.get(*path) != Some(*hash) && *hash != "-")
+        .map(|(path, _)| path)
+        .collect();
+    // a changed path that was in neither the turn's HEAD nor its uncommitted files: created
+    let in_head: Vec<bool> = if head.is_empty() || changed.is_empty() {
+        vec![false; changed.len()]
+    } else {
+        let query: String = changed
+            .iter()
+            .map(|path| format!("{head}:{path}\n"))
+            .collect();
+        proc::git_env(
+            &p.root,
+            &["cat-file", "--batch-check"],
+            &[],
+            Some(query.as_bytes()),
+            proc::GIT_CAP,
+        )
+        .filter(|r| r.ok)
+        .map(|r| {
+            String::from_utf8_lossy(&r.stdout)
+                .lines()
+                .map(|l| !l.ends_with(" missing"))
+                .collect()
+        })
+        .unwrap_or_else(|| vec![true; changed.len()])
+    };
+    let (mut created, mut modified) = (Vec::new(), Vec::new());
+    for (path, tracked) in changed.into_iter().zip(in_head) {
+        let was_there = tracked || before.get(path).is_some_and(|h| h != "-");
+        if was_there {
+            modified.push(path.as_str());
+        } else {
+            created.push(path.as_str());
+        }
+    }
+    let list = |v: &[&str]| {
+        let mut s = v
+            .iter()
+            .take(FACTS_MAX)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        if v.len() > FACTS_MAX {
+            s.push_str(&format!(" and {} more", v.len() - FACTS_MAX));
+        }
+        s
+    };
+    let mut out = String::new();
+    if !created.is_empty() {
+        out.push_str(&format!(
+            "\n- created (absent when the request arrived): {}",
+            list(&created)
+        ));
+    }
+    if !modified.is_empty() {
+        out.push_str(&format!("\n- changed: {}", list(&modified)));
+    }
+    if out.is_empty() {
+        return out;
+    }
+    format!(
+        "\n\nWhat the agent's actions did to the repository since the user's request arrived (recorded by the tooling, not by the agent):{out}"
+    )
+}
+
 /// The reviewer's verdict: (allow, reason). None when claude cannot run or gives no verdict.
+/// `facts`: what the turn did to the repository ([`turn_facts`]).
 fn run_reviewer(
     rt: &Runtime,
     tool: &str,
     tool_input: &str,
     ask: Option<&Ask>,
+    facts: &str,
     cwd: &Path,
 ) -> Option<(bool, String)> {
     let task = match ask {
@@ -177,7 +277,7 @@ fn run_reviewer(
         None => "Allow it only if it is clearly within normal work on this repository and safe to run unattended. Deny anything irreversible or destructive (deleting data or history, force pushes, dropping databases), anything that publishes, deploys or pushes outside this machine, anything that reads or sends secrets, installs packages you cannot verify, weakens security, permissions, tests or tool configuration, or runs code fetched from the internet. When in doubt, deny.".to_string(),
     };
     let prompt = format!(
-        "You are reviewing one action that an autonomous coding agent wants to take. Nobody is available to approve it, so you decide in the user's place, as a careful senior developer who sees only this action would.\n\nRepository: {}\nTool: {tool}\nInput: {tool_input}\n\nYou do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. {task} Give the reason in one sentence.",
+        "You are reviewing one action that an autonomous coding agent wants to take. Nobody is available to approve it, so you decide in the user's place, as a careful senior developer who sees only this action would.\n\nRepository: {}\nTool: {tool}\nInput: {tool_input}{facts}\n\nYou do not see the agent's conversation or its reasons, on purpose: judge the action itself. You may read files in the repository to understand it. {task} Give the reason in one sentence.",
         cwd.display()
     );
     let mut cmd = Command::new(&rt.env.claude);

@@ -32,7 +32,7 @@ Local rules are also validated when they load, by every command that loads packs
 
 | Flag | Effect |
 |---|---|
-| `--user` | The user-level setup (`~/.claude`) instead of the repository's (§7.7). Conflicts with `--local`. |
+| `--user` | The user-level setup (`~/.claude`, or `$CLAUDE_CONFIG_DIR`) instead of the repository's (§7.7). Conflicts with `--local`. |
 | `--local` | Settings entries go to `.claude/settings.local.json` instead of `.claude/settings.json` (a repository you do not own). |
 | `--force` | `apply` overwrites drifted files, files that exist and are not Forge's, and modified files of the old layout (§19). |
 | `--dry-run` | `apply` prints the diff and writes nothing; `init` prints `forge: would create <path> (from <pack>)`; `remove` prints what it would delete. |

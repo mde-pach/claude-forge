@@ -9,25 +9,17 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
 Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-secrets.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
 A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/rules/forge-typescript-bun.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
 === .claude/rules/forge-typescript-nextjs-react.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
 Server Actions are async functions in a file or function marked `'use server'`.
 A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions.
 === .claude/rules/forge-typescript-nextjs.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Next.js 16 App Router. Request APIs (`params`, `searchParams`, `cookies()`, `headers()`, `draftMode()`) are async: await them.
 Components are Server Components unless the file starts with `'use client'`.
 Request interception lives in `proxy.ts` (not `middleware.ts`).
@@ -39,14 +31,10 @@ Server Actions and route handlers (`app/**/route.ts`) are public endpoints: vali
 `'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
 `typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
 === .claude/rules/forge-typescript-playwright.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
 `waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
 Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
 === .claude/rules/forge-typescript-prisma.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
 SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
@@ -56,27 +44,19 @@ Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants
 A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
 Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).
 === .claude/rules/forge-typescript-react.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
 Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`, not `react-dom/test-utils`.
 Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values; an object, array or function default is hoisted to a module constant.
 `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
 Components follow the React Compiler's rules: no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.
 === .claude/rules/forge-typescript-vitest.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
 === .claude/rules/forge-typescript-zod.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
 Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
 Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
 Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
 === .claude/rules/forge-typescript.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 TypeScript, strict.
 No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
 `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
@@ -383,16 +363,16 @@ rule_set = "c9ae083b78cfa1493b2d179f466513efa5506eb5002f69f295b4d6587bb14ba4"
 
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
-".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
-".claude/rules/forge-typescript-bun.md" = "599620ad79bdf40e48be70e3e3bf55cfc5f54edb148a361a78d3245c5571f185"
-".claude/rules/forge-typescript-nextjs-react.md" = "d148cef72f3d3481e2c5402b37c0fddcd75d95c0475ab2a3090a0dc60fd95655"
-".claude/rules/forge-typescript-nextjs.md" = "e388de4485513a2357390e8d3fbb9a910df0feaffcc51cb6c0cb7f5aef981d11"
-".claude/rules/forge-typescript-playwright.md" = "1bd1707928807d6d91d7cd70e03aa1e18625c03864d7529a32a441e51a8f528c"
-".claude/rules/forge-typescript-prisma.md" = "0da6eba9d7c50a3db59195030fcfe938a925abc42dd6f0c6522585042d037b91"
-".claude/rules/forge-typescript-react.md" = "0e1dc61c2eb3afe867e7b5883eda6cca5ef2b55c4215c2e6d07112c040a3ae7c"
-".claude/rules/forge-typescript-vitest.md" = "d65401793082507c0160deff9847689b24c8ed45e997e8d811f6488c2bb6bf11"
-".claude/rules/forge-typescript-zod.md" = "666ae9d42880f4988b1ff4f55792ef37c1cabb603a949d813cc2180d33f29d9c"
-".claude/rules/forge-typescript.md" = "12333902d85b6b4aecf9cad356a91549fa9732e49c16efb18eee5bebff244580"
+".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
+".claude/rules/forge-typescript-bun.md" = "ee712d61b202e85ce641bbe199c43e669b8052e16cec0b60e4a35570d3eb5aab"
+".claude/rules/forge-typescript-nextjs-react.md" = "ace1d2535fe6fc0edd16e7ba3dc66d12ebeadba7d72482480737bda89b4a540a"
+".claude/rules/forge-typescript-nextjs.md" = "2c58e77c2eb591ef1860c50d6883651e4009a6dc1b3376ef0b568caf8d1600ab"
+".claude/rules/forge-typescript-playwright.md" = "50f57afd4c7348bc4067ac5e7f199eda4783e1af2df98d1d7ceb9b8ce836dae9"
+".claude/rules/forge-typescript-prisma.md" = "904313fa066f89cb0e04fec4db433b70e499e0643c47cc8e8d6351ba79b5b037"
+".claude/rules/forge-typescript-react.md" = "21da59c0822c2cb4a4b3b35205a9c9736895a06ec4c10eb92c4932a7d4506bac"
+".claude/rules/forge-typescript-vitest.md" = "ef6d3a0ab5be363ec3183dc95daf28f0aaa4cc47f340159eb3de0a7a452bd0cc"
+".claude/rules/forge-typescript-zod.md" = "ce225975bdb7f60fa5c19a7e5078e10b027201d05c44dcc74aea3ff51437f9d7"
+".claude/rules/forge-typescript.md" = "36a32533056fc3f168f8f36e2d50ba365927c56ad54829839825b42c06ba5461"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
 
 [roles]
@@ -419,6 +399,7 @@ oasdiff = "1.33.0"
 osv-scanner = "2.7.0"
 python = "3.12"
 redocly = "2.62.1"
+ruff = "0.17.1"
 spectral = "6.17.0"
 squawk = "2.70.0"
 tflint = "0.64.0"

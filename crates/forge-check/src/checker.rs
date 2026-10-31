@@ -68,6 +68,19 @@ pub fn ty_rule_levels(rules: &[ActiveRule]) -> Vec<String> {
     set.into_iter().collect()
 }
 
+/// Forge's own ruff config, from the active rules' `tool: ruff` targets' snippets: what its
+/// runs of ruff use where the project does not configure ruff (§11.2).
+pub fn ruff_overrides(rules: &[ActiveRule]) -> Vec<String> {
+    crate::ruff_config::overrides(rules.iter().flat_map(|a| a.rule.enforce.iter()).filter_map(
+        |t| match t {
+            Target::Tool(t) if t.tool == forge_packs::model::AuditedTool::Ruff => {
+                Some(t.snippet.as_str())
+            }
+            _ => None,
+        },
+    ))
+}
+
 /// When the checker runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
@@ -1524,6 +1537,10 @@ impl Checker {
         if !ty_rules.is_empty() {
             env.insert(builtins::ENV_TY_RULES.into(), ty_rules.join("\n").into());
         }
+        env.insert(
+            builtins::ENV_RUFF_CONFIG.into(),
+            ruff_overrides(&self.rules).join("\n").into(),
+        );
         let rule_file = run.files.path(&format!("rule.{}.json", safe(c.id())));
         if !rule_file.exists() {
             let _ = std::fs::write(

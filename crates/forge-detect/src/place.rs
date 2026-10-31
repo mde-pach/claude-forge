@@ -23,6 +23,30 @@ pub const ESLINT_CONFIGS: &[&str] = &[
     "eslint.config.cts",
 ];
 
+/// Whether a project configures ruff itself for `dir`, looking up to `root` as ruff does:
+/// `.ruff.toml`, `ruff.toml`, or a `pyproject.toml` with a `[tool.ruff]` table (one without it
+/// does not end the search). `false`: Forge's own runs of ruff select the codes the active
+/// rules expect (§11.2).
+pub fn ruff_config(dir: &Path, root: &Path) -> bool {
+    let mut d = dir;
+    loop {
+        if d.join(".ruff.toml").is_file() || d.join("ruff.toml").is_file() {
+            return true;
+        }
+        let py = d.join("pyproject.toml");
+        if py.is_file() && read_toml(&py).is_some_and(|p| p.pointer("/tool/ruff").is_some()) {
+            return true;
+        }
+        if d == root {
+            return false;
+        }
+        match d.parent() {
+            Some(p) => d = p,
+            None => return false,
+        }
+    }
+}
+
 /// Where a project configures ty itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TyConfig {
@@ -79,10 +103,15 @@ fn tools_in(dir: &Path, deps: &DepFacts) -> BTreeMap<AuditedTool, ToolHere> {
             dep: deps.npm.contains_key("@biomejs/biome"),
         },
     );
+    // without a ruff config of the project's, Forge's runs select the active rules' codes (§11.2)
     out.insert(
         AuditedTool::Ruff,
         ToolHere {
-            config: has("ruff.toml") || has(".ruff.toml") || ruff_cfg || scripts,
+            config: has("ruff.toml")
+                || has(".ruff.toml")
+                || ruff_cfg
+                || has("pyproject.toml")
+                || scripts,
             dep: deps.pypi.contains_key("ruff"),
         },
     );

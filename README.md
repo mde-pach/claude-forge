@@ -75,4 +75,4 @@ cargo build --release -p forge-cli   # target/release/forge and claude-forge
 cd docs && bun install && bun run dev   # the site, built from the binary's output
 ```
 
-The specification is [`SPECS.md`](SPECS.md), an index of [`spec/`](spec/). [`CONTRIBUTING.md`](CONTRIBUTING.md) says where each kind of change goes. The state of the rewrite is in [`HANDOFF.md`](HANDOFF.md).
+The specification is [`SPECS.md`](SPECS.md), an index of [`spec/`](spec/). [`CONTRIBUTING.md`](CONTRIBUTING.md) says where each kind of change goes.

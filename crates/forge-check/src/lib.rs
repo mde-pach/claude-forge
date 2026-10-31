@@ -34,6 +34,7 @@ pub mod grep;
 pub mod output;
 pub mod probe;
 pub mod pydeps;
+pub mod ruff_config;
 pub mod scope;
 pub mod select;
 pub mod shell;

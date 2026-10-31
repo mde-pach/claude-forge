@@ -14,22 +14,59 @@ use serde::Serialize;
 use crate::context::{PackContext, pack_context, render_rules_files};
 use crate::hooks::hook_entries;
 use crate::lock::{LOCK_FILE, USER_LOCK_FILE, rule_set_hash};
-use crate::rules::{Deprecation, Gated, RuleStatus, SwitchedOff, select};
+use crate::rules::{Deprecation, Gated, RuleStatus, SettingsTarget, SwitchedOff, select};
 use crate::settings::{DesiredEntry, SettingsEntry};
 
 pub const SETTINGS_FILE: &str = ".claude/settings.json";
 pub const LOCAL_SETTINGS_FILE: &str = ".claude/settings.local.json";
+/// The user level's settings, relative to Claude Code's config directory.
+pub const USER_SETTINGS_FILE: &str = "settings.json";
 
 /// Permission asks that protect Forge's inputs and output from being changed unnoticed (§8.3).
-pub fn owned_asks(level: Level) -> &'static [&'static str] {
+pub fn owned_asks(level: Level, base: &Path) -> Vec<String> {
     match level {
-        Level::Project => &[
+        Level::Project => [
             "Edit(.forge/**)",
             "Edit(forge.yaml)",
             "Edit(forge.lock)",
             "Edit(.claude/rules/forge-*.md)",
-        ],
-        Level::User => &["Edit(~/.claude/forge-user.lock)"],
+        ]
+        .map(String::from)
+        .to_vec(),
+        Level::User => vec![format!(
+            "Edit({})",
+            permission_path(&base.join(USER_LOCK_FILE))
+        )],
+    }
+}
+
+/// An absolute path as a permission rule names it: `~/…` under the home directory, else
+/// `//…` (Claude Code's absolute-path form).
+fn permission_path(p: &Path) -> String {
+    let home = std::env::var_os("HOME")
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from);
+    match home.as_deref().and_then(|h| p.strip_prefix(h).ok()) {
+        Some(rest) => format!("~/{}", rest.display()),
+        None => format!("/{}", p.display()),
+    }
+}
+
+/// How a file of a level is named to the person: relative to the repository (project), with
+/// its directory spelled out (user: `~/.claude/settings.json`).
+pub fn display_path(level: Level, base: &Path, rel: &str) -> String {
+    match level {
+        Level::Project => rel.to_string(),
+        Level::User => {
+            let p = base.join(rel);
+            let home = std::env::var_os("HOME")
+                .filter(|h| !h.is_empty())
+                .map(PathBuf::from);
+            match home.as_deref().and_then(|h| p.strip_prefix(h).ok()) {
+                Some(rest) => format!("~/{}", rest.display()),
+                None => p.display().to_string(),
+            }
+        }
     }
 }
 
@@ -37,7 +74,7 @@ pub fn owned_asks(level: Level) -> &'static [&'static str] {
 pub fn settings_files(level: Level) -> &'static [&'static str] {
     match level {
         Level::Project => &[SETTINGS_FILE, LOCAL_SETTINGS_FILE],
-        Level::User => &[SETTINGS_FILE],
+        Level::User => &[USER_SETTINGS_FILE],
     }
 }
 
@@ -102,28 +139,32 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
     let activation: Activation = active_packs(input.set, level, input.config, input.facts);
     let mut warnings = activation.warnings.clone();
     let site = Site::new(level, input.base, input.set, input.facts, &activation);
-    let settings_file = if level == Level::Project && input.local {
-        LOCAL_SETTINGS_FILE
-    } else {
-        SETTINGS_FILE
+    let settings_file = match level {
+        Level::User => USER_SETTINGS_FILE,
+        Level::Project if input.local => LOCAL_SETTINGS_FILE,
+        Level::Project => SETTINGS_FILE,
     };
+    let settings_label = display_path(level, input.base, settings_file);
     let selected = select(
         input.set,
         &site,
         level,
         input.config,
         input.roles,
-        settings_file,
+        SettingsTarget {
+            file: settings_file,
+            label: &settings_label,
+        },
         &mut warnings,
     )?;
 
-    let mut settings: Vec<DesiredEntry> = owned_asks(level)
-        .iter()
+    let mut settings: Vec<DesiredEntry> = owned_asks(level, input.base)
+        .into_iter()
         .map(|v| DesiredEntry {
             entry: SettingsEntry {
                 file: settings_file.into(),
                 path: "permissions.ask".into(),
-                value: serde_json::Value::String((*v).into()),
+                value: serde_json::Value::String(v),
             },
             append: true,
         })

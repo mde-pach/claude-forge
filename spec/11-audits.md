@@ -1,6 +1,6 @@
 ## 11. Audits of tool targets
 
-A `tool` target (§6.2) says that a rule is enforced by the project's own tool and config: Biome, ruff, ty, tsc or ESLint reporting a diagnostic as an error. Forge never writes that config. It audits it: it runs the project's tool on the rule's examples and reads whether the expected diagnostic is reported. Audits run in `forge apply`, `forge status` and `forge explain` (§3), at project level, never in hooks. Their results are machine state, for the person: they never reach the rules files or the agent.
+A `tool` target (§6.2) says that a rule is enforced by the project's own tool and config: Biome, ruff, ty, tsc or ESLint reporting a diagnostic as an error; where the project leaves ruff or ty unconfigured, by Forge's runs of them (below). Forge never writes that config. It audits it: it runs the project's tool on the rule's examples and reads whether the expected diagnostic is reported. Audits run in `forge apply`, `forge status` and `forge explain` (§3), at project level, never in hooks. Their results are machine state, for the person: they never reach the rules files or the agent.
 
 ### 11.1 Where a tool is configured
 
@@ -9,12 +9,14 @@ A rule's `tool` target is audited where its tool is configured; elsewhere the ru
 | Tool | Configured by | Or depended on |
 |---|---|---|
 | Biome | `biome.json`, `biome.jsonc` | `@biomejs/biome` |
-| ruff | `ruff.toml`, `.ruff.toml`, `[tool.ruff]` in `pyproject.toml`, or a plain-scripts project (Python sources and no `pyproject.toml`, `setup.py`, `setup.cfg` or `Pipfile`) | `ruff` |
+| ruff | `ruff.toml`, `.ruff.toml`, `pyproject.toml` (with or without `[tool.ruff]`), or a plain-scripts project (Python sources and no `pyproject.toml`, `setup.py`, `setup.cfg` or `Pipfile`) | `ruff` |
 | ty | `pyproject.toml`, `ty.toml`, or a plain-scripts project | — |
 | tsc | `tsconfig.json` | `typescript` |
 | ESLint | `eslint.config.{js,mjs,cjs,ts,mts,cts}` | `eslint` |
 
 **ty's levels.** ty is Forge's own pinned tool (§17), and Forge runs it: the `typecheck` check (`forge_do ty …`) and the types engine's servers (§15). Where the project leaves ty to its defaults (no `ty.toml` and no `[tool.ty]` table in the `pyproject.toml` ty reads, looking up from the directory to the repository root), Forge sets the levels the active `tool: ty` targets expect: `--error <rule>` for each on `ty check`'s command line, and `rules: {<rule>: "error"}` in the servers' inline configuration. Those rules are then enforced with no config to add, and their audits run ty the same way, so they are satisfied. Where the project configures ty itself, its config is the authority: Forge adds no level, and an unsatisfied audit suggests the config (written for `ty.toml` without the `tool.ty.` prefix when that is the file).
+
+**ruff's codes.** Where the project configures ruff (`.ruff.toml`, `ruff.toml`, or a `pyproject.toml` with a `[tool.ruff]` table, looking up from the directory to the repository root as ruff does), its ruff and config are the authority, as for every project tool. Where it does not, Forge runs ruff with its own config, as `--config` overrides on the operations that lint (`lint`, `lint-json`, `lint-json-stdin`, `fix`): `lint.select = ["E4", "E7", "E9", "F"]` (the rules ruff selected by default before 0.17.0, named so that a release's own defaults do not change what Forge checks), and the active `tool: ruff` targets' snippets merged (tables deeply, arrays joined), one override per `lint` setting (`lint.extend-select = [...]`, `lint.flake8-tidy-imports = { banned-api = {...} }`; ruff does not merge two overrides of one table). It runs Forge's pinned ruff (§17), whose release knows every code that config names; a project's own or the machine's ruff may be older. Those rules are then enforced with no config to add, and their audits run ruff with the rule's own snippet the same way, so they are satisfied.
 
 In a monorepo, a tool's audits run in each workspace package that configures it or depends on it, and at the root when the root configures it (or only depends on it while no package has its config file). A target switched off by an active pack (`tool_off`, §5) is not audited: `forge status` reports `not enforced here: <tool> <expects> switched off by <pack> (<reason>)`.
 
@@ -65,6 +67,6 @@ A rule is enforced by its tool when every place's audit of that tool is satisfie
 ### Tests
 
 - §11.1 where a tool is configured: `crates/forge-detect/src/place.rs` (no dedicated test of `tool_places`: covered through the plans of `crates/forge-cli/tests/apply.rs` and `crates/forge-cli/tests/e2e.rs`).
-- §11.2 and §11.3: `crates/forge-check/tests/spec_audits.rs` (`ruff_satisfied_unsatisfied_and_noisy`, `the_installed_release_decides_first`, `a_tool_not_installed_is_skipped`, `a_warning_is_unsatisfied`, `ty_without_a_project_config_runs_at_the_rules_levels`), `crates/forge-cli/tests/check.rs::ty_runs_at_the_active_rules_levels_unless_the_project_configures_it`, `crates/forge-engine/tests/engine.rs::python_engine` (the inline levels, against the real ty; skipped without uv), `crates/forge-check/src/probe.rs` (unit: example paths, verdicts).
+- §11.2 and §11.3: `crates/forge-check/tests/spec_audits.rs` (`ruff_satisfied_unsatisfied_and_noisy`, `the_installed_release_decides_first`, `a_tool_not_installed_is_skipped`, `a_warning_is_unsatisfied`, `ty_without_a_project_config_runs_at_the_rules_levels`, `ruff_without_a_project_config_selects_the_rules_codes`), `crates/forge-cli/tests/check.rs::ty_runs_at_the_active_rules_levels_unless_the_project_configures_it`, `crates/forge-cli/tests/check.rs::ruff_selects_the_active_rules_codes_unless_the_project_configures_it`, `crates/forge-engine/tests/engine.rs::python_engine` (the inline levels, against the real ty; skipped without uv), `crates/forge-check/src/probe.rs` (unit: example paths, verdicts).
 - §11.4: `crates/forge-check/tests/spec_audits.rs::enforcement_summary_counts_reasons`, `::unsatisfied_audits_suggest_one_block`, `crates/forge-cli/tests/e2e.rs::status_reports_tools_and_pin_differences`.
 - ESLint, tsc and ty audits against the real tools: no test in `crates/` (they need the tools installed).

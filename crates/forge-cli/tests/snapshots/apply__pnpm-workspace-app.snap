@@ -9,15 +9,11 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
 Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-secrets.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
 A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/rules/forge-typescript-pnpm.md
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
 pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
 === .claude/rules/forge-typescript-vitest.md
@@ -26,16 +22,12 @@ paths:
   - "packages/core/**"
 ---
 
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
-
 Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
 === .claude/rules/forge-typescript.md
 ---
 paths:
   - "packages/core/**"
 ---
-
-These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.
 
 TypeScript, strict.
 No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
@@ -278,10 +270,10 @@ rule_set = "763b266c2ef9761114bd875e82dc8db4ac0c354f77ae8fa51e5de29406e1a53e"
 
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
-".claude/rules/forge-secrets.md" = "5cd27de14ebbc4c7a2d0277ee5d2c53a0988d4e61c2e0e7af44dd64efd987b53"
-".claude/rules/forge-typescript-pnpm.md" = "e07a43fa3b0f05a1249e49d69f3a7370243dfbfc18d670804658450ff2f1c9c2"
-".claude/rules/forge-typescript-vitest.md" = "0c647c10f6f9722729176fd156d3bf7a28fefb41804c17c8da90c1020496df3f"
-".claude/rules/forge-typescript.md" = "97caf185981beb9d466a7633ecbb922abb8af97f1aecf5c958de18167e59e560"
+".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
+".claude/rules/forge-typescript-pnpm.md" = "5620d21d165862c62560c17684d4a6e681d6ff3318a9860f111e083fe25ac663"
+".claude/rules/forge-typescript-vitest.md" = "0ad0e3e5b0168fc451ab188edcb41bfd4e4a123dd96ff9ee8a3d1ddc6ff766fa"
+".claude/rules/forge-typescript.md" = "1e09537b3fe01fbbb70281f0b0b6e6d7aea021469151b9e312fa21ef5ec9fb2e"
 ".git/hooks/pre-commit" = "95c2572e2a6fb73772f71dfa914e71ff26cecff0b388310c1d05b0905a8257a0"
 
 [roles]
@@ -307,6 +299,7 @@ oasdiff = "1.33.0"
 osv-scanner = "2.7.0"
 python = "3.12"
 redocly = "2.62.1"
+ruff = "0.17.1"
 spectral = "6.17.0"
 squawk = "2.70.0"
 tflint = "0.64.0"

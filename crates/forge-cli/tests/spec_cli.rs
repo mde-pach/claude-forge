@@ -83,8 +83,17 @@ impl Sandbox {
     }
 
     fn forge_in(&self, dir: &Path, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_forge"))
-            .args(args)
+        self.forge_env(dir, args, None)
+    }
+
+    /// `config_dir`: Claude Code's `CLAUDE_CONFIG_DIR`.
+    fn forge_env(&self, dir: &Path, args: &[&str], config_dir: Option<&Path>) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_forge"));
+        match config_dir {
+            Some(d) => cmd.env("CLAUDE_CONFIG_DIR", d),
+            None => cmd.env_remove("CLAUDE_CONFIG_DIR"),
+        };
+        cmd.args(args)
             .current_dir(dir)
             .env("PATH", self.path())
             .env("HOME", &self.home)
@@ -595,6 +604,59 @@ fn user_level_setup() {
     );
     s.ok(&["remove", "--user", "--yes"]);
     assert!(!s.home.join(".claude/forge-user.lock").exists());
+    assert!(!s.home.join(".claude/settings.json").exists());
+}
+
+/// The user level is Claude Code's config directory: `$CLAUDE_CONFIG_DIR` when set.
+#[test]
+fn user_level_follows_claude_config_dir() {
+    let s = Sandbox::new(PY);
+    let cfg = s.home.join("elsewhere/claude");
+    let run = |args: &[&str]| {
+        let out = s.forge_env(&s.repo, args, Some(&cfg));
+        assert!(out.status.success(), "{}", stderr(&out));
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    let out = run(&["apply", "--user", "--yes"]);
+    assert!(
+        out.contains(&format!("+++ {}", cfg.join("settings.json").display()))
+            || out.contains("+++ ~/elsewhere/claude/settings.json"),
+        "{out}"
+    );
+    let settings = std::fs::read_to_string(cfg.join("settings.json")).unwrap();
+    assert!(
+        settings.contains("claude-forge hook user-pre-tool-use"),
+        "{settings}"
+    );
+    assert!(
+        settings.contains("Edit(~/elsewhere/claude/forge-user.lock)"),
+        "{settings}"
+    );
+    assert!(cfg.join("forge-user.lock").is_file());
+    assert!(!s.home.join(".claude").exists(), "~/.claude is untouched");
+    assert!(run(&["apply", "--user", "--yes"]).contains("forge: up to date"));
+    run(&["remove", "--user", "--yes"]);
+    assert!(!cfg.join("forge-user.lock").exists());
+}
+
+/// A user lock that records its settings file relative to the home directory
+/// (`.claude/settings.json`, before the config directory was the user level's base) is read.
+#[test]
+fn user_lock_with_home_relative_paths_is_read() {
+    let s = Sandbox::new(PY);
+    s.ok(&["apply", "--user", "--yes"]);
+    let lock_path = s.home.join(".claude/forge-user.lock");
+    let lock = std::fs::read_to_string(&lock_path).unwrap();
+    assert!(lock.contains("\"settings.json\""), "{lock}");
+    std::fs::write(
+        &lock_path,
+        lock.replace("\"settings.json\"", "\".claude/settings.json\""),
+    )
+    .unwrap();
+    s.ok(&["apply", "--user", "--yes"]);
+    let lock = std::fs::read_to_string(&lock_path).unwrap();
+    assert!(!lock.contains(".claude/settings.json"), "{lock}");
+    s.ok(&["remove", "--user", "--yes"]);
     assert!(!s.home.join(".claude/settings.json").exists());
 }
 

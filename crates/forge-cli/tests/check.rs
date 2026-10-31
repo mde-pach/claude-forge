@@ -181,7 +181,10 @@ fn deleted_tests_and_counts() {
 fn forge_do_drives_a_fake_tool_and_notes_what_it_cannot() {
     // a project ruff that says its version and reports one finding per file
     let ruff = "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.6.9'; exit 0 ;; esac\nfor a; do case $a in *.py) echo \"$a:1:1: F401 \\`os\\` imported but unused\"; st=1 ;; esac; done\nexit ${st:-0}\n";
-    let r = Repo::new(&files(&[("a.py", "x = 1\n")]));
+    let r = Repo::new(&files(&[
+        ("a.py", "x = 1\n"),
+        ("ruff.toml", "line-length = 100\n"),
+    ]));
     write(
         r.path(),
         &files(&[(".venv/bin/ruff", ruff), ("a.py", "import os\n")]),
@@ -244,6 +247,48 @@ fn ty_runs_at_the_active_rules_levels_unless_the_project_configures_it() {
         &files(&[(
             "pyproject.toml",
             "[project]\nname = \"x\"\n\n[tool.ty.rules]\n",
+        )]),
+    );
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 0, "{v}");
+}
+
+/// Where the project does not configure ruff, `forge_do ruff` runs Forge's ruff with Forge's
+/// config (ruff's classic rules and the active `tool: ruff` rules' snippets, as `--config`
+/// overrides); where it does, the project's ruff and config decide.
+#[test]
+fn ruff_selects_the_active_rules_codes_unless_the_project_configures_it() {
+    // Forge's ruff (found on PATH, downloads being off) reports S307 for eval( only when the
+    // command line selects it; the project's own reports nothing
+    let ruff = "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.17.1'; exit 0 ;; esac\ncase \" $* \" in *'\"S307\"'*) grep -q 'eval(' a.py && { echo 'a.py:1:5: S307 Use of possibly insecure function'; exit 1; } ;; esac\nexit 0\n";
+    let quiet = "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.17.1'; exit 0 ;; esac\nexit 0\n";
+    let r = Repo::new(&files(&[("a.py", "x = 1\n")]));
+    let bin = tempfile::tempdir().unwrap();
+    write(bin.path(), &files(&[("ruff", ruff)]));
+    write(r.path(), &files(&[(".venv/bin/ruff", quiet)]));
+    use std::os::unix::fs::PermissionsExt;
+    for f in [bin.path().join("ruff"), r.path().join(".venv/bin/ruff")] {
+        std::fs::set_permissions(f, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let path = format!("{}:{PATH}", bin.path().display());
+    let snap = r.snap.path().display().to_string();
+    write(r.path(), &files(&[("a.py", "x = eval('1')\n")]));
+    let rules = ["python/lint", "python/no-eval"];
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, "python/lint")[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("S307"),
+        "{v}"
+    );
+    // [tool.ruff]: the project's config decides (it selects nothing more here)
+    write(
+        r.path(),
+        &files(&[(
+            "pyproject.toml",
+            "[project]\nname = \"x\"\n\n[tool.ruff]\nline-length = 100\n",
         )]),
     );
     let (code, v) = r.check(&["--turn", &snap], &rules, &path);

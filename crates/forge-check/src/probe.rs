@@ -210,7 +210,9 @@ pub fn pinned_tools(plan: &Plan) -> Vec<String> {
     let pinned: Vec<String> = Adapter::all()
         .unwrap_or_default()
         .into_iter()
-        .filter(|a| a.pinned.is_some())
+        .filter(|a| {
+            a.pinned.is_some() || crate::adapters::fallback_pin(a, &plan.base, &plan.base).is_some()
+        })
         .map(|a| a.tool)
         .collect();
     let mut out: Vec<String> = Vec::new();
@@ -535,7 +537,11 @@ fn run_example(
     n: usize,
 ) -> Option<ToolRun> {
     match tool {
-        AuditedTool::Ruff => run(cmd, &build_args(words, &[rel.to_string()]), dir, Some(code)),
+        AuditedTool::Ruff => {
+            let mut args = build_args(words, &[rel.to_string()]);
+            args.extend(extra.iter().cloned());
+            run(cmd, &args, dir, Some(code))
+        }
         AuditedTool::Tsc => {
             let cfg = format!("tsconfig.{}.json", stem_of(n));
             let tsconfig = serde_json::json!({
@@ -600,6 +606,10 @@ pub fn audit_target(
         Err(why) => {
             let detail = if tool == AuditedTool::Ty {
                 format!("{why} (Forge runs its pinned ty)")
+            } else if crate::adapters::fallback_pin(&a, &cwd, repo).is_some() {
+                format!(
+                    "{why} (Forge runs its pinned {name} where the project does not configure it)"
+                )
             } else if why.ends_with("is not installed") {
                 let py = if tools::PYTHON_TOOLS.contains(&name) {
                     " or the project's Python environment"
@@ -654,6 +664,10 @@ pub fn audit_target(
     // decides, and the snippet is written for the file it uses
     let mut extra = Vec::new();
     let mut snippet = t.snippet.clone();
+    if tool == AuditedTool::Ruff && !forge_detect::place::ruff_config(&cwd, repo) {
+        extra =
+            crate::ruff_config::config_args(crate::ruff_config::overrides([t.snippet.as_str()]));
+    }
     if tool == AuditedTool::Ty {
         match forge_detect::place::ty_config(&cwd, repo) {
             None => extra = crate::adapters::error_args([t.expects.as_str()]),

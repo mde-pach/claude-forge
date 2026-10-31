@@ -232,6 +232,16 @@ pub static TOOLS: &[ToolSpec] = &[
             binary_sha256: &[],
         },
     },
+    // Python linter, where the project does not configure its own (§11.2).
+    ToolSpec {
+        name: "ruff",
+        version: "0.17.1",
+        source: Source::UvTool {
+            package: "ruff",
+            binary: "ruff",
+            binary_sha256: &[],
+        },
+    },
     // GitHub Actions auditor.
     ToolSpec {
         name: "zizmor",

@@ -960,6 +960,35 @@ fn the_reviewer_runs_a_fresh_read_only_claude() {
     assert!(!args.contains("safety/git-force-with-lease"));
 }
 
+/// The reviewer is told which files the turn created and changed: a file the agent's own
+/// command generated is not mistaken for the user's.
+#[test]
+fn the_reviewer_knows_what_the_turn_created() {
+    let s = Sandbox::new(&[]);
+    let (claude, log) = s.reviewer("allow");
+    let env = Env {
+        entrypoint: Some("sdk-cli".into()),
+        claude,
+        ..s.env()
+    };
+    let f = Fake::default();
+    std::fs::write(s.root.join("notes.txt"), "the user's\n").unwrap();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    std::fs::write(s.root.join("generated.lock"), "made by a command\n").unwrap();
+    std::fs::write(s.root.join("app/main.py"), "x = 2\n").unwrap();
+    let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
+        "tool_input": {"command": "rm generated.lock"}});
+    s.run_env(&f, env, "permission-request", input);
+    let args = std::fs::read_to_string(&log).unwrap();
+    assert!(
+        args.contains("- created (absent when the request arrived): generated.lock\n"),
+        "{args}"
+    );
+    assert!(args.contains("- changed: app/main.py\n"), "{args}");
+    // untracked before the request: not the turn's
+    assert!(!args.contains("notes.txt"), "{args}");
+}
+
 #[test]
 fn reviews_outside_a_project_are_logged_in_the_user_state() {
     let s = Sandbox::new(&[]);

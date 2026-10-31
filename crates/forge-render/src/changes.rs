@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::lock::{
     CLAUDE_CODE_MIN, Lock, LockBlock, OLD_PROJECT_LOCK, OLD_USER_LOCK, OldLock, old_owned_hash,
-    plain_relative, resolves_inside, sha256,
+    plain_relative, resolves_inside, sha256, user_relative,
 };
 use crate::plan::{Plan, settings_files};
 use crate::precommit::{
@@ -60,7 +60,13 @@ pub fn read_lock(base: &Path, level: Level, lock_path: &str) -> Result<Option<Lo
     let Some(text) = read(base, lock_path) else {
         return Ok(None);
     };
-    let lock = Lock::parse(&text).map_err(|e| format!("{lock_path}: {e}; fix it or delete it"))?;
+    let mut lock =
+        Lock::parse(&text).map_err(|e| format!("{lock_path}: {e}; fix it or delete it"))?;
+    if level == Level::User {
+        for s in &mut lock.settings {
+            s.file = user_relative(&s.file).to_string();
+        }
+    }
     let bad = lock_problems(base, level, &lock.files, &lock.settings, &lock.blocks);
     if !bad.is_empty() {
         return Err(format!("{lock_path}: refused: {}", bad.join("; ")));
@@ -79,9 +85,7 @@ fn inside(base: &Path, level: Level, p: &str) -> bool {
     plain_relative(p)
         && match level {
             Level::Project => resolves_inside(base, p),
-            Level::User => p
-                .strip_prefix(".claude/")
-                .is_some_and(|rest| resolves_inside(&base.join(".claude"), rest)),
+            Level::User => resolves_inside(base, p),
         }
 }
 
@@ -147,7 +151,7 @@ fn old_owned(level: Level, p: &str) -> bool {
                 || p.starts_with(".claude/skills/forge-project/")
                 || is_owned_path(level, p)
         }
-        Level::User => p.starts_with(".claude/skills/forge-user/"),
+        Level::User => p.starts_with("skills/forge-user/"),
     }
 }
 
@@ -160,8 +164,18 @@ pub fn detect_migration(base: &Path, level: Level) -> Result<Option<Migration>, 
     let Some(text) = read(base, lock_path) else {
         return Ok(None);
     };
-    let old: OldLock = serde_json::from_str(&text)
+    let mut old: OldLock = serde_json::from_str(&text)
         .map_err(|e| format!("{lock_path}: not a lock forge 0.5 wrote ({e})"))?;
+    if level == Level::User {
+        old.files = old
+            .files
+            .into_iter()
+            .map(|(p, h)| (user_relative(&p).to_string(), h))
+            .collect();
+        for s in &mut old.settings {
+            s.file = user_relative(&s.file).to_string();
+        }
+    }
     let hook = (level == Level::Project).then(|| pre_commit_path(base));
     let mut m = Migration {
         old_lock_path: lock_path.into(),

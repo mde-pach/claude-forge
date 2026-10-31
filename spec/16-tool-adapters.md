@@ -103,7 +103,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [prisma](#prisma) | the project's own | `prisma --version` | `7.10.1` | exit 1, a line matching `^(! )?unknown or unexpected option: ` |  |
 | [pytest](#pytest) | the project's own | `pytest --version` | `9.2.0` | exit 4, a line matching `^(ERROR\|UsageError): usage: ` |  |
 | [redocly](#redocly) | Forge's pin `2.62.1` | the pin | `2.62.1` | exit 1, a line matching `^(Unknown arguments?\|Invalid values?):` |  |
-| [ruff](#ruff) | the project's own | `ruff --version` | `0.17.3` | exit 2, a line matching `^For more information, try .--help.` |  |
+| [ruff](#ruff) | Forge's pin `0.17.1` where the project does not configure it, else the project's own | `ruff --version` | `0.17.3` | exit 2, a line matching `^For more information, try .--help.` |  |
 | [spectral](#spectral) | Forge's pin `6.17.0` | the pin | `6.17.0` | exit 1, a line matching `^(Unknown arguments?\|Invalid values?):` |  |
 | [sqlfluff](#sqlfluff) | the project's own | `sqlfluff --version` | `4.4.0` | exit 2, a line matching `^Try .[^ ]+ [a-z-]+ (-h\|--help). for help` |  |
 | [squawk](#squawk) | Forge's pin `2.70.0` | the pin | `2.70.0` | exit 2, a line matching `^For more information, try .--help.` |  |

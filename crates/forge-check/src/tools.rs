@@ -209,7 +209,12 @@ pub fn has_tool(tools: &dyn ToolResolver, root: &Path, cwd: &Path, name: &str) -
         "ty" => crate::adapters::Adapter::load("ty")
             .and_then(|a| a.pinned.clone())
             .is_some_and(|v| tools.pinned("ty", &v).is_ok()),
-        _ => tools.project(root, cwd, name).is_some(),
+        _ => match crate::adapters::Adapter::load(name)
+            .and_then(|a| crate::adapters::fallback_pin(&a, cwd, root).map(str::to_string))
+        {
+            Some(v) => tools.pinned(name, &v).is_ok(),
+            None => tools.project(root, cwd, name).is_some(),
+        },
     }
 }
 

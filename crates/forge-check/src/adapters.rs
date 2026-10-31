@@ -85,6 +85,10 @@ pub struct Adapter {
     pub tool: String,
     #[serde(default)]
     pub pinned: Option<String>,
+    /// A project tool's fallback: Forge's pinned release, run where the project does not
+    /// configure the tool, with Forge's config (ruff, §11.2).
+    #[serde(default)]
+    pub fallback: Option<String>,
     pub verified: String,
     #[serde(default)]
     pub runner: Runner,
@@ -458,6 +462,11 @@ pub fn locate(
         let cmd = tools.pinned(&a.tool, pin)?;
         return Ok((cmd, pin.clone()));
     }
+    // a project tool the project does not configure runs with Forge's config: Forge's release,
+    // which knows every code that config names (a machine's older one may not)
+    if let Some(pin) = fallback_pin(a, cwd, root) {
+        return Ok((tools.pinned(&a.tool, pin)?, pin.to_string()));
+    }
     let cmd = match a.runner {
         Runner::Project => tools
             .project(root, cwd, &a.tool)
@@ -477,6 +486,22 @@ pub fn locate(
     })
     .ok_or_else(|| format!("the version of {} could not be read", a.tool))?;
     Ok((cmd, v))
+}
+
+/// Whether the project configures `tool` itself for `cwd` (a tool without a config notion: yes).
+pub fn project_configures(tool: &str, cwd: &Path, root: &Path) -> bool {
+    match tool {
+        "ruff" => forge_detect::place::ruff_config(cwd, root),
+        _ => true,
+    }
+}
+
+/// The pinned release Forge runs for a project tool the project does not configure (the
+/// adapter's `fallback`).
+pub fn fallback_pin<'a>(a: &'a Adapter, cwd: &Path, root: &Path) -> Option<&'a str> {
+    a.fallback
+        .as_deref()
+        .filter(|_| !project_configures(&a.tool, cwd, root))
 }
 
 /// What `forge_do` did.
@@ -594,6 +619,9 @@ pub fn resolve(tool: &str, op: &str, args: &[String], ctx: &DoCtx<'_>) -> Result
     if name == "ty" {
         args.extend(ty_level_args(ctx.cwd, ctx.root));
     }
+    if name == "ruff" {
+        args.extend(ruff_config_args(op, ctx.cwd, ctx.root));
+    }
     Ok(Resolved {
         args,
         adapter: a,
@@ -615,6 +643,20 @@ pub fn ty_level_args(cwd: &Path, root: &Path) -> Vec<String> {
         return Vec::new();
     }
     error_args(rules.to_string_lossy().lines())
+}
+
+/// Forge's own ruff config (`FORGE_RUFF_CONFIG`, set by the checker) as `--config` overrides,
+/// for the operations that lint, where the project does not configure ruff itself. A project
+/// that configures ruff is the authority, and the audit says what its config lacks (§11.2).
+pub fn ruff_config_args(op: &str, cwd: &Path, root: &Path) -> Vec<String> {
+    if !(op.starts_with("lint") || op == "fix") || forge_detect::place::ruff_config(cwd, root) {
+        return Vec::new();
+    }
+    let Some(config) = std::env::var_os(crate::builtins::ENV_RUFF_CONFIG) else {
+        return Vec::new();
+    };
+    let config = config.to_string_lossy();
+    crate::ruff_config::config_args(config.lines().filter(|l| !l.trim().is_empty()))
 }
 
 /// `--error <rule>` for each rule.

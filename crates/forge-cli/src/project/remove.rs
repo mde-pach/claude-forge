@@ -2,7 +2,7 @@
 
 use forge_packs::model::Level;
 use forge_render::changes::{owned_hash, read_lock};
-use forge_render::plan::lock_path;
+use forge_render::plan::{display_path, lock_path};
 use forge_render::precommit::{block_hash, has_block, only_forge, remove_block};
 use forge_render::settings::remove_entries;
 
@@ -19,8 +19,14 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
     let lock_file = lock_path(level);
     let lock = read_lock(&base, level, lock_file)
         .map_err(|e| Error::new(format!("forge: {e}")))?
-        .ok_or_else(|| Error::new(format!("forge: no {lock_file}; nothing to remove")))?;
+        .ok_or_else(|| {
+            Error::new(format!(
+                "forge: no {}; nothing to remove",
+                display_path(level, &base, lock_file)
+            ))
+        })?;
     let read = |p: &str| std::fs::read_to_string(base.join(p)).ok();
+    let show = |rel: &str| display_path(level, &base, rel);
 
     let mut settings: Vec<(String, String, Option<String>)> = Vec::new();
     let mut files_seen: Vec<&str> = Vec::new();
@@ -70,9 +76,9 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
         for f in &files {
             println!("--- {f} (deleted)");
         }
-        println!("--- {lock_file} (deleted)");
+        println!("--- {} (deleted)", show(lock_file));
         for (file, before, after) in &settings {
-            show_diff(Some(before), after.as_deref(), file);
+            show_diff(Some(before), after.as_deref(), &show(file));
         }
         for (b, before, after) in &blocks {
             show_diff(Some(before), after.as_deref(), &b.file);
@@ -83,8 +89,11 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
         if file.ends_with("settings.local.json") || Some(before) == after.as_ref() {
             continue;
         }
-        show_diff(Some(before), after.as_deref(), file);
-        if !confirm(&format!("apply these changes to {file}?"), flags.yes)? {
+        show_diff(Some(before), after.as_deref(), &show(file));
+        if !confirm(
+            &format!("apply these changes to {}?", show(file)),
+            flags.yes,
+        )? {
             return Err(Error::new("forge: cancelled; nothing removed"));
         }
     }

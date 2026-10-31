@@ -14,7 +14,8 @@ use forge_packs::glob::glob_to_regex;
 use forge_packs::model::Pack;
 pub use forge_packs::model::{ContextItem, ContextWhen};
 
-/// First lines of every rules file: the facts guide defaults, and an explicit instruction wins.
+/// First lines of the rules: the facts guide defaults, and an explicit instruction wins. Written
+/// once, at the top of the first rules file Claude Code always loads.
 pub const CONTEXT_INTRO: &str = "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n";
 
 /// Whether an item's `when` holds in one of `places`, with `active` the active packs: one of
@@ -86,7 +87,8 @@ pub fn render_rules_files(
     facts: Option<&ProjectFacts>,
     active: &Activation,
 ) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
+    // path → (frontmatter, items)
+    let mut files: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     for p in packs {
         let places: Vec<&DepFacts> = match (facts, &p.places) {
@@ -122,17 +124,35 @@ pub fn render_rules_files(
         if body.trim().is_empty() {
             continue;
         }
-        let mut text = String::new();
+        let mut head = String::new();
         if let Some(dirs) = p.dirs.as_ref().filter(|d| !d.is_empty()) {
-            text.push_str("---\npaths:\n");
+            head.push_str("---\npaths:\n");
             for d in dirs {
-                text.push_str(&format!("  - \"{d}/**\"\n"));
+                head.push_str(&format!("  - \"{d}/**\"\n"));
             }
-            text.push_str("---\n\n");
+            head.push_str("---\n\n");
         }
-        text.push_str(CONTEXT_INTRO);
-        text.push_str(&body);
-        out.insert(rules_file_path(p.id), text);
+        files.insert(rules_file_path(p.id), (head, body));
     }
-    out
+    // The intro once: in the first file Claude Code always loads, else (every file is for some
+    // packages only) in each file.
+    let first_unscoped = files
+        .iter()
+        .find(|(_, (head, _))| head.is_empty())
+        .map(|(path, _)| path.clone());
+    files
+        .into_iter()
+        .map(|(path, (head, body))| {
+            let intro = match &first_unscoped {
+                Some(first) => *first == path,
+                None => true,
+            };
+            let mut text = head;
+            if intro {
+                text.push_str(CONTEXT_INTRO);
+            }
+            text.push_str(&body);
+            (path, text)
+        })
+        .collect()
 }

@@ -18,7 +18,7 @@
 //! Forge does not write (`remove` deletes what it lists).
 
 use std::collections::BTreeMap;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,10 +28,26 @@ use crate::precommit::BlockKind;
 use crate::settings::SettingsEntry;
 
 pub const LOCK_FILE: &str = "forge.lock";
-pub const USER_LOCK_FILE: &str = ".claude/forge-user.lock";
-/// The TypeScript Forge's locks (migrated by apply).
+/// The user-level lock, relative to Claude Code's config directory ([`claude_config_dir`]).
+pub const USER_LOCK_FILE: &str = "forge-user.lock";
+/// The TypeScript Forge's locks (migrated by apply), relative to their level's base.
 pub const OLD_PROJECT_LOCK: &str = ".forge/forge.lock.json";
-pub const OLD_USER_LOCK: &str = ".claude/forge.lock.json";
+pub const OLD_USER_LOCK: &str = "forge.lock.json";
+
+/// Claude Code's user config directory, the base of the user level: `$CLAUDE_CONFIG_DIR` when
+/// set, else `~/.claude`.
+pub fn claude_config_dir(config_dir: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
+    config_dir
+        .filter(|d| !d.as_os_str().is_empty())
+        .or_else(|| home.map(|h| h.join(".claude")))
+}
+
+/// A user-level path as locks before the config directory became the user level's base
+/// recorded it (relative to the home directory, `.claude/settings.json`): relative to the
+/// config directory.
+pub fn user_relative(p: &str) -> &str {
+    p.strip_prefix(".claude/").unwrap_or(p)
+}
 
 /// The Claude Code version Forge needs: `onFailure` on hook entries (the guard fails closed).
 pub const CLAUDE_CODE_MIN: &str = "2.1.295";

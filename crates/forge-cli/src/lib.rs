@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 pub mod check;
 mod hook;
@@ -88,6 +88,20 @@ fn load(args: &LoadArgs) -> Result<forge_packs::PackSet, String> {
     forge_packs::load(args.repo.as_deref(), opts).map_err(|e| e.to_string())
 }
 
+/// The command line, named as it was invoked (`claude-forge` or `forge`) in help and `--version`.
+fn parse_cli() -> Cli {
+    let invoked = std::env::args_os()
+        .next()
+        .map(PathBuf::from)
+        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()));
+    let name = match invoked.as_deref() {
+        Some("claude-forge") => "claude-forge",
+        _ => "forge",
+    };
+    let matches = Cli::command().name(name).get_matches();
+    Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit())
+}
+
 pub fn main() -> ExitCode {
     if let Some(code) = provisioning::intercept() {
         return code;
@@ -104,7 +118,7 @@ pub fn main() -> ExitCode {
     } else {
         forge_launcher::launch_from_env(env!("CARGO_PKG_VERSION"), &provisioning::fetcher())
     };
-    let cli = Cli::parse();
+    let cli = parse_cli();
     let cli = match cli.command {
         Command::Check(args) => return check::run(args),
         Command::Test(args) => return test_cmd::run(args),

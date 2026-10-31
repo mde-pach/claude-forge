@@ -5,7 +5,7 @@
 ### 7.1 Rules files
 
 - Each active pack whose context renders non-empty (§5.4) produces `.claude/rules/forge-<pack-id>.md`, with `/` in the id replaced by `-`. These are the only text Forge writes that the agent reads.
-- A file holds the line `These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.`, a blank line, then the rendered items, each on its own lines, in the order the pack lists them.
+- A file holds the rendered items, each on its own lines, in the order the pack lists them. The first file (by name) without `paths:` frontmatter starts with the line `These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.` and a blank line; Claude Code loads it with every other rules file. When every file has `paths:` frontmatter, each starts with that line.
 - A pack that applies only to some workspace packages (§5.3) gets `paths:` frontmatter, so Claude Code loads the file only for those packages' files:
 
   ```
@@ -22,9 +22,9 @@
 
 Appended to the level's settings file, each recorded in the lock:
 
-- `permissions.ask`, always: project level `Edit(.forge/**)`, `Edit(forge.yaml)`, `Edit(forge.lock)`, `Edit(.claude/rules/forge-*.md)`; user level `Edit(~/.claude/forge-user.lock)`.
+- `permissions.ask`, always: project level `Edit(.forge/**)`, `Edit(forge.yaml)`, `Edit(forge.lock)`, `Edit(.claude/rules/forge-*.md)`; user level `Edit(~/.claude/forge-user.lock)` (the lock in the config directory, `//<path>` when that directory is outside the home directory).
 - `permissions.deny` / `permissions.ask` entries from the active rules' `permission` targets (§6.2).
-- At user level, `sandbox.<path>` from `sandbox` targets: an array value appends each item; a scalar is set only when the key is absent. Forge never changes a value the person set.
+- At user level, `sandbox.<path>` from `sandbox` targets: an array value appends each item; a scalar is set only when the key is absent. Forge never changes a value the person set. On Linux, when `bwrap` or `socat` is not on PATH, `apply` and `status` add the note `Claude Code's sandbox is turned on but cannot run here (<missing> not installed; e.g. apt install bubblewrap socat): Claude Code runs commands without it.`: Claude Code turns the sandbox off there and says so only on its own stderr.
 
 ### 7.3 Hook entries
 
@@ -95,7 +95,7 @@ When Forge is missing, the person sees the SessionStart message once (a synchron
 
 ### 7.7 User level
 
-`forge apply --user` writes the user-level setup into the home directory:
+`forge apply --user` writes the user-level setup into Claude Code's user config directory: `$CLAUDE_CONFIG_DIR` when it is set, else `~/.claude` (named `~/.claude` in this specification). The user level's paths are relative to that directory; a user lock that records them relative to the home directory (`.claude/settings.json`) is read as relative to it.
 
 - `~/.claude/settings.json`: the user-level packs' permission and sandbox entries, the owned `ask` (§7.2) and the user hook entries (§7.3);
 - `~/.claude/forge-user.lock`: its lock (§12). The launcher does not read it: a user-level setup pins no Forge version for repositories.

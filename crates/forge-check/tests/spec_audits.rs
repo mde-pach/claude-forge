@@ -37,8 +37,10 @@ fn exe(dir: &Path, rel: &str, script: &str) {
     std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// A ruff of `version` that reports `S307` for stdin holding `eval(` (`always`: for anything).
+/// A project's ruff of `version`, with a config of its own, that reports `S307` for stdin
+/// holding `eval(` (`always`: for anything).
 fn ruff(dir: &Path, version: &str, always: bool) {
+    std::fs::write(dir.join("ruff.toml"), "line-length = 100\n").unwrap();
     let test = if always { "true" } else { "grep -q 'eval('" };
     exe(
         dir,
@@ -78,6 +80,7 @@ fn ruff_satisfied_unsatisfied_and_noisy() {
     assert_eq!(format_audit(&a), "forge: acme/r ruff S307: satisfied");
     // a config that does not select the code: the match example is not reported
     let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("ruff.toml"), "line-length = 100\n").unwrap();
     exe(
         d.path(),
         ".venv/bin/ruff",
@@ -139,6 +142,7 @@ fn a_tool_not_installed_is_skipped() {
         return;
     }
     let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("ruff.toml"), "line-length = 100\n").unwrap();
     let a = audit(
         d.path(),
         &rule("ruff", "S307", "python", "eval(x)", "x = 1"),
@@ -149,6 +153,21 @@ fn a_tool_not_installed_is_skipped() {
         Some(
             "ruff is configured but not installed (node_modules/.bin, .venv/bin or the project's Python environment)"
         )
+    );
+    // without the project's config, Forge's pinned ruff would run: not in this cache
+    std::fs::remove_file(d.path().join("ruff.toml")).unwrap();
+    let a = audit(
+        d.path(),
+        &rule("ruff", "S307", "python", "eval(x)", "x = 1"),
+    );
+    assert_eq!(a.status, AuditStatus::Skipped);
+    assert!(
+        a.detail
+            .as_deref()
+            .is_some_and(|d| d
+                .ends_with("(Forge runs its pinned ruff where the project does not configure it)")),
+        "{:?}",
+        a.detail
     );
 }
 
@@ -185,6 +204,45 @@ fn a_warning_is_unsatisfied() {
         .filter(|n| n != "node_modules")
         .collect();
     assert!(left.is_empty(), "{left:?}");
+}
+
+/// Without a ruff config of the project's, Forge's ruff runs (and so the audit) with Forge's
+/// config, the rule's snippet included; with one, the project's ruff and config decide.
+#[test]
+fn ruff_without_a_project_config_selects_the_rules_codes() {
+    home();
+    let mut r = rule("ruff", "S307", "python", "eval(x)", "x = 1");
+    r.1.snippet = "[tool.ruff.lint] extend-select = [\"S307\"]".into();
+    r.0.enforce = vec![Target::Tool(r.1.clone())];
+    let d = tempfile::tempdir().unwrap();
+    // Forge's ruff (here: found on PATH, the cache having none) reports S307 for eval( only
+    // when the command line selects it; the project's own reports nothing
+    let bin = tempfile::tempdir().unwrap();
+    exe(
+        d.path(),
+        ".venv/bin/ruff",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.17.1'; exit 0 ;; esac\necho '[]'\n",
+    );
+    exe(
+        bin.path(),
+        "ruff",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.17.1'; exit 0 ;; esac\ncase \" $* \" in *'\"S307\"'*) grep -q 'eval(' && { echo '[{\"code\": \"S307\"}]'; exit 1; } ;; esac\necho '[]'\n",
+    );
+    std::fs::write(d.path().join("pyproject.toml"), "[project]\nname = \"x\"\n").unwrap();
+    let tools = LocalTools {
+        path: Some(bin.path().to_string_lossy().into_owned()),
+        ..Default::default()
+    };
+    let a = audit_target(&tools, d.path(), &r.0, &r.1, "");
+    assert_eq!(a.status, AuditStatus::Satisfied, "{a:?}");
+    // [tool.ruff]: the project's config decides, and it does not select S307
+    std::fs::write(
+        d.path().join("pyproject.toml"),
+        "[project]\nname = \"x\"\n\n[tool.ruff]\nline-length = 100\n",
+    )
+    .unwrap();
+    let a = audit_target(&tools, d.path(), &r.0, &r.1, "");
+    assert_eq!(a.status, AuditStatus::Unsatisfied, "{a:?}");
 }
 
 /// ty is Forge's pinned tool: where the project leaves ty to its defaults, Forge's runs set the

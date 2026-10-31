@@ -80,6 +80,8 @@ pub struct Env {
     pub term_program: Option<String>,
     /// `$HOME`.
     pub home_dir: Option<PathBuf>,
+    /// `$CLAUDE_CONFIG_DIR`.
+    pub claude_config_dir: Option<PathBuf>,
     /// `CLAUDE_PROJECT_DIR`.
     pub project_dir: Option<PathBuf>,
     /// `FORGE_EDIT_TYPECHECK`: `always`, `never`, else auto.
@@ -102,6 +104,7 @@ impl Env {
             env_file: var("CLAUDE_ENV_FILE").map(PathBuf::from),
             term_program: var("TERM_PROGRAM"),
             home_dir: var("HOME").map(PathBuf::from),
+            claude_config_dir: var("CLAUDE_CONFIG_DIR").map(PathBuf::from),
             project_dir: var("CLAUDE_PROJECT_DIR").map(PathBuf::from),
             edit_typecheck: var("FORGE_EDIT_TYPECHECK"),
             snapshot_cap: Duration::from_secs(
@@ -236,12 +239,14 @@ impl Runtime<'_> {
         self.home.state_root().join("user")
     }
 
-    /// The user-level setup's lock (`~/.claude/forge-user.lock`).
+    /// The user-level setup's lock, in Claude Code's config directory
+    /// (`~/.claude/forge-user.lock`).
     pub(crate) fn user_lock(&self) -> Option<PathBuf> {
-        self.env
-            .home_dir
-            .as_ref()
-            .map(|h| h.join(forge_render::lock::USER_LOCK_FILE))
+        forge_render::lock::claude_config_dir(
+            self.env.claude_config_dir.clone(),
+            self.env.home_dir.clone(),
+        )
+        .map(|d| d.join(forge_render::lock::USER_LOCK_FILE))
     }
 }
 
