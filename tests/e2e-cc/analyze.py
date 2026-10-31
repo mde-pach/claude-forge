@@ -27,7 +27,7 @@ INTERNAL_CALL = re.compile(
     r"\.cache/forge\b|\.local/state/forge\b|\bclaude-forge\b|(?:^|[;&|(\s])forge\s+\w"
     r"|\bforge\.(?:lock|yaml)\b|\.claude/settings(?:\.local)?\.json|\.git/hooks/|(?:^|/)\.forge(?:/|\b)"
 )
-INTERNAL_REASON = "Internal files of Forge, this project's quality tooling"
+INTERNAL_REASON = "Internal files of this project's quality tooling"
 # Scenarios that ask the agent to touch internals on purpose (excluded from the zero-calls count).
 PROMPTED_INTERNALS = {"internals"}
 

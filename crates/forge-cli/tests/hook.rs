@@ -111,6 +111,10 @@ impl Sandbox {
             .env_remove("FORGE_LAUNCHED_VERSION")
             .env("FORGE_ENGINE", "off")
             .env("GIT_CONFIG_NOSYSTEM", "1");
+        // the person's commands (apply, status) run outside Claude Code; hooks run either way
+        if args.first() != Some(&"hook") {
+            c.env_remove("CLAUDECODE");
+        }
         c
     }
 

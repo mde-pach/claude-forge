@@ -11,7 +11,7 @@ use crate::input::HookInput;
 use crate::review::{self, Ask};
 use crate::rules::{self, HookCache};
 use crate::snapshot::BashSnapshots;
-use crate::{INTERNAL_REASON, Output, Runtime, pre_decision, testedit};
+use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, testedit};
 
 pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let cwd = rt.cwd(input);
@@ -28,6 +28,9 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     };
     if names_internal(rt, input, &cwd, parsed.as_ref()) {
         return pre_decision("deny", INTERNAL_REASON);
+    }
+    if parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
+        return pre_decision("deny", RUN_REASON);
     }
     match (tool, parsed) {
         ("Bash", Some(parsed)) => bash(rt, input, &cwd, &parsed, user),
@@ -149,11 +152,54 @@ fn git_root(cwd: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// Whether the tool call names a file in Forge's cache or state.
+/// Forge's locks: what Forge recorded, nothing the agent's work needs.
+const LOCKS: &[&str] = &["forge.lock", "forge-user.lock"];
+
+/// Whether a Bash command runs Forge's command line: `claude-forge`, or a `forge` that is
+/// Forge (not Foundry's). The agent never operates its harness; `forge test` (a project's local
+/// rules' examples) stays open, as in the CLI.
+fn runs_forge(rt: &Runtime, parsed: &Parsed) -> bool {
+    parsed.commands.iter().any(|c| {
+        c.starts.iter().any(|&i| {
+            let forge = match c.name_at(i) {
+                "claude-forge" => true,
+                "forge" => is_forge(rt, &c.words[i].text),
+                _ => false,
+            };
+            forge && c.words.get(i + 1).is_none_or(|w| w.text != "test")
+        })
+    })
+}
+
+/// Whether `forge` (a name or a path) is this binary: it resolves to a `claude-forge`, or to the
+/// executable answering the hook.
+fn is_forge(rt: &Runtime, word: &str) -> bool {
+    let found = if word.contains('/') {
+        Some(PathBuf::from(word))
+    } else {
+        std::env::var_os("PATH").and_then(|path| {
+            std::env::split_paths(&path)
+                .map(|d| d.join(word))
+                .find(|p| p.is_file())
+        })
+    };
+    let Some(target) = found.and_then(|p| p.canonicalize().ok()) else {
+        return false;
+    };
+    target.file_name().is_some_and(|n| n == "claude-forge")
+        || rt.exe.canonicalize().is_ok_and(|e| e == target)
+}
+
+/// Whether the tool call names a file in Forge's cache or state, or one of its locks.
 fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&Parsed>) -> bool {
     let check = |s: &str, base: &Path| -> bool {
         match expand(s, base, rt.env.home_dir.as_deref()) {
-            Some(p) => rt.home.is_internal_path(&p),
+            Some(p) => {
+                rt.home.is_internal_path(&p)
+                    || p.file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|n| LOCKS.contains(&n))
+            }
             None => false,
         }
     };
@@ -195,7 +241,8 @@ fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&P
                     .chain(c.redirects.iter().map(|r| r.target.text.as_str()))
                     .any(|w| {
                         let w = w.rsplit_once('=').map_or(w, |(_, v)| v);
-                        (w.contains('/') || w.starts_with('~')) && check(w, base)
+                        (w.contains('/') || w.starts_with('~') || LOCKS.contains(&w))
+                            && check(w, base)
                     })
             })
         }

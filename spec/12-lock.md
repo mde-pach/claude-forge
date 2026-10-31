@@ -1,6 +1,6 @@
 ## 12. Lock
 
-`forge.lock` is TOML, at the repository root, written by `forge apply` and committed. The user level's lock is `~/.claude/forge-user.lock`, with the same format. Its first line, `# Generated file: do not edit.`, names no Forge command: the agent may read the file (§8.1).
+`forge.lock` is TOML, at the repository root, written by `forge apply` and committed. The user level's lock is `~/.claude/forge-user.lock`, with the same format. Its first line is `# Generated file: do not edit.`. The agent is refused reading it (§9.3): nothing of its work needs what Forge recorded.
 
 ```toml
 # Generated file: do not edit.

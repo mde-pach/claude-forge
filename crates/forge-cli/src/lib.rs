@@ -102,9 +102,28 @@ fn parse_cli() -> Cli {
     Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit())
 }
 
+/// What the agent is told when it runs Forge's command line itself.
+pub const AGENT_REFUSAL: &str = "This project's checks run by themselves after each edit and when you stop; they are not run by hand.";
+
+/// Whether this run comes from a Claude Code agent's command (`CLAUDECODE` is set) and is not one
+/// of the hook entries or what they start (`hook`, `internal`, `engine`): Forge is the agent's
+/// harness, never a tool it operates. `forge test` stays open: it runs a project's local rules'
+/// examples, which the agent writes when asked to, and checks nothing of its work.
+fn run_by_the_agent() -> bool {
+    std::env::var_os("CLAUDECODE").is_some_and(|v| !v.is_empty())
+        && !matches!(
+            std::env::args().nth(1).as_deref(),
+            Some("hook" | "internal" | "engine" | "test")
+        )
+}
+
 pub fn main() -> ExitCode {
     if let Some(code) = provisioning::intercept() {
         return code;
+    }
+    if run_by_the_agent() {
+        eprintln!("{AGENT_REFUSAL}");
+        return ExitCode::from(1);
     }
     provisioning::use_forge_path();
     // Runs the version pinned in forge.lock (execs it and never returns) when it is not this one;

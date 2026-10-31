@@ -322,7 +322,7 @@ mod tests {
             }],
         };
         let text = lock.render();
-        // The agent may read the lock: its header names no Forge command.
+        // The header names no Forge command (the agent is refused the lock, §9.3).
         let header = text.lines().next().unwrap();
         assert_eq!(header, "# Generated file: do not edit.");
         assert!(forge_core::internals::find(header).is_empty(), "{header}");

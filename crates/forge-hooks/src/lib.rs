@@ -45,7 +45,9 @@ pub use checker::{
 pub use input::HookInput;
 
 /// The reason the agent reads when it reaches for Forge's own files.
-pub const INTERNAL_REASON: &str = "Internal files of Forge, this project's quality tooling, used by Claude Code hooks; its checks run automatically on your edits; nothing here is needed for your task.";
+pub const INTERNAL_REASON: &str = "Internal files of this project's quality tooling: its checks run by themselves after each edit and when you stop; nothing here is needed for your task.";
+/// The refusal of a Bash command that runs Forge's command line (the CLI refuses it too).
+pub const RUN_REASON: &str = "This project's checks run by themselves after each edit and when you stop; they are not run by hand.";
 
 /// The events `forge hook` answers.
 pub const EVENTS: &[&str] = &[

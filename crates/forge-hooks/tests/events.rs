@@ -8,7 +8,7 @@ use std::time::Duration;
 use forge_core::{Finding, Note, NoteKind, Report};
 use forge_home::{Home, RepoId};
 use forge_hooks::{
-    Checker, Env, INTERNAL_REASON, Output, Runtime, StopOutcome, StopStatus, TestBlock,
+    Checker, Env, INTERNAL_REASON, Output, RUN_REASON, Runtime, StopOutcome, StopStatus, TestBlock,
     TestEditRule,
 };
 use serde_json::{Value, json};
@@ -266,6 +266,62 @@ fn user_guard_reads_commands_not_messages() {
         json_out(&out)["hookSpecificOutput"]["permissionDecision"],
         "deny"
     );
+}
+
+/// The agent never operates Forge: a command that runs its command line is refused (a `forge`
+/// that is Foundry's runs), and its locks are internal files.
+#[test]
+fn running_forge_and_reading_its_locks_are_refused() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let bin = s.root.parent().unwrap().join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::write(bin.join("claude-forge"), "#!/bin/sh\n").unwrap();
+    std::os::unix::fs::symlink(bin.join("claude-forge"), bin.join("forge")).unwrap();
+    let foundry = s.root.parent().unwrap().join("foundry");
+    std::fs::create_dir_all(&foundry).unwrap();
+    std::fs::write(foundry.join("forge"), "#!/bin/sh\n").unwrap();
+    for cmd in [
+        "claude-forge status".to_string(),
+        "cd app && claude-forge check --all | head".to_string(),
+        "FOO=1 claude-forge explain python/lint".to_string(),
+        format!("{}/forge --help", bin.display()),
+    ] {
+        let v = json_out(&s.run(&f, "pre-tool-use", bash(&cmd, "f1")));
+        assert_eq!(
+            v["hookSpecificOutput"]["permissionDecision"], "deny",
+            "{cmd}"
+        );
+        assert_eq!(
+            v["hookSpecificOutput"]["permissionDecisionReason"],
+            RUN_REASON
+        );
+    }
+    for cmd in [
+        format!("{}/forge build", foundry.display()),
+        "echo claude-forge".to_string(),
+        "claude-forge test --json".to_string(),
+        "git log --grep forge".to_string(),
+    ] {
+        let out = s.run(&f, "pre-tool-use", bash(&cmd, "f2"));
+        assert!(
+            !out.stdout.contains("not run by hand"),
+            "{cmd}: {}",
+            out.stdout
+        );
+    }
+    for c in [
+        json!({"tool_name": "Read", "tool_input": {"file_path": s.root.join("forge.lock")}}),
+        bash("cat forge.lock", "f3"),
+        bash("head -c 500 ./forge.lock", "f4"),
+    ] {
+        let v = json_out(&s.run(&f, "pre-tool-use", c.clone()));
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny", "{c}");
+        assert_eq!(
+            v["hookSpecificOutput"]["permissionDecisionReason"],
+            INTERNAL_REASON
+        );
+    }
 }
 
 #[test]

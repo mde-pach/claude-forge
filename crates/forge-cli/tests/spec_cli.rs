@@ -93,6 +93,7 @@ impl Sandbox {
             Some(d) => cmd.env("CLAUDE_CONFIG_DIR", d),
             None => cmd.env_remove("CLAUDE_CONFIG_DIR"),
         };
+        cmd.env_remove("CLAUDECODE");
         cmd.args(args)
             .current_dir(dir)
             .env("PATH", self.path())
@@ -605,6 +606,66 @@ fn user_level_setup() {
     s.ok(&["remove", "--user", "--yes"]);
     assert!(!s.home.join(".claude/forge-user.lock").exists());
     assert!(!s.home.join(".claude/settings.json").exists());
+}
+
+/// Inside a Claude Code agent's command (`CLAUDECODE` set), Forge's command line refuses to run:
+/// the agent's harness is not a tool it operates. The hook entries still run, and `forge test`
+/// (`forge_test.rs` runs it with `CLAUDECODE`).
+#[test]
+fn the_agent_cannot_run_forge() {
+    let s = Sandbox::new(PY);
+    s.ok(&["apply", "--yes"]);
+    for args in [
+        &["status"][..],
+        &["check", "--all"],
+        &["--help"],
+        &["--version"],
+    ] {
+        let out = Command::new(env!("CARGO_BIN_EXE_forge"))
+            .args(args)
+            .current_dir(&s.repo)
+            .env("HOME", &s.home)
+            .env("FORGE_HOME", &s.forge_home)
+            .env("FORGE_NO_DOWNLOAD", "1")
+            .env("CLAUDECODE", "1")
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1), "{args:?}");
+        assert!(out.stdout.is_empty(), "{args:?}");
+        assert_eq!(
+            stderr(&out).trim(),
+            "This project's checks run by themselves after each edit and when you stop; they are not run by hand.",
+            "{args:?}"
+        );
+    }
+    let mut hook = Command::new(env!("CARGO_BIN_EXE_forge"))
+        .args(["hook", "user-prompt-submit"])
+        .current_dir(&s.repo)
+        .env("HOME", &s.home)
+        .env("FORGE_HOME", &s.forge_home)
+        .env("FORGE_NO_DOWNLOAD", "1")
+        .env("CLAUDECODE", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        use std::io::Write;
+        let input = format!(
+            "{{\"session_id\":\"s\",\"cwd\":{:?},\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"x\"}}",
+            s.repo.display().to_string()
+        );
+        hook.stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+    }
+    let out = hook.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert!(!stderr(&out).contains("not run by hand"));
 }
 
 /// The user level is Claude Code's config directory: `$CLAUDE_CONFIG_DIR` when set.
