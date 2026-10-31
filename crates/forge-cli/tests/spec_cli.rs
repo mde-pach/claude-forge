@@ -608,6 +608,27 @@ fn user_level_setup() {
     assert!(!s.home.join(".claude/settings.json").exists());
 }
 
+/// apply offers uv's cooldown to a uv project that lacks it, adding only the missing keys.
+#[test]
+fn apply_adds_the_uv_cooldown() {
+    let s = Sandbox::new(&[(
+        "pyproject.toml",
+        "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n",
+    )]);
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: pyproject.toml: added [tool.uv] exclude-newer and required-version"),
+        "{out}"
+    );
+    let py = s.read("pyproject.toml").unwrap();
+    assert!(
+        py.ends_with("\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"),
+        "{py}"
+    );
+    // once there, nothing more is offered
+    assert!(!s.ok(&["apply", "--yes"]).contains("pyproject.toml: added"));
+}
+
 /// Inside a Claude Code agent's command (`CLAUDECODE` set), Forge's command line refuses to run:
 /// the agent's harness is not a tool it operates. The hook entries still run, and `forge test`
 /// (`forge_test.rs` runs it with `CLAUDECODE`).

@@ -68,6 +68,8 @@ The installed binary is a launcher. Before any command it reads the repository's
 
 ### 3.5 What `apply` reports
 
+Before reporting, at project level, when `python/uv/exclude-newer` is active and `pyproject.toml` (with no `uv.toml`) lacks `[tool.uv]` `exclude-newer` or `required-version`, `apply` shows the diff that adds the missing keys (`exclude-newer = "7 days"`, `required-version = ">=0.9.17"`; under the file's `[tool.uv]` header, else in a new table at the end; a value the project set is never changed) and asks `forge: add uv's cooldown to pyproject.toml (…)?`; `--yes` accepts. Accepted: `forge: pyproject.toml: added [tool.uv] exclude-newer and required-version; commit it with Forge's files`. Without a terminal and without `--yes`: `forge: pyproject.toml has no uv cooldown (…); re-run with --yes to add it`, and nothing is written. The setting is the project's setup: in a change, the check reports only what the change broke (§10.5). Test: `crates/forge-cli/tests/spec_cli.rs::apply_adds_the_uv_cooldown`.
+
 After writing, `apply` prints, for the person only:
 
 - `forge: applied (<n> written, <m> deleted, <k> settings file(s) updated)` or `forge: up to date`;

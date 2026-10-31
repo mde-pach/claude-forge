@@ -295,6 +295,45 @@ fn ruff_selects_the_active_rules_codes_unless_the_project_configures_it() {
     assert_eq!(code, 0, "{v}");
 }
 
+/// uv's cooldown in a change: what the change broke is a finding; a setting the project already
+/// lacked is not the agent's to fix (forge apply offers it), even when the change touches the
+/// lock; the whole project (`--all`) reports it.
+#[test]
+fn the_uv_cooldown_blocks_only_what_the_change_broke() {
+    let rule = ["python/uv/exclude-newer"];
+    let bare = "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n";
+    let r = Repo::new(&files(&[("pyproject.toml", bare)]));
+    write(r.path(), &files(&[("uv.lock", "version = 1\n")]));
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 0, "{v}");
+    assert!(findings_of(&v, rule[0]).is_empty(), "{v}");
+    let (code, v) = r.check(&["--all"], &rule, PATH);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(findings_of(&v, rule[0]).len(), 2, "{v}");
+    // a change that drops the cooldown the project had
+    let good =
+        format!("{bare}\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n");
+    let r = Repo::new(&files(&[("pyproject.toml", &good)]));
+    write(
+        r.path(),
+        &files(&[(
+            "pyproject.toml",
+            &format!("{bare}\n[tool.uv]\nrequired-version = \">=0.9.17\"\n"),
+        )]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 1, "{v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("exclude-newer is unset"),
+        "{v}"
+    );
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as

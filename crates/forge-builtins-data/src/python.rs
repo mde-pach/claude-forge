@@ -128,24 +128,54 @@ pub fn stub_sync(run: &Run<'_>, _args: &[String]) -> Report {
 
 /// `forge_uv_cooldown`: [tool.uv] (or uv.toml) exclude-newer is a relative duration of at least
 /// the cooldown, and required-version asks for uv >= 0.9.17 (older uv ignores relative values).
+/// In a change, only what the change broke: a setting the base already lacked is the project's
+/// setup, which `forge apply` offers and `forge status` reports, not the agent's to fix (§10).
 pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
     let (file, section) = if run.exists("uv.toml") {
         ("uv.toml", "")
     } else {
         ("pyproject.toml", "tool.uv")
     };
+    let text = run.read(file).unwrap_or_default();
+    let min = run.opts.cooldown.as_secs();
+    let now = cooldown_problems(&text, file, section, min);
+    let before = if run.all() {
+        Vec::new()
+    } else if run.changed().iter().any(|c| c == file) {
+        // a file the change created had nothing before
+        run.base(file)
+            .map(|b| cooldown_problems(&b, file, section, min))
+            .unwrap_or_default()
+    } else {
+        now.clone()
+    };
+    let mut r = Report::default();
+    for (key, message) in now {
+        if !before.iter().any(|(k, _)| *k == key) {
+            r.findings.push(run.finding(message));
+        }
+    }
+    r
+}
+
+/// What a uv config lacks of the cooldown: (setting, the finding's text).
+fn cooldown_problems(
+    text: &str,
+    file: &str,
+    section: &str,
+    min: u64,
+) -> Vec<(&'static str, String)> {
     let shown = if section.is_empty() {
         "top level"
     } else {
         section
     };
-    let text = run.read(file).unwrap_or_default();
-    let min = run.opts.cooldown.as_secs();
-    let mut r = Report::default();
-    let v = toml_get(&text, section, "exclude-newer").unwrap_or_default();
+    let mut out = Vec::new();
+    let v = toml_get(text, section, "exclude-newer").unwrap_or_default();
     if duration_seconds(&v).is_none_or(|n| n < min) {
         let example = duration_text(min.max(604_800));
-        r.findings.push(run.finding(
+        out.push((
+            "exclude-newer",
             format!(
                 "{file}: [{shown}] exclude-newer is {}; set a relative duration of at least {}, e.g. exclude-newer = \"{example}\", so a freshly published (possibly compromised) version is not resolved.",
                 if v.is_empty() { "unset" } else { &v },
@@ -153,17 +183,18 @@ pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
             ),
         ));
     }
-    let req = toml_get(&text, section, "required-version").unwrap_or_default();
+    let req = toml_get(text, section, "required-version").unwrap_or_default();
     let lower = re(r"^[ \t]*(?:>=|==|~=|>)[ \t]*([0-9][0-9.]*)")
         .captures(&req)
         .map(|c| c[1].to_owned());
     if lower.is_none_or(|m| !version_ge(&m, "0.9.17")) {
-        r.findings.push(run.finding(
+        out.push((
+            "required-version",
             format!(
                 "{file}: [{shown}] required-version is {}; set required-version = \">=0.9.17\" (older uv ignores a relative exclude-newer).",
                 if req.is_empty() { "unset" } else { &req }
             ),
         ));
     }
-    r
+    out
 }

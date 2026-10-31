@@ -1,5 +1,7 @@
 //! `forge apply`, `forge diff` and `forge init`.
 
+use std::io::IsTerminal;
+
 use forge_packs::model::{Level, PackSource};
 use forge_render::changes::{Changes, line_diff};
 use forge_render::plan::display_path;
@@ -142,6 +144,7 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
         ch = ctx.changes()?;
     }
     write(&ctx, &ch)?;
+    offer_uv_cooldown(&ctx, flags)?;
     if ctx.level == Level::Project {
         provision(&ctx);
     }
@@ -160,6 +163,96 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     report(&ctx, probe);
     Ok(0)
+}
+
+/// The settings `python/uv/exclude-newer` asks of the project, as apply adds them.
+const UV_COOLDOWN: [(&str, &str); 2] = [
+    ("exclude-newer", "\"7 days\""),
+    ("required-version", "\">=0.9.17\""),
+];
+
+/// `pyproject.toml` with the `[tool.uv]` keys of [`UV_COOLDOWN`] it lacks: under its
+/// `[tool.uv]` header, else in a new table at the end. A value the project set is never
+/// changed. `None`: nothing to add, or a file it cannot read as TOML.
+fn with_uv_cooldown(text: &str) -> Option<String> {
+    let doc: toml::Table = text.parse().ok()?;
+    let uv = doc
+        .get("tool")
+        .and_then(|t| t.get("uv"))
+        .and_then(|u| u.as_table());
+    let missing: Vec<String> = UV_COOLDOWN
+        .iter()
+        .filter(|(k, _)| uv.is_none_or(|u| !u.contains_key(*k)))
+        .map(|(k, v)| format!("{k} = {v}"))
+        .collect();
+    if missing.is_empty() {
+        return None;
+    }
+    let header = text
+        .lines()
+        .position(|l| l.trim().replace(' ', "") == "[tool.uv]");
+    let out = match header {
+        Some(i) => {
+            let mut lines: Vec<&str> = text.lines().collect();
+            for (n, m) in missing.iter().enumerate() {
+                lines.insert(i + 1 + n, m);
+            }
+            let mut t = lines.join("\n");
+            t.push('\n');
+            t
+        }
+        None => {
+            let mut t = text.trim_end().to_string();
+            t.push_str("\n\n[tool.uv]\n");
+            for m in &missing {
+                t.push_str(m);
+                t.push('\n');
+            }
+            t
+        }
+    };
+    out.parse::<toml::Table>().ok().map(|_| out)
+}
+
+/// Offers what `python/uv/exclude-newer` asks of the project when it is active and
+/// `pyproject.toml` lacks it: a setting of the project, for the person to accept here, never
+/// one the agent is sent to add (the check reports only what a change itself breaks, §10).
+/// Without a terminal and without `--yes`, it is left for `forge status` to report.
+fn offer_uv_cooldown(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
+    if ctx.level != Level::Project
+        || !ctx
+            .plan
+            .active
+            .iter()
+            .any(|st| st.rule.id == "python/uv/exclude-newer")
+        || ctx.base.join("uv.toml").is_file()
+    {
+        return Ok(());
+    }
+    let path = ctx.base.join("pyproject.toml");
+    let Some(before) = std::fs::read_to_string(&path).ok() else {
+        return Ok(());
+    };
+    let Some(after) = with_uv_cooldown(&before) else {
+        return Ok(());
+    };
+    if !flags.yes && !std::io::stdin().is_terminal() {
+        println!(
+            "forge: pyproject.toml has no uv cooldown ([tool.uv] exclude-newer, required-version); re-run with --yes to add it"
+        );
+        return Ok(());
+    }
+    show_diff(Some(&before), Some(&after), "pyproject.toml");
+    if confirm(
+        "add uv's cooldown to pyproject.toml (uv then resolves only versions published at least 7 days ago)?",
+        flags.yes,
+    )? {
+        write_text(&path, &after, false)?;
+        println!(
+            "forge: pyproject.toml: added [tool.uv] exclude-newer and required-version; commit it with Forge's files"
+        );
+    }
+    Ok(())
 }
 
 /// Installs the tools the lock pins that this setup uses: uv (Forge's PATH directory for the
@@ -359,4 +452,27 @@ fn switch_offs(file: &str, text: &str, ctx: &Ctx) -> Option<String> {
         .ok()?;
     }
     Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_uv_cooldown;
+
+    #[test]
+    fn the_uv_cooldown_is_added_where_missing() {
+        let plain = "[project]\nname = \"x\"\n";
+        assert_eq!(
+            with_uv_cooldown(plain).unwrap(),
+            "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"
+        );
+        // under an existing [tool.uv]; a value the project set is kept
+        let some = "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"2 days\"\n";
+        assert_eq!(
+            with_uv_cooldown(some).unwrap(),
+            "[project]\nname = \"x\"\n\n[tool.uv]\nrequired-version = \">=0.9.17\"\nexclude-newer = \"2 days\"\n"
+        );
+        let done = "[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n";
+        assert!(with_uv_cooldown(done).is_none());
+        assert!(with_uv_cooldown("not = = toml").is_none());
+    }
 }

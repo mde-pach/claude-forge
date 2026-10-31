@@ -83,6 +83,8 @@ Advice never stops the steps after it.
 
 The `python/config-ratchet` and `typescript/config-ratchet` rules run `forge_ratchet`: each changed tool config is compared with its base copy, and each loosened setting is a finding, followed by `Restore the setting, or ask the user to accept this change.` Python configs: `pyproject.toml`, `ruff.toml`, `.ruff.toml`, `ty.toml`, `mypy.ini`, `.mypy.ini`, `pyrightconfig.json` (ruff, ty, pytest, coverage, mypy, pyright, basedpyright settings). JavaScript configs: `biome.json`, `biome.jsonc`, `tsconfig*.json`, and `package.json` check scripts. Other rules a person may accept end with `Restore it, or ask the user to accept this change.` (`forge_accept_hint`).
 
+**Project setup is not the change's.** `forge_uv_cooldown` (`python/uv/exclude-newer`) checks `uv.toml`, else `pyproject.toml`'s `[tool.uv]`. With `--all` it reports every missing or weak setting. In a change (`--changed`, `--since`, the turn) it reports a setting only when the change made it missing or weak: the file changed and its base copy had it right, or the change created the file. A setting the project already lacked is its setup, which `forge apply` offers (§3.5) and `forge status` reports, not the agent's to fix. Test: `crates/forge-cli/tests/check.rs::the_uv_cooldown_blocks_only_what_the_change_broke`.
+
 A person accepts a finding in `forge.yaml`:
 
 ```yaml
