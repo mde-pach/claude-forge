@@ -892,7 +892,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `python/uv/dependency-groups` | Development dependencies live in [dependency-groups] (PEP 735, uv add --dev), not in the deprecated [tool.uv] dev-dependencies. | any: `**/pyproject.toml` | grep forbid `^[[:space:]]*dev-dependencies[[:space:]]*=` |
 | `python/uv/exclude-newer` | uv resolves only versions published at least 3 days ago ([tool.uv] exclude-newer set to a relative duration such as "7 days") and requires uv >= 0.9.17, which understands relative values. | any | check lint: `forge_uv_cooldown` (when `pyproject.toml`, `uv.toml` or `uv.lock` changes) |
-| `python/uv/lock-sync` | uv.lock matches pyproject.toml. | any | check lint: `forge_do uv lock-check` (when `pyproject.toml` changes) |
+| `python/uv/lock-sync` | uv.lock matches pyproject.toml. | any | check lint: `forge_uv_lock` (when `pyproject.toml` or `uv.lock` changes) |
 | `python/uv/no-pip` | Dependencies are added with uv add and the environment is uv's; Claude asks before other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv. | any | guard ask: command `{name: [poetry, pdm], sub: [add\|install]}` or `{name: pipenv, sub: [install]}` or `{name: [conda, mamba, micromamba], sub: [install]}` or `{name: [venv, virtualenv]}` |
 | `python/uv/no-requirements-txt` | Claude asks you before writing or editing requirements*.txt in a uv project; dependencies go through uv add, and uv export writes a requirements file for consumers that need one. | any | permission ask `Write(**/requirements*.txt)`<br>permission ask `Edit(**/requirements*.txt)` |
 

@@ -37,6 +37,7 @@ ranges:
     source: "uv changelogs/0.3.x.md 0.3.0 (projects stable); changelogs/0.4.x.md 0.4.5 (uv build, #6895)"
     ops:
       "build-wheel": null
+      "lock": "lock --quiet"
       "lock-check": "lock --locked"
       "run-python": "run --no-project --quiet python -I -c"
   - from: "0.4.5"
@@ -44,11 +45,13 @@ ranges:
     source: "uv changelogs/0.4.x.md 0.4.5 (Implement uv build, #6895; uv run reflects the exit code)"
     ops:
       "build-wheel": "build --wheel --quiet -o"
+      "lock": "lock --quiet"
       "lock-check": "lock --locked"
       "run-python": "run --no-project --quiet python -I -c"
   - from: "0.5.8"
     source: "uv changelogs/0.5.x.md 0.5.8 (--locked/--frozen reframed as --check for uv lock); changelogs/0.8.x.md 0.8.0 (#14167: stale lock exits 1)"
     ops:
       "build-wheel": "build --wheel --quiet -o"
+      "lock": "lock --quiet"
       "lock-check": "lock --check"
       "run-python": "run --no-project --quiet python -I -c"

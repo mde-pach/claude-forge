@@ -95,6 +95,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "typeorm_pending",
     "untested_change",
     "uv_cooldown",
+    "uv_lock",
     "version_changed",
     "zizmor",
 ];

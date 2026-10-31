@@ -334,6 +334,83 @@ fn the_uv_cooldown_blocks_only_what_the_change_broke() {
     );
 }
 
+/// uv.lock is kept in sync rather than reported: a stale lock is relocked (advice in the turn; at
+/// commit, a refusal to commit again with it; in CI, a finding and nothing written); a lock the
+/// project never had is not the change's; a pyproject.toml that does not resolve is a finding.
+#[test]
+fn the_uv_lock_is_kept_in_sync() {
+    let uv = "#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.13.1'; exit 0 ;; esac\nif [ \"$1 $2\" = 'lock --check' ]; then grep -q synced uv.lock 2>/dev/null && exit 0; echo 'error: The lockfile at `uv.lock` needs to be updated' >&2; exit 1; fi\nif [ \"$1\" = lock ]; then [ -f FAIL ] && { echo 'error: No solution found when resolving dependencies' >&2; exit 1; }; echo synced > uv.lock; exit 0; fi\nexit 0\n";
+    let bin = tempfile::tempdir().unwrap();
+    write(bin.path(), &files(&[("uv", uv)]));
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(
+        bin.path().join("uv"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let path = format!("{}:{PATH}", bin.path().display());
+    let rule = ["python/uv/lock-sync"];
+    let py = "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\ndependencies = []\n";
+    let edited = py.replace("[]", "[\"httpx\"]");
+    // no lock, before or after: setup, not the change's
+    let r = Repo::new(&files(&[("pyproject.toml", py)]));
+    write(r.path(), &files(&[("pyproject.toml", &edited)]));
+    let snap = r.snap.path().display().to_string();
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 0, "{v}");
+    assert!(findings_of(&v, rule[0]).is_empty(), "{v}");
+    assert!(!r.path().join("uv.lock").exists());
+    // CI: the missing lock is reported
+    let (code, v) = r.check(&["--all"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    // a stale lock in the turn: relocked, advice
+    let r = Repo::new(&files(&[("pyproject.toml", py), ("uv.lock", "synced\n")]));
+    write(
+        r.path(),
+        &files(&[("pyproject.toml", &edited), ("uv.lock", "old\n")]),
+    );
+    let snap = r.snap.path().display().to_string();
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 4, "advice only: {v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert_eq!(f[0]["severity"], "advice", "{v}");
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("uv.lock")).unwrap(),
+        "synced\n"
+    );
+    // at commit: relocked, and the commit is refused once
+    write(r.path(), &files(&[("uv.lock", "old\n")]));
+    let (code, v) = r.check(&["--changed"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("Add it and commit again"),
+        "{v}"
+    );
+    // CI never writes
+    write(r.path(), &files(&[("uv.lock", "old\n")]));
+    let (code, v) = r.check(&["--all"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("uv.lock")).unwrap(),
+        "old\n"
+    );
+    // a pyproject.toml that does not resolve
+    write(r.path(), &files(&[("FAIL", "")]));
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("No solution found"),
+        "{v}"
+    );
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as

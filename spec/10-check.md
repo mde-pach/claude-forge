@@ -85,6 +85,8 @@ The `python/config-ratchet` and `typescript/config-ratchet` rules run `forge_rat
 
 **Project setup is not the change's.** `forge_uv_cooldown` (`python/uv/exclude-newer`) checks `uv.toml`, else `pyproject.toml`'s `[tool.uv]`. With `--all` it reports every missing or weak setting. In a change (`--changed`, `--since`, the turn) it reports a setting only when the change made it missing or weak: the file changed and its base copy had it right, or the change created the file. A setting the project already lacked is its setup, which `forge apply` offers (§3.5) and `forge status` reports, not the agent's to fix. Test: `crates/forge-cli/tests/check.rs::the_uv_cooldown_blocks_only_what_the_change_broke`.
 
+**A derived lock is kept, not reported.** `forge_uv_lock` (`python/uv/lock-sync`) runs `uv lock --check` when the change touched `pyproject.toml` or `uv.lock`. A stale lock is relocked with `uv lock`: in the turn, the advice `uv.lock was updated to match pyproject.toml.`; in a commit (`--changed`), the finding `… Add it and commit again.`, which refuses the commit once with the new lock in the tree; in CI (`--all`, `--since`) nothing is written, and a stale or missing lock is a finding. A change is not held to a lock the project never had (no `uv.lock` before or after): creating it is setup, which `forge apply` offers (§3.5). A `pyproject.toml` that does not resolve is a finding with uv's error. After an edit, the background hook relocks too (§8.7). Test: `crates/forge-cli/tests/check.rs::the_uv_lock_is_kept_in_sync`.
+
 A person accepts a finding in `forge.yaml`:
 
 ```yaml

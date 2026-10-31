@@ -608,17 +608,31 @@ fn user_level_setup() {
     assert!(!s.home.join(".claude/settings.json").exists());
 }
 
-/// apply offers uv's cooldown to a uv project that lacks it, adding only the missing keys.
+/// apply offers the uv setup a uv project lacks: the cooldown's missing keys in pyproject.toml,
+/// and a uv.lock that matches it (`uv lock`).
 #[test]
 fn apply_adds_the_uv_cooldown() {
     let s = Sandbox::new(&[(
         "pyproject.toml",
         "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n",
     )]);
+    // a uv whose lock records the pyproject.toml it read
+    let uv = s.bin.join("uv");
+    std::fs::write(
+        &uv,
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.13.1'; exit 0 ;; lock) cp pyproject.toml uv.lock ;; esac\n",
+    )
+    .unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&uv, std::fs::Permissions::from_mode(0o755)).unwrap();
     let out = s.ok(&["apply", "--yes"]);
     assert!(
-        out.contains("forge: pyproject.toml: added [tool.uv] exclude-newer and required-version"),
+        out.contains("forge: pyproject.toml: added [tool.uv] exclude-newer and required-version, uv.lock created; commit them with Forge's files"),
         "{out}"
+    );
+    assert!(
+        s.read("uv.lock").unwrap().contains("exclude-newer"),
+        "locked after the edit"
     );
     let py = s.read("pyproject.toml").unwrap();
     assert!(

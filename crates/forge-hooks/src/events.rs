@@ -470,6 +470,7 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
     let Some(cache) = p.rules(&rt.home) else {
         return Output::silent();
     };
+    let relocked = relock(&p, &cache, &files);
     let mut by_lang: Vec<(Lang, Vec<String>)> = Vec::new();
     for f in files {
         let Some(l) = lang_of(&f) else { continue };
@@ -481,11 +482,15 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
             None => by_lang.push((l, vec![f])),
         }
     }
-    if by_lang.is_empty() {
-        return Output::silent();
-    }
-    let Some(client) = engine::running(&rt.home, &p.id, Duration::from_secs(120)) else {
-        return Output::silent();
+    let client = if by_lang.is_empty() {
+        None
+    } else {
+        engine::running(&rt.home, &p.id, Duration::from_secs(120))
+    };
+    let by_lang = if client.is_some() {
+        by_lang
+    } else {
+        Vec::new()
     };
     let tmp = p
         .session_dir
@@ -500,6 +505,7 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
                 base: base_copy(&p, f, &tmp),
             })
             .collect();
+        let Some(client) = &client else { break };
         match client.diagnostics(lang, &diag_files, false) {
             Ok(d) => lines.extend(d.iter().map(|d| d.concise())),
             Err(forge_engine::EngineError::Loading) => {}
@@ -522,19 +528,58 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
         }
     }
     p.note(&notes);
-    if lines.is_empty() {
-        return Output::silent();
+    let mut text = String::new();
+    if !lines.is_empty() {
+        let n = lines.len();
+        lines.truncate(20);
+        if n > 20 {
+            lines.push(format!("({} more)", n - 20));
+        }
+        text.push_str(&format!(
+            "This edit added type errors:\n{}\n",
+            lines.join("\n")
+        ));
     }
-    let n = lines.len();
-    lines.truncate(20);
-    if n > 20 {
-        lines.push(format!("({} more)", n - 20));
+    if let Some(r) = relocked {
+        text.push_str(&format!("{r}\n"));
+    }
+    if text.is_empty() {
+        return Output::silent();
     }
     Output {
         stdout: String::new(),
-        stderr: format!("This edit added type errors:\n{}\n", lines.join("\n")),
+        stderr: text,
         code: 2,
     }
+}
+
+/// After an edit to the uv config, a stale `uv.lock` relocked (`python/uv/lock-sync`): the lock
+/// is derived, so Forge keeps it in sync instead of reporting it (§10.5). Only a lock the project
+/// has: creating one is setup (`forge apply`). A pyproject.toml that does not resolve is left to
+/// the Stop check, which reports uv's error.
+fn relock(p: &Project, cache: &crate::rules::HookCache, files: &[String]) -> Option<&'static str> {
+    if !cache.has_rule("python/uv/lock-sync")
+        || !files
+            .iter()
+            .any(|f| f == "pyproject.toml" || f == "uv.toml")
+        || !p.root.join("uv.lock").is_file()
+    {
+        return None;
+    }
+    let uv = |args: &[&str]| {
+        Command::new("uv")
+            .args(args)
+            .current_dir(&p.root)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    };
+    if uv(&["lock", "--check"]) || !uv(&["lock", "--quiet"]) {
+        return None;
+    }
+    Some("uv.lock was updated to match pyproject.toml.")
 }
 
 /// `file` as it was at the start of the turn, copied under `tmp`; None when it is new.

@@ -57,6 +57,7 @@ const HELPER_TOOLS: &[(&str, &str)] = &[
     (r"\bforge_tf_validate\b", "terraform"),
     (r"\bforge_helm\b", "helm"),
     (r"\bforge_sqlfluff\b", "sqlfluff"),
+    (r"\bforge_uv_lock\b", "uv"),
 ];
 
 fn escape(t: &str) -> String {

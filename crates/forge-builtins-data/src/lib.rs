@@ -101,6 +101,7 @@ const ALL: &[(&str, RunFn)] = &[
     ("stub_sync", python::stub_sync),
     ("condor", dead_code::condor),
     ("uv_cooldown", python::uv_cooldown),
+    ("uv_lock", python::uv_lock),
     ("env_example", env::env_example),
     ("version_changed", release::version_changed),
     ("release_notes", release::release_notes),

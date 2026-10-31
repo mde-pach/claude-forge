@@ -144,10 +144,10 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
         ch = ctx.changes()?;
     }
     write(&ctx, &ch)?;
-    offer_uv_cooldown(&ctx, flags)?;
     if ctx.level == Level::Project {
         provision(&ctx);
     }
+    offer_uv_setup(&ctx, flags)?;
     for o in &ch.overridden {
         eprintln!("forge: {o}");
     }
@@ -214,43 +214,87 @@ fn with_uv_cooldown(text: &str) -> Option<String> {
     out.parse::<toml::Table>().ok().map(|_| out)
 }
 
-/// Offers what `python/uv/exclude-newer` asks of the project when it is active and
-/// `pyproject.toml` lacks it: a setting of the project, for the person to accept here, never
-/// one the agent is sent to add (the check reports only what a change itself breaks, §10).
-/// Without a terminal and without `--yes`, it is left for `forge status` to report.
-fn offer_uv_cooldown(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
-    if ctx.level != Level::Project
-        || !ctx
-            .plan
-            .active
-            .iter()
-            .any(|st| st.rule.id == "python/uv/exclude-newer")
-        || ctx.base.join("uv.toml").is_file()
-    {
+/// Offers the uv setup the active rules ask of the project, where it lacks it: uv's cooldown in
+/// `pyproject.toml` (`python/uv/exclude-newer`), and a `uv.lock` matching it
+/// (`python/uv/lock-sync`), which `uv lock` creates or updates after the cooldown changed what
+/// resolves. Setup is the person's, accepted here; the agent is never sent to add it (a change is
+/// held only to what it broke, §10.5). Without a terminal and without `--yes`, it is left for
+/// `forge status` to report.
+fn offer_uv_setup(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
+    let active = |id: &str| ctx.plan.active.iter().any(|st| st.rule.id == id);
+    if ctx.level != Level::Project || ctx.base.join("uv.toml").is_file() {
         return Ok(());
     }
     let path = ctx.base.join("pyproject.toml");
     let Some(before) = std::fs::read_to_string(&path).ok() else {
         return Ok(());
     };
-    let Some(after) = with_uv_cooldown(&before) else {
-        return Ok(());
+    let cooldown = if active("python/uv/exclude-newer") {
+        with_uv_cooldown(&before)
+    } else {
+        None
     };
-    if !flags.yes && !std::io::stdin().is_terminal() {
-        println!(
-            "forge: pyproject.toml has no uv cooldown ([tool.uv] exclude-newer, required-version); re-run with --yes to add it"
-        );
+    let no_lock = !ctx.base.join("uv.lock").is_file();
+    let lock = active("python/uv/lock-sync") && (no_lock || cooldown.is_some());
+    if cooldown.is_none() && !lock {
         return Ok(());
     }
-    show_diff(Some(&before), Some(&after), "pyproject.toml");
-    if confirm(
-        "add uv's cooldown to pyproject.toml (uv then resolves only versions published at least 7 days ago)?",
+    let what = match (&cooldown, lock, no_lock) {
+        (Some(_), true, true) => {
+            "add uv's cooldown to pyproject.toml and create uv.lock with `uv lock`"
+        }
+        (Some(_), true, false) => {
+            "add uv's cooldown to pyproject.toml and update uv.lock with `uv lock`"
+        }
+        (Some(_), false, _) => "add uv's cooldown to pyproject.toml",
+        (None, _, _) => "create uv.lock with `uv lock`",
+    };
+    if !flags.yes && !std::io::stdin().is_terminal() {
+        println!("forge: the project's uv setup is incomplete; re-run with --yes to {what}");
+        return Ok(());
+    }
+    if let Some(after) = &cooldown {
+        show_diff(Some(&before), Some(after), "pyproject.toml");
+    }
+    if !confirm(
+        &format!("{what} (uv then resolves only versions published at least 7 days ago)?"),
         flags.yes,
     )? {
-        write_text(&path, &after, false)?;
-        println!(
-            "forge: pyproject.toml: added [tool.uv] exclude-newer and required-version; commit it with Forge's files"
-        );
+        return Ok(());
+    }
+    let mut done = Vec::new();
+    if let Some(after) = &cooldown {
+        write_text(&path, after, false)?;
+        done.push("pyproject.toml: added [tool.uv] exclude-newer and required-version".to_string());
+    }
+    if lock {
+        let out = std::process::Command::new("uv")
+            .args(["lock", "--quiet"])
+            .current_dir(&ctx.base)
+            .stdin(std::process::Stdio::null())
+            .output();
+        match out {
+            Ok(o) if o.status.success() => done.push(format!(
+                "uv.lock {}",
+                if no_lock { "created" } else { "updated" }
+            )),
+            Ok(o) => {
+                let err = String::from_utf8_lossy(&o.stderr);
+                let why = err
+                    .lines()
+                    .rev()
+                    .find(|l| !l.trim().is_empty())
+                    .unwrap_or("")
+                    .trim();
+                println!(
+                    "forge: uv lock failed ({why}); run it yourself once pyproject.toml resolves"
+                );
+            }
+            Err(e) => println!("forge: uv lock could not run ({e}); run it yourself"),
+        }
+    }
+    if !done.is_empty() {
+        println!("forge: {}; commit them with Forge's files", done.join(", "));
     }
     Ok(())
 }

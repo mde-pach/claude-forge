@@ -545,6 +545,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | Operation | 0.3.0 – 0.4.5 | 0.4.5 – 0.5.8 | 0.5.8 – |
 |---|---|---|---|
 | `build-wheel` | cannot | `build --wheel --quiet -o` | `build --wheel --quiet -o` |
+| `lock` | `lock --quiet` | `lock --quiet` | `lock --quiet` |
 | `lock-check` | `lock --locked` | `lock --locked` | `lock --check` |
 | `run-python` | `run --no-project --quiet python -I -c` | `run --no-project --quiet python -I -c` | `run --no-project --quiet python -I -c` |
 
