@@ -78,7 +78,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
           {
             "type": "command",
             "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'",
-            "timeout": 900
+            "timeout": 1800
           }
         ]
       }
@@ -435,7 +435,7 @@ json = '''{"matcher":"startup|resume|clear|compact","hooks":[{"type":"command","
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.UserPromptSubmit"
-json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":900}]}"""
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":1800}]}"""
 
 [[settings]]
 file = ".claude/settings.json"

@@ -88,8 +88,9 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "UserPromptSubmit",
         matcher: None,
-        // the spec step's statements on the first prompt (spec.rs: 840 s at most)
-        commands: &[cmd("user-prompt-submit", 900)],
+        // the spec step on the first prompt (spec.rs: 1740 s at most, when nobody is there and
+        // the open questions are answered in it too)
+        commands: &[cmd("user-prompt-submit", 1800)],
     },
     HookGroup {
         event: "PreToolUse",

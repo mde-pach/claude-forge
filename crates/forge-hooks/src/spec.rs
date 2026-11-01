@@ -17,10 +17,13 @@ use serde_json::{Map, Value, json};
 use crate::input::HookInput;
 use crate::{Output, Project, Runtime, pre_decision, proc, review, state};
 
-/// The longest the first prompt waits for the statements (the hook's timeout is longer).
+/// The longest the statements take.
 const TRANSFORM_CAP: Duration = Duration::from_secs(840);
 /// The longest an answer or an update takes (their hooks' timeouts are longer).
 const FOLLOW_CAP: Duration = Duration::from_secs(540);
+/// The longest the first prompt waits in all, when nobody is there and the statements are
+/// answered and updated in it too (the hook's timeout, 1800 s, is longer).
+const FIRST_PROMPT_CAP: Duration = Duration::from_secs(1740);
 
 const TRANSFORMER: &str = "You turn a software request into a precise specification that a separate coding agent will use to write both the code and the tests. You do not write code.
 
@@ -51,7 +54,7 @@ For each question, in this order:
 - decided: true when that evidence settles the question; false when nothing in the request or the project decides between the options.
 - answer: when decided, the option the evidence supports, with its exact label, or your own short answer when it supports none of them; when not decided, empty.
 
-The options are listed in no particular order. Answer every question, with its exact text.";
+The options, when a question has any, are listed in no particular order; a question without options takes your own short answer. Answer every question, with its exact text.";
 
 const SPEC_SCHEMA: &str = r#"{"type":"object","properties":{"must_hold":{"type":"array","items":{"type":"string"}},"must_stay_unchanged":{"type":"array","items":{"type":"string"}},"open_questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"why":{"type":"string"},"default":{"type":"string"}},"required":["question","why","default"],"additionalProperties":false}}},"required":["must_hold","must_stay_unchanged","open_questions"],"additionalProperties":false}"#;
 
@@ -63,6 +66,12 @@ const ANSWERS_SCHEMA: &str = r#"{"type":"object","properties":{"answers":{"type"
 /// What the agent is told with the statements, in every session (a reviewer answers when nobody
 /// is there).
 const INSTRUCTIONS: &str = "An independent reading of this request produced the statements below. Before changing any file, validate them with the user through AskUserQuestion (at most 4 questions per call; use another call for the rest): first \"Do these statements match what you want?\" (options \"Approve\" and \"Needs changes\"), then one question per open question, with its default reading as the first option. File edits are refused until a question is answered. Then build both the code and the tests from the validated statements; each test names the statements it covers (e.g. S2).";
+
+/// What the agent is told with the statements when nobody is there: Forge settled them.
+const SETTLED: &str = "An independent reading of this request produced the statements below; nobody was there to validate them, so their open questions were settled from the request and the code. Build both the code and the tests from them; each test names the statements it covers (e.g. S2).";
+
+/// Added when open questions are left (their answering failed).
+const DEFAULTS_LEFT: &str = " Where an open question is left, take its default reading.";
 
 /// The refusal of a file edit before validation.
 pub const GATE_REASON: &str =
@@ -254,7 +263,19 @@ pub fn first_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
                 &spec_file(p),
                 &serde_json::to_vec(&spec).unwrap_or_default(),
             );
-            Some(format!("{INSTRUCTIONS}\n\n{}", spec.render()))
+            if !review::wanted(rt, input) {
+                return Some(format!("{INSTRUCTIONS}\n\n{}", spec.render()));
+            }
+            // nobody to ask (AskUserQuestion does not exist in `claude -p`): the open questions
+            // are answered and the statements updated here, and nothing waits
+            let spec = settle(rt, input, p, request, spec, started);
+            state::write_atomic(&p.session_dir.join("spec-validated"), b"");
+            let lead = if spec.open_questions.is_empty() {
+                SETTLED.to_string()
+            } else {
+                format!("{SETTLED}{DEFAULTS_LEFT}")
+            };
+            Some(format!("{lead}\n\n{}", spec.render()))
         }
         Err(why) => {
             log(p, input, "failed", &why);
@@ -262,6 +283,176 @@ pub fn first_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
                 NoteKind::ForgeFailure,
                 format!("The request could not be turned into statements ({why}); the session went on without them."),
             )]);
+            None
+        }
+    }
+}
+
+/// The time left of the first prompt's budget, capped at `cap`; None when too little is left.
+fn left(started: std::time::Instant, cap: Duration) -> Option<Duration> {
+    let rest = FIRST_PROMPT_CAP.saturating_sub(started.elapsed());
+    (rest >= Duration::from_secs(60)).then(|| rest.min(cap))
+}
+
+/// Nobody there: the open questions answered from the request and the code, and the statements
+/// updated with the answers. What fails leaves the statements as they were.
+fn settle(
+    rt: &Runtime,
+    input: &HookInput,
+    p: &Project,
+    request: &str,
+    spec: Spec,
+    started: std::time::Instant,
+) -> Spec {
+    if spec.open_questions.is_empty() {
+        return spec;
+    }
+    let asked: Vec<Asked> = spec
+        .open_questions
+        .iter()
+        .map(|q| Asked {
+            question: q.question.clone(),
+            options: Vec::new(),
+            default: q.default.clone(),
+        })
+        .collect();
+    let Some(cap) = left(started, FOLLOW_CAP) else {
+        log(p, input, "answer-failed", "no time left");
+        return spec;
+    };
+    let Some(qa) = resolve(rt, input, p, request, &spec, &asked, cap) else {
+        return spec;
+    };
+    let Some(cap) = left(started, FOLLOW_CAP) else {
+        log(p, input, "update-failed", "no time left");
+        return spec;
+    };
+    match rewrite(rt, input, p, &spec, &qa, cap) {
+        Some(new) => new,
+        None => spec,
+    }
+}
+
+/// A question for the answerer: its text, its options (none for an open question of the
+/// statements), and the default reading an undecided one takes.
+struct Asked {
+    question: String,
+    options: Vec<String>,
+    default: String,
+}
+
+/// The answerer on `asked`: each question's answer, the default when nothing decides it; None
+/// when it failed. The answers, their evidence and whether each is the default go to the log.
+fn resolve(
+    rt: &Runtime,
+    input: &HookInput,
+    p: &Project,
+    request: &str,
+    spec: &Spec,
+    asked: &[Asked],
+    cap: Duration,
+) -> Option<Vec<(String, String)>> {
+    let cwd = rt.cwd(input);
+    // the options in an order that says nothing of which is the default
+    let shown: Vec<Value> = asked
+        .iter()
+        .map(|q| {
+            let mut options = q.options.clone();
+            options.sort_by_key(|o| o.to_lowercase());
+            json!({"question": q.question, "options": options})
+        })
+        .collect();
+    let prompt = format!(
+        "{ANSWERER}\n\nRepository: {}\n\nThe user's request (the session's first prompt):\n<request>\n{}\n</request>\n\nWhat an independent reading of the request established:\n<statements>\n{}</statements>\n\nThe questions, each with its options:\n{}",
+        cwd.display(),
+        request.trim(),
+        spec.render_settled(),
+        serde_json::to_string_pretty(&shown).unwrap_or_default()
+    );
+    let v = match run_agent(rt, &prompt, ANSWERS_SCHEMA, &cwd, cap, 40) {
+        Ok(v) => v,
+        Err(why) => {
+            log(p, input, "answer-failed", &why);
+            return None;
+        }
+    };
+    let given = v["answers"].as_array().cloned().unwrap_or_default();
+    let mut out = Vec::new();
+    let mut lines = Vec::new();
+    for (n, q) in asked.iter().enumerate() {
+        let text = q.question.trim();
+        let Some(a) = given
+            .iter()
+            .find(|a| a["question"].as_str().is_some_and(|t| t.trim() == text))
+            .or_else(|| given.get(n))
+        else {
+            continue;
+        };
+        let own = a["answer"].as_str().map(str::trim).unwrap_or("");
+        // nothing decides it: the default reading, said so
+        let (answer, how) = if a["decided"].as_bool() == Some(true) && !own.is_empty() {
+            let how = if own == q.default.trim() {
+                "as the default"
+            } else {
+                "not the default"
+            };
+            (own.to_string(), how)
+        } else if !q.default.trim().is_empty() {
+            (q.default.trim().to_string(), "undecided, the default")
+        } else {
+            continue;
+        };
+        lines.push(format!(
+            "{text} -> {answer} [{how}] ({})",
+            a["evidence"].as_str().unwrap_or("")
+        ));
+        out.push((q.question.clone(), answer));
+    }
+    if out.is_empty() {
+        log(p, input, "answer-failed", "no answer matched the questions");
+        return None;
+    }
+    log(p, input, "answered", &lines.join(" | "));
+    Some(out)
+}
+
+/// The update on the answers `qa`: the new statements, stored; None when it failed.
+fn rewrite(
+    rt: &Runtime,
+    input: &HookInput,
+    p: &Project,
+    spec: &Spec,
+    qa: &[(String, String)],
+    cap: Duration,
+) -> Option<Spec> {
+    let qa: String = qa
+        .iter()
+        .map(|(q, a)| format!("- {q}\n  -> {a}\n"))
+        .collect();
+    let prompt = format!(
+        "{UPDATE}\n\nSPECIFICATION:\n{}\nQUESTIONS AND ANSWERS:\n{qa}",
+        spec.render()
+    );
+    match run_agent(rt, &prompt, UPDATE_SCHEMA, &rt.cwd(input), cap, 20)
+        .and_then(|v| Spec::from_value(&v).ok_or_else(|| "the statements were empty".to_string()))
+    {
+        Ok(new) => {
+            log(
+                p,
+                input,
+                "updated",
+                &format!(
+                    "{} S, {} U, {} Q",
+                    new.must_hold.len(),
+                    new.must_stay_unchanged.len(),
+                    new.open_questions.len()
+                ),
+            );
+            state::write_atomic(&spec_file(p), &serde_json::to_vec(&new).unwrap_or_default());
+            Some(new)
+        }
+        Err(why) => {
+            log(p, input, "update-failed", &why);
             None
         }
     }
@@ -313,74 +504,20 @@ pub fn answer(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Output> {
         return None;
     }
     let request = std::fs::read_to_string(p.session_dir.join("spec-request")).unwrap_or_default();
-    let cwd = rt.cwd(input);
-    // the options in an order that says nothing of which is the default (listed first)
-    let asked: Vec<Value> = qs
+    // the agent lists the default reading first
+    let asked: Vec<Asked> = qs
         .iter()
-        .map(|q| {
-            let mut options = labels(q);
-            options.sort_by_key(|o| o.to_lowercase());
-            json!({"question": q["question"], "options": options})
+        .filter_map(|q| {
+            let options = labels(q);
+            Some(Asked {
+                question: q["question"].as_str()?.to_string(),
+                default: options.first().cloned().unwrap_or_default(),
+                options,
+            })
         })
         .collect();
-    let prompt = format!(
-        "{ANSWERER}\n\nRepository: {}\n\nThe user's request (the session's first prompt):\n<request>\n{}\n</request>\n\nWhat an independent reading of the request established:\n<statements>\n{}</statements>\n\nThe agent's questions, each with its options:\n{}",
-        cwd.display(),
-        request.trim(),
-        spec.render_settled(),
-        serde_json::to_string_pretty(&asked).unwrap_or_default()
-    );
-    let v = match run_agent(rt, &prompt, ANSWERS_SCHEMA, &cwd, FOLLOW_CAP, 40) {
-        Ok(v) => v,
-        Err(why) => {
-            log(p, input, "answer-failed", &why);
-            return None;
-        }
-    };
-    let given = v["answers"].as_array().cloned().unwrap_or_default();
-    let mut answers = Map::new();
-    let mut lines = Vec::new();
-    for (n, q) in qs.iter().enumerate() {
-        let Some(text) = q["question"].as_str() else {
-            continue;
-        };
-        let Some(a) = given
-            .iter()
-            .find(|a| {
-                a["question"]
-                    .as_str()
-                    .is_some_and(|t| t.trim() == text.trim())
-            })
-            .or_else(|| given.get(n))
-        else {
-            continue;
-        };
-        let default = labels(q).into_iter().next().unwrap_or_default();
-        let own = a["answer"].as_str().map(str::trim).unwrap_or("");
-        // nothing decides it: the default reading, said so
-        let (answer, how) = if a["decided"].as_bool() == Some(true) && !own.is_empty() {
-            let how = if own == default {
-                "as the default"
-            } else {
-                "not the default"
-            };
-            (own.to_string(), how)
-        } else if !default.is_empty() {
-            (default.clone(), "undecided, the default")
-        } else {
-            continue;
-        };
-        lines.push(format!(
-            "{text} -> {answer} [{how}] ({})",
-            a["evidence"].as_str().unwrap_or("")
-        ));
-        answers.insert(text.to_string(), Value::String(answer));
-    }
-    if answers.is_empty() {
-        log(p, input, "answer-failed", "no answer matched the questions");
-        return None;
-    }
-    log(p, input, "answered", &lines.join(" | "));
+    let qa = resolve(rt, input, p, &request, &spec, &asked, FOLLOW_CAP)?;
+    let answers: Map<String, Value> = qa.into_iter().map(|(q, a)| (q, Value::String(a))).collect();
     let mut updated = input.tool_input.clone();
     updated["answers"] = Value::Object(answers);
     Some(Output::json(json!({
@@ -417,46 +554,20 @@ pub fn after_answer(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
     if answers.is_empty() {
         return None;
     }
-    let qa: String = answers
+    let qa: Vec<(String, String)> = answers
         .iter()
         .map(|(q, a)| {
-            format!(
-                "- {q}\n  -> {}\n",
-                a.as_str().map_or_else(|| a.to_string(), str::to_string)
+            (
+                q.clone(),
+                a.as_str().map_or_else(|| a.to_string(), str::to_string),
             )
         })
         .collect();
-    let cwd = rt.cwd(input);
-    let prompt = format!(
-        "{UPDATE}\n\nSPECIFICATION:\n{}\nQUESTIONS AND ANSWERS:\n{qa}",
-        spec.render()
-    );
-    match run_agent(rt, &prompt, UPDATE_SCHEMA, &cwd, FOLLOW_CAP, 20)
-        .and_then(|v| Spec::from_value(&v).ok_or_else(|| "the statements were empty".to_string()))
-    {
-        Ok(new) => {
-            log(
-                p,
-                input,
-                "updated",
-                &format!(
-                    "{} S, {} U, {} Q",
-                    new.must_hold.len(),
-                    new.must_stay_unchanged.len(),
-                    new.open_questions.len()
-                ),
-            );
-            state::write_atomic(&spec_file(p), &serde_json::to_vec(&new).unwrap_or_default());
-            Some(format!(
-                "The statements were updated with the answers. Build the code and the tests from this version:\n\n{}",
-                new.render()
-            ))
-        }
-        Err(why) => {
-            log(p, input, "update-failed", &why);
-            None
-        }
-    }
+    let new = rewrite(rt, input, p, &spec, &qa, FOLLOW_CAP)?;
+    Some(format!(
+        "The statements were updated with the answers. Build the code and the tests from this version:\n\n{}",
+        new.render()
+    ))
 }
 
 /// SessionStart after a compaction: the statements again, so the agent keeps building from them.
