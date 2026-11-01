@@ -15,7 +15,9 @@ use forge_check::scope::is_prose;
 /// The ai-models pack's model table.
 pub const MODELS_TSV: &str = include_str!("../../../packs/ai-models/models.tsv");
 
-/// A deprecated model: its retirement date ("-": none announced) and replacement.
+/// A deprecated model: its retirement date ("-": none announced; "retired": already retired, an
+/// id that is also a deployment or setting name, so it is advice rather than a forbid) and
+/// replacement ("-": none named).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Deprecated {
     pub retires: String,
@@ -41,14 +43,26 @@ impl Models {
             if c.len() < 5 {
                 continue;
             }
-            if c[2] == "deprecated" {
-                m.deprecated.insert(
-                    c[0].to_string(),
-                    Deprecated {
-                        retires: c[3].to_string(),
-                        replacement: c[4].to_string(),
-                    },
-                );
+            match c[2] {
+                "deprecated" => {
+                    m.deprecated.insert(
+                        c[0].to_string(),
+                        Deprecated {
+                            retires: c[3].to_string(),
+                            replacement: c[4].to_string(),
+                        },
+                    );
+                }
+                "retired-ambiguous" => {
+                    m.deprecated.insert(
+                        c[0].to_string(),
+                        Deprecated {
+                            retires: "retired".to_string(),
+                            replacement: c[4].to_string(),
+                        },
+                    );
+                }
+                _ => {}
             }
             if c[1] == "anthropic" {
                 m.known.insert(c[0].to_string());
@@ -82,7 +96,8 @@ static EMBEDDED: LazyLock<Models> = LazyLock::new(|| Models::parse(MODELS_TSV));
 /// `forge_model_ids [<deprecated> <known>]`: for each quoted model id on an added line of an
 /// in-scope file (not prose: docs, Markdown, changelogs), optionally after pydantic-ai's
 /// `anthropic:` / `openai:` or LiteLLM's `anthropic/` / `openai/` prefix: a deprecated id with
-/// its date and replacement; a dated Claude id that is not a published one. Without arguments
+/// its date and replacement; a retired id that is also a common name (gpt-4, o1) with a
+/// current model; a dated Claude id that is not a published one. Without arguments
 /// the embedded model table is used. Run as advice.
 pub struct ModelIds;
 
@@ -124,7 +139,16 @@ impl CheckBuiltin for ModelIds {
                     let s = m.as_str();
                     let id = PREFIX.replace(&s[1..s.len() - 1], "").into_owned();
                     let msg = if let Some(d) = models.deprecated.get(&id) {
-                        if d.retires == "-" {
+                        if d.retires == "retired" {
+                            let use_ = if d.replacement == "-" {
+                                "a current model".to_string()
+                            } else {
+                                d.replacement.clone()
+                            };
+                            format!(
+                                "{id} is a retired model id (calls to it fail); use {use_}, unless here it names something else (a deployment, a setting)"
+                            )
+                        } else if d.retires == "-" {
                             format!("{id} is deprecated; use {}", d.replacement)
                         } else {
                             format!("{id} retires {}; use {}", d.retires, d.replacement)

@@ -372,6 +372,8 @@ fn adr_body(text: &str) -> Vec<&str> {
 /// `forge_adr_edits`: the changed ADRs that were accepted in the base and whose change touches
 /// more than their status.
 pub fn adr_edits(run: &Run<'_>, _args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    run.check.mark_attributed();
     let mut r = Report::default();
     for f in run.files() {
         if ![".md", ".mdx", ".markdown", ".rst"]

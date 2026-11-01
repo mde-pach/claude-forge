@@ -50,6 +50,22 @@ fn fields_that_would_do_nothing_are_refused() {
             "fix_lints needs fix_run and changed_run",
         ),
         (
+            "  - {target: check, stage: lint, run: 'true', base: branch, fix_run: 'x {files}'}\n",
+            "base: branch is for a check of the branch as a whole",
+        ),
+        (
+            "  - {target: check, stage: test, run: 'true', base: branch, rerun: 'x {files}'}\n",
+            "base: branch is for a check of the branch as a whole",
+        ),
+        (
+            "  - {target: check, stage: lint, run: 'true', base: trunk}\n",
+            "base",
+        ),
+        (
+            "  - {target: guard, decision: deny, check: pre-turn-changes}\n",
+            "the pre-turn-changes check judges what command matched: it needs a command",
+        ),
+        (
             "  - {target: guard, decision: deny}\n",
             "a guard target needs command or check",
         ),

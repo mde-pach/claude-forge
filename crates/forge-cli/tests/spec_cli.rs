@@ -608,6 +608,55 @@ fn user_level_setup() {
     assert!(!s.home.join(".claude/settings.json").exists());
 }
 
+/// The user level's sandbox network list is appended to the person's own (§7.2): their domains
+/// stay, the registries' and GitHub's download hosts are added once, and remove takes back only
+/// what Forge added.
+#[test]
+fn user_level_sandbox_domains_are_appended() {
+    let s = Sandbox::new(PY);
+    let settings = s.home.join(".claude/settings.json");
+    std::fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    std::fs::write(
+        &settings,
+        "{\"sandbox\": {\"network\": {\"allowedDomains\": [\"intranet.example.com\", \"github.com\"]}}}\n",
+    )
+    .unwrap();
+    s.ok(&["apply", "--user", "--yes"]);
+    let v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+    let domains: Vec<&str> = v["sandbox"]["network"]["allowedDomains"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|d| d.as_str())
+        .collect();
+    for d in [
+        "intranet.example.com",
+        "registry.npmjs.org",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "index.crates.io",
+        "static.crates.io",
+        "proxy.golang.org",
+        "sum.golang.org",
+    ] {
+        assert!(domains.contains(&d), "{d} in {domains:?}");
+    }
+    assert_eq!(
+        domains.iter().filter(|d| **d == "github.com").count(),
+        1,
+        "{domains:?}"
+    );
+    s.ok(&["remove", "--user", "--yes"]);
+    let after = std::fs::read_to_string(&settings).unwrap();
+    assert!(after.contains("intranet.example.com"), "{after}");
+    assert!(
+        after.contains("github.com"),
+        "the person's own entry stays: {after}"
+    );
+    assert!(!after.contains("crates.io"), "{after}");
+}
+
 /// apply offers the uv setup a uv project lacks: the cooldown's missing keys in pyproject.toml,
 /// and a uv.lock that matches it (`uv lock`).
 #[test]

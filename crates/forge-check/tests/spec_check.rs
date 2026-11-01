@@ -713,3 +713,142 @@ fn since_without_a_merge_base_says_what_to_fetch() {
         "no merge base for origin/nope and HEAD (fetch it: git fetch origin <branch>, or check out with fetch-depth: 0)"
     );
 }
+
+fn accept(v: Value) -> forge_packs::model::Accept {
+    serde_json::from_value(v).expect("accept entry")
+}
+
+/// forge.yaml `accept:` (§10.5) holds for every kind of finding: by rule and file (a glob; for
+/// a count over several files, every one of them), by the finding's text (with or without its
+/// `path:line`), or both. An accepted failure no longer fails, so the later steps run.
+#[test]
+fn accepted_findings_of_every_kind_are_dropped() {
+    let forbid = || {
+        rule(json!({
+            "id": "acme/no-print", "description": "No print().",
+            "scope": {"language": "python"},
+            "enforce": [{"target": "grep", "mode": "forbid", "pattern": "print\\("}],
+        }))
+    };
+    let count = || {
+        rule(json!({
+            "id": "acme/no-more-noqa", "description": "No new noqa comments.",
+            "scope": {"language": "python"},
+            "enforce": [{"target": "grep", "mode": "no-increase", "pattern": "# noqa"}],
+        }))
+    };
+    let lint = || {
+        check_rule(
+            "acme/lint",
+            "lint",
+            "touch lint-ran; echo 'scripts/run.py:2:1: error E1 bad'; exit 1",
+        )
+    };
+    let d = repo(&[
+        ("app/a.py", "x = 1\n"),
+        ("app/b.py", "y = 1\n"),
+        ("scripts/run.py", "z = 1\n"),
+    ]);
+    put(d.path(), "app/a.py", "x = 1\nprint(x)\n");
+    put(d.path(), "app/b.py", "y = 1  # noqa\n");
+    put(d.path(), "scripts/run.py", "z = 1\nw = 2  # noqa\n");
+    let run = |accepts: Vec<Value>| {
+        let mut c = checker(d.path(), vec![forbid(), count(), lint()]);
+        c.accept = accepts.into_iter().map(accept).collect();
+        let _ = std::fs::remove_file(d.path().join("lint-ran"));
+        c.check(Mode::Changed, &stop()).unwrap()
+    };
+    // nothing accepted: the count fails first and stops the run
+    let o = run(vec![]);
+    assert_eq!(o.status, Status::Fail);
+    assert_eq!(
+        o.report.findings[0].agent_text(),
+        "No new noqa comments. (0 -> 2) in app/b.py, scripts/run.py"
+    );
+    // a count over two files: a file glob covering only one of them does not hold
+    let o = run(vec![
+        json!({"rule": "acme/no-more-noqa", "file": "app/**", "reason": "legacy"}),
+    ]);
+    assert_eq!(o.report.findings[0].rule, "acme/no-more-noqa");
+    // covering both: the count passes, the forbid rule is next
+    let o = run(vec![
+        json!({"rule": "acme/no-more-noqa", "file": "{app,scripts}/*.py", "reason": "legacy"}),
+    ]);
+    assert_eq!(o.status, Status::Fail);
+    assert_eq!(o.report.findings[0].agent_text(), "app/a.py:2 No print().");
+    // the forbid finding by its message alone (its line moves), and the check's by file
+    let o = run(vec![
+        json!({"rule": "acme/no-more-noqa", "file": "**/*.py", "reason": "legacy"}),
+        json!({"rule": "acme/no-print", "change": "No print().", "reason": "a CLI"}),
+        json!({"rule": "acme/lint", "file": "scripts/run.py", "reason": "generated"}),
+    ]);
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    assert!(o.report.findings.is_empty());
+    assert!(ran(d.path(), "lint-ran"), "the stages ran");
+    // by the full text: path, line and message must all be the finding's
+    let o = run(vec![
+        json!({"rule": "acme/no-more-noqa", "file": "**", "reason": "legacy"}),
+        json!({"rule": "acme/no-print", "change": "app/a.py:2 No print().", "reason": "x"}),
+        json!({"rule": "acme/lint", "file": "scripts/run.py", "change": "scripts/run.py:3 error E1 bad", "reason": "x"}),
+    ]);
+    assert_eq!(o.status, Status::Fail);
+    assert_eq!(o.report.findings.len(), 1, "{:?}", o.report.findings);
+    assert_eq!(
+        o.report.findings[0].agent_text(),
+        "scripts/run.py:2 error E1 bad"
+    );
+    // another rule's entry never holds
+    let o = run(vec![
+        json!({"rule": "acme/other", "file": "**", "reason": "x"}),
+    ]);
+    assert_eq!(o.report.findings[0].rule, "acme/no-more-noqa");
+}
+
+/// The person whose commit the commit-time check refused reads the entry that would accept each
+/// failing finding; the agent never does.
+#[test]
+fn a_refused_commit_says_how_to_accept() {
+    let d = repo(&[("app/a.py", "x = 1\n")]);
+    put(d.path(), "app/a.py", "x = 1\nprint(x)\n");
+    let o = checker(
+        d.path(),
+        vec![rule(json!({
+            "id": "acme/no-print", "description": "No print().",
+            "scope": {"language": "python"},
+            "enforce": [{"target": "grep", "mode": "forbid", "pattern": "print\\("}],
+        }))],
+    )
+    .check(Mode::Changed, &stop())
+    .unwrap();
+    let hint = forge_check::output::accept_hint(&o);
+    assert_eq!(
+        hint,
+        "\nTo accept one of these instead of fixing it, add its entry to forge.yaml, with your reason (it then holds for that rule in that file):\naccept:\n  - {rule: acme/no-print, file: \"app/a.py\", reason: \"<why>\"}\n"
+    );
+    assert!(!o.report.agent_text(40).contains("forge.yaml"));
+    // the entry it gives, filled in, accepts the finding
+    let yaml = "forge: \"0.6\"\naccept:\n  - {rule: acme/no-print, file: \"app/a.py\", reason: \"a CLI\"}\n";
+    put(d.path(), "forge.yaml", yaml);
+    let config = forge_packs::load_project_config(d.path()).unwrap().unwrap();
+    let mut c = checker(
+        d.path(),
+        vec![rule(json!({
+            "id": "acme/no-print", "description": "No print().",
+            "scope": {"language": "python"},
+            "enforce": [{"target": "grep", "mode": "forbid", "pattern": "print\\("}],
+        }))],
+    );
+    c.accept = config.accept.unwrap();
+    assert_eq!(
+        c.check(Mode::Changed, &stop()).unwrap().status,
+        Status::Pass
+    );
+    // an entry naming neither a file nor a change is refused
+    put(
+        d.path(),
+        "forge.yaml",
+        "forge: \"0.6\"\naccept:\n  - {rule: acme/no-print, reason: everywhere}\n",
+    );
+    let e = forge_packs::load_project_config(d.path()).unwrap_err();
+    assert!(e.to_string().contains("give file, change or both"), "{e}");
+}

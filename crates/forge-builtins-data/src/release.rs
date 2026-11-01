@@ -119,6 +119,8 @@ fn changeset_cmd(run: &Run<'_>) -> &'static str {
 /// or pyproject.toml): a changed .py file outside <@role> (tests) and that directory, with no
 /// file added there.
 pub fn release_notes(run: &Run<'_>, args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    run.check.mark_attributed();
     let role = args.first().map(String::as_str).unwrap_or("@python-tests");
     let added: BTreeSet<String> = run.added().into_iter().collect();
     let mut r = Report::default();

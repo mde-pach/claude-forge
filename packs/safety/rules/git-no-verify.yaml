@@ -1,5 +1,5 @@
 id: safety/git-no-verify
-description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= assignment, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (the project's checks run from those hooks). Reading core.hooksPath is fine."
+description: "Commit hooks are never bypassed: no git commit --no-verify or -n, no SKIP=, PRE_COMMIT_ALLOW_NO_CONFIG=, HUSKY=, HUSKY_SKIP_HOOKS=, LEFTHOOK= or LEFTHOOK_EXCLUDE= for a git commit, git push, pre-commit or lefthook run, no git -c core.hooksPath=…, no setting or unsetting core.hooksPath, no pre-commit or lefthook uninstall, and no rm, mv, chmod or truncate on .git/hooks/ or .husky/ (the project's checks run from those hooks). Reading core.hooksPath is fine."
 scope: {language: any}
 enforce:
   - target: guard
@@ -9,7 +9,8 @@ enforce:
         sub: [commit]
         flags_any: [--no-verify, -n]
         value_flags: [-m, --message, -F, --file, -C, -c, --reuse-message, --reedit-message, --author, --date, --fixup, --squash, --trailer, --cleanup, -t, --template]
-      - {env_any: [SKIP, PRE_COMMIT_ALLOW_NO_CONFIG, HUSKY, HUSKY_SKIP_HOOKS, LEFTHOOK, LEFTHOOK_EXCLUDE]}
+      - {name: git, sub: ['commit|push'], env_any: [SKIP, PRE_COMMIT_ALLOW_NO_CONFIG, HUSKY, HUSKY_SKIP_HOOKS, LEFTHOOK, LEFTHOOK_EXCLUDE]}
+      - {name: [pre-commit, lefthook], env_any: [SKIP, PRE_COMMIT_ALLOW_NO_CONFIG, HUSKY, HUSKY_SKIP_HOOKS, LEFTHOOK, LEFTHOOK_EXCLUDE]}
       - {name: git, option_values: {'-c': '^core\.hooks[Pp]ath='}}
       - {name: git, sub: [config, 'core.hooksPath|core.hookspath'], args_any: ['*']}
       - {name: git, sub: [config, 'set|unset', 'core.hooksPath|core.hookspath']}
@@ -23,7 +24,10 @@ examples:
     - "git commit -a -n -m x"
     - "git commit -m wip --no-verify"
     - "SKIP=forge-check git commit -m x"
-    - "export HUSKY=0"
+    - "export HUSKY=0 && git commit -m x"
+    - "SKIP=ruff git push"
+    - "SKIP=mypy pre-commit run --all-files"
+    - "env HUSKY=0 git commit -m x"
     - "LEFTHOOK=0 git commit -m x"
     - "git add -A && HUSKY_SKIP_HOOKS=1 git commit -m x"
     - "git -c core.hooksPath=/dev/null commit -m x"
@@ -49,3 +53,7 @@ examples:
     - "cat .husky/pre-commit"
     - "git commit -m \"SKIP=x\""
     - "SKIPPED=1 make test"
+    - "SKIP=1 npm test"
+    - "export HUSKY=0"
+    - "HUSKY=0 make build"
+    - "SKIP_ENV_VALIDATION=1 SKIP=lint next build"

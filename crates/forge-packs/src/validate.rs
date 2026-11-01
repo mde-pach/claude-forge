@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use crate::model::{
-    CheckTarget, Decision, Language, Level, Mode, OneOrMany, Pack, Rule, Stage, Target,
+    CheckTarget, Decision, GuardCheck, Language, Level, Mode, OneOrMany, Pack, Rule, Stage, Target,
     WhereCondition,
 };
 use crate::roles;
@@ -165,6 +165,17 @@ fn check_target_fields(c: &CheckTarget) -> Result<(), String> {
     if c.fix_lints.is_some() && (c.fix_run.is_none() || c.changed_run.is_none()) {
         return Err("invalid rule: fix_lints needs fix_run and changed_run".into());
     }
+    if c.branch_base()
+        && (c.fix_run.is_some()
+            || c.fix_lints.is_some()
+            || c.format_stdin.is_some()
+            || c.rerun.is_some())
+    {
+        return Err(
+            "invalid rule: base: branch is for a check of the branch as a whole; fix_run, fix_lints, format_stdin and rerun judge the change itself"
+                .into(),
+        );
+    }
     if c.config_files.is_some() && c.stage != Stage::Lint {
         return Err("invalid rule: config_files is for stage lint".into());
     }
@@ -208,6 +219,13 @@ fn check_fields(rule: &Rule) -> Result<(), String> {
         match t {
             Target::Guard(g) if g.command.is_none() && g.check.is_none() => {
                 return Err("invalid rule: a guard target needs command or check".into());
+            }
+            Target::Guard(g)
+                if g.command.is_none() && g.check == Some(GuardCheck::PreTurnChanges) =>
+            {
+                return Err(
+                    "invalid rule: the pre-turn-changes check judges what command matched: it needs a command".into(),
+                );
             }
             Target::Guard(g) if g.check.is_some_and(|c| c.decision() != g.decision) => {
                 let c = g.check.expect("checked above");

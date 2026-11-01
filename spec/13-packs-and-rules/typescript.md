@@ -324,7 +324,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/drizzle/applied-migrations` | Migrations already in the base (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration. | any | check migration: `forge_drizzle_applied` |
+| `typescript/drizzle/applied-migrations` | Migrations already on the default branch (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration. A migration this branch added and that is not merged yet may still be edited. | any | check migration: `forge_drizzle_applied` |
 | `typescript/drizzle/meta-files` | The migration journal and snapshots (meta/_journal.json, meta/*_snapshot.json) are written by drizzle-kit generate, never edited by hand. | any | permission deny `Edit(**/meta/_journal.json)`<br>permission deny `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/migration-lint` | With the postgresql dialect, new migrations in the out folder do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `**/*.sql` | check migration: `forge_drizzle_squawk` (when `**/*.sql` changes) |
 | `typescript/drizzle/migration-present` | A change to the Drizzle schema files (drizzle.config schema) that reaches the database comes with a generated migration in the out folder, with its meta/_journal.json and snapshot (drizzle-kit 1.x, <name>/migration.sql with snapshot.json). Relations, types, imports and comments do not count. | any | check migration: `forge_drizzle_migration_present` |
@@ -583,13 +583,13 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - MikroORM: each request works in its own context (`RequestContext` middleware or `em.fork()`); `allowGlobalContext: true` is rejected outside tests.
-- Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run` / `schema:fresh --run` are refused, `schema:update --run` and `migration:fresh` need confirmation.
+- Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run`, `schema:fresh --run`, `schema:update --run` and `migration:fresh` need confirmation.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/mikro-orm/migration-present` | Entity changes come with a migration: once the migrations have run on the local database (mikro-orm migration:up), mikro-orm migration:check finds no schema change. | typescript | check migration: `forge_do mikro-orm migrate && forge_do mikro-orm migrations-check` (needs a local database; timeout 180 s) |
 | `typescript/mikro-orm/no-global-context` | No allowGlobalContext: true in the options of MikroORM.init(…), new MikroORM(…) or defineConfig(…) (bindings imported from @mikro-orm/*) outside test files: one identity map is then shared across requests (data leaks, stale entities); use RequestContext or em.fork(). | typescript: `!**/*.test.*`, `!**/*.spec.*`, `!**/__tests__/**`, `!e2e/**` | ast-grep forbid |
-| `typescript/mikro-orm/schema-guard` | No mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema. | any | guard deny: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop\|schema:fresh'], flags_any: [--run, -r]}` |
+| `typescript/mikro-orm/schema-guard` | Claude asks before mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema, and the database they reach may not be a disposable one. | any | guard ask: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop\|schema:fresh'], flags_any: [--run, -r]}` |
 | `typescript/mikro-orm/schema-update` | mikro-orm schema:update --run (changes the schema without a migration) and migration:fresh (drops the database and reruns every migration) need confirmation. | any | guard ask: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:update'], flags_any: [--run, -r]}` or `{name: [mikro-orm, mikro-orm-esm], sub: ['migration:fresh']}` |
 
 ### typescript/mongoose
@@ -766,7 +766,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.
-- Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` (flags or `.npmrc`) are rejected, and `npm audit fix --force` asks.
+- Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` in `.npmrc` are rejected, and as install flags they need confirmation, like `npm audit fix --force`.
 - Dependencies come from the registry: git, GitHub and tarball URL specs, and `allow-git=all` / `allow-remote=all`, are rejected.
 
 | Rule | Description | Scope | Enforced by |
@@ -779,7 +779,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/npm/no-exotic-deps` | No dependency added (or changed) with a git, GitHub, GitLab, Bitbucket or tarball URL spec (git+…, github:…, user/repo, https://…): they bypass the registry, its release-age checks and --ignore-scripts. Publish to a registry or vendor the code. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
 | `typescript/npm/no-exotic-sources` | npm is not allowed to install from any git or remote source (allow-git=all, allow-remote=all, in .npmrc or as a flag); such dependencies bypass the registry, its release-age checks and --ignore-scripts. | any: `**/.npmrc` | grep forbid `allow-(git\|remote)[[:space:]]*=[[:space:]]*all`<br>guard deny: command `{flags_any: [--allow-git=all, --allow-remote=all], value_flags: [--allow-git, --allow-remote]}` |
 | `typescript/npm/no-legacy-peer-deps-config` | No legacy-peer-deps=true or force=true in .npmrc; they hide every peer dependency conflict of every install. | any: `**/.npmrc` | grep forbid `^[[:space:]]*(legacy-peer-deps\|force)[[:space:]]*=[[:space:]]*true` |
-| `typescript/npm/no-legacy-peer-deps` | npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it. | any | guard deny: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
+| `typescript/npm/no-legacy-peer-deps` | Claude asks before installing with --legacy-peer-deps or --force; they install past a peer dependency conflict instead of resolving it, which can leave packages running against versions they do not support. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
 | `typescript/npm/no-other-pm` | Dependencies are managed with npm; installing with pnpm, yarn or bun asks. | any | guard ask: command `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
 | `typescript/npm/release-age-command` | Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude. | any | guard ask: command `{option_values: {--min-release-age: ^0*$}}` |
 | `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. | any | check lint: `forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS` (when `.npmrc`, `package.json` or `package-lock.json` changes) |
@@ -917,7 +917,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/prisma/applied-migrations` | Prisma migrations already in the base (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev). | any | check migration: `forge_applied_migrations @prisma-migrations` |
+| `typescript/prisma/applied-migrations` | Prisma migrations already on the default branch (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev). A migration this branch added and that is not merged yet may still be edited. | any | check migration: `forge_applied_migrations @prisma-migrations` |
 | `typescript/prisma/client-generator` | The Prisma schema uses the prisma-client generator (Prisma 7), not prisma-client-js. | any | check lint: a shell script of 1 lines (when `**/*.prisma` changes) |
 | `typescript/prisma/db-push` | Commands that change a database outside migrations need confirmation. | any | guard ask: command `{name: prisma, sub: [db, push\|execute]}` or `{name: prisma, sub: [migrate, deploy]}` |
 | `typescript/prisma/destructive-migration` | A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user approved that drop: ask them first, and drop only after a deploy in which no code reads it (expand and contract). | any: `prisma/migrations/**/migration.sql` | check migration: a shell script calling `forge_prisma_drops` (when `prisma/migrations/**` changes) |
@@ -929,7 +929,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/prisma/no-query-in-loop` | A Prisma query whose result type is PrismaPromise (findMany, count, aggregate, groupBy, the *Many methods) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (include, in, a relation filter) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
 | `typescript/prisma/no-raw-interpolation` | No Prisma.raw() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; raw() inserts its text unescaped. Use the tagged $queryRaw`...` / Prisma.sql`...` forms, which bind values. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
 | `typescript/prisma/no-raw-unsafe` | No $queryRawUnsafe / $executeRawUnsafe. Use the tagged $queryRaw`...` form, which binds parameters. | typescript | ast-grep forbid |
-| `typescript/prisma/no-reset` | Prisma commands that wipe the database are not run by Claude. | any | guard deny: command `{name: prisma, sub: [migrate, reset]}` or `{name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}` |
+| `typescript/prisma/no-reset` | Claude asks before a Prisma command that wipes the database (migrate reset, db push --force-reset or --accept-data-loss); the database it reaches may not be a disposable one. | any | guard ask: command `{name: prisma, sub: [migrate, reset]}` or `{name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}` |
 | `typescript/prisma/no-unscoped-bulk-write` | A Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose). | typescript | ast-grep advise (where `$CALL`: types engine, §15)<br>advice, never blocks |
 | `typescript/prisma/validate` | The Prisma schema is valid. | any | check migration: `forge_do prisma validate` (when `prisma/schema.prisma` changes) |
 
@@ -1251,7 +1251,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/turbo/declared-env` | Every environment variable read through process.env is declared in turbo.json (env or globalEnv); an undeclared one is not part of the cache key, so a cached build can carry another environment's value. | typescript | tool biome `lint/suspicious/noUndeclaredEnvVars` |
-| `typescript/turbo/no-env-loose-flag` | turbo runs without --env-mode=loose; declare the variables a task needs (env, passThroughEnv) instead. | any | guard deny: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
+| `typescript/turbo/no-env-loose-flag` | Claude asks before running turbo with --env-mode=loose; it hides which variables a task needs (declare them in env or passThroughEnv instead), and a cached result may then depend on variables turbo does not hash. | any | guard ask: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
 | `typescript/turbo/no-env-loose` | turbo.json keeps the strict env mode (no "envMode": "loose"): in loose mode tasks see every variable and the cache ignores the undeclared ones. | any: `**/turbo.json` | grep forbid `"envMode"[[:space:]]*:[[:space:]]*"loose"` |
 | `typescript/turbo/tasks-key` | turbo.json declares its tasks under tasks; Turborepo 2 rejects the old pipeline key. | any: `**/turbo.json` | grep forbid `"pipeline"[[:space:]]*:` |
 
@@ -1264,7 +1264,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are rejected, `schema:sync` / `schema:drop` are refused and `migration:revert` needs confirmation.
+- TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are rejected, `schema:sync`, `schema:drop` and `migration:revert` need confirmation.
 - Raw `.query()` takes its values as parameters (`query(sql, [values])`); query builder conditions and orderings use `:name` parameters, never `${}` or concatenation.
 
 | Rule | Description | Scope | Enforced by |
@@ -1275,7 +1275,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/typeorm/no-query-in-loop` | A TypeORM Repository or EntityManager call (find, findOne, findOneBy, count, save, update, delete, query, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (In([...]), relations, a join) or save an array. | typescript | ast-grep advise (where `$R`: types engine, §15)<br>advice, never blocks |
 | `typescript/typeorm/no-raw-query-interpolation` | No TypeORM .query() (DataSource, EntityManager, QueryRunner, Repository) whose SQL is a template with ${}, a concatenation or a variable declared from one in the same function or module; pass the values as parameters (query(sql, [values])). | typescript | ast-grep forbid (where `$R`: types engine, §15) |
 | `typescript/typeorm/no-synchronize` | No literal synchronize: true or dropSchema: true in new DataSource({...}), TypeOrmModule.forRoot({...}) or the object a TypeOrmModule.forRootAsync useFactory returns: schema auto-sync alters and drops columns, dropSchema wipes the database at every start; schema changes go through migrations. | typescript | ast-grep forbid (where `$D`: types engine, §15) |
-| `typescript/typeorm/schema-sync-guard` | No typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration. | any | guard deny: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync\|schema:drop']}` |
+| `typescript/typeorm/schema-sync-guard` | Claude asks before typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration (a sync drops columns it does not find in the entities), and the database they reach may not be a disposable one. | any | guard ask: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync\|schema:drop']}` |
 | `typescript/typeorm/synchronize-expression` | synchronize or dropSchema set from an expression in new DataSource({...}), TypeOrmModule.forRoot({...}) or a forRootAsync useFactory result is on whenever that expression is true, possibly in production; prefer false and migrations everywhere. | typescript | ast-grep advise (where `$D`: types engine, §15)<br>advice, never blocks |
 
 ### typescript/upstash-ratelimit

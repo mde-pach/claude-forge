@@ -221,6 +221,9 @@ struct Run<'a> {
     report: Report,
     unverified: Vec<String>,
     advice: Vec<Finding>,
+    /// The branch's change, for `base: branch` checks: computed on first use; Err: why there is
+    /// none (the run's own change is used).
+    branch: Option<Result<ChangeSet, String>>,
 }
 
 const DELETED_TESTS: &[&str] = &[
@@ -429,6 +432,7 @@ impl Checker {
             report: Report::default(),
             unverified: Vec::new(),
             advice: Vec::new(),
+            branch: None,
         };
         // shared files the builtins read
         let roles: BTreeMap<String, Vec<String>> = self.roles.map().clone();
@@ -455,6 +459,25 @@ impl Checker {
         };
         let mut report = std::mem::take(&mut run.report);
         report.findings.append(&mut run.advice);
+        // what each step reported is already less the accepted findings; this covers the rest
+        // (after an edit)
+        let before = report.findings.len();
+        report.findings.retain(|f| !self.accepted(f));
+        let status = if status == Status::Fail
+            && report.findings.len() < before
+            && !report
+                .findings
+                .iter()
+                .any(|f| f.severity == Severity::Error)
+        {
+            if report.findings.is_empty() {
+                Status::Pass
+            } else {
+                Status::AdviceOnly
+            }
+        } else {
+            status
+        };
         dedupe_notes(&mut report.notes);
         Outcome {
             report,
@@ -801,6 +824,10 @@ impl Checker {
                 } else {
                     f.message.push_str(&format!(" in {}", moved.join(", ")));
                 }
+                let paths: Vec<&str> = moved.iter().map(String::as_str).collect();
+                if self.accepts(id, &paths, &f) {
+                    continue;
+                }
                 run.report.findings.push(f);
                 failed = true;
             }
@@ -883,6 +910,7 @@ impl Checker {
             }
         }
         run.report.notes.extend(notes);
+        findings.retain(|f| !self.accepted(f));
         let failed = findings.iter().any(|f| f.severity == Severity::Error);
         for f in findings {
             if f.severity == Severity::Advice {
@@ -901,7 +929,7 @@ impl Checker {
         let mut failed = false;
         let mut unverified = false;
         for c in self.checks().iter().filter(|c| c.target.stage == stage) {
-            match self.run_check(run, c) {
+            match self.drop_accepted(self.run_check(run, c)) {
                 CheckResult::Pass => {}
                 CheckResult::Fail(f) => {
                     run.report.findings.extend(f);
@@ -915,6 +943,39 @@ impl Checker {
             }
         }
         (failed, unverified && !failed)
+    }
+
+    /// Whether a forge.yaml `accept:` entry holds for the finding (§10.5).
+    fn accepted(&self, f: &Finding) -> bool {
+        let paths: Vec<&str> = f.path.as_deref().into_iter().collect();
+        self.accepts(&f.rule, &paths, f)
+    }
+
+    /// [`Self::accepted`], for a finding about `paths` (a count over several files).
+    fn accepts(&self, rule: &str, paths: &[&str], f: &Finding) -> bool {
+        let text = f.agent_text();
+        self.accept
+            .iter()
+            .any(|a| a.holds(rule, paths, &text, &f.message))
+    }
+
+    /// A check's result less its accepted findings: a failure left with none passes.
+    fn drop_accepted(&self, r: CheckResult) -> CheckResult {
+        match r {
+            CheckResult::Fail(mut f) => {
+                f.retain(|x| !self.accepted(x));
+                if f.is_empty() {
+                    CheckResult::Pass
+                } else {
+                    CheckResult::Fail(f)
+                }
+            }
+            CheckResult::Advice(mut f) => {
+                f.retain(|x| !self.accepted(x));
+                CheckResult::Advice(f)
+            }
+            other => other,
+        }
     }
 
     fn missing_tool(&self, c: &Check<'_>) -> Option<String> {
@@ -938,11 +999,66 @@ impl Checker {
         None
     }
 
+    /// For a `base: branch` check at Stop or with `forge check --changed`: the branch's change,
+    /// computed once per run, its files listed for the builtins (the run's own changed files
+    /// included). Whether the check runs against it; when there is none, a note says why and
+    /// the check runs against the run's own base.
+    fn branch_change(&self, run: &mut Run<'_>, c: &Check<'_>) -> bool {
+        if !c.target.branch_base()
+            || run.opts.phase != Phase::Stop
+            || !matches!(run.change.mode, Mode::Changed | Mode::Turn(_))
+        {
+            return false;
+        }
+        if run.branch.is_none() {
+            let b = ChangeSet::branch(&self.root);
+            if let Ok(b) = &b {
+                let mut files: BTreeSet<&str> = b.changed.iter().map(String::as_str).collect();
+                files.extend(run.change.changed.iter().map(String::as_str));
+                let text: String = files.iter().map(|f| format!("{f}\n")).collect();
+                let _ = std::fs::write(run.files.path("changed.branch"), text);
+            }
+            run.branch = Some(b);
+        }
+        match &run.branch {
+            Some(Ok(_)) => true,
+            Some(Err(why)) => {
+                let text = format!(
+                    "compared with {} instead of the branch's start: {why}",
+                    run.change.base_name()
+                );
+                run.report
+                    .notes
+                    .push(note(NoteKind::Environment, c.id(), text));
+                false
+            }
+            None => false,
+        }
+    }
+
     /// One check under Stop or `forge check` (`forge_run_check_one`).
     /// One check: its result, attributed to the change. An advised check's findings go through
     /// the same attribution, then are advice (§10.7).
     fn run_check(&self, run: &mut Run<'_>, c: &Check<'_>) -> CheckResult {
-        let result = self.check_attributed(run, c);
+        let branch = self.branch_change(run, c);
+        let mut result = self.check_attributed(run, c);
+        // a branch check judges the branch, but blames the run only for the files it changed:
+        // a finding about a file only earlier commits of the branch changed is not this change's
+        if branch {
+            let own = |f: &Finding| f.path.as_deref().is_none_or(|p| run.change.is_changed(p));
+            result = match result {
+                CheckResult::Fail(f) => {
+                    let f: Vec<Finding> = f.into_iter().filter(own).collect();
+                    if f.is_empty() {
+                        CheckResult::Pass
+                    } else {
+                        CheckResult::Fail(f)
+                    }
+                }
+                CheckResult::Advice(f) => CheckResult::Advice(f.into_iter().filter(own).collect()),
+                other => other,
+            };
+        }
         if !run.files.path(&advised_name(c.id())).exists() {
             return result;
         }
@@ -1630,8 +1746,16 @@ impl Checker {
             .into(),
         );
         if change.mode != Mode::All {
-            env.insert(ENV_BASE.into(), s(change.base_dir()));
-            env.insert(ENV_CHANGED.into(), s(&run.files.path("changed")));
+            match &run.branch {
+                Some(Ok(b)) if c.target.branch_base() => {
+                    env.insert(ENV_BASE.into(), s(b.base_dir()));
+                    env.insert(ENV_CHANGED.into(), s(&run.files.path("changed.branch")));
+                }
+                _ => {
+                    env.insert(ENV_BASE.into(), s(change.base_dir()));
+                    env.insert(ENV_CHANGED.into(), s(&run.files.path("changed")));
+                }
+            }
         }
         env.insert(ENV_NOTES.into(), s(&run.files.path("notes")));
         env.insert(builtins::ENV_TMP.into(), s(run.files.dir.path()));
@@ -1643,7 +1767,7 @@ impl Checker {
             .accept
             .iter()
             .filter(|a| a.rule == c.id())
-            .map(|a| a.change.as_str())
+            .filter_map(|a| a.change.as_deref())
             .collect();
         let acc = run.files.path(&format!("accepted.{}", safe(c.id())));
         let _ = std::fs::write(&acc, accepted.join("\n"));

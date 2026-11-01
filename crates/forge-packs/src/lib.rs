@@ -241,9 +241,20 @@ pub fn load_project_config(repo: &Path) -> Result<Option<ProjectConfig>, LoadErr
     let parsed = yaml::parse_strict(&text).map_err(|e| err(ErrorKind::Yaml, e.to_string()))?;
     schema::validate(schema::Kind::Project, &parsed.value)
         .map_err(|e| err(ErrorKind::Schema, e))?;
-    serde_json::from_value(parsed.value)
-        .map(Some)
-        .map_err(|e| err(ErrorKind::Schema, format!("invalid project: {e}")))
+    let config: ProjectConfig = serde_json::from_value(parsed.value)
+        .map_err(|e| err(ErrorKind::Schema, format!("invalid project: {e}")))?;
+    for (i, a) in config.accept.iter().flatten().enumerate() {
+        if a.file.is_none() && a.change.is_none() {
+            return Err(err(
+                ErrorKind::Schema,
+                format!(
+                    "invalid project: /accept/{i} ({}): give file, change or both (a rule accepted everywhere is disabled instead: disable)",
+                    a.rule
+                ),
+            ));
+        }
+    }
+    Ok(Some(config))
 }
 
 impl PackSet {

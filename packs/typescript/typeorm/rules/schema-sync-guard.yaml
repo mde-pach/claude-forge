@@ -1,9 +1,10 @@
 id: typescript/typeorm/schema-sync-guard
-description: No typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration.
+description: Claude asks before typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration (a sync drops columns it does not find in the entities), and the database they reach may not be a disposable one.
+review: "Does this command reach a local, disposable development database (not a shared, staging or production one), and does the user's request call for changing or wiping its schema without a migration?"
 scope: {language: any}
 enforce:
   - target: guard
-    decision: deny
+    decision: ask
     command: {name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync|schema:drop']}
 examples:
   match: ["npx typeorm schema:sync -d src/data-source.ts", "npx typeorm-ts-node-esm schema:drop -d ./src/db.ts", "bunx typeorm schema:sync && bun dev"]

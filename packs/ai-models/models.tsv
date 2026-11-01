@@ -2,7 +2,9 @@
 # (platform.claude.com/docs/en/about-claude/model-deprecations) and models overview, and OpenAI's
 # deprecations page (developers.openai.com/api/docs/deprecations). Regenerate the rules after an
 # edit: FORGE_BLESS=1 cargo test -p forge-packs --test models_tsv (which fails while they differ).
-# status: active | deprecated (still served, retires on <retires>) | retired (every call fails).
+# status: active | deprecated (still served, retires on <retires>) | retired (every call fails) |
+# retired-ambiguous (retired, but the id is also a deployment or setting name, so a quoted match
+# is advice, not a forbid).
 # An id ending in * also covers its suffixed variants (gpt-4-turbo* covers gpt-4-turbo-2024-04-09).
 # rejects: request features the API rejects (400) on the model: budget_tokens (thinking type
 # enabled), forced_tool_choice (tool_choice any / tool).
@@ -53,11 +55,11 @@ claude-1.3	anthropic	retired	-	claude-opus-5-5	-
 claude-instant-1.0	anthropic	retired	-	claude-haiku-5-5	-
 claude-instant-1.1	anthropic	retired	-	claude-haiku-5-5	-
 claude-instant-1.2	anthropic	retired	-	claude-haiku-5-5	-
-gpt-4	openai	retired	-	-	-
+gpt-4	openai	retired-ambiguous	-	-	-
 gpt-4-0613	openai	retired	-	-	-
 gpt-4-1106-preview	openai	retired	-	-	-
 gpt-4o-2024-05-13	openai	retired	-	-	-
-o1	openai	retired	-	-	-
+o1	openai	retired-ambiguous	-	-	-
 o1-pro	openai	retired	-	-	-
 o3-mini	openai	retired	-	-	-
 gpt-4.5-preview	openai	retired	-	-	-

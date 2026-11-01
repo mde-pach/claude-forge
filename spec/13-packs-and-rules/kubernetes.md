@@ -32,7 +32,7 @@ Child of `kubernetes`: active only where it is.
 |---|---|---|---|
 | `kubernetes/helm/chart-api-v2` | Chart.yaml declares apiVersion: v2 (Helm 3); v1 with requirements.yaml is the Helm 2 format. | any: `**/Chart.yaml` | grep forbid `^apiVersion:[[:space:]]*["']?v1["']?[[:space:]]*$` |
 | `kubernetes/helm/lint` | A changed chart passes helm lint --strict, and its helm template output validates with kubeconform in strict mode (no unknown fields, no apiVersion current Kubernetes no longer serves). | any | check lint: `forge_helm` |
-| `kubernetes/helm/version-bump` | In a chart-testing repository (ct.yaml or ct.yml; check-version-increment not false), a chart under its chart-dirs (default charts/) with changed files bumps its Chart.yaml version. | any | check lint: `forge_chart_version` |
+| `kubernetes/helm/version-bump` | In a chart-testing repository (ct.yaml or ct.yml; check-version-increment not false), a chart under its chart-dirs (default charts/) with changed files bumps its Chart.yaml version; one bump per branch is enough. | any | check lint: `forge_chart_version` |
 
 ### kubernetes/kustomize
 

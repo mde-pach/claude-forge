@@ -6,7 +6,8 @@
 //! Kinds:
 //! - `retired`: grep ERE, a quoted retired id (pydantic-ai / LiteLLM prefixes allowed);
 //! - `rejects <feature>`: ast-grep regex, a string literal naming a model that rejects <feature>;
-//! - `advise`: the check command, `forge_advise forge_model_ids <deprecated> <known>`.
+//! - `advise`: the check command, `forge_advise forge_model_ids <deprecated> <known>`; a
+//!   `retired-ambiguous` id is one of the deprecated, retiring `retired`.
 
 use std::path::{Path, PathBuf};
 
@@ -31,8 +32,9 @@ fn load(text: &str) -> Vec<Row> {
         }
         let f: Vec<&str> = l.split('\t').collect();
         assert!(
-            f.len() == 6 && ["active", "deprecated", "retired"].contains(&f[2]),
-            "models.tsv: line {}: id<TAB>provider<TAB>active|deprecated|retired<TAB>retires<TAB>replacement<TAB>rejects",
+            f.len() == 6
+                && ["active", "deprecated", "retired", "retired-ambiguous"].contains(&f[2]),
+            "models.tsv: line {}: id<TAB>provider<TAB>active|deprecated|retired|retired-ambiguous<TAB>retires<TAB>replacement<TAB>rejects",
             i + 1
         );
         assert!(
@@ -88,8 +90,11 @@ fn render(kind: &str, rows: &[Row]) -> String {
         "advise" => {
             let dep: Vec<String> = rows
                 .iter()
-                .filter(|r| r.status == "deprecated")
-                .map(|r| format!("{}|{}|{}", r.id, r.retires, r.replacement))
+                .filter(|r| r.status == "deprecated" || r.status == "retired-ambiguous")
+                .map(|r| match r.status.as_str() {
+                    "deprecated" => format!("{}|{}|{}", r.id, r.retires, r.replacement),
+                    _ => format!("{}|retired|{}", r.id, r.replacement),
+                })
                 .collect();
             let known: Vec<&str> = rows
                 .iter()

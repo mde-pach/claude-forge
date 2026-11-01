@@ -509,6 +509,34 @@ fn post_tool_use_reports_findings_on_the_changed_files() {
     );
 }
 
+/// Discarding changes is judged against the turn: the person's uncommitted work from before the
+/// prompt is never discarded (deny), the turn's own changes are an ask, and before any prompt
+/// (no turn known) it is denied.
+#[test]
+fn discarding_changes_is_judged_against_the_turn() {
+    let s = Sandbox::new(&["safety/git-discard"]);
+    let f = Fake::default();
+    let decision = |cmd: &str| {
+        json_out(&s.run(&f, "pre-tool-use", bash(cmd, "t1")))["hookSpecificOutput"]
+            ["permissionDecision"]
+            .clone()
+    };
+    assert_eq!(decision("git checkout -- tests/test_cart.py"), "deny");
+    std::fs::write(s.root.join("app/main.py"), "x = 9\n").unwrap();
+    std::fs::write(s.root.join("notes.txt"), "mine\n").unwrap();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "fix total"}));
+    // the agent's own edit during the turn
+    std::fs::write(
+        s.root.join("tests/test_cart.py"),
+        "def test_total():\n    assert False\n",
+    )
+    .unwrap();
+    assert_eq!(decision("git checkout -- app/main.py"), "deny");
+    assert_eq!(decision("git checkout -- ."), "deny");
+    assert_eq!(decision("git checkout HEAD -- tests/test_cart.py"), "ask");
+    assert_eq!(decision("git restore tests"), "ask");
+}
+
 #[test]
 fn prompt_snapshots_the_turn_silently() {
     let s = Sandbox::new(&[]);

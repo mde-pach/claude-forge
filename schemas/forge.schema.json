@@ -125,6 +125,12 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
         },
+        "file": {
+          "type": "string",
+          "description": "A glob (§6.1) on the finding's repository-relative path.",
+          "minLength": 1,
+          "pattern": "^[^\\n]+$"
+        },
         "change": {
           "type": "string",
           "pattern": "^[^\\n]+$"
@@ -136,9 +142,9 @@
       },
       "required": [
         "rule",
-        "change",
         "reason"
-      ]
+      ],
+      "description": "A finding the person accepts (forge.yaml `accept:`, §10.5): it holds for a finding of `rule`\nin a file `file` matches (every file, for a count over several), whose text is `change`\n(as the agent reads it, or its message without `path:line`). At least one of `file` and\n`change`; one left out matches any."
     }
   }
 }

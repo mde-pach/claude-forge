@@ -271,3 +271,133 @@ fn skip_options(words: &[Word], mut j: usize, with_value: &[&str]) -> Option<usi
     }
     None
 }
+
+/// Whether the command at `words[p]` runs what it reads on stdin as its program: a shell given
+/// no script (no positional argument, `-`, or `-s`) and no `-c`; Python, Node, Bun or Deno given
+/// no script (or `-`) and no inline program (`-c`, `-m`, `-e`, `--eval`, `-p`, `--print`).
+/// Another command is taken to run it.
+pub fn runs_stdin(words: &[Word], p: usize) -> bool {
+    let name = basename(&words[p].text);
+    let rest = words[p + 1..].iter().map(|w| w.text.as_str());
+    let shell = matches!(
+        name,
+        "sh" | "bash" | "zsh" | "dash" | "ksh" | "ash" | "mksh" | "fish"
+    );
+    let node = matches!(name, "node" | "nodejs" | "bun" | "deno");
+    if !shell && !node && !is_python(name) {
+        return true;
+    }
+    // options that take the next word as their value
+    let value: &[&str] = if shell {
+        &["-o", "+o", "-O", "+O", "--rcfile", "--init-file"]
+    } else if node {
+        &[
+            "-r",
+            "--require",
+            "--import",
+            "--loader",
+            "--env-file",
+            "--cwd",
+            "--preload",
+        ]
+    } else {
+        &["-W", "-X", "--check-hash-based-pycs"]
+    };
+    let mut rest = rest.peekable();
+    let mut sub_skipped = false;
+    while let Some(w) = rest.next() {
+        if w == "-" {
+            return true;
+        }
+        // after `--`, the first word is the script
+        if w == "--" {
+            return rest.peek().is_none();
+        }
+        if w.starts_with("--") {
+            if matches!(w, "--eval" | "--print" | "--command") || w.starts_with("--eval=") {
+                return false;
+            }
+            if value.contains(&w) {
+                rest.next();
+            }
+            continue;
+        }
+        if let Some(letters) = w.strip_prefix('-').filter(|l| !l.is_empty()) {
+            if value.contains(&w) {
+                rest.next();
+                continue;
+            }
+            if shell {
+                if letters.contains('c') {
+                    return false;
+                }
+                if letters.contains('s') {
+                    return true;
+                }
+            } else if node {
+                if letters.starts_with('e') || letters.starts_with('p') {
+                    return false;
+                }
+            } else if letters.starts_with('c') || letters.starts_with('m') {
+                return false;
+            }
+            continue;
+        }
+        if w.starts_with('+') && shell {
+            continue;
+        }
+        // `bun run -`, `deno run -`: the subcommand, then the script
+        if node && !sub_skipped && matches!(name, "bun" | "deno") && w == "run" {
+            sub_skipped = true;
+            continue;
+        }
+        // a script file (or, for Bun and Deno, a subcommand)
+        return false;
+    }
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn runs(line: &str) -> bool {
+        let words: Vec<Word> = line.split(' ').map(Word::plain).collect();
+        runs_stdin(&words, 0)
+    }
+
+    #[test]
+    fn what_reads_its_program_from_stdin() {
+        for yes in [
+            "bash",
+            "sh -s -- --yes",
+            "bash -x",
+            "bash -",
+            "python3",
+            "python3 -",
+            "python3 -u",
+            "node",
+            "node -",
+            "bun run -",
+            "zsh -o pipefail",
+            "jq",
+        ] {
+            assert!(runs(yes), "{yes}");
+        }
+        for no in [
+            "python3 -m json.tool",
+            "python3 -c print(1)",
+            "python -W ignore script.py",
+            "node -e console.log(1)",
+            "node --eval x",
+            "node -p 1",
+            "bash -c cat",
+            "bash -ec cat",
+            "bash install.sh",
+            "node script.js",
+            "bun x",
+        ] {
+            assert!(!runs(no), "{no}");
+        }
+    }
+}

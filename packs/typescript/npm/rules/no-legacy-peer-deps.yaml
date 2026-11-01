@@ -1,9 +1,10 @@
 id: typescript/npm/no-legacy-peer-deps
-description: npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it.
+description: Claude asks before installing with --legacy-peer-deps or --force; they install past a peer dependency conflict instead of resolving it, which can leave packages running against versions they do not support.
+review: "Does the user's request call for installing past the peer dependency conflict (they asked for this flag, or the conflict is known and accepted), rather than resolving it by choosing compatible versions?"
 scope: {language: any}
 enforce:
   - target: guard
-    decision: deny
+    decision: ask
     command: {name: npm, sub: ['install|i|ci|add'], flags_any: [--legacy-peer-deps, --force]}
 examples:
   match: ["npm install --legacy-peer-deps", "npm i react@19 --force", "npm ci --legacy-peer-deps"]

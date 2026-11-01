@@ -1,9 +1,10 @@
 id: typescript/turbo/no-env-loose-flag
-description: turbo runs without --env-mode=loose; declare the variables a task needs (env, passThroughEnv) instead.
+description: Claude asks before running turbo with --env-mode=loose; it hides which variables a task needs (declare them in env or passThroughEnv instead), and a cached result may then depend on variables turbo does not hash.
+review: "Does the user's request call for running turbo with loose environment mode (for example a one-off local debugging run), rather than declaring the variables the task needs?"
 scope: {language: any}
 enforce:
   - target: guard
-    decision: deny
+    decision: ask
     command: {name: turbo, flags_any: ['--env-mode=loose'], value_flags: [--env-mode]}
 examples:
   match: ["turbo run build --env-mode=loose", "pnpm turbo build --env-mode loose"]

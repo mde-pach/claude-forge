@@ -85,6 +85,8 @@ fn chart_of(cx: &Cx<'_>, p: &str) -> Option<String> {
 /// check-version-increment not false), each chart under ct's chart-dirs (default charts) with a
 /// changed file keeps the base's Chart.yaml version. A new chart is fine.
 pub fn chart_version(cx: &Cx<'_>, _args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    cx.check.mark_attributed();
     re!(OFF, r"(?m)^check-version-increment:\s*false");
     let mut r = Report::default();
     let Some(ct) = ["ct.yaml", "ct.yml"].iter().find_map(|f| cx.now(f)) else {

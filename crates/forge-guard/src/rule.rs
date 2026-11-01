@@ -154,6 +154,7 @@ pub(crate) struct Matcher {
     env_any: Vec<(String, Option<Glob>)>,
     wrapped_by: Vec<Glob>,
     pipe_to: Vec<Glob>,
+    pipe_runs_stdin: bool,
     redirect_to: Option<LazyRegex>,
     /// The fields need the arguments read.
     needs_args: bool,
@@ -224,6 +225,7 @@ impl Matcher {
                 .collect(),
             wrapped_by: m.wrapped_by.iter().map(|s| Glob::new(s)).collect(),
             pipe_to: m.pipe_to.iter().map(|s| Glob::new(s)).collect(),
+            pipe_runs_stdin: m.pipe_runs_stdin,
             redirect_to: lazy(&m.redirect_to)?,
         })
     }
@@ -252,7 +254,13 @@ impl Matcher {
 
     /// Whether the command matches at one of its command positions.
     pub fn matches(&self, cmd: &SimpleCommand, parsed: &Parsed) -> bool {
-        if !self.env_any.is_empty() && !self.assigns_any(cmd) {
+        // an assignment for the named command: on it, or set as a statement of the line
+        // (`export HUSKY=0 && git commit`, `SKIP=x; git commit`); without a name, any command
+        // assigning it
+        if !self.env_any.is_empty()
+            && !self.assigns_any(cmd)
+            && (self.names.is_empty() || !parsed.commands.iter().any(|c| self.sets_any(c)))
+        {
             return false;
         }
         if let Some(re) = &self.redirect_to
@@ -271,12 +279,10 @@ impl Matcher {
                 .pipe_to
                 .iter()
                 .any(|g| g.0.len() == 2 && g.0.iter().all(String::is_empty));
-            if !star
-                && !next
-                    .starts
-                    .iter()
-                    .any(|&i| self.pipe_to.iter().any(|g| g.matches(next.name_at(i))))
-            {
+            if !next.starts.iter().any(|&i| {
+                (star || self.pipe_to.iter().any(|g| g.matches(next.name_at(i))))
+                    && (!self.pipe_runs_stdin || crate::runners::runs_stdin(&next.words, i))
+            }) {
                 return false;
             }
         }
@@ -297,15 +303,25 @@ impl Matcher {
         })
     }
 
+    fn env_named(&self, n: &str, v: &str) -> bool {
+        self.env_any
+            .iter()
+            .any(|(e, want)| e == n && want.as_ref().is_none_or(|g| g.matches(v)))
+    }
+
     fn assigns_any(&self, cmd: &SimpleCommand) -> bool {
-        let named = |n: &str, v: &str| {
-            self.env_any
-                .iter()
-                .any(|(e, want)| e == n && want.as_ref().is_none_or(|g| g.matches(v)))
-        };
-        if cmd.assigns.iter().any(|(n, v)| named(n, v)) {
-            return true;
-        }
+        cmd.assigns.iter().any(|(n, v)| self.env_named(n, v)) || self.exports_any(cmd)
+    }
+
+    /// A statement setting one of the variables: `NAME=…` alone, or exported.
+    fn sets_any(&self, cmd: &SimpleCommand) -> bool {
+        (cmd.starts.is_empty() && cmd.assigns.iter().any(|(n, v)| self.env_named(n, v)))
+            || self.exports_any(cmd)
+    }
+
+    /// `export NAME=…` (`declare`, `typeset`, `readonly`, `local`) of one of the variables.
+    fn exports_any(&self, cmd: &SimpleCommand) -> bool {
+        let named = |n: &str, v: &str| self.env_named(n, v);
         let Some(e) = cmd.effective() else {
             return false;
         };

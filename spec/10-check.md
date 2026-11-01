@@ -42,7 +42,8 @@ The change is computed once per run: the changed paths, which exist now, which w
 - **Base copies** come from the base commit (`git cat-file --batch`) or, for a path that was uncommitted at the start of the turn, from the turn snapshot. A turn's base blobs are kept in the snapshot, so later edits of the turn ask git nothing.
 - **Added lines** are what `git diff --no-index -U0` reports against the base copy (Myers diff with git's slider heuristics, computed in process). A file absent from the base counts fully. An edited line counts as added, and so does moved code.
 - **Formatting.** A formatter rewrites whole files, so it may touch lines the change never did. When a check in a file's scope has a `format_stdin`, the base copy is also formatted with it, and a line counts only when it is added against both the base copy and the formatted copy; a line added against the base whose text is that of a line added against the formatted copy also counts (each such line once). When no filter applies, its tool is missing, or it fails or prints nothing on the base, the plain comparison applies. The formatted copies are kept in the turn snapshot and dropped when a formatter config at the root (`pyproject.toml`, `ruff.toml`, `biome.json`, `.prettierrc*`, `.editorconfig`, `package.json`, …) is newer than them.
-- **Turn snapshot.** The snapshot directory holds `head` (the commit at the start of the turn, possibly empty), `dirty` (`<path><TAB><blob hash>` per path uncommitted then, `-` when it was deleted) and `files/<path>` (a copy of each dirty file). Under `--turn` the change is what differs from the snapshot, commits made during the turn included; the person's own uncommitted work from before the turn is not part of it. §8 says when the hooks write it.
+- **Branch base.** A check target with `base: branch` (§6.2) is about the branch as a whole. At Stop (`--turn`) and with `--changed`, it still runs only when the run's own change touches its scope (§10.3), but its builtins get the branch's change: `FORGE_CHANGED` lists the files that differ from the merge base of HEAD with the default branch (committed on the branch, uncommitted, untracked), plus the run's changed files, and `FORGE_BASE` holds their copies at that merge base. The default branch is what `origin/HEAD` points to, else the first of `main`, `master`, `origin/main`, `origin/master` that exists; on the default branch itself the merge base is HEAD. A finding about a file the run did not change is dropped (earlier commits of the branch are not this change's); a finding with no path stays. With no default branch or no merge base, the check compares with the run's own base, with the note `compared with <base> instead of the branch's start: <why>`. `--since` already compares with a merge base, `--all` with nothing, and after an edit the run's own base applies. Tests: `crates/forge-cli/tests/check.rs::a_chart_is_bumped_once_per_branch`, `::a_migration_the_branch_added_may_be_edited`.
+- **Turn snapshot.** The snapshot directory holds `head` (the commit at the start of the turn, possibly empty), `dirty` (`<path><TAB><blob hash>` per path uncommitted then, `-` when it was deleted), `untracked` (the dirty paths git did not track then, one per line; the guard reads it, §9.2) and `files/<path>` (a copy of each dirty file). Under `--turn` the change is what differs from the snapshot, commits made during the turn included; the person's own uncommitted work from before the turn is not part of it. §8 says when the hooks write it.
 
 ### 10.3 Steps
 
@@ -88,16 +89,27 @@ The `python/config-ratchet` and `typescript/config-ratchet` rules run `forge_rat
 
 **A derived lock is kept, not reported.** `forge_uv_lock` (`python/uv/lock-sync`) runs `uv lock --check` when the change touched `pyproject.toml` or `uv.lock`. A stale lock is relocked with `uv lock`: in the turn, the advice `uv.lock was updated to match pyproject.toml.`; in a commit (`--changed`), the finding `… Add it and commit again.`, which refuses the commit once with the new lock in the tree; in CI (`--all`, `--since`) nothing is written, and a stale or missing lock is a finding. A change is not held to a lock the project never had (no `uv.lock` before or after): creating it is setup, which `forge apply` offers (§3.5). A `pyproject.toml` that does not resolve is a finding with uv's error. After an edit, the background hook relocks too (§8.7). Test: `crates/forge-cli/tests/check.rs::the_uv_lock_is_kept_in_sync`.
 
-A person accepts a finding in `forge.yaml`:
+A person accepts a finding in `forge.yaml`, whatever its rule (a grep or ast-grep forbid, a `no-increase` / `no-decrease` count, a check's diagnostic, a builtin's finding, `forge/deleted-test`):
 
 ```yaml
 accept:
   - rule: <rule-id>
-    change: <the finding's text, as the agent reads it>
+    file: <glob>        # optional: the finding's file (§6.1 globs, repository-relative)
+    change: <text>      # optional: the finding's text
     reason: string
 ```
 
-A builtin's finding whose text equals an accepted `change` of its rule is dropped (§6.4).
+An entry holds for a finding when all of these hold:
+
+- `rule` is the finding's rule;
+- `file`, when given, matches the finding's path. A count over several files (`<description> (<before> -> <after>) in <paths>`) needs every one of them to match; a finding with no path is never matched by an entry with `file`;
+- `change`, when given, equals the finding's text as the agent reads it (`<path>:<line> <message>`), or its message alone (without `<path>:<line> `, which moves as the file changes), leading and trailing whitespace aside. A multi-line finding is matched by its whole message.
+
+An entry names `file`, `change` or both; one with neither is refused when `forge.yaml` loads (`give file, change or both`): a rule accepted everywhere is disabled instead (`disable:`). An entry with only `file` accepts every finding of its rule in those files, until it is removed.
+
+An accepted finding is dropped where it is found: an accepted count, forbid match or check failure no longer fails its step, so the later steps run, and a check whose findings are all accepted passes. A builtin also drops a finding whose text equals an accepted `change` of its rule (§6.4).
+
+**A refused commit says how to accept.** When `forge check --changed` (the commit-time check, §7.6) fails, its text output (for a person; not `--json`, and never under `CLAUDECODE`) ends with the entry that would accept each failing finding: `{rule: <id>, file: "<path>", reason: "<why>"}` by rule and file, or `{rule: <id>, change: "<message>", reason: "<why>"}` for a one-line finding with no path, under `accept:`, with the line `To accept one of these instead of fixing it, add its entry to forge.yaml, with your reason (it then holds for that rule in that file):`. The agent never reads it: its text is made of findings only (§10.9), and its own edits of `forge.yaml` ask (§7.2). Tests: `crates/forge-check/tests/spec_check.rs::accepted_findings_of_every_kind_are_dropped`, `::a_refused_commit_says_how_to_accept`, `crates/forge-cli/tests/check.rs::a_refused_commit_names_the_accept_entry`.
 
 ### 10.6 Failing tests at the start of the turn
 
