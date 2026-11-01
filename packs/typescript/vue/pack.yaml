@@ -11,6 +11,6 @@ context:
   - text: |
       Refs are read with `.value` in script code (never as a condition or operand), and `setup()` does not destructure its props (`toRefs(props)` instead).
   - text: |
-      `v-html` and `:innerHTML` in `.vue` files are rejected: they render unescaped HTML. Render text with `{{ }}`, or sanitise in one dedicated component.
+      `v-html` and `:innerHTML` are not used in `.vue` files: they render unescaped HTML. Render text with `{{ }}`, or sanitise in one dedicated component.
   - text: |
-      Vue 2 template syntax is rejected (Vue 3 ignores it): `v-model:prop` instead of `.sync`, `v-slot` / `#name` instead of `slot-scope`, no `.native`, key names instead of key codes.
+      Vue 2 template syntax is not used (Vue 3 ignores it): `v-model:prop` instead of `.sync`, `v-slot` / `#name` instead of `slot-scope`, no `.native`, key names instead of key codes.

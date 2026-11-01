@@ -153,8 +153,9 @@ A check command calls Forge's builtins as shell functions named `forge_<name>` (
 - stdout: its findings, as the agent reads them: `path:line message`, one per line; a line starting with whitespace continues the previous finding.
 - Notes for the person: JSON lines appended to the `FORGE_NOTES` file, never on stdout.
 - Exit status: 0 when nothing fails, 1 when a finding fails the check. A builtin whose findings are all advice marks the check as advice (§10.7) and prints them without the `Advice: ` prefix, which the checker writes.
-- A builtin that compared the tree with its base itself, so that its findings are the change's wherever they are (`forge_condor`: a function whose last caller the change removed is in a file it did not touch), creates the `FORGE_ATTRIBUTED` file: the checker takes its findings as they are (§10.4).
-- A finding whose text equals one of the rule's accepted changes is dropped.
+- A builtin that compared the tree with its base itself, so that its findings are the change's wherever they are (`forge_condor`: a function whose last caller the change removed is in a file it did not touch; `forge_trivy_config`: a misconfiguration in an unchanged file of a changed directory), creates the `FORGE_ATTRIBUTED` file: the checker takes its findings as they are (§10.4).
+- A finding whose text equals one of the rule's accepted changes is dropped. In `forge_ci_jobs` and the OpenAPI builtins, what the agent reads about accepting a finding (`Restore it, or ask the user to accept this change.`) ends each finding's text: a line of its own would name no location, and attribution keeps only the lines naming one (§10.4).
+- A per-file tool's builtin (`forge_zizmor`, `forge_kube_linter`) checks the check's files in a change: when only a `when_changed` file changed, it has nothing of its own to check (with `--all`, every in-scope file).
 - A builtin that cannot run (a missing tool, a failure of Forge itself) writes a note and exits 0: Forge's own problems never fail a check. A builtin name no crate registered writes the note `not enforced: forge_<name> is not available yet in this Forge` and exits 0.
 
 A line of a check's output that starts with `forge:` is taken as a note for the person, never as a finding.
@@ -178,7 +179,7 @@ Loading never fails on these; `forge packs lint` prints them and exits 1 when th
 | `cut-by-comment` | an unquoted agent-facing scalar followed by ` #` on its last line: YAML read the rest as a comment |
 | `grep-scope` | a grep target (whose pattern spells letters) with no `scope.files` and language `any`, or whose `scope.files` reach Markdown or docs |
 | `forge-internals` | agent-facing text naming Forge or its internals: `.forge`, `check.sh`, `forge.yaml`, `forge.lock`, `forge apply\|diff\|check\|status\|hook`, `claude-forge`, `FORGE_*` variables, `forge-state`, `models.tsv`, `accept:`, the word `Forge` |
-| `enforcement-claim` | context text claiming a tool enforces the norm ("is rejected by", "rejects", "is linted by", …): false wherever the tool is not installed |
+| `enforcement-claim` | context text claiming a tool enforces the norm ("is rejected by", "rejects", "is linted by", …), or describing enforcement instead of the norm ("is rejected", "are rejected"): false wherever the tool is not installed; the text states the norm ("Queries use `select()`, not `session.query()`") |
 | `enforcement-limit` | agent-facing text about what is not checked ("is not checked", "not recognised", "not checked by") |
 | `advice-prefix` | a description starting with `Advice`: the prefix comes from the mode |
 

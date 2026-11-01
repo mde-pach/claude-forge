@@ -11,9 +11,9 @@ Detected by: a file matching `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfil
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
-- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
-- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) `ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
-- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are not used. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) No `ARG` or `ENV` is named like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+- (when a file matches `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`) Base images name a version tag or a digest (not `latest`). A new Dockerfile comes with a `.dockerignore` (next to it or at the root) that excludes `.env` files, and a `.dockerignore` keeps excluding them.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -40,9 +40,9 @@ Child of `docker`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Docker Compose. The base compose file (`compose.yaml`, or `docker-compose.yml`) holds the shared setup; its override file (`compose.override.yaml`, or `docker-compose.override.yml`, loaded automatically) holds local changes.
-- `depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
+- `depends_on` uses the long form with a `condition` (not the bare list form); `condition: service_healthy` needs a `healthcheck` on that service.
 - `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
-- Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
+- Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); no `.env` is committed.
 - Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
 
 | Rule | Description | Scope | Enforced by |

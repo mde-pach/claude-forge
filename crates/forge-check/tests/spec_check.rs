@@ -221,6 +221,59 @@ fn a_failure_the_base_already_had_is_not_the_changes() {
     );
 }
 
+/// The base run reads the base tree through `FORGE_ROOT` too (as builtins do): a failure the
+/// change brought is not taken for one the base already had.
+#[test]
+fn the_base_run_names_the_base_tree_as_its_root() {
+    let lacks = rule(json!({
+        "id": "acme/conf", "description": "conf.txt declares REQUIRED.",
+        "scope": {"language": "any"},
+        "enforce": [{"target": "check", "stage": "lint", "when_changed": ["conf.txt"],
+            "run": "grep -q REQUIRED \"$FORGE_ROOT/conf.txt\" || { echo 'conf.txt does not declare REQUIRED'; exit 1; }"}],
+    }));
+    let d = repo(&[("conf.txt", "REQUIRED\n")]);
+    put(d.path(), "conf.txt", "a = 2\n");
+    let o = checker(d.path(), vec![lacks])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+}
+
+/// A kube-linter-style finding at line 0 of a changed manifest (about the whole object) is
+/// compared with the base: an edit elsewhere in a manifest that already had it passes; the
+/// change that brings it fails.
+#[test]
+fn a_whole_file_finding_the_base_already_had_is_not_the_changes() {
+    let lint = || {
+        rule(json!({
+            "id": "acme/kube", "description": "Workloads set readOnlyRootFilesystem.",
+            "scope": {"language": "any", "files": ["deploy/*.yaml"]},
+            "enforce": [{"target": "check", "stage": "lint",
+                "run": "grep -q readOnlyRootFilesystem deploy/web.yaml || { echo 'deploy/web.yaml:0: (object: <no namespace>/web apps/v1, Kind=Deployment) container \"web\" does not have a read-only root file system (check: no-read-only-root-fs)'; exit 1; }"}],
+        }))
+    };
+    let d = repo(&[("deploy/web.yaml", "kind: Deployment\nreplicas: 1\n")]);
+    put(
+        d.path(),
+        "deploy/web.yaml",
+        "kind: Deployment\nreplicas: 2\n",
+    );
+    let o = checker(d.path(), vec![lint()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    let d = repo(&[(
+        "deploy/web.yaml",
+        "kind: Deployment\nreadOnlyRootFilesystem: true\n",
+    )]);
+    put(d.path(), "deploy/web.yaml", "kind: Deployment\n");
+    let o = checker(d.path(), vec![lint()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    assert!(o.report.findings[0].agent_text().contains("read-only root"));
+}
+
 /// Step 2: a forbid grep fails on an added line only, names `path:line` and the description,
 /// and stops the stages; documentation files are never grepped.
 #[test]

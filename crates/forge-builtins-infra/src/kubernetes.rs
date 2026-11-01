@@ -194,7 +194,7 @@ pub fn kube_linter(cx: &Cx<'_>, args: &[String]) -> Report {
         _ => (false, args),
     };
     let changed: Vec<String> = cx
-        .scope_files()
+        .change_files()
         .into_iter()
         .filter(|f| kube_manifest(cx, f))
         .collect();

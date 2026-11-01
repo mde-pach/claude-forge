@@ -25,8 +25,10 @@ fn attr(root: &std::path::Path, name: &str, path: &str) -> String {
         .unwrap_or_default()
 }
 
-/// `forge_large_files <bytes>`: each in-scope file over the limit that is new or grew in the
-/// change, and that Git LFS does not store.
+/// `forge_large_files <bytes>`: each in-scope file over the limit that the change added or took
+/// past it (its base copy was within it), that is not a lock file (the `lockfiles` role, or a
+/// lock file's name anywhere) and that Git LFS does not store. A file already over the limit
+/// that grows is not the change's.
 fn large_files(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) -> i32 {
     let max: u64 = inv
         .args
@@ -42,8 +44,12 @@ fn large_files(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) 
             continue;
         }
         if let Some(b) = inv.base_copy(&f)
-            && std::fs::metadata(b).map(|b| b.len()).unwrap_or(0) >= m.len()
+            && std::fs::metadata(b).map(|b| b.len()).unwrap_or(0) > max
         {
+            continue;
+        }
+        let name = f.rsplit('/').next().unwrap_or(&f);
+        if inv.roles.matches("lockfiles", &f) || JS_LOCKS.contains(&name) || name == "uv.lock" {
             continue;
         }
         if attr(inv.root(), "filter", &f) == "lfs" {
@@ -173,4 +179,68 @@ fn lockfile_updated(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Wr
         );
     }
     rc
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use forge_core::builtin::{BuiltinCtx, Scope};
+
+    use super::super::CheckCtx;
+    use super::*;
+
+    /// A file new over the limit, or taken past it, is reported; one already over it that
+    /// grows, and a lock file, are not.
+    #[test]
+    fn large_files_reports_what_the_change_took_past_the_limit() {
+        let root = tempfile::tempdir().unwrap();
+        let base = tempfile::tempdir().unwrap();
+        let put = |d: &std::path::Path, p: &str, n: usize| {
+            let f = d.join(p);
+            std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+            std::fs::write(f, "x".repeat(n)).unwrap();
+        };
+        put(root.path(), "new.bin", 200);
+        put(root.path(), "grown.bin", 200);
+        put(base.path(), "grown.bin", 50);
+        put(root.path(), "big.json", 300);
+        put(base.path(), "big.json", 200);
+        put(root.path(), "web/package-lock.json", 300);
+        put(root.path(), "pnpm-lock.yaml", 300);
+        put(base.path(), "pnpm-lock.yaml", 50);
+        let files: Vec<String> = [
+            "new.bin",
+            "grown.bin",
+            "big.json",
+            "web/package-lock.json",
+            "pnpm-lock.yaml",
+        ]
+        .map(String::from)
+        .to_vec();
+        let registry = Registry::new();
+        let inv = Invocation {
+            ctx: BuiltinCtx {
+                root: root.path().to_path_buf(),
+                base: Some(base.path().to_path_buf()),
+                changed: files.clone(),
+                rule: "git/large-files".into(),
+                scope: Scope::Changed,
+                accepted: vec![],
+                notes_file: None,
+            },
+            cx: CheckCtx {
+                files,
+                ..CheckCtx::default()
+            },
+            args: vec!["100".into()],
+            registry: &registry,
+            tools: Arc::new(crate::tools::LocalTools::default()),
+        };
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        assert_eq!(large_files(&inv, &mut out, &mut err), 1);
+        let out = String::from_utf8(out).unwrap();
+        let files: Vec<&str> = out.lines().filter_map(|l| l.split(':').next()).collect();
+        assert_eq!(files, ["new.bin", "grown.bin"], "{out}");
+    }
 }

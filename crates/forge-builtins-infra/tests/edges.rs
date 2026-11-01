@@ -185,3 +185,90 @@ fn comparisons_with_the_base_do_nothing_with_all() {
         );
     }
 }
+
+/// trivy compares the directory with the base itself: its findings are marked as the change's,
+/// so one in an unchanged file of the directory is not dropped.
+#[test]
+fn trivy_findings_are_marked_as_the_changes() {
+    let bin = fake_bin();
+    let o = opts(bin.path());
+    let mut c = case(
+        "terraform/misconfig",
+        &[(
+            "infra/network.tf",
+            "resource \"aws_security_group\" \"web\" {\n  ingress {\n    from_port   = 22\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n",
+        )],
+    );
+    c.head.insert(
+        "infra/network.tf".into(),
+        "resource \"aws_security_group\" \"web\" {\n}\n".into(),
+    );
+    let r = repo(&c);
+    let tmp = tempfile::tempdir().unwrap();
+    let attributed = tmp.path().join("attributed");
+    let extra = CheckCtx {
+        attributed: Some(attributed.clone()),
+        tmp: Some(tmp.path().to_path_buf()),
+        ..check(None, vec!["infra/network.tf".into()])
+    };
+    let rep = forge_builtins_infra::run(&o, "trivy_config", &ctx(&c, &r), &extra, &[]).unwrap();
+    assert!(!rep.findings.is_empty(), "{rep:?}");
+    assert!(attributed.exists());
+}
+
+/// A renamed workflow keeps its jobs; a deleted one loses them, each finding saying the user
+/// may accept it (the hint is part of the finding: a line of its own names no location).
+#[test]
+fn a_renamed_workflow_removes_no_job() {
+    let wf = "name: ci\non: [push, pull_request]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n";
+    let bin = fake_bin();
+    let o = opts(bin.path());
+    for renamed in [true, false] {
+        let mut files = vec![(".github/workflows/ci.yml", "gone\n")];
+        if renamed {
+            files.push((".github/workflows/checks.yml", wf));
+        }
+        let mut c = case("github-actions/no-removed-jobs", &files);
+        c.head.insert(".github/workflows/ci.yml".into(), wf.into());
+        let r = repo(&c);
+        std::fs::remove_file(r.root.join(".github/workflows/ci.yml")).unwrap();
+        let extra = check(None, vec![]);
+        let rep = forge_builtins_infra::run(&o, "ci_jobs", &ctx(&c, &r), &extra, &[]).unwrap();
+        if renamed {
+            assert!(rep.findings.is_empty(), "{rep:?}");
+        } else {
+            assert_eq!(
+                rep.agent_text(10),
+                ".github/workflows/ci.yml:0 job lint was removed from a workflow that runs on push or pull_request. Restore it, or ask the user to accept this change."
+            );
+        }
+    }
+}
+
+/// In a change, a per-file tool checks the check's files only: when only a `when_changed` file
+/// changed there is nothing of its own to check, not every workflow of the repository.
+#[test]
+fn a_change_with_no_files_of_its_own_checks_nothing() {
+    let bin = fake_bin();
+    let o = opts(bin.path());
+    let mut c = case(
+        "github-actions/zizmor-advice",
+        &[(".github/actions/setup/install.sh", "npm ci\n")],
+    );
+    c.head.insert(
+        ".github/workflows/lint.yml".into(),
+        "name: lint\non: push\npermissions: {}\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    permissions: {}\n    steps:\n      - run: npm install -g prettier\n".into(),
+    );
+    let r = repo(&c);
+    let args = ["adhoc-packages".to_string()];
+    let rule = Some(c.rule.clone());
+    let run = |files: Vec<String>| {
+        let extra = check(rule.clone(), files);
+        forge_builtins_infra::run(&o, "zizmor", &ctx(&c, &r), &extra, &args).unwrap()
+    };
+    let rep = run(vec![]);
+    assert!(rep.findings.is_empty() && rep.notes.is_empty(), "{rep:?}");
+    // the same workflow as a file of the change is checked
+    let rep = run(vec![".github/workflows/lint.yml".into()]);
+    assert!(!rep.findings.is_empty(), "{rep:?}");
+}

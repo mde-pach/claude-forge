@@ -5,4 +5,4 @@ detect:
   files_any: [bun.lock, bun.lockb]
 context:
   - text: |
-      Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
+      Bun is the package manager. Tests that import from `bun:test` run with `bun test`. A change to them adds no `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf` and no mocks (`mock`, `mock.module`, `spyOn`), and does not reduce their `expect` calls.

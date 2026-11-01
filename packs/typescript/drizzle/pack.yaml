@@ -12,6 +12,6 @@ context:
   - text: |
       A migration that exists in the base is not modified or deleted; a change goes in a new migration. `drizzle-kit push` needs confirmation; `push --force` is refused.
   - text: |
-      Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` with a template or concatenation (or a variable built from one) is rejected.
+      Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` is not given a template or concatenation (or a variable built from one).
   - text: |
       `db.delete(t)` and `db.update(t).set(…)` are chained with `.where(…)`.

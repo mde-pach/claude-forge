@@ -5,6 +5,6 @@ detect:
   deps_any: [{ecosystem: pypi, name: sqlalchemy, version: ">=2.0.0"}]
 context:
   - text: |
-      SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
+      SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (not `session.query()`). Large collections are `WriteOnlyMapped[...]` (not `lazy="dynamic"`).
   - text: |
-      Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
+      Values reach `text()` SQL as bound parameters (`:id`): no f-string, `.format()`, `%` or `+` inside `text()`, and no string literal passed to `.execute()`. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.

@@ -20,7 +20,7 @@ use forge_builtins_infra::{Options, names};
 use forge_check::builtins::{AdapterTools, CheckCtx, CheckRule};
 use forge_check::tools::LocalTools;
 use forge_core::builtin::{BuiltinCtx, Scope};
-use forge_packs::model::{Example, Language, Rule, Target};
+use forge_packs::model::{Example, Rule, Target};
 
 pub fn fakes_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fakes")
@@ -201,12 +201,10 @@ pub fn gate(case: &Case, r: &Repo, _opts: &Options) -> Option<Vec<String>> {
         .cloned()
         .collect();
     match &case.when_changed {
+        // as the checker reads `when_changed`: its include globs (a role's exclusions apart)
         Some(w) => {
-            let mut wr = case.rule.clone();
-            wr.scope.files = Some(w.clone());
-            wr.scope.language = Language::Any;
-            let wcx = check(Some(wr), vec![]);
-            r.changed.iter().any(|p| wcx.in_scope(p)).then_some(files)
+            let globs = forge_check::scope::GlobList::new(&cx.roles.expand(w));
+            r.changed.iter().any(|p| globs.any(p)).then_some(files)
         }
         None => (!files.is_empty()).then_some(files),
     }
