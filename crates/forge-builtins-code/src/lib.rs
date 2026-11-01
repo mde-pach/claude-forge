@@ -4,7 +4,7 @@
 //!
 //! | builtin | pack rule |
 //! |---|---|
-//! | `bun_cooldown` | typescript/bun/release-age |
+//! | `npm_cooldown`, `pnpm_cooldown`, `yarn_cooldown`, `bun_cooldown` | typescript/<pm>/release-age |
 //! | `trusted_deps` | typescript/bun/trusted-deps |
 //! | `lockfile_lint` | typescript/npm/lockfile-lint (pinned lockfile-lint) |
 //! | `dep_major_match` | typescript/express/types-match |
@@ -26,6 +26,7 @@
 //! roles, the running rule, the active checks). Its findings are for the agent; a missing tool
 //! or a tool that cannot run is a note for the person, and the builtin then passes.
 
+pub mod cooldown;
 pub mod ctx;
 pub mod js;
 pub mod models;
@@ -70,8 +71,8 @@ impl Default for Options {
 /// Every builtin of this crate.
 pub fn builtins(opts: &Options) -> Vec<Box<dyn CheckBuiltin>> {
     let o = Arc::new(opts.clone());
-    vec![
-        Box::new(js::BunCooldown(o.clone())),
+    let cooldowns = cooldown::Cooldown::all(&o);
+    let mut out: Vec<Box<dyn CheckBuiltin>> = vec![
         Box::new(js::TrustedDeps),
         Box::new(js::LockfileLint(o.clone())),
         Box::new(js::DepMajorMatch),
@@ -84,7 +85,13 @@ pub fn builtins(opts: &Options) -> Vec<Box<dyn CheckBuiltin>> {
         Box::new(repo::Editorconfig(o)),
         Box::new(models::ModelIds),
         Box::new(snapshots::SnapshotStale),
-    ]
+    ];
+    out.extend(
+        cooldowns
+            .into_iter()
+            .map(|c| Box::new(c) as Box<dyn CheckBuiltin>),
+    );
+    out
 }
 
 /// Runs builtin `name` with `x`, the accepted changes dropped (as [`BuiltinCtx::finish`]); None

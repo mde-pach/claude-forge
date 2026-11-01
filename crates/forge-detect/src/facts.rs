@@ -34,7 +34,7 @@ pub struct DepFacts {
     pub pypi: Deps,
     /// Ecosystems the project publishes a library to.
     pub library: BTreeSet<Ecosystem>,
-    /// Named facts for `when:` conditions: `python.pm`, `python.requirements`, `js.pm`.
+    /// Named facts for `when:` conditions: `python.pm`, `python.requirements`, `js.pm`, `js.yarn`.
     pub facts: BTreeMap<String, String>,
     /// Its own files, relative to `dir` (the root's: those outside every workspace package).
     pub files: Vec<String>,
@@ -55,6 +55,7 @@ pub const FACT_PYTHON_PM: &str = "python.pm";
 /// exact version), `unpinned` (one has a bare name or a range), `none` (no entries).
 pub const FACT_PYTHON_REQUIREMENTS: &str = "python.requirements";
 pub const FACT_JS_PM: &str = "js.pm";
+pub const FACT_JS_YARN: &str = "js.yarn";
 
 impl DepFacts {
     fn memo(&self, key: String, compute: impl FnOnce() -> bool) -> bool {
@@ -283,13 +284,15 @@ fn read_dir_facts(
             .as_str()
             .to_string(),
     );
+    let js = pm::js_pm(abs, repo, pkg.as_ref());
+    facts.insert(FACT_JS_PM.to_string(), js.as_str().to_string());
     facts.insert(
         FACT_PYTHON_REQUIREMENTS.to_string(),
         requirements.to_string(),
     );
     facts.insert(
-        FACT_JS_PM.to_string(),
-        pm::js_pm(abs, repo, pkg.as_ref()).as_str().to_string(),
+        FACT_JS_YARN.to_string(),
+        pm::yarn_line(abs, repo, pkg.as_ref(), js).to_string(),
     );
     Ok(DepFacts {
         dir: dir.to_string(),

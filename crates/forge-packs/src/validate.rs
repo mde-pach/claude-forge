@@ -94,7 +94,8 @@ fn direct_dashed_tools(cmd: &str) -> Vec<&'static str> {
 
 /// The named facts `when.facts` and `detect.facts_any` may use, with their values (forge-detect
 /// computes them: `python.pm` from the packaging files, `python.requirements` from the
-/// requirements files' entries, `js.pm` from the pinned manager or lock).
+/// requirements files' entries, `js.pm` from the pinned manager or lock, `js.yarn` Yarn's line
+/// where `js.pm` is `yarn`).
 pub const FACTS: &[(&str, &[&str])] = &[
     (
         "python.pm",
@@ -102,6 +103,7 @@ pub const FACTS: &[(&str, &[&str])] = &[
     ),
     ("python.requirements", &["pinned", "unpinned", "none"]),
     ("js.pm", &["npm", "pnpm", "yarn", "bun", "none"]),
+    ("js.yarn", &["berry", "classic", "none"]),
 ];
 
 fn check_facts<'a>(

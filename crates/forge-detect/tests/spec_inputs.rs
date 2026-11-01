@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use forge_detect::facts::{is_npm_library, is_py_library};
-use forge_detect::{FACT_JS_PM, FACT_PYTHON_PM, active_packs, read_project_facts};
+use forge_detect::{FACT_JS_PM, FACT_JS_YARN, FACT_PYTHON_PM, active_packs, read_project_facts};
 use forge_packs::model::{Level, ProjectConfig};
 use serde_json::json;
 
@@ -544,6 +544,23 @@ fn package_manager_facts() {
             "npm",
         ),
         (&[("package.json", "{}")], "npm"),
+        // two lock files: the lock order decides
+        (
+            &[
+                ("package.json", "{}"),
+                ("package-lock.json", "{}"),
+                ("pnpm-lock.yaml", ""),
+            ],
+            "pnpm",
+        ),
+        // no lock: the package manager's config
+        (
+            &[
+                ("package.json", "{}"),
+                ("pnpm-workspace.yaml", "packages: []\n"),
+            ],
+            "pnpm",
+        ),
         (&[("main.py", "")], "none"),
     ];
     for (files, want) in js {
@@ -552,6 +569,59 @@ fn package_manager_facts() {
         let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
         assert_eq!(f.root.fact(FACT_JS_PM), Some(*want), "{files:?}");
     }
+}
+
+/// Exactly one package-manager pack is active, the one `js.pm` names: with two lock files the
+/// pinned manager decides, else the lock order; Yarn's pack only for Yarn 2 and later.
+#[test]
+fn one_package_manager_pack_follows_js_pm() {
+    let pm_packs = |files: &[(&str, &str)]| {
+        active(files, None, |id| {
+            matches!(
+                id,
+                "typescript/npm" | "typescript/pnpm" | "typescript/yarn" | "typescript/bun"
+            )
+        })
+    };
+    let ts = ("tsconfig.json", "{}");
+    for (files, want) in [
+        (
+            vec![
+                ts,
+                ("package.json", "{\"packageManager\": \"npm@11.12.0\"}"),
+                ("package-lock.json", "{}"),
+                ("pnpm-lock.yaml", ""),
+            ],
+            vec!["typescript/npm"],
+        ),
+        (
+            vec![
+                ts,
+                ("package.json", "{}"),
+                ("package-lock.json", "{}"),
+                ("bun.lock", "{}"),
+            ],
+            vec!["typescript/bun"],
+        ),
+        (
+            vec![
+                ts,
+                ("package.json", "{}"),
+                ("yarn.lock", ""),
+                (".yarnrc.yml", ""),
+            ],
+            vec!["typescript/yarn"],
+        ),
+        // Yarn 1: no package-manager pack
+        (vec![ts, ("package.json", "{}"), ("yarn.lock", "")], vec![]),
+        (vec![ts, ("package.json", "{}")], vec!["typescript/npm"]),
+    ] {
+        assert_eq!(pm_packs(&files), want, "{files:?}");
+    }
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), &[("package.json", "{}"), ("yarn.lock", "")]);
+    let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
+    assert_eq!(f.root.fact(FACT_JS_YARN), Some("classic"));
 }
 
 /// The root's package.json and pyproject.toml must parse; a package's broken one is skipped.

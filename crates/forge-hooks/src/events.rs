@@ -588,13 +588,17 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
 /// After an edit to the uv config, a stale `uv.lock` relocked (`python/uv/lock-sync`): the lock
 /// is derived, so Forge keeps it in sync instead of reporting it (§10.5). Only a lock the project
 /// has: creating one is setup (`forge apply`). A pyproject.toml that does not resolve is left to
-/// the Stop check, which reports uv's error.
+/// the Stop check, which reports uv's error. Nor does it relock when the edit gave pyproject.toml
+/// a dependency name its base copy lacks: at Stop the lock is updated only after the
+/// new-dependency checks (`supply-chain/new-pypi-dep-exists`), so a name that does not exist or
+/// is too new is never resolved.
 fn relock(p: &Project, cache: &crate::rules::HookCache, files: &[String]) -> Option<&'static str> {
     if !cache.has_rule("python/uv/lock-sync")
         || !files
             .iter()
             .any(|f| f == "pyproject.toml" || f == "uv.toml")
         || !p.root.join("uv.lock").is_file()
+        || adds_dependency(p)
     {
         return None;
     }
@@ -612,6 +616,28 @@ fn relock(p: &Project, cache: &crate::rules::HookCache, files: &[String]) -> Opt
         return None;
     }
     Some("uv.lock was updated to match pyproject.toml.")
+}
+
+/// Whether `pyproject.toml` declares a dependency name its copy at the start of the turn does not
+/// (every name, when the file is new).
+fn adds_dependency(p: &Project) -> bool {
+    let names = |path: &Path| {
+        std::fs::read_to_string(path)
+            .ok()
+            .and_then(|t| forge_detect::deps::parse_toml(&t).ok())
+            .map(|v| forge_detect::deps::pyproject_deps(&v))
+            .unwrap_or_default()
+    };
+    let now = names(&p.root.join("pyproject.toml"));
+    if now.is_empty() {
+        return false;
+    }
+    let tmp = p.session_dir.join(format!("relock.{}", std::process::id()));
+    let before = base_copy(p, "pyproject.toml", &tmp)
+        .map(|b| names(&b))
+        .unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&tmp);
+    now.keys().any(|k| !before.contains_key(k))
 }
 
 /// `file` as it was at the start of the turn, copied under `tmp`; None when it is new.

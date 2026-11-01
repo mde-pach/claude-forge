@@ -6,7 +6,7 @@
 mod common;
 
 use common::*;
-use forge_guard::{GuardSet, Outcome, PythonPm};
+use forge_guard::{GuardSet, JsPm, Outcome, PythonPm};
 
 include!("common/corpus_data.rs");
 
@@ -253,6 +253,59 @@ fn pip_in_a_uv_project_is_denied() {
         &ctx(project.path()).with_python_pm(Some(PythonPm::Poetry)),
     );
     assert_eq!(poetry.decision(), "ask");
+}
+
+/// An install with another JavaScript package manager than the project's (`js.pm`) asks, naming
+/// the project's; its own, and what installs nothing, pass.
+#[test]
+fn another_js_package_manager_asks() {
+    let set = guard_set();
+    let project = repo(&[("package.json", "{}"), ("pnpm-lock.yaml", "")]);
+    let with = |pm: JsPm, cmd: &str| set.evaluate(cmd, &ctx(project.path()).with_js_pm(Some(pm)));
+    let reason = |pm: JsPm, cmd: &str| match with(pm, cmd) {
+        Outcome::Ask(v) => v.reason,
+        other => panic!("{cmd}: {other:?}"),
+    };
+    assert_eq!(
+        reason(JsPm::Pnpm, "npm ci"),
+        "This project's packages are managed with pnpm: `pnpm install` (`pnpm add <pkg>` to add one); installing with npm would write another lock file. Here: `npm ci` installs with npm."
+    );
+    assert!(reason(JsPm::Pnpm, "yarn").contains("managed with pnpm"));
+    for cmd in [
+        "npm install",
+        "npm i -D vitest",
+        "yarn",
+        "yarn --immutable",
+        "yarn add zod",
+        "bun install",
+        "cd packages/app && bun add zod",
+    ] {
+        // an install that adds a package may ask as a package addition first
+        assert_eq!(with(JsPm::Pnpm, cmd).decision(), "ask", "{cmd}");
+    }
+    for cmd in [
+        "pnpm install",
+        "pnpm install --frozen-lockfile",
+        "npm run build",
+        "npm view zod version",
+        "yarn --version",
+        "npm install -g pnpm",
+        "yarn global add serve",
+        "cd /tmp && npm install",
+    ] {
+        // (a global install that names a package still asks as a package addition)
+        let out = with(JsPm::Pnpm, cmd);
+        assert!(
+            out.verdict()
+                .is_none_or(|v| v.rule != "typescript/no-other-pm"),
+            "{cmd}: {out:?}"
+        );
+    }
+    assert_eq!(with(JsPm::Npm, "npm ci"), Outcome::None);
+    assert_eq!(with(JsPm::Bun, "bun install"), Outcome::None);
+    assert!(reason(JsPm::Bun, "npm ci").contains("managed with bun"));
+    // no JavaScript package manager: nothing to compare with
+    assert_eq!(set.evaluate("npm ci", &ctx(project.path())), Outcome::None);
 }
 
 #[test]

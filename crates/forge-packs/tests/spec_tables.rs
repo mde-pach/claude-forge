@@ -587,6 +587,7 @@ fn every_built_in_rule_has_examples() {
                     [
                         "lock-check",
                         "forge_uv_lock",
+                        "forge_js_lock",
                         "forge_do astro check",
                         "forge_do ngc",
                         "forge_large_files",

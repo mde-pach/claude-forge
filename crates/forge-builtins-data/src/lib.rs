@@ -1,7 +1,8 @@
 //! The builtins of the data packs, ported from the engine's shell modules `sql.sh`, `python.sh`,
 //! `env.sh`, `release.sh` and `docs.sh`: migration
 //! linting and immutability (Squawk, Alembic, Prisma, Drizzle, TypeORM, sqlfluff), models a
-//! migration would miss, type stubs, uv's release cooldown, `.env` templates, hand-edited
+//! migration would miss, type stubs, uv's release cooldown, lock files kept in sync with their manifest (uv and the
+//! JavaScript package managers), `.env` templates, hand-edited
 //! versions and release notes, immutable ADRs and docs that mention changed identifiers, and
 //! the Python code a change leaves unused (Forge's pinned condor, `forge_condor`).
 //!
@@ -21,6 +22,7 @@ mod ctx;
 mod dead_code;
 mod docs;
 mod env;
+pub mod lock;
 pub mod python;
 mod release;
 mod sql;
@@ -103,6 +105,7 @@ const ALL: &[(&str, RunFn)] = &[
     ("uv_cooldown", python::uv_cooldown),
     ("pinned_requirements", python::pinned_requirements),
     ("uv_lock", python::uv_lock),
+    ("js_lock", lock::js_lock),
     ("env_example", env::env_example),
     ("version_changed", release::version_changed),
     ("release_notes", release::release_notes),

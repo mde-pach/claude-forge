@@ -654,6 +654,11 @@
           "type": "string",
           "const": "pre-turn-changes",
           "description": "A `git checkout` / `git restore` that discards paths holding uncommitted changes\nfrom before the turn (the person's work), or run when the turn is not known."
+        },
+        {
+          "type": "string",
+          "const": "js-pm",
+          "description": "An install with a JavaScript package manager that is not the project's (`js.pm`)."
         }
       ],
       "description": "The guard's built-in checks, each reading the whole parsed command line."

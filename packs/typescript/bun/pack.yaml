@@ -2,7 +2,7 @@ id: typescript/bun
 description: Bun is the package manager.
 level: project
 detect:
-  files_any: [bun.lock, bun.lockb]
+  facts_any: {js.pm: bun}
 context:
   - text: |
       Bun is the package manager. Tests that import from `bun:test` run with `bun test`. A change to them adds no `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf` and no mocks (`mock`, `mock.module`, `spyOn`), and does not reduce their `expect` calls.

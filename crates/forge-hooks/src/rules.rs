@@ -116,6 +116,7 @@ pub fn facts_key(root: &Path) -> String {
         "bun.lockb",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
+        ".yarnrc.yml",
         "yarn.lock",
         "package-lock.json",
         "npm-shrinkwrap.json",
@@ -302,14 +303,7 @@ pub fn pm_facts(repo: &Path) -> PmFacts {
 }
 
 pub fn js_pm(s: Option<&str>) -> Option<forge_guard::JsPm> {
-    use forge_guard::JsPm;
-    Some(match s? {
-        "npm" => JsPm::Npm,
-        "pnpm" => JsPm::Pnpm,
-        "yarn" => JsPm::Yarn,
-        "bun" => JsPm::Bun,
-        _ => return None,
-    })
+    forge_guard::JsPm::from_fact(s?)
 }
 
 #[cfg(test)]

@@ -1,0 +1,32 @@
+id: typescript/no-other-pm
+description: "Dependencies are managed with the project's package manager (the js.pm fact: packageManager, else the lock file); installing with another one (npm, pnpm, Yarn or Bun) asks."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    check: js-pm
+examples:
+  match:
+    - {command: "pnpm add zod", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "yarn", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "bun install", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "npm install lodash", files: {package.json: "{}\n", pnpm-lock.yaml: "lockfileVersion: '9.0'\n"}}
+    - {command: "npm ci", files: {package.json: "{}\n", yarn.lock: ""}}
+    - {command: "yarn add zod", files: {package.json: "{}\n", bun.lock: "{}\n"}}
+    # two lock files: the pinned package manager decides
+    - {command: "npm install", files: {package.json: "{\"packageManager\": \"pnpm@10.16.0\"}\n", package-lock.json: "{}\n", pnpm-lock.yaml: ""}}
+  no_match:
+    - {command: "npm install zod", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "pnpm install --frozen-lockfile", files: {package.json: "{}\n", pnpm-lock.yaml: ""}}
+    - {command: "yarn install --immutable", files: {package.json: "{}\n", yarn.lock: ""}}
+    - {command: "bun add zod", files: {package.json: "{}\n", bun.lock: "{}\n"}}
+    - {command: "which pnpm", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "yarn --version", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "pnpm --version", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "npm view zod version", files: {package.json: "{}\n", pnpm-lock.yaml: ""}}
+    - {command: "npm run build", files: {package.json: "{}\n", pnpm-lock.yaml: ""}}
+    - {command: "bun run build", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "bunx tsc", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "npx pnpm-lock-check", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "pnpm add -g typescript", files: {package.json: "{}\n", package-lock.json: "{}\n"}}
+    - {command: "pnpm install", files: {main.py: "print(1)\n"}}

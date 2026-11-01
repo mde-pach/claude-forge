@@ -25,7 +25,13 @@
 //! JavaScript (`js.pm`): the pinned manager (`packageManager`, `devEngines.packageManager`,
 //! the package's then the root's), else the lock file (`bun.lock`/`bun.lockb` → bun,
 //! `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json`/`npm-shrinkwrap.json` →
-//! npm, the package's directory then the root), else `npm` when there is a package.json, else `none`.
+//! npm, the package's directory then the root), else the package manager's config
+//! (`pnpm-workspace.yaml` → pnpm, `.yarnrc.yml` → yarn), else `npm` when there is a package.json,
+//! else `none`. With several lock files the pin decides, else the order above.
+//!
+//! Yarn's line (`js.yarn`), where `js.pm` is `yarn`: `berry` (Yarn 2 and later) with a
+//! `.yarnrc.yml` (the package's directory or the root) or a pinned Yarn 2 or later, else
+//! `classic`; `none` for another package manager.
 
 use std::path::Path;
 
@@ -162,7 +168,45 @@ pub fn js_pm(dir: &Path, repo: &Path, pkg: Option<&Value>) -> JsPm {
             return JsPm::Npm;
         }
     }
+    for base in [dir, repo] {
+        if base.join("pnpm-workspace.yaml").is_file() {
+            return JsPm::Pnpm;
+        }
+        if base.join(".yarnrc.yml").is_file() {
+            return JsPm::Yarn;
+        }
+    }
     if pkg.is_some() { JsPm::Npm } else { JsPm::None }
+}
+
+/// Yarn's line where `pm` (the `js.pm` fact) is `yarn`: `berry` or `classic`; else `none`.
+pub fn yarn_line(dir: &Path, repo: &Path, pkg: Option<&Value>, pm: JsPm) -> &'static str {
+    if pm != JsPm::Yarn {
+        return "none";
+    }
+    if dir.join(".yarnrc.yml").is_file() || repo.join(".yarnrc.yml").is_file() {
+        return "berry";
+    }
+    let root_pkg = if dir == repo {
+        None
+    } else {
+        read_json(&repo.join("package.json"))
+    };
+    let major = [pkg, root_pkg.as_ref()]
+        .into_iter()
+        .flatten()
+        .find_map(|p| package_manager(p).filter(|(n, _)| n == "yarn"))
+        .and_then(|(_, v)| {
+            v.trim_start_matches(|c: char| !c.is_ascii_digit())
+                .split('.')
+                .next()
+                .and_then(|m| m.parse::<u32>().ok())
+        });
+    if major.is_some_and(|m| m >= 2) {
+        "berry"
+    } else {
+        "classic"
+    }
 }
 
 #[cfg(test)]
@@ -259,5 +303,25 @@ mod tests {
         assert_eq!(js_pm(d, d, Some(&pinned)), JsPm::Yarn);
         std::fs::write(d.join("bun.lock"), "").unwrap();
         assert_eq!(js_pm(d, d, Some(&pkg)), JsPm::Bun);
+        // no lock: the package manager's config
+        let t = tempfile::tempdir().unwrap();
+        let d = t.path();
+        std::fs::write(d.join("pnpm-workspace.yaml"), "packages: []\n").unwrap();
+        assert_eq!(js_pm(d, d, Some(&pkg)), JsPm::Pnpm);
+    }
+
+    #[test]
+    fn yarn_lines() {
+        let t = tempfile::tempdir().unwrap();
+        let d = t.path();
+        let pkg = serde_json::json!({"name": "x"});
+        assert_eq!(yarn_line(d, d, Some(&pkg), JsPm::Npm), "none");
+        assert_eq!(yarn_line(d, d, Some(&pkg), JsPm::Yarn), "classic");
+        let pinned = serde_json::json!({"packageManager": "yarn@4.12.0+sha512.x"});
+        assert_eq!(yarn_line(d, d, Some(&pinned), JsPm::Yarn), "berry");
+        let one = serde_json::json!({"packageManager": "yarn@1.22.22"});
+        assert_eq!(yarn_line(d, d, Some(&one), JsPm::Yarn), "classic");
+        std::fs::write(d.join(".yarnrc.yml"), "nodeLinker: node-modules\n").unwrap();
+        assert_eq!(yarn_line(d, d, Some(&one), JsPm::Yarn), "berry");
     }
 }

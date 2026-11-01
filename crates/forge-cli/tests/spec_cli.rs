@@ -745,6 +745,53 @@ fn apply_offers_a_ruff_config() {
     assert!(!s.exists("ruff.toml"));
 }
 
+/// apply offers the setup of the project's JavaScript package manager where it lacks it, as for
+/// uv: npm's cooldown (.npmrc min-release-age, package.json requiring npm >= 11.10), and the lock
+/// the project does not have, created with the adapter's `lock`. Without a terminal and without
+/// `--yes`, a note and nothing written.
+#[test]
+fn apply_adds_the_npm_cooldown() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\"typescript\": \"5.9.3\"}\n}\n",
+        ),
+        ("tsconfig.json", "{}\n"),
+    ]);
+    let npm = s.bin.join("npm");
+    std::fs::write(
+        &npm,
+        "#!/bin/sh\ncase \"$1 $2\" in --version*) echo '11.12.0'; exit 0 ;; 'install --package-lock-only') echo '{\"lockfileVersion\": 3}' > package-lock.json ;; esac\n",
+    )
+    .unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&npm, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: .npmrc: added min-release-age=7, package.json: added devEngines.packageManager npm >=11.10.0, package-lock.json created; commit them with Forge's files"),
+        "{out}"
+    );
+    assert_eq!(s.read(".npmrc").unwrap(), "min-release-age=7\n");
+    assert!(
+        s.read("package.json")
+            .unwrap()
+            .starts_with("{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}},\n  \"name\": \"shop\","),
+        "{:?}",
+        s.read("package.json")
+    );
+    assert!(s.read("package-lock.json").is_some());
+    // once there, nothing more is offered
+    assert!(!s.ok(&["apply", "--yes"]).contains(".npmrc: added"));
+    // without a terminal and without --yes: a note, nothing written
+    std::fs::remove_file(s.repo.join(".npmrc")).unwrap();
+    let out = s.ok(&["apply"]);
+    assert!(
+        out.contains("forge: the project's npm setup is incomplete; re-run with --yes to add npm's cooldown to .npmrc"),
+        "{out}"
+    );
+    assert!(s.read(".npmrc").is_none());
+}
+
 /// Inside a Claude Code agent's command (`CLAUDECODE` set), Forge's command line refuses to run:
 /// the agent's harness is not a tool it operates. The hook entries still run, and `forge test`
 /// (`forge_test.rs` runs it with `CLAUDECODE`).

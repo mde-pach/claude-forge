@@ -66,6 +66,8 @@ vocabulary!(
         /// A `git checkout` / `git restore` that discards paths holding uncommitted changes
         /// from before the turn (the person's work), or run when the turn is not known.
         PreTurnChanges = "pre-turn-changes",
+        /// An install with a JavaScript package manager that is not the project's (`js.pm`).
+        JsPm = "js-pm",
     }
 );
 
@@ -73,11 +75,12 @@ impl GuardCheck {
     /// The decision a guard target with this check takes, from what the check finds: a package
     /// added or fetched to run may be the task's (the person, or a reviewer, decides: `ask`); pip
     /// in a uv or unpackaged project always has the right command to use instead (`deny`, which
-    /// names it); discarding the person's own uncommitted work cannot be undone (`deny`: the
-    /// rule's `ask` target takes what the check lets through).
+    /// names it); another JavaScript package manager may be what the person wants (`ask`);
+    /// discarding the person's own uncommitted work cannot be undone (`deny`: the rule's `ask`
+    /// target takes what the check lets through).
     pub fn decision(self) -> Decision {
         match self {
-            GuardCheck::EphemeralExec | GuardCheck::PackageAdd => Decision::Ask,
+            GuardCheck::EphemeralExec | GuardCheck::PackageAdd | GuardCheck::JsPm => Decision::Ask,
             GuardCheck::PythonPm | GuardCheck::PreTurnChanges => Decision::Deny,
         }
     }

@@ -11,7 +11,7 @@ use std::path::Path;
 use forge_core::examples::{ExampleResult, ExampleVerdict};
 use forge_packs::model::{Example, Rule, Target};
 
-use crate::{Decision, GuardCtx, GuardRule, GuardSet, Outcome, PythonPm};
+use crate::{Decision, GuardCtx, GuardRule, GuardSet, JsPm, Outcome, PythonPm};
 
 /// An example a guard decides on: its list, its place, the command, the files around it.
 type Case = (
@@ -51,11 +51,17 @@ fn cases(rule: &Rule) -> Vec<Case> {
         .collect()
 }
 
-/// The example project's `python.pm`, from its files as forge-detect reads them.
-fn python_pm(root: &Path, files: &[(String, String)]) -> Option<PythonPm> {
+/// The example project's `python.pm` and `js.pm`, from its files as forge-detect reads them.
+fn pm_facts(root: &Path, files: &[(String, String)]) -> (Option<PythonPm>, Option<JsPm>) {
     let listed: Vec<String> = files.iter().map(|(a, _)| a.clone()).collect();
-    let facts = forge_detect::read_project_facts(root, &listed).ok()?;
-    PythonPm::from_fact(facts.root.fact(forge_detect::FACT_PYTHON_PM)?)
+    let Ok(facts) = forge_detect::read_project_facts(root, &listed) else {
+        return (None, None);
+    };
+    let fact = |f: &str| facts.root.fact(f).map(str::to_owned);
+    (
+        fact(forge_detect::FACT_PYTHON_PM).and_then(|f| PythonPm::from_fact(&f)),
+        fact(forge_detect::FACT_JS_PM).and_then(|f| JsPm::from_fact(&f)),
+    )
 }
 
 fn write(root: &Path, files: &[(String, String)]) -> std::io::Result<()> {
@@ -117,9 +123,11 @@ pub fn run(rule: &Rule) -> Vec<ExampleResult> {
                     why: format!("its files could not be written: {e}"),
                 },
                 Ok(root) => {
+                    let (py, js) = pm_facts(&root, &files);
                     let ctx = GuardCtx::new(root.clone(), root.clone())
                         .with_home(Some("/home/u".into()))
-                        .with_python_pm(python_pm(&root, &files));
+                        .with_python_pm(py)
+                        .with_js_pm(js);
                     let got = set.evaluate(&command, &ctx);
                     let caught = got != Outcome::None && decisions.contains(&got.decision());
                     let ok = match kind {

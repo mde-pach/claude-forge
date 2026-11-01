@@ -188,13 +188,15 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 
 #### bun
 
-| Operation | 1.0.0 – 1.0.16 | 1.0.16 – |
-|---|---|---|
-| `lock-check` | `install --frozen-lockfile` | `install --frozen-lockfile` |
-| `test-files` | cannot | `test` |
+| Operation | 1.0.0 – 1.0.16 | 1.0.16 – 1.1.43 | 1.1.43 – |
+|---|---|---|---|
+| `lock` | cannot | cannot | `install --lockfile-only --ignore-scripts` |
+| `lock-check` | cannot | cannot | `install --frozen-lockfile --lockfile-only` |
+| `test-files` | cannot | `test` | `test` |
 
 - 1.0.0 – 1.0.16: bun 1.0.0–1.0.15 binaries: bun test ./file runs 0 files, exit 0 (release notes silent; fixed in 1.0.16, bun.sh/blog/bun-v1.0.16)
-- 1.0.16 –: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.4.4 (unknown flags are errors in package-manager commands)
+- 1.0.16 – 1.1.43: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.1.43 (--lockfile-only is new: before, bun install installs)
+- 1.1.43 –: bun.com/blog/bun-v1.1.43 (bun install --lockfile-only, #16143); bun.com/blog/bun-v1.4.4 (unknown flags are errors in package-manager commands)
 - A check command runs it itself (§16.1) when it matches ``(^\|[;&\|`!{]\|\$\(\|\b(?:then\|do\|else\|exec\|time)\s)\s*bun\s+(?:install\|i\|add\|a\|remove\|rm\|update\|upgrade\|outdated\|link\|unlink\|pm\|test\|ci\|audit\|publish\|patch\|patch-commit\|why\|info)(?=$\|[\s;&\|)`])``.
 
 #### condor
@@ -329,6 +331,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 
 | Operation | 8.0.0 – 10.5.1 | 10.5.1 – |
 |---|---|---|
+| `lock` | `install --package-lock-only --ignore-scripts --no-audit --no-fund` | `install --package-lock-only --ignore-scripts --no-audit --no-fund` |
 | `lock-check` | `ls --package-lock-only --all` | `ci --dry-run --ignore-scripts --no-audit --no-fund` |
 
 - 8.0.0 – 10.5.1: npm CHANGELOG v8.4.1 (fix(ci): lock file validation, #4363); release/v10 CHANGELOG v10.5.1 (added check for dry-run, #7274): before 10.5.1 ci --dry-run deletes node_modules
@@ -371,6 +374,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 
 | Operation | 8.0.0 – 8.6.12 | 8.6.12 – |
 |---|---|---|
+| `lock` | `install --lockfile-only --ignore-scripts` | `install --lockfile-only --ignore-scripts` |
 | `lock-check` | cannot | `install --frozen-lockfile --lockfile-only` |
 
 - 8.0.0 – 8.6.12: pnpm/CHANGELOG.md 8.6.12 (#6913: --frozen-lockfile --lockfile-only fails on a stale lock); 7.4.1 (#4951)
@@ -588,11 +592,12 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 
 | Operation | 2.0.0 – 2.4.0 | 2.4.0 – 3.0.0 | 3.0.0 – |
 |---|---|---|---|
+| `lock` | cannot | cannot | `install --mode=update-lockfile` |
 | `lock-check` | cannot | `install --immutable --skip-builds` | `install --immutable --mode=skip-build` |
 
 - 2.0.0 – 2.4.0: yarnpkg/berry CHANGELOG.md 2.4.0 (--skip-builds is new: before, an immutable install runs build scripts)
 - 2.4.0 – 3.0.0: yarnpkg/berry CHANGELOG.md 2.4.0 (new --skip-builds option on yarn install)
-- 3.0.0 –: yarnpkg/berry CHANGELOG.md 3.0.0 (--skip-builds renamed into --mode=skip-build)
+- 3.0.0 –: yarnpkg/berry CHANGELOG.md 3.0.0 (--skip-builds renamed into --mode=skip-build; --mode=update-lockfile); @yarnpkg/cli-dist 3.0.0 and 4.12.0 binaries
 - A check command runs it itself (§16.1) when it matches ``(^\|[;&\|`!{]\|\$\(\|\b(?:then\|do\|else\|exec\|time)\s)\s*yarn(?=$\|[\s;&\|)`])``.
 
 #### zizmor
