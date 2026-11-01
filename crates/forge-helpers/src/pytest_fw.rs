@@ -4,7 +4,9 @@
 //! Reads the pytest configuration pytest itself uses (the first of pytest.ini, .pytest.ini,
 //! pyproject.toml with `[tool.pytest]` or `[tool.pytest.ini_options]`, tox.ini with `[pytest]`,
 //! setup.cfg with `[tool:pytest]`) and reports when its filterwarnings has neither `<entry>` nor a
-//! bare "error".
+//! bare "error". A project with no pytest configuration has nothing to report. In a change, a
+//! configuration that already lacked the entry is the project's (the checker compares with the
+//! base, §10.4).
 
 use forge_core::Report;
 use forge_core::builtin::{Builtin, BuiltinCtx};
@@ -30,7 +32,10 @@ impl Builtin for PytestFilterwarnings {
             return r;
         };
         let ch = Change::new(ctx);
-        let (path, entries) = config(&ch);
+        // no pytest configuration: nothing to hold to (adding one is the project's setup)
+        let Some((path, entries)) = config(&ch) else {
+            return r;
+        };
         let norm: Vec<String> = entries.iter().map(|e| e.replace(' ', "")).collect();
         if norm.contains(&entry.replace(' ', "")) || norm.iter().any(|e| e == "error") {
             return r;
@@ -87,26 +92,27 @@ fn toml(ch: &Change) -> Option<Vec<String>> {
     )
 }
 
-fn config(ch: &Change) -> (&'static str, Vec<String>) {
+/// The pytest configuration pytest reads, and its filterwarnings entries; `None` without one.
+fn config(ch: &Change) -> Option<(&'static str, Vec<String>)> {
     for path in ["pytest.ini", ".pytest.ini"] {
         if ch.exists(path) {
-            return (path, ini(ch, path, "pytest").unwrap_or_default());
+            return Some((path, ini(ch, path, "pytest").unwrap_or_default()));
         }
     }
     if ch.exists("pyproject.toml")
         && let Some(e) = toml(ch)
     {
-        return ("pyproject.toml", e);
+        return Some(("pyproject.toml", e));
     }
     if ch.exists("tox.ini")
         && let Some(e) = ini(ch, "tox.ini", "pytest")
     {
-        return ("tox.ini", e);
+        return Some(("tox.ini", e));
     }
     if ch.exists("setup.cfg")
         && let Some(e) = ini(ch, "setup.cfg", "tool:pytest")
     {
-        return ("setup.cfg", e);
+        return Some(("setup.cfg", e));
     }
-    ("pyproject.toml", vec![])
+    None
 }
