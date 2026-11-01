@@ -329,7 +329,11 @@ fn sandbox_note(ctx: &Ctx) -> Option<String> {
     {
         return None;
     }
-    let path = std::env::var("PATH").unwrap_or_default();
+    sandbox_missing(&std::env::var("PATH").unwrap_or_default())
+}
+
+/// The note for a `PATH` that lacks what Claude Code's Linux sandbox runs on (`bwrap`, `socat`).
+fn sandbox_missing(path: &str) -> Option<String> {
     let missing: Vec<&str> = ["bwrap", "socat"]
         .into_iter()
         .filter(|t| {
@@ -344,4 +348,34 @@ fn sandbox_note(ctx: &Ctx) -> Option<String> {
             missing.join(" and ")
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sandbox_missing;
+
+    #[test]
+    fn the_sandbox_note_names_what_is_missing() {
+        let d = tempfile::tempdir().unwrap();
+        let bin = d.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let path = bin.display().to_string();
+        assert!(
+            sandbox_missing(&path)
+                .unwrap()
+                .contains("(bwrap and socat not installed;")
+        );
+        use std::os::unix::fs::PermissionsExt;
+        for t in ["bwrap", "socat"] {
+            std::fs::write(bin.join(t), "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(bin.join(t), std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        assert!(sandbox_missing(&path).is_none());
+        std::fs::remove_file(bin.join("socat")).unwrap();
+        assert!(
+            sandbox_missing(&path)
+                .unwrap()
+                .contains("(socat not installed;")
+        );
+    }
 }

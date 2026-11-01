@@ -608,6 +608,23 @@ fn user_level_setup() {
     assert!(!s.home.join(".claude/settings.json").exists());
 }
 
+/// Help and `--version` name the program as it was invoked.
+#[test]
+fn the_command_is_named_as_invoked() {
+    for (exe, name) in [
+        (env!("CARGO_BIN_EXE_forge"), "forge"),
+        (env!("CARGO_BIN_EXE_claude-forge"), "claude-forge"),
+    ] {
+        let out = Command::new(exe)
+            .arg("--version")
+            .env_remove("CLAUDECODE")
+            .output()
+            .unwrap();
+        let v = String::from_utf8_lossy(&out.stdout);
+        assert!(v.starts_with(&format!("{name} ")), "{v}");
+    }
+}
+
 /// apply offers the uv setup a uv project lacks: the cooldown's missing keys in pyproject.toml,
 /// and a uv.lock that matches it (`uv lock`).
 #[test]

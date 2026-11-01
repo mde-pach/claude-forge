@@ -24,7 +24,7 @@ Appended to the level's settings file, each recorded in the lock:
 
 - `permissions.ask`, always: project level `Edit(.forge/**)`, `Edit(forge.yaml)`, `Edit(forge.lock)`, `Edit(.claude/rules/forge-*.md)`; user level `Edit(~/.claude/forge-user.lock)` (the lock in the config directory, `//<path>` when that directory is outside the home directory).
 - `permissions.deny` / `permissions.ask` entries from the active rules' `permission` targets (§6.2).
-- At user level, `sandbox.<path>` from `sandbox` targets: an array value appends each item; a scalar is set only when the key is absent. Forge never changes a value the person set. On Linux, when `bwrap` or `socat` is not on PATH, `apply` and `status` add the note `Claude Code's sandbox is turned on but cannot run here (<missing> not installed; e.g. apt install bubblewrap socat): Claude Code runs commands without it.`: Claude Code turns the sandbox off there and says so only on its own stderr.
+- At user level, `sandbox.<path>` from `sandbox` targets: an array value appends each item; a scalar is set only when the key is absent. Forge never changes a value the person set. On Linux, when `bwrap` or `socat` is not on PATH, `apply` and `status` add the note (test: `crates/forge-cli/src/project/mod.rs` unit `the_sandbox_note_names_what_is_missing`) `Claude Code's sandbox is turned on but cannot run here (<missing> not installed; e.g. apt install bubblewrap socat): Claude Code runs commands without it.`: Claude Code turns the sandbox off there and says so only on its own stderr.
 
 ### 7.3 Hook entries
 
