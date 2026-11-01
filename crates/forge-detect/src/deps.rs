@@ -203,6 +203,29 @@ pub fn requirements_deps(text: &str) -> Deps {
     out
 }
 
+/// Whether a requirements-file line is a package entry without an exact version: a bare name
+/// or a range (`requests`, `django>=5.0`, `uvicorn[standard]~=0.30`). Pinned entries
+/// (`name==1.2.3`), URL and VCS references, options (`-r`, `-e`, `--hash`), comments and blank
+/// lines are not.
+pub fn unpinned_requirement(line: &str) -> bool {
+    static UNPINNED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*[A-Za-z0-9][A-Za-z0-9._-]*(\[[^\]]*\])?\s*($|[;#<>!~])").expect("regex")
+    });
+    UNPINNED.is_match(line)
+}
+
+/// Whether a requirements file pins every package entry to an exact version; None when it has
+/// no entry (only options, comments, includes).
+pub fn requirements_pinned(text: &str) -> Option<bool> {
+    let mut entries = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with('-'))
+        .peekable();
+    entries.peek()?;
+    Some(!entries.any(unpinned_requirement))
+}
+
 /// The requirements files of a directory: `requirements*.txt` there and `requirements/*.txt`.
 pub fn requirements_files(own: &[String]) -> impl Iterator<Item = &String> {
     own.iter().filter(|f| {

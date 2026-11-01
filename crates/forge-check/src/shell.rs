@@ -69,6 +69,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "openapi_sync",
     "osv",
     "pinned",
+    "pinned_requirements",
     "pkg_deps",
     "prisma_drops",
     "ratchet",

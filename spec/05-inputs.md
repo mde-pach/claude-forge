@@ -88,10 +88,15 @@ Facts are named values read from the repository's files, the same on every machi
 | `pdm.lock` (here or at the root) | `pdm` |
 | `Pipfile.lock` or `Pipfile` | `pipenv` |
 | `pyproject.toml` whose `[tool.poetry]` declares dependencies | `poetry` |
-| `pyproject.toml` with a `[project]` table or `[dependency-groups]`, no lock | `uv` |
+| `uv.toml`, or a `[tool.uv]` table in `pyproject.toml` (here or at the root) | `uv` |
+| `pyproject.toml` with a `[project]` table or `[dependency-groups]` | `pyproject` |
 | `requirements*.txt` or `requirements/*.txt` (no pyproject, or one holding only tool config) | `pip` |
 | `setup.py` or `setup.cfg` | `pip` |
 | none of these (plain scripts, or no Python) | `none` |
+
+uv is the package manager only once it has left its mark (`uv.lock`, or its settings): a `pyproject.toml` that only declares the project is any installer's (`pip install -e .`), and its packs and rules are not uv's.
+
+**`python.requirements`**: how the place's requirements files (`requirements*.txt`, `requirements/*.txt`) write their package entries: `pinned` when each file with an entry pins every one to an exact version (`name==1.2.3`; URL and VCS references count as pinned; options, includes and comments are not entries), `unpinned` when an entry is a bare name or a range, `none` when there is no entry.
 
 **`js.pm`**: the package manager pinned by `packageManager` or `devEngines.packageManager` (the package's, then the root's); else the lock file (`bun.lock`/`bun.lockb` → `bun`, `pnpm-lock.yaml` → `pnpm`, `yarn.lock` → `yarn`, `package-lock.json`/`npm-shrinkwrap.json` → `npm`; the package's directory, then the root); else `npm` when there is a `package.json`; else `none`.
 
@@ -138,5 +143,5 @@ python:
 - Lints: `crates/forge-packs/tests/lints.rs`, `crates/forge-packs/src/lint.rs` (unit).
 - Detection kinds, dependencies, `forge.yaml` add/remove and its warnings, workspaces, libraries and publishing evidence, vendored directories: `crates/forge-detect/tests/spec_inputs.rs`; `crates/forge-detect/src/*.rs` (unit); the generator samples in `crates/forge-cli/tests/apply.rs`.
 - `forge.yaml` validation, local packs' context, `tool_off`: `crates/forge-cli/tests/spec_cli.rs`.
-- `python.pm` and `js.pm`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases` (unit); `crates/forge-detect/tests/spec_inputs.rs::package_manager_facts`.
+- `python.pm`, `python.requirements` and `js.pm`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases` (unit); `crates/forge-detect/tests/spec_inputs.rs::package_manager_facts`.
 - Context items and `when`: `crates/forge-render/tests/context.rs`, `crates/forge-render/tests/builtin_context.rs`.

@@ -295,6 +295,50 @@ fn ruff_selects_the_active_rules_codes_unless_the_project_configures_it() {
     assert_eq!(code, 0, "{v}");
 }
 
+/// Forge's own ruff (the project does not configure ruff) lints but never formats: the format
+/// check does not run it. The project's ruff config turns formatting on.
+#[test]
+fn forges_own_ruff_does_not_format() {
+    // any ruff here reports every file unformatted, and logs what it was asked
+    let bin = tempfile::tempdir().unwrap();
+    let log = bin.path().join("log");
+    let ruff = format!(
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'ruff 0.17.1'; exit 0 ;; esac\necho \"$*\" >> '{}'\ncase \"$1\" in format) echo 'Would reformat: a.py'; exit 1 ;; esac\nexit 0\n",
+        log.display()
+    );
+    let r = Repo::new(&files(&[("a.py", "x = 1\n")]));
+    write(bin.path(), &files(&[("ruff", &ruff)]));
+    write(r.path(), &files(&[(".venv/bin/ruff", &ruff)]));
+    use std::os::unix::fs::PermissionsExt;
+    for f in [bin.path().join("ruff"), r.path().join(".venv/bin/ruff")] {
+        std::fs::set_permissions(f, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let path = format!("{}:{PATH}", bin.path().display());
+    let snap = r.snap.path().display().to_string();
+    write(r.path(), &files(&[("a.py", "x=2\n")]));
+    let rules = ["python/format", "python/lint"];
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 0, "{v}");
+    let asked = std::fs::read_to_string(&log).unwrap_or_default();
+    assert!(!asked.lines().any(|l| l.starts_with("format")), "{asked}");
+    assert!(
+        asked.lines().any(|l| l.starts_with("check")),
+        "it lints: {asked}"
+    );
+    assert!(
+        notes_of(&v, "python/format").iter().any(|n| n["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("not run (ruff format")),
+        "{v}"
+    );
+    // the project's config: its ruff formats
+    write(r.path(), &files(&[("ruff.toml", "line-length = 100\n")]));
+    let (code, v) = r.check(&["--turn", &snap], &rules, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(!findings_of(&v, "python/format").is_empty(), "{v}");
+}
+
 /// uv's cooldown in a change: what the change broke is a finding; a setting the project already
 /// lacked is not the agent's to fix (forge apply offers it), even when the change touches the
 /// lock; the whole project (`--all`) reports it.
@@ -332,6 +376,83 @@ fn the_uv_cooldown_blocks_only_what_the_change_broke() {
             .contains("exclude-newer is unset"),
         "{v}"
     );
+}
+
+/// A pyproject.toml the agent's turn creates gets uv's cooldown from Forge, as advice (the keys
+/// are mechanical); a commit that creates one without it is still refused.
+#[test]
+fn the_uv_cooldown_is_added_to_a_created_pyproject() {
+    let rule = ["python/uv/exclude-newer"];
+    let bare = "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n";
+    let r = Repo::new(&files(&[("main.py", "print(1)\n")]));
+    write(
+        r.path(),
+        &files(&[("pyproject.toml", bare), ("uv.lock", "version = 1\n")]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 4, "advice only: {v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert_eq!(f[0]["severity"], "advice", "{v}");
+    assert_eq!(
+        f[0]["message"], "pyproject.toml: added [tool.uv] exclude-newer and required-version.",
+        "{v}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("pyproject.toml")).unwrap(),
+        format!("{bare}\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n")
+    );
+    // at commit, nothing is written: the missing settings are findings
+    let r = Repo::new(&files(&[("main.py", "print(1)\n")]));
+    write(
+        r.path(),
+        &files(&[("pyproject.toml", bare), ("uv.lock", "version = 1\n")]),
+    );
+    git(r.path(), &["add", "-A"]);
+    let (code, v) = r.check(&["--changed"], &rule, PATH);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(findings_of(&v, rule[0]).len(), 2, "{v}");
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("pyproject.toml")).unwrap(),
+        bare
+    );
+}
+
+/// python/pip/pinned-requirements follows the file's own convention: an unpinned entry added to
+/// a file that pins every entry (or to a new file) is a finding; a file that writes ranges keeps
+/// writing them.
+#[test]
+fn requirements_keep_their_own_convention() {
+    let rule = ["python/pip/pinned-requirements"];
+    let ranged = "django>=5.0\nrequests\n";
+    let r = Repo::new(&files(&[("requirements.txt", ranged)]));
+    write(
+        r.path(),
+        &files(&[("requirements.txt", &format!("{ranged}httpx>=0.27\n"))]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 0, "{v}");
+    assert!(findings_of(&v, rule[0]).is_empty(), "{v}");
+    let pinned = "django==5.1.4\nrequests==2.32.5\n";
+    let r = Repo::new(&files(&[("requirements.txt", pinned)]));
+    write(
+        r.path(),
+        &files(&[("requirements.txt", &format!("{pinned}httpx>=0.27\n"))]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 1, "{v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert_eq!(f[0]["path"], "requirements.txt", "{v}");
+    assert_eq!(f[0]["line"], 3, "{v}");
+    assert_eq!(
+        f[0]["message"],
+        "`httpx>=0.27` has no exact version: pin it (`httpx==<version>`), as the file's other entries are.",
+        "{v}"
+    );
+    // the whole project has no change to hold to a convention
+    let (code, v) = r.check(&["--all"], &rule, PATH);
+    assert_eq!(code, 0, "{v}");
 }
 
 /// uv.lock is kept in sync rather than reported: a stale lock is relocked (advice in the turn; at

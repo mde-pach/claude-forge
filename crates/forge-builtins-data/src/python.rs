@@ -1,7 +1,7 @@
 //! Python libraries and packaging (`python.sh`): type stubs that mirror a module, uv's release
-//! cooldown.
+//! cooldown, pinned requirements.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use forge_check::builtins::{RunMode, ToolRun};
 use forge_core::{Finding, NoteKind, Report};
@@ -131,6 +131,8 @@ pub fn stub_sync(run: &Run<'_>, _args: &[String]) -> Report {
 /// the cooldown, and required-version asks for uv >= 0.9.17 (older uv ignores relative values).
 /// In a change, only what the change broke: a setting the base already lacked is the project's
 /// setup, which `forge apply` offers and `forge status` reports, not the agent's to fix (§10).
+/// A `pyproject.toml` the agent's turn created gets the missing settings from Forge (advice):
+/// they are mechanical, nothing for the agent to do. In a commit and in CI they are reported.
 pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
     // compared with the base here: its findings are the change's as they are
     run.check.mark_attributed();
@@ -139,7 +141,22 @@ pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
     } else {
         ("pyproject.toml", "tool.uv")
     };
-    let text = run.read(file).unwrap_or_default();
+    let mut r = Report::default();
+    let mut text = run.read(file).unwrap_or_default();
+    let created =
+        !run.all() && run.changed().iter().any(|c| c == file) && run.base_path(file).is_none();
+    if created
+        && file == "pyproject.toml"
+        && run.check.mode == RunMode::Turn
+        && let Some(after) = with_uv_cooldown(&text)
+        && std::fs::write(run.path(file), &after).is_ok()
+    {
+        text = after;
+        r.findings.push(Finding::advice(
+            run.ctx.rule.clone(),
+            "pyproject.toml: added [tool.uv] exclude-newer and required-version.",
+        ));
+    }
     let min = run.opts.cooldown.as_secs();
     let now = cooldown_problems(&text, file, section, min);
     let before = if run.all() {
@@ -152,10 +169,111 @@ pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
     } else {
         now.clone()
     };
-    let mut r = Report::default();
     for (key, message) in now {
         if !before.iter().any(|(k, _)| *k == key) {
             r.findings.push(run.finding(message));
+        }
+    }
+    r
+}
+
+/// The settings `python/uv/exclude-newer` asks of a project, as Forge adds them.
+pub const UV_COOLDOWN: [(&str, &str); 2] = [
+    ("exclude-newer", "\"7 days\""),
+    ("required-version", "\">=0.9.17\""),
+];
+
+/// `pyproject.toml` with the `[tool.uv]` keys of [`UV_COOLDOWN`] it lacks: under its
+/// `[tool.uv]` header, else in a new table at the end. A value the project set is never
+/// changed. `None`: nothing to add, or a file it cannot read as TOML.
+pub fn with_uv_cooldown(text: &str) -> Option<String> {
+    let doc: toml::Table = text.parse().ok()?;
+    let uv = doc
+        .get("tool")
+        .and_then(|t| t.get("uv"))
+        .and_then(|u| u.as_table());
+    let missing: Vec<String> = UV_COOLDOWN
+        .iter()
+        .filter(|(k, _)| uv.is_none_or(|u| !u.contains_key(*k)))
+        .map(|(k, v)| format!("{k} = {v}"))
+        .collect();
+    if missing.is_empty() {
+        return None;
+    }
+    let header = text
+        .lines()
+        .position(|l| l.trim().replace(' ', "") == "[tool.uv]");
+    let out = match header {
+        Some(i) => {
+            let mut lines: Vec<&str> = text.lines().collect();
+            for (n, m) in missing.iter().enumerate() {
+                lines.insert(i + 1 + n, m);
+            }
+            let mut t = lines.join("\n");
+            t.push('\n');
+            t
+        }
+        None => {
+            let mut t = text.trim_end().to_string();
+            t.push_str("\n\n[tool.uv]\n");
+            for m in &missing {
+                t.push_str(m);
+                t.push('\n');
+            }
+            t
+        }
+    };
+    out.parse::<toml::Table>().ok().map(|_| out)
+}
+
+/// `forge_pinned_requirements`: an entry a change adds to a requirements file pins an exact
+/// version where the file does: its base copy pins every entry, or the change created it (an
+/// added entry: a line the base copy does not have). A
+/// file that writes ranges or bare names keeps its own convention, and the whole project
+/// (`--all`) has no change to hold to one.
+pub fn pinned_requirements(run: &Run<'_>, _args: &[String]) -> Report {
+    run.check.mark_attributed();
+    let mut r = Report::default();
+    if run.all() {
+        return r;
+    }
+    for f in run.files() {
+        let base = run.base(f);
+        if base
+            .as_deref()
+            .is_some_and(|b| forge_detect::deps::requirements_pinned(b) == Some(false))
+        {
+            continue;
+        }
+        // the entries the change added: lines its base copy does not have (as many times)
+        let mut before: BTreeMap<&str, usize> = BTreeMap::new();
+        for l in base.as_deref().unwrap_or("").lines() {
+            *before.entry(l.trim()).or_default() += 1;
+        }
+        let text = run.read(f).unwrap_or_default();
+        for (i, line) in text.lines().enumerate() {
+            let n = u32::try_from(i + 1).unwrap_or(u32::MAX);
+            if let Some(k) = before.get_mut(line.trim()).filter(|k| **k > 0) {
+                *k -= 1;
+                continue;
+            }
+            if !forge_detect::deps::unpinned_requirement(line) {
+                continue;
+            }
+            let entry = line.split(" #").next().unwrap_or(line).trim();
+            let name = re(r"^[A-Za-z0-9][A-Za-z0-9._-]*(\[[^\]]*\])?")
+                .find(entry)
+                .map_or(entry, |m| m.as_str());
+            let why = if base.is_some() {
+                "as the file's other entries are"
+            } else {
+                "so every install gets the same version"
+            };
+            r.findings.push(run.at(
+                f,
+                Some(n),
+                format!("`{entry}` has no exact version: pin it (`{name}==<version>`), {why}."),
+            ));
         }
     }
     r
@@ -283,4 +401,27 @@ pub fn uv_lock(run: &Run<'_>, _args: &[String]) -> Report {
         ToolRun::Unsupported(why) => r.notes.push(run.note(NoteKind::NotEnforced, why)),
     }
     r
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_uv_cooldown;
+
+    #[test]
+    fn the_uv_cooldown_is_added_where_missing() {
+        let plain = "[project]\nname = \"x\"\n";
+        assert_eq!(
+            with_uv_cooldown(plain).unwrap(),
+            "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"
+        );
+        // under an existing [tool.uv]; a value the project set is kept
+        let some = "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"2 days\"\n";
+        assert_eq!(
+            with_uv_cooldown(some).unwrap(),
+            "[project]\nname = \"x\"\n\n[tool.uv]\nrequired-version = \">=0.9.17\"\nexclude-newer = \"2 days\"\n"
+        );
+        let done = "[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n";
+        assert!(with_uv_cooldown(done).is_none());
+        assert!(with_uv_cooldown("not = = toml").is_none());
+    }
 }

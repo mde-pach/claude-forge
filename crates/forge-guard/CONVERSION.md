@@ -136,5 +136,8 @@ Key for the "Per command" column:
   - `VIRTUAL_ENV=` set outside the repository;
   - a command run from outside the repository.
 
-  `safety/package-add` still asks about these. A plain-scripts project (`python.pm` = `scripts`)
-  gets the `uv init --bare` wording.
+  `safety/package-add` still asks about these. Where nothing declares dependencies yet
+  (`python.pm` = `scripts`), or a `pyproject.toml` declares the project and no manager has left
+  its mark (`pyproject`), only an install that names a package is denied, with both ways to
+  declare it (requirements.txt or `uv init --bare`) or `[project] dependencies`; the project's
+  own installs (`-r`, `-e .`) pass.

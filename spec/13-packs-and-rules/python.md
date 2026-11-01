@@ -13,8 +13,9 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Parameters and return types are annotated.
 - Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 - Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
-- A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
-- (when `python.pm` is `none`) This project has no Python packaging file: when a third-party package is needed, create the project with `uv init --bare`, then `uv add <pkg>`.
+- A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
+- (when `python.pm` is `none`) This project declares no dependencies yet: a third-party package is declared before it is installed, either as `name==version` in requirements.txt (then `pip install -r requirements.txt`) or in a project created with `uv init --bare` (then `uv add name`).
+- (when `python.pm` is `pyproject`) Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -97,7 +98,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/no-weak-hash` | No MD5 or SHA-1 for security. Use SHA-256 or better (or usedforsecurity=False for checksums). | python | tool ruff `S324` |
 | `python/open-with-context` | Files are opened in a with block, so they are closed on every path. | python | tool ruff `SIM115` |
 | `python/override-decorator` | A method overriding a base-class method carries @typing.override. | python | tool ty `missing-override-decorator` |
-| `python/pip-install` | Packages go into the project through its package manager, not with pip into its environment. | any | guard deny: check `python-pm` |
+| `python/pip-install` | Packages go into the project's environment as the project declares them (its package manager, its pyproject.toml or its requirements files), not with pip on their own. | any | guard deny: check `python-pm` |
 | `python/project-table` | pyproject.toml declares the project in a PEP 621 [project] table with requires-python, not only in tool-specific metadata such as [tool.poetry]. | any: `pyproject.toml` | check lint: a shell script calling `forge_toml_get` (when `pyproject.toml` changes) |
 | `python/raise-from` | Inside except, a new exception is raised from the caught one (raise X from err) or explicitly from None, so the cause is kept. | python | tool ruff `B904` |
 | `python/ruff-config-current` | Ruff settings use their current names (linter options under [tool.ruff.lint] / [lint], no deprecated option): ruff prints no deprecation warning for the project's config. | any: `**/pyproject.toml`, `**/ruff.toml`, `**/.ruff.toml` | check lint: `! forge_do ruff settings-warnings . 2>&1 >/dev/null \| grep -iE -A5 '^warning: .*deprecat'` (when `**/pyproject.toml`, `**/ruff.toml` or `**/.ruff.toml` changes) |
@@ -172,8 +173,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 - Celery. Tasks take ids and plain JSON values and re-fetch rows when they run: a model instance passed as an argument is serialized when queued and stale when the task runs (rejected for Django and SQLAlchemy models).
 - Tasks may run more than once (retries, `acks_late`, a worker lost mid-task): make them idempotent (check state before acting, use unique keys or upserts) and queue them from `transaction.on_commit()` when they read rows written in the same transaction.
-- Retries use `autoretry_for` with `max_retries` and `retry_backoff`, or `self.retry(exc=exc)`; `max_retries=None` is not set on a task, its `retry_kwargs`, `self.retry()` or `apply_async()`. A task never waits on another task's result (no `.get()` in a task): use chains and chord callbacks.
-- Celery messages use the json serializer: `pickle` is not in `task_serializer`, `result_serializer`, `event_serializer`, `serializer` or `accept_content`.
+- Retries use `autoretry_for` with `max_retries` and `retry_backoff`, or `self.retry(exc=exc)`; `max_retries=None` on a task, its `retry_kwargs`, `self.retry()` or `apply_async()` is rejected. A task never waits on another task's result (`.get()` in a task is rejected): use chains and chord callbacks.
+- Celery messages use the json serializer: `pickle` in `task_serializer`, `result_serializer`, `event_serializer`, `serializer` or `accept_content` is rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -194,12 +195,12 @@ Child of `python`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Django. A model change comes with its migration: `python manage.py makemigrations`, then review and commit the file; `makemigrations --check --dry-run` finds nothing left to generate. Committed migrations are not edited.
-- SQL in `.raw()`, `cursor.execute()` and `RawSQL()` takes `%s` placeholders and a params list: SQL is not built with an f-string, `.format()`, `%` or `+`, and `RawSQL()` and `QuerySet.extra()` take only literal SQL.
+- SQL in `.raw()`, `cursor.execute()` and `RawSQL()` takes `%s` placeholders and a params list: SQL built with an f-string, `.format()`, `%` or `+` is rejected, and so are `RawSQL()` and `QuerySet.extra()` with SQL that is not a literal.
 - List views, serializers and templates that touch related objects load them with `select_related()` (foreign keys, one-to-one) or `prefetch_related()` (many-to-many, reverse relations); a query per row (N+1) is the usual slowdown.
 - Several writes that must succeed or fail together run inside `transaction.atomic()`; work that must see the committed rows (tasks, emails) goes in `transaction.on_commit()`.
-- HTML built in Python goes through `format_html()` (`mark_safe()` only on constant text). `@csrf_exempt` is the user's decision: ask before adding it.
+- HTML built in Python goes through `format_html()` (`mark_safe()` on text that is not a constant is rejected). `@csrf_exempt` is the user's decision: ask before adding it.
 - Tests that assert what a `transaction.on_commit()` callback does run it with `django_capture_on_commit_callbacks(execute=True)` (pytest-django) or `TestCase.captureOnCommitCallbacks(execute=True)`, not with `django_db(transaction=True)` / `TransactionTestCase` for that alone.
-- In `async def` code the ORM is used through its async API (`aget()`, `acount()`, `asave()`, `async for`); async code makes no sync ORM calls and no `transaction.atomic`: put transactional work in a sync function called through `sync_to_async`.
+- In `async def` code the ORM is used through its async API (`aget()`, `acount()`, `asave()`, `async for`); sync calls and `transaction.atomic` in async code are rejected: put transactional work in a sync function called through `sync_to_async`.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -231,8 +232,8 @@ Child of `python/django`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Django REST framework. A `ModelSerializer`'s `Meta.fields` lists the fields (not `fields = "__all__"`). Fields the client must not set are in `read_only_fields`.
-- Views inheriting a DRF view or viewset get a non-empty `permission_classes` (from the class or a project base or mixin) unless the settings Django runs with set a non-`AllowAny` `DEFAULT_PERMISSION_CLASSES` (DRF's default is `AllowAny`); `permission_classes = []` is not set there; `AllowAny` on a write endpoint, or as the default, is the user's decision: ask them first.
+- Django REST framework. A `ModelSerializer`'s `Meta.fields` lists the fields; `fields = "__all__"` is rejected. Fields the client must not set are in `read_only_fields`.
+- Views inheriting a DRF view or viewset get a non-empty `permission_classes` (from the class or a project base or mixin) unless the settings Django runs with set a non-`AllowAny` `DEFAULT_PERMISSION_CLASSES` (DRF's default is `AllowAny`); `permission_classes = []` is rejected there; `AllowAny` on a write endpoint, or as the default, is rejected: ask the user first.
 - Querysets behind list endpoints and nested serializers use `select_related()` / `prefetch_related()`.
 
 | Rule | Description | Scope | Enforced by |
@@ -262,9 +263,9 @@ Child of `python`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (not `@app.on_event`, `on_startup=` or `on_shutdown=`).
+- FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected).
 - (when `fastapi >=0.100.0` (PyPI) declared) FastAPI reads request and response bodies from Pydantic v2 models.
-- `FastAPI(debug=True)` is used only in tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (not TestClient in an `async def`).
+- `FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
 - HTTP Basic credentials (`HTTPBasicCredentials.username` / `.password`) are compared with `secrets.compare_digest`, never `==`.
 
 | Rule | Description | Scope | Enforced by |
@@ -301,7 +302,7 @@ Child of `python/flask`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Flask-SQLAlchemy 3 with SQLAlchemy 2.0 queries: `db.session.execute(db.select(User).filter_by(...))`, `db.session.scalars(...)`, `db.session.get(User, id)`, `db.get_or_404(User, id)`, `db.paginate(db.select(User))`. The legacy `User.query` is not used.
+- Flask-SQLAlchemy 3 with SQLAlchemy 2.0 queries: `db.session.execute(db.select(User).filter_by(...))`, `db.session.scalars(...)`, `db.session.get(User, id)`, `db.get_or_404(User, id)`, `db.paginate(db.select(User))`. The legacy `User.query` is rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -359,8 +360,8 @@ Child of `python`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - This project is a library: its public API is what `__all__` lists in its public modules (and what `__init__.py` re-exports).
-- A new public function or class in a module with `__all__` is added to `__all__` (the unlisted public names do not grow), or named with a leading underscore.
-- A public name is not removed or renamed outright: it stays importable and warns (`warnings.warn(..., DeprecationWarning, stacklevel=2)`, `typing_extensions.deprecated`); removing it, even in a major version, is the user's decision: ask them. A name leaves `__all__` only with such a warning call or decorator (a docstring saying "deprecated" is not one).
+- A new public function or class in a module with `__all__` is added to `__all__` (unlisted public names increasing is rejected), or named with a leading underscore.
+- A public name is not removed or renamed outright: it stays importable and warns (`warnings.warn(..., DeprecationWarning, stacklevel=2)`, `typing_extensions.deprecated`); removing it, even in a major version, is the user's decision: ask them. A name leaving `__all__` without such a warning call or decorator (a docstring saying "deprecated" is not one) is rejected.
 - `pyproject.toml`: `license` is an SPDX string with `license-files` (PEP 639; the build backend must support it: setuptools >= 77, hatchling >= 1.27, flit-core >= 3.12, pdm-backend >= 2.4, uv_build) and there are no `License ::` classifiers; `requires-python` has no upper bound.
 - Library code never configures logging (`logging.basicConfig()`, handlers on the root logger); it logs through `logging.getLogger(__name__)`.
 
@@ -382,7 +383,7 @@ Child of `python`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Litestar. A sync `def` route handler states `sync_to_thread=True` when it blocks (database drivers, file I/O) and `sync_to_thread=False` when it does not; async handlers use async clients. `Litestar(debug=True)` is used only in tests.
+- Litestar. A sync `def` route handler states `sync_to_thread=True` when it blocks (database drivers, file I/O) and `sync_to_thread=False` when it does not; async handlers use async clients. `Litestar(debug=True)` is rejected outside tests.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -532,11 +533,12 @@ Child of `python`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- (when a file matches `requirements*.txt`, `**/requirements*.txt`, `**/requirements/*.txt`) Dependencies are listed in the requirements files with exact versions (`name==1.2.3`): a new dependency goes there with the version to use, then `pip install -r <file>` installs it.
+- (when `python.requirements` is `pinned`) Dependencies are listed in the requirements files with exact versions (`name==1.2.3`): a new dependency goes there with the version to use, then `pip install -r <file>` installs it.
+- (when `python.requirements` is `unpinned`) Dependencies are listed in the requirements files: a new dependency goes there, written as the file writes its other entries, then `pip install -r <file>` installs it.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `python/pip/pinned-requirements` | Requirements files pin each package to an exact version (name==1.2.3), so every install gets the same packages; a range or a bare name lets each machine resolve its own. | any: `**/requirements*.txt`, `**/requirements/*.txt` | grep forbid `^[[:space:]]*[A-Za-z0-9][A-Za-z0-9._-]*(\[[^]]*\])?[[:space:]]*($\|[;#<>!~])` |
+| `python/pip/pinned-requirements` | A requirements file that pins each package to an exact version (name==1.2.3) keeps doing so, so every install gets the same packages; a range or a bare name lets each machine resolve its own. A file that writes ranges keeps its own convention. | any: `**/requirements*.txt`, `**/requirements/*.txt` | check lint: `forge_pinned_requirements` |
 
 ### python/pipenv
 
@@ -730,8 +732,8 @@ Child of `python`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (not `session.query()`). Large collections are `WriteOnlyMapped[...]` (not `lazy="dynamic"`).
-- Values reach `text()` SQL as bound parameters (`:id`): no f-string, `.format()`, `%` or `+` inside `text()`, and no string literal passed to `.execute()`. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
+- SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
+- Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -759,7 +761,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 - Alembic. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
 - (when pack `python/sqlalchemy/asyncio` active) With an async engine, `alembic/env.py` runs the migrations through `connection.run_sync()` (the async template's `run_async_migrations()`).
-- Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` is not called outside tests.
+- Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -785,7 +787,7 @@ Child of `python/sqlalchemy`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - SQLAlchemy asyncio: sessions come from `async_sessionmaker(engine, expire_on_commit=False)` and are opened with `async with`.
-- Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (no `asyncio.gather()` over one session).
+- Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
 
 No rules of its own.
 

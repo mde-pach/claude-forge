@@ -122,7 +122,7 @@ A guard target has `command`, `check`, or both. With both, the check decides on 
 
 Names and values are matched whole, with `*` as a wildcard. The match is tried at each command position: the command itself, what a wrapper runs (`sudo`, `env`, `nice -n 5`, `timeout 5`, …) and what a runner runs (`npx`, `bunx`, `bun x`, `npm exec`, `pnpm exec|dlx`, `uv run`, `uvx`, `poetry run`, `python <script>`, `python -m <module>`, …): `name: prisma` matches `bunx prisma migrate reset`.
 
-The built-in checks: `ephemeral-exec` (a package launcher that would fetch what it runs from a registry), `package-add` (a command that adds a named package; read-only and lock-file installs pass), `python-pm` (pip into the project's environment where the project's packages are uv's, or where it has no packaging yet). §9 says what each decides.
+The built-in checks: `ephemeral-exec` (a package launcher that would fetch what it runs from a registry), `package-add` (a command that adds a named package; read-only and lock-file installs pass), `python-pm` (pip into the project's environment around the way the project declares its dependencies: any pip install where the packages are uv's, an undeclared package where a `pyproject.toml` or nothing declares them). §9 says what each decides.
 
 ### 6.3 What loading refuses beyond the schema
 

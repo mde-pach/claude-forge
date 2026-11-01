@@ -16,6 +16,7 @@ Each adapter is one file, `crates/forge-check/adapters/<tool>.yaml`, embedded in
 - `verified`: the newest release the adapter is proven on.
 - `runner`: where the tool comes from. `project` (the default): the project's own install (`node_modules/.bin`, `.venv/bin`, the project's Python environment; in a workspace package, then the root's). `path`: the executable on `PATH` (Terraform, Helm, kubectl, Docker, the package managers). `pinned`: Forge's pinned release from its tool cache (§17).
 - `pinned`: Forge's pin. The version is the pin; it is never asked of the binary.
+- `fallback`: for a project tool, the pinned release Forge runs where the project does not configure the tool (ruff, §11.1). `fallback_ops`: what that release does of an operation there: another operation in its place, or `null`: it does not run (a `not run` note, status 0). An operation not listed runs as it is.
 - `version_args`: the arguments that print the version (default `--version`). The version is the first `x.y` or `x.y.z` the tool prints on stdout or stderr. `package`: read the version from that npm package's `package.json` instead, found by walking up from the executable's real path.
 - `pick`: the tool is one of several, and the adapter of the project's one drives the check. Rules name the first. `opentofu`: `tofu` when the repository has a `*.tofu` file or a `.terraform.lock.hcl` naming `registry.opentofu.org/` providers (tracked or untracked, not ignored), else `terraform`. `kustomize-or-kubectl`: `kustomize` when it is on `PATH`, else `kubectl` (its embedded `kubectl kustomize`).
 - `usage`: how the tool says its command line is wrong: the exit statuses and a POSIX extended regular expression matched on each line of its output (stdout and stderr, colour codes removed). `null` when the tool has no usage signature distinct from its findings.
@@ -431,6 +432,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 0.1.4 – 0.2.0: changelogs/0.1.x.md 0.1.4 (#8203); changelogs/0.2.x.md 0.2.0 Deprecations
 - 0.2.0 –: changelogs/0.2.x.md 0.2.0 (concise output format; settings moved under lint)
 - Codes: the history of 116 codes Forge's rules expect (§16.3); `rules` lists the release's rules.
+- Where Forge's own release runs (the project does not configure it): `fix` runs as `lint`, `format` does not run, `format-check` does not run, `format-stdin` does not run.
 
 #### spectral
 

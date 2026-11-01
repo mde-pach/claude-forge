@@ -15,5 +15,8 @@ context:
   - text: |
       A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
   - text: |
-      This project has no Python packaging file: when a third-party package is needed, create the project with `uv init --bare`, then `uv add <pkg>`.
+      This project declares no dependencies yet: a third-party package is declared before it is installed, either as `name==version` in requirements.txt (then `pip install -r requirements.txt`) or in a project created with `uv init --bare` (then `uv add name`).
     when: {facts: {python.pm: none}}
+  - text: |
+      Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
+    when: {facts: {python.pm: pyproject}}

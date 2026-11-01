@@ -144,6 +144,21 @@ fn render(all: &[Adapter]) -> String {
                 code(&c.op)
             );
         }
+        if a.fallback.is_some() && !a.fallback_ops.is_empty() {
+            let ops: Vec<String> = a
+                .fallback_ops
+                .iter()
+                .map(|(op, to)| match to {
+                    Some(to) => format!("{} runs as {}", code(op), code(to)),
+                    None => format!("{} does not run", code(op)),
+                })
+                .collect();
+            let _ = writeln!(
+                s,
+                "- Where Forge's own release runs (the project does not configure it): {}.",
+                ops.join(", ")
+            );
+        }
         if let Some(d) = &a.direct {
             let _ = writeln!(
                 s,
@@ -441,6 +456,69 @@ fn a_usage_error_is_a_note_never_a_finding() {
     assert_eq!(o.status, 1);
     assert!(o.notes.is_empty());
     assert_eq!(String::from_utf8_lossy(&out), "a.py:1:1: F401 unused\n");
+}
+
+/// Every tool is the stand-in script `bin`, Forge's pinned releases included.
+struct FakePinned {
+    bin: PathBuf,
+}
+
+impl ToolResolver for FakePinned {
+    fn project(&self, _: &Path, _: &Path, _: &str) -> Option<ToolCmd> {
+        Some(ToolCmd::exe(self.bin.clone()))
+    }
+    fn pinned(&self, _: &str, _: &str) -> Result<ToolCmd, String> {
+        Ok(ToolCmd::exe(self.bin.clone()))
+    }
+}
+
+/// Where the project does not configure ruff, Forge's own ruff lints only: its safe fixes run as
+/// a lint, and formatting does not run (a note for the person). The project's ruff config turns
+/// them on.
+#[test]
+fn forges_own_ruff_only_lints() {
+    let (d, fake) = fake("0.17.1", "echo \"ran: $*\"; exit 0");
+    std::fs::remove_file(d.path().join("ruff.toml")).unwrap();
+    let tools = FakePinned { bin: fake.bin };
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    for op in ["format", "format-check", "format-stdin"] {
+        let o = run_do(
+            "ruff",
+            op,
+            &args(&["a.py"]),
+            &do_ctx(d.path(), &tools),
+            &mut out,
+            &mut err,
+        );
+        assert_eq!(o.status, 0, "{op}");
+        assert!(out.is_empty() && err.is_empty(), "{op}: the tool ran");
+        assert_eq!(o.notes[0].kind, NoteKind::NotEnforced, "{op}");
+        assert_eq!(
+            o.notes[0].text,
+            format!(
+                "not run (ruff {op}): the project does not configure ruff, and Forge's own ruff only lints; `forge apply` offers a ruff config"
+            )
+        );
+    }
+    let r = resolve("ruff", "fix", &args(&["a.py"]), &do_ctx(d.path(), &tools)).unwrap();
+    assert_eq!(
+        r.args[..4],
+        args(&["check", "--output-format", "concise", "a.py"])
+    );
+    assert!(!r.args.iter().any(|a| a == "--fix"), "{:?}", r.args);
+    // the project's config: its ruff formats and fixes
+    std::fs::write(d.path().join("ruff.toml"), "line-length = 100\n").unwrap();
+    let r = resolve("ruff", "fix", &args(&["a.py"]), &do_ctx(d.path(), &tools)).unwrap();
+    assert!(r.args.iter().any(|a| a == "--fix"), "{:?}", r.args);
+    assert!(
+        resolve(
+            "ruff",
+            "format",
+            &args(&["a.py"]),
+            &do_ctx(d.path(), &tools)
+        )
+        .is_ok()
+    );
 }
 
 #[test]

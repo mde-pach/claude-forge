@@ -196,17 +196,57 @@ fn pip_in_a_uv_project_is_denied() {
     ] {
         assert_eq!(uv(cmd).decision(), "ask", "{cmd}");
     }
-    // a plain-scripts project
-    let scripts = set.evaluate(
-        "pip install requests",
-        &ctx(project.path()).with_python_pm(Some(PythonPm::Scripts)),
-    );
+    // a plain-scripts project: a named package is declared first, either way; installing
+    // from a requirements file or the project itself passes (as a package addition: it asks)
+    let scripts = |cmd: &str| {
+        set.evaluate(
+            cmd,
+            &ctx(project.path()).with_python_pm(Some(PythonPm::Scripts)),
+        )
+    };
     assert_eq!(
-        scripts.verdict().map(|v| v.reason.as_str()),
+        scripts("pip install requests")
+            .verdict()
+            .map(|v| v.reason.as_str()),
         Some(
-            "This project has no Python packaging yet: create it with `uv init --bare`, then `uv add <pkg>` (`--dev` for tooling). Here: `uv init --bare && uv add requests`."
+            "This project declares no dependencies yet; declare the package first: add `<pkg>==<version>` to requirements.txt, then `pip install -r requirements.txt`; or create the project with `uv init --bare`, then `uv add <pkg>`. Here: add `requests==<version>` to requirements.txt, then `pip install -r requirements.txt`; or `uv init --bare && uv add requests`."
         )
     );
+    assert!(
+        scripts("pip install 'httpx>=0.27' rich==13.9.4")
+            .verdict()
+            .unwrap()
+            .reason
+            .ends_with("Here: add `httpx==<version>` and `rich==13.9.4` to requirements.txt, then `pip install -r requirements.txt`; or `uv init --bare && uv add 'httpx>=0.27' rich==13.9.4`.")
+    );
+    for cmd in ["pip install -r requirements.txt", "pip install -e ."] {
+        assert_ne!(scripts(cmd).decision(), "deny", "{cmd}");
+    }
+    // a pyproject.toml no manager has marked: the project's own installs pass, a named
+    // package goes into [project] dependencies first
+    let pyproject = |cmd: &str| {
+        set.evaluate(
+            cmd,
+            &ctx(project.path()).with_python_pm(Some(PythonPm::Pyproject)),
+        )
+    };
+    assert_eq!(
+        pyproject("pip install requests")
+            .verdict()
+            .map(|v| v.reason.as_str()),
+        Some(
+            "This project declares its dependencies in pyproject.toml: add the package to `[project] dependencies` there (tooling: `[dependency-groups]`), then install the project. Here: add `requests` to [project] dependencies in pyproject.toml."
+        )
+    );
+    assert_eq!(pyproject("uv pip install httpx").decision(), "deny");
+    for cmd in [
+        "pip install -e .",
+        "pip install -e '.[dev]'",
+        "pip install -r requirements-dev.txt",
+        "python -m pip install .",
+    ] {
+        assert_ne!(pyproject(cmd).decision(), "deny", "{cmd}");
+    }
     // a Poetry project: pip asks as a package addition, it is not denied
     let poetry = set.evaluate(
         "pip install requests",
