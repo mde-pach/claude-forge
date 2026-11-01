@@ -1,6 +1,6 @@
 ## 17. Tool provisioning
 
-Forge downloads what it runs into its per-user cache (§4): uv, the tools Forge pins, Bun when an npm-only tool needs it, and Forge's own releases (§18). It never installs anything into the repository or the project's environment. The project's own tools (ruff, Biome, tsc, pytest, …) are the project's: Forge finds them (§16) and never downloads them, except ruff where the project does not configure it: Forge then runs its pinned ruff with its own config (§11.1).
+Forge downloads what it runs into its per-user cache (§4): uv, the tools Forge pins, Bun when an npm-only tool needs it, and Forge's own releases (§18). It never installs anything into the repository or the project's environment. The project's own tools (ruff, Biome, tsc, pytest, …) are the project's: Forge finds them (§16) and never downloads them, except ruff: where the project does not configure it, Forge runs its pinned ruff with its own config, and where it configures ruff without installing it, with the project's config (§11.1).
 
 ### 17.1 Cache layout
 

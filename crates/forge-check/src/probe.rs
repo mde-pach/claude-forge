@@ -211,7 +211,8 @@ pub fn pinned_tools(plan: &Plan) -> Vec<String> {
         .unwrap_or_default()
         .into_iter()
         .filter(|a| {
-            a.pinned.is_some() || crate::adapters::fallback_pin(a, &plan.base, &plan.base).is_some()
+            // a fallback runs where the project does not configure the tool, or does not install it
+            a.pinned.is_some() || a.fallback.is_some()
         })
         .map(|a| a.tool)
         .collect();

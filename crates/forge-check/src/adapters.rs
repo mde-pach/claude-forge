@@ -472,9 +472,13 @@ pub fn locate(
         return Ok((tools.pinned(&a.tool, pin)?, pin.to_string()));
     }
     let cmd = match a.runner {
-        Runner::Project => tools
-            .project(root, cwd, &a.tool)
-            .ok_or_else(|| format!("{} is not installed", a.tool))?,
+        // configured but not installed (a config `forge apply` created): Forge's release with the
+        // project's config
+        Runner::Project => match (tools.project(root, cwd, &a.tool), &a.fallback) {
+            (Some(c), _) => c,
+            (None, Some(pin)) => return Ok((tools.pinned(&a.tool, pin)?, pin.clone())),
+            (None, None) => return Err(format!("{} is not installed", a.tool)),
+        },
         Runner::Path => tools
             .on_path(&a.tool)
             .map(ToolCmd::exe)
