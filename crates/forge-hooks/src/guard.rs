@@ -11,7 +11,7 @@ use crate::input::HookInput;
 use crate::review::{self, Ask};
 use crate::rules::{self, HookCache};
 use crate::snapshot::BashSnapshots;
-use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, testedit};
+use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, spec, testedit};
 
 pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let cwd = rt.cwd(input);
@@ -31,6 +31,17 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     }
     if parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
         return pre_decision("deny", RUN_REASON);
+    }
+    if !user {
+        if let Some(p) = rt.project(input) {
+            let decided = match tool {
+                "AskUserQuestion" => spec::answer(rt, input, &p),
+                _ => spec::gate(input, &p),
+            };
+            if let Some(out) = decided {
+                return out;
+            }
+        }
     }
     match (tool, parsed) {
         ("Bash", Some(parsed)) => bash(rt, input, &cwd, &parsed, user),

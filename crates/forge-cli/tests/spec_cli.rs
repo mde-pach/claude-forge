@@ -828,6 +828,7 @@ fn the_agent_cannot_run_forge() {
     let mut hook = Command::new(env!("CARGO_BIN_EXE_forge"))
         .args(["hook", "user-prompt-submit"])
         .current_dir(&s.repo)
+        .env("FORGE_SPEC", "off")
         .env("HOME", &s.home)
         .env("FORGE_HOME", &s.forge_home)
         .env("FORGE_NO_DOWNLOAD", "1")

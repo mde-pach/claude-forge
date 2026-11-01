@@ -128,7 +128,7 @@ impl Sample {
         let mut c = Command::new(env!("CARGO_BIN_EXE_claude-forge"));
         c.args(["hook", event]);
         self.env(&mut c);
-        c.env("FORGE_ENGINE", "off")
+        c.env("FORGE_ENGINE", "off").env("FORGE_SPEC", "off");
             .env_remove("CLAUDE_CODE_ENTRYPOINT")
             .env_remove("CLAUDE_ENV_FILE")
             .stdin(Stdio::piped())

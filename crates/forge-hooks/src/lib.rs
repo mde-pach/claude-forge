@@ -29,6 +29,7 @@ pub mod proc;
 mod review;
 pub mod rules;
 pub mod snapshot;
+mod spec;
 pub mod state;
 mod testedit;
 
@@ -92,6 +93,8 @@ pub struct Env {
     pub snapshot_cap: Duration,
     /// Start the types engine at SessionStart (`FORGE_ENGINE=off`: never).
     pub engine: bool,
+    /// The spec step on the session's first prompt (`FORGE_SPEC=off`: never).
+    pub spec: bool,
 }
 
 impl Env {
@@ -115,6 +118,7 @@ impl Env {
                     .unwrap_or(3),
             ),
             engine: var("FORGE_ENGINE").as_deref() != Some("off"),
+            spec: var("FORGE_SPEC").as_deref() != Some("off"),
         }
     }
 }

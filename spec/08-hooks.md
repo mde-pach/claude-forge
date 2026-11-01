@@ -19,9 +19,11 @@ Project level (`.claude/settings.json`, or `.claude/settings.local.json` with `-
 | Claude Code event | Matcher | `forge hook` event | Timeout | Options |
 |---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start` | 10 s | |
-| UserPromptSubmit | | `user-prompt-submit` | 10 s | |
+| UserPromptSubmit | | `user-prompt-submit` | 900 s | |
 | PreToolUse | `Bash` | `pre-tool-use` | 180 s | `onFailure: "block"` |
 | PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `pre-tool-use` | 180 s | |
+| PreToolUse | `AskUserQuestion` | `pre-tool-use` | 600 s | |
+| PostToolUse | `AskUserQuestion` | `post-tool-use` | 600 s | |
 | PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | `post-tool-use` | 60 s | |
 | PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
 | PostToolUseFailure | `Bash` | `post-tool-use-failure` | 60 s | |
@@ -88,12 +90,19 @@ User level (`~/.claude/settings.json`):
 
 ### 8.5 UserPromptSubmit (`user-prompt-submit`)
 
-Prints nothing. It:
+Prints nothing but the spec step's statements (below). It:
 
 - writes the **turn snapshot**: `head` (the commit), `tree` (a hash of HEAD and every uncommitted path's blob), `dirty` (`<path>\t<blob>`, `-` for a deleted file) and `files/<path>` (a copy of each dirty file up to 1 MiB). The paths come from one `git status --porcelain=v2 --untracked-files=all`; ignored files, `.claude/worktrees/` and `.git/` are left out. The snapshot is the base the post-edit and Stop checks compare with (§10);
 - removes the Stop block counter;
 - saves the prompt (its first 8000 characters) for the test-edit reviewer (§9.5);
 - tells a running types engine which files changed since the last prompt (the dirty paths, and the files changed between the commit it last saw and HEAD).
+
+**The spec step.** On the session's first prompt (once a session; never inside Forge's own agents; `FORGE_SPEC=off`: never), a fresh read-only `claude -p` (the reviewer's setup, §9.5: Read, Grep and Glob, `FORGE_REVIEWER=1`, no hooks) turns the request into statements: what must hold (S1…), what must stay unchanged (U1…) and the open questions (Q1…, each with a default reading and why). The hook waits for them (840 s at most) and gives them to the agent as `additionalContext`, with what to do: validate them through AskUserQuestion, then build both the code and the tests from them. They live in the session's state (`spec.json`), never in the repository; SessionStart after a compaction gives them again.
+
+- Until a question is answered, PreToolUse refuses Edit, Write, MultiEdit and NotebookEdit ("Validate the statements with the user first (AskUserQuestion), then edit."). File writes through Bash are not held.
+- PreToolUse on AskUserQuestion when nobody can answer (§9.5's entrypoints): another read-only `claude -p` answers each question from the request, the statements and the project, and the hook allows the call with `updatedInput` carrying the answers (540 s at most). The answers and their reasons go to `spec.log`. When a person is there, the hook says nothing.
+- PostToolUse on AskUserQuestion: the statements are validated (edits go through), and a third `claude -p` rewrites them with the answers; the agent gets the new version as `additionalContext`.
+- When the statements cannot be made (claude missing, failing, too slow, or empty statements), the person gets a `ForgeFailure` note and nothing is held. A failed answer or update leaves the question to Claude Code and the statements as they were.
 
 ### 8.6 PreToolUse and PostToolUse (`pre-tool-use`, `post-tool-use`, `post-tool-use-failure`)
 
@@ -171,6 +180,7 @@ A commit made during the turn is part of the turn: the snapshot's `head` is the 
 | `FORGE_REVIEWER` | Set inside a review: no review there | |
 | `FORGE_EDIT_TYPECHECK` | `always` / `never` run the edit-time typecheck (§8.7) | auto |
 | `FORGE_ENGINE` | `off`: SessionStart never starts the types engine | on |
+| `FORGE_SPEC` | `off`: no spec step on the first prompt (§8.5) | on |
 | `FORGE_SNAPSHOT_TIMEOUT` | Seconds a Bash snapshot may take | 3 |
 | `FORGE_GIT` | The git executable | the one on PATH |
 | `FORGE_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME` | The cache and state roots (§4) | |

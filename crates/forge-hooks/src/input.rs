@@ -13,6 +13,8 @@ pub struct HookInput {
     pub permission_mode: Option<String>,
     pub tool_name: Option<String>,
     pub tool_input: Value,
+    /// PostToolUse: what the tool returned.
+    pub tool_response: Value,
     pub tool_use_id: Option<String>,
     /// UserPromptSubmit.
     pub prompt: Option<String>,
