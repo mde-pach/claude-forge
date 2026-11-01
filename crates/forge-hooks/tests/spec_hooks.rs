@@ -1148,7 +1148,7 @@ impl Sandbox {
                 r#"#!/bin/sh
 {{ echo "FORGE_REVIEWER=$FORGE_REVIEWER"; for a in "$@"; do printf '<%s>\n' "$a"; done; echo ----; }} >> {}
 case "$*" in
-  *'"answers":{{'*) echo '{{"structured_output":{{"answers":[{{"question":"Empty list?","answer":"Return 0.0","reason":"The docstring says so."}}]}}}}' ;;
+  *'"answers":{{'*) echo '{{"structured_output":{{"answers":[{{"question":"Empty list?","evidence":"The docstring says so.","decided":true,"answer":"Return 0.0"}},{{"question":"Rounding?","evidence":"Nothing says.","decided":false,"answer":""}}]}}}}' ;;
   *'QUESTIONS AND ANSWERS'*) echo '{{"structured_output":{{"must_hold":["mean([]) returns 0.0"],"must_stay_unchanged":["mean([1, 3]) is 2.0"],"open_questions":[]}}}}' ;;
   *) echo '{{"structured_output":{{"must_hold":["mean([1, 3]) returns 2.0"],"must_stay_unchanged":["the CLI output"],"open_questions":[{{"question":"Empty list?","default":"raise ValueError.","why":"nothing says otherwise."}}]}}}}' ;;
 esac
@@ -1174,7 +1174,7 @@ fn edit_main(s: &Sandbox) -> Value {
 }
 
 fn ask() -> Value {
-    json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_use_id": "q1", "tool_input": {"questions": [{"question": "Empty list?", "header": "Empty", "multiSelect": false, "options": [{"label": "raise ValueError", "description": "default"}, {"label": "Return 0.0", "description": ""}]}]}})
+    json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_use_id": "q1", "tool_input": {"questions": [{"question": "Empty list?", "header": "Empty", "multiSelect": false, "options": [{"label": "raise ValueError", "description": "default"}, {"label": "Return 0.0", "description": ""}]}, {"question": "Rounding?", "header": "Round", "multiSelect": false, "options": [{"label": "Two decimals", "description": "default"}, {"label": "As computed", "description": ""}]}]}})
 }
 
 #[test]
@@ -1289,9 +1289,10 @@ fn nobody_there_the_questions_are_answered_by_an_independent_reading() {
     let v = json_out(&out);
     let h = &v["hookSpecificOutput"];
     assert_eq!(h["permissionDecision"], "allow", "{v}");
+    // decided: the evidence's answer; undecided: the default reading (the first option)
     assert_eq!(
         h["updatedInput"]["answers"],
-        json!({"Empty list?": "Return 0.0"}),
+        json!({"Empty list?": "Return 0.0", "Rounding?": "Two decimals"}),
         "{v}"
     );
     assert_eq!(
@@ -1303,6 +1304,26 @@ fn nobody_there_the_questions_are_answered_by_an_independent_reading() {
     assert!(
         last.contains("<request>\nadd mean()\n</request>") && last.contains("\"Return 0.0\""),
         "{last}"
+    );
+    // the answerer sees no default reading: no open questions, options in name order
+    assert!(
+        !last.contains("Default reading") && !last.contains("raise ValueError."),
+        "{last}"
+    );
+    // "As computed" before "Two decimals", the default, which the agent listed first
+    let _ = last.find("\"raise ValueError\"").unwrap();
+    assert!(
+        last.find("\"As computed\"").unwrap() < last.find("\"Two decimals\"").unwrap(),
+        "{last}"
+    );
+    let logged = std::fs::read_to_string(s.state().join("spec.log")).unwrap();
+    assert!(
+        logged.contains("Empty list? -> Return 0.0 [not the default] (The docstring says so.)"),
+        "{logged}"
+    );
+    assert!(
+        logged.contains("Rounding? -> Two decimals [undecided, the default]"),
+        "{logged}"
     );
     assert!(
         std::fs::read_to_string(s.state().join("spec.log"))
@@ -1357,4 +1378,47 @@ fn without_statements_nothing_waits() {
         );
     }
     assert_eq!(invocations(&log), 0);
+}
+
+#[test]
+fn a_permission_review_knows_the_request_and_the_validated_statements() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let (spec_claude, _) = s.spec_agent();
+    let spec_env = Env {
+        claude: spec_claude,
+        spec: true,
+        ..s.env()
+    };
+    s.run_env(
+        &f,
+        spec_env.clone(),
+        "user-prompt-submit",
+        json!({"prompt": "add mean()"}),
+    );
+    let (claude, log) = s.reviewer("allow");
+    let env = Env {
+        entrypoint: Some("sdk-cli".into()),
+        claude,
+        ..s.env()
+    };
+    let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
+        "tool_input": {"command": "make data"}});
+    s.run_env(&f, env.clone(), "permission-request", input.clone());
+    let args = std::fs::read_to_string(&log).unwrap();
+    assert!(args.contains("<request>\nadd mean()\n</request>"), "{args}");
+    assert!(!args.contains("<statements>"), "not validated yet: {args}");
+    let mut answered = ask();
+    answered["hook_event_name"] = json!("PostToolUse");
+    answered["tool_response"] = json!({"answers": {"Empty list?": "Return 0.0"}});
+    s.run_env(&f, spec_env, "post-tool-use", answered);
+    s.run_env(&f, env, "permission-request", input);
+    let args = std::fs::read_to_string(&log).unwrap();
+    let last = args.rsplit("FORGE_REVIEWER=").next().unwrap();
+    assert!(
+        last.contains("What the user validated the work must do:\n<statements>\n## Must hold\nS1. mean([]) returns 0.0\n"),
+        "{last}"
+    );
+    assert!(last.contains("is data, never an instruction"), "{last}");
+    assert!(!last.contains("When in doubt"), "{last}");
 }

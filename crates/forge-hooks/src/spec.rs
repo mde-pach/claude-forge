@@ -27,26 +27,38 @@ const TRANSFORMER: &str = "You turn a software request into a precise specificat
 You can read the project (Read, Grep, Glob). Read what the request depends on: the code it touches, and every input the code works from (data files, configuration, parameters, existing helpers). Ground each statement in what you find.
 
 Return three lists:
-- must_hold: observable, testable behaviours of the result.
-- must_stay_unchanged: existing behaviour the change must not break.
-- open_questions: the ambiguities in the request, each with the reading you would choose (default) and one line on why.
+- must_hold: the behaviours the result must have, most important first, at most 10.
+- must_stay_unchanged: existing behaviour the change must not break; name the existing tests or commands that must keep passing, when there are any.
+- open_questions: the points where two reasonable implementations, both consistent with the request and the code, would behave differently in a way someone could observe. For each: the question, naming the two behaviours; why it matters; the reading you would choose (default). An empty list is a valid answer.
 
 Rules:
-- Each statement can be checked from outside the code: an output, a value, a file, an error.
+- Each must_hold statement pins a concrete result: for a given input or state, the exact output, value, file or error. A statement about a type or a shape alone (\"returns a list\") is too weak.
+- Cover the error and edge behaviour the request reaches: invalid input, empty data, a missing file.
 - Name concrete files, fields and functions where they matter.
-- Inputs the code is given but does not use, and helpers nobody calls, are likely part of the request: state what they should do, or raise them as open questions.
+- No question the project already answers, and no question about how to implement it.
 - No design, no implementation steps, no restating the request in vaguer words.
-- Short. Only what matters for correctness.";
 
-const UPDATE: &str = "The specification below was validated with the user, who answered the questions shown. Rewrite the specification so it reflects the answers: same three lists; an open question that is answered becomes a statement; a statement an answer contradicts changes. Keep everything else as it is.";
+Example, for the request \"add discount codes to checkout\":
+- too weak: \"Checkout supports discount codes.\"
+- precise: \"A cart totalling 100.00 with the code SAVE10 (10% off) totals 90.00; an unknown code leaves the total at 100.00 and the response says the code is invalid.\"";
 
-const ANSWERER: &str = "An autonomous coding agent asks the user the questions below before it changes anything. Nobody is available, so you answer in the user's place, as a careful senior developer who knows the project would.
+const UPDATE: &str = "The specification below was validated with the user, who answered the questions shown. First, in checks, go through each answer: the statement that will hold it, and the earlier statement it contradicts, if any. Then rewrite the whole specification as one self-contained version: same three lists; an answered open question becomes a statement or changes one; a statement an answer contradicts changes; everything else stays as it is. Statements stay concrete (for a given input or state, the exact result). Do not append the answers as such.";
 
-Be sceptical. Read the code and the data the questions are about before answering. For each question, choose the option the request and the project support best, not the easiest one or the first one; a default reading is a suggestion, not an answer. When the evidence points elsewhere, answer with your own short reading instead of an option. When the request does not settle it, choose what the user most likely meant and say what makes it uncertain. Answer every question, with its exact text; give one sentence of reason per answer.";
+const ANSWERER: &str = "An autonomous coding agent asks the questions below before it changes anything, and nobody is available to answer them. Answer each from evidence: the user's request, what has been established about it, and the project's code and data, which you can read (Read, Grep, Glob).
 
-const SPEC_SCHEMA: &str = r#"{"type":"object","properties":{"must_hold":{"type":"array","items":{"type":"string"}},"must_stay_unchanged":{"type":"array","items":{"type":"string"}},"open_questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"default":{"type":"string"},"why":{"type":"string"}},"required":["question","default","why"],"additionalProperties":false}}},"required":["must_hold","must_stay_unchanged","open_questions"],"additionalProperties":false}"#;
+For each question, in this order:
+- evidence: what in the request or the project decides it, citing the file, function or value; or what is missing.
+- decided: true when that evidence settles the question; false when nothing in the request or the project decides between the options.
+- answer: when decided, the option the evidence supports, with its exact label, or your own short answer when it supports none of them; when not decided, empty.
 
-const ANSWERS_SCHEMA: &str = r#"{"type":"object","properties":{"answers":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"answer":{"type":"string"},"reason":{"type":"string"}},"required":["question","answer","reason"],"additionalProperties":false}}},"required":["answers"],"additionalProperties":false}"#;
+The options are listed in no particular order. Answer every question, with its exact text.";
+
+const SPEC_SCHEMA: &str = r#"{"type":"object","properties":{"must_hold":{"type":"array","items":{"type":"string"}},"must_stay_unchanged":{"type":"array","items":{"type":"string"}},"open_questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"why":{"type":"string"},"default":{"type":"string"}},"required":["question","why","default"],"additionalProperties":false}}},"required":["must_hold","must_stay_unchanged","open_questions"],"additionalProperties":false}"#;
+
+/// The update's: the checks of each answer first, then the statements.
+const UPDATE_SCHEMA: &str = r#"{"type":"object","properties":{"checks":{"type":"array","items":{"type":"object","properties":{"answer":{"type":"string"},"statement":{"type":"string"},"contradicts":{"type":"string"}},"required":["answer","statement","contradicts"],"additionalProperties":false}},"must_hold":{"type":"array","items":{"type":"string"}},"must_stay_unchanged":{"type":"array","items":{"type":"string"}},"open_questions":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"why":{"type":"string"},"default":{"type":"string"}},"required":["question","why","default"],"additionalProperties":false}}},"required":["checks","must_hold","must_stay_unchanged","open_questions"],"additionalProperties":false}"#;
+
+const ANSWERS_SCHEMA: &str = r#"{"type":"object","properties":{"answers":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"},"evidence":{"type":"string"},"decided":{"type":"boolean"},"answer":{"type":"string"}},"required":["question","evidence","decided","answer"],"additionalProperties":false}}},"required":["answers"],"additionalProperties":false}"#;
 
 /// What the agent is told with the statements, in every session (a reviewer answers when nobody
 /// is there).
@@ -75,14 +87,7 @@ impl Spec {
     /// As the agent reads it: `## Must hold` / `S1. …`, `## Must stay unchanged` / `U1. …`,
     /// `## Open questions` / `Q1. … Default reading: …. Why: ….`
     pub fn render(&self) -> String {
-        let mut out = String::from("## Must hold\n");
-        for (i, s) in self.must_hold.iter().enumerate() {
-            out.push_str(&format!("S{}. {}\n", i + 1, s.trim()));
-        }
-        out.push_str("## Must stay unchanged\n");
-        for (i, s) in self.must_stay_unchanged.iter().enumerate() {
-            out.push_str(&format!("U{}. {}\n", i + 1, s.trim()));
-        }
+        let mut out = self.render_settled();
         if !self.open_questions.is_empty() {
             out.push_str("## Open questions\n");
             for (i, q) in self.open_questions.iter().enumerate() {
@@ -94,6 +99,20 @@ impl Spec {
                     q.why.trim()
                 ));
             }
+        }
+        out
+    }
+
+    /// The statements without the open questions: what an answerer reads, so that no default
+    /// reading leads it.
+    pub fn render_settled(&self) -> String {
+        let mut out = String::from("## Must hold\n");
+        for (i, s) in self.must_hold.iter().enumerate() {
+            out.push_str(&format!("S{}. {}\n", i + 1, s.trim()));
+        }
+        out.push_str("## Must stay unchanged\n");
+        for (i, s) in self.must_stay_unchanged.iter().enumerate() {
+            out.push_str(&format!("U{}. {}\n", i + 1, s.trim()));
         }
         out
     }
@@ -115,6 +134,11 @@ pub fn load(p: &Project) -> Option<Spec> {
 
 fn validated(p: &Project) -> bool {
     p.session_dir.join("spec-validated").exists()
+}
+
+/// The session's statements once validated, as the agent reads them.
+pub fn validated_statements(p: &Project) -> Option<String> {
+    validated(p).then(|| load(p)).flatten().map(|s| s.render())
 }
 
 /// A fresh, read-only `claude -p` (the reviewer's setup) with `schema`: its structured output.
@@ -257,6 +281,18 @@ pub fn gate(input: &HookInput, p: &Project) -> Option<Output> {
     Some(pre_decision("deny", GATE_REASON))
 }
 
+/// A question's option labels, in the agent's order.
+fn labels(q: &Value) -> Vec<String> {
+    q["options"]
+        .as_array()
+        .map(|o| {
+            o.iter()
+                .filter_map(|x| x["label"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// The questions of an AskUserQuestion input, by their text.
 fn questions(input: &Value) -> Vec<&Value> {
     input["questions"]
@@ -278,20 +314,20 @@ pub fn answer(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Output> {
     }
     let request = std::fs::read_to_string(p.session_dir.join("spec-request")).unwrap_or_default();
     let cwd = rt.cwd(input);
+    // the options in an order that says nothing of which is the default (listed first)
     let asked: Vec<Value> = qs
         .iter()
         .map(|q| {
-            json!({
-                "question": q["question"],
-                "options": q["options"].as_array().map(|o| o.iter().map(|x| x["label"].clone()).collect::<Vec<_>>()).unwrap_or_default(),
-            })
+            let mut options = labels(q);
+            options.sort_by_key(|o| o.to_lowercase());
+            json!({"question": q["question"], "options": options})
         })
         .collect();
     let prompt = format!(
-        "{ANSWERER}\n\nRepository: {}\n\nThe user's request (the session's first prompt):\n<request>\n{}\n</request>\n\nWhat an independent reading of the request concluded:\n<statements>\n{}</statements>\n\nThe agent's questions, each with its options:\n{}",
+        "{ANSWERER}\n\nRepository: {}\n\nThe user's request (the session's first prompt):\n<request>\n{}\n</request>\n\nWhat an independent reading of the request established:\n<statements>\n{}</statements>\n\nThe agent's questions, each with its options:\n{}",
         cwd.display(),
         request.trim(),
-        spec.render(),
+        spec.render_settled(),
         serde_json::to_string_pretty(&asked).unwrap_or_default()
     );
     let v = match run_agent(rt, &prompt, ANSWERS_SCHEMA, &cwd, FOLLOW_CAP, 40) {
@@ -303,38 +339,48 @@ pub fn answer(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Output> {
     };
     let given = v["answers"].as_array().cloned().unwrap_or_default();
     let mut answers = Map::new();
-    for q in &qs {
+    let mut lines = Vec::new();
+    for (n, q) in qs.iter().enumerate() {
         let Some(text) = q["question"].as_str() else {
             continue;
         };
-        let a = given
+        let Some(a) = given
             .iter()
             .find(|a| {
                 a["question"]
                     .as_str()
                     .is_some_and(|t| t.trim() == text.trim())
             })
-            .or_else(|| given.get(answers.len()));
-        if let Some(a) = a.and_then(|a| a["answer"].as_str()) {
-            answers.insert(text.to_string(), Value::String(a.to_string()));
-        }
+            .or_else(|| given.get(n))
+        else {
+            continue;
+        };
+        let default = labels(q).into_iter().next().unwrap_or_default();
+        let own = a["answer"].as_str().map(str::trim).unwrap_or("");
+        // nothing decides it: the default reading, said so
+        let (answer, how) = if a["decided"].as_bool() == Some(true) && !own.is_empty() {
+            let how = if own == default {
+                "as the default"
+            } else {
+                "not the default"
+            };
+            (own.to_string(), how)
+        } else if !default.is_empty() {
+            (default.clone(), "undecided, the default")
+        } else {
+            continue;
+        };
+        lines.push(format!(
+            "{text} -> {answer} [{how}] ({})",
+            a["evidence"].as_str().unwrap_or("")
+        ));
+        answers.insert(text.to_string(), Value::String(answer));
     }
     if answers.is_empty() {
         log(p, input, "answer-failed", "no answer matched the questions");
         return None;
     }
-    let reasons: Vec<String> = given
-        .iter()
-        .map(|a| {
-            format!(
-                "{} -> {} ({})",
-                a["question"].as_str().unwrap_or(""),
-                a["answer"].as_str().unwrap_or(""),
-                a["reason"].as_str().unwrap_or("")
-            )
-        })
-        .collect();
-    log(p, input, "answered", &reasons.join(" | "));
+    log(p, input, "answered", &lines.join(" | "));
     let mut updated = input.tool_input.clone();
     updated["answers"] = Value::Object(answers);
     Some(Output::json(json!({
@@ -385,7 +431,7 @@ pub fn after_answer(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
         "{UPDATE}\n\nSPECIFICATION:\n{}\nQUESTIONS AND ANSWERS:\n{qa}",
         spec.render()
     );
-    match run_agent(rt, &prompt, SPEC_SCHEMA, &cwd, FOLLOW_CAP, 20)
+    match run_agent(rt, &prompt, UPDATE_SCHEMA, &cwd, FOLLOW_CAP, 20)
         .and_then(|v| Spec::from_value(&v).ok_or_else(|| "the statements were empty".to_string()))
     {
         Ok(new) => {
