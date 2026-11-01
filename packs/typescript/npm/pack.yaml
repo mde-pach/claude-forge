@@ -7,6 +7,6 @@ context:
   - text: |
       npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.
   - text: |
-      Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` (flags or `.npmrc`) are not used, and `npm audit fix --force` is the user's decision.
+      Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` are not set in `.npmrc`; as install flags, like `npm audit fix --force`, they are the user's decision.
   - text: |
       Dependencies come from the registry: no git, GitHub or tarball URL specs, and no `allow-git=all` / `allow-remote=all`.

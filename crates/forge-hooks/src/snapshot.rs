@@ -1,14 +1,16 @@
 //! Snapshots of the working tree, in the state directory:
 //!
 //! - the **turn snapshot** (UserPromptSubmit): `head` (the commit), `tree` (a hash of the
-//!   uncommitted state), `dirty` (`path<TAB>blob hash`, `-` for a deleted file) and `files/<path>`
-//!   (copies of the dirty files up to 1 MiB), the layout forge-check reads as the turn's base;
+//!   uncommitted state), `dirty` (`path<TAB>blob hash`, `-` for a deleted file), `untracked` (the
+//!   dirty paths git did not track, one per line) and `files/<path>` (copies of the dirty files up
+//!   to 1 MiB), the layout forge-check reads as the turn's base and the guard reads to tell the
+//!   person's uncommitted work;
 //! - **Bash snapshots** (PreToolUse Bash): the working tree as a git tree, written with a copy of
 //!   the index and a separate object directory (the repository's objects read as alternates), so
 //!   the user's index and object store are never touched. PostToolUse compares it with the tree
 //!   after the command to find the files the command changed.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -27,6 +29,8 @@ pub struct Status {
     pub head: Option<String>,
     pub branch: Option<String>,
     pub dirty: BTreeMap<String, String>,
+    /// The dirty paths git does not track.
+    pub untracked: BTreeSet<String>,
 }
 
 impl Status {
@@ -53,11 +57,12 @@ pub fn skipped(path: &str) -> bool {
 /// The changed paths and HEAD, from one `git status` (porcelain v2), with their blob hashes from
 /// one `git hash-object`.
 pub fn status(root: &Path) -> Option<Status> {
-    let (branch, head, paths) = status_paths_only(root)?;
+    let (branch, head, paths, untracked) = scan(root)?;
     let mut st = Status {
         head,
         branch,
         dirty: BTreeMap::new(),
+        untracked,
     };
     let present: Vec<&String> = paths.iter().filter(|p| root.join(p).is_file()).collect();
     let hashes: Vec<String> = if present.is_empty() {
@@ -105,6 +110,19 @@ pub fn status(root: &Path) -> Option<Status> {
 /// The branch, HEAD and the changed paths (sorted), from one `git status`.
 #[allow(clippy::type_complexity)]
 pub fn status_paths_only(root: &Path) -> Option<(Option<String>, Option<String>, Vec<String>)> {
+    scan(root).map(|(b, h, p, _)| (b, h, p))
+}
+
+/// [`status_paths_only`], with the untracked paths among them.
+#[allow(clippy::type_complexity)]
+fn scan(
+    root: &Path,
+) -> Option<(
+    Option<String>,
+    Option<String>,
+    Vec<String>,
+    BTreeSet<String>,
+)> {
     let out = git(
         root,
         &[
@@ -120,6 +138,7 @@ pub fn status_paths_only(root: &Path) -> Option<(Option<String>, Option<String>,
     )?;
     let mut st = Status::default();
     let mut paths: Vec<String> = Vec::new();
+    let mut untracked = BTreeSet::new();
     for rec in out.split(|b| *b == 0) {
         let rec = String::from_utf8_lossy(rec);
         if let Some(rest) = rec.strip_prefix("# branch.oid ") {
@@ -131,6 +150,7 @@ pub fn status_paths_only(root: &Path) -> Option<(Option<String>, Option<String>,
                 st.branch = Some(rest.to_string());
             }
         } else if let Some(p) = rec.strip_prefix("? ") {
+            untracked.insert(p.to_string());
             paths.push(p.to_string());
         } else if rec.starts_with("1 ") {
             if let Some(p) = rec.splitn(9, ' ').nth(8) {
@@ -145,7 +165,8 @@ pub fn status_paths_only(root: &Path) -> Option<(Option<String>, Option<String>,
     paths.retain(|p| !p.is_empty() && !skipped(p) && !p.contains('\n'));
     paths.sort();
     paths.dedup();
-    Some((st.branch, st.head, paths))
+    untracked.retain(|p| paths.binary_search(p).is_ok());
+    Some((st.branch, st.head, paths, untracked))
 }
 
 /// Writes the turn snapshot to `dir` (replacing it), from `st`.
@@ -179,7 +200,16 @@ pub fn write_turn(root: &Path, dir: &Path, st: &Status) -> bool {
     )
     .is_ok()
         && std::fs::write(tmp.join("tree"), format!("{}\n", st.tree_hash())).is_ok()
-        && std::fs::write(tmp.join("dirty"), dirty).is_ok();
+        && std::fs::write(tmp.join("dirty"), dirty).is_ok()
+        && std::fs::write(
+            tmp.join("untracked"),
+            st.untracked
+                .iter()
+                .filter(|p| st.dirty.contains_key(*p))
+                .map(|p| format!("{p}\n"))
+                .collect::<String>(),
+        )
+        .is_ok();
     if !ok {
         let _ = std::fs::remove_dir_all(&tmp);
         return false;
@@ -451,6 +481,15 @@ mod tests {
             "A\n"
         );
         assert!(!snap.join("files/b.txt").exists());
+        // the untracked ones among the dirty paths, which discarding changes never touches
+        assert_eq!(
+            std::fs::read_to_string(snap.join("untracked")).unwrap(),
+            "new.txt\n"
+        );
+        assert_eq!(
+            forge_guard::ctx::pre_turn_changes(&snap).unwrap(),
+            ["a.txt", "b.txt"]
+        );
         assert_eq!(turn_ids(&snap).unwrap().1, st.tree_hash());
         // unchanged: same hash; a change: another
         assert_eq!(status(&root).unwrap().tree_hash(), st.tree_hash());

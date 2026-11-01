@@ -398,6 +398,10 @@ pub fn run(args: CheckArgs) -> ExitCode {
                 }
             } else {
                 let _ = write!(out, "{}", forge_check::output::person_text(&o));
+                // a commit refused: how the person accepts what they mean to keep
+                if args.changed && o.status == forge_check::checker::Status::Fail {
+                    let _ = write!(out, "{}", forge_check::output::accept_hint(&o));
+                }
             }
             ExitCode::from(o.status.exit_code() as u8)
         }

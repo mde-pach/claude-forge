@@ -88,7 +88,9 @@ fn bash(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: &Parsed, user: bool
                 )
                 .with_js_pm(rules::js_pm(
                     facts.as_ref().and_then(|f| f.js_pm.as_deref()),
-                ));
+                ))
+                // what was uncommitted at the start of the turn: the person's work
+                .with_turn(project.as_ref().and_then(|p| p.snapshot()));
             set.evaluate_parsed(parsed, command, &ctx)
         }
         None => Outcome::None,

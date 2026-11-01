@@ -118,9 +118,10 @@ packs:
 disable:
   - id: <rule-id>
     reason: string          # required
-accept:                     # config-ratchet findings accepted on purpose (§10)
+accept:                     # findings accepted on purpose, any rule's (§10.5)
   - rule: <rule-id>
-    change: string          # the finding line exactly as forge check printed it
+    file: glob              # the finding's file; file, change or both
+    change: string          # the finding's text (with or without its path:line)
     reason: string          # required
 files:                      # file roles (§15.4)
   <role>: {add: [glob], set: [glob]}

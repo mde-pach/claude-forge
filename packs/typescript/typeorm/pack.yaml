@@ -5,6 +5,6 @@ detect:
   deps_any: [{ecosystem: npm, name: typeorm}]
 context:
   - text: |
-      TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are not set, `schema:sync` / `schema:drop` are not run and `migration:revert` needs the user's confirmation.
+      TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are not set; `schema:sync`, `schema:drop` and `migration:revert` are the user's decision.
   - text: |
       Raw `.query()` takes its values as parameters (`query(sql, [values])`); query builder conditions and orderings use `:name` parameters, never `${}` or concatenation.

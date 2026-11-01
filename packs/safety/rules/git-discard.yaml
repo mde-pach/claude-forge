@@ -1,9 +1,18 @@
 id: safety/git-discard
-description: Discarding working-tree changes (git checkout -- / git checkout . / git restore) loses work.
+description: Discarding working-tree changes (git checkout -- / git checkout . / git restore) loses the uncommitted work in those files; the user's own uncommitted changes from before the task are never discarded.
+review: "Are the changes this command discards only ones made while working on this request (none of the user's own uncommitted work), and does the request call for discarding them?"
 scope: {language: any}
 enforce:
   - target: guard
     decision: deny
+    check: pre-turn-changes
+    command:
+      - {name: git, sub: [checkout], args_any: ['.']}
+      - {name: git, sub: [checkout], arg_regex: '^--$'}
+      - {name: git, sub: [restore], flags_none: [--staged, -S]}
+      - {name: git, sub: [restore], flags_any: [--worktree, -W]}
+  - target: guard
+    decision: ask
     command:
       - {name: git, sub: [checkout], args_any: ['.']}
       - {name: git, sub: [checkout], arg_regex: '^--$'}

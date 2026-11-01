@@ -666,3 +666,171 @@ fn advice_once_per_turn() {
     let (code, v) = r.turn(&[id]);
     assert_eq!(code, 0, "reported once: {v}");
 }
+
+impl Repo {
+    /// Commits what is in the tree, on the current branch.
+    fn commit(&self, msg: &str) {
+        git(self.path(), &["add", "-A"]);
+        git(self.path(), &["commit", "-qm", msg]);
+    }
+
+    /// A turn starting now: the snapshot's head is HEAD, nothing uncommitted.
+    fn start_turn(&self) {
+        let rev = Command::new("git")
+            .current_dir(self.path())
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .unwrap();
+        std::fs::write(self.snap.path().join("head"), &rev.stdout).unwrap();
+        std::fs::write(self.snap.path().join("dirty"), "").unwrap();
+    }
+}
+
+/// `base: branch` (§6.2): a chart bumped once on the branch needs no second bump when the turn
+/// changes it again; a chart the branch changes without a bump is still reported.
+#[test]
+fn a_chart_is_bumped_once_per_branch() {
+    let id = "kubernetes/helm/version-bump";
+    let chart = |v: &str| format!("apiVersion: v2\nname: web\nversion: {v}\n");
+    let r = Repo::new(&files(&[
+        ("ct.yaml", "target-branch: main\n"),
+        ("charts/web/Chart.yaml", &chart("1.2.0")),
+        ("charts/web/values.yaml", "replicas: 1\n"),
+    ]));
+    git(r.path(), &["checkout", "-qb", "feat"]);
+    write(
+        r.path(),
+        &files(&[
+            ("charts/web/Chart.yaml", &chart("1.2.1")),
+            ("charts/web/values.yaml", "replicas: 2\n"),
+        ]),
+    );
+    r.commit("bump web");
+    r.start_turn();
+    write(
+        r.path(),
+        &files(&[("charts/web/values.yaml", "replicas: 3\n")]),
+    );
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 0, "{v}");
+    assert!(findings_of(&v, id).is_empty(), "{v}");
+    // the commit-time check agrees
+    let (code, v) = r.check(&["--changed"], &[id], PATH);
+    assert_eq!(code, 0, "{v}");
+    // on a branch that never bumped it, the turn's change is reported
+    git(r.path(), &["checkout", "-q", "--", "."]);
+    git(r.path(), &["checkout", "-qb", "other", "main"]);
+    r.start_turn();
+    write(
+        r.path(),
+        &files(&[("charts/web/values.yaml", "replicas: 3\n")]),
+    );
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 1, "{v}");
+    let f = findings_of(&v, id);
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("chart charts/web changed but its Chart.yaml version is still 1.2.0"),
+        "{v}"
+    );
+}
+
+/// `base: branch`: a migration this branch added and that is not merged yet may be edited; one
+/// already on the default branch may not.
+#[test]
+fn a_migration_the_branch_added_may_be_edited() {
+    let id = "sql/applied-migrations";
+    let init = "supabase/migrations/20260101000000_init.sql";
+    let paid = "supabase/migrations/20260102000000_paid.sql";
+    let r = Repo::new(&files(&[
+        ("supabase/config.toml", "project_id = \"shop\"\n"),
+        (init, "CREATE TABLE orders (id bigint PRIMARY KEY);\n"),
+    ]));
+    git(r.path(), &["checkout", "-qb", "feat"]);
+    write(
+        r.path(),
+        &files(&[(paid, "ALTER TABLE orders ADD COLUMN paid boolean;\n")]),
+    );
+    r.commit("add paid");
+    r.start_turn();
+    write(
+        r.path(),
+        &files(&[(
+            paid,
+            "ALTER TABLE orders ADD COLUMN paid boolean NOT NULL DEFAULT false;\n",
+        )]),
+    );
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 0, "{v}");
+    assert!(findings_of(&v, id).is_empty(), "{v}");
+    let (code, v) = r.check(&["--changed"], &[id], PATH);
+    assert_eq!(code, 0, "{v}");
+    // the default branch's migration, edited in the turn
+    write(
+        r.path(),
+        &files(&[(
+            init,
+            "CREATE TABLE orders (id bigint PRIMARY KEY, total int);\n",
+        )]),
+    );
+    let (code, v) = r.turn(&[id]);
+    assert_eq!(code, 1, "{v}");
+    let f = findings_of(&v, id);
+    assert_eq!(f.len(), 1, "{v}");
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("{init} an existing migration was modified")),
+        "{v}"
+    );
+    let (code, _) = r.check(&["--changed"], &[id], PATH);
+    assert_eq!(code, 1);
+}
+
+/// §10.5: `accept:` holds for any rule's finding, by rule and file; a commit the check refuses
+/// tells the person the entry to add (their output only: `--json` and the agent never get it).
+#[test]
+fn a_refused_commit_names_the_accept_entry() {
+    let id = "python/no-swallowed-cancel";
+    let r = Repo::new(&files(&[("app/a.py", "x = 1\n")]));
+    let swallow = "import asyncio\n\n\nasync def a(q):\n    try:\n        await q.get()\n    except asyncio.CancelledError:\n        pass\n";
+    write(r.path(), &files(&[("app/a.py", swallow)]));
+    let person = || {
+        let out = Command::new(exe())
+            .current_dir(r.path())
+            .args(["check", "--changed", &format!("--rules={id}")])
+            .env("PATH", PATH)
+            .env("FORGE_HOME", r.home.path())
+            .env("FORGE_NO_DOWNLOAD", "1")
+            .env_remove("VIRTUAL_ENV")
+            .env_remove("CLAUDECODE")
+            .output()
+            .expect("forge check");
+        (
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+        )
+    };
+    let (code, text) = person();
+    assert_eq!(code, Some(1), "{text}");
+    assert!(
+        text.contains(
+            "accept:\n  - {rule: python/no-swallowed-cancel, file: \"app/a.py\", reason: \"<why>\"}"
+        ),
+        "{text}"
+    );
+    let (_, v) = r.check(&["--changed"], &[id], PATH);
+    assert!(!v.to_string().contains("<why>"), "{v}");
+    write(
+        r.path(),
+        &files(&[(
+            "forge.yaml",
+            "forge: \"0.6\"\naccept:\n  - {rule: python/no-swallowed-cancel, file: \"app/a.py\", reason: \"a shutdown path\"}\n",
+        )]),
+    );
+    let (code, text) = person();
+    assert_eq!(code, Some(0), "{text}");
+}

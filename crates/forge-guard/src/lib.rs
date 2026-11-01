@@ -6,7 +6,7 @@
 //! commit messages and heredoc bodies are data, so `git commit -m "remove chmod 777"` or
 //! `gh pr create --body "… git push --force …"` trip nothing. A rule's guard targets are
 //! written in the structural form ([`rule::CommandMatch`]), with or without a built-in check
-//! ([`checks`]: `ephemeral-exec`, `package-add`, `python-pm`).
+//! ([`checks`]: `ephemeral-exec`, `package-add`, `python-pm`, `pre-turn-changes`).
 //!
 //! The answer is deny, ask or nothing. Its reason is the rule's description, plus "Here: …"
 //! when a check found something: no rule id, nothing about Forge itself.

@@ -6,7 +6,9 @@
 //!   `head` (the commit then, possibly empty), `dirty` (`<path><TAB><blob hash>` per path that
 //!   was uncommitted then, `-` when it was deleted) and `files/<path>` (a copy of each dirty file).
 //! - `HEAD` (`--changed`, `--all`, and the edit-time checks before the first prompt);
-//! - `git merge-base <ref> HEAD` (`--since <ref>`).
+//! - `git merge-base <ref> HEAD` (`--since <ref>`);
+//! - for a check target with `base: branch`, the merge base of HEAD with the default branch
+//!   ([`ChangeSet::branch`]).
 //!
 //! Git is asked through its CLI with one process per question for the whole change
 //! (`status -z`, `ls-tree`, `hash-object --stdin-paths`, `cat-file --batch`): spawning git is
@@ -240,6 +242,47 @@ impl ChangeSet {
             None
         };
         ChangeSet::build(root, mode, base_rev, snapshot, &dirty, paths, all, true)
+    }
+
+    /// The branch's change, for a check about the branch as a whole (`base: branch`): the files
+    /// changed since the merge base of HEAD with the default branch ([`default_branch`]):
+    /// committed on the branch, uncommitted and untracked, with their copies at the merge base.
+    /// No added lines. Err: why there is none (no default branch, no merge base).
+    pub fn branch(root: &Path) -> Result<ChangeSet, String> {
+        let git = Git::new(root);
+        let Some(r) = default_branch(&git) else {
+            return Err(
+                "no default branch (origin/HEAD, main or master) to find where the branch started"
+                    .into(),
+            );
+        };
+        let rev = git
+            .run(&["merge-base", &r, "HEAD"])
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o).trim().to_string())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| format!("no merge base of HEAD with {r}"))?;
+        let mut paths: BTreeSet<String> = BTreeSet::new();
+        paths.extend(split_z(
+            &git.run(&["diff", "--name-only", "-z", "--no-renames", &rev])
+                .unwrap_or_default(),
+        ));
+        paths.extend(split_z(
+            &git.run(&["ls-files", "-z", "--others", "--exclude-standard"])
+                .unwrap_or_default(),
+        ));
+        paths.retain(|p| !p.is_empty() && !p.ends_with('/') && !is_excluded(p));
+        ChangeSet::build(
+            root,
+            Mode::Since(r),
+            Some(rev),
+            None,
+            &HashMap::new(),
+            paths.into_iter().collect(),
+            None,
+            false,
+        )
+        .map_err(|e| e.to_string())
     }
 
     /// The change made to `files` (edit-time checks): against the turn snapshot when there is
@@ -544,6 +587,30 @@ pub(crate) fn split_z(bytes: &[u8]) -> impl Iterator<Item = String> + '_ {
 /// The git executable. On macOS `/usr/bin/git` is a shim that looks up the developer tools at
 /// every call (about 20 ms); the binary it runs is used instead, found once (`git --exec-path`)
 /// and kept in Forge's state while it exists.
+/// The default branch to compare a branch with: `origin/HEAD` (what it points to), else the
+/// first of `main`, `master`, `origin/main`, `origin/master` that exists.
+pub fn default_branch(git: &Git) -> Option<String> {
+    if let Ok(o) = git.run(&["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]) {
+        let r = String::from_utf8_lossy(&o).trim().to_string();
+        if !r.is_empty() {
+            return Some(r);
+        }
+    }
+    [
+        "refs/heads/main",
+        "refs/heads/master",
+        "refs/remotes/origin/main",
+        "refs/remotes/origin/master",
+    ]
+    .iter()
+    .find(|r| git.run(&["rev-parse", "-q", "--verify", r]).is_ok())
+    .map(|r| {
+        r.trim_start_matches("refs/heads/")
+            .trim_start_matches("refs/remotes/")
+            .to_string()
+    })
+}
+
 pub fn git_exe() -> &'static Path {
     static EXE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
     EXE.get_or_init(|| {

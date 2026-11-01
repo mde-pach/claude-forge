@@ -12,7 +12,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 - TypeScript, strict.
 - No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
-- `!` non-null assertions and `as unknown as T` are not used: narrow with a check, or parse with a schema.
+- `!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
 - Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
 
 | Rule | Description | Scope | Enforced by |
@@ -72,7 +72,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- (when `ai >=7.0.0` (npm) declared) AI SDK 7: system prompts go in `instructions`, not in a `role: "system"` message in `messages` / `prompt` (unless `allowSystemInMessages: true`).
+- (when `ai >=7.0.0` (npm) declared) AI SDK 7: system prompts go in `instructions`; a `role: "system"` message in `messages` / `prompt` is rejected unless `allowSystemInMessages: true`.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -88,7 +88,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Angular 20+: templates use built-in control flow (`@if`, `@for (x of xs; track x.id)`, `@switch`); `*ngIf`, `*ngFor` and `[ngSwitch]` are deprecated and rejected (`ng generate @angular/core:control-flow` migrates them).
-- `DomSanitizer.bypassSecurityTrust*` turns off Angular's XSS protection and is not used; bind values and let Angular sanitise them.
+- `DomSanitizer.bypassSecurityTrust*` turns off Angular's XSS protection and is rejected; bind values and let Angular sanitise them.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -185,7 +185,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- AWS Lambda: handlers are `async (event, context) => result` and return or throw; callback handlers (a `Callback` parameter, `context.callbackWaitsForEmptyEventLoop`) are not used: the Node.js 24 runtime does not run them.
+- AWS Lambda: handlers are `async (event, context) => result` and return or throw; callback handlers (a `Callback` parameter, `context.callbackWaitsForEmptyEventLoop`) are rejected (the Node.js 24 runtime does not run them).
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -215,7 +215,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- bcrypt / bcryptjs: async code awaits `hash()` / `compare()` / `genSalt()`; the `*Sync` variants block the event loop and are not used in async functions.
+- bcrypt / bcryptjs: async code awaits `hash()` / `compare()` / `genSalt()`; the `*Sync` variants block the event loop and are rejected in async functions.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -262,7 +262,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Bun is the package manager. Tests that import from `bun:test` run with `bun test`. A change to them adds no `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf` and no mocks (`mock`, `mock.module`, `spyOn`), and does not reduce their `expect` calls.
+- Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -319,12 +319,12 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Drizzle: drizzle.config.* names the schema files (`schema`), the migrations folder (`out`, default `./drizzle`) and the `dialect`.
 - A schema change is followed by `drizzle-kit generate`; the SQL and the metadata it writes are committed together, never written by hand.
 - A migration that exists in the base is not modified or deleted; a change goes in a new migration. `drizzle-kit push` needs confirmation; `push --force` is refused.
-- Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` is not given a template or concatenation (or a variable built from one).
+- Values reach SQL through the `sql` template tag, which binds them; `sql.raw()` with a template or concatenation (or a variable built from one) is rejected.
 - `db.delete(t)` and `db.update(t).set(…)` are chained with `.where(…)`.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/drizzle/applied-migrations` | Migrations already in the base (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration. | any | check migration: `forge_drizzle_applied` |
+| `typescript/drizzle/applied-migrations` | Migrations already on the default branch (SQL and snapshots in the drizzle.config out folder) are not modified or deleted; a change goes in a new migration. A migration this branch added and that is not merged yet may still be edited. | any | check migration: `forge_drizzle_applied` |
 | `typescript/drizzle/meta-files` | The migration journal and snapshots (meta/_journal.json, meta/*_snapshot.json) are written by drizzle-kit generate, never edited by hand. | any | permission deny `Edit(**/meta/_journal.json)`<br>permission deny `Edit(**/meta/*_snapshot.json)` |
 | `typescript/drizzle/migration-lint` | With the postgresql dialect, new migrations in the out folder do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `**/*.sql` | check migration: `forge_drizzle_squawk` (when `**/*.sql` changes) |
 | `typescript/drizzle/migration-present` | A change to the Drizzle schema files (drizzle.config schema) that reaches the database comes with a generated migration in the out folder, with its meta/_journal.json and snapshot (drizzle-kit 1.x, <name>/migration.sql with snapshot.json). Relations, types, imports and comments do not count. | any | check migration: `forge_drizzle_migration_present` |
@@ -375,7 +375,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- ESLint 9+ reads only the flat config `eslint.config.*`: ignores go in its `ignores`, globals in `languageOptions.globals`; `.eslintrc*`, `.eslintignore` and `/* eslint-env */` comments are not used.
+- ESLint 9+ reads only the flat config `eslint.config.*`: ignores go in its `ignores`, globals in `languageOptions.globals`; `.eslintrc*`, `.eslintignore` and `/* eslint-env */` comments are rejected.
 - ESLint warnings on added lines are fixed like errors. The type-aware typescript-eslint rules (`no-unsafe-*`, `no-unnecessary-condition`, …) need `parserOptions.projectService`.
 
 | Rule | Description | Scope | Enforced by |
@@ -397,8 +397,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 - Express sessions: `express-session` cookie options and `cookie-session` options never set `secure: false` or `httpOnly: false` literally (an environment-dependent value is fine).
 - Behind a proxy, `trust proxy` (Express) is a hop count, the proxy subnets or a function, not `true`.
-- (when `express >=5.0.0` (npm) declared) Express 5 (path-to-regexp 8): a wildcard is named (`/*splat`, `/{*splat}`), an optional segment is `{...}`; no `?`, `+`, `(…)` in paths.
-- (when `express >=5.0.0` (npm) declared) Express 5: `req.query` is a getter (keep parsed input in `res.locals`); async handlers need no wrapper (not `express-async-errors`); `res.sendStatus(n)`, not `res.send(n)`; no `res.redirect("back")`.
+- (when `express >=5.0.0` (npm) declared) Express 5 (path-to-regexp 8): a wildcard is named (`/*splat`, `/{*splat}`), an optional segment is `{...}`; `?`, `+`, `(…)` in paths are rejected.
+- (when `express >=5.0.0` (npm) declared) Express 5: `req.query` is a getter (keep parsed input in `res.locals`); async handlers need no wrapper (`express-async-errors` is rejected); `res.sendStatus(n)`, not `res.send(n)`; no `res.redirect("back")`.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -470,9 +470,9 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Hono: request data is validated by middleware on the route, `zValidator("json" | "query" | "form" | "param", schema)` from `@hono/zod-validator` or `validator()` from `hono/validator`, and read back with `c.req.valid("json")` etc., which is typed.
-- In files that import from `hono` or `@hono/*`, `c.req.json()`, `c.req.parseBody()`, `c.req.formData()`, `c.req.query()` and `c.req.queries()` (also on a destructured `req`) are used only when passed straight to a schema (`Schema.parse(await c.req.json())`).
-- `cors()` with `credentials: true` names its origins; never `origin: "*"` or a function returning the origin it receives (`(origin) => origin`, `o => o ?? ""`) with credentials.
-- `raw()` from `hono/html` is not built from a template or concatenation (or a variable built from one); the `html` tag escapes values.
+- In files that import from `hono` or `@hono/*`, `c.req.json()`, `c.req.parseBody()`, `c.req.formData()`, `c.req.query()` and `c.req.queries()` (also on a destructured `req`) are rejected unless passed straight to a schema (`Schema.parse(await c.req.json())`).
+- `cors()` with `credentials: true` names its origins; `origin: "*"` or a function returning the origin it receives (`(origin) => origin`, `o => o ?? ""`) with credentials is rejected.
+- `raw()` from `hono/html` built from a template or concatenation (or a variable built from one) is rejected; the `html` tag escapes values.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -516,7 +516,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Kysely: values reach SQL through the sql`...` tag, which binds them, and names through `sql.ref()` / `sql.id()` / `sql.table()`; `sql.raw()` and `sql.lit()` are not built from a template or concatenation (unescaped).
+- Kysely: values reach SQL through the sql`...` tag, which binds them, and names through `sql.ref()` / `sql.id()` / `sql.table()`; `sql.raw()` and `sql.lit()` built from a template or concatenation are rejected (unescaped).
 - `deleteFrom()` and `updateTable()` chains have a `where…()` before `execute()`.
 
 | Rule | Description | Scope | Enforced by |
@@ -551,7 +551,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - This project is an npm library: its public API is what the entry points in `package.json` `exports` (and `main`, `module`, `types`) export.
-- An exported name is not removed or renamed outright: it stays exported as a `/** @deprecated Use <new name> */` alias; removing it, even in a major version, is the user's decision: ask them. An export turned into an alias of a renamed export carries that JSDoc tag.
+- An exported name is not removed or renamed outright: it stays exported as a `/** @deprecated Use <new name> */` alias; removing it, even in a major version, is the user's decision: ask them. Removing an export, or turning it into an alias of a renamed export without that JSDoc tag, is rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -567,7 +567,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- MCP: a server on the stdio transport writes only JSON-RPC to stdout; logs go to stderr (`console.error`), and a file importing `StdioServerTransport` has no `console.log` / `info` / `debug` or `process.stdout.write`.
+- MCP: a server on the stdio transport writes only JSON-RPC to stdout; logs go to stderr (`console.error`), and `console.log` / `info` / `debug` or `process.stdout.write` in a file importing `StdioServerTransport` are rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -582,14 +582,14 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- MikroORM: each request works in its own context (`RequestContext` middleware or `em.fork()`); `allowGlobalContext: true` is set only in tests.
-- Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run` / `schema:fresh --run` are refused, `schema:update --run` and `migration:fresh` need confirmation.
+- MikroORM: each request works in its own context (`RequestContext` middleware or `em.fork()`); `allowGlobalContext: true` is rejected outside tests.
+- Schema changes go through migrations (`migration:create`, `migration:up`); `schema:drop --run`, `schema:fresh --run`, `schema:update --run` and `migration:fresh` need confirmation.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/mikro-orm/migration-present` | Entity changes come with a migration: once the migrations have run on the local database (mikro-orm migration:up), mikro-orm migration:check finds no schema change. | typescript | check migration: `forge_do mikro-orm migrate && forge_do mikro-orm migrations-check` (needs a local database; timeout 180 s) |
 | `typescript/mikro-orm/no-global-context` | No allowGlobalContext: true in the options of MikroORM.init(…), new MikroORM(…) or defineConfig(…) (bindings imported from @mikro-orm/*) outside test files: one identity map is then shared across requests (data leaks, stale entities); use RequestContext or em.fork(). | typescript: `!**/*.test.*`, `!**/*.spec.*`, `!**/__tests__/**`, `!e2e/**` | ast-grep forbid |
-| `typescript/mikro-orm/schema-guard` | No mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema. | any | guard deny: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop\|schema:fresh'], flags_any: [--run, -r]}` |
+| `typescript/mikro-orm/schema-guard` | Claude asks before mikro-orm schema:drop --run or schema:fresh --run (also -r, and the mikro-orm-esm bin); they wipe the database schema, and the database they reach may not be a disposable one. | any | guard ask: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:drop\|schema:fresh'], flags_any: [--run, -r]}` |
 | `typescript/mikro-orm/schema-update` | mikro-orm schema:update --run (changes the schema without a migration) and migration:fresh (drops the database and reruns every migration) need confirmation. | any | guard ask: command `{name: [mikro-orm, mikro-orm-esm], sub: ['schema:update'], flags_any: [--run, -r]}` or `{name: [mikro-orm, mikro-orm-esm], sub: ['migration:fresh']}` |
 
 ### typescript/mongoose
@@ -601,7 +601,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Mongoose: request input (`req.body`, `req.query`, `req.params`) is validated or passed through `sanitizeFilter()` before it reaches a filter or update; it is never passed whole (operator injection).
+- Mongoose: request input (`req.body`, `req.query`, `req.params`) is validated or passed through `sanitizeFilter()` before it reaches a filter or update; passing it whole is rejected (operator injection).
 - No `$where` (server-side JavaScript); use query operators or `$expr`.
 - (when `mongoose >=9.0.0` (npm) declared) Mongoose 9: an update pipeline (an array) needs `{ updatePipeline: true }` on the call or `mongoose.set("updatePipeline", true)`.
 
@@ -638,7 +638,7 @@ Switches off biome `lint/style/useImportType` where active: a DTO imported with 
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - NestJS: the global `ValidationPipe` is created with `whitelist: true` (and `forbidNonWhitelisted: true`), so undeclared body fields never reach a handler.
-- `@Body()`, `@Query()` and `@Param()` without a pipe argument are typed with a DTO class (class-validator decorators), not `any`, `unknown`, `object`, inline object types or `Record<…>`, since only classes are validated.
+- `@Body()`, `@Query()` and `@Param()` without a pipe argument are typed with a DTO class (class-validator decorators); `any`, `unknown`, `object`, inline object types and `Record<…>` are rejected, since only classes are validated.
 - A nested DTO property has `@ValidateNested()` together with `@Type(() => Child)` from class-transformer.
 - Controllers throw `HttpException` subclasses (`NotFoundException`, `BadRequestException`, …), not a plain `Error`.
 - On the Express platform (Nest 11), route paths use path-to-regexp 8 syntax: `*splat` / `{*splat}`, optional segments `{...}`.
@@ -670,7 +670,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
 - `next lint` no longer exists and `next build` does not lint: run the project's own linter.
 - Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
-- `NEXT_PUBLIC_` variables are inlined into the browser bundle; none is named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*`.
+- `NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
 - `'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
 - `typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
 
@@ -766,8 +766,8 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.
-- Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` (flags or `.npmrc`) are not used, and `npm audit fix --force` is the user's decision.
-- Dependencies come from the registry: no git, GitHub or tarball URL specs, and no `allow-git=all` / `allow-remote=all`.
+- Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` in `.npmrc` are rejected, and as install flags they need confirmation, like `npm audit fix --force`.
+- Dependencies come from the registry: git, GitHub and tarball URL specs, and `allow-git=all` / `allow-remote=all`, are rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -779,7 +779,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/npm/no-exotic-deps` | No dependency added (or changed) with a git, GitHub, GitLab, Bitbucket or tarball URL spec (git+…, github:…, user/repo, https://…): they bypass the registry, its release-age checks and --ignore-scripts. Publish to a registry or vendor the code. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
 | `typescript/npm/no-exotic-sources` | npm is not allowed to install from any git or remote source (allow-git=all, allow-remote=all, in .npmrc or as a flag); such dependencies bypass the registry, its release-age checks and --ignore-scripts. | any: `**/.npmrc` | grep forbid `allow-(git\|remote)[[:space:]]*=[[:space:]]*all`<br>guard deny: command `{flags_any: [--allow-git=all, --allow-remote=all], value_flags: [--allow-git, --allow-remote]}` |
 | `typescript/npm/no-legacy-peer-deps-config` | No legacy-peer-deps=true or force=true in .npmrc; they hide every peer dependency conflict of every install. | any: `**/.npmrc` | grep forbid `^[[:space:]]*(legacy-peer-deps\|force)[[:space:]]*=[[:space:]]*true` |
-| `typescript/npm/no-legacy-peer-deps` | npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it. | any | guard deny: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
+| `typescript/npm/no-legacy-peer-deps` | Claude asks before installing with --legacy-peer-deps or --force; they install past a peer dependency conflict instead of resolving it, which can leave packages running against versions they do not support. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
 | `typescript/npm/no-other-pm` | Dependencies are managed with npm; installing with pnpm, yarn or bun asks. | any | guard ask: command `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
 | `typescript/npm/release-age-command` | Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude. | any | guard ask: command `{option_values: {--min-release-age: ^0*$}}` |
 | `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. | any | check lint: `forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS` (when `.npmrc`, `package.json` or `package-lock.json` changes) |
@@ -794,8 +794,8 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - The API client is generated from the OpenAPI document by a package.json script (openapi-typescript, orval or @hey-api/openapi-ts); generated files say so in their header.
-- A change to a tracked OpenAPI document comes with the change to the generated files: run the generator script and keep both changes together.
-- A generated file changes only with the document or the generator config: change the document (or the server it comes from) and regenerate.
+- A change to a tracked OpenAPI document without a change to a generated file is rejected: run the generator script and keep both changes together.
+- A change to a generated file without a change to the document or the generator config is rejected: change the document (or the server it comes from) and regenerate.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -812,7 +812,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - OpenTelemetry (Node): the SDK starts in its own file, loaded before the app (`node --import ./instrumentation.mjs`); importing instrumented libraries in that file is advised against (ES imports load them before the SDK patches them).
-- Span attributes use the stable semantic conventions (`http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `db.query.text`, `db.system.name`), not the old keys.
+- Span attributes use the stable semantic conventions (`http.request.method`, `http.response.status_code`, `url.full`, `server.address`, `db.query.text`, `db.system.name`); the old keys are rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -844,7 +844,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
-- End-to-end tests do not use `waitForTimeout` (a fixed wait).
+- `waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
 - Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
 
 | Rule | Description | Scope | Enforced by |
@@ -868,7 +868,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.
-- pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`, not in a `pnpm` field of package.json nor in `.npmrc` (registry and auth only).
+- pnpm settings (overrides, allowBuilds, minimumReleaseAge, nodeLinker, …) go in `pnpm-workspace.yaml`; a `pnpm` field in package.json and pnpm settings in `.npmrc` (registry and auth only) are rejected.
 - (when `pnpm >=11.0.0` (npm) declared) pnpm 11: `allowBuilds` replaces `onlyBuiltDependencies` / `neverBuiltDependencies` / `ignoredBuiltDependencies` / `ignoreDepScripts`, `allowUnusedPatches` replaces `allowNonAppliedPatches`, `auditConfig.ignoreGhsas` replaces `ignoreCves`.
 
 | Rule | Description | Scope | Enforced by |
@@ -899,30 +899,29 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 ### typescript/prisma
 
-Prisma schema, migrations and client (Prisma 7 norms where it is 7 or later).
+Prisma 7 schema, migrations and client.
 
 Detected by: a dependency on `prisma >=7.0.0` (npm); or a file matching `prisma/schema.prisma`.
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- (when `prisma >=7.0.0` (npm) declared) Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
-- (when `prisma >=7.0.0` (npm) declared) SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
-- (when `prisma >=7.0.0` (npm) declared) CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
-- (when `prisma >=7.0.0` (npm) declared) `prisma migrate dev` does not seed: run `prisma db seed`.
-- Query hooks use Client Extensions (`$extends`), not `$use` middleware.
-- Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; not the `Unsafe` variants, nor `Prisma.raw()` built from a template or concatenation.
-- `$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; no `fetch` and no call through an imported axios, got, ky, ofetch, node-fetch or undici there.
+- Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
+- SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
+- CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
+- `prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
+- Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants, and `Prisma.raw()` built from a template or concatenation, are rejected.
+- `$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
 - A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
 - Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/prisma/applied-migrations` | Prisma migrations already in the base (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev). | any | check migration: `forge_applied_migrations @prisma-migrations` |
-| `typescript/prisma/client-generator` | The Prisma schema uses the prisma-client generator (Prisma 7), not prisma-client-js. | any | check lint: a shell script of 1 lines (when `**/*.prisma` changes)<br>applies where `prisma >=7.0.0` (npm) declared |
+| `typescript/prisma/applied-migrations` | Prisma migrations already on the default branch (file role @prisma-migrations) are not modified or deleted; prisma migrate checksums applied ones, so a change goes in a new migration (prisma migrate dev). A migration this branch added and that is not merged yet may still be edited. | any | check migration: `forge_applied_migrations @prisma-migrations` |
+| `typescript/prisma/client-generator` | The Prisma schema uses the prisma-client generator (Prisma 7), not prisma-client-js. | any | check lint: a shell script of 1 lines (when `**/*.prisma` changes) |
 | `typescript/prisma/db-push` | Commands that change a database outside migrations need confirmation. | any | guard ask: command `{name: prisma, sub: [db, push\|execute]}` or `{name: prisma, sub: [migrate, deploy]}` |
 | `typescript/prisma/destructive-migration` | A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user approved that drop: ask them first, and drop only after a deploy in which no code reads it (expand and contract). | any: `prisma/migrations/**/migration.sql` | check migration: a shell script calling `forge_prisma_drops` (when `prisma/migrations/**` changes) |
-| `typescript/prisma/generated-client-import` | Import the Prisma client from the generator output path, not @prisma/client. | typescript | ast-grep forbid<br>applies where `prisma >=7.0.0` (npm) declared |
+| `typescript/prisma/generated-client-import` | Import the Prisma client from the generator output path, not @prisma/client. | typescript | ast-grep forbid |
 | `typescript/prisma/migration-lint` | New migrations do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `prisma/migrations/**/migration.sql` | check migration: `forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' \| sort \| tail -n 1)` (when `prisma/migrations/**` changes) |
 | `typescript/prisma/migration-present` | Schema changes come with a migration (not in a db push workflow - no prisma/migrations and a package.json script running prisma db push). | any | check migration: a shell script calling `forge_do prisma migrations-check` (when `prisma/schema.prisma` changes; needs a local database) |
 | `typescript/prisma/no-middleware` | No Prisma middleware ($use). Use Client Extensions. | typescript | ast-grep forbid |
@@ -930,7 +929,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/prisma/no-query-in-loop` | A Prisma query whose result type is PrismaPromise (findMany, count, aggregate, groupBy, the *Many methods) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (include, in, a relation filter) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
 | `typescript/prisma/no-raw-interpolation` | No Prisma.raw() built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; raw() inserts its text unescaped. Use the tagged $queryRaw`...` / Prisma.sql`...` forms, which bind values. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
 | `typescript/prisma/no-raw-unsafe` | No $queryRawUnsafe / $executeRawUnsafe. Use the tagged $queryRaw`...` form, which binds parameters. | typescript | ast-grep forbid |
-| `typescript/prisma/no-reset` | Prisma commands that wipe the database are not run by Claude. | any | guard deny: command `{name: prisma, sub: [migrate, reset]}` or `{name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}` |
+| `typescript/prisma/no-reset` | Claude asks before a Prisma command that wipes the database (migrate reset, db push --force-reset or --accept-data-loss); the database it reaches may not be a disposable one. | any | guard ask: command `{name: prisma, sub: [migrate, reset]}` or `{name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}` |
 | `typescript/prisma/no-unscoped-bulk-write` | A Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose). | typescript | ast-grep advise (where `$CALL`: types engine, §15)<br>advice, never blocks |
 | `typescript/prisma/validate` | The Prisma schema is valid. | any | check migration: `forge_do prisma validate` (when `prisma/schema.prisma` changes) |
 
@@ -1048,7 +1047,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (the result is never discarded).
+- Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (a discarded result is rejected).
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -1080,7 +1079,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Storybook 9+ ships its test, actions, viewport, manager and preview APIs and theming in the `storybook` package: import `storybook/test`, `storybook/actions`, `storybook/viewport`, `storybook/manager-api`, `storybook/preview-api`, `storybook/theming`, and doc blocks from `@storybook/addon-docs/blocks`. The old `@storybook/*` packages for them, and `@storybook/addon-essentials` / `addon-interactions`, are not used.
+- Storybook 9+ ships its test, actions, viewport, manager and preview APIs and theming in the `storybook` package: import `storybook/test`, `storybook/actions`, `storybook/viewport`, `storybook/manager-api`, `storybook/preview-api`, `storybook/theming`, and doc blocks from `@storybook/addon-docs/blocks`. The old `@storybook/*` packages for them, and `@storybook/addon-essentials` / `addon-interactions`, are rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -1112,8 +1111,8 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Svelte 5 components use runes: `$props()`, `$state()`, `$derived()`, `$effect()`, event attributes (`onclick`), snippets and `{@render}`.
-- Legacy syntax (`export let`, `$:`, `on:click`, `<slot>`, `$$props`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, `svelte/legacy`) is not used: it compiles silently in legacy mode.
-- `{@html}` renders unescaped HTML and is not used; render text, or sanitise in one component.
+- Legacy syntax (`export let`, `$:`, `on:click`, `<slot>`, `$$props`, `createEventDispatcher`, `beforeUpdate` / `afterUpdate`, `svelte/legacy`) is rejected: it compiles silently in legacy mode.
+- `{@html}` renders unescaped HTML and is rejected; render text, or sanitise in one component.
 - `{#each}` blocks have a key (`{#each items as item (item.id)}`); no `{@debug}` tag is left in.
 
 | Rule | Description | Scope | Enforced by |
@@ -1162,7 +1161,7 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Tailwind CSS 4: configuration lives in CSS (`@import "tailwindcss"`, `@theme`); a `tailwind.config.*` is read only when a CSS file loads it with `@config`.
-- Utilities removed in v4 generate nothing and are not used: `bg-opacity-*` and the other `*-opacity-*` (use `bg-black/50`), `flex-shrink-*` / `flex-grow-*` (`shrink-*` / `grow-*`), `overflow-ellipsis` (`text-ellipsis`), `decoration-slice` / `decoration-clone` (`box-decoration-*`).
+- Utilities removed in v4 generate nothing and are rejected: `bg-opacity-*` and the other `*-opacity-*` (use `bg-black/50`), `flex-shrink-*` / `flex-grow-*` (`shrink-*` / `grow-*`), `overflow-ellipsis` (`text-ellipsis`), `decoration-slice` / `decoration-clone` (`box-decoration-*`).
 - A `<style>` block in a `.vue`, `.svelte` or `.astro` file, or a CSS module, that uses `@apply` starts with `@reference "<path to the main CSS>"`.
 
 | Rule | Description | Scope | Enforced by |
@@ -1211,7 +1210,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Hooks are tested with `renderHook` from `@testing-library/react` (`@testing-library/react-hooks` is for React 16 and 17, and is not used).
+- Hooks are tested with `renderHook` from `@testing-library/react` (`@testing-library/react-hooks` is for React 16 and 17, and is rejected).
 - Async queries are awaited, `findBy*` replaces `waitFor` + `getBy*`, queries go through `screen`, `waitFor` callbacks have no side effects, no needless `act()` and no DOM node access.
 
 | Rule | Description | Scope | Enforced by |
@@ -1229,8 +1228,8 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- tRPC: a procedure that takes input declares `.input(<schema>)` (Zod or another validator) and reads it from `input`; the schema is not `z.any()`, `z.unknown()`, a check-less `z.custom()`, a `z.record()` of `z.any()` or a cast-only function.
-- Errors thrown in a procedure are `TRPCError` with a `code` (`NOT_FOUND`, `FORBIDDEN`, `BAD_REQUEST`, …); a plain `Error` is sent as INTERNAL_SERVER_ERROR, so a resolver does not `throw new Error()` / `throw Error()` (outside a `try` block).
+- tRPC: a procedure that takes input declares `.input(<schema>)` (Zod or another validator) and reads it from `input`; `.input(z.any())`, `.input(z.unknown())`, a check-less `z.custom()`, a `z.record()` of `z.any()` and a cast-only function are rejected.
+- Errors thrown in a procedure are `TRPCError` with a `code` (`NOT_FOUND`, `FORBIDDEN`, `BAD_REQUEST`, …); a plain `Error` is sent as INTERNAL_SERVER_ERROR, and `throw new Error()` / `throw Error()` in a resolver (outside a `try` block) is rejected.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -1252,7 +1251,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/turbo/declared-env` | Every environment variable read through process.env is declared in turbo.json (env or globalEnv); an undeclared one is not part of the cache key, so a cached build can carry another environment's value. | typescript | tool biome `lint/suspicious/noUndeclaredEnvVars` |
-| `typescript/turbo/no-env-loose-flag` | turbo runs without --env-mode=loose; declare the variables a task needs (env, passThroughEnv) instead. | any | guard deny: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
+| `typescript/turbo/no-env-loose-flag` | Claude asks before running turbo with --env-mode=loose; it hides which variables a task needs (declare them in env or passThroughEnv instead), and a cached result may then depend on variables turbo does not hash. | any | guard ask: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
 | `typescript/turbo/no-env-loose` | turbo.json keeps the strict env mode (no "envMode": "loose"): in loose mode tasks see every variable and the cache ignores the undeclared ones. | any: `**/turbo.json` | grep forbid `"envMode"[[:space:]]*:[[:space:]]*"loose"` |
 | `typescript/turbo/tasks-key` | turbo.json declares its tasks under tasks; Turborepo 2 rejects the old pipeline key. | any: `**/turbo.json` | grep forbid `"pipeline"[[:space:]]*:` |
 
@@ -1265,7 +1264,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are not set, `schema:sync` / `schema:drop` are not run and `migration:revert` needs the user's confirmation.
+- TypeORM: schema changes go through migrations (`migration:generate`, `migration:run`); `synchronize: true` and `dropSchema: true` are rejected, `schema:sync`, `schema:drop` and `migration:revert` need confirmation.
 - Raw `.query()` takes its values as parameters (`query(sql, [values])`); query builder conditions and orderings use `:name` parameters, never `${}` or concatenation.
 
 | Rule | Description | Scope | Enforced by |
@@ -1276,7 +1275,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/typeorm/no-query-in-loop` | A TypeORM Repository or EntityManager call (find, findOne, findOneBy, count, save, update, delete, query, …) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (In([...]), relations, a join) or save an array. | typescript | ast-grep advise (where `$R`: types engine, §15)<br>advice, never blocks |
 | `typescript/typeorm/no-raw-query-interpolation` | No TypeORM .query() (DataSource, EntityManager, QueryRunner, Repository) whose SQL is a template with ${}, a concatenation or a variable declared from one in the same function or module; pass the values as parameters (query(sql, [values])). | typescript | ast-grep forbid (where `$R`: types engine, §15) |
 | `typescript/typeorm/no-synchronize` | No literal synchronize: true or dropSchema: true in new DataSource({...}), TypeOrmModule.forRoot({...}) or the object a TypeOrmModule.forRootAsync useFactory returns: schema auto-sync alters and drops columns, dropSchema wipes the database at every start; schema changes go through migrations. | typescript | ast-grep forbid (where `$D`: types engine, §15) |
-| `typescript/typeorm/schema-sync-guard` | No typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration. | any | guard deny: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync\|schema:drop']}` |
+| `typescript/typeorm/schema-sync-guard` | Claude asks before typeorm schema:sync or schema:drop (any typeorm bin, typeorm-ts-node-esm / -commonjs included); they change or wipe the schema without a migration (a sync drops columns it does not find in the entities), and the database they reach may not be a disposable one. | any | guard ask: command `{name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['schema:sync\|schema:drop']}` |
 | `typescript/typeorm/synchronize-expression` | synchronize or dropSchema set from an expression in new DataSource({...}), TypeOrmModule.forRoot({...}) or a forRootAsync useFactory result is on whenever that expression is true, possibly in production; prefer false and migrations everywhere. | typescript | ast-grep advise (where `$D`: types engine, §15)<br>advice, never blocks |
 
 ### typescript/upstash-ratelimit
@@ -1303,7 +1302,7 @@ Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- `VITE_` variables are inlined into the client bundle: secrets never get the prefix (no name with SECRET, PRIVATE, PASSWORD, SERVICE_ROLE or DATABASE_URL gets it, in code or `.env` files).
+- `VITE_` variables are inlined into the client bundle: secrets never get the prefix (names with SECRET, PRIVATE, PASSWORD, SERVICE_ROLE or DATABASE_URL are rejected in code and `.env` files).
 - `define` in `vite.config.*` never inlines the whole `process.env`, and `server.allowedHosts` / `preview.allowedHosts` list hosts instead of `true`.
 
 | Rule | Description | Scope | Enforced by |
@@ -1354,8 +1353,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Vue 3 with `<script setup lang="ts">` single-file components; `vue-tsc` type-checks `.vue` files (tsc does not).
 - Templates: an element with `v-for` binds a `:key` that uses its item, no `v-if` with `v-for` on one element, directives have their value.
 - Refs are read with `.value` in script code (never as a condition or operand), and `setup()` does not destructure its props (`toRefs(props)` instead).
-- `v-html` and `:innerHTML` are not used in `.vue` files: they render unescaped HTML. Render text with `{{ }}`, or sanitise in one dedicated component.
-- Vue 2 template syntax is not used (Vue 3 ignores it): `v-model:prop` instead of `.sync`, `v-slot` / `#name` instead of `slot-scope`, no `.native`, key names instead of key codes.
+- `v-html` and `:innerHTML` in `.vue` files are rejected: they render unescaped HTML. Render text with `{{ }}`, or sanitise in one dedicated component.
+- Vue 2 template syntax is rejected (Vue 3 ignores it): `v-model:prop` instead of `.sync`, `v-slot` / `#name` instead of `slot-scope`, no `.native`, key names instead of key codes.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -1376,8 +1375,8 @@ Child of `typescript/vue`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Nuxt: server routes in `server/api/` and `server/routes/` read input with h3's validated helpers, `readValidatedBody(event, schema.parse)`, `getValidatedQuery(event, schema.parse)`, `getValidatedRouterParams(event, schema.parse)`; `readBody`, `readFormData`, `readMultipartFormData`, `getQuery`, `getRouterParams` and `getRouterParam` under `server/` are used only when passed straight to a schema (`Schema.parse(await readBody(event))`).
-- `runtimeConfig.public` is sent to the browser: no key there names a secret, private key, password, credential, token, API or access key, service role, DSN or database URL (unless it says publishable, public, anon or site key); secrets stay at the top level of `runtimeConfig`.
+- Nuxt: server routes in `server/api/` and `server/routes/` read input with h3's validated helpers, `readValidatedBody(event, schema.parse)`, `getValidatedQuery(event, schema.parse)`, `getValidatedRouterParams(event, schema.parse)`; `readBody`, `readFormData`, `readMultipartFormData`, `getQuery`, `getRouterParams` and `getRouterParam` under `server/` are rejected unless passed straight to a schema (`Schema.parse(await readBody(event))`).
+- `runtimeConfig.public` is sent to the browser: keys naming a secret, private key, password, credential, token, API or access key, service role, DSN or database URL there are rejected (unless they say publishable, public, anon or site key); secrets stay at the top level of `runtimeConfig`.
 - In `.vue` files, `import.meta.client` / `.server` / `.dev`, never `process.client` / `.server` / `.dev`.
 - No module-level `ref()` / `reactive()` in `composables/` or `utils/` (shared by every SSR request): `useState("key", …)` instead.
 
@@ -1430,8 +1429,8 @@ Child of `typescript`: active only where it is.
 Context (in `.claude/rules/forge-*.md`, §7):
 
 - Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
-- (when `zod >=4.0.0` (npm) declared) Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`), not `z.string().email()` and the like.
-- (when `zod >=4.0.0` (npm) declared) Zod 4: custom messages use the single `error` parameter (not `message`, `required_error`, `invalid_type_error` or `errorMap`).
+- (when `zod >=4.0.0` (npm) declared) Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
+- (when `zod >=4.0.0` (npm) declared) Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
 - (when `zod >=4.0.0` (npm) declared) Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
 
 | Rule | Description | Scope | Enforced by |

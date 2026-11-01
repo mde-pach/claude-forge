@@ -86,6 +86,7 @@ The agent reads a match as `<path>:<line> <description>`; an `advise` match as `
 | `requires_local_db` | optional: the check runs only when the configured database is on this machine (§10.3) |
 | `fail_on_warnings` | optional, `true`: warnings fail the check and are attributed like errors |
 | `timeout` | optional, 1 to 600 seconds: the check is stopped past it and fails saying so (§10.4) |
+| `base` | optional, `change` (the default) or `branch`: what its builtins compare with. `branch` is for a rule about the branch as a whole (one version bump, one changeset per branch; a migration the branch added and that is not merged yet may still be edited): at Stop and with `--changed`, its builtins see the files changed since the merge base of HEAD with the default branch, and their copies there (§10.2) |
 
 A check command is shell. It names project tools through their adapters, `forge_do <tool> <operation> [args]` (§16): a command that runs an adapted tool directly (`ruff check {files}`, `pytest -q`) is refused with `run <tool> as "forge_do <tool> <operation>"`. A project tool whose name has a `-` and no adapter runs as `forge_exec_tool <name>`; running it directly is refused. Text in single quotes is data, not a command, for this test.
 
@@ -95,7 +96,7 @@ A check command is shell. It names project tools through their adapters, `forge_
 - target: guard
   decision: deny | ask
   command: <match> | [<match>, …]   # any one matches
-  check: ephemeral-exec | package-add | python-pm
+  check: ephemeral-exec | package-add | python-pm | pre-turn-changes
   reason: string                    # optional, one line: replaces the description for this target
 ```
 
@@ -115,19 +116,20 @@ A guard target has `command`, `check`, or both. With both, the check decides on 
 | `stdin` | with `arg_regex`: the regex also searches a heredoc or here-string fed to the command |
 | `words` | a regex searched in the command's words from its name, joined by single spaces (the escape hatch) |
 | `option_values` | some option (key: alternatives separated by `\|`) has a value matching the regex |
-| `env_any` | the command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`); `NAME=value` requires that value |
+| `env_any` | the command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`); `NAME=value` requires that value. With `name`, a statement of the line that sets it counts too (`export HUSKY=0 && git commit`, `SKIP=x; git commit`), and a command of another name assigning it does not (`SKIP=1 npm test`) |
 | `wrapped_by` | the command is reached through one of these wrappers (`sudo pip install`) |
 | `pipe_to` | the command's output is piped into one of these commands (`*`: any) |
+| `pipe_runs_stdin` | with `pipe_to`: the command piped into runs what it reads as its program: a shell or interpreter (Python, Node, Bun, Deno) given no script (no positional argument, `-`, or a shell's `-s`) and no inline program (`-c`, `-e`, `--eval`, `-p`, `--print`, `-m`). `curl x \| bash -s -- --yes` holds; `curl x \| python3 -m json.tool` and `curl x \| node -e '…'` do not |
 | `redirect_to` | the command writes, through a redirection, a file whose path matches this regex |
 
 Names and values are matched whole, with `*` as a wildcard. The match is tried at each command position: the command itself, what a wrapper runs (`sudo`, `env`, `nice -n 5`, `timeout 5`, …) and what a runner runs (`npx`, `bunx`, `bun x`, `npm exec`, `pnpm exec|dlx`, `uv run`, `uvx`, `poetry run`, `python <script>`, `python -m <module>`, …): `name: prisma` matches `bunx prisma migrate reset`.
 
-The built-in checks: `ephemeral-exec` (a package launcher that would fetch what it runs from a registry), `package-add` (a command that adds a named package; read-only and lock-file installs pass), `python-pm` (pip into the project's environment around the way the project declares its dependencies: any pip install where the packages are uv's, an undeclared package where a `pyproject.toml` or nothing declares them). §9 says what each decides.
+The built-in checks: `ephemeral-exec` (a package launcher that would fetch what it runs from a registry), `package-add` (a command that adds a named package; read-only and lock-file installs pass), `python-pm` (pip into the project's environment around the way the project declares its dependencies: any pip install where the packages are uv's, an undeclared package where a `pyproject.toml` or nothing declares them), `pre-turn-changes` (a `git checkout` / `git restore` that discards paths holding uncommitted changes from before the turn). §9 says what each decides.
 
 ### 6.3 What loading refuses beyond the schema
 
-- `rerun` outside stage `test`; `format_stdin` outside `format` and `lint`; `config_files` outside `lint`; `fix_lints` without `fix_run` and `changed_run`.
-- A `guard` target with neither `command` nor `check`.
+- `rerun` outside stage `test`; `format_stdin` outside `format` and `lint`; `config_files` outside `lint`; `fix_lints` without `fix_run` and `changed_run`; `base: branch` with `fix_run`, `fix_lints`, `format_stdin` or `rerun` (they judge the change itself).
+- A `guard` target with neither `command` nor `check`; the `pre-turn-changes` check without a `command`.
 - `review` on a rule with neither a guard `ask` target nor the test-edit check (`run: forge_test_edits`).
 - `needs` without `where`; `where` with a mode other than `forbid` or `advise`; `where: {X: {deprecated: …}}` written other than `deprecated: true`; `deprecated` in a Python rule's `where` (only the TypeScript engine answers it, §15).
 - A dependency without a `version` in `when.deps` or `examples.deps`.

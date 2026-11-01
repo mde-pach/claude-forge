@@ -86,7 +86,28 @@ pub struct GuardCtx<'a> {
     pub home: Option<PathBuf>,
     pub python_pm: Option<PythonPm>,
     pub js_pm: Option<JsPm>,
+    /// The turn snapshot (§10.2), when the turn has one: the paths uncommitted at its start are
+    /// read from it when a check needs them ([`pre_turn_changes`]). None: the turn is not known.
+    pub turn: Option<PathBuf>,
     pub lookup: &'a dyn Lookup,
+}
+
+/// The tracked paths that had uncommitted changes at the start of the turn (modified, staged or
+/// deleted; untracked files left out), from the turn snapshot's `dirty` less its `untracked`.
+/// None when the snapshot cannot be read. A snapshot without `untracked` (written before it
+/// existed) counts every dirty path.
+pub fn pre_turn_changes(snapshot: &Path) -> Option<Vec<String>> {
+    let dirty = std::fs::read_to_string(snapshot.join("dirty")).ok()?;
+    let untracked = std::fs::read_to_string(snapshot.join("untracked")).unwrap_or_default();
+    let untracked: std::collections::BTreeSet<&str> = untracked.lines().collect();
+    Some(
+        dirty
+            .lines()
+            .filter_map(|l| l.split_once('\t').map(|(p, _)| p))
+            .filter(|p| !p.is_empty() && !untracked.contains(p))
+            .map(str::to_owned)
+            .collect(),
+    )
 }
 
 impl GuardCtx<'static> {
@@ -100,6 +121,7 @@ impl GuardCtx<'static> {
                 .map(PathBuf::from),
             python_pm: None,
             js_pm: None,
+            turn: None,
             lookup: &FsLookup,
         }
     }
@@ -116,6 +138,11 @@ impl<'a> GuardCtx<'a> {
         self
     }
 
+    pub fn with_turn(mut self, snapshot: Option<PathBuf>) -> Self {
+        self.turn = snapshot;
+        self
+    }
+
     pub fn with_home(mut self, home: Option<PathBuf>) -> Self {
         self.home = home;
         self
@@ -128,6 +155,7 @@ impl<'a> GuardCtx<'a> {
             home: self.home,
             python_pm: self.python_pm,
             js_pm: self.js_pm,
+            turn: self.turn,
             lookup,
         }
     }

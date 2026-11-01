@@ -300,6 +300,10 @@
               "format": "uint32",
               "minimum": 1,
               "maximum": 600
+            },
+            "base": {
+              "description": "`branch`: a rule about the branch as a whole (one version bump per branch, a migration\nthe branch added and that is not merged yet): its builtins see the files changed since\nthe merge base of HEAD with the default branch, and their copies there. Not with\n`fix_run`, `fix_lints`, `format_stdin` or `rerun`.",
+              "$ref": "#/$defs/CheckBase"
             }
           },
           "required": [
@@ -602,7 +606,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`);\n`NAME=value` requires that value (`*` wildcards allowed)."
+          "description": "The command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`);\n`NAME=value` requires that value (`*` wildcards allowed). With a `name`, a statement of\nthe line setting it counts too (`export HUSKY=0 && git commit`, `SKIP=x; git commit`)."
         },
         "wrapped_by": {
           "type": "array",
@@ -617,6 +621,10 @@
             "type": "string"
           },
           "description": "The command's output is piped into one of these commands (`*`: any)."
+        },
+        "pipe_runs_stdin": {
+          "type": "boolean",
+          "description": "With `pipe_to`: the command piped into runs what it reads as its program: a shell or\ninterpreter given no script (no positional argument, `-`, or a shell's `-s`) and no\ninline program (`-c`, `-e`, `--eval`, `-p`, `--print`, `-m`). `curl x | python3 -m\njson.tool` and `curl x | node -e '…'` do not hold; `curl x | bash -s -- --yes` does."
         },
         "redirect_to": {
           "type": "string",
@@ -641,6 +649,11 @@
           "type": "string",
           "const": "python-pm",
           "description": "pip into the project's environment where the project's packages are uv's, or\nwhere it has no packaging yet."
+        },
+        {
+          "type": "string",
+          "const": "pre-turn-changes",
+          "description": "A `git checkout` / `git restore` that discards paths holding uncommitted changes\nfrom before the turn (the person's work), or run when the turn is not known."
         }
       ],
       "description": "The guard's built-in checks, each reading the whole parsed command line."
@@ -656,6 +669,14 @@
         "test"
       ],
       "description": "check.sh's stages, in the order it runs them (§10.1)."
+    },
+    "CheckBase": {
+      "type": "string",
+      "enum": [
+        "change",
+        "branch"
+      ],
+      "description": "What a check target compares the tree with (§6.2): the run's base (`change`, the\ndefault), or where the branch left the default branch (`branch`)."
     },
     "Examples": {
       "type": "object",

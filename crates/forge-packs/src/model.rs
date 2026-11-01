@@ -45,6 +45,11 @@ vocabulary!(
     Stage { Format = "format", Lint = "lint", Codegen = "codegen", Typecheck = "typecheck", Migration = "migration", Test = "test" }
 );
 vocabulary!(
+    /// What a check target compares the tree with (§6.2): the run's base (`change`, the
+    /// default), or where the branch left the default branch (`branch`).
+    CheckBase { Change = "change", Branch = "branch" }
+);
+vocabulary!(
     /// How an ast-grep or grep match turns into a failure (§6.2).
     Mode { Forbid = "forbid", NoIncrease = "no-increase", NoDecrease = "no-decrease", Advise = "advise" }
 );
@@ -58,6 +63,9 @@ vocabulary!(
         /// pip into the project's environment where the project's packages are uv's, or
         /// where it has no packaging yet.
         PythonPm = "python-pm",
+        /// A `git checkout` / `git restore` that discards paths holding uncommitted changes
+        /// from before the turn (the person's work), or run when the turn is not known.
+        PreTurnChanges = "pre-turn-changes",
     }
 );
 
@@ -65,11 +73,12 @@ impl GuardCheck {
     /// The decision a guard target with this check takes, from what the check finds: a package
     /// added or fetched to run may be the task's (the person, or a reviewer, decides: `ask`); pip
     /// in a uv or unpackaged project always has the right command to use instead (`deny`, which
-    /// names it).
+    /// names it); discarding the person's own uncommitted work cannot be undone (`deny`: the
+    /// rule's `ask` target takes what the check lets through).
     pub fn decision(self) -> Decision {
         match self {
             GuardCheck::EphemeralExec | GuardCheck::PackageAdd => Decision::Ask,
-            GuardCheck::PythonPm => Decision::Deny,
+            GuardCheck::PythonPm | GuardCheck::PreTurnChanges => Decision::Deny,
         }
     }
 }
@@ -578,7 +587,8 @@ pub struct CommandMatch {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub option_values: BTreeMap<String, String>,
     /// The command assigns one of these variables (`SKIP=x git commit`, `export HUSKY=0`);
-    /// `NAME=value` requires that value (`*` wildcards allowed).
+    /// `NAME=value` requires that value (`*` wildcards allowed). With a `name`, a statement of
+    /// the line setting it counts too (`export HUSKY=0 && git commit`, `SKIP=x; git commit`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env_any: Vec<String>,
     /// The command position is reached through one of these wrappers (`sudo pip install`).
@@ -587,6 +597,12 @@ pub struct CommandMatch {
     /// The command's output is piped into one of these commands (`*`: any).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pipe_to: Vec<String>,
+    /// With `pipe_to`: the command piped into runs what it reads as its program: a shell or
+    /// interpreter given no script (no positional argument, `-`, or a shell's `-s`) and no
+    /// inline program (`-c`, `-e`, `--eval`, `-p`, `--print`, `-m`). `curl x | python3 -m
+    /// json.tool` and `curl x | node -e '…'` do not hold; `curl x | bash -s -- --yes` does.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pipe_runs_stdin: bool,
     /// The command writes, through a redirection, a file whose path matches this regex.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect_to: Option<String>,
@@ -639,6 +655,19 @@ pub struct CheckTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 1, max = 600))]
     pub timeout: Option<u32>,
+    /// `branch`: a rule about the branch as a whole (one version bump per branch, a migration
+    /// the branch added and that is not merged yet): its builtins see the files changed since
+    /// the merge base of HEAD with the default branch, and their copies there. Not with
+    /// `fix_run`, `fix_lints`, `format_stdin` or `rerun`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<CheckBase>,
+}
+
+impl CheckTarget {
+    /// Whether it compares with the branch's start (`base: branch`).
+    pub fn branch_base(&self) -> bool {
+        self.base == Some(CheckBase::Branch)
+    }
 }
 
 impl CheckTarget {
@@ -735,11 +764,42 @@ pub struct PythonConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+/// A finding the person accepts (forge.yaml `accept:`, §10.5): it holds for a finding of `rule`
+/// in a file `file` matches (every file, for a count over several), whose text is `change`
+/// (as the agent reads it, or its message without `path:line`). At least one of `file` and
+/// `change`; one left out matches any.
 pub struct Accept {
     #[schemars(pattern(r"^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"))]
     pub rule: String,
+    /// A glob (§6.1) on the finding's repository-relative path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1), pattern(r"^[^\n]+$"))]
+    pub file: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(pattern(r"^[^\n]+$"))]
-    pub change: String,
+    pub change: Option<String>,
     #[schemars(length(min = 1))]
     pub reason: String,
+}
+
+impl Accept {
+    /// Whether it holds for a finding of `rule` about `paths` (none: a finding with no path),
+    /// whose text is `agent_text` and message `message`.
+    pub fn holds(&self, rule: &str, paths: &[&str], agent_text: &str, message: &str) -> bool {
+        if self.rule != rule {
+            return false;
+        }
+        if let Some(g) = &self.file
+            && (paths.is_empty() || !paths.iter().all(|p| crate::glob::glob_match(g, p)))
+        {
+            return false;
+        }
+        match &self.change {
+            Some(c) => {
+                let c = c.trim();
+                c == agent_text.trim() || c == message.trim()
+            }
+            None => true,
+        }
+    }
 }

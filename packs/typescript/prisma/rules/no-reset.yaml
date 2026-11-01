@@ -1,9 +1,10 @@
 id: typescript/prisma/no-reset
-description: Prisma commands that wipe the database are not run by Claude.
+description: Claude asks before a Prisma command that wipes the database (migrate reset, db push --force-reset or --accept-data-loss); the database it reaches may not be a disposable one.
+review: "Does this command reach a local, disposable development database (not a shared, staging or production one), and does the user's request call for wiping its data?"
 scope: {language: any}
 enforce:
   - target: guard
-    decision: deny
+    decision: ask
     command:
       - {name: prisma, sub: [migrate, reset]}
       - {name: prisma, sub: [db, push], flags_any: [--force-reset, --accept-data-loss]}

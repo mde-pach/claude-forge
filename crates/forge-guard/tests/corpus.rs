@@ -272,3 +272,75 @@ fn unparseable_input_is_handled_conservatively() {
     let deep = "sh -c ".repeat(50) + "'git push --force'";
     let _ = set.evaluate(&deep, &ctx(project.path()));
 }
+
+/// `git checkout <ref> -- <paths>` and its restore-style equivalents: denied when a path they
+/// discard had uncommitted changes before the turn (the turn snapshot's `dirty`, untracked files
+/// aside); an ask when only the turn's own changes go; denied, as before, when the turn is not
+/// known.
+#[test]
+fn discarding_the_persons_work_is_denied_the_turns_own_asks() {
+    let set = guard_set();
+    let project = repo(&[
+        ("src/app.py", ""),
+        ("src/lib/util.py", ""),
+        ("docs/a.md", ""),
+    ]);
+    let snap = tempfile::tempdir().unwrap();
+    std::fs::write(
+        snap.path().join("dirty"),
+        "src/app.py\tabc\nnotes.txt\tdef\ngone.py\t-\n",
+    )
+    .unwrap();
+    std::fs::write(snap.path().join("untracked"), "notes.txt\n").unwrap();
+    let in_turn = |cmd: &str| {
+        set.evaluate(
+            cmd,
+            &ctx(project.path()).with_turn(Some(snap.path().to_path_buf())),
+        )
+    };
+    for cmd in [
+        "git checkout -- .",
+        "git checkout .",
+        "git checkout HEAD -- src/app.py",
+        "git checkout main -- src",
+        "git restore src/app.py",
+        "git restore --source=HEAD~1 -- src/",
+        "git restore -s HEAD~1 'src/*.py'",
+        "cd src && git restore app.py",
+        "git -C src restore .",
+        "git restore :/",
+        "git checkout HEAD -- gone.py",
+        "cd \"$D\" && git restore x.py",
+    ] {
+        let out = in_turn(cmd);
+        assert_eq!(out.decision(), "deny", "{cmd}: {out:?}");
+    }
+    assert!(
+        in_turn("git checkout HEAD -- src/app.py")
+            .verdict()
+            .unwrap()
+            .reason
+            .ends_with("Here: src/app.py has uncommitted changes from before this task, which this would discard."),
+        "{:?}",
+        in_turn("git checkout HEAD -- src/app.py")
+    );
+    for cmd in [
+        "git checkout HEAD -- src/lib/util.py",
+        "git checkout main -- docs",
+        "git restore src/lib",
+        "cd docs && git restore .",
+        "git restore notes.txt",
+    ] {
+        let out = in_turn(cmd);
+        assert_eq!(out.decision(), "ask", "{cmd}: {out:?}");
+        assert!(out.verdict().unwrap().review.is_some(), "{cmd}");
+    }
+    // no turn snapshot: as before, denied
+    assert_eq!(
+        decision(&set, "git checkout HEAD -- src/lib/util.py", project.path()),
+        "deny"
+    );
+    // nothing to discard
+    assert_eq!(in_turn("git restore --staged src/app.py"), Outcome::None);
+    assert_eq!(in_turn("git checkout main"), Outcome::None);
+}

@@ -173,23 +173,37 @@ impl GuardSet {
     }
 
     pub fn evaluate_parsed(&self, parsed: &Parsed, command: &str, ctx: &GuardCtx) -> Outcome {
-        let mut hits: [Option<Option<Hit>>; 3] = [None, None, None];
+        let mut hits: Vec<Option<Option<Hit>>> = vec![None; Check::ALL.len()];
         for &(i, j) in &self.order {
             let rule = &self.rules[i];
             let t = &rule.targets[j];
-            if !t.command.is_empty()
-                && !parsed
+            let matched: Vec<&parse::SimpleCommand> = if t.command.is_empty() {
+                Vec::new()
+            } else {
+                let m: Vec<_> = parsed
                     .commands
                     .iter()
-                    .any(|c| t.command.iter().any(|m| m.matches(c, parsed)))
-            {
-                continue;
-            }
+                    .filter(|c| t.command.iter().any(|m| m.matches(c, parsed)))
+                    .collect();
+                if m.is_empty() {
+                    continue;
+                }
+                m
+            };
             let hit = match t.check {
                 None => None,
+                // judged on what this target matched: not shared with other targets
+                Some(Check::PreTurnChanges) => {
+                    match checks::run(Check::PreTurnChanges, parsed, &matched, command, ctx) {
+                        Some(h) => Some(h),
+                        None => continue,
+                    }
+                }
                 Some(check) => {
                     let slot = &mut hits[Check::ALL.iter().position(|c| *c == check).unwrap_or(0)];
-                    match slot.get_or_insert_with(|| checks::run(check, parsed, command, ctx)) {
+                    match slot
+                        .get_or_insert_with(|| checks::run(check, parsed, &matched, command, ctx))
+                    {
                         Some(h) => Some(h.clone()),
                         None => continue,
                     }

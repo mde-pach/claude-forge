@@ -1375,6 +1375,8 @@ pub fn drizzle_migration_present(run: &Run<'_>, _args: &[String]) -> Report {
 /// `forge_drizzle_applied`: migrations (SQL and snapshots in the out folder) that exist in the
 /// base are not modified or deleted.
 pub fn drizzle_applied(run: &Run<'_>, _args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    run.check.mark_attributed();
     let mut r = Report::default();
     if run.all() {
         return r;
@@ -1429,6 +1431,8 @@ pub fn drizzle_squawk(run: &Run<'_>, args: &[String]) -> Report {
 /// `forge_applied_migrations <@role>...`: migrations (the files of the roles) that exist in the
 /// base are not modified or deleted. Not with `--all` (no base).
 pub fn applied_migrations(run: &Run<'_>, args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    run.check.mark_attributed();
     let mut r = Report::default();
     if run.all() {
         return r;
