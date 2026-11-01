@@ -39,13 +39,21 @@ pub struct TestEditRule {
     pub review: Option<String>,
 }
 
-/// A rules file the active packs give now (forge-render's rules files): its path, its pack and
-/// its items as the agent reads them (no frontmatter, no introduction).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A pack's rules file (forge-render's rules files) as the packs active now give it: its path,
+/// its pack and its items as the agent reads them (no frontmatter, no introduction), and what
+/// the file in the repository (written at apply, what the agent was given) holds that is no
+/// longer true.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PackContextNow {
     pub path: String,
     pub pack: String,
     pub text: String,
+    /// Items of the file in the repository whose `when` no longer holds.
+    #[serde(default)]
+    pub gone: Vec<String>,
+    /// The pack is no longer active, but the repository has its rules file.
+    #[serde(default)]
+    pub inactive: bool,
 }
 
 /// A test (or test support code) of a file: its key and its fingerprint (forge-check's
@@ -74,7 +82,8 @@ pub trait Checker {
     fn test_blocks(&self, path: &str, source: &str) -> Vec<TestBlock>;
 
     /// The rules files the packs active now give, as the repository is (a pack may have become
-    /// active since `forge apply`: packaging files created during the session).
+    /// active since `forge apply`: packaging files created during the session), and what the
+    /// repository's rules files hold that no longer holds (see [`PackContextNow`]).
     fn rules_context(&self, _root: &Path) -> Vec<PackContextNow> {
         Vec::new()
     }

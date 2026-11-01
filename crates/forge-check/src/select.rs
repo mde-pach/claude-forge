@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use forge_detect::ProjectFacts;
 use forge_detect::roles::{RoleInputs, resolve_roles};
 use forge_packs::PackSet;
 use forge_packs::model::{Level, ProjectConfig, Target};
@@ -21,6 +22,8 @@ pub struct Selection {
     /// Every file role's effective patterns (the tools' configs and forge.yaml applied).
     pub roles: Roles,
     pub plan: Plan,
+    /// The project facts the plan judged (the package managers among them).
+    pub facts: ProjectFacts,
 }
 
 /// Plans the repository at `root` as `forge apply` does, and selects its rules.
@@ -56,6 +59,7 @@ pub fn project(
         rules: rules_of(&p),
         roles,
         plan: p,
+        facts,
     })
 }
 

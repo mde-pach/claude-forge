@@ -8,6 +8,7 @@ use std::time::{Duration, Instant, SystemTime};
 use forge_core::{Note, NoteKind, Report};
 use forge_engine::{DiagFile, Lang};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 use crate::checker::{StopOutcome, StopStatus};
 use crate::input::HookInput;
@@ -309,11 +310,14 @@ fn context_seen(p: &Project) -> ContextSeen {
         .unwrap_or_default()
 }
 
-/// The context the agent has not seen: the rules files of the packs active now that the lock
-/// does not record (the rules files were rendered before those packs became active), as
-/// "This project now uses <pack>:" and the pack's items. Each is given once per session; the
-/// repository's files are never rewritten. None when nothing is new, or the state is unchanged
-/// since the last look (the packaging files, the lock).
+/// The context the agent has not seen, and what it was given that no longer holds. First, for
+/// the rules files the lock records (what the agent was given at apply): a pack no longer active
+/// ("This project no longer uses <pack>."), an item whose `when` no longer holds ("This no
+/// longer applies: <item>"). Then the rules files of the packs active now that the lock does not
+/// record (the rules files were rendered before those packs became active), as "This project now
+/// uses <pack>:" and the pack's items. Each is given once per session; the repository's files are
+/// never rewritten. None when nothing is new, or the state is unchanged since the last look (the
+/// packaging files, the lock).
 fn new_pack_context(rt: &Runtime, p: &Project) -> Option<(String, Vec<String>)> {
     let cache = p.rules(&rt.home)?;
     let key = format!(
@@ -326,14 +330,45 @@ fn new_pack_context(rt: &Runtime, p: &Project) -> Option<(String, Vec<String>)> 
     if seen.key == key {
         return None;
     }
-    let fresh: Vec<_> = rt
-        .checker
-        .rules_context(&p.root)
+    let name = |pack: &str| pack.rsplit('/').next().unwrap_or(pack).to_string();
+    // (what is shown, its key in `seen.shown`)
+    let mut retracted: Vec<(String, String)> = Vec::new();
+    let mut fresh: Vec<(String, String)> = Vec::new();
+    for c in rt.checker.rules_context(&p.root) {
+        if !cache.rules_files.contains(&c.path) {
+            if !c.text.trim().is_empty() {
+                let text = format!(
+                    "This project now uses {}:\n{}",
+                    name(&c.pack),
+                    c.text.trim_end()
+                );
+                fresh.push((text, c.path));
+            }
+            continue;
+        }
+        if c.inactive {
+            retracted.push((
+                format!("This project no longer uses {}.", name(&c.pack)),
+                format!("{}#inactive", c.path),
+            ));
+        }
+        for item in &c.gone {
+            let hash: String = Sha256::digest(item.as_bytes())[..8]
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            retracted.push((
+                format!("This no longer applies: {item}"),
+                format!("{}#{hash}", c.path),
+            ));
+        }
+    }
+    let new: Vec<(String, String)> = retracted
         .into_iter()
-        .filter(|c| !cache.rules_files.contains(&c.path) && !seen.shown.contains(&c.path))
-        .filter(|c| !c.text.trim().is_empty())
+        .chain(fresh)
+        .filter(|(_, k)| !seen.shown.contains(k))
         .collect();
-    if fresh.is_empty() {
+    if new.is_empty() {
         seen.key = key;
         if state::ensure_dir(&p.session_dir)
             && let Ok(b) = serde_json::to_vec(&seen)
@@ -342,15 +377,12 @@ fn new_pack_context(rt: &Runtime, p: &Project) -> Option<(String, Vec<String>)> 
         }
         return None;
     }
-    let text = fresh
+    let text = new
         .iter()
-        .map(|c| {
-            let name = c.pack.rsplit('/').next().unwrap_or(&c.pack);
-            format!("This project now uses {name}:\n{}", c.text.trim_end())
-        })
+        .map(|(t, _)| t.as_str())
         .collect::<Vec<_>>()
         .join("\n\n");
-    Some((text, fresh.into_iter().map(|c| c.path).collect()))
+    Some((text, new.into_iter().map(|(_, k)| k).collect()))
 }
 
 /// Records `paths` as shown in this session.

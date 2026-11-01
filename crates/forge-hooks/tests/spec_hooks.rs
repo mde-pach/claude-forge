@@ -746,6 +746,7 @@ fn a_pack_that_became_active_gives_its_context_once() {
         path: format!(".claude/rules/forge-{}.md", pack.replace('/', "-")),
         pack: pack.into(),
         text: text.into(),
+        ..Default::default()
     };
     let f = Fake {
         post: Report {
@@ -813,14 +814,53 @@ fn the_user_guard_applies_in_any_directory() {
     );
 }
 
+/// The user level's lock is in Claude Code's config directory: `$CLAUDE_CONFIG_DIR` when set,
+/// else `~/.claude`.
+#[test]
+fn the_user_guard_finds_its_lock_in_the_config_directory() {
+    let s = Sandbox::new(&[]);
+    let config = s.base.join("config");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(
+        config.join("forge-user.lock"),
+        lock(&["safety/git-force-push"]),
+    )
+    .unwrap();
+    let anywhere = s.base.join("anywhere");
+    std::fs::create_dir_all(&anywhere).unwrap();
+    let push = |id: &str| {
+        let mut input = bash("git push --force", id);
+        input["cwd"] = json!(anywhere);
+        input
+    };
+    let env = Env {
+        claude_config_dir: Some(config.clone()),
+        ..s.env()
+    };
+    let out = s.run_env(&Fake::default(), env, "user-pre-tool-use", push("c1"));
+    assert_eq!(decision(&out).0, "deny");
+    // unset: ~/.claude, which has no lock here, then one
+    assert_eq!(
+        s.run(&Fake::default(), "user-pre-tool-use", push("c2")),
+        Output::silent()
+    );
+    std::fs::rename(
+        config.join("forge-user.lock"),
+        s.user_home.join(".claude/forge-user.lock"),
+    )
+    .unwrap();
+    let out = s.run(&Fake::default(), "user-pre-tool-use", push("c3"));
+    assert_eq!(decision(&out).0, "deny");
+}
+
 // ---- §9.5 reviewer
 
 #[test]
 fn a_guard_ask_nobody_can_answer_is_reviewed() {
-    let s = Sandbox::new(&["safety/git-force-with-lease"]);
+    let s = Sandbox::new(&["python/uv/no-pip"]);
     let (claude, log) = s.reviewer("allow");
     let f = Fake::default();
-    let cmd = "git push --force-with-lease";
+    let cmd = "poetry add httpx";
     // a person is there: the ask stands
     assert_eq!(
         decision(&s.run(&f, "pre-tool-use", bash(cmd, "r0"))).0,
@@ -850,7 +890,7 @@ fn a_guard_ask_nobody_can_answer_is_reviewed() {
         &f,
         env.clone(),
         "pre-tool-use",
-        bash("git push  --force-with-lease", "r2"),
+        bash("poetry  add httpx", "r2"),
     );
     assert_eq!(invocations(&log), 1);
     // another session asks again
@@ -915,7 +955,7 @@ fn a_guard_ask_nobody_can_answer_is_reviewed() {
 
 #[test]
 fn the_reviewer_runs_a_fresh_read_only_claude() {
-    let s = Sandbox::new(&["safety/git-force-with-lease"]);
+    let s = Sandbox::new(&["python/uv/no-pip"]);
     let (claude, log) = s.reviewer("deny");
     let env = Env {
         entrypoint: Some("sdk-cli".into()),
@@ -927,7 +967,7 @@ fn the_reviewer_runs_a_fresh_read_only_claude() {
         &Fake::default(),
         env,
         "pre-tool-use",
-        bash("git push --force-with-lease", "a1"),
+        bash("poetry add httpx", "a1"),
     ));
     assert_eq!(d, "deny");
     assert!(reason.ends_with("It is routine."));
@@ -955,9 +995,11 @@ fn the_reviewer_runs_a_fresh_read_only_claude() {
     }
     // the prompt carries the rule's concern, not its id
     assert!(
-        args.contains("Its concern: git push --force-with-lease still rewrites remote history")
+        args.contains(
+            "Its concern: Dependencies are added with uv add and the environment is uv's"
+        )
     );
-    assert!(!args.contains("safety/git-force-with-lease"));
+    assert!(!args.contains("python/uv/no-pip"));
 }
 
 /// The reviewer is told which files the turn created and changed: a file the agent's own

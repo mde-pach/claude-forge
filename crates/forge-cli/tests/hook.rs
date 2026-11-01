@@ -39,10 +39,16 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(sample: &str) -> Sandbox {
+        Sandbox::with(sample, |_| {})
+    }
+
+    /// The sample, changed by `setup` before `forge apply`.
+    fn with(sample: &str, setup: impl FnOnce(&Path)) -> Sandbox {
         let tmp = tempfile::tempdir().unwrap();
         let base = tmp.path().canonicalize().unwrap();
         let repo = base.join(sample);
         copy_dir(&repo_root().join("fixtures/samples").join(sample), &repo);
+        setup(&repo);
         let bin = base.join("bin");
         std::fs::create_dir_all(&bin).unwrap();
         let claude = bin.join("claude");
@@ -231,6 +237,126 @@ fn context_of_packs_activated_mid_session() {
     let out = s.hook("post-tool-use", &edit);
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(!text.contains("This project now uses"), "{text}");
+}
+
+/// A project that moves from Poetry to uv during the session: the guard follows the package
+/// manager the repository has now, as the checks do.
+#[test]
+fn the_guard_follows_a_package_manager_switched_mid_session() {
+    let s = Sandbox::with("fastapi-app", |repo| {
+        std::fs::remove_file(repo.join("uv.lock")).unwrap();
+        std::fs::write(repo.join("poetry.lock"), "# poetry\n").unwrap();
+    });
+    let reason = |cmd: &str, id: &str| s.decision(&bash(cmd, id)).map(|(_, r)| r);
+    let r = reason("uv add httpx", "p1").unwrap();
+    assert!(r.contains("poetry add"), "{r}");
+    assert_eq!(reason("poetry install", "p2"), None);
+    // the migration: poetry.lock gone, uv.lock and the [project] table
+    std::fs::remove_file(s.repo.join("poetry.lock")).unwrap();
+    std::fs::write(s.repo.join("uv.lock"), "version = 1\n").unwrap();
+    let r = reason("uv add httpx", "p3").unwrap_or_default();
+    assert!(!r.contains("poetry add"), "{r}");
+    let r = reason("poetry install", "p4").unwrap();
+    assert!(r.contains("uv add"), "{r}");
+}
+
+/// A plain-scripts project (no packaging) that gains a requirements file: the rules file written
+/// at apply says it has no packaging; the next PostToolUse says once that this no longer applies.
+#[test]
+fn context_that_no_longer_holds_is_retracted_once() {
+    let s = Sandbox::with("astro-app", |repo| {
+        std::fs::write(repo.join("fetch.py"), "print(1)\n").unwrap();
+    });
+    let rules = std::fs::read_to_string(s.repo.join(".claude/rules/forge-python.md")).unwrap();
+    assert!(rules.contains("no Python packaging file"), "{rules}");
+    s.hook("user-prompt-submit", &json!({"prompt": "add a dependency"}));
+    std::fs::write(s.repo.join("requirements.txt"), "httpx==0.27.2\n").unwrap();
+    let edit = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": s.repo.join("requirements.txt")}});
+    let out = s.hook("post-tool-use", &edit);
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let ctx = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        ctx.contains("This no longer applies: This project has no Python packaging file:"),
+        "{ctx}"
+    );
+    assert!(ctx.contains("This project now uses pip:\n"), "{ctx}");
+    // once in the session; the repository's rules file is left as apply wrote it
+    let out = s.hook("post-tool-use", &edit);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(!text.contains("no longer applies"), "{text}");
+    assert_eq!(
+        std::fs::read_to_string(s.repo.join(".claude/rules/forge-python.md")).unwrap(),
+        rules
+    );
+}
+
+/// The edit-time relock (§8.7): an edit of pyproject.toml that leaves uv.lock stale runs `uv
+/// lock` and wakes Claude; without a uv.lock, uv is not run.
+#[test]
+fn a_pyproject_edit_relocks_a_stale_uv_lock() {
+    use std::os::unix::fs::PermissionsExt;
+    let s = Sandbox::new("fastapi-app");
+    // Forge's own uv (installed by apply) would come before the sandbox's bin on the PATH
+    let _ = std::fs::remove_file(s.forge_home.join("path/uv"));
+    let log = s.bin.join("uv.log");
+    let uv = s.bin.join("uv");
+    std::fs::write(
+        &uv,
+        format!(
+            "#!/bin/sh\necho \"$*\" >> '{}'\n[ \"$2\" = --check ] && exit 1\nexit 0\n",
+            log.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&uv, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let typecheck = |id: &str| {
+        let mut c = s.cmd(&["hook", "post-tool-use-typecheck"]);
+        c.env("FORGE_EDIT_TYPECHECK", "always")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = c.spawn().unwrap();
+        let input = json!({"session_id": "sess-1", "cwd": s.repo, "hook_event_name": "PostToolUse",
+            "tool_name": "Edit", "tool_use_id": id,
+            "tool_input": {"file_path": s.repo.join("pyproject.toml")}});
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.to_string().as_bytes())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    };
+    let pyproject = s.repo.join("pyproject.toml");
+    let text = std::fs::read_to_string(&pyproject).unwrap();
+    std::fs::write(
+        &pyproject,
+        text.replace(
+            "\"pydantic>=2.9\",",
+            "\"pydantic>=2.9\",\n  \"httpx>=0.27\",",
+        ),
+    )
+    .unwrap();
+    let out = typecheck("r1");
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        "uv.lock was updated to match pyproject.toml.\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&log).unwrap(),
+        "lock --check\nlock --quiet\n"
+    );
+    // no uv.lock: nothing runs
+    std::fs::remove_file(&log).unwrap();
+    std::fs::remove_file(s.repo.join("uv.lock")).unwrap();
+    let out = typecheck("r2");
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+    assert!(!log.exists());
 }
 
 /// Runs `event` `n` times; the median and p99 wall times of the whole process.

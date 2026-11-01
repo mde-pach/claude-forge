@@ -276,7 +276,10 @@ fn violation_then_fix(sample: &str, file: &str, bad: &str, rule: &str, agent_tex
     assert!(out.stdout.is_empty());
     let refusal = String::from_utf8_lossy(&out.stderr).into_owned();
     assert!(refusal.contains("they are not run by hand"), "{refusal}");
-    assert!(forge_core::internals::find(&refusal).is_empty(), "{refusal}");
+    assert!(
+        forge_core::internals::find(&refusal).is_empty(),
+        "{refusal}"
+    );
     let out = s.forge(&["check", "--changed", "--json"]);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let findings = v["findings"].as_array().unwrap();
