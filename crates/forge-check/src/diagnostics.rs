@@ -247,9 +247,13 @@ pub fn diag_keys(output: &str, root: &Path, target: &Target<'_>) -> Vec<DiagKey>
     out
 }
 
-/// `forge_typecheck_compare`'s count: of the errors in the changed files (`now`), only as many of
-/// a text count as the run now reports more of it than the base did (`all_now` vs `base`, whole
-/// project), those on added lines first. Returns the lines that count and how many others.
+/// `forge_typecheck_compare`'s count, for the errors in the changed files (`now`): every error on
+/// a line the change added or rewrote is the change's, whatever the base had (the lint's rule:
+/// the agent's lines are its own, and old errors in code it rewrote are not told apart from new
+/// ones of the same text); an error on a line it did not touch counts only as far as the run now
+/// reports more of that text than the base did (`all_now` vs `base`, whole project), beyond those
+/// on added lines (an error the change caused elsewhere, in a caller say). Returns the lines that
+/// count and how many others.
 pub fn compare_with_base(
     now: &[DiagKey],
     all_now: &[DiagKey],
@@ -262,16 +266,20 @@ pub fn compare_with_base(
     for k in base {
         *left.entry(&k.text).or_default() -= 1;
     }
-    let mut keep = vec![false; now.len()];
-    for pass in [true, false] {
-        for (i, k) in now.iter().enumerate() {
-            if k.on_added == pass
-                && let Some(n) = left.get_mut(k.text.as_str())
-                && *n > 0
-            {
-                *n -= 1;
-                keep[i] = true;
-            }
+    let keep: Vec<bool> = now.iter().map(|k| k.on_added).collect();
+    for k in now.iter().filter(|k| k.on_added) {
+        if let Some(n) = left.get_mut(k.text.as_str()) {
+            *n -= 1;
+        }
+    }
+    let mut keep = keep;
+    for (i, k) in now.iter().enumerate() {
+        if !k.on_added
+            && let Some(n) = left.get_mut(k.text.as_str())
+            && *n > 0
+        {
+            *n -= 1;
+            keep[i] = true;
         }
     }
     let new: Vec<String> = now
@@ -559,6 +567,42 @@ mod tests {
         let (new, old) = compare_with_base(&now, &all, &base);
         assert_eq!(new, ["a: e1"]);
         assert_eq!(old, 2);
+    }
+
+    /// The real task's case: the change rewrote functions with old errors and added code with
+    /// the same text; every error on its lines is reported, none of the untouched ones, except
+    /// an error of a new text the change caused on an untouched line (a caller).
+    #[test]
+    fn every_error_on_the_changes_lines_counts() {
+        let k = |p: &str, t: &str, a: bool| DiagKey {
+            on_added: a,
+            path: p.into(),
+            text: t.into(),
+            line: format!("{p}{t}{a}"),
+        };
+        let bare = ": missing-type-argument dict";
+        let now = vec![
+            k("d", bare, false),         // a helper the change did not touch
+            k("d", bare, true),          // rewritten old code
+            k("d", bare, true),          // rewritten old code
+            k("d", bare, true),          // new code
+            k("d", bare, true),          // new code
+            k("d", ": call-arg", false), // a caller the change broke
+        ];
+        let all = now.clone();
+        let base = vec![
+            k("d", bare, false),
+            k("d", bare, false),
+            k("d", bare, false),
+        ];
+        let (new, old) = compare_with_base(&now, &all, &base);
+        assert_eq!(new.len(), 5, "{new:?}");
+        assert!(
+            new.iter()
+                .all(|l| l.ends_with("true") || l.contains("call-arg")),
+            "{new:?}"
+        );
+        assert_eq!(old, 1);
     }
 
     #[test]
