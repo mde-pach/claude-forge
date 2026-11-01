@@ -127,7 +127,7 @@ files:
 
 ### 15.5 The edit-time typecheck
 
-The asyncRewake PostToolUse hook (§8) asks a running daemon for the `diagnostics` of the edited files of each type-checked language, each with its base copy (the file at the start of the turn, else at HEAD; none for a new file). A diagnostic counts when it is an error (a warning too with `warnings`) and the file now has more of it than its base, compared without the location, so moved code keeps its errors. The hook then exits 2 with `This edit added type errors:` and one `<path>:<line>:<column>: <severity>[<code>] <message>` line per diagnostic, at most 20, then `(<n> more)`. No engine running, no error added, or an engine still loading: it is silent and the Stop check covers the typecheck.
+The asyncRewake PostToolUse hook (§8) asks a running daemon for the `diagnostics` of the edited files of each type-checked language, with no base copy: every error of an edited file counts, old or new (a warning too with `warnings`); the protocol still takes a base copy, and then counts only what the file has more of than it. The hook then exits 2 with `The edited files have type errors:` and one `<path>:<line>:<column>: <severity>[<code>] <message>` line per diagnostic, at most 20, then `(<n> more)`. No engine running, no error, or an engine still loading: it is silent and the Stop check covers the typecheck.
 
 ### 15.6 Declared names
 

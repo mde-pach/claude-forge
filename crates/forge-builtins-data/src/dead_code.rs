@@ -1,12 +1,13 @@
 //! Python dead code (`forge_condor`, rule `python/no-dead-code`): Forge's pinned condor on the
-//! tree as it is and on a copy of it as it was at the base, and only what the change left
-//! unused: the findings that are new, wherever they are (a function whose last caller the
-//! change removed is in a file it did not touch).
+//! tree as it is, and every finding in a file the change touched, old or new; in another file,
+//! only what the change left unused there (a function whose last caller the change removed),
+//! from a second run on a copy of the tree as it was at the base, made only when condor reports
+//! something outside the changed files.
 //!
-//! - A finding is its file, kind and name (not its line, which edits above it move). Of the
-//!   findings with the same identity, as many count as there are more of them now than in the
-//!   base, those on added lines first. A finding whose file the change deleted or renamed is
-//!   matched by kind and name alone, so moved code does not bring its dead code along.
+//! - Outside the changed files a finding is its file, kind and name (not its line, which edits
+//!   above it move): as many count as there are more of them now than in the base. A finding
+//!   whose file the change deleted or renamed is matched by kind and name alone, so moved code
+//!   does not bring its dead code along.
 //! - With `--all` (CI's full run) every finding counts.
 //! - What fails is decided by kind and name, not by condor's confidence (0.2.0 and 0.3.0 give every
 //!   function, class and variable 60): an unused import, unreachable code, an unused private
@@ -45,7 +46,7 @@ use crate::util::{last_line, re};
 pub const RUFF_LINT_RULE: &str = "python/lint";
 
 /// What the agent reads after a finding of code left unused.
-pub const UNUSED_HINT: &str = "remove it, or use it where it is needed. If it is used dynamically (a framework hook, an entry point), ask the user.";
+pub const UNUSED_HINT: &str = "use it where the request needs it, otherwise remove it. If it is used dynamically (a framework hook, an entry point), ask the user.";
 
 /// The kinds of condor (0.2.0, 0.3.0) that are code; `whitelist_entry` (a whitelist line naming
 /// nothing) is the project's own file.
@@ -277,22 +278,24 @@ fn scan(run: &Run<'_>, root: &Path) -> Result<Scan, (NoteKind, String)> {
     }
 }
 
-/// The findings of `now` the base does not have (module docs).
-pub fn new_hits(
+/// The findings of `now` that count (module docs): all of those in the changed files, and the
+/// others the base does not have.
+pub fn counted_hits(
     now: &[Hit],
     base: &[Hit],
-    on_added: &dyn Fn(&Hit) -> bool,
+    changed: &dyn Fn(&str) -> bool,
     gone: &dyn Fn(&str) -> bool,
 ) -> Vec<Hit> {
     let mut base_n: BTreeMap<(&str, &str, &str), usize> = BTreeMap::new();
-    for b in base {
+    for b in base.iter().filter(|b| !changed(&b.path)) {
         *base_n.entry(b.key()).or_default() += 1;
     }
     let mut groups: BTreeMap<(&str, &str, &str), Vec<&Hit>> = BTreeMap::new();
-    for h in now {
+    for h in now.iter().filter(|h| !changed(&h.path)) {
         groups.entry(h.key()).or_default().push(h);
     }
-    let mut fresh: Vec<&Hit> = Vec::new();
+    let mut fresh: Vec<&Hit> = now.iter().filter(|h| changed(&h.path)).collect();
+    let mut elsewhere: Vec<&Hit> = Vec::new();
     for (key, mut hs) in groups {
         let had = base_n.get(&key).copied().unwrap_or(0);
         if hs.len() <= had {
@@ -302,10 +305,9 @@ pub fn new_hits(
             continue;
         }
         base_n.remove(&key);
-        // the ones on added lines are the new ones
-        hs.sort_by_key(|h| (!on_added(h), h.line));
+        hs.sort_by_key(|h| h.line);
         let n = hs.len() - had;
-        fresh.extend(hs.into_iter().take(n));
+        elsewhere.extend(hs.into_iter().take(n));
     }
     // moved code: what is left of the base in files the change deleted or renamed
     let mut moved: BTreeMap<(String, String), usize> = BTreeMap::new();
@@ -316,8 +318,8 @@ pub fn new_hits(
                 .or_default() += n;
         }
     }
-    let mut out = Vec::new();
-    for h in fresh {
+    let mut out: Vec<Hit> = fresh.drain(..).cloned().collect();
+    for h in elsewhere {
         if let Some(n) = moved
             .get_mut(&(h.kind.clone(), h.name.clone()))
             .filter(|n| **n > 0)
@@ -391,7 +393,9 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
             return r;
         }
     };
-    let hits = if run.all() {
+    let changed = run.changed();
+    let is_changed = |p: &str| changed.iter().any(|c| c == p);
+    let hits = if run.all() || now.hits.iter().all(|h| is_changed(&h.path)) {
         if !now.unparsed.is_empty() {
             note(
                 &mut r,
@@ -420,7 +424,6 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
             }
         };
         let dest = std::fs::canonicalize(copy.path()).unwrap_or_else(|_| copy.path().into());
-        let changed = run.changed();
         let source = |f: &str| f.ends_with(".py") || f.ends_with(".pyi") || f == "pyproject.toml";
         if let Err(why) = forge_check::base_tree::copy_sources(
             &root,
@@ -470,9 +473,8 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
             );
             return r;
         }
-        let on_added = |h: &Hit| run.check.on_added(&h.path, h.line);
         let gone = |p: &str| !run.exists(p);
-        new_hits(&now.hits, &base.hits, &on_added, &gone)
+        counted_hits(&now.hits, &base.hits, &is_changed, &gone)
     };
     let mut hits = hits;
     for h in hits.iter_mut().filter(|h| h.kind == "class") {
@@ -544,34 +546,35 @@ mod tests {
     }
 
     #[test]
-    fn identity_is_file_kind_and_name_not_line() {
-        let base = [hit("a.py", 3, "function", "f")];
-        let now = [
-            hit("a.py", 9, "function", "f"),
-            hit("a.py", 1, "import", "os"),
+    fn every_finding_of_a_changed_file_counts_and_elsewhere_only_new_ones() {
+        let base = [
+            hit("a.py", 3, "function", "f"),
+            hit("b.py", 3, "function", "g"),
         ];
-        let got = new_hits(&now, &base, &|_| false, &|_| false);
-        assert_eq!(got, vec![hit("a.py", 1, "import", "os")]);
+        let now = [
+            hit("a.py", 9, "function", "f"), // old, in the changed file
+            hit("b.py", 3, "function", "g"), // old, elsewhere
+            hit("b.py", 7, "function", "h"), // its last caller removed by the change
+        ];
+        let changed = |p: &str| p == "a.py";
+        let got = counted_hits(&now, &base, &changed, &|_| false);
+        assert_eq!(
+            got,
+            vec![
+                hit("a.py", 9, "function", "f"),
+                hit("b.py", 7, "function", "h")
+            ]
+        );
     }
 
     #[test]
-    fn more_of_one_identity_counts_the_added_ones() {
-        let base = [hit("a.py", 5, "unreachable_code", "return")];
-        let now = [
-            hit("a.py", 5, "unreachable_code", "return"),
-            hit("a.py", 20, "unreachable_code", "return"),
-        ];
-        let got = new_hits(&now, &base, &|h| h.line == 5, &|_| false);
-        assert_eq!(got, vec![hit("a.py", 5, "unreachable_code", "return")]);
-    }
-
-    #[test]
-    fn moved_code_brings_no_new_finding() {
+    fn moved_code_brings_no_new_finding_elsewhere() {
         let base = [hit("old.py", 3, "function", "f")];
         let now = [hit("new.py", 3, "function", "f")];
-        assert!(new_hits(&now, &base, &|_| true, &|p| p == "old.py").is_empty());
+        // new.py untouched by the change (a rename outside it): matched by kind and name
+        assert!(counted_hits(&now, &base, &|_| false, &|p| p == "old.py").is_empty());
         // the old file still there: a second, new dead function
-        assert_eq!(new_hits(&now, &base, &|_| true, &|_| false).len(), 1);
+        assert_eq!(counted_hits(&now, &base, &|_| false, &|_| false).len(), 1);
     }
 
     #[test]

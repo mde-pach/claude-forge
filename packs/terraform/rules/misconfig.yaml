@@ -11,8 +11,9 @@ examples:
       files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
     - head: {.trivyignore: "AWS-0107\n", infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n}\n"}
       files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
-  no_match:
+  # an edited file's misconfiguration counts, whether the change brought it or not
     - head: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
       files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web-servers\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"SSH\"\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n"}
+  no_match:
     - head: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n}\n"}
       files: {infra/network.tf: "resource \"aws_security_group\" \"web\" {\n  name        = \"web\"\n  description = \"Web servers\"\n\n  ingress {\n    description = \"HTTPS from the office\"\n    from_port   = 443\n    to_port     = 443\n    protocol    = \"tcp\"\n    cidr_blocks = [\"203.0.113.0/24\"]\n  }\n}\n"}

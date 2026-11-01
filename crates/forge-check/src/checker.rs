@@ -25,7 +25,7 @@ use forge_packs::model::{Accept, CheckTarget, Mode as RuleMode, Rule, Stage, Tar
 use crate::astgrep::{self, AstMatch, Compiled, TypeOracle};
 use crate::builtins::{self, CheckRule};
 use crate::change::{Added, ChangeSet, Mode, added_lines};
-use crate::diagnostics::{self, Attribution, Level, Target as DiagTarget};
+use crate::diagnostics::{self, Attribution, Target as DiagTarget};
 use crate::grep::{self, GrepRule};
 use crate::scope::{GlobList, Roles, RuleScope, is_prose};
 use crate::shell::{self, Exit, Spec};
@@ -96,19 +96,16 @@ pub enum Phase {
 pub enum Status {
     Pass,
     Fail,
-    /// The only failures are tests that also fail at the start of the turn.
-    Unverified,
     /// Advice was the only failure.
     AdviceOnly,
 }
 
 impl Status {
-    /// `check.sh`'s exit status: 0, 1, 3, 4.
+    /// `check.sh`'s exit status: 0, 1, 4.
     pub fn exit_code(self) -> i32 {
         match self {
             Status::Pass => 0,
             Status::Fail => 1,
-            Status::Unverified => 3,
             Status::AdviceOnly => 4,
         }
     }
@@ -127,8 +124,6 @@ pub struct Timings {
 pub struct Outcome {
     pub report: Report,
     pub status: Status,
-    /// For the Stop hook (§10.6): `test<TAB><rule> <test id>`, `env<TAB><phrase>`.
-    pub unverified: Vec<String>,
     pub timings: Timings,
 }
 
@@ -195,9 +190,6 @@ impl Check<'_> {
 enum CheckResult {
     Pass,
     Fail(Vec<Finding>),
-    /// Only tests that also fail at the start of the turn: noted for the person, never a
-    /// finding; the `unverified` entries.
-    Unverified(Vec<String>),
     Advice(Vec<Finding>),
 }
 
@@ -219,7 +211,6 @@ struct Run<'a> {
     deadline: Instant,
     tool_time: Duration,
     report: Report,
-    unverified: Vec<String>,
     advice: Vec<Finding>,
     /// The branch's change, for `base: branch` checks: computed on first use; Err: why there is
     /// none (the run's own change is used).
@@ -430,7 +421,6 @@ impl Checker {
             deadline: Instant::now() + opts.budget,
             tool_time: Duration::ZERO,
             report: Report::default(),
-            unverified: Vec::new(),
             advice: Vec::new(),
             branch: None,
         };
@@ -482,7 +472,6 @@ impl Checker {
         Outcome {
             report,
             status,
-            unverified: run.unverified,
             timings: Timings {
                 forge: Duration::ZERO,
                 tools: run.tool_time,
@@ -498,23 +487,16 @@ impl Checker {
         if !failed {
             failed |= self.step_forbid(run, false);
         }
-        let mut unverified_only = false;
         if !failed {
             for stage in Stage::ALL {
-                let (f, u) = self.run_stage(run, *stage);
-                if f {
+                if self.run_stage(run, *stage) {
                     failed = true;
                     break;
-                }
-                if u {
-                    unverified_only = true;
                 }
             }
         }
         if failed {
             Status::Fail
-        } else if unverified_only {
-            Status::Unverified
         } else if !run.advice.is_empty() {
             Status::AdviceOnly
         } else {
@@ -663,11 +645,11 @@ impl Checker {
             if exit.ok() {
                 continue;
             }
-            let level = diagnostics::level_of(stage, false);
             let target = DiagTarget::of(run.change);
-            let (what, lines) = match level {
-                Some(l) => diagnostics::attribute(&out, &self.root, &target, l, warn),
-                None => (Attribution::None, Vec::new()),
+            let (what, lines) = if diagnostics::attributed(stage, false) {
+                diagnostics::attribute(&out, &self.root, &target, warn)
+            } else {
+                (Attribution::None, Vec::new())
             };
             match what {
                 Attribution::Other | Attribution::Warnings | Attribution::Forge => {}
@@ -682,7 +664,7 @@ impl Checker {
                     .extend(self.failure_findings(&id, stage, &out, 15)),
             }
         }
-        // forbid and advise rules on the added lines
+        // forbid and advise rules on the edited files
         self.step_forbid(run, true);
         if run.report.fails() {
             Status::Fail
@@ -837,7 +819,7 @@ impl Checker {
 
     // ---------------------------------------------------------------- step 2: forbid
 
-    /// Forbid rules (and, after an edit, advise rules) on the added lines.
+    /// Forbid rules (and, after an edit, advise rules) on the changed files.
     fn step_forbid(&self, run: &mut Run<'_>, edit: bool) -> bool {
         let change = &*run.change;
         let scope: Vec<String> = change.scope_files().to_vec();
@@ -857,9 +839,7 @@ impl Checker {
                     continue;
                 };
                 for n in g.matching_lines(&String::from_utf8_lossy(&text)) {
-                    if change.on_added(f, n, n) {
-                        findings.push(rule_finding(&g.rule, g.target.mode, f, n));
-                    }
+                    findings.push(rule_finding(&g.rule, g.target.mode, f, n));
                 }
             }
         }
@@ -876,7 +856,7 @@ impl Checker {
         let refs: Vec<&Compiled> = ast.iter().collect();
         let matches: Vec<AstMatch> = astgrep::scan_files(&refs, &self.root, &scope)
             .into_iter()
-            .filter(|m| change.on_added(&m.path, m.line, m.end_line))
+            .filter(|m| change.is_changed(&m.path))
             .collect();
         let mut by_rule: BTreeMap<String, Vec<AstMatch>> = BTreeMap::new();
         for m in matches {
@@ -924,10 +904,9 @@ impl Checker {
 
     // ---------------------------------------------------------------- step 3: check stages
 
-    /// Runs the checks of a stage; (failed, only unverified tests).
-    fn run_stage(&self, run: &mut Run<'_>, stage: Stage) -> (bool, bool) {
+    /// Runs the checks of a stage; whether one failed.
+    fn run_stage(&self, run: &mut Run<'_>, stage: Stage) -> bool {
         let mut failed = false;
-        let mut unverified = false;
         for c in self.checks().iter().filter(|c| c.target.stage == stage) {
             match self.drop_accepted(self.run_check(run, c)) {
                 CheckResult::Pass => {}
@@ -935,14 +914,10 @@ impl Checker {
                     run.report.findings.extend(f);
                     failed = true;
                 }
-                CheckResult::Unverified(u) => {
-                    run.unverified.extend(u);
-                    unverified = true;
-                }
                 CheckResult::Advice(f) => run.advice.extend(f),
             }
         }
-        (failed, unverified && !failed)
+        failed
     }
 
     /// Whether a forge.yaml `accept:` entry holds for the finding (§10.5).
@@ -1182,11 +1157,10 @@ impl Checker {
                 c.id(),
             ));
         }
-        let level = diagnostics::level_of(c.target.stage, whole);
         let warn = c.target.fail_on_warnings == Some(true);
-        if let Some(level) = level {
+        if diagnostics::attributed(c.target.stage, whole) {
             let target = DiagTarget::of(&*run.change);
-            let (what, lines) = diagnostics::attribute(&out, &self.root, &target, level, warn);
+            let (what, lines) = diagnostics::attribute(&out, &self.root, &target, warn);
             if what == Attribution::Forge {
                 run.report.notes.push(note(
                     NoteKind::Setup,
@@ -1197,16 +1171,16 @@ impl Checker {
             }
             if !all {
                 match what {
+                    // the changed files' findings, and those the change caused elsewhere (a
+                    // caller it broke)
+                    Attribution::Changed | Attribution::Other
+                        if c.target.stage == Stage::Typecheck =>
+                    {
+                        return self.typecheck_compare(run, c, &cmd, &files, uses_files, &out);
+                    }
+                    // only other files: what the change caused there counts
                     Attribution::Other => {
-                        let text = if level == Level::Line {
-                            "ok for the added lines (findings remain on lines this change did not add)"
-                        } else {
-                            "ok for the changed files (errors remain in unchanged files)"
-                        };
-                        run.report
-                            .notes
-                            .push(note(NoteKind::Environment, c.id(), text));
-                        return CheckResult::Pass;
+                        return self.base_compare(run, c, &cmd, &files, uses_files, &out, 15);
                     }
                     Attribution::Warnings => {
                         run.report.notes.push(note(
@@ -1216,22 +1190,8 @@ impl Checker {
                         ));
                         return CheckResult::Pass;
                     }
+                    // every finding in a file the change touched, old or new
                     Attribution::Changed => {
-                        if c.target.stage == Stage::Typecheck {
-                            return self
-                                .typecheck_compare(run, c, &cmd, &files, uses_files, &out, &lines);
-                        }
-                        // a finding about a whole changed file (no line, or line 0) may be one
-                        // the file already had: compared with the base like an unplaced one
-                        let whole_file = level == Level::File
-                            || lines.iter().any(|l| {
-                                diagnostics::parse_location(l)
-                                    .is_none_or(|(_, n, _)| n.is_none_or(|n| n == 0))
-                            });
-                        if whole_file {
-                            let text = lines.join("\n");
-                            return self.base_compare(run, c, &cmd, &files, uses_files, &text, 15);
-                        }
                         return CheckResult::Fail(cap(
                             diagnostics::findings_of(&lines.join("\n"), c.id(), &self.root),
                             15,
@@ -1242,25 +1202,19 @@ impl Checker {
                 }
             }
         }
-        if c.target.stage == Stage::Test
-            && matches!(mode, Mode::Turn(_))
-            && c.target.rerun.is_some()
-        {
-            return self.test_compare(run, c, &out);
-        }
+        // a failure that names no file counts as it is: a failing test is a failing test,
+        // whatever its cause
         let n = if c.target.stage == Stage::Test {
             25
         } else {
             15
         };
-        if !all {
-            return self.base_compare(run, c, &cmd, &files, uses_files, &out, n);
-        }
         CheckResult::Fail(self.failure_findings(c.id(), c.target.stage, &out, n))
     }
 
-    /// A failure in a change that names no added line (§10.2): the check run again on the base
-    /// tree, and only what it did not already report counts. Lines compare with their digits
+    /// A failure whose findings are all in files the change did not touch (§10.4): the check run
+    /// again on the base tree, and only what it did not already report (what the change caused
+    /// there) counts. Lines compare with their digits
     /// left out, so a count or a line number the edit shifted is not new. After an edit there is
     /// no base tree: the failure is a note, and Stop decides.
     #[allow(clippy::too_many_arguments)]
@@ -1383,8 +1337,8 @@ impl Checker {
         vec![Finding::error(id, format!("{header}\n{body}"))]
     }
 
-    /// `forge_typecheck_compare`: errors in the changed files that the base already has are not
-    /// this change's.
+    /// `forge_typecheck_compare`: every error in the changed files counts; one in another file
+    /// counts when the change caused it (the base has fewer of its text).
     #[allow(clippy::too_many_arguments)]
     fn typecheck_compare(
         &self,
@@ -1394,16 +1348,18 @@ impl Checker {
         files: &[String],
         uses_files: bool,
         out: &str,
-        now_lines: &[String],
     ) -> CheckResult {
-        let (now, all_now, base_name) = {
-            let target = DiagTarget::of(&*run.change);
-            (
-                diagnostics::diag_keys(&now_lines.join("\n"), &self.root, &target),
-                diagnostics::diag_keys(out, &self.root, &target),
-                run.change.base_name(),
-            )
-        };
+        let now = diagnostics::diag_keys(out, &self.root, &DiagTarget::of(&*run.change));
+        let changed: Vec<String> = now
+            .iter()
+            .filter(|k| k.in_changed)
+            .map(|k| k.line.clone())
+            .collect();
+        // nothing elsewhere to tell apart: no base run
+        if now.iter().all(|k| k.in_changed) || run.opts.phase == Phase::PostEdit {
+            return self.typecheck_result(c, changed);
+        }
+        let base_name = run.change.base_name();
         let why;
         match crate::base_tree::build(&*run.change) {
             Err(w) => why = w,
@@ -1412,201 +1368,44 @@ impl Checker {
                 let target = DiagTarget::of(&*run.change);
                 match exit {
                     Exit::Status(0) => {
-                        return self.typecheck_result(run, c, &now, &all_now, &[]);
+                        let (new, _) = diagnostics::compare_with_base(&now, &[]);
+                        return self.typecheck_result(c, new);
                     }
                     Exit::TimedOut(s) | Exit::Budget(s) => {
                         why = format!("the run there was stopped after {s}s")
                     }
                     Exit::Failed(e) => why = e,
                     Exit::Status(_) => {
-                        let (what, _) = diagnostics::attribute(
-                            &base_out,
-                            tree.path(),
-                            &target,
-                            Level::File,
-                            false,
-                        );
+                        let (what, _) =
+                            diagnostics::attribute(&base_out, tree.path(), &target, false);
                         if what == Attribution::None {
                             why = "the run there failed naming no file".into();
                         } else {
                             let base = diagnostics::diag_keys(&base_out, tree.path(), &target);
-                            return self.typecheck_result(run, c, &now, &all_now, &base);
+                            let (new, _) = diagnostics::compare_with_base(&now, &base);
+                            return self.typecheck_result(c, new);
                         }
                     }
                 }
             }
         }
-        run.report.notes.push(note(NoteKind::Environment, c.id(), format!("its errors in the changed files could not be compared with {base_name}: {why}; all of them count")));
-        CheckResult::Fail(cap(
-            diagnostics::findings_of(&now_lines.join("\n"), c.id(), &self.root),
-            15,
+        run.report.notes.push(note(
+            NoteKind::Environment,
             c.id(),
-        ))
+            format!("its errors in other files could not be compared with {base_name}: {why}; only those in the changed files count"),
+        ));
+        self.typecheck_result(c, changed)
     }
 
-    fn typecheck_result(
-        &self,
-        run: &mut Run<'_>,
-        c: &Check<'_>,
-        now: &[diagnostics::DiagKey],
-        all: &[diagnostics::DiagKey],
-        base: &[diagnostics::DiagKey],
-    ) -> CheckResult {
-        let (new, old) = diagnostics::compare_with_base(now, all, base);
-        // errors the base already had are not the agent's to act on: the person reads them
-        if old > 0 {
-            run.report.notes.push(note(
-                NoteKind::Environment,
-                c.id(),
-                format!(
-                    "{old} error(s) in the changed files were already there before this change"
-                ),
-            ));
-        }
-        if new.is_empty() {
+    fn typecheck_result(&self, c: &Check<'_>, lines: Vec<String>) -> CheckResult {
+        if lines.is_empty() {
             return CheckResult::Pass;
         }
         CheckResult::Fail(cap(
-            diagnostics::findings_of(&new.join("\n"), c.id(), &self.root),
+            diagnostics::findings_of(&lines.join("\n"), c.id(), &self.root),
             15,
             c.id(),
         ))
-    }
-
-    /// `forge_test_compare` (§10.6).
-    fn test_compare(&self, run: &mut Run<'_>, c: &Check<'_>, out: &str) -> CheckResult {
-        let failing = failed_tests(out);
-        if failing.is_empty() {
-            return CheckResult::Fail(self.failure_findings(c.id(), Stage::Test, out, 25));
-        }
-        let mut why = None;
-        let mut base_failing = BTreeSet::new();
-        match crate::base_tree::build(run.change) {
-            Err(w) => why = Some(w),
-            Ok(tree) => {
-                let files: Vec<String> = test_files(&failing);
-                let rerun = c.target.rerun.clone().unwrap_or_default();
-                let (exit, base_out) = self.exec(run, c, &rerun, &files, true, Some(&tree));
-                base_failing = failed_tests(&base_out).into_iter().collect();
-                match exit {
-                    Exit::TimedOut(s) | Exit::Budget(s) => {
-                        why = Some(format!("the re-run there was stopped after {s}s"))
-                    }
-                    Exit::Failed(e) => why = Some(e),
-                    Exit::Status(st) if st != 0 && base_failing.is_empty() => {
-                        why = Some("the re-run there failed without naming a failing test".into())
-                    }
-                    _ => {}
-                }
-            }
-        }
-        let names = |v: &[&String]| {
-            let mut t = v
-                .iter()
-                .take(8)
-                .map(|t| t.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            if v.len() > 8 {
-                t.push_str(&format!(" and {} more", v.len() - 8));
-            }
-            t
-        };
-        let list = |v: &[&String]| {
-            v.iter()
-                .take(8)
-                .map(|t| format!("  {t}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-        if let Some(why) = why {
-            run.report.notes.push(note(
-                NoteKind::Environment,
-                c.id(),
-                format!("comparison with the start of the turn was not possible ({why})"),
-            ));
-            let all: Vec<&String> = failing.iter().collect();
-            return CheckResult::Fail(vec![Finding::error(
-                c.id(),
-                format!(
-                    "{} failing test(s):\n{}\n{}",
-                    failing.len(),
-                    list(&all),
-                    diagnostics::excerpt(out, 20)
-                ),
-            )]);
-        }
-        let new: Vec<&String> = failing
-            .iter()
-            .filter(|t| !base_failing.contains(*t))
-            .collect();
-        let old: Vec<&String> = failing
-            .iter()
-            .filter(|t| base_failing.contains(*t))
-            .collect();
-        if !new.is_empty() {
-            let mut msg = format!(
-                "{} failing test(s) passed at the start of the turn:\n{}",
-                new.len(),
-                list(&new)
-            );
-            msg.push('\n');
-            msg.push_str(&diagnostics::excerpt(out, 20));
-            if !old.is_empty() {
-                // not the agent's change: the person reads them
-                run.report.notes.push(note(
-                    NoteKind::Environment,
-                    c.id(),
-                    format!(
-                        "{} other failing test(s) also fail at the start of the turn, so the change did not cause them: {}",
-                        old.len(),
-                        names(&old)
-                    ),
-                ));
-            }
-            return CheckResult::Fail(vec![Finding::error(c.id(), msg)]);
-        }
-        // Every failing test also fails without the change: not the agent's to fix, so a note
-        // for the person and never a finding (§10.6).
-        let env = env_errors(out);
-        let mut text = format!(
-            "{} failing test(s) also fail at the start of the turn, so the change did not cause them, but it is not verified by them either: {}.",
-            old.len(),
-            names(&old)
-        );
-        let compose = [
-            "compose.yaml",
-            "compose.yml",
-            "docker-compose.yml",
-            "docker-compose.yaml",
-        ]
-        .into_iter()
-        .find(|f| self.root.join(f).is_file());
-        if env.is_empty() {
-            text.push_str(" Run them once what they need is set up.");
-        } else {
-            text.push_str(&format!(
-                " Their errors look environmental ({}): ",
-                env.join("; ")
-            ));
-            match compose {
-                Some(f) => text.push_str(&format!(
-                    "set up what they need (e.g. docker compose up -d with {f}) and run them again."
-                )),
-                None => text.push_str(
-                    "set up what they need (the services, the network) and run them again.",
-                ),
-            }
-        }
-        run.report
-            .notes
-            .push(note(NoteKind::Environment, c.id(), text));
-        let mut unverified: Vec<String> = old
-            .iter()
-            .map(|t| format!("test\t{} {t}", c.id()))
-            .collect();
-        unverified.extend(env.iter().map(|e| format!("env\t{e}")));
-        CheckResult::Unverified(unverified)
     }
 
     /// Runs one of a check's commands, in each workspace package when it has some; in the base
@@ -2107,131 +1906,9 @@ fn dedupe_notes(notes: &mut Vec<Note>) {
     notes.retain(|n| seen.insert(format!("{n}")));
 }
 
-/// `forge_failed_tests`: the failing tests a run reports (Vitest `FAIL` lines, pytest's short
-/// summary `FAILED` / `ERROR`), sorted.
-pub fn failed_tests(out: &str) -> Vec<String> {
-    let vitest = regex::Regex::new(r"^ *FAIL +(.*)$").expect("regex");
-    let vitest_tail = regex::Regex::new(r" \[ .* \]$").expect("regex");
-    let pytest = regex::Regex::new(r"^(FAILED|ERROR) ([^ ].*)$").expect("regex");
-    let mut out_v = BTreeSet::new();
-    for l in out.lines() {
-        let l = crate::adapters::strip_ansi(l);
-        let t = if let Some(c) = vitest.captures(&l) {
-            vitest_tail.replace(&c[1], "").into_owned()
-        } else if let Some(c) = pytest.captures(&l) {
-            c[2].split(" - ").next().unwrap_or("").to_string()
-        } else {
-            continue;
-        };
-        let t = t.trim_end().to_string();
-        if !t.is_empty() {
-            out_v.insert(t);
-        }
-    }
-    out_v.into_iter().collect()
-}
-
-/// `forge_test_files`: the test file of each failing test id.
-pub fn test_files(ids: &[String]) -> Vec<String> {
-    let proj = regex::Regex::new(r"^\|[^|]*\| ").expect("regex");
-    let mut out: BTreeSet<String> = BTreeSet::new();
-    for id in ids {
-        let t = proj.replace(id, "");
-        let t = t.split(" > ").next().unwrap_or("");
-        let t = t.split("::").next().unwrap_or("");
-        out.insert(t.to_string());
-    }
-    out.into_iter().collect()
-}
-
-/// `forge_env_errors`: the errors in a run's output that point at the environment, as short
-/// phrases, at most 5.
-pub fn env_errors(out: &str) -> Vec<String> {
-    let svc = |port: &str| match port {
-        "5432" => "Postgres",
-        "3306" => "MySQL",
-        "6379" => "Redis",
-        "27017" => "MongoDB",
-        "1433" => "SQL Server",
-        "9200" => "Elasticsearch",
-        "5672" => "RabbitMQ",
-        "11211" => "Memcached",
-        _ => "a service",
-    };
-    let refused = regex::Regex::new(r"ECONNREFUSED ([^ ,;)]+:([0-9]+))").expect("regex");
-    let port = regex::Regex::new(r"port ([0-9]+) failed: Connection refused").expect("regex");
-    let dns = regex::Regex::new(r#"(EAI_AGAIN|ENOTFOUND) ([^ ,;)'"]+)"#).expect("regex");
-    let other = regex::Regex::new(r"[Cc]onnection refused|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|getaddrinfo|[Cc]ould not connect|[Tt]imed out|[Tt]imeout of [0-9]+ ?ms|Name or service not known|Temporary failure in name resolution").expect("regex");
-    let mut seen = Vec::new();
-    for l in out.lines() {
-        if l.starts_with("forge: timed out") || l.starts_with("FAILED ") || l.starts_with("ERROR ")
-        {
-            continue;
-        }
-        let p = if let Some(c) = refused.captures(l) {
-            format!(
-                "{} refused the connection at {} (ECONNREFUSED)",
-                svc(&c[2]),
-                &c[1]
-            )
-        } else if let Some(c) = port.captures(l) {
-            format!("{} refused the connection on port {}", svc(&c[1]), &c[1])
-        } else if let Some(c) = dns.captures(l) {
-            format!("DNS lookup for {} failed ({}): no network?", &c[2], &c[1])
-        } else if other.is_match(l) {
-            let t = l.trim();
-            if t.chars().count() > 160 {
-                format!("{}...", t.chars().take(157).collect::<String>())
-            } else {
-                t.to_string()
-            }
-        } else {
-            continue;
-        };
-        if !seen.contains(&p) {
-            seen.push(p);
-        }
-    }
-    seen.truncate(5);
-    seen
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn failing_test_ids() {
-        let out = " FAIL  src/a.test.ts > math > adds\nFAILED tests/test_a.py::test_x - assert 1 == 2\nERROR tests/test_b.py\n";
-        let f = failed_tests(out);
-        assert_eq!(
-            f,
-            [
-                "src/a.test.ts > math > adds",
-                "tests/test_a.py::test_x",
-                "tests/test_b.py"
-            ]
-        );
-        assert_eq!(
-            test_files(&f),
-            ["src/a.test.ts", "tests/test_a.py", "tests/test_b.py"]
-        );
-    }
-
-    #[test]
-    fn environmental_errors() {
-        let e = env_errors(
-            "Error: connect ECONNREFUSED 127.0.0.1:5432\ngetaddrinfo EAI_AGAIN db.local\n",
-        );
-        assert_eq!(
-            e[0],
-            "Postgres refused the connection at 127.0.0.1:5432 (ECONNREFUSED)"
-        );
-        assert_eq!(
-            e[1],
-            "DNS lookup for db.local failed (EAI_AGAIN): no network?"
-        );
-    }
 
     #[test]
     fn ruff_fix_summary() {

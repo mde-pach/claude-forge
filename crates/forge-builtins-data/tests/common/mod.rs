@@ -119,16 +119,10 @@ impl Repo {
         Some(v)
     }
 
-    /// Whether a finding names the change: a changed file as a whole, or an added line.
+    /// Whether a finding names the change: any line of a changed file (the checker's
+    /// attribution, §10.4).
     pub fn names_change(&self, f: &forge_core::Finding) -> bool {
-        let Some(p) = &f.path else { return false };
-        if !self.changed.contains(p) {
-            return false;
-        }
-        match (f.line, self.added_lines(p)) {
-            (None | Some(0), _) | (_, None) => true,
-            (Some(l), Some(added)) => added.contains(&l),
-        }
+        f.path.as_ref().is_some_and(|p| self.changed.contains(p))
     }
 
     pub fn existing(&self) -> Vec<String> {
@@ -472,8 +466,8 @@ impl Case {
             let yaml = std::fs::read_to_string(r.root.join("forge.yaml")).unwrap_or_default();
             counted.retain(|l| !yaml.contains(l.as_str()));
         }
-        // a lint check fails on what names the change: an added line, or a changed file as a
-        // whole (the checker's attribution); output naming no file counts as a whole. A
+        // a lint check fails on what names the change: a changed file (the checker's
+        // attribution); output naming no file counts as a whole. A
         // builtin that compared with the base itself (`$FORGE_ATTRIBUTED`) is taken as it is.
         let attributed = r.dir.path().join("attributed").exists();
         if self.lint && self.mode != Mode::All && names_file && !names_change && !attributed {

@@ -80,7 +80,6 @@ The agent reads a match as `<path>:<line> <description>`; an `advise` match as `
 | `fix_run` | optional, `{files}` required: safe fixes applied after an edit, before the lint (§10.8) |
 | `fix_lints` | optional, `true`, needs `fix_run` and `changed_run`: the fix run also reports what remains, so it is the edit's lint result and `changed_run` is not run again after the edit |
 | `format_stdin` | optional, `format` and `lint` only, `{file}` required: the formatter as a filter on stdin, formatting it as `{file}` would be; used to compute added lines (§10.2) |
-| `rerun` | optional, `test` only, `{files}` required: runs only the given test files, for the comparison with the start of the turn (§10.6) |
 | `when_changed` | optional globs or roles: the check runs (outside `--all`) only when a changed file matches one |
 | `config_files` | optional, `lint` only, globs or roles: the tool's own config files it also lints; a changed one is in the check's scope |
 | `requires_local_db` | optional: the check runs only when the configured database is on this machine (§10.3) |
@@ -128,7 +127,7 @@ The built-in checks: `ephemeral-exec` (a package launcher that would fetch what 
 
 ### 6.3 What loading refuses beyond the schema
 
-- `rerun` outside stage `test`; `format_stdin` outside `format` and `lint`; `config_files` outside `lint`; `fix_lints` without `fix_run` and `changed_run`; `base: branch` with `fix_run`, `fix_lints`, `format_stdin` or `rerun` (they judge the change itself).
+- `format_stdin` outside `format` and `lint`; `config_files` outside `lint`; `fix_lints` without `fix_run` and `changed_run`; `base: branch` with `fix_run`, `fix_lints` or `format_stdin` (they judge the change itself).
 - A `guard` target with neither `command` nor `check`; the `pre-turn-changes` check without a `command`.
 - `review` on a rule with neither a guard `ask` target nor the test-edit check (`run: forge_test_edits`).
 - `needs` without `where`; `where` with a mode other than `forbid` or `advise`; `where: {X: {deprecated: …}}` written other than `deprecated: true`; `deprecated` in a Python rule's `where` (only the TypeScript engine answers it, §15).

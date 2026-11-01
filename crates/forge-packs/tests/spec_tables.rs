@@ -255,9 +255,6 @@ fn check_text(c: &CheckTarget) -> String {
     if c.fix_run.is_some() {
         extra.push("safe fixes after an edit".into());
     }
-    if c.rerun.is_some() {
-        extra.push("reruns failing tests".into());
-    }
     if c.requires_local_db == Some(true) {
         extra.push("needs a local database".into());
     }

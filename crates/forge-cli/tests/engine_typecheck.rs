@@ -193,7 +193,7 @@ fn a_typecheck_rule_alone_gets_an_engine_that_reports_an_added_error() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     assert!(
-        stderr.starts_with("This edit added type errors:"),
+        stderr.starts_with("The edited files have type errors:"),
         "{stderr}"
     );
     assert!(stderr.contains("main.py:1:"), "{stderr}");

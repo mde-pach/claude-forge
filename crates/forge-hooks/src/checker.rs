@@ -10,8 +10,6 @@ use forge_core::Report;
 pub enum StopStatus {
     Pass,
     Fail,
-    /// The only failures are tests that also fail at the start of the turn.
-    Unverified,
     /// Advice was the only finding.
     AdviceOnly,
 }

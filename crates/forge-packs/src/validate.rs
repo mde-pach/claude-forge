@@ -160,23 +160,16 @@ pub fn validate_pack(pack: &Pack) -> Result<(), String> {
 
 /// A check target's fields that depend on each other.
 fn check_target_fields(c: &CheckTarget) -> Result<(), String> {
-    if c.rerun.is_some() && c.stage != Stage::Test {
-        return Err("invalid rule: rerun is for stage test".into());
-    }
     if c.format_stdin.is_some() && !matches!(c.stage, Stage::Format | Stage::Lint) {
         return Err("invalid rule: format_stdin is for stages format and lint".into());
     }
     if c.fix_lints.is_some() && (c.fix_run.is_none() || c.changed_run.is_none()) {
         return Err("invalid rule: fix_lints needs fix_run and changed_run".into());
     }
-    if c.branch_base()
-        && (c.fix_run.is_some()
-            || c.fix_lints.is_some()
-            || c.format_stdin.is_some()
-            || c.rerun.is_some())
+    if c.branch_base() && (c.fix_run.is_some() || c.fix_lints.is_some() || c.format_stdin.is_some())
     {
         return Err(
-            "invalid rule: base: branch is for a check of the branch as a whole; fix_run, fix_lints, format_stdin and rerun judge the change itself"
+            "invalid rule: base: branch is for a check of the branch as a whole; fix_run, fix_lints and format_stdin judge the change itself"
                 .into(),
         );
     }

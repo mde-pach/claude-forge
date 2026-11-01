@@ -1,4 +1,4 @@
-//! Model ids: deprecated and unknown Claude model ids on added lines (the original
+//! Model ids: deprecated and unknown Claude model ids in the changed files (the original
 //! `ai-models.sh`). The model list is the ai-models pack's data file, embedded at build time.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -131,9 +131,6 @@ impl CheckBuiltin for ModelIds {
             };
             for (i, line) in text.lines().enumerate() {
                 let n = i as u32 + 1;
-                if !x.on_added(f, n) {
-                    continue;
-                }
                 let mut seen = HashSet::new();
                 for m in QUOTED.find_iter(line) {
                     let s = m.as_str();

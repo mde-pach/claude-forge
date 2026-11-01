@@ -639,10 +639,6 @@ pub struct CheckTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1), pattern(r"\{file\}"))]
     pub format_stdin: Option<String>,
-    /// `test` stage only.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(length(min = 1), pattern(r"\{files\}"))]
-    pub rerun: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1), inner(length(min = 1)))]
     pub when_changed: Option<Vec<String>>,
@@ -661,7 +657,7 @@ pub struct CheckTarget {
     /// `branch`: a rule about the branch as a whole (one version bump per branch, a migration
     /// the branch added and that is not merged yet): its builtins see the files changed since
     /// the merge base of HEAD with the default branch, and their copies there. Not with
-    /// `fix_run`, `fix_lints`, `format_stdin` or `rerun`.
+    /// `fix_run`, `fix_lints` or `format_stdin`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<CheckBase>,
 }
@@ -681,7 +677,6 @@ impl CheckTarget {
             self.changed_run.as_ref(),
             self.fix_run.as_ref(),
             self.format_stdin.as_ref(),
-            self.rerun.as_ref(),
         ]
         .into_iter()
         .flatten()

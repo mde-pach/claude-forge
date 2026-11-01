@@ -34,7 +34,7 @@ pub fn person_text(o: &Outcome) -> String {
     out
 }
 
-/// The run as JSON: status, exit code, findings (with their agent text), notes, unverified tests.
+/// The run as JSON: status, exit code, findings (with their agent text), notes.
 pub fn json(o: &Outcome) -> serde_json::Value {
     json!({
         "status": o.status,
@@ -44,7 +44,6 @@ pub fn json(o: &Outcome) -> serde_json::Value {
             "message": f.message, "agent_text": f.agent_text(),
         })).collect::<Vec<_>>(),
         "notes": o.report.notes,
-        "unverified": o.unverified,
         "timings_ms": {"forge": o.timings.forge.as_millis() as u64, "tools": o.timings.tools.as_millis() as u64},
     })
 }

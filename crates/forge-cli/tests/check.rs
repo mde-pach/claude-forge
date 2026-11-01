@@ -141,8 +141,9 @@ fn files(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// A forbid rule counts every match in a changed file, the ones already there included.
 #[test]
-fn forbid_on_added_lines_only() {
+fn forbid_in_changed_files() {
     let swallow = "import asyncio\n\n\nasync def a(q):\n    try:\n        await q.get()\n    except asyncio.CancelledError:\n        pass\n";
     let r = Repo::new(&files(&[("app.py", swallow)]));
     let twice = format!(
@@ -153,16 +154,24 @@ fn forbid_on_added_lines_only() {
     );
     write(r.path(), &files(&[("app.py", &twice)]));
     let id = "python/no-swallowed-cancel";
-    let (code, v) = r.check(&["--changed"], &[id], PATH);
-    assert_eq!(code, 1, "{v}");
-    let f = findings_of(&v, id);
-    assert_eq!(f.len(), 1, "{v}");
-    let text = f[0]["agent_text"].as_str().unwrap();
-    assert!(text.starts_with("app.py:14 An except handler"), "{text}");
-    // the whole project: both
-    let (code, v) = r.check(&["--all"], &[id], PATH);
-    assert_eq!(code, 1);
-    assert_eq!(findings_of(&v, id).len(), 2, "{v}");
+    for scope in ["--changed", "--all"] {
+        let (code, v) = r.check(&[scope], &[id], PATH);
+        assert_eq!(code, 1, "{v}");
+        let f = findings_of(&v, id);
+        let texts: Vec<&str> = f
+            .iter()
+            .map(|x| x["agent_text"].as_str().unwrap())
+            .collect();
+        assert_eq!(texts.len(), 2, "{scope}: {v}");
+        assert!(
+            texts[0].starts_with("app.py:7 An except handler"),
+            "{texts:?}"
+        );
+        assert!(
+            texts[1].starts_with("app.py:14 An except handler"),
+            "{texts:?}"
+        );
+    }
 }
 
 #[test]
@@ -784,11 +793,10 @@ fn check_examples() {
     );
 }
 
-/// §10.6: failing tests are re-run in the tree as it was at the start of the turn; only new
-/// failures fail the check, old ones are "unverified" (exit 3): a note for the person, no
-/// finding.
+/// §10.6: a failing test fails the check whatever its cause and whether it failed at the start
+/// of the turn too: the agent reads the run's own output, nothing is interpreted.
 #[test]
-fn failing_tests_compared_with_the_start_of_the_turn() {
+fn failing_tests_fail_whatever_their_cause() {
     let pytest = "#!/bin/sh\ncase \"$1\" in --version) echo 'pytest 8.3.0'; exit 0 ;; esac\necho 'E   OSError: connect ECONNREFUSED 127.0.0.1:5432'\necho 'FAILED tests/test_a.py::test_old - OSError'\nif grep -q BROKEN a.py; then echo 'FAILED tests/test_a.py::test_new - assert 1 == 2'; fi\nexit 1\n";
     let head = files(&[
         ("a.py", "x = 1\n"),
@@ -803,40 +811,28 @@ fn failing_tests_compared_with_the_start_of_the_turn() {
     )
     .unwrap();
     let id = "python/pytest/run";
-    write(r.path(), &files(&[("a.py", "x = 2\n")]));
-    let (code, v) = r.turn(&[id]);
-    assert_eq!(code, 3, "{v}");
-    assert!(
-        v["unverified"]
-            .as_array()
-            .unwrap()
+    for (a, failing) in [
+        ("x = 2\n", &["test_old"][..]),
+        ("x = 2  # BROKEN\n", &["test_old", "test_new"][..]),
+    ] {
+        write(r.path(), &files(&[("a.py", a)]));
+        let (code, v) = r.turn(&[id]);
+        assert_eq!(code, 1, "{v}");
+        let text: String = findings_of(&v, id)
             .iter()
-            .any(|u| u.as_str().unwrap().contains("test_old")),
-        "{v}"
-    );
-    assert!(findings_of(&v, id).is_empty(), "{v}");
-    assert!(
-        v["notes"].as_array().unwrap().iter().any(|n| {
-            let t = n["text"].as_str().unwrap();
-            n["rule"] == id
-                && t.contains("tests/test_a.py::test_old")
-                && t.contains("Postgres refused the connection")
-        }),
-        "{v}"
-    );
-    write(r.path(), &files(&[("a.py", "x = 2  # BROKEN\n")]));
-    let (code, v) = r.turn(&[id]);
-    assert_eq!(code, 1, "{v}");
-    let m = findings_of(&v, id)[0]["message"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    assert!(
-        m.starts_with(
-            "1 failing test(s) passed at the start of the turn:\n  tests/test_a.py::test_new"
-        ),
-        "{m}"
-    );
+            .map(|f| f["agent_text"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        for t in failing {
+            assert!(text.contains(t), "{t}: {text}");
+        }
+        assert!(text.contains("ECONNREFUSED 127.0.0.1:5432"), "{text}");
+        assert!(
+            !text.contains("start of the turn") && !text.contains("Postgres"),
+            "{text}"
+        );
+        assert!(v.get("unverified").is_none(), "{v}");
+    }
 }
 
 /// Advice (§10.7) is given once per turn and never fails the run alone (exit 4).

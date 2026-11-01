@@ -3,23 +3,19 @@ title: When Claude stops
 description: The Stop hook and the checks it runs on the turn's changes.
 ---
 
-When you send a prompt, `claude-forge hook user-prompt-submit` snapshots the working tree. When Claude ends its turn, `claude-forge hook stop` compares: if nothing changed during the turn, Claude stops freely. Otherwise it runs the active checks on **what changed during the turn**, commits made during the turn included. Your own work in progress is not part of it, and in a file you had already changed, only the lines Claude added count. If the check fails, the stop is blocked and Claude gets the findings, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again. The project's own checks (tests, type checks) are capped in time; Forge's overhead has a tight budget of its own.
+When you send a prompt, `claude-forge hook user-prompt-submit` snapshots the working tree. When Claude ends its turn, `claude-forge hook stop` compares: if nothing changed during the turn, Claude stops freely. Otherwise it runs the active checks on **what changed during the turn**, commits made during the turn included. Files only you changed are not part of it; a file Claude changed is checked as a whole. If the check fails, the stop is blocked and Claude gets the findings, so it keeps working. After three blocks in a row it hands over to you; a new prompt starts the count again. The project's own checks (tests, type checks) are capped in time; Forge's overhead has a tight budget of its own.
 
 ## The steps
 
 The checks run in stages and stop at the first that fails: test integrity, `forbid` rules, format, lint, codegen, typecheck, migrations, tests. `forge check` runs the same steps outside a session.
 
-## Added lines
+## Files the change touched
 
-Outside `--all`, a `forbid` match or a lint finding counts only on a line the change added, against the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request). A new file counts fully. A formatter may rewrite lines Claude never touched; when it can format from stdin, the base copy is formatted the same way and a line counts only when it is added against both. Counting rules (`no-increase`, `no-decrease`) compare whole files, and type checks, migrations and tests are not line-scoped.
+Outside `--all`, every finding in a file the change touched counts, whether Claude brought it or the file already had it: a `forbid` match, a lint finding, a type error, dead code. A finding in a file the change did not touch counts only when the change caused it (a caller it broke, a function whose last call it removed): Forge then runs the check on a copy of the base (the start of the turn, `HEAD` for a commit, the merge base in a pull request) and keeps what is new. Counting rules (`no-increase`, `no-decrease`) compare whole files.
 
-## Errors that were already there
+## Failing tests
 
-A whole-project type check blocks only for errors in files that are part of the change, and a lint run only for findings on added lines. Errors already present elsewhere do not block; CI with `--all` still fails on them.
-
-## Tests that were already failing
-
-When the tests fail at Stop, Forge runs the failing test files again in a copy of the project as it was at the start of the turn (your working tree, index and stash are left alone). A test that passed then and fails now blocks as usual. A test that also failed then (typically no database or no network) is not Claude's change, so it never blocks: `forge status` lists the tests that could not be verified, with the errors that look environmental and what to set up.
+A failing test blocks, whatever its cause, including a missing database or network, and whether it already failed before the turn. Claude reads the failure as the test run printed it. The Stop limits still apply: after three blocks in a turn, or when Claude stops again without changing anything, it hands over to you.
 
 ## Advice
 

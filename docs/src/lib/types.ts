@@ -78,7 +78,6 @@ export interface CheckTarget {
   changed_run?: string;
   fix_run?: string;
   format_stdin?: string;
-  rerun?: string;
   when_changed?: string[];
   requires_local_db?: boolean;
   timeout?: number;

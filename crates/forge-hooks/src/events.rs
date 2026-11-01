@@ -543,17 +543,15 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
     } else {
         Vec::new()
     };
-    let tmp = p
-        .session_dir
-        .join(format!("typecheck.{}", std::process::id()));
     let mut lines: Vec<String> = Vec::new();
     let mut notes = Vec::new();
     for (lang, files) in by_lang {
+        // no base copy: every error of an edited file counts, old or new (§10.4)
         let diag_files: Vec<DiagFile> = files
             .iter()
             .map(|f| DiagFile {
                 path: f.clone(),
-                base: base_copy(&p, f, &tmp),
+                base: None,
             })
             .collect();
         let Some(client) = &client else { break };
@@ -566,7 +564,6 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
             )),
         }
     }
-    let _ = std::fs::remove_dir_all(&tmp);
     // a declared dependency the environment lacks is not the edit's error (§10.4)
     if lines
         .iter()
@@ -587,7 +584,7 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
             lines.push(format!("({} more)", n - 20));
         }
         text.push_str(&format!(
-            "This edit added type errors:\n{}\n",
+            "The edited files have type errors:\n{}\n",
             lines.join("\n")
         ));
     }
@@ -780,9 +777,7 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
             state::write_atomic(&reason_file, text.as_bytes());
             block(text)
         }
-        // tests that fail with and without the change are the person's (a note), never a
-        // block; advice next to them is still given once
-        StopStatus::AdviceOnly | StopStatus::Unverified if has_findings => {
+        StopStatus::AdviceOnly if has_findings => {
             // advice is given once: the same tree then passes
             state::write_atomic(&pass, now.as_bytes());
             let _ = std::fs::remove_file(&fail);

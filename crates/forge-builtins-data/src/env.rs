@@ -146,8 +146,8 @@ fn templates_in(run: &Run<'_>, dir: &str) -> Vec<String> {
     v
 }
 
-/// `forge_env_example <py|ts>`: not with `--all`. A settings field or env schema key added in
-/// the change appears in the .env template of the nearest directory that has one: always when
+/// `forge_env_example <py|ts>`: not with `--all`. A settings field or env schema key of a file
+/// the change touched appears in the .env template of the nearest directory that has one: always when
 /// it has no default, and also with a default when the template already lists at least half of
 /// that class's variables. A template that lists none of them is not about it.
 pub fn env_example(run: &Run<'_>, args: &[String]) -> Report {

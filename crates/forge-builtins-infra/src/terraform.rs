@@ -335,7 +335,8 @@ pub fn trivy_config(cx: &Cx<'_>, _args: &[String]) -> Report {
             .map(|v| (v[1].clone(), v[2].clone()))
             .collect();
         for v in rows(&now.stdout) {
-            if old.contains(&(v[1].clone(), v[2].clone())) {
+            // every misconfiguration of a changed file; elsewhere, only a new one
+            if old.contains(&(v[1].clone(), v[2].clone())) && !cx.is_changed(&join(d, &v[0])) {
                 continue;
             }
             r.findings.push(cx.at(
@@ -346,8 +347,8 @@ pub fn trivy_config(cx: &Cx<'_>, _args: &[String]) -> Report {
         }
     }
     let _ = std::fs::remove_dir_all(&work);
-    // compared with the base here: a new finding in an unchanged file of the directory (a
-    // variable the change set) is the change's
+    // compared with the base here: every finding of a changed file, and a new one in an
+    // unchanged file of the directory (a variable the change set), is the change's
     if !r.findings.is_empty() {
         cx.check.mark_attributed();
     }

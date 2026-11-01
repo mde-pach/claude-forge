@@ -679,61 +679,6 @@ fn the_block_reason_is_capped_and_a_new_prompt_resets_the_count() {
     assert!(!s.session().join("blocks").exists());
 }
 
-/// Tests that fail with and without the change are not the agent's change: the person gets the
-/// checker's note, and the stop is never blocked for them. Advice next to them is given once.
-#[test]
-fn tests_failing_before_the_turn_too_never_block() {
-    let s = Sandbox::new(&[]);
-    let unverified = Report {
-        findings: vec![],
-        notes: vec![Note::new(
-            NoteKind::Environment,
-            "1 failing test(s) also fail at the start of the turn, so the change did not cause them",
-        )],
-    };
-    let f = Fake {
-        stop: Some(StopOutcome {
-            report: unverified.clone(),
-            status: StopStatus::Unverified,
-        }),
-        ..Fake::default()
-    };
-    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
-    std::fs::write(s.root.join("app/main.py"), "x = 2\n").unwrap();
-    assert_eq!(s.run(&f, "stop", json!({})), Output::silent());
-    assert!(
-        s.notes()
-            .iter()
-            .any(|n| n.text.contains("also fail at the start of the turn"))
-    );
-
-    let mut with_advice = unverified;
-    with_advice
-        .findings
-        .push(Finding::advice("python/x", "Prefer y.").at("app/main.py", Some(1)));
-    let f = Fake {
-        stop: Some(StopOutcome {
-            report: with_advice,
-            status: StopStatus::Unverified,
-        }),
-        ..Fake::default()
-    };
-    std::fs::write(s.root.join("app/main.py"), "x = 3\n").unwrap();
-    let out = json_out(&s.run(&f, "stop", json!({})));
-    assert_eq!(out["decision"], "block");
-    assert!(
-        !out["reason"]
-            .as_str()
-            .unwrap()
-            .contains("start of the turn"),
-        "{out}"
-    );
-    assert_eq!(
-        s.run(&f, "stop", json!({"stop_hook_active": true})),
-        Output::silent()
-    );
-}
-
 /// A pack that became active during the session (packaging files created by a command): its
 /// context, which the rules files written at apply time do not hold, reaches the agent once,
 /// after the findings; the packs the rules files hold are never repeated, and the repository's

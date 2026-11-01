@@ -265,12 +265,6 @@
               "minLength": 1,
               "pattern": "\\{file\\}"
             },
-            "rerun": {
-              "type": "string",
-              "description": "`test` stage only.",
-              "minLength": 1,
-              "pattern": "\\{files\\}"
-            },
             "when_changed": {
               "type": "array",
               "items": {
@@ -302,7 +296,7 @@
               "maximum": 600
             },
             "base": {
-              "description": "`branch`: a rule about the branch as a whole (one version bump per branch, a migration\nthe branch added and that is not merged yet): its builtins see the files changed since\nthe merge base of HEAD with the default branch, and their copies there. Not with\n`fix_run`, `fix_lints`, `format_stdin` or `rerun`.",
+              "description": "`branch`: a rule about the branch as a whole (one version bump per branch, a migration\nthe branch added and that is not merged yet): its builtins see the files changed since\nthe merge base of HEAD with the default branch, and their copies there. Not with\n`fix_run`, `fix_lints` or `format_stdin`.",
               "$ref": "#/$defs/CheckBase"
             }
           },

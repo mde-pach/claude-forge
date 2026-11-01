@@ -34,10 +34,6 @@ fn with(enforce: &str) -> String {
 fn fields_that_would_do_nothing_are_refused() {
     let refused = [
         (
-            "  - {target: check, stage: lint, run: 'true', rerun: 'x {files}'}\n",
-            "rerun is for stage test",
-        ),
-        (
             "  - {target: check, stage: test, run: 'true', format_stdin: 'x {file}'}\n",
             "format_stdin is for stages format and lint",
         ),
@@ -51,10 +47,6 @@ fn fields_that_would_do_nothing_are_refused() {
         ),
         (
             "  - {target: check, stage: lint, run: 'true', base: branch, fix_run: 'x {files}'}\n",
-            "base: branch is for a check of the branch as a whole",
-        ),
-        (
-            "  - {target: check, stage: test, run: 'true', base: branch, rerun: 'x {files}'}\n",
             "base: branch is for a check of the branch as a whole",
         ),
         (
@@ -146,7 +138,7 @@ fn the_schema_refuses_unknown_fields_and_values() {
 #[test]
 fn accepted_forms_load() {
     for enforce in [
-        "  - {target: check, stage: test, run: 'forge_do pytest test', rerun: 'forge_do pytest test-files {files}', timeout: 300}\n",
+        "  - {target: check, stage: test, run: 'forge_do pytest test', timeout: 300}\n",
         "  - {target: check, stage: lint, run: 'forge_do ruff lint', changed_run: 'forge_do ruff lint {files}', fix_run: 'forge_do ruff fix {files}', fix_lints: true, config_files: [pyproject.toml]}\n",
         "  - {target: guard, decision: ask, check: ephemeral-exec}\n",
         "  - {target: guard, decision: deny, command: {name: git, sub: [push], flags_any: [--force, -f]}, reason: Force-pushing rewrites shared history.}\n",

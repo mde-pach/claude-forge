@@ -109,7 +109,6 @@ impl Checker for HookChecker {
                 status: match o.status {
                     Status::Pass => StopStatus::Pass,
                     Status::Fail => StopStatus::Fail,
-                    Status::Unverified => StopStatus::Unverified,
                     Status::AdviceOnly => StopStatus::AdviceOnly,
                 },
             },

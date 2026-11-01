@@ -10,7 +10,7 @@ use forge_core::Finding;
 use regex::Regex;
 
 use crate::adapters::strip_ansi;
-use crate::change::{Added, ChangeSet};
+use crate::change::ChangeSet;
 
 macro_rules! re {
     ($name:ident, $src:expr) => {
@@ -34,15 +34,6 @@ re!(BIOME_FMT, r"^([^\s:(]+) format ");
 re!(PRETTIER_WARN, r"^\[warn\] (\S+)$");
 re!(PRETTIER_ERR, r"^\[error\] (\S+): ");
 
-/// How a failed run's diagnostics are attributed outside `--all`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Level {
-    /// On the added lines (lint).
-    Line,
-    /// In the changed files (typecheck, a whole-project format run).
-    File,
-}
-
 /// What the diagnostics of a failed run name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Attribution {
@@ -58,15 +49,14 @@ pub enum Attribution {
     None,
 }
 
-/// `forge_attribute_level`: lint by added line, typecheck and a whole-project format run by
-/// changed file; anything else is not attributed.
-pub fn level_of(stage: forge_packs::model::Stage, whole: bool) -> Option<Level> {
+/// `forge_attributed`: the stages whose failed runs are attributed by the files their diagnostics
+/// name (lint, typecheck, a whole-project format run); anything else is not attributed.
+pub fn attributed(stage: forge_packs::model::Stage, whole: bool) -> bool {
     use forge_packs::model::Stage;
     match stage {
-        Stage::Lint => Some(Level::Line),
-        Stage::Typecheck => Some(Level::File),
-        Stage::Format if whole => Some(Level::File),
-        _ => None,
+        Stage::Lint | Stage::Typecheck => true,
+        Stage::Format => whole,
+        _ => false,
     }
 }
 
@@ -87,39 +77,29 @@ fn relative(p: &str, root: &Path) -> String {
     p.strip_prefix("./").map(str::to_string).unwrap_or(p)
 }
 
-/// The changed files and added lines a diagnostic is attributed to.
+/// The changed files a diagnostic is attributed to.
 pub struct Target<'a> {
     pub changed: &'a [String],
-    pub added: &'a std::collections::BTreeMap<String, Added>,
 }
 
 impl<'a> Target<'a> {
     pub fn of(c: &'a ChangeSet) -> Target<'a> {
         Target {
             changed: &c.changed,
-            added: &c.added,
         }
     }
 
     fn is_changed(&self, p: &str) -> bool {
         self.changed.iter().any(|c| c == p)
     }
-
-    fn whole(&self, p: &str) -> bool {
-        matches!(self.added.get(p), Some(Added::Whole))
-    }
-
-    fn on_added(&self, p: &str, ln: u32) -> bool {
-        self.added.get(p).is_some_and(|a| a.contains(ln))
-    }
 }
 
-/// `forge_diagnostics`: what a failed run's diagnostics name, and the lines that count.
+/// `forge_diagnostics`: what a failed run's diagnostics name, and the lines that count: every
+/// diagnostic in a file the change touched, whatever its line.
 pub fn attribute(
     output: &str,
     root: &Path,
     target: &Target<'_>,
-    level: Level,
     warn: bool,
 ) -> (Attribution, Vec<String>) {
     let mut hdr = String::new();
@@ -148,20 +128,13 @@ pub fn attribute(
             erred = true;
         }
         let l = LEAD.replace(&line, "").into_owned();
-        let mut ln: Option<u32> = None;
         let p: String;
         if sty {
             p = hdr.clone();
-            ln = l.split(':').next().and_then(|n| n.trim().parse().ok());
         } else if let Some(m) = LOC.find(&l) {
             let loc = m.as_str();
             let tail = LOC_TAIL.find(loc).map(|t| t.start()).unwrap_or(loc.len());
             p = loc[..tail].to_string();
-            let nums = &loc[tail + 1..];
-            ln = nums
-                .split(|c: char| !c.is_ascii_digit())
-                .find(|s| !s.is_empty())
-                .and_then(|s| s.parse().ok());
         } else if let Some(c) = REFORMAT.captures(&l) {
             p = c[1].to_string();
         } else if let Some(c) = BIOME_FMT.captures(&l) {
@@ -179,17 +152,7 @@ pub fn attribute(
         if !p.starts_with(".forge/") && !p.starts_with(".claude/skills/forge-project/") {
             project = true;
         }
-        let counts = match level {
-            Level::Line => {
-                target.whole(&p)
-                    || match ln {
-                        None | Some(0) => target.is_changed(&p),
-                        Some(n) => target.on_added(&p, n),
-                    }
-            }
-            Level::File => target.is_changed(&p),
-        };
-        if counts {
+        if target.is_changed(&p) {
             hit = true;
             lines.push(if sty {
                 format!("{p}:{}", l.trim_start())
@@ -212,11 +175,11 @@ pub fn attribute(
     (what, lines)
 }
 
-/// One diagnostic line as a key (`forge_diag_keys`): on an added line, its path, its text after
+/// One diagnostic line as a key (`forge_diag_keys`): in a changed file, its path, its text after
 /// the location ("path:12:5: error[x] msg" is ": error[x] msg"), the line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiagKey {
-    pub on_added: bool,
+    pub in_changed: bool,
     pub path: String,
     pub text: String,
     pub line: String,
@@ -231,14 +194,9 @@ pub fn diag_keys(output: &str, root: &Path, target: &Target<'_>) -> Vec<DiagKey>
         let loc = m.as_str();
         let tail = LOC_TAIL.find(loc).map(|t| t.start()).unwrap_or(loc.len());
         let p = relative(&loc[..tail], root);
-        let ln: u32 = loc[tail + 1..]
-            .split(|c: char| !c.is_ascii_digit())
-            .find(|s| !s.is_empty())
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
         let text = l[m.end()..].replace('\t', " ");
         out.push(DiagKey {
-            on_added: target.whole(&p) || target.on_added(&p, ln),
+            in_changed: target.is_changed(&p),
             path: p,
             text,
             line: raw.to_string(),
@@ -247,34 +205,27 @@ pub fn diag_keys(output: &str, root: &Path, target: &Target<'_>) -> Vec<DiagKey>
     out
 }
 
-/// `forge_typecheck_compare`'s count, for the errors in the changed files (`now`): every error on
-/// a line the change added or rewrote is the change's, whatever the base had (the lint's rule:
-/// the agent's lines are its own, and old errors in code it rewrote are not told apart from new
-/// ones of the same text); an error on a line it did not touch counts only as far as the run now
-/// reports more of that text than the base did (`all_now` vs `base`, whole project), beyond those
-/// on added lines (an error the change caused elsewhere, in a caller say). Returns the lines that
-/// count and how many others.
-pub fn compare_with_base(
-    now: &[DiagKey],
-    all_now: &[DiagKey],
-    base: &[DiagKey],
-) -> (Vec<String>, usize) {
+/// `forge_typecheck_compare`'s count, over every error of the run (`now`): an error in a file the
+/// change touched counts, whatever the base had; an error in a file it did not touch counts only
+/// as far as the run now reports more of that text than the base did (`base`, whole project),
+/// beyond those in the touched files (an error the change caused elsewhere, in a caller say).
+/// Returns the lines that count and how many others.
+pub fn compare_with_base(now: &[DiagKey], base: &[DiagKey]) -> (Vec<String>, usize) {
     let mut left: HashMap<&str, i64> = HashMap::new();
-    for k in all_now {
+    for k in now {
         *left.entry(&k.text).or_default() += 1;
     }
     for k in base {
         *left.entry(&k.text).or_default() -= 1;
     }
-    let keep: Vec<bool> = now.iter().map(|k| k.on_added).collect();
-    for k in now.iter().filter(|k| k.on_added) {
+    for k in now.iter().filter(|k| k.in_changed) {
         if let Some(n) = left.get_mut(k.text.as_str()) {
             *n -= 1;
         }
     }
-    let mut keep = keep;
+    let mut keep: Vec<bool> = now.iter().map(|k| k.in_changed).collect();
     for (i, k) in now.iter().enumerate() {
-        if !k.on_added
+        if !k.in_changed
             && let Some(n) = left.get_mut(k.text.as_str())
             && *n > 0
         {
@@ -512,95 +463,57 @@ pub fn findings_of(output: &str, rule: &str, root: &Path) -> Vec<Finding> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
-    use std::collections::BTreeSet;
-
-    fn target<'a>(changed: &'a [String], added: &'a BTreeMap<String, Added>) -> Target<'a> {
-        Target { changed, added }
-    }
 
     #[test]
-    fn attributes_by_line_and_file() {
+    fn attributes_by_file() {
         let changed = vec!["a.py".to_string()];
-        let added = BTreeMap::from([("a.py".to_string(), Added::Lines(BTreeSet::from([3])))]);
-        let t = target(&changed, &added);
+        let t = Target { changed: &changed };
         let root = Path::new("/r");
+        // every diagnostic of a changed file counts, whatever its line
         let out = "a.py:3:1: F401 unused\na.py:9:1: E501 long\nb.py:1:1: F401 x\n";
-        let (w, l) = attribute(out, root, &t, Level::Line, false);
+        let (w, l) = attribute(out, root, &t, false);
         assert_eq!(w, Attribution::Changed);
-        assert_eq!(l, ["a.py:3:1: F401 unused"]);
-        let (w, _) = attribute("a.py:9:1: E501 long\n", root, &t, Level::Line, false);
+        assert_eq!(l, ["a.py:3:1: F401 unused", "a.py:9:1: E501 long"]);
+        let (w, _) = attribute("b.py:9:1: E501 long\n", root, &t, false);
         assert_eq!(w, Attribution::Other);
-        let (w, l) = attribute("/r/a.py(9,1): error TS1: x\n", root, &t, Level::File, false);
+        let (w, l) = attribute("/r/a.py(9,1): error TS1: x\n", root, &t, false);
         assert_eq!((w, l.len()), (Attribution::Changed, 1));
-        let (w, _) = attribute("a.py:3:1: warning: w\n", root, &t, Level::Line, false);
+        let (w, _) = attribute("a.py:3:1: warning: w\n", root, &t, false);
         assert_eq!(w, Attribution::Warnings);
-        let (w, _) = attribute("config error\n", root, &t, Level::Line, false);
+        let (w, _) = attribute("config error\n", root, &t, false);
         assert_eq!(w, Attribution::None);
         // ESLint's stylish output
-        let (w, l) = attribute(
-            "/r/a.py\n  3:5  error  bad  rule\n",
-            root,
-            &t,
-            Level::Line,
-            false,
-        );
+        let (w, l) = attribute("/r/a.py\n  3:5  error  bad  rule\n", root, &t, false);
         assert_eq!(w, Attribution::Changed);
         assert_eq!(l, ["a.py:3:5  error  bad  rule"]);
     }
 
+    /// The real task's case: every error in a file the change touched is reported, old or new;
+    /// in a file it did not touch, only an error of a text the change caused (a caller it broke).
     #[test]
-    fn compares_with_base() {
-        let k = |p: &str, t: &str, a: bool| DiagKey {
-            on_added: a,
+    fn every_error_in_a_changed_file_counts() {
+        let k = |p: &str, t: &str, c: bool| DiagKey {
+            in_changed: c,
             path: p.into(),
             text: t.into(),
             line: format!("{p}{t}"),
         };
-        let now = vec![
-            k("a", ": e1", false),
-            k("a", ": e1", true),
-            k("a", ": e2", false),
-        ];
-        let all = now.clone();
-        let base = vec![k("a", ": e1", false), k("a", ": e2", false)];
-        let (new, old) = compare_with_base(&now, &all, &base);
-        assert_eq!(new, ["a: e1"]);
-        assert_eq!(old, 2);
-    }
-
-    /// The real task's case: the change rewrote functions with old errors and added code with
-    /// the same text; every error on its lines is reported, none of the untouched ones, except
-    /// an error of a new text the change caused on an untouched line (a caller).
-    #[test]
-    fn every_error_on_the_changes_lines_counts() {
-        let k = |p: &str, t: &str, a: bool| DiagKey {
-            on_added: a,
-            path: p.into(),
-            text: t.into(),
-            line: format!("{p}{t}{a}"),
-        };
         let bare = ": missing-type-argument dict";
         let now = vec![
-            k("d", bare, false),         // a helper the change did not touch
-            k("d", bare, true),          // rewritten old code
-            k("d", bare, true),          // rewritten old code
+            k("d", bare, true),          // an old helper in the changed file
             k("d", bare, true),          // new code
-            k("d", bare, true),          // new code
-            k("d", ": call-arg", false), // a caller the change broke
+            k("e", bare, false),         // an old one in an untouched file
+            k("e", ": call-arg", false), // a caller the change broke
         ];
-        let all = now.clone();
-        let base = vec![
-            k("d", bare, false),
-            k("d", bare, false),
-            k("d", bare, false),
-        ];
-        let (new, old) = compare_with_base(&now, &all, &base);
-        assert_eq!(new.len(), 5, "{new:?}");
-        assert!(
-            new.iter()
-                .all(|l| l.ends_with("true") || l.contains("call-arg")),
-            "{new:?}"
+        let base = vec![k("d", bare, true), k("e", bare, false)];
+        let (new, old) = compare_with_base(&now, &base);
+        assert_eq!(
+            new,
+            [
+                "d: missing-type-argument dict",
+                "d: missing-type-argument dict",
+                "e: call-arg"
+            ]
         );
         assert_eq!(old, 1);
     }

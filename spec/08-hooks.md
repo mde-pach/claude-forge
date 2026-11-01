@@ -138,9 +138,9 @@ Not covered after each command: writes by a `run_in_background` command after it
 The entry is `asyncRewake`: Claude Code runs it in the background, and exit 2 wakes Claude with its stderr.
 
 - It runs for the edited file (Bash: the files in `<tool_use_id>.files`, waiting up to 60 s for PostToolUse to write the list), for the languages whose type check is active: `.py`, `.pyi` (Python) and `.ts`, `.tsx`, `.mts`, `.cts` (TypeScript).
-- It asks the running types engine (§15) for the diagnostics the edit added, against the file's base copy (the turn snapshot's copy, else HEAD's). It never starts the engine and never runs a type checker itself: with no engine running, or an engine still loading, it says nothing, and Stop runs the type check.
+- It asks the running types engine (§15) for the errors of the edited files, old or new (§10.4). It never starts the engine and never runs a type checker itself: with no engine running, or an engine still loading, it says nothing, and Stop runs the type check.
 - An unresolved import of a declared dependency is the environment's, as at Stop (§10.4): a note, never in the text.
-- New errors: exit 2 with `This edit added type errors:` and at most 20 diagnostic lines (`(<n> more)` after them) on stderr. An engine error is a `ForgeFailure` note.
+- New errors: exit 2 with `The edited files have type errors:` and at most 20 diagnostic lines (`(<n> more)` after them) on stderr. An engine error is a `ForgeFailure` note.
 - **The uv lock.** When `python/uv/lock-sync` is active, the edit (or the Bash command) changed `pyproject.toml` or `uv.toml`, and the project has a `uv.lock`, it runs `uv lock --check` and, on a stale lock, `uv lock`: the lock is derived, so Forge keeps it in sync rather than report it (§10.5). A relock adds `uv.lock was updated to match pyproject.toml.` to the stderr (exit 2). A lock the project does not have is never created here (setup, `forge apply`), and a `pyproject.toml` that does not resolve is left to Stop, which reports uv's error. Nor does it relock when `pyproject.toml` declares a dependency name its copy at the start of the turn (the turn snapshot's, else HEAD's) does not: at Stop the lock is updated only after the new-dependency checks (§10.5). The JavaScript locks are not relocked here (§10.5).
 - Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input. Under `claude -p "<prompt>"` every edit would wait for it, so when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli` and no ancestor process (up to 12) runs with `--input-format stream-json` or `--sdk-url`, the hook exits 0 at once and Stop runs the type check. The answer is kept per session (`<session>/rewake`). `FORGE_EDIT_TYPECHECK=always` runs it anyway; `never` never runs it.
 
@@ -155,7 +155,6 @@ The Stop check runs the turn's checks (§10) and blocks with the findings: `{"de
 5. Otherwise the checker runs on the turn's change (against the turn snapshot; without one, on every uncommitted change), with a 300 s budget.
    - Error findings: block. The reason holds errors first, then advice, at most 40 lines and 6000 characters. The tree as the checks left it (formatters may have run) is recorded as failed.
    - Advice only: block once; the same tree then passes.
-   - Only tests that also fail at the start of the turn (§10.6): never a block. They fail without Claude's change too, so they are not its to fix: the checker's note tells the person, and the stop passes (advice found next to them still blocks once).
    - No error finding (a pass, a skipped check, a Forge failure): pass, and the tree is recorded as passed.
 6. After 3 blocks in one turn the stop is let through, with the note "The Stop check failed 3 times in one turn, so Claude was let stop with the failures left; run `forge check` to see them." A new prompt resets the count.
 

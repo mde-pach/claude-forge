@@ -639,7 +639,7 @@ fn test_edits_ask() {
 }
 
 #[test]
-fn typecheck_reports_new_errors_through_the_engine() {
+fn typecheck_reports_the_edited_files_errors_through_the_engine() {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixListener;
     let s = Sandbox::new(&["python/typecheck"]);
@@ -654,7 +654,8 @@ fn typecheck_reports_new_errors_through_the_engine() {
         let req: Value = serde_json::from_str(&line).unwrap();
         assert_eq!(req["op"], "diagnostics");
         assert_eq!(req["files"][0]["path"], "app/main.py");
-        assert!(req["files"][0]["base"].is_string());
+        // no base copy: every error of the edited file counts, old or new
+        assert!(req["files"][0]["base"].is_null(), "{req}");
         let resp = json!({"diagnostics": [{"path": "app/main.py", "line": 1, "column": 5,
             "severity": "error", "code": "invalid-assignment", "message": "bad"},
             {"path": "app/main.py", "line": 2, "column": 6, "severity": "error",

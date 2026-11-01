@@ -91,7 +91,6 @@ fn ran(root: &Path, marker: &str) -> bool {
 fn exit_codes() {
     assert_eq!(Status::Pass.exit_code(), 0);
     assert_eq!(Status::Fail.exit_code(), 1);
-    assert_eq!(Status::Unverified.exit_code(), 3);
     assert_eq!(Status::AdviceOnly.exit_code(), 4);
 }
 
@@ -180,10 +179,10 @@ fn counts_are_totals_deleted_files_included() {
     );
 }
 
-/// A failing check that names no added line is run again on the base: what the base already
-/// reported is not the change's (a note says so); what is new fails.
+/// A failing check that names no file counts as it is, whatever the base had: an unrelated edit
+/// of a file that already lacks what the check wants fails too.
 #[test]
-fn a_failure_the_base_already_had_is_not_the_changes() {
+fn a_failure_that_names_no_file_counts_whatever_the_base_had() {
     let lacks = || {
         rule(json!({
             "id": "acme/conf", "description": "conf.txt declares REQUIRED.",
@@ -192,10 +191,43 @@ fn a_failure_the_base_already_had_is_not_the_changes() {
                 "run": "grep -q REQUIRED conf.txt || { echo 'conf.txt does not declare REQUIRED'; exit 1; }"}],
         }))
     };
-    // already missing: an unrelated edit of the file passes
-    let d = repo(&[("conf.txt", "a = 1\n")]);
-    put(d.path(), "conf.txt", "a = 2\n");
-    let o = checker(d.path(), vec![lacks()])
+    for before in ["a = 1\n", "REQUIRED\n"] {
+        let d = repo(&[("conf.txt", before)]);
+        put(d.path(), "conf.txt", "a = 2\n");
+        let o = checker(d.path(), vec![lacks()])
+            .check(Mode::Changed, &stop())
+            .unwrap();
+        assert_eq!(o.status, Status::Fail, "{before:?}: {:?}", o.report);
+        assert!(
+            o.report.findings[0]
+                .agent_text()
+                .contains("does not declare REQUIRED")
+        );
+    }
+}
+
+/// Findings only in files the change did not touch count when the change caused them: the
+/// check runs again on the base tree (reading it through `FORGE_ROOT`, as builtins do), and what
+/// it already reported there is not the change's (a note says so).
+#[test]
+fn findings_in_other_files_count_when_the_change_caused_them() {
+    let needs = rule(json!({
+        "id": "acme/conf", "description": "conf.txt's value comes from app.txt.",
+        "scope": {"language": "any"},
+        "enforce": [{"target": "check", "stage": "lint",
+            "run": "grep -q REQUIRED \"$FORGE_ROOT/app.txt\" || { echo 'conf.txt:1: needs REQUIRED from app.txt'; exit 1; }"}],
+    }));
+    // the change removed it from app.txt: the finding in conf.txt is the change's
+    let d = repo(&[("app.txt", "REQUIRED\n"), ("conf.txt", "x\n")]);
+    put(d.path(), "app.txt", "a = 2\n");
+    let o = checker(d.path(), vec![needs.clone()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    // already missing: the base reports it too
+    let d = repo(&[("app.txt", "a = 1\n"), ("conf.txt", "x\n")]);
+    put(d.path(), "app.txt", "a = 2\n");
+    let o = checker(d.path(), vec![needs])
         .check(Mode::Changed, &stop())
         .unwrap();
     assert_eq!(o.status, Status::Pass, "{:?}", o.report);
@@ -207,43 +239,12 @@ fn a_failure_the_base_already_had_is_not_the_changes() {
         "{:?}",
         o.report.notes
     );
-    // removed by the change: it fails
-    let d = repo(&[("conf.txt", "REQUIRED\n")]);
-    put(d.path(), "conf.txt", "a = 2\n");
-    let o = checker(d.path(), vec![lacks()])
-        .check(Mode::Changed, &stop())
-        .unwrap();
-    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-    assert!(
-        o.report.findings[0]
-            .agent_text()
-            .contains("does not declare REQUIRED")
-    );
 }
 
-/// The base run reads the base tree through `FORGE_ROOT` too (as builtins do): a failure the
-/// change brought is not taken for one the base already had.
+/// A kube-linter-style finding at line 0 of a changed manifest (about the whole object) counts,
+/// whether the manifest already had it or the change brought it.
 #[test]
-fn the_base_run_names_the_base_tree_as_its_root() {
-    let lacks = rule(json!({
-        "id": "acme/conf", "description": "conf.txt declares REQUIRED.",
-        "scope": {"language": "any"},
-        "enforce": [{"target": "check", "stage": "lint", "when_changed": ["conf.txt"],
-            "run": "grep -q REQUIRED \"$FORGE_ROOT/conf.txt\" || { echo 'conf.txt does not declare REQUIRED'; exit 1; }"}],
-    }));
-    let d = repo(&[("conf.txt", "REQUIRED\n")]);
-    put(d.path(), "conf.txt", "a = 2\n");
-    let o = checker(d.path(), vec![lacks])
-        .check(Mode::Changed, &stop())
-        .unwrap();
-    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-}
-
-/// A kube-linter-style finding at line 0 of a changed manifest (about the whole object) is
-/// compared with the base: an edit elsewhere in a manifest that already had it passes; the
-/// change that brings it fails.
-#[test]
-fn a_whole_file_finding_the_base_already_had_is_not_the_changes() {
+fn a_whole_file_finding_of_a_changed_file_counts() {
     let lint = || {
         rule(json!({
             "id": "acme/kube", "description": "Workloads set readOnlyRootFilesystem.",
@@ -252,32 +253,28 @@ fn a_whole_file_finding_the_base_already_had_is_not_the_changes() {
                 "run": "grep -q readOnlyRootFilesystem deploy/web.yaml || { echo 'deploy/web.yaml:0: (object: <no namespace>/web apps/v1, Kind=Deployment) container \"web\" does not have a read-only root file system (check: no-read-only-root-fs)'; exit 1; }"}],
         }))
     };
-    let d = repo(&[("deploy/web.yaml", "kind: Deployment\nreplicas: 1\n")]);
-    put(
-        d.path(),
-        "deploy/web.yaml",
-        "kind: Deployment\nreplicas: 2\n",
-    );
-    let o = checker(d.path(), vec![lint()])
-        .check(Mode::Changed, &stop())
-        .unwrap();
-    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
-    let d = repo(&[(
-        "deploy/web.yaml",
+    for before in [
+        "kind: Deployment\nreplicas: 1\n",
         "kind: Deployment\nreadOnlyRootFilesystem: true\n",
-    )]);
-    put(d.path(), "deploy/web.yaml", "kind: Deployment\n");
-    let o = checker(d.path(), vec![lint()])
-        .check(Mode::Changed, &stop())
-        .unwrap();
-    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-    assert!(o.report.findings[0].agent_text().contains("read-only root"));
+    ] {
+        let d = repo(&[("deploy/web.yaml", before)]);
+        put(
+            d.path(),
+            "deploy/web.yaml",
+            "kind: Deployment\nreplicas: 2\n",
+        );
+        let o = checker(d.path(), vec![lint()])
+            .check(Mode::Changed, &stop())
+            .unwrap();
+        assert_eq!(o.status, Status::Fail, "{before:?}: {:?}", o.report);
+        assert!(o.report.findings[0].agent_text().contains("read-only root"));
+    }
 }
 
-/// Step 2: a forbid grep fails on an added line only, names `path:line` and the description,
-/// and stops the stages; documentation files are never grepped.
+/// Step 2: a forbid grep fails on every line of a changed file, old or new, names `path:line`
+/// and the description, and stops the stages; documentation files are never grepped.
 #[test]
-fn forbid_on_added_lines_and_never_in_prose() {
+fn forbid_in_changed_files_and_never_in_prose() {
     let d = repo(&[("a.py", "eval(x)\n"), ("README.md", "intro\n")]);
     put(d.path(), "a.py", "eval(x)\nok = 1\neval(y)\n");
     put(d.path(), "README.md", "intro\nNever call eval(x).\n");
@@ -292,7 +289,7 @@ fn forbid_on_added_lines_and_never_in_prose() {
         .unwrap();
     assert_eq!(o.status, Status::Fail);
     let texts: Vec<String> = o.report.findings.iter().map(|f| f.agent_text()).collect();
-    assert_eq!(texts, ["a.py:3 No eval()."]);
+    assert_eq!(texts, ["a.py:1 No eval().", "a.py:3 No eval()."]);
     assert!(!ran(d.path(), "lint-ran"));
 }
 
@@ -412,9 +409,9 @@ fn a_spent_budget_is_a_note_not_a_failure() {
     );
 }
 
-/// Lint diagnostics count on the added lines only (outside `--all`); the rest is a note.
+/// Lint diagnostics count on every line of a changed file, old or new.
 #[test]
-fn lint_is_attributed_by_added_line() {
+fn lint_is_attributed_by_changed_file() {
     let d = repo(&[("a.py", "a = 1\nb = 2\n")]);
     put(d.path(), "a.py", "a = 1\nb = 2\nc = 3\n");
     let lint = |line: u32| {
@@ -427,11 +424,8 @@ fn lint_is_attributed_by_added_line() {
     let o = checker(d.path(), vec![lint(1)])
         .check(Mode::Changed, &stop())
         .unwrap();
-    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
-    assert_eq!(
-        o.report.notes[0].text,
-        "ok for the added lines (findings remain on lines this change did not add)"
-    );
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    assert_eq!(o.report.findings[0].agent_text(), "a.py:1 error E1 bad");
     let o = checker(d.path(), vec![lint(3)])
         .check(Mode::Changed, &stop())
         .unwrap();
@@ -503,9 +497,10 @@ fn warnings_count_only_with_fail_on_warnings() {
     assert_eq!(o.status, Status::Fail);
 }
 
-/// A typecheck counts errors in the changed files only; errors elsewhere are a note.
+/// A typecheck counts every error in the changed files; one in another file counts only when the
+/// change caused it (the base run does not report it).
 #[test]
-fn typecheck_errors_in_unchanged_files_are_a_note() {
+fn typecheck_errors_in_unchanged_files_count_when_the_change_caused_them() {
     let d = repo(&[("a.py", "a = 1\n"), ("old.py", "o = 1\n")]);
     put(d.path(), "a.py", "a = 2\n");
     let o = checker(
@@ -518,11 +513,15 @@ fn typecheck_errors_in_unchanged_files_are_a_note() {
     )
     .check(Mode::Changed, &stop())
     .unwrap();
-    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
-    assert_eq!(
-        o.report.notes[0].text,
-        "ok for the changed files (errors remain in unchanged files)"
-    );
+    assert_eq!(o.status, Status::Pass, "already there: {:?}", o.report);
+    // the change in a.py breaks old.py
+    let run =
+        "grep -q 'a = 1' \"$FORGE_ROOT/a.py\" || { echo 'old.py:1:1: error: a is not 1'; exit 1; }";
+    let o = checker(d.path(), vec![check_rule("acme/types", "typecheck", run)])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    assert_eq!(o.report.agent_text(20), "old.py:1 error: a is not 1");
 }
 
 /// An unresolved import of a dependency the project declares is the environment's state (the
@@ -699,31 +698,20 @@ fn person_text_json_and_agent_text() {
     assert_eq!(o.report.agent_text(20), "");
 }
 
-/// A typecheck error the base already has in a changed file does not count (the command runs
-/// again in a copy of the base tree); one more of a new text fails, naming only that one, and
-/// the errors already there are a note for the person.
+/// Every typecheck error in a changed file counts, the ones the base already had included, and
+/// no base run is needed for them.
 #[test]
-fn typecheck_errors_the_base_already_has() {
+fn typecheck_errors_of_a_changed_file_all_count() {
     let run = "n=0; while read -r l; do n=$((n+1)); case $l in *bad*) echo \"a.py:$n:1: error: $l is bad\"; st=1 ;; esac; done < a.py; exit ${st:-0}";
     let d = repo(&[("a.py", "bad1\nok\n")]);
-    put(d.path(), "a.py", "bad1\nok\nfine\n");
-    let o = checker(d.path(), vec![check_rule("acme/types", "typecheck", run)])
-        .check(Mode::Changed, &stop())
-        .unwrap();
-    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
     put(d.path(), "a.py", "bad1\nok\nbad2\n");
     let o = checker(d.path(), vec![check_rule("acme/types", "typecheck", run)])
         .check(Mode::Changed, &stop())
         .unwrap();
     assert_eq!(o.status, Status::Fail, "{:?}", o.report);
-    // the agent reads only its new error; the person also reads that one was already there
-    assert_eq!(o.report.agent_text(20), "a.py:3 error: bad2 is bad");
-    assert!(
-        forge_check::output::person_text(&o).contains(
-            "acme/types: 1 error(s) in the changed files were already there before this change"
-        ),
-        "{}",
-        forge_check::output::person_text(&o)
+    assert_eq!(
+        o.report.agent_text(20),
+        "a.py:1 error: bad1 is bad\na.py:3 error: bad2 is bad"
     );
 }
 
@@ -904,4 +892,30 @@ fn a_refused_commit_says_how_to_accept() {
     );
     let e = forge_packs::load_project_config(d.path()).unwrap_err();
     assert!(e.to_string().contains("give file, change or both"), "{e}");
+}
+
+/// A failing test counts whatever its cause, the environment's included, and whether it failed
+/// before the change or not: the agent reads the failure as the run printed it.
+#[test]
+fn a_failing_test_counts_whatever_its_cause() {
+    let d = repo(&[("a.py", "x = 1\n")]);
+    put(d.path(), "a.py", "x = 2\n");
+    let tests = check_rule(
+        "acme/tests",
+        "test",
+        "echo 'FAILED tests/test_db.py::test_connect - ConnectionRefusedError: [Errno 111] Connection refused'; exit 1",
+    );
+    let o = checker(d.path(), vec![tests])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    let text = o.report.agent_text(20);
+    assert!(
+        text.contains("test_connect - ConnectionRefusedError"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("start of the turn") && !text.contains("environmental"),
+        "{text}"
+    );
 }
