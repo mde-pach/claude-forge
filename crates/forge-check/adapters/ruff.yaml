@@ -19,6 +19,10 @@ tool: "ruff"
 # Forge's pinned ruff, run where the project does not configure ruff, with Forge's own config
 # as `--config` overrides (§11.2).
 fallback: "0.17.1"
+# what that release does there: it lints, and never rewrites the project's files. The safe fixes
+# run as a lint, and the formatting operations do not run (`forge apply` offers a ruff config of
+# the project's, which turns them on).
+fallback_ops: {fix: lint, format: null, format-check: null, format-stdin: null}
 verified: "0.17.3"
 usage: {exit: [2], pattern: "^For more information, try .--help."}
 ranges:

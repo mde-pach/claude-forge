@@ -89,6 +89,10 @@ pub struct Adapter {
     /// configure the tool, with Forge's config (ruff, §11.2).
     #[serde(default)]
     pub fallback: Option<String>,
+    /// What the fallback does of an operation: another operation in its place, or nothing
+    /// (`null`); an operation not listed runs as it is.
+    #[serde(default)]
+    pub fallback_ops: IndexMap<String, Option<String>>,
     pub verified: String,
     #[serde(default)]
     pub runner: Runner,
@@ -504,6 +508,34 @@ pub fn fallback_pin<'a>(a: &'a Adapter, cwd: &Path, root: &Path) -> Option<&'a s
         .filter(|_| !project_configures(&a.tool, cwd, root))
 }
 
+/// What an operation is where the adapter's fallback runs (the adapter's `fallback_ops`).
+pub enum FallbackOp<'a> {
+    /// This operation runs (the one asked, or the one in its place).
+    Runs(&'a str),
+    /// Nothing runs.
+    Not,
+}
+
+/// `op` as it runs here: where the project does not configure the tool and Forge's fallback
+/// release runs, as the adapter's `fallback_ops` says.
+pub fn fallback_op<'a>(a: &'a Adapter, op: &'a str, cwd: &Path, root: &Path) -> FallbackOp<'a> {
+    if a.pinned.is_some() || fallback_pin(a, cwd, root).is_none() {
+        return FallbackOp::Runs(op);
+    }
+    match a.fallback_ops.get(op) {
+        Some(Some(to)) => FallbackOp::Runs(to),
+        Some(None) => FallbackOp::Not,
+        None => FallbackOp::Runs(op),
+    }
+}
+
+/// The note of an operation Forge's fallback release does not do.
+fn not_run(tool: &str, op: &str) -> String {
+    format!(
+        "not run ({tool} {op}): the project does not configure {tool}, and Forge's own {tool} only lints; `forge apply` offers a {tool} config"
+    )
+}
+
 /// What `forge_do` did.
 #[derive(Debug, Default)]
 pub struct DoOutcome {
@@ -592,6 +624,12 @@ pub fn resolve(tool: &str, op: &str, args: &[String], ctx: &DoCtx<'_>) -> Result
             NoteKind::ForgeFailure,
             format!("Forge has no adapter for {name}"),
         ));
+    };
+    let op = match fallback_op(&a, op, ctx.cwd, ctx.root) {
+        FallbackOp::Runs(op) => op,
+        FallbackOp::Not => {
+            return Err(note(NoteKind::NotEnforced, not_run(&name, op)));
+        }
     };
     let (cmd, version) = locate(&a, ctx.tools, ctx.root, ctx.cwd)
         .map_err(|why| note(NoteKind::MissingTool, format!("skipped: {why}")))?;

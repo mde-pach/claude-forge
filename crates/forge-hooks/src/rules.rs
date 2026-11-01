@@ -103,6 +103,7 @@ fn meta_key(path: &Path) -> Option<String> {
 pub fn facts_key(root: &Path) -> String {
     const NAMES: &[&str] = &[
         "uv.lock",
+        "uv.toml",
         "poetry.lock",
         "pdm.lock",
         "Pipfile",

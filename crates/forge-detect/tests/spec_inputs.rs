@@ -446,6 +446,13 @@ fn package_manager_facts() {
                 "pyproject.toml",
                 "[project]\nname = \"a\"\ndependencies = [\"httpx\"]\n",
             )],
+            "pyproject",
+        ),
+        (
+            &[(
+                "pyproject.toml",
+                "[project]\nname = \"a\"\n\n[tool.uv]\nexclude-newer = \"7 days\"\n",
+            )],
             "uv",
         ),
         (
@@ -465,6 +472,43 @@ fn package_manager_facts() {
         let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
         assert_eq!(f.root.fact(FACT_PYTHON_PM), Some(*want), "{files:?}");
     }
+    // python.requirements: how the requirements files write their entries
+    for (files, want) in [
+        (&[("main.py", "print(1)\n")][..], "none"),
+        (
+            &[("requirements.txt", "-r base.txt\n# none here\n")],
+            "none",
+        ),
+        (
+            &[
+                (
+                    "requirements.txt",
+                    "httpx==0.28.1\n-r requirements/dev.txt\n",
+                ),
+                (
+                    "requirements/dev.txt",
+                    "pytest==8.3.5 ; python_version >= \"3.10\"\n",
+                ),
+            ],
+            "pinned",
+        ),
+        (
+            &[
+                ("requirements.txt", "httpx==0.28.1\n"),
+                ("requirements-dev.txt", "pytest>=8\n"),
+            ],
+            "unpinned",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        write(dir.path(), files);
+        let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
+        assert_eq!(
+            f.root.fact(forge_detect::FACT_PYTHON_REQUIREMENTS),
+            Some(want),
+            "{files:?}"
+        );
+    }
     // a workspace package sees the root's lock
     let dir = tempfile::tempdir().unwrap();
     write(
@@ -478,6 +522,10 @@ fn package_manager_facts() {
             ("pkgs/a/pyproject.toml", "[project]\nname = \"a\"\n"),
         ],
     );
+    let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
+    assert_eq!(f.workspaces[0].fact(FACT_PYTHON_PM), Some("uv"));
+    // and the root's uv settings, before any lock
+    std::fs::remove_file(dir.path().join("uv.lock")).unwrap();
     let f = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
     assert_eq!(f.workspaces[0].fact(FACT_PYTHON_PM), Some("uv"));
 

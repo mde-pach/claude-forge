@@ -14,7 +14,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 - Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 - A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
-- (when `python.pm` is `none`) This project has no Python packaging file: when a third-party package is needed, create the project with `uv init --bare`, then `uv add <pkg>`.
+- (when `python.pm` is `none`) This project declares no dependencies yet: a third-party package is declared before it is installed, either as `name==version` in requirements.txt (then `pip install -r requirements.txt`) or in a project created with `uv init --bare` (then `uv add name`).
+- (when `python.pm` is `pyproject`) Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
@@ -97,7 +98,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/no-weak-hash` | No MD5 or SHA-1 for security. Use SHA-256 or better (or usedforsecurity=False for checksums). | python | tool ruff `S324` |
 | `python/open-with-context` | Files are opened in a with block, so they are closed on every path. | python | tool ruff `SIM115` |
 | `python/override-decorator` | A method overriding a base-class method carries @typing.override. | python | tool ty `missing-override-decorator` |
-| `python/pip-install` | Packages go into the project through its package manager, not with pip into its environment. | any | guard deny: check `python-pm` |
+| `python/pip-install` | Packages go into the project's environment as the project declares them (its package manager, its pyproject.toml or its requirements files), not with pip on their own. | any | guard deny: check `python-pm` |
 | `python/project-table` | pyproject.toml declares the project in a PEP 621 [project] table with requires-python, not only in tool-specific metadata such as [tool.poetry]. | any: `pyproject.toml` | check lint: a shell script calling `forge_toml_get` (when `pyproject.toml` changes) |
 | `python/raise-from` | Inside except, a new exception is raised from the caught one (raise X from err) or explicitly from None, so the cause is kept. | python | tool ruff `B904` |
 | `python/ruff-config-current` | Ruff settings use their current names (linter options under [tool.ruff.lint] / [lint], no deprecated option): ruff prints no deprecation warning for the project's config. | any: `**/pyproject.toml`, `**/ruff.toml`, `**/.ruff.toml` | check lint: `! forge_do ruff settings-warnings . 2>&1 >/dev/null \| grep -iE -A5 '^warning: .*deprecat'` (when `**/pyproject.toml`, `**/ruff.toml` or `**/.ruff.toml` changes) |
@@ -532,11 +533,12 @@ Child of `python`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- (when a file matches `requirements*.txt`, `**/requirements*.txt`, `**/requirements/*.txt`) Dependencies are listed in the requirements files with exact versions (`name==1.2.3`): a new dependency goes there with the version to use, then `pip install -r <file>` installs it.
+- (when `python.requirements` is `pinned`) Dependencies are listed in the requirements files with exact versions (`name==1.2.3`): a new dependency goes there with the version to use, then `pip install -r <file>` installs it.
+- (when `python.requirements` is `unpinned`) Dependencies are listed in the requirements files: a new dependency goes there, written as the file writes its other entries, then `pip install -r <file>` installs it.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `python/pip/pinned-requirements` | Requirements files pin each package to an exact version (name==1.2.3), so every install gets the same packages; a range or a bare name lets each machine resolve its own. | any: `**/requirements*.txt`, `**/requirements/*.txt` | grep forbid `^[[:space:]]*[A-Za-z0-9][A-Za-z0-9._-]*(\[[^]]*\])?[[:space:]]*($\|[;#<>!~])` |
+| `python/pip/pinned-requirements` | A requirements file that pins each package to an exact version (name==1.2.3) keeps doing so, so every install gets the same packages; a range or a bare name lets each machine resolve its own. A file that writes ranges keeps its own convention. | any: `**/requirements*.txt`, `**/requirements/*.txt` | check lint: `forge_pinned_requirements` |
 
 ### python/pipenv
 

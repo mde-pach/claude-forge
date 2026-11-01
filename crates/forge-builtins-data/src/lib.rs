@@ -21,7 +21,7 @@ mod ctx;
 mod dead_code;
 mod docs;
 mod env;
-mod python;
+pub mod python;
 mod release;
 mod sql;
 mod util;
@@ -101,6 +101,7 @@ const ALL: &[(&str, RunFn)] = &[
     ("stub_sync", python::stub_sync),
     ("condor", dead_code::condor),
     ("uv_cooldown", python::uv_cooldown),
+    ("pinned_requirements", python::pinned_requirements),
     ("uv_lock", python::uv_lock),
     ("env_example", env::env_example),
     ("version_changed", release::version_changed),

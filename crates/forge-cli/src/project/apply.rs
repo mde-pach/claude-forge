@@ -2,6 +2,7 @@
 
 use std::io::IsTerminal;
 
+use forge_builtins_data::python::with_uv_cooldown;
 use forge_packs::model::{Level, PackSource};
 use forge_render::changes::{Changes, line_diff};
 use forge_render::plan::display_path;
@@ -140,6 +141,10 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
             return Err(Error::new("forge: cancelled; nothing written"));
         }
     }
+    if offer_ruff_config(&ctx, flags)? {
+        ctx = context(flags)?;
+        ch = ctx.changes()?;
+    }
     if precommit::offer(&mut ctx, flags)? {
         ch = ctx.changes()?;
     }
@@ -163,55 +168,6 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     report(&ctx, probe);
     Ok(0)
-}
-
-/// The settings `python/uv/exclude-newer` asks of the project, as apply adds them.
-const UV_COOLDOWN: [(&str, &str); 2] = [
-    ("exclude-newer", "\"7 days\""),
-    ("required-version", "\">=0.9.17\""),
-];
-
-/// `pyproject.toml` with the `[tool.uv]` keys of [`UV_COOLDOWN`] it lacks: under its
-/// `[tool.uv]` header, else in a new table at the end. A value the project set is never
-/// changed. `None`: nothing to add, or a file it cannot read as TOML.
-fn with_uv_cooldown(text: &str) -> Option<String> {
-    let doc: toml::Table = text.parse().ok()?;
-    let uv = doc
-        .get("tool")
-        .and_then(|t| t.get("uv"))
-        .and_then(|u| u.as_table());
-    let missing: Vec<String> = UV_COOLDOWN
-        .iter()
-        .filter(|(k, _)| uv.is_none_or(|u| !u.contains_key(*k)))
-        .map(|(k, v)| format!("{k} = {v}"))
-        .collect();
-    if missing.is_empty() {
-        return None;
-    }
-    let header = text
-        .lines()
-        .position(|l| l.trim().replace(' ', "") == "[tool.uv]");
-    let out = match header {
-        Some(i) => {
-            let mut lines: Vec<&str> = text.lines().collect();
-            for (n, m) in missing.iter().enumerate() {
-                lines.insert(i + 1 + n, m);
-            }
-            let mut t = lines.join("\n");
-            t.push('\n');
-            t
-        }
-        None => {
-            let mut t = text.trim_end().to_string();
-            t.push_str("\n\n[tool.uv]\n");
-            for m in &missing {
-                t.push_str(m);
-                t.push('\n');
-            }
-            t
-        }
-    };
-    out.parse::<toml::Table>().ok().map(|_| out)
 }
 
 /// Offers the uv setup the active rules ask of the project, where it lacks it: uv's cooldown in
@@ -297,6 +253,49 @@ fn offer_uv_setup(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
         println!("forge: {}; commit them with Forge's files", done.join(", "));
     }
     Ok(())
+}
+
+/// Offers a ruff config of the project's where the Python checks run and the project has none:
+/// Forge's own ruff only lints such a project (§11.2); with the project's config, ruff also
+/// formats it and applies its safe fixes after an edit. The config is the active pack's `init/`
+/// template, as `forge init` writes it. Without a terminal and without `--yes`, it is left to the
+/// person. Returns whether it was created (the plan changes: ruff is configured).
+fn offer_ruff_config(ctx: &Ctx, flags: &Flags) -> Result<bool, Error> {
+    const RUFF: &str = "ruff.toml";
+    let active = |id: &str| ctx.plan.active.iter().any(|st| st.rule.id == id);
+    if ctx.level != Level::Project
+        || flags.dry_run
+        || !(active("python/lint") || active("python/format"))
+        || forge_detect::place::ruff_config(&ctx.base, &ctx.base)
+    {
+        return Ok(false);
+    }
+    let template = ctx.plan.packs.iter().find_map(|pk| {
+        let pack = &ctx.set.packs[&pk.id];
+        let dir = pack.init_dir.as_ref()?;
+        init_files(pack.source, &ctx.base, dir)
+            .into_iter()
+            .find(|(rel, _)| rel == RUFF)
+            .map(|(_, bytes)| (pk.id.clone(), bytes))
+    });
+    let Some((pack, bytes)) = template else {
+        return Ok(false);
+    };
+    let what = "the project does not configure ruff, so Forge's ruff lints its Python files but does not format them or apply safe fixes";
+    if !flags.yes && !std::io::stdin().is_terminal() {
+        println!("forge: {what}; re-run with --yes to create {RUFF}");
+        return Ok(false);
+    }
+    if !confirm(&format!("{what}; create {RUFF} (from {pack})?"), flags.yes)? {
+        return Ok(false);
+    }
+    write_text(
+        &ctx.base.join(RUFF),
+        &String::from_utf8_lossy(&bytes),
+        false,
+    )?;
+    println!("forge: created {RUFF} (from {pack}); commit it with Forge's files");
+    Ok(true)
 }
 
 /// Installs the tools the lock pins that this setup uses: uv (Forge's PATH directory for the
@@ -496,27 +495,4 @@ fn switch_offs(file: &str, text: &str, ctx: &Ctx) -> Option<String> {
         .ok()?;
     }
     Some(out)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::with_uv_cooldown;
-
-    #[test]
-    fn the_uv_cooldown_is_added_where_missing() {
-        let plain = "[project]\nname = \"x\"\n";
-        assert_eq!(
-            with_uv_cooldown(plain).unwrap(),
-            "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"
-        );
-        // under an existing [tool.uv]; a value the project set is kept
-        let some = "[project]\nname = \"x\"\n\n[tool.uv]\nexclude-newer = \"2 days\"\n";
-        assert_eq!(
-            with_uv_cooldown(some).unwrap(),
-            "[project]\nname = \"x\"\n\n[tool.uv]\nrequired-version = \">=0.9.17\"\nexclude-newer = \"2 days\"\n"
-        );
-        let done = "[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n";
-        assert!(with_uv_cooldown(done).is_none());
-        assert!(with_uv_cooldown("not = = toml").is_none());
-    }
 }

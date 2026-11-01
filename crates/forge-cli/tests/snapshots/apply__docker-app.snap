@@ -23,14 +23,12 @@ Workflows set `permissions: {}` at the top and grant each job only what it needs
 `actions/checkout` sets `persist-credentials: false` unless a later step pushes.
 Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) are never expanded inside `run:`: pass them through `env:` and use the shell variable.
 `pull_request_target` and `workflow_run` run with secrets on untrusted code: do not add them.
-=== .claude/rules/forge-python-uv.md
-The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
-A `pyproject.toml` you create gets `[tool.uv]` with `exclude-newer = "7 days"` and `required-version = ">=0.9.17"`, so freshly published versions are not resolved; one you edit keeps the `[tool.uv]` settings it has.
 === .claude/rules/forge-python.md
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
+Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
 === .claude/rules/forge-secrets.md
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
@@ -51,9 +49,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
       "Edit(**/.mypy.ini)",
       "Edit(**/pyrightconfig.json)",
       "Write(**/setup.py)",
-      "Write(**/setup.cfg)",
-      "Write(**/requirements*.txt)",
-      "Edit(**/requirements*.txt)"
+      "Write(**/setup.cfg)"
     ]
   },
   "hooks": {
@@ -178,7 +174,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "1fedbb1fb6cf23b1893d77173dd244ec15a231292d9ba5db09a2dfcc990f3dd9"
+rule_set = "c6f65814b838dd728768c23671002e928a229991fa84f3c156d3bfe8ef344a82"
 
 [rules]
 "docker/compose/config-valid" = "b87377426380c917a3d0496c579860b4167ae96f6df1e50de5fa1e7c5a454a8d"
@@ -292,7 +288,7 @@ rule_set = "1fedbb1fb6cf23b1893d77173dd244ec15a231292d9ba5db09a2dfcc990f3dd9"
 "python/no-weak-hash" = "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03"
 "python/open-with-context" = "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056"
 "python/override-decorator" = "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089"
-"python/pip-install" = "2734633f12571173b6f415db45fc1f635290f6a6e8bc058209b672fa17ca61e5"
+"python/pip-install" = "35206ea13cf5a7c01c3bdd937a6fb8f9f7d7a3b09b7cfc49969fdf271f6ad629"
 "python/project-table" = "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327"
 "python/raise-from" = "9db5fd6097de7febf8d00ed992f6edac1d4577ee7c4fe765ad65fc4ae4d72381"
 "python/ruff-config-current" = "740352f926ca71cf7008eefd348543f0989a311eb1f051689ca0a7c480e7b312"
@@ -305,11 +301,6 @@ rule_set = "1fedbb1fb6cf23b1893d77173dd244ec15a231292d9ba5db09a2dfcc990f3dd9"
 "python/typecheck" = "f20a77cb92eccf2fbe6e119e9f3db3448aa26fd77df903a1c02dabcf14492baf"
 "python/typed-decorators" = "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75"
 "python/typeis-over-typeguard" = "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9"
-"python/uv/dependency-groups" = "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a"
-"python/uv/exclude-newer" = "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b"
-"python/uv/lock-sync" = "ce1dd68db2f3b2ab395aba3d477d11366d8ab64e4bca5da9e5e66d633c29530a"
-"python/uv/no-pip" = "68c8dfbbd045bebd1ac31ad3d13e00fe8b8a36a9670f545a046dcd126932dcd7"
-"python/uv/no-requirements-txt" = "6cce30b3ed9fafebacc617ce26d59d622c10fa10edb9ba9d07b32c0bf5c331e5"
 "python/valid-pyproject" = "40ad449b8df05d6eb542febf92bfe5178801884677bd23dfde50a8e83ee27241"
 "python/weak-crypto" = "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48"
 "python/with-suffix-dot" = "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2"
@@ -331,8 +322,7 @@ rule_set = "1fedbb1fb6cf23b1893d77173dd244ec15a231292d9ba5db09a2dfcc990f3dd9"
 ".claude/rules/forge-docker-compose.md" = "750f5b2392a48b51e38aedd249db49bade0915bf76c5a7ace1cbd4fd08bab1a8"
 ".claude/rules/forge-docker.md" = "ca10301bd5c893e37123d35f7cf804b271c3d439e00fb1e905ac55e4271c450e"
 ".claude/rules/forge-github-actions.md" = "e81a526f9757bb80529d3c52c63366159a61a50594a9120dfb9d30fe8266f88d"
-".claude/rules/forge-python-uv.md" = "609498b9221606be927a25631bb63786a53b97ea473f561e673e2609a5cadc18"
-".claude/rules/forge-python.md" = "ae124b4c073fd385363076ac012a883690cda2618e4191f046a02e548983c6fe"
+".claude/rules/forge-python.md" = "82f14e617b5c0b6220cbf28cc867d0c775f8c95f68d4e03c9f0bcd79599665de"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 
@@ -433,16 +423,6 @@ value = "Write(**/setup.py)"
 file = ".claude/settings.json"
 path = "permissions.ask"
 value = "Write(**/setup.cfg)"
-
-[[settings]]
-file = ".claude/settings.json"
-path = "permissions.ask"
-value = "Write(**/requirements*.txt)"
-
-[[settings]]
-file = ".claude/settings.json"
-path = "permissions.ask"
-value = "Edit(**/requirements*.txt)"
 
 [[settings]]
 file = ".claude/settings.json"

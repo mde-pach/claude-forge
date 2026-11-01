@@ -76,9 +76,21 @@ fn python_package_managers() {
     assert!(uv["python-uv"].contains("`uv add`"));
     assert!(!all(&uv).contains("uv init"));
 
-    // a pyproject declaring dependencies without a lock is uv's
+    // a pyproject declaring dependencies, no lock and no uv settings: no manager's mark, the
+    // dependencies are declared in it
     let no_lock = rules_files(&[("pyproject.toml", UV_PYPROJECT)]);
-    assert!(no_lock.contains_key("python-uv"));
+    assert!(!no_lock.contains_key("python-uv"), "{no_lock:?}");
+    assert!(
+        no_lock["python"].contains("Dependencies are declared in pyproject.toml"),
+        "{no_lock:?}"
+    );
+    assert!(!all(&no_lock).contains("uv "), "{no_lock:?}");
+    // uv's settings are its mark, before any lock
+    let settings = rules_files(&[(
+        "pyproject.toml",
+        &format!("{UV_PYPROJECT}\n[tool.uv]\nexclude-newer = \"7 days\"\n"),
+    )]);
+    assert!(settings.contains_key("python-uv"));
 
     let poetry = rules_files(&[
         (
@@ -98,6 +110,16 @@ fn python_package_managers() {
     let pip = rules_files(&[("requirements.txt", "requests==2.32.5\n"), ("app.py", "")]);
     assert!(pip["python-pip"].contains("exact versions"));
     assert!(!all(&pip).contains("uv "), "{pip:?}");
+    // requirements that write ranges: their own convention, not exact versions
+    let ranged = rules_files(&[("requirements.txt", "requests>=2.32\n"), ("app.py", "")]);
+    assert!(
+        !ranged["python-pip"].contains("exact versions"),
+        "{ranged:?}"
+    );
+    assert!(
+        ranged["python-pip"].contains("written as the file writes its other entries"),
+        "{ranged:?}"
+    );
 }
 
 #[test]

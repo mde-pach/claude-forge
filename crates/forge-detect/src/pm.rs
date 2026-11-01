@@ -11,13 +11,16 @@
 //! | `pdm.lock`                                                             | `pdm`    |
 //! | `Pipfile.lock` or `Pipfile`                                            | `pipenv` |
 //! | `pyproject.toml` whose `[tool.poetry]` declares dependencies          | `poetry` |
-//! | `pyproject.toml` with a `[project]` table or dependency groups, no lock | `uv`     |
+//! | `uv.toml`, or a `[tool.uv]` table in `pyproject.toml` (here or the root's) | `uv` |
+//! | `pyproject.toml` with a `[project]` table or dependency groups        | `pyproject` |
 //! | `requirements*.txt` (no pyproject, or one holding only tool config)    | `pip`    |
 //! | `setup.py` / `setup.cfg` (setuptools without pyproject metadata)       | `pip`    |
 //! | none of these (plain scripts, or no Python)                            | `none`   |
 //!
-//! A workspace package also sees the locks at the repository root (a uv or Poetry workspace
-//! has one lock).
+//! uv is the manager only once it has left its mark (its lock or its settings): a
+//! `pyproject.toml` that only declares a project is any installer's (`pip install -e .`).
+//! A workspace package also sees the locks and uv settings at the repository root (a uv or
+//! Poetry workspace has one lock).
 //!
 //! JavaScript (`js.pm`): the pinned manager (`packageManager`, `devEngines.packageManager`,
 //! the package's then the root's), else the lock file (`bun.lock`/`bun.lockb` → bun,
@@ -36,6 +39,8 @@ pub enum PythonPm {
     Poetry,
     Pdm,
     Pipenv,
+    /// A `pyproject.toml` declaring the project, no manager's mark.
+    Pyproject,
     Pip,
     None,
 }
@@ -47,6 +52,7 @@ impl PythonPm {
             PythonPm::Poetry => "poetry",
             PythonPm::Pdm => "pdm",
             PythonPm::Pipenv => "pipenv",
+            PythonPm::Pyproject => "pyproject",
             PythonPm::Pip => "pip",
             PythonPm::None => "none",
         }
@@ -100,13 +106,25 @@ pub fn python_pm(dir: &Path, repo: &Path, pyproject: Option<&Value>, own: &[Stri
     if dir.join("Pipfile.lock").is_file() || dir.join("Pipfile").is_file() {
         return PythonPm::Pipenv;
     }
-    if let Some(t) = pyproject {
-        if poetry_declares_deps(t) {
-            return PythonPm::Poetry;
-        }
-        if t.get("project").is_some_and(Value::is_object) || t.get("dependency-groups").is_some() {
-            return PythonPm::Uv;
-        }
+    if pyproject.is_some_and(poetry_declares_deps) {
+        return PythonPm::Poetry;
+    }
+    let root_pyproject = if dir == repo {
+        None
+    } else {
+        crate::deps::read_toml(&repo.join("pyproject.toml"))
+    };
+    let uv_settings = |t: &Value| t.pointer("/tool/uv").is_some();
+    if here_or_root("uv.toml")
+        || pyproject.is_some_and(uv_settings)
+        || root_pyproject.as_ref().is_some_and(uv_settings)
+    {
+        return PythonPm::Uv;
+    }
+    if pyproject.is_some_and(|t| {
+        t.get("project").is_some_and(Value::is_object) || t.get("dependency-groups").is_some()
+    }) {
+        return PythonPm::Pyproject;
     }
     if crate::deps::requirements_files(own).next().is_some() {
         return PythonPm::Pip;
@@ -174,6 +192,7 @@ mod tests {
         let project = "[project]\nname = \"x\"\ndependencies = [\"httpx\"]\n";
         let poetry = "[tool.poetry]\nname = \"x\"\n[tool.poetry.dependencies]\npython = \"^3.12\"\ndjango = \"^5\"\n";
         let tool_only = "[tool.ruff]\nline-length = 100\n";
+        let uv_settings = "[project]\nname = \"x\"\n\n[tool.uv]\npackage = false\n";
         for (files, want) in [
             (
                 vec![("uv.lock", ""), ("pyproject.toml", project)],
@@ -196,7 +215,19 @@ mod tests {
                 vec![("Pipfile", "[packages]\nrequests = \"*\"\n")],
                 PythonPm::Pipenv,
             ),
-            (vec![("pyproject.toml", project)], PythonPm::Uv),
+            (vec![("pyproject.toml", project)], PythonPm::Pyproject),
+            (vec![("pyproject.toml", uv_settings)], PythonPm::Uv),
+            (
+                vec![("pyproject.toml", project), ("uv.toml", "")],
+                PythonPm::Uv,
+            ),
+            (
+                vec![
+                    ("pyproject.toml", project),
+                    ("requirements-dev.txt", "pytest\n"),
+                ],
+                PythonPm::Pyproject,
+            ),
             (vec![("requirements.txt", "flask\n")], PythonPm::Pip),
             (
                 vec![

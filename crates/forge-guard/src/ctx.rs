@@ -12,6 +12,8 @@ pub enum PythonPm {
     Poetry,
     Pdm,
     Pipenv,
+    /// A `pyproject.toml` declaring the project, no manager's mark (no lock, no uv settings).
+    Pyproject,
     /// `requirements*.txt`, no packaging metadata.
     Pip,
     /// Python files and no packaging file at all.
@@ -26,6 +28,7 @@ impl PythonPm {
             "poetry" => PythonPm::Poetry,
             "pdm" => PythonPm::Pdm,
             "pipenv" => PythonPm::Pipenv,
+            "pyproject" => PythonPm::Pyproject,
             "pip" => PythonPm::Pip,
             "scripts" | "none" => PythonPm::Scripts,
             _ => return None,

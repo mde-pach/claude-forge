@@ -612,9 +612,10 @@ fn user_level_setup() {
 /// and a uv.lock that matches it (`uv lock`).
 #[test]
 fn apply_adds_the_uv_cooldown() {
+    // uv's mark: a [tool.uv] table, no lock yet
     let s = Sandbox::new(&[(
         "pyproject.toml",
-        "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n",
+        "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n\n[tool.uv]\npackage = false\n",
     )]);
     // a uv whose lock records the pyproject.toml it read
     let uv = s.bin.join("uv");
@@ -636,11 +637,46 @@ fn apply_adds_the_uv_cooldown() {
     );
     let py = s.read("pyproject.toml").unwrap();
     assert!(
-        py.ends_with("\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n"),
+        py.ends_with("\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\npackage = false\n"),
         "{py}"
     );
     // once there, nothing more is offered
     assert!(!s.ok(&["apply", "--yes"]).contains("pyproject.toml: added"));
+}
+
+/// apply offers a ruff config where the Python checks run and the project has none (Forge's own
+/// ruff only lints it): without --yes and without a terminal it says so; with --yes it creates
+/// the python pack's template, and the next apply offers nothing.
+#[test]
+fn apply_offers_a_ruff_config() {
+    let s = Sandbox::new(PY);
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: created ruff.toml (from python); commit it with Forge's files"),
+        "{out}"
+    );
+    let ruff = s.read("ruff.toml").unwrap();
+    assert!(ruff.starts_with("line-length = 100\n"), "{ruff}");
+    assert!(!s.ok(&["apply", "--yes"]).contains("ruff.toml"));
+    // removed, and apply run without a terminal and without --yes: said, not written
+    std::fs::remove_file(s.repo.join("ruff.toml")).unwrap();
+    let out = s.ok(&["apply"]);
+    assert!(
+        out.contains("forge: the project does not configure ruff, so Forge's ruff lints its Python files but does not format them or apply safe fixes; re-run with --yes to create ruff.toml"),
+        "{out}"
+    );
+    assert!(!s.exists("ruff.toml"));
+    // a project that configures ruff itself is not asked
+    let s = Sandbox::new(&[
+        (
+            "pyproject.toml",
+            "[project]\nname = \"app\"\n\n[tool.ruff]\nline-length = 88\n",
+        ),
+        ("app/main.py", "X = 1\n"),
+    ]);
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(!out.contains("configure ruff"), "{out}");
+    assert!(!s.exists("ruff.toml"));
 }
 
 /// Inside a Claude Code agent's command (`CLAUDECODE` set), Forge's command line refuses to run:
@@ -787,7 +823,7 @@ fn tool_off_is_written_by_init_and_listed_by_status() {
 /// rendered into its rules file only where their `when` holds, and its rules are active.
 #[test]
 fn local_packs_render_their_context_where_it_holds() {
-    let pack = "id: acme\ndescription: Acme's conventions.\nlevel: project\ndetect: {files_any: [\"app/**\"]}\ncontext:\n  - text: Acme services log with structlog.\n  - text: Acme's uv workspace text.\n    when: {facts: {python.pm: uv}}\n  - text: Acme's poetry text.\n    when: {facts: {python.pm: poetry}}\n";
+    let pack = "id: acme\ndescription: Acme's conventions.\nlevel: project\ndetect: {files_any: [\"app/**\"]}\ncontext:\n  - text: Acme services log with structlog.\n  - text: Acme's uv workspace text.\n    when: {facts: {python.pm: uv}}\n  - text: Acme's pyproject text.\n    when: {facts: {python.pm: pyproject}}\n  - text: Acme's poetry text.\n    when: {facts: {python.pm: poetry}}\n";
     let rule = "id: acme/no-print\ndescription: No print in services.\nscope: {language: python}\nenforce:\n  - {target: grep, mode: forbid, pattern: \"print\\\\(\"}\nexamples:\n  match: [\"print(1)\"]\n  no_match: [\"log(1)\"]\n";
     let s = Sandbox::new(PY);
     s.write(".forge/packs/acme/pack.yaml", pack);
@@ -795,8 +831,10 @@ fn local_packs_render_their_context_where_it_holds() {
     s.ok(&["apply", "--yes"]);
     let text = s.read(".claude/rules/forge-acme.md").unwrap();
     assert!(text.contains("Acme services log with structlog."), "{text}");
-    // pyproject.toml with a [project] table and no lock: python.pm is uv
-    assert!(text.contains("Acme's uv workspace text."), "{text}");
+    // pyproject.toml with a [project] table, no lock and no uv settings: python.pm is
+    // pyproject (uv has left no mark)
+    assert!(text.contains("Acme's pyproject text."), "{text}");
+    assert!(!text.contains("uv workspace"), "{text}");
     assert!(!text.contains("poetry"), "{text}");
     let st = s.ok(&["status"]);
     assert!(st.contains("  acme (detected)"), "{st}");

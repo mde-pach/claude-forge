@@ -10,14 +10,18 @@
 //! `npm ls|view|outdated`, `uv pip list|tree|show|freeze`, `uv tree`…) are not installs.
 //!
 //! - `package-add` flags an install that names a package.
-//! - `python-pm` flags pip (`pip install`, `python -m pip install`, `uv pip install`) into the
-//!   project's environment when the project's packages are uv's (`python.pm` is `uv`) or it
-//!   has no packaging yet (`scripts`): the package belongs in `pyproject.toml`, through
-//!   `uv add`. An install aimed at another environment is not the project's and passes:
-//!   `--target`, `--prefix`, `--root`, `--system`, `--python <path>` / `-p <path>` outside the
-//!   repository, a pip or python run by a path outside the repository
-//!   (`/tmp/venv/bin/pip install x`), `VIRTUAL_ENV=` outside the repository, or a command run
-//!   from outside the repository. (`package-add` still asks about those.)
+//! - `python-pm` holds pip (`pip install`, `python -m pip install`, `uv pip install`) into the
+//!   project's environment to the project's way of declaring dependencies (`python.pm`). Where
+//!   the packages are uv's (`uv`), every such install is refused: it goes through `uv add` or
+//!   `uv sync`. Where a `pyproject.toml` declares the project and no manager has left its mark
+//!   (`pyproject`), or nothing declares dependencies yet (`scripts`), an install that names a
+//!   package is refused (the package is declared first); the project's own installs pass
+//!   (`pip install -e .`, `pip install -r requirements-dev.txt`). An install aimed at another
+//!   environment is not the project's and passes: `--target`, `--prefix`, `--root`,
+//!   `--system`, `--python <path>` / `-p <path>` outside the repository, a pip or python run by
+//!   a path outside the repository (`/tmp/venv/bin/pip install x`), `VIRTUAL_ENV=` outside the
+//!   repository, or a command run from outside the repository. (`package-add` still asks
+//!   about those.)
 
 use std::path::{Path, PathBuf};
 
@@ -323,25 +327,34 @@ pub fn package_add(parsed: &Parsed, ctx: &GuardCtx) -> Option<String> {
 /// `python-pm`: the reason and the detail for pip into the project's environment.
 pub fn python_pm(parsed: &Parsed, ctx: &GuardCtx) -> Option<(String, String)> {
     let pm = ctx.python_pm?;
-    if !matches!(pm, PythonPm::Uv | PythonPm::Scripts) {
+    if !matches!(pm, PythonPm::Uv | PythonPm::Pyproject | PythonPm::Scripts) {
         return None;
     }
     let i = installs(parsed, ctx).find(|i| {
         matches!(i.tool, Tool::Pip | Tool::UvPip)
             && !i.dry_run
             && !i.elsewhere
-            && (!i.packages.is_empty() || !i.requirements.is_empty() || i.local)
+            && if pm == PythonPm::Uv {
+                !i.packages.is_empty() || !i.requirements.is_empty() || i.local
+            } else {
+                !i.packages.is_empty()
+            }
     })?;
+    let names: Vec<String> = i.packages.iter().map(|p| shell_quote(p)).collect();
     let mut add = String::from("uv add");
     for r in &i.requirements {
         add.push_str(" -r ");
         add.push_str(r);
     }
-    for p in &i.packages {
+    for p in &names {
         add.push(' ');
-        add.push_str(&shell_quote(p));
+        add.push_str(p);
     }
     let only_local = i.packages.is_empty() && i.requirements.is_empty();
+    let quoted = |f: &dyn Fn(&str) -> String| -> String {
+        let all: Vec<String> = i.packages.iter().map(|p| format!("`{}`", f(p))).collect();
+        list(&all.iter().map(String::as_str).collect::<Vec<_>>())
+    };
     Some(match pm {
         PythonPm::Uv => (
             "This project uses uv: `uv add <pkg>` (`--dev` for tooling).".into(),
@@ -351,13 +364,25 @@ pub fn python_pm(parsed: &Parsed, ctx: &GuardCtx) -> Option<(String, String)> {
                 format!("`{add}`")
             },
         ),
+        PythonPm::Pyproject => (
+            "This project declares its dependencies in pyproject.toml: add the package to `[project] dependencies` there (tooling: `[dependency-groups]`), then install the project.".into(),
+            format!(
+                "add {} to [project] dependencies in pyproject.toml",
+                quoted(&|p| p.to_string())
+            ),
+        ),
         _ => (
-            "This project has no Python packaging yet: create it with `uv init --bare`, then `uv add <pkg>` (`--dev` for tooling).".into(),
-            if only_local {
-                "`uv init --bare`, then `uv sync`".into()
-            } else {
-                format!("`uv init --bare && {add}`")
-            },
+            "This project declares no dependencies yet; declare the package first: add `<pkg>==<version>` to requirements.txt, then `pip install -r requirements.txt`; or create the project with `uv init --bare`, then `uv add <pkg>`.".into(),
+            format!(
+                "add {} to requirements.txt, then `pip install -r requirements.txt`; or `uv init --bare && uv add {}`",
+                quoted(&|p| if p.contains("==") {
+                    p.to_string()
+                } else {
+                    let name = p.split(['<', '>', '=', '!', '~', ';']).next().unwrap_or(p);
+                    format!("{}==<version>", name.trim())
+                }),
+                names.join(" ")
+            ),
         ),
     })
 }
