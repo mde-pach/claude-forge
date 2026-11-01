@@ -9,22 +9,22 @@ Before writing a utility, search the codebase for an existing helper (warn-once 
 Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.
 When the task changes behaviour an existing test asserts, update that test in place with Edit or Write (keep its name) and say so in your summary. Otherwise never edit an existing test to make the code pass.
 === .claude/rules/forge-python-fastapi.md
-FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (`@app.on_event`, `on_startup=` and `on_shutdown=` are rejected).
+FastAPI. Dependencies use `Annotated[T, Depends(...)]`. Startup and shutdown use `lifespan` (not `@app.on_event`, `on_startup=` or `on_shutdown=`).
 FastAPI reads request and response bodies from Pydantic v2 models.
-`FastAPI(debug=True)` is rejected outside tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (TestClient in an `async def` is rejected).
+`FastAPI(debug=True)` is used only in tests. Tests enter `with TestClient(app) as client:` so the lifespan runs; async tests use `httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")` (not TestClient in an `async def`).
 HTTP Basic credentials (`HTTPBasicCredentials.username` / `.password`) are compared with `secrets.compare_digest`, never `==`.
 === .claude/rules/forge-python-pydantic.md
 Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`), with the adapter built once at module level.
 === .claude/rules/forge-python-sqlalchemy-alembic.md
 Alembic. New revisions: `alembic revision --autogenerate -m "<change>"`. Committed revisions are never edited.
 With an async engine, `alembic/env.py` runs the migrations through `connection.run_sync()` (the async template's `run_async_migrations()`).
-Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` outside tests is rejected.
+Alembic owns the schema: tables are created by revisions, and `metadata.create_all()` is not called outside tests.
 === .claude/rules/forge-python-sqlalchemy-asyncio.md
 SQLAlchemy asyncio: sessions come from `async_sessionmaker(engine, expire_on_commit=False)` and are opened with `async with`.
-Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (`asyncio.gather()` over one session is rejected).
+Async sessions cannot lazy-load (`MissingGreenlet`): load related rows with `selectinload()`, or declare `lazy="raise"`. One session never runs two statements at once (no `asyncio.gather()` over one session).
 === .claude/rules/forge-python-sqlalchemy.md
-SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (`session.query()` is rejected). Large collections are `WriteOnlyMapped[...]` (`lazy="dynamic"` is rejected).
-Values reach `text()` SQL as bound parameters (`:id`): an f-string, `.format()`, `%` or `+` inside `text()`, and a string literal passed to `.execute()`, are rejected. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
+SQLAlchemy 2.0. Models: `class Base(DeclarativeBase)`, `Mapped[T]`, `mapped_column()`, `relationship(back_populates=...)`. Queries: `select()` with `session.execute()` or `session.scalars()` (not `session.query()`). Large collections are `WriteOnlyMapped[...]` (not `lazy="dynamic"`).
+Values reach `text()` SQL as bound parameters (`:id`): no f-string, `.format()`, `%` or `+` inside `text()`, and no string literal passed to `.execute()`. Statements that cannot take parameters (`SET`, `SET LOCAL`) may embed a validated value such as an int.
 === .claude/rules/forge-python-uv.md
 The project is managed with uv: dependencies are added with `uv add` (`uv add --dev` for tooling), and tools run through the project's environment (`uv run <tool>`).
 A `pyproject.toml` you create gets `[tool.uv]` with `exclude-newer = "7 days"` and `required-version = ">=0.9.17"`, so freshly published versions are not resolved; one you edit keeps the `[tool.uv]` settings it has.
@@ -32,7 +32,7 @@ A `pyproject.toml` you create gets `[tool.uv]` with `exclude-newer = "7 days"` a
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
-A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
+A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
 === .claude/rules/forge-secrets.md
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
@@ -180,12 +180,12 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "de88cb6aad24b7b9bd73fe14a9df932584e9c4f7a205ef767613b6b922b89378"
+rule_set = "5e1e594af335d80bff1f5c965a7d1db72c1c6e53b1c56f27b2d253239baf401c"
 
 [rules]
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
 "git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
-"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
+"git/large-files" = "8db4e3c59cb1f2d2d83bf5cdadbb0ac7ba4cde3eb0f3622ce31c666d198499eb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
 "python/annotations-api" = "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a"
@@ -278,7 +278,7 @@ rule_set = "de88cb6aad24b7b9bd73fe14a9df932584e9c4f7a205ef767613b6b922b89378"
 "python/no-weak-hash" = "c089bf6b94415d3a015f154c82037e28b4755268e6f219fb77dd7dc832fc1c03"
 "python/open-with-context" = "7fb9bfbcdd625d4c9c75878c8d5b3c7c889ed8991b49602cc5f28bebe1b22056"
 "python/override-decorator" = "92dea8b42d6c25df4875b5bf77d28a495f5bd878dc0053d502962c63389d2089"
-"python/pip-install" = "2734633f12571173b6f415db45fc1f635290f6a6e8bc058209b672fa17ca61e5"
+"python/pip-install" = "35206ea13cf5a7c01c3bdd937a6fb8f9f7d7a3b09b7cfc49969fdf271f6ad629"
 "python/project-table" = "748116d0ee0fe5cfd75c37b51cee66548cf4319910c8f77d5b05bb4107a72327"
 "python/pydantic/no-v1-namespace" = "b32fea991e2b3e0169aa28db7f026f05a450994c0febe4ea063f6d3c5da506ac"
 "python/pydantic/typeadapter-module-level" = "9466c14f59db5a2f41c941de1765cfab2c8fe6cb4d98b057d367e7924ee40d79"
@@ -349,17 +349,17 @@ rule_set = "de88cb6aad24b7b9bd73fe14a9df932584e9c4f7a205ef767613b6b922b89378"
 "supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
 "supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
 "supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
-"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+"supply-chain/vuln-audit" = "3400baa659e7a6d94b236ef8e299a13e1938189f31dc62f95e0c1a9012bf1a59"
 
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
-".claude/rules/forge-python-fastapi.md" = "7907ea27d815f51fe063bc4b45abcaa966dea191173821564af1da6f41bda793"
+".claude/rules/forge-python-fastapi.md" = "7d3ac2fe081c431bdf68dd9288ed01a51480f2e9d84d7e94e9c12709d782a18f"
 ".claude/rules/forge-python-pydantic.md" = "dc4d8daa1f16ce3a64e3c54ea248ce04a9b61dd5a18529bfe245a57ac7fec67f"
-".claude/rules/forge-python-sqlalchemy-alembic.md" = "918cc4710effea34ba8aa4f388f64a0edb77eb80e891855d9738499844005f47"
-".claude/rules/forge-python-sqlalchemy-asyncio.md" = "c1df65a1549d9dd15d3590a36f90c59c651819ddcdb101bef8a594bfbab95860"
-".claude/rules/forge-python-sqlalchemy.md" = "efde86eda933bf284e258d9e99dcc74e40bab0467eff18ceb652d1f154af091c"
+".claude/rules/forge-python-sqlalchemy-alembic.md" = "ebd765aba629c66acdf56efaa9bf8702df51fb049af19f71fce0819c12e1820b"
+".claude/rules/forge-python-sqlalchemy-asyncio.md" = "b001028e4efefed6396a8922e4ac44a9d9e9914caabdbdc1705f75965f4d980d"
+".claude/rules/forge-python-sqlalchemy.md" = "f5110286827864bc15f7fd0fa8274f3a7e347c205870619de49f5ffe56762ffa"
 ".claude/rules/forge-python-uv.md" = "609498b9221606be927a25631bb63786a53b97ea473f561e673e2609a5cadc18"
-".claude/rules/forge-python.md" = "ae124b4c073fd385363076ac012a883690cda2618e4191f046a02e548983c6fe"
+".claude/rules/forge-python.md" = "bf4a8c0933951682c91c236c9e9a0f123adba409e2d4f3774dd3fc25f6f2a165"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 

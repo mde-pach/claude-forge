@@ -14,7 +14,7 @@ A token or key found in a repository file, a log or a tool's output is never use
 A detected secret is removed, never allowlisted: no inline `gitleaks:allow` comments, `.gitleaksignore` entries or `.gitleaks.toml` allowlists.
 Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_rsa`, `.pypirc`, `.netrc`, `.git-credentials`) are not committed; `.npmrc` tokens are `${NPM_TOKEN}`-style references.
 === .claude/rules/forge-typescript-bun.md
-Bun is the package manager. Tests that import from `bun:test` run with `bun test`. In them, new `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf`, fewer `expect` calls and new mocks (`mock`, `mock.module`, `spyOn`) are rejected.
+Bun is the package manager. Tests that import from `bun:test` run with `bun test`. A change to them adds no `.skip`, `.only`, `.todo`, `.failing`, `.if`/`.skipIf`/`.todoIf` and no mocks (`mock`, `mock.module`, `spyOn`), and does not reduce their `expect` calls.
 === .claude/rules/forge-typescript-nextjs-react.md
 State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
 Server Actions are async functions in a file or function marked `'use server'`.
@@ -27,20 +27,21 @@ Request interception lives in `proxy.ts` (not `middleware.ts`).
 Remote images are allowed with `images.remotePatterns` naming the hosts (no `*` / `**` hostname); `dangerouslyAllowSVG` needs a `contentSecurityPolicy`.
 `next lint` no longer exists and `next build` does not lint: run the project's own linter.
 Server Actions and route handlers (`app/**/route.ts`) are public endpoints: validate their input with a schema and check who is calling.
-`NEXT_PUBLIC_` variables are inlined into the browser bundle; one named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*` is rejected.
+`NEXT_PUBLIC_` variables are inlined into the browser bundle; none is named like `*SECRET*`, `*PRIVATE*`, `*PASSWORD*`, `*SERVICE_ROLE*` or `*DATABASE_URL*`.
 `'use cache'` code never calls `cookies()`, `headers()` or `draftMode()`; `redirect()`, `notFound()` and friends are not called inside `try` unless the catch calls `unstable_rethrow(e)`.
 `typescript.ignoreBuildErrors` is never set; every parallel route `@slot` has a `default.tsx`; metadata uses the Metadata API, not `next/head`.
 === .claude/rules/forge-typescript-playwright.md
 Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
-`waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
+End-to-end tests do not use `waitForTimeout` (a fixed wait).
 Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
 === .claude/rules/forge-typescript-prisma.md
 Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
 SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
 CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
-`prisma migrate dev` does not seed: run `prisma db seed`. Query hooks use Client Extensions (`$extends`; `$use` is removed).
-Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; the `Unsafe` variants, and `Prisma.raw()` built from a template or concatenation, are rejected.
-`$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; `fetch` and calls through an imported axios, got, ky, ofetch, node-fetch or undici there are rejected.
+`prisma migrate dev` does not seed: run `prisma db seed`.
+Query hooks use Client Extensions (`$extends`), not `$use` middleware.
+Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; not the `Unsafe` variants, nor `Prisma.raw()` built from a template or concatenation.
+`$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; no `fetch` and no call through an imported axios, got, ky, ofetch, node-fetch or undici there.
 A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
 Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).
 === .claude/rules/forge-typescript-react.md
@@ -53,13 +54,13 @@ Components follow the React Compiler's rules: no `setState` called synchronously
 Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
 === .claude/rules/forge-typescript-zod.md
 Zod validates untrusted input at boundaries; types derive from schemas with `z.infer<typeof Schema>`.
-Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`); `z.string().email()` and the like are rejected.
-Zod 4: custom messages use the single `error` parameter (`message`, `required_error`, `invalid_type_error` and `errorMap` are rejected).
+Zod 4: string formats are top-level (`z.email()`, `z.uuid()`, `z.url()`, `z.iso.datetime()`), not `z.string().email()` and the like.
+Zod 4: custom messages use the single `error` parameter (not `message`, `required_error`, `invalid_type_error` or `errorMap`).
 Zod 4: object strictness is `z.strictObject()` and `z.looseObject()`; errors are read with `error.issues`, `z.treeifyError()`, `z.flattenError()`.
 === .claude/rules/forge-typescript.md
 TypeScript, strict.
 No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
-`!` non-null assertions and `as unknown as T` are rejected: narrow with a check, or parse with a schema.
+`!` non-null assertions and `as unknown as T` are not used: narrow with a check, or parse with a schema.
 Type-only imports and re-exports use `import type` / `export type`. `JSON.parse` and `res.json()` results stay `unknown` until a schema validates them; literals take `satisfies T` or an annotation, not `as T`.
 === .claude/settings.json
 {
@@ -209,12 +210,12 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "84559f33c794e4da9627f012f61248eb4e74ef6a98c0c79bb45b15fe3dc1dccf"
+rule_set = "daa51530d9024de4ba6e7855cc71c27e0469ffd95277551d377cf971731169b0"
 
 [rules]
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
 "git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
-"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
+"git/large-files" = "8db4e3c59cb1f2d2d83bf5cdadbb0ac7ba4cde3eb0f3622ce31c666d198499eb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
@@ -228,7 +229,7 @@ rule_set = "84559f33c794e4da9627f012f61248eb4e74ef6a98c0c79bb45b15fe3dc1dccf"
 "supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
 "supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
 "supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
-"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+"supply-chain/vuln-audit" = "3400baa659e7a6d94b236ef8e299a13e1938189f31dc62f95e0c1a9012bf1a59"
 "typescript/a11y" = "f4bfd3acc3e30afc5a34b58758a72d19e06a741d6166ea9751ec94af70f678c6"
 "typescript/array-sort-compare" = "f83c97cb0218f407b3b3fb212225121b8de10ab8329a9288bfce6505acb66cb7"
 "typescript/bun/lock-sync" = "2e78b7e238ebb87b8b23c0803175145f8d336562f5d246f491a45a7945afc11c"
@@ -312,10 +313,10 @@ rule_set = "84559f33c794e4da9627f012f61248eb4e74ef6a98c0c79bb45b15fe3dc1dccf"
 "typescript/playwright/run" = "468f6b091253eec471e211167bafc948edacfdcb3884379ac2f68a13501d22b6"
 "typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
 "typescript/prisma/applied-migrations" = "1d492c919d34a50d7175bb0e87948fbaf5ea7f5954fb2ab734088694b68cabfe"
-"typescript/prisma/client-generator" = "8905dafcbf59a72531bc68fe4ccbcebca6cbd2af461fb39690d748885d375c01"
+"typescript/prisma/client-generator" = "e36992dd526529b7586590c0db4553cb47491bda65155c7c2f9e223b51cb4ba6"
 "typescript/prisma/db-push" = "8e6ec17d53fafd1125feacabd0d2935f456a8f94cf322b699000a8b8eff27c28"
 "typescript/prisma/destructive-migration" = "e6988f0fb8e58d55b2a5c9ed1a8b55018c106b602d622db0e1808fb281231d3a"
-"typescript/prisma/generated-client-import" = "89567be06b4754638addfa6a8700297b4739e72cf932328b952b1cfb0621da45"
+"typescript/prisma/generated-client-import" = "64b0f09533dda28fd83514436d4d52ab8c360518b4ad0936eed08bd7176fca68"
 "typescript/prisma/migration-lint" = "9a5876481372fb0461b28c9150c4046a4ea45b5cbccce158b08afea89342ebb9"
 "typescript/prisma/migration-present" = "468e4f6ea4a32f8bc571fa06cbce0917151ba2cbe7cd79a19fababb57ac4bc48"
 "typescript/prisma/no-middleware" = "f9b87f0cec0365b73fcb60b3f7cb226c6cec8709b1a9891093960051b7969cc1"
@@ -364,15 +365,15 @@ rule_set = "84559f33c794e4da9627f012f61248eb4e74ef6a98c0c79bb45b15fe3dc1dccf"
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
-".claude/rules/forge-typescript-bun.md" = "ee712d61b202e85ce641bbe199c43e669b8052e16cec0b60e4a35570d3eb5aab"
+".claude/rules/forge-typescript-bun.md" = "27f4b670b8b1275540daf42052aad77e384522206f92e259f32121bc6863a928"
 ".claude/rules/forge-typescript-nextjs-react.md" = "ace1d2535fe6fc0edd16e7ba3dc66d12ebeadba7d72482480737bda89b4a540a"
-".claude/rules/forge-typescript-nextjs.md" = "2c58e77c2eb591ef1860c50d6883651e4009a6dc1b3376ef0b568caf8d1600ab"
-".claude/rules/forge-typescript-playwright.md" = "50f57afd4c7348bc4067ac5e7f199eda4783e1af2df98d1d7ceb9b8ce836dae9"
-".claude/rules/forge-typescript-prisma.md" = "904313fa066f89cb0e04fec4db433b70e499e0643c47cc8e8d6351ba79b5b037"
+".claude/rules/forge-typescript-nextjs.md" = "607b4da33a1657a77929031bb42d262b241524f8bc64e9d49d9e32d7cfe51aa6"
+".claude/rules/forge-typescript-playwright.md" = "89abe6ca618f9543bcadc7a1290334349f027cf5d1654ece9df6768948471ed8"
+".claude/rules/forge-typescript-prisma.md" = "5897514e1648767913c2bfde904689ea8a1ad61c9651e6230c36d4ef092bc080"
 ".claude/rules/forge-typescript-react.md" = "21da59c0822c2cb4a4b3b35205a9c9736895a06ec4c10eb92c4932a7d4506bac"
 ".claude/rules/forge-typescript-vitest.md" = "ef6d3a0ab5be363ec3183dc95daf28f0aaa4cc47f340159eb3de0a7a452bd0cc"
-".claude/rules/forge-typescript-zod.md" = "ce225975bdb7f60fa5c19a7e5078e10b027201d05c44dcc74aea3ff51437f9d7"
-".claude/rules/forge-typescript.md" = "36a32533056fc3f168f8f36e2d50ba365927c56ad54829839825b42c06ba5461"
+".claude/rules/forge-typescript-zod.md" = "4f33b95e369ce3e15b49122fada0e81c5be500ecc3decad931b3b8f9204f9c31"
+".claude/rules/forge-typescript.md" = "2003b7bc98c81a0b4ba4bb8c9361a155b2709ca33168ec348a4120fb924beaaf"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 
 [roles]

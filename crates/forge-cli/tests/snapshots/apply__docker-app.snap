@@ -8,15 +8,15 @@ These are this project's defaults. When the task or the user explicitly asks for
 Before writing a utility, search the codebase for an existing helper (warn-once and logging helpers, `utils` functions such as an existing property setter) and reuse it instead of adding a near-duplicate.
 === .claude/rules/forge-docker-compose.md
 Docker Compose. The base compose file (`compose.yaml`, or `docker-compose.yml`) holds the shared setup; its override file (`compose.override.yaml`, or `docker-compose.override.yml`, loaded automatically) holds local changes.
-`depends_on` uses the long form with a `condition` (the bare list form is rejected); `condition: service_healthy` needs a `healthcheck` on that service.
+`depends_on` uses the long form with a `condition` (not the bare list form); `condition: service_healthy` needs a `healthcheck` on that service.
 `develop.watch` syncs or rebuilds on file changes (`docker compose watch`); `profiles` keep optional services off by default.
-Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); a committed `.env` is rejected.
+Variables named like `*PASSWORD*`, `*SECRET*`, `*TOKEN*`, `*API_KEY*` under `environment` or build `args` hold a `${VAR}` reference or nothing (`*_FILE` is fine); no `.env` is committed.
 Published ports 5432, 3306, 6379, 27017, 9200, 5672, 11211 and 1433 bind to `127.0.0.1` (`"127.0.0.1:5432:5432"`): Docker-published ports bypass ufw and firewalld.
 === .claude/rules/forge-docker.md
 Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
-`RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
-`ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
-Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
+`RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are not used. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+No `ARG` or `ENV` is named like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+Base images name a version tag or a digest (not `latest`). A new Dockerfile comes with a `.dockerignore` (next to it or at the root) that excludes `.env` files, and a `.dockerignore` keeps excluding them.
 === .claude/rules/forge-github-actions.md
 GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`), never a tag or branch, which can be moved.
 Workflows set `permissions: {}` at the top and grant each job only what it needs.
@@ -27,7 +27,7 @@ Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names
 Parameters and return types are annotated.
 Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()` and `pathlib` I/O, blocking `subprocess`, `input()`. A caught `asyncio.CancelledError` is re-raised, and a `try` around a task group catches with `except*`.
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
-A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is whitelisted in `[tool.condor]` (`ignore_names`), with the user's agreement.
+A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
 Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
 === .claude/rules/forge-secrets.md
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
@@ -174,7 +174,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "c6f65814b838dd728768c23671002e928a229991fa84f3c156d3bfe8ef344a82"
+rule_set = "bb91b6935a521bbeabccfb67e2c21d0040f41b4a7b087b5dbf18fb8c191255ce"
 
 [rules]
 "docker/compose/config-valid" = "b87377426380c917a3d0496c579860b4167ae96f6df1e50de5fa1e7c5a454a8d"
@@ -189,24 +189,24 @@ rule_set = "c6f65814b838dd728768c23671002e928a229991fa84f3c156d3bfe8ef344a82"
 "docker/compose/pinned-images" = "13729d3fc187e8e27b993e53842a96e4d73ac1dde1f55502d32a9d501764f2cd"
 "docker/copy-not-add" = "5c3ab1b028c86b84d5ef86e0486b97cd9470fbb31056f788b6b8713ed5cfe83a"
 "docker/deps-before-copy" = "f278c09be6735f572d46b9dee0c7bc26d8de3cc46d274b00a4e9c2e2f64442be"
-"docker/dockerignore" = "99f013f0c52289375c0f2552ab0ee5a4e7b8f56e399cd1d53de0a8dd85890540"
+"docker/dockerignore" = "652926638a8b1b9ff96aaf19ce389fbc0f7782604bf8d2a113cb9b9bea1e5864"
 "docker/exec-form" = "18e5e51155d61fe2a856c665a8015de70fe3fbbc5589131e75a3c9a2b469e012"
 "docker/hadolint-correctness" = "d2488c874b225a06573499c78087a73fbcea8d472ad7419606032c334305ca61"
 "docker/image-size" = "77db66bcc495f6e86181b39538e8251816f0727876440ba232855df381ca3872"
-"docker/locked-install" = "a5495533935cc356e8fced1905edd6270f4ee74ab11aa4962428532f94673280"
-"docker/no-secret-arg-env" = "82dbb6e788a6f4951d9acfe5bc05c62a0e90db51be84fe17c4121f2568f7a4f7"
+"docker/locked-install" = "80b513d0cdbd5d49a22f516cea565a85d6df8b85b3536fb8d14099ca65bf8e8c"
+"docker/no-secret-arg-env" = "911d29077d74ae86cb66800922335dc253e9b97d0c1bf30c2a985c984293db53"
 "docker/non-root-user" = "632b555a85749702d4547dea1ce0c84bf6c4382b03a6c004df5200c13b84edab"
 "docker/pin-base-image" = "4b3c4da19bfd220fc4bd457a6845ee83ae91c36a729a4309f4e69f8682c7cdc3"
 "docker/pipefail" = "a139fc92536169041f21e1e7a004f80fc8c4930adceec45f4e2b90709725d0e8"
 "docker/workdir" = "e93bb4f7873a3ad1bc8def88a259d8ec4d2bb461d58dc0ac924f5fb46eae09de"
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
 "git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
-"git/large-files" = "d165b4b86639c382b08a02b88cf628737de7a44447a3c5f9373322b4311086fb"
+"git/large-files" = "8db4e3c59cb1f2d2d83bf5cdadbb0ac7ba4cde3eb0f3622ce31c666d198499eb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
 "github-actions/actionlint" = "ee9f962c4c2a715a7ece27fce32755e45ca383d223706c112a0080e9761c620e"
 "github-actions/ci-ratchet" = "e26870acb13fc4faf2f46cc2e06147a692fa37152f76bf70923574c326434d49"
-"github-actions/no-removed-jobs" = "4513460330a53c2eaba623a51b0dd2c81ef8157d76a63e936015e4846debad00"
+"github-actions/no-removed-jobs" = "85ceccf3c17b82386891dc32d77abd18e814fcd1fb0937cb50ad2311b87f1073"
 "github-actions/zizmor" = "152e740e0ec9b85f970fbea79835a9e78532541b357baaaea186aca86c09831a"
 "github-actions/zizmor-advice" = "950753c377e62d0e935248143449674af6f92007a818690f9a346567ba17c680"
 "python/annotations-api" = "8d3f05e83c2ab8d2f77c138da18acaf3e6c710261c3d7ef842c1b7d66113d25a"
@@ -315,14 +315,14 @@ rule_set = "c6f65814b838dd728768c23671002e928a229991fa84f3c156d3bfe8ef344a82"
 "supply-chain/no-dependency-confusion-command" = "1225166ba3adbeb2b952df464d12e4908b19c27fd7b33ca72a2e7787b8eb97bc"
 "supply-chain/no-tls-disable" = "405e1d3d9698047dcae7b4bb4842e221967a94bb9134f33b05c081d7461403fe"
 "supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
-"supply-chain/vuln-audit" = "9222424fdc35e5fdce30af8cabadf9fa8a71fdc0ec255e4785c6dea5478157c2"
+"supply-chain/vuln-audit" = "3400baa659e7a6d94b236ef8e299a13e1938189f31dc62f95e0c1a9012bf1a59"
 
 [files]
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
-".claude/rules/forge-docker-compose.md" = "750f5b2392a48b51e38aedd249db49bade0915bf76c5a7ace1cbd4fd08bab1a8"
-".claude/rules/forge-docker.md" = "ca10301bd5c893e37123d35f7cf804b271c3d439e00fb1e905ac55e4271c450e"
+".claude/rules/forge-docker-compose.md" = "fdfc306630228c3d36cb5a7470c73833a78314afa80a8a88b30702116c42cbb6"
+".claude/rules/forge-docker.md" = "337e5d7112871bdc48b841a678c4b257c0a5bb2f387419b05ff38a199e6967a0"
 ".claude/rules/forge-github-actions.md" = "e81a526f9757bb80529d3c52c63366159a61a50594a9120dfb9d30fe8266f88d"
-".claude/rules/forge-python.md" = "82f14e617b5c0b6220cbf28cc867d0c775f8c95f68d4e03c9f0bcd79599665de"
+".claude/rules/forge-python.md" = "173a9025d333d75dd5b88595d763a48a1311dc9c1b17911f3e9332973c28218e"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 
