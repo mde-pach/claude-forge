@@ -1,8 +1,7 @@
-//! Package manager policies of npm, pnpm and Yarn (`pm_policy.mjs <mode>`).
+//! Package manager policies of npm, pnpm and Yarn (`pm_policy.mjs <mode>`). Their release
+//! cooldowns are forge-builtins-code's `forge_<pm>_cooldown`.
 //!
 //! Modes (the change against the base copies):
-//! - `npm-cooldown <s>`: .npmrc min-release-age is at least `<s>` seconds in days, and
-//!   package.json requires npm >= 11.10 (older npm ignores it);
 //! - `npm-scripts`: package.json allowScripts gains no approval; .npmrc gains no
 //!   ignore-scripts=false, allow-scripts entry or dangerously-allow-all-scripts;
 //! - `pnpm-builds`: pnpm-workspace.yaml gains no allowBuilds approval or onlyBuiltDependencies
@@ -21,7 +20,7 @@ use forge_core::builtin::{Builtin, BuiltinCtx};
 use serde_json::{Map, Value};
 
 use crate::util::{
-    Change, at, could_not_run, esc, js_str, line, line_of, list, obj, parse_yaml, regex_static,
+    Change, at, could_not_run, esc, js_str, line_of, list, obj, parse_yaml, regex_static,
     strip_script,
 };
 
@@ -47,7 +46,6 @@ impl Builtin for PmPolicy {
         };
         let mode = args.first().map(String::as_str).unwrap_or("");
         let res = match mode {
-            "npm-cooldown" => p.npm_cooldown(args.get(1).map(String::as_str)),
             "npm-scripts" => p.npm_scripts(),
             "pnpm-builds" => p.pnpm_builds(),
             "yarn-scripts" => p.yarn_scripts(),
@@ -133,43 +131,6 @@ fn re(p: &str) -> regex::Regex {
     regex::Regex::new(p).expect("regex")
 }
 
-fn parts(v: &str) -> Vec<i64> {
-    v.split('.')
-        .map(|x| {
-            let digits: String = x.chars().take_while(char::is_ascii_digit).collect();
-            digits.parse().unwrap_or(0)
-        })
-        .collect()
-}
-
-fn ge(a: &str, b: &str) -> bool {
-    let (x, y) = (parts(a), parts(b));
-    for i in 0..x.len().max(y.len()) {
-        let (p, q) = (
-            x.get(i).copied().unwrap_or(0),
-            y.get(i).copied().unwrap_or(0),
-        );
-        if p != q {
-            return p > q;
-        }
-    }
-    true
-}
-
-/// The lowest version a semver range allows, or None.
-fn lowest(range: &str) -> Option<String> {
-    let mut low: Option<String> = None;
-    for r in range.split("||").map(str::trim) {
-        let c = regex_static(r"^(?:>=|\^|~|=|v)?\s*(\d+(?:\.\d+){0,2})(?:[-+]\S*)?(?:\s|$)")
-            .captures(r)?;
-        let v = c[1].to_owned();
-        if low.as_deref().is_none_or(|l| !ge(&v, l)) {
-            low = Some(v);
-        }
-    }
-    low
-}
-
 const SECTIONS: &[&str] = &[
     "dependencies",
     "devDependencies",
@@ -207,10 +168,6 @@ fn dep_line(text: &str, d: &Dep) -> usize {
 }
 
 impl Policy<'_> {
-    fn out(&mut self, s: String) {
-        self.report.findings.push(line(self.rule, s));
-    }
-
     fn out_at(&mut self, path: &str, l: usize, s: String) {
         self.report.findings.push(at(self.rule, path, l, s));
     }
@@ -226,56 +183,6 @@ impl Policy<'_> {
             })
             .cloned()
             .collect()
-    }
-
-    fn npm_cooldown(&mut self, seconds: Option<&str>) -> Res {
-        let secs: f64 = seconds.and_then(|s| s.parse().ok()).unwrap_or(f64::NAN);
-        let days = (secs / 86400.0).ceil();
-        if days.is_nan() || days <= 0.0 {
-            return Err(Skip(
-                "the npm release cooldown check needs the cooldown in seconds".into(),
-            ));
-        }
-        let days = days as i64;
-        let rc = npmrc(self.ch.now(".npmrc").as_deref());
-        let age = last(&rc, "min-release-age");
-        let ok = age.is_some_and(|a| {
-            regex_static(r"^\d+(\.\d+)?$").is_match(a)
-                && a.parse::<f64>().unwrap_or(0.0) >= days as f64
-        });
-        if !ok {
-            self.out(format!(".npmrc: min-release-age is {}; set min-release-age={days} (days) or more so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in min-release-age-exclude.", age.unwrap_or("unset")));
-        }
-        let pkg = json(self.ch.now("package.json").as_deref(), "package.json")?;
-        let mut wanted: Vec<String> = vec![];
-        let dev = obj(pkg.get("devEngines"));
-        for e in list(dev.get("packageManager")) {
-            let e = obj(Some(e));
-            if e.get("name").and_then(Value::as_str) == Some("npm")
-                && let Some(v) = e.get("version").and_then(Value::as_str)
-            {
-                wanted.push(v.to_owned());
-            }
-        }
-        if let Some(pm) = pkg.get("packageManager").and_then(Value::as_str)
-            && let Some(v) = pm.strip_prefix("npm@")
-        {
-            wanted.push(regex_static(r"\+.*$").replace(v, "").into_owned());
-        }
-        let low: Vec<Option<String>> = wanted.iter().map(|w| lowest(w)).collect();
-        if low.is_empty()
-            || low
-                .iter()
-                .any(|v| v.as_deref().is_none_or(|v| !ge(v, "11.10.0")))
-        {
-            let req = if wanted.is_empty() {
-                "nothing".to_owned()
-            } else {
-                wanted.join(", ")
-            };
-            self.out(format!("package.json: npm is required as {req}; require npm >= 11.10 (devEngines.packageManager {{\"name\": \"npm\", \"version\": \">=11.10.0\"}}, or packageManager \"npm@11.10.0\" or later): older npm ignores min-release-age."));
-        }
-        Ok(())
     }
 
     fn npm_scripts(&mut self) -> Res {
@@ -586,19 +493,5 @@ impl Policy<'_> {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn versions() {
-        assert_eq!(lowest(">=11.10").as_deref(), Some("11.10"));
-        assert_eq!(lowest("^10.0.0 || ^11.10.0").as_deref(), Some("10.0.0"));
-        assert!(lowest("latest").is_none());
-        assert!(ge("11.10.0", "11.10"));
-        assert!(!ge("11.9", "11.10.0"));
     }
 }

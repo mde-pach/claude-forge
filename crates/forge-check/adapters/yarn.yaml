@@ -1,7 +1,8 @@
 # Yarn (Berry, 2 and later), the project's package manager, found on PATH (§16). Yarn 1 is
 # another tool: forge_has_tool treats it as absent, so no range
-# covers 0.x/1.x. Forge asks one thing of it: is yarn.lock in sync with the package.json files
-# (`typescript/yarn/lock-sync`), without running the packages' build scripts. The
+# covers 0.x/1.x. Forge asks two things of it, for `typescript/yarn/lock-sync`: is yarn.lock in
+# sync with the package.json files (`lock-check`), and bring it in sync (`lock`), without running
+# the packages' build scripts. The
 # scripts-ratchet check reads files (pm_policy.mjs) and never runs Yarn. What changed between
 # releases, for that (yarnpkg/berry CHANGELOG.md):
 #
@@ -15,6 +16,10 @@
 # - 3.0.0 renamed it ("The `--skip-builds` flag from `yarn install` got renamed into
 #   `--mode=skip-build`"): 2.4.x rejects `--mode=skip-build` (`Invalid option name`), 3.0.0
 #   rejects `--skip-builds` (`Unsupported option name`).
+# - `lock`: `install --mode=update-lockfile` (3.0.0: "skip the link step altogether, and only
+#   fetch packages that are missing from the lockfile") writes yarn.lock and links nothing, so no
+#   build script runs. Verified with @yarnpkg/cli-dist 3.0.0 and 4.12.0 (an added dependency
+#   lands in the lock, no node_modules, no postinstall); 2.4.2 rejects it (prints the usage).
 # - Nothing since changes the invocation (4.0.0, 4.18.1 verified).
 #
 # Usage error: exit 1 and clipanion's `Unknown Syntax Error: …` (unknown option, which 3.x/4.x
@@ -32,13 +37,16 @@ ranges:
     to: "2.4.0"
     source: "yarnpkg/berry CHANGELOG.md 2.4.0 (--skip-builds is new: before, an immutable install runs build scripts)"
     ops:
+      "lock": null
       "lock-check": null
   - from: "2.4.0"
     to: "3.0.0"
     source: "yarnpkg/berry CHANGELOG.md 2.4.0 (new --skip-builds option on yarn install)"
     ops:
+      "lock": null
       "lock-check": "install --immutable --skip-builds"
   - from: "3.0.0"
-    source: "yarnpkg/berry CHANGELOG.md 3.0.0 (--skip-builds renamed into --mode=skip-build)"
+    source: "yarnpkg/berry CHANGELOG.md 3.0.0 (--skip-builds renamed into --mode=skip-build; --mode=update-lockfile); @yarnpkg/cli-dist 3.0.0 and 4.12.0 binaries"
     ops:
+      "lock": "install --mode=update-lockfile"
       "lock-check": "install --immutable --mode=skip-build"

@@ -2,7 +2,7 @@ id: typescript/pnpm
 description: pnpm is the package manager.
 level: project
 detect:
-  files_any: [pnpm-lock.yaml, pnpm-workspace.yaml]
+  facts_any: {js.pm: pnpm}
 context:
   - text: |
       pnpm is the package manager: `pnpm add`, `pnpm install`; npm, yarn and bun installs ask.

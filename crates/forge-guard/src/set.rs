@@ -173,7 +173,7 @@ impl GuardSet {
     }
 
     pub fn evaluate_parsed(&self, parsed: &Parsed, command: &str, ctx: &GuardCtx) -> Outcome {
-        let mut hits: [Option<Option<Hit>>; 3] = [None, None, None];
+        let mut hits: Vec<Option<Option<Hit>>> = vec![None; Check::ALL.len()];
         for &(i, j) in &self.order {
             let rule = &self.rules[i];
             let t = &rule.targets[j];

@@ -1,6 +1,7 @@
-# npm, the project's package manager, found on PATH (§16). Forge asks one thing of it: is
-# package-lock.json in sync with the package.json files (`typescript/npm/lock-sync`), without
-# touching node_modules or running scripts. What changed between releases, for that:
+# npm, the project's package manager, found on PATH (§16). Forge asks two things of it, for
+# `typescript/npm/lock-sync`: is package-lock.json in sync with the package.json files
+# (`lock-check`), and bring it in sync (`lock`), both without touching node_modules or running
+# scripts. What changed between releases, for that:
 #
 # - 8.4.1 made `npm ci` validate the lock file against package.json (CHANGELOG v8.4.1:
 #   "fix(ci): lock file validation", #4363). Before, `npm ci --dry-run` on a stale lock
@@ -20,6 +21,12 @@
 #   them silently (exit 0); npm 11 ignores them too, with
 #   `npm warn Unknown cli config "--x". This will stop working in the next major version of npm.`
 #   on stderr (11.21.1; 11.0.0 still silent).
+# - `lock`: `install --package-lock-only` writes package-lock.json from the package.json files
+#   and leaves node_modules alone ("only update the package-lock.json, instead of checking
+#   node_modules and downloading dependencies", npm docs, config `package-lock-only`, since npm
+#   6; verified on 11.4.2: a dependency added to package.json lands in the lock, no
+#   node_modules, no lifecycle script). `--ignore-scripts`, `--no-audit` and `--no-fund` are
+#   valid on every covered release.
 # - The oldest covered release is 8.0.0: npm 8 is the oldest major still shipped with a Node.js
 #   one may meet (Node 16); npm 7 behaves as 8.0.0 here but its Node lines are long dead.
 #
@@ -36,8 +43,10 @@ ranges:
     to: "10.5.1"
     source: "npm CHANGELOG v8.4.1 (fix(ci): lock file validation, #4363); release/v10 CHANGELOG v10.5.1 (added check for dry-run, #7274): before 10.5.1 ci --dry-run deletes node_modules"
     ops:
+      "lock": "install --package-lock-only --ignore-scripts --no-audit --no-fund"
       "lock-check": "ls --package-lock-only --all"
   - from: "10.5.1"
     source: "release/v10 CHANGELOG v10.5.1 (added check for dry-run, #7274); CHANGELOG 12.0.0-pre.1 (#9276: unknown flags are errors)"
     ops:
+      "lock": "install --package-lock-only --ignore-scripts --no-audit --no-fund"
       "lock-check": "ci --dry-run --ignore-scripts --no-audit --no-fund"

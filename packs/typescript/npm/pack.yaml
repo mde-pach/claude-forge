@@ -2,7 +2,7 @@ id: typescript/npm
 description: npm is the package manager.
 level: project
 detect:
-  files_any: [package-lock.json, npm-shrinkwrap.json]
+  facts_any: {js.pm: npm}
 context:
   - text: |
       npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.

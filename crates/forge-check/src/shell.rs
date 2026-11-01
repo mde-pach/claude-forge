@@ -54,6 +54,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "hadolint",
     "helm",
     "helper",
+    "js_lock",
     "kube_linter",
     "kustomize",
     "large_files",
@@ -62,6 +63,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "lockfile_updated",
     "model_ids",
     "models_registered",
+    "npm_cooldown",
     "oasdiff",
     "once",
     "openapi_lint",
@@ -70,6 +72,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "osv",
     "pinned",
     "pkg_deps",
+    "pnpm_cooldown",
     "prisma_drops",
     "ratchet",
     "related_py_tests",
@@ -97,6 +100,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "uv_cooldown",
     "uv_lock",
     "version_changed",
+    "yarn_cooldown",
     "zizmor",
 ];
 

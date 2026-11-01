@@ -47,9 +47,9 @@ Only the text outside the generated markers of this file is written by hand.
 | [supply-chain](supply-chain.md) | project | 1 | 9 |
 | [terraform](terraform.md) | project | 1 | 8 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
-| [typescript](typescript.md) | project | 75 | 315 |
+| [typescript](typescript.md) | project | 75 | 314 |
 
-147 packs, 687 rules.
+147 packs, 686 rules.
 <!-- /generated:packs -->
 
 ### Tests

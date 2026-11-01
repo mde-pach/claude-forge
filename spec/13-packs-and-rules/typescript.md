@@ -27,7 +27,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/format-lint` | TypeScript and JavaScript files, and the Vue, Svelte, Astro and HTML templates Biome reads, are formatted and linted with Biome. | any: `**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,html}` | check lint: `forge_do biome ci .` |
 | `typescript/iframe-sandbox` | No iframe sandbox with both allow-scripts and allow-same-origin: together they let the framed page remove its own sandbox. | tsx | tool biome `lint/nursery/noUnsafeIframeSandbox` |
 | `typescript/implicit-returns` | Every code path of a function that returns a value returns one (noImplicitReturns); a branch that falls through would yield undefined. | typescript | tool tsc `TS7030` |
-| `typescript/lockfile-updated` | A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one) whose changed lines name each changed dependency: run the package manager to update it. A lock change that names none of them (a blank line) does not count. bun.lock is left to typescript/bun/lock-sync (bun install --frozen-lockfile) when that rule is active. At Stop it blocks once per turn, then accepts. | any | check lint: `forge_once forge_lockfile_updated` (when `**/package.json` changes) |
+| `typescript/lockfile-updated` | A package.json whose dependencies, devDependencies or optionalDependencies changed comes with a lock file (pnpm-lock.yaml, package-lock.json, yarn.lock or bun.lock, when the project has one) whose changed lines name each changed dependency: run the project's package manager to update it. A lock change that names none of them (a blank line) does not count. A lock that its package manager's lock-sync rule keeps in sync (typescript/<pm>/lock-sync, when active) is left to that rule. At Stop it blocks once per turn, then accepts. | any | check lint: `forge_once forge_lockfile_updated` (when `**/package.json` changes) |
 | `typescript/no-banned-types` | No Function, Object, String, Number, Boolean or {} as types; write the function signature, object shape or primitive type. | typescript | tool biome `lint/complexity/noBannedTypes` |
 | `typescript/no-console` | No console.log, info or debug in application code; console.warn and console.error stay allowed. | typescript | tool biome `lint/suspicious/noConsole` |
 | `typescript/no-const-enum` | No const enum; isolated transpilers and type stripping cannot inline it. Use a union of literals or an as const object. | typescript | tool biome `lint/suspicious/noConstEnum` |
@@ -45,6 +45,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/no-new-suppressions` | No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error) or coverage ignore hints (istanbul ignore, c8 ignore, v8 ignore); a changed file may not have more than it had. Fix the finding instead. | typescript | ast-grep no-increase |
 | `typescript/no-non-null-assertion` | No non-null assertions (x!). Check for null, use optional chaining, or narrow the type. | typescript | tool biome `lint/style/noNonNullAssertion`<br>ast-grep forbid |
 | `typescript/no-object-literal-assertion` | No type assertion on an object or array literal ({ … } as T, [x] as T[]); it hides missing and misspelled fields. Annotate the variable, use satisfies T, or pass a type argument; as const and an empty [] are fine. | typescript | ast-grep forbid |
+| `typescript/no-other-pm` | Dependencies are managed with the project's package manager (the js.pm fact: packageManager, else the lock file); installing with another one (npm, pnpm, Yarn or Bun) asks. | any | guard ask: check `js-pm` |
 | `typescript/no-proto` | No __proto__; use Object.getPrototypeOf, Object.setPrototypeOf or Object.create. | typescript | tool biome `lint/suspicious/noProto` |
 | `typescript/no-secrets` | No API keys, tokens or private keys in code. Read them from the environment. | typescript | tool biome `lint/security/noSecrets` |
 | `typescript/no-stub` | No stub left behind. A throw of "Not implemented" (or "TODO", "unimplemented"), or a named function or method with an empty body, is a stub; overload signatures, interfaces and constructors with parameter properties are not. | typescript: `!**/*.d.ts` | ast-grep forbid |
@@ -257,7 +258,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 Bun is the package manager.
 
-Detected by: a file matching `bun.lock`, `bun.lockb`.
+Detected by: the fact `js.pm` is `bun`.
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
@@ -266,15 +267,14 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/bun/lock-sync` | bun.lock matches package.json. | any | check lint: `forge_do bun lock-check` (when `package.json` changes) |
+| `typescript/bun/lock-sync` | bun.lock matches the package.json files; a stale lock is updated with bun install --lockfile-only --ignore-scripts (checked with bun install --frozen-lockfile --lockfile-only, which installs nothing; Bun 1.1.43 and later). | any | check codegen: `forge_js_lock bun` (when `**/package.json`, `bun.lock`, `bun.lockb` or `bunfig.toml` changes) |
 | `typescript/bun/no-fewer-expects` | Assertions are not removed from tests that import from bun:test. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-decrease |
 | `typescript/bun/no-mock-increase` | A bun:test file may not gain mocks (mock(), mock.module(), spyOn(), jest.fn / vi.fn, also through an import alias such as import { mock as m }); test through the real code or a fake at the boundary. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-increase |
 | `typescript/bun/no-new-skip` | Tests that import from bun:test are not skipped, made conditional, marked failing or todo, or focused with .only. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | ast-grep no-increase |
-| `typescript/bun/no-other-pm` | Dependencies are managed with bun, not npm, pnpm or yarn. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` |
 | `typescript/bun/no-shell-raw` | Bun Shell escapes what it interpolates: no { raw: … } in a $`…` command, and no Bun.spawn/spawnSync of sh, bash or zsh -c with a command built from values (both bypass the escaping: command injection). Interpolate the values, or pass them as argv. | typescript | ast-grep forbid (where `$TAG`, `$SPAWN`: types engine, §15) |
 | `typescript/bun/no-snapshot-update` | Updating bun test snapshots (-u, --update-snapshots) needs confirmation; the snapshots are part of the reviewed expectations. | any | guard ask: command `{name: bun, sub: [test], flags_any: [-u, --update-snapshots]}` |
 | `typescript/bun/no-test-edits` | Tests in bun:test files that existed at the start of the turn are not changed (anything in them, formatting aside) or removed by Claude; adding tests is fine. Checked at Stop. | typescript: `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`, `**/*_spec.*`, `!@e2e-tests` | check lint: a shell script calling `forge_test_edits` |
-| `typescript/bun/release-age` | Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes. | any | check lint: `forge_bun_cooldown` (when `bunfig.toml`, `package.json` or `bun.lock` changes) |
+| `typescript/bun/release-age` | Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes. A change is held only to a setting it made missing or weak. | any | check lint: `forge_bun_cooldown` (when `bunfig.toml` changes) |
 | `typescript/bun/test` | Tests that import from bun:test pass (bun test on those files). | typescript | check test: a shell script calling `forge_do bun test-files` |
 | `typescript/bun/text-lockfile` | No binary bun.lockb; Bun's lock file is the text bun.lock, which reviews and merges read (bun install --save-text-lockfile --frozen-lockfile, then delete bun.lockb). | any | check lint: a shell script of 2 lines (when `**/bun.lockb` or `**/package.json` changes) |
 | `typescript/bun/trusted-deps` | No new trustedDependencies entries in package.json: each one lets that package run its install scripts. The user trusts packages, not Claude. | any | check lint: `forge_trusted_deps` (when `**/package.json` changes) |
@@ -760,7 +760,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 npm is the package manager.
 
-Detected by: a file matching `package-lock.json`, `npm-shrinkwrap.json`.
+Detected by: the fact `js.pm` is `npm`.
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
@@ -773,16 +773,15 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/npm/allow-scripts-command` | Claude asks before approving dependency install scripts (npm approve-scripts, npm install-scripts approve, --allow-scripts, --dangerously-allow-all-scripts); npm 12 blocks them by default, and a failed build is not a reason to run them. | any | guard ask: command `{name: npm, sub: [approve-scripts, '*']}` or `{name: npm, sub: [approve-scripts], flags_any: [--all, --no-allow-scripts-pin]}` or `{name: npm, sub: [install-scripts, approve]}` or `{name: [npm, pnpm, yarn, bun, npx], flags_any: [--dangerously-allow-all-scripts]}` or `{name: [npm, pnpm, yarn, bun, npx], option_values: {--allow-scripts: '^[^-]'}}` |
 | `typescript/npm/allow-scripts` | No new install-script approvals: package.json allowScripts gains no entry that is not false, and .npmrc gains no ignore-scripts=false, allow-scripts entry or dangerously-allow-all-scripts=true. npm 12 blocks dependency install scripts by default; the user approves them, not Claude. | any | check lint: `forge_helper bun pm_policy.mjs npm-scripts \|\| forge_accept_hint` (when `package.json` or `.npmrc` changes) |
-| `typescript/npm/lock-sync` | package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules). | any | check lint: `forge_do npm lock-check` (when `**/package.json`, `package-lock.json` or `npm-shrinkwrap.json` changes) |
+| `typescript/npm/lock-sync` | package-lock.json matches the package.json files; a stale lock is updated with npm install --package-lock-only --ignore-scripts (checked with npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules). | any | check codegen: `forge_js_lock npm` (when `**/package.json`, `package-lock.json` or `npm-shrinkwrap.json` changes) |
 | `typescript/npm/lockfile-lint` | package-lock.json resolves every package from registry.npmjs.org, over https, with a sha512 integrity (pinned lockfile-lint); a project on a private registry replaces the rule locally with its hosts. | any: `@lockfiles` | check lint: `forge_lockfile_lint` (when `@lockfiles` changes) |
 | `typescript/npm/no-audit-fix-force` | npm audit fix --force asks; it installs versions outside the declared ranges, major upgrades included. | any | guard ask: command `{name: npm, sub: [audit, fix], flags_any: [--force]}` |
 | `typescript/npm/no-exotic-deps` | No dependency added (or changed) with a git, GitHub, GitLab, Bitbucket or tarball URL spec (git+…, github:…, user/repo, https://…): they bypass the registry, its release-age checks and --ignore-scripts. Publish to a registry or vendor the code. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
 | `typescript/npm/no-exotic-sources` | npm is not allowed to install from any git or remote source (allow-git=all, allow-remote=all, in .npmrc or as a flag); such dependencies bypass the registry, its release-age checks and --ignore-scripts. | any: `**/.npmrc` | grep forbid `allow-(git\|remote)[[:space:]]*=[[:space:]]*all`<br>guard deny: command `{flags_any: [--allow-git=all, --allow-remote=all], value_flags: [--allow-git, --allow-remote]}` |
 | `typescript/npm/no-legacy-peer-deps-config` | No legacy-peer-deps=true or force=true in .npmrc; they hide every peer dependency conflict of every install. | any: `**/.npmrc` | grep forbid `^[[:space:]]*(legacy-peer-deps\|force)[[:space:]]*=[[:space:]]*true` |
 | `typescript/npm/no-legacy-peer-deps` | npm install, ci and add run without --legacy-peer-deps or --force; resolve the peer dependency conflict instead of hiding it. | any | guard deny: command `{name: npm, sub: [install\|i\|ci\|add], flags_any: [--legacy-peer-deps, --force]}` |
-| `typescript/npm/no-other-pm` | Dependencies are managed with npm; installing with pnpm, yarn or bun asks. | any | guard ask: command `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
 | `typescript/npm/release-age-command` | Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude. | any | guard ask: command `{option_values: {--min-release-age: ^0*$}}` |
-| `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. | any | check lint: `forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS` (when `.npmrc`, `package.json` or `package-lock.json` changes) |
+| `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. A change is held only to the settings it made missing or weak. | any | check lint: `forge_npm_cooldown` (when `.npmrc` or `package.json` changes) |
 
 ### typescript/openapi
 
@@ -862,7 +861,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 pnpm is the package manager.
 
-Detected by: a file matching `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
+Detected by: the fact `js.pm` is `pnpm`.
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
@@ -875,10 +874,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/pnpm/allow-builds` | No new build approvals in pnpm-workspace.yaml: no allowBuilds entry set to true (pnpm 11) or onlyBuiltDependencies entry (pnpm 10) is added, dangerouslyAllowAllBuilds is not turned on, and strictDepBuilds and blockExoticSubdeps are not turned off. Install scripts are the main npm malware vector; the user approves them, not Claude. | any | check lint: `forge_helper bun pm_policy.mjs pnpm-builds \|\| forge_accept_hint` (when `pnpm-workspace.yaml` changes) |
 | `typescript/pnpm/catalog` | A dependency added or changed in a package.json whose name is in the pnpm catalog (catalog or catalogs in pnpm-workspace.yaml) uses catalog: (or catalog:<name>), so every package gets the same version; not reported when catalogMode is strict (pnpm enforces it). | any: `**/package.json` | check lint: `forge_advise forge_helper bun pm_policy.mjs pnpm-catalog` (when `**/package.json` changes)<br>advice, never blocks |
-| `typescript/pnpm/lock-sync` | pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes). | any | check lint: `forge_do pnpm lock-check` (when `**/package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml` changes) |
-| `typescript/pnpm/no-other-pm` | Dependencies are managed with pnpm; installing with npm, yarn or bun asks. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: yarn, sub: [add\|install\|up\|upgrade\|remove]}` or `{name: yarn, words: ^yarn( --(immutable\|frozen-lockfile))?$}` or `{name: bun, sub: [install\|i\|add]}` |
+| `typescript/pnpm/lock-sync` | pnpm-lock.yaml matches the package.json files; a stale lock is updated with pnpm install --lockfile-only --ignore-scripts (checked with pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes). | any | check codegen: `forge_js_lock pnpm` (when `**/package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml` changes) |
 | `typescript/pnpm/no-removed-settings` | No pnpm-workspace.yaml settings removed in pnpm 11: onlyBuiltDependencies, neverBuiltDependencies, ignoredBuiltDependencies, ignoreDepScripts (use allowBuilds), allowNonAppliedPatches (use allowUnusedPatches), auditConfig.ignoreCves (use auditConfig.ignoreGhsas). | any: `**/pnpm-workspace.yaml` | grep forbid `^["']?(onlyBuiltDependencies\|neverBuiltDependencies\|ignoredBuiltDependencies\|ignoreDepScripts\|allowNonAppliedPatches)["']?[[:space:]]*:\|^[[:space:]]+["']?ignoreCves["']?[[:space:]]*:`<br>applies where `pnpm >=11.0.0` (npm) declared |
 | `typescript/pnpm/overrides` | Each overrides entry added or changed in pnpm-workspace.yaml is reported once, so Claude says why (a security fix, an incompatible transitive version): an override can hide a vulnerability or force a version its dependents do not support. | any | check lint: `forge_advise forge_helper bun pm_policy.mjs pnpm-overrides` (when `pnpm-workspace.yaml` changes)<br>advice, never blocks |
+| `typescript/pnpm/release-age` | pnpm installs only versions published at least 3 days ago (pnpm-workspace.yaml minimumReleaseAge, in minutes, 4320 or more; read by pnpm 10.16 and later, so a packageManager pin below it is reported too); a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExclude. A change is held only to the settings it made missing or weak. | any | check lint: `forge_pnpm_cooldown` (when `pnpm-workspace.yaml` or `package.json` changes) |
 | `typescript/pnpm/settings-location` | pnpm settings are in pnpm-workspace.yaml: no pnpm field in package.json, and no pnpm settings in .npmrc (it keeps registry and auth only); pnpm 11 reads neither. | any: `**/package.json`, `**/.npmrc` | check lint: a shell script of 28 lines |
 | `typescript/pnpm/workspace-protocol` | A dependency on a package of the pnpm workspace (pnpm-workspace.yaml packages) uses the workspace: protocol; since pnpm 9 a plain version range can install a registry copy instead of linking the local package (linkWorkspacePackages is false by default). | any: `**/package.json` | check lint: `forge_helper bun pm_policy.mjs pnpm-workspace` (when `**/package.json` or `pnpm-workspace.yaml` changes) |
 
@@ -1406,7 +1405,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 Yarn (Berry, 2 and later) is the package manager.
 
-Detected by: a file matching `.yarnrc.yml`.
+Detected by: the fact `js.yarn` is `berry`.
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
@@ -1415,8 +1414,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `typescript/yarn/lock-sync` | yarn.lock matches the package.json files (yarn install --immutable --mode=skip-build, Yarn 2 and later; it fails instead of changing the lock file). | any | check lint: `forge_do yarn lock-check` (when `**/package.json`, `yarn.lock` or `.yarnrc.yml` changes) |
-| `typescript/yarn/no-other-pm` | Dependencies are managed with Yarn; installing with npm, pnpm or bun asks. | any | guard ask: command `{name: npm, sub: [install\|i\|ci\|add]}` or `{name: pnpm, sub: [add\|install\|i\|update\|up\|remove\|rm]}` or `{name: bun, sub: [install\|i\|add]}` |
+| `typescript/yarn/lock-sync` | yarn.lock matches the package.json files; a stale lock is updated with yarn install --mode=update-lockfile, Yarn 3 and later (checked with yarn install --immutable --mode=skip-build, Yarn 2.4 and later; it fails instead of changing the lock file). | any | check codegen: `forge_js_lock yarn` (when `**/package.json`, `yarn.lock` or `.yarnrc.yml` changes) |
+| `typescript/yarn/release-age` | Yarn installs only versions published at least 3 days ago (.yarnrc.yml npmMinimalAgeGate, in minutes, 4320 or more, or a duration such as 3d from Yarn 4.11; read by Yarn 4.10 and later, so a packageManager pin below it is reported too); a compromised release is caught before it lands. Packages that must update sooner go in npmPreapprovedPackages. A change is held only to the settings it made missing or weak. | any | check lint: `forge_yarn_cooldown` (when `.yarnrc.yml` or `package.json` changes) |
 | `typescript/yarn/scripts-ratchet` | Install scripts stay a decision of the user: .yarnrc.yml enableScripts is not turned on (Yarn 4 defaults it to false), and no package.json dependenciesMeta entry gains built: true. | any | check lint: `forge_helper bun pm_policy.mjs yarn-scripts \|\| forge_accept_hint` (when `.yarnrc.yml` or `**/package.json` changes) |
 
 ### typescript/zod

@@ -8,7 +8,7 @@ use crate::parse::Parsed;
 use crate::rule::Check;
 
 /// What a check found: the detail shown after the reason ("Here: …"), and a reason of its own
-/// when the check words it (python-pm).
+/// when the check words it (python-pm, js-pm).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hit {
     pub reason: Option<String>,
@@ -26,6 +26,10 @@ pub fn run(check: Check, parsed: &Parsed, raw: &str, ctx: &GuardCtx) -> Option<H
             detail,
         }),
         Check::PythonPm => package::python_pm(parsed, ctx).map(|(reason, detail)| Hit {
+            reason: Some(reason),
+            detail,
+        }),
+        Check::JsPm => package::js_pm(parsed, ctx).map(|(reason, detail)| Hit {
             reason: Some(reason),
             detail,
         }),

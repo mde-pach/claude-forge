@@ -70,13 +70,24 @@ const JS_LOCKS: &[&str] = &[
     "bun.lockb",
 ];
 
+/// The package manager a lock file is of, and the command that updates it.
+fn lock_pm(lock: &str) -> (&'static str, &'static str) {
+    match lock.rsplit('/').next().unwrap_or(lock) {
+        "pnpm-lock.yaml" => ("pnpm", "pnpm install"),
+        "yarn.lock" => ("yarn", "yarn install"),
+        "bun.lock" | "bun.lockb" => ("bun", "bun install"),
+        _ => ("npm", "npm install"),
+    }
+}
+
 /// `forge_lockfile_updated`: a package.json whose dependencies changed since the base needs a
-/// lock file whose changed lines name each changed dependency, when the project has a pnpm,
-/// npm or Yarn lock (next to it or at the root). bun.lock is left to the bun lock-sync check
-/// when it is active.
+/// lock file whose changed lines name each changed dependency, when the project has a lock
+/// (next to it or at the root). A lock its package manager's lock-sync check keeps in sync
+/// (`typescript/<pm>/lock-sync`, §10.5) is left to that check.
 fn lockfile_updated(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Write) -> i32 {
     let root = inv.root();
     let mut rc = 0;
+    let mut commands: Vec<&str> = Vec::new();
     for f in inv.existing() {
         if !(f == "package.json" || f.ends_with("/package.json"))
             || format!("/{f}").contains("/node_modules/")
@@ -104,9 +115,9 @@ fn lockfile_updated(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Wr
             }
         }
         let Some(lock) = lock else { continue };
-        if (lock.ends_with("bun.lock") || lock.ends_with("bun.lockb"))
-            && inv.checks.iter().any(|c| c == "typescript/bun/lock-sync")
-        {
+        let (pm, command) = lock_pm(&lock);
+        let sync = format!("typescript/{pm}/lock-sync");
+        if inv.checks.contains(&sync) {
             continue;
         }
         let then: Vec<String> = inv
@@ -164,12 +175,16 @@ fn lockfile_updated(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Wr
             .collect::<Vec<_>>()
             .join("; ");
         let _ = writeln!(out, "{f}: {what}, but {lock} has no changed line for it");
+        if !commands.contains(&command) {
+            commands.push(command);
+        }
         rc = 1;
     }
     if rc == 1 {
         let _ = writeln!(
             out,
-            "Run the package manager (bun install, pnpm install, npm install, yarn) to update the lock file; it is not edited by hand. If it cannot run here, tell the user."
+            "Run `{}` to update the lock file; it is not edited by hand. If it cannot run here, tell the user.",
+            commands.join("` or `")
         );
     }
     rc

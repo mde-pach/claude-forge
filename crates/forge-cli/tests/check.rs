@@ -411,6 +411,202 @@ fn the_uv_lock_is_kept_in_sync() {
     );
 }
 
+/// A fake tool on PATH: `script` as `<dir>/<name>`; the PATH that finds it first.
+fn fake_tool(bin: &Path, name: &str, script: &str) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    write(bin, &files(&[(name, script)]));
+    std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(0o755)).unwrap();
+    format!("{}:{PATH}", bin.display())
+}
+
+/// The JavaScript locks are kept in sync as uv's: a stale pnpm-lock.yaml is relocked with the
+/// adapter's `lock` operation (advice in the turn; at commit, a refusal to commit again with it;
+/// in CI, a finding and nothing written); a lock the project never had is not the change's; a
+/// package.json that does not resolve is a finding; a failing lint check (the new-dependency
+/// checks run there) stops the run before the relock; a release that cannot check the lock
+/// without installing is a note.
+#[test]
+fn the_js_lock_is_kept_in_sync() {
+    let pnpm = "#!/bin/sh\ncase \"$1\" in --version) echo '10.2.0'; exit 0 ;; esac\nif [ \"$1 $2\" = 'install --frozen-lockfile' ]; then grep -q synced pnpm-lock.yaml 2>/dev/null && exit 0; echo 'ERR_PNPM_OUTDATED_LOCKFILE' >&2; exit 1; fi\nif [ \"$1 $2 $3\" = 'install --lockfile-only --ignore-scripts' ]; then [ -f FAIL ] && { echo 'ERR_PNPM_FETCH_404 GET https://registry.npmjs.org/nope: Not Found - 404' >&2; exit 1; }; echo synced > pnpm-lock.yaml; exit 0; fi\nexit 9\n";
+    let bin = tempfile::tempdir().unwrap();
+    let path = fake_tool(bin.path(), "pnpm", pnpm);
+    let rule = ["typescript/pnpm/lock-sync"];
+    let pkg = "{\"name\": \"shop\", \"private\": true}\n";
+    let edited =
+        "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n";
+    // no lock, before or after: setup, not the change's
+    let r = Repo::new(&files(&[
+        ("package.json", pkg),
+        ("pnpm-workspace.yaml", "packages: []\n"),
+    ]));
+    write(r.path(), &files(&[("package.json", edited)]));
+    let snap = r.snap.path().display().to_string();
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("pnpm-lock.yaml").exists());
+    // CI: the missing lock is reported
+    let (code, v) = r.check(&["--all"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("pnpm-lock.yaml is missing: create it with `pnpm install --lockfile-only`"),
+        "{v}"
+    );
+    // a stale lock in the turn: relocked, advice
+    let r = Repo::new(&files(&[
+        ("package.json", pkg),
+        ("pnpm-lock.yaml", "synced\n"),
+    ]));
+    write(
+        r.path(),
+        &files(&[("package.json", edited), ("pnpm-lock.yaml", "old\n")]),
+    );
+    let snap = r.snap.path().display().to_string();
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 4, "advice only: {v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert_eq!(f[0]["severity"], "advice", "{v}");
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("pnpm-lock.yaml was updated to match package.json."),
+        "{v}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("pnpm-lock.yaml")).unwrap(),
+        "synced\n"
+    );
+    // a failing lint check stops the run before the relock (codegen)
+    write(
+        r.path(),
+        &files(&[
+            ("pnpm-lock.yaml", "old\n"),
+            ("pnpm-workspace.yaml", "packages: []\n"),
+        ]),
+    );
+    let (code, v) = r.check(
+        &["--turn", &snap],
+        &[rule[0], "typescript/pnpm/release-age"],
+        &path,
+    );
+    assert_eq!(code, 1, "{v}");
+    assert!(findings_of(&v, rule[0]).is_empty(), "{v}");
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("pnpm-lock.yaml")).unwrap(),
+        "old\n"
+    );
+    std::fs::remove_file(r.path().join("pnpm-workspace.yaml")).unwrap();
+    // at commit: relocked, and the commit is refused once
+    let (code, v) = r.check(&["--changed"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("Add it and commit again"),
+        "{v}"
+    );
+    // CI never writes
+    write(r.path(), &files(&[("pnpm-lock.yaml", "old\n")]));
+    let (code, v) = r.check(&["--all"], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(
+        std::fs::read_to_string(r.path().join("pnpm-lock.yaml")).unwrap(),
+        "old\n"
+    );
+    // a package.json that does not resolve
+    write(r.path(), &files(&[("FAIL", "")]));
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains("package.json does not resolve, so pnpm-lock.yaml cannot be updated: ERR_PNPM_FETCH_404"),
+        "{v}"
+    );
+    // a Bun that cannot check its lock without installing: a note, and nothing runs
+    let bun = "#!/bin/sh\ncase \"$1\" in --version) echo '1.1.42'; exit 0 ;; esac\ntouch INSTALLED\nexit 0\n";
+    let bin = tempfile::tempdir().unwrap();
+    let path = fake_tool(bin.path(), "bun", bun);
+    let rule = ["typescript/bun/lock-sync"];
+    let r = Repo::new(&files(&[("package.json", pkg), ("bun.lock", "{}\n")]));
+    write(r.path(), &files(&[("package.json", edited)]));
+    let snap = r.snap.path().display().to_string();
+    let (code, v) = r.check(&["--turn", &snap], &rule, &path);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("INSTALLED").exists());
+    assert!(
+        notes_of(&v, rule[0])
+            .iter()
+            .any(|n| n["text"].as_str().unwrap().contains("cannot lock-check")),
+        "{v}"
+    );
+}
+
+/// The JavaScript cooldowns hold a change only to what it broke, as uv's: a setting the base
+/// already lacked is the project's setup; a setting the change weakened, or a file it created
+/// without it, is a finding; the whole project (`--all`) reports everything.
+#[test]
+fn the_js_cooldowns_block_only_what_the_change_broke() {
+    let rule = ["typescript/npm/release-age"];
+    let r = Repo::new(&files(&[("package.json", "{\"name\": \"shop\"}\n")]));
+    write(
+        r.path(),
+        &files(&[(
+            "package.json",
+            "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n",
+        )]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.check(&["--all"], &rule, PATH);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(findings_of(&v, rule[0]).len(), 2, "{v}");
+    // a change that weakens the cooldown the project had
+    let r = Repo::new(&files(&[
+        (
+            "package.json",
+            "{\"name\": \"shop\", \"packageManager\": \"npm@11.12.0\"}\n",
+        ),
+        (".npmrc", "min-release-age=7\n"),
+    ]));
+    write(r.path(), &files(&[(".npmrc", "min-release-age=1\n")]));
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 1, "{v}");
+    let f = findings_of(&v, rule[0]);
+    assert_eq!(f.len(), 1, "{v}");
+    assert!(
+        f[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains(".npmrc: min-release-age is 1"),
+        "{v}"
+    );
+    // pnpm: a pnpm-workspace.yaml the change created without the setting
+    let rule = ["typescript/pnpm/release-age"];
+    let r = Repo::new(&files(&[("package.json", "{\"name\": \"shop\"}\n")]));
+    write(
+        r.path(),
+        &files(&[("pnpm-workspace.yaml", "packages:\n  - apps/*\n")]),
+    );
+    let (code, v) = r.turn(&rule);
+    assert_eq!(code, 1, "{v}");
+    assert!(
+        findings_of(&v, rule[0])[0]["agent_text"]
+            .as_str()
+            .unwrap()
+            .contains(
+                "pnpm-workspace.yaml: minimumReleaseAge is unset; set minimumReleaseAge: 4320"
+            ),
+        "{v}"
+    );
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as

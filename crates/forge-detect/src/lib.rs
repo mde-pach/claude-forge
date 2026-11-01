@@ -23,7 +23,8 @@ use std::process::Command;
 
 pub use activate::{Activation, PackStatus, active_packs, detect_anywhere, detect_pack};
 pub use facts::{
-    DepFacts, DetectError, FACT_JS_PM, FACT_PYTHON_PM, ProjectFacts, read_project_facts,
+    DepFacts, DetectError, FACT_JS_PM, FACT_JS_YARN, FACT_PYTHON_PM, ProjectFacts,
+    read_project_facts,
 };
 pub use place::{CheckPlace, Site};
 

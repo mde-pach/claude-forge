@@ -16,46 +16,6 @@ fn is_package_json(p: &str) -> bool {
     p == "package.json" || p.ends_with("/package.json")
 }
 
-/// `forge_bun_cooldown`: bunfig.toml `[install] minimumReleaseAge` is at least the cooldown.
-pub struct BunCooldown(pub Arc<Options>);
-
-impl CheckBuiltin for BunCooldown {
-    fn name(&self) -> &'static str {
-        "bun_cooldown"
-    }
-
-    fn run(&self, ctx: &BuiltinCtx, _x: &Extra, _args: &[String]) -> Report {
-        let want = self.0.cooldown_seconds;
-        let value = read(&ctx.root, "bunfig.toml").and_then(|t| install_value(&t));
-        let mut r = Report::default();
-        if let Some(Value::Number(n)) = &value
-            && n.as_u64().is_some_and(|v| v >= want)
-        {
-            return r;
-        }
-        let shown = match &value {
-            None => "unset".to_string(),
-            Some(Value::String(s)) => format!("\"{s}\""),
-            Some(v) => v.to_string(),
-        };
-        r.findings.push(Finding::error(
-            &ctx.rule,
-            format!(
-                "bunfig.toml: [install] minimumReleaseAge is {shown}; set it to at least {want} ({}, in seconds) so a freshly published (possibly compromised) version is not installed. Packages you must update sooner go in minimumReleaseAgeExcludes.",
-                duration(want)
-            ),
-        ));
-        r
-    }
-}
-
-/// `[install] minimumReleaseAge` of a bunfig.toml (None: absent or unreadable).
-fn install_value(text: &str) -> Option<Value> {
-    let t: toml::Table = text.parse().ok()?;
-    let v = t.get("install")?.get("minimumReleaseAge")?;
-    serde_json::to_value(v).ok()
-}
-
 /// "3 days", "36 hours", "90 seconds".
 pub fn duration(secs: u64) -> String {
     let plural = |n: u64, w: &str| format!("{n} {w}{}", if n == 1 { "" } else { "s" });

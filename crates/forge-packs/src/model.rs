@@ -58,6 +58,8 @@ vocabulary!(
         /// pip into the project's environment where the project's packages are uv's, or
         /// where it has no packaging yet.
         PythonPm = "python-pm",
+        /// An install with a JavaScript package manager that is not the project's (`js.pm`).
+        JsPm = "js-pm",
     }
 );
 
@@ -65,10 +67,10 @@ impl GuardCheck {
     /// The decision a guard target with this check takes, from what the check finds: a package
     /// added or fetched to run may be the task's (the person, or a reviewer, decides: `ask`); pip
     /// in a uv or unpackaged project always has the right command to use instead (`deny`, which
-    /// names it).
+    /// names it); another JavaScript package manager may be what the person wants (`ask`).
     pub fn decision(self) -> Decision {
         match self {
-            GuardCheck::EphemeralExec | GuardCheck::PackageAdd => Decision::Ask,
+            GuardCheck::EphemeralExec | GuardCheck::PackageAdd | GuardCheck::JsPm => Decision::Ask,
             GuardCheck::PythonPm => Decision::Deny,
         }
     }

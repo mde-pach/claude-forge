@@ -641,6 +641,11 @@
           "type": "string",
           "const": "python-pm",
           "description": "pip into the project's environment where the project's packages are uv's, or\nwhere it has no packaging yet."
+        },
+        {
+          "type": "string",
+          "const": "js-pm",
+          "description": "An install with a JavaScript package manager that is not the project's (`js.pm`)."
         }
       ],
       "description": "The guard's built-in checks, each reading the whole parsed command line."

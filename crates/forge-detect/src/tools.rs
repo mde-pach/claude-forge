@@ -58,6 +58,10 @@ const HELPER_TOOLS: &[(&str, &str)] = &[
     (r"\bforge_helm\b", "helm"),
     (r"\bforge_sqlfluff\b", "sqlfluff"),
     (r"\bforge_uv_lock\b", "uv"),
+    (r"\bforge_js_lock npm\b", "npm"),
+    (r"\bforge_js_lock pnpm\b", "pnpm"),
+    (r"\bforge_js_lock yarn\b", "yarn"),
+    (r"\bforge_js_lock bun\b", "bun"),
 ];
 
 fn escape(t: &str) -> String {

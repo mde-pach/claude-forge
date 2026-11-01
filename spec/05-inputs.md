@@ -93,7 +93,9 @@ Facts are named values read from the repository's files, the same on every machi
 | `setup.py` or `setup.cfg` | `pip` |
 | none of these (plain scripts, or no Python) | `none` |
 
-**`js.pm`**: the package manager pinned by `packageManager` or `devEngines.packageManager` (the package's, then the root's); else the lock file (`bun.lock`/`bun.lockb` → `bun`, `pnpm-lock.yaml` → `pnpm`, `yarn.lock` → `yarn`, `package-lock.json`/`npm-shrinkwrap.json` → `npm`; the package's directory, then the root); else `npm` when there is a `package.json`; else `none`.
+**`js.pm`**: the package manager pinned by `packageManager` or `devEngines.packageManager` (the package's, then the root's); else the lock file (`bun.lock`/`bun.lockb` → `bun`, `pnpm-lock.yaml` → `pnpm`, `yarn.lock` → `yarn`, `package-lock.json`/`npm-shrinkwrap.json` → `npm`, in this order; the package's directory, then the root); else the package manager's config (`pnpm-workspace.yaml` → `pnpm`, `.yarnrc.yml` → `yarn`); else `npm` when there is a `package.json`; else `none`. The package-manager packs (`typescript/npm`, `typescript/pnpm`, `typescript/yarn`, `typescript/bun`) are detected by it, so exactly one is active.
+
+**`js.yarn`**: where `js.pm` is `yarn`, `berry` (Yarn 2 and later: a `.yarnrc.yml` in the package's directory or the root, or a pinned Yarn 2 or later), else `classic`; `none` for another package manager. `typescript/yarn` is detected by `js.yarn: berry`: Yarn 1 projects have no package-manager pack.
 
 **Context items.** Each active pack's `context` items are rendered into its rules file (§7.1), in pack-id order:
 
@@ -138,5 +140,5 @@ python:
 - Lints: `crates/forge-packs/tests/lints.rs`, `crates/forge-packs/src/lint.rs` (unit).
 - Detection kinds, dependencies, `forge.yaml` add/remove and its warnings, workspaces, libraries and publishing evidence, vendored directories: `crates/forge-detect/tests/spec_inputs.rs`; `crates/forge-detect/src/*.rs` (unit); the generator samples in `crates/forge-cli/tests/apply.rs`.
 - `forge.yaml` validation, local packs' context, `tool_off`: `crates/forge-cli/tests/spec_cli.rs`.
-- `python.pm` and `js.pm`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases` (unit); `crates/forge-detect/tests/spec_inputs.rs::package_manager_facts`.
+- `python.pm`, `js.pm` and `js.yarn`: `crates/forge-detect/src/pm.rs::python_pm_table`, `::js_pm_cases`, `::yarn_lines` (unit); `crates/forge-detect/tests/spec_inputs.rs::package_manager_facts`, `::one_package_manager_pack_follows_js_pm`.
 - Context items and `when`: `crates/forge-render/tests/context.rs`, `crates/forge-render/tests/builtin_context.rs`.

@@ -14,6 +14,10 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 === .claude/rules/forge-typescript-eslint.md
 ESLint 9+ reads only the flat config `eslint.config.*`: ignores go in its `ignores`, globals in `languageOptions.globals`; `.eslintrc*`, `.eslintignore` and `/* eslint-env */` comments are rejected.
 ESLint warnings on added lines are fixed like errors. The type-aware typescript-eslint rules (`no-unsafe-*`, `no-unnecessary-condition`, …) need `parserOptions.projectService`.
+=== .claude/rules/forge-typescript-npm.md
+npm is the package manager: `npm install`, `npm ci`; pnpm, yarn and bun installs ask.
+Peer dependency conflicts are resolved, not hidden: `--legacy-peer-deps` and `--force` (flags or `.npmrc`) are rejected, and `npm audit fix --force` asks.
+Dependencies come from the registry: git, GitHub and tarball URL specs, and `allow-git=all` / `allow-remote=all`, are rejected.
 === .claude/rules/forge-typescript.md
 TypeScript, strict.
 No `ignoreDeprecations` in a tsconfig, and no new `baseUrl`, `moduleResolution: "node10"`, `target: "es5"` or `esModuleInterop: false` (deprecated in TypeScript 6, removed in 7).
@@ -165,7 +169,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "5aa3b1c9c36d04f5fd738d5314d06239718bf7bd93af65d01ede8699babe1742"
+rule_set = "f4ea4f053eb6d926c9d0ff465f3f4e65a0cbf33bbbe57479a8feac72b3c65304"
 
 [rules]
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
@@ -200,7 +204,7 @@ rule_set = "5aa3b1c9c36d04f5fd738d5314d06239718bf7bd93af65d01ede8699babe1742"
 "typescript/format-lint" = "f3c1c7a3201dc7873ee6391e60502b47631007eb844ee3c52de6732a9fc30110"
 "typescript/iframe-sandbox" = "68a3e25b09d93892dc5c7b884660555a33c7bb4adcfc728d9f6da4c0873ddaf6"
 "typescript/implicit-returns" = "b32a2ba8f0c6734d78b444c5e40e9324c76d050b4737c1c6627ba89c46982629"
-"typescript/lockfile-updated" = "4e73aebc5db80beaa00f712dc0a4d1091ed8ebe051c57e087df110696b49e6b7"
+"typescript/lockfile-updated" = "d79ac61984b416cec541d416679d0639d36ef26a430934e6d6bd1e13e23e6254"
 "typescript/no-banned-types" = "b40fe06aae8a3215689c51ea1e79cb1f818ace5397d139aed5721c374445174e"
 "typescript/no-console" = "304966850351b07590c05fb22ae0125d1976179b3cd7abc0bc0dd7e82039ada5"
 "typescript/no-const-enum" = "c30d3750ef9c4fdff8c9534f76e35ed04c10ee5bcde208a8cae4ff5d3abd307d"
@@ -218,6 +222,7 @@ rule_set = "5aa3b1c9c36d04f5fd738d5314d06239718bf7bd93af65d01ede8699babe1742"
 "typescript/no-new-suppressions" = "d52b04fe85396d74e40cd1dbffb33eb8d51825ef18ffb6aa4c04865fe111f4be"
 "typescript/no-non-null-assertion" = "24bf5fb3547ff36667d3886eaebc706fc21a387a18d2f5789156220e65462ce2"
 "typescript/no-object-literal-assertion" = "7324c436b6acce6a07f2441bf1a45d3b0a5e89f2ac0cc92cd1119ed75a8cd241"
+"typescript/no-other-pm" = "8f45aebbecbcec01c40d014e9e268c6c493fc1c8267a6eb5b6e590b57b1bfbf4"
 "typescript/no-proto" = "c6f0adc46d66d273c8a812e9f690ee0dd3cab37b5b6e05dc1a939212d217ec41"
 "typescript/no-secrets" = "94ad67cd60030c667e22aa4c097abbb17675fdeb5cf944ffb69a6cde2aab365c"
 "typescript/no-stub" = "c0b7945c7b23df7621388872772f9185161a99ca57a0ea316f969a41972840a8"
@@ -228,6 +233,17 @@ rule_set = "5aa3b1c9c36d04f5fd738d5314d06239718bf7bd93af65d01ede8699babe1742"
 "typescript/no-unused" = "d75d0e94afbbd14b74ea3896c6f269d7a6953eed0c9e7edcc4c65534c460c413"
 "typescript/no-unused-suppressions" = "3ca34b581299f9205c919a4d23e0be066905d08c7f1f32a7bc9bbfb88d5d006d"
 "typescript/node-version-file" = "fada4dfd28b0f7417472cb081134382c88c94ef9e9553867b514adb79a703ed1"
+"typescript/npm/allow-scripts" = "54616b98a0dc6d2670eef5b618b768863549dc10baa199e5bf17d4d7eca06429"
+"typescript/npm/allow-scripts-command" = "148e68488724fd57d82160716f3e38687683cea88b8213d306751ef3c1396dbe"
+"typescript/npm/lock-sync" = "ec8497b5b5cb928be14d4b759a5231dfe1fc10909b0f2b33c7ee4343af96f2af"
+"typescript/npm/lockfile-lint" = "38df5e6c6650e40ec183df7361b707d21d164d2a58d8545b87a60854559f1993"
+"typescript/npm/no-audit-fix-force" = "187ae0790a3601a987042782625276f01eca18cc270b32cf6e0a49462108f99f"
+"typescript/npm/no-exotic-deps" = "5a2323f2f3d4a3a29af207f95792b2546ed1190a19134496490ce22cd835afd7"
+"typescript/npm/no-exotic-sources" = "1587125c3d34889a7e9eef549f68b472e672f1af2e20ce251e017f58f7a538e7"
+"typescript/npm/no-legacy-peer-deps" = "163067d3c5e3892c4b7c33f6cb7bf9b6b43958bd0426fb32949e63f6afc0dd16"
+"typescript/npm/no-legacy-peer-deps-config" = "0733b16041af87032d0833319d38975907e849cf27e511df1c573a1f880ec880"
+"typescript/npm/release-age" = "cfe93ec0f2cced5348aadec604fb5c9d43aeed19757788a6d6c3a301eabb2ab8"
+"typescript/npm/release-age-command" = "9f7f8d6ba320483287ad33857d2a3c6baa45654785f756310403708ec143c847"
 "typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
 "typescript/strict-function-types" = "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263"
 "typescript/strict-null-checks" = "1249d522c4e1a26bf6d951e14a7e9b3033d1be96ebf68d9cc93b0e8df9940df6"
@@ -240,6 +256,7 @@ rule_set = "5aa3b1c9c36d04f5fd738d5314d06239718bf7bd93af65d01ede8699babe1742"
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".claude/rules/forge-typescript-eslint.md" = "6d159e59a604c9ed6f60d28334632c3e4ddfd3f159cddb313440e4eb50c946a3"
+".claude/rules/forge-typescript-npm.md" = "2b65b4020d57d8ac6c4d125e4c31e5af8401d199dcde04eafa769235e6974cf3"
 ".claude/rules/forge-typescript.md" = "36a32533056fc3f168f8f36e2d50ba365927c56ad54829839825b42c06ba5461"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 
@@ -249,6 +266,7 @@ dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Contain
 e2e-tests = ["e2e/**", "tests/e2e/**"]
 env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
 env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+lockfiles = ["uv.lock", "bun.lock", "bun.lockb", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"]
 ts-tests = ["**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}", "**/__tests__/**"]
 
 [tools]

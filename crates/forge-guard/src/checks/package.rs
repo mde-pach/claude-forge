@@ -18,11 +18,15 @@
 //!   repository, a pip or python run by a path outside the repository
 //!   (`/tmp/venv/bin/pip install x`), `VIRTUAL_ENV=` outside the repository, or a command run
 //!   from outside the repository. (`package-add` still asks about those.)
+//! - `js-pm` flags an install with a JavaScript package manager that is not the project's
+//!   (`js.pm`): `npm install|i|ci|add`, `pnpm add|install|i|update|up|remove|rm`, `yarn` alone (or
+//!   with `--immutable` / `--frozen-lockfile`) and `yarn add|install|up|upgrade|remove`, `bun
+//!   install|i|add|a`. Global installs, and commands run from outside the repository, pass.
 
 use std::path::{Path, PathBuf};
 
 use crate::args::Args;
-use crate::ctx::{GuardCtx, PythonPm};
+use crate::ctx::{GuardCtx, JsPm, PythonPm};
 use crate::parse::{Dir, Parsed, SimpleCommand, basename, normalize};
 use crate::runners::{UV_VALUE, is_python, pm_option};
 
@@ -360,6 +364,92 @@ pub fn python_pm(parsed: &Parsed, ctx: &GuardCtx) -> Option<(String, String)> {
             },
         ),
     })
+}
+
+/// `js-pm`: the reason and the detail for an install with another JavaScript package manager.
+pub fn js_pm(parsed: &Parsed, ctx: &GuardCtx) -> Option<(String, String)> {
+    let pm = match ctx.js_pm? {
+        JsPm::Npm => "npm",
+        JsPm::Pnpm => "pnpm",
+        JsPm::Yarn => "yarn",
+        JsPm::Bun => "bun",
+    };
+    let (other, what) = parsed.commands.iter().find_map(|c| {
+        if let Dir::Known(d) = &c.dir
+            && !ctx.in_repo(d)
+        {
+            return None;
+        }
+        c.starts.iter().find_map(|&p| {
+            let w = &c.words;
+            let t = |i: usize| w.get(i).map(|x| x.text.as_str()).unwrap_or("");
+            let b = basename(t(p));
+            if !matches!(b, "npm" | "pnpm" | "yarn" | "bun") || b == pm {
+                return None;
+            }
+            let mut j = p + 1;
+            let mut flags = Vec::new();
+            while t(j).starts_with('-') && t(j).len() > 1 {
+                flags.push(t(j));
+                j += if pm_option(b, t(j)) > 0 { 2 } else { 1 };
+            }
+            let sub = t(j);
+            let installs = match b {
+                "npm" => matches!(
+                    sub,
+                    "install"
+                        | "i"
+                        | "ci"
+                        | "add"
+                        | "in"
+                        | "ins"
+                        | "inst"
+                        | "insta"
+                        | "instal"
+                        | "isnt"
+                        | "isnta"
+                        | "isntal"
+                        | "isntall"
+                ),
+                "pnpm" => matches!(
+                    sub,
+                    "add" | "install" | "i" | "update" | "up" | "remove" | "rm"
+                ),
+                "yarn" => {
+                    matches!(sub, "add" | "install" | "up" | "upgrade" | "remove")
+                        || (j >= w.len()
+                            && flags
+                                .iter()
+                                .all(|f| matches!(*f, "--immutable" | "--frozen-lockfile")))
+                }
+                _ => matches!(sub, "install" | "i" | "add" | "a"),
+            };
+            // a global install is not the project's
+            let global = flags.iter().any(|f| matches!(*f, "-g" | "--global"))
+                || w.iter()
+                    .skip(j + 1)
+                    .any(|x| matches!(x.text.as_str(), "-g" | "--global"));
+            let installs = installs && !global;
+            let shown = if sub.is_empty() {
+                b.to_string()
+            } else {
+                format!("{b} {sub}")
+            };
+            installs.then_some((b, shown))
+        })
+    })?;
+    let use_ = match pm {
+        "npm" => "`npm install` (`npm install <pkg>` to add one)",
+        "pnpm" => "`pnpm install` (`pnpm add <pkg>` to add one)",
+        "yarn" => "`yarn install` (`yarn add <pkg>` to add one)",
+        _ => "`bun install` (`bun add <pkg>` to add one)",
+    };
+    Some((
+        format!(
+            "This project's packages are managed with {pm}: {use_}; installing with {other} would write another lock file."
+        ),
+        format!("`{what}` installs with {other}"),
+    ))
 }
 
 fn shell_quote(s: &str) -> String {

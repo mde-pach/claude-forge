@@ -1,21 +1,23 @@
 id: typescript/npm/lock-sync
-description: "package-lock.json matches the package.json files (npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules)."
+description: "package-lock.json matches the package.json files; a stale lock is updated with npm install --package-lock-only --ignore-scripts (checked with npm ci --dry-run --ignore-scripts from npm 10.5.1, which leaves node_modules alone; before, npm ls --package-lock-only --all, since an earlier ci --dry-run deletes node_modules)."
 scope: {language: any}
 enforce:
+  # Forge keeps the lock in sync (forge_js_lock relocks a stale one; §10.5), after the lint
+  # stage's new-dependency checks
   - target: check
-    stage: lint
-    run: forge_do npm lock-check
+    stage: codegen
+    run: forge_js_lock npm
     when_changed: ["**/package.json", "package-lock.json", "npm-shrinkwrap.json"]
 examples:
-  match:
-    - head:
-        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true}\n"
-        package-lock.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"shop\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}\n"
-      files:
-        package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"
+  # a stale lock needs the package manager: crates/forge-cli/tests/check.rs::the_js_lock_is_kept_in_sync
   no_match:
     - head:
         package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true}\n"
         package-lock.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"shop\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}\n"
       files:
         package.json: "{\"name\": \"shop\", \"version\": \"1.0.0\", \"private\": true, \"scripts\": {\"test\": \"vitest run\"}}\n"
+    # a lock the project never had is setup (forge apply), not the change's
+    - head:
+        package.json: "{\"name\": \"shop\", \"private\": true}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"

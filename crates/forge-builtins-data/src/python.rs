@@ -3,8 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use forge_check::builtins::{RunMode, ToolRun};
-use forge_core::{Finding, NoteKind, Report};
+use forge_core::Report;
 
 use crate::Run;
 use crate::util::{
@@ -202,85 +201,7 @@ fn cooldown_problems(
     out
 }
 
-/// The last non-empty line of a tool's output: its error.
-fn last_line(text: &str) -> &str {
-    text.lines()
-        .rev()
-        .map(str::trim)
-        .find(|l| !l.is_empty())
-        .unwrap_or("")
-}
-
-/// `forge_uv_lock`: uv.lock matches pyproject.toml, and Forge keeps it so (§10.5): the lock is
-/// derived, so a stale one is relocked rather than reported. In the agent's turn, the relock is
-/// advice; in a commit (`--changed`), a refusal to commit again with the new lock; in CI (`--all`,
-/// `--since`), nothing is written and a stale or missing lock is a finding. A change is never held
-/// to a lock the project never had: creating it is setup, which `forge apply` offers (§3.5).
+/// `forge_uv_lock`: uv.lock matches pyproject.toml, kept so as [`crate::lock::keep`] says.
 pub fn uv_lock(run: &Run<'_>, _args: &[String]) -> Report {
-    run.check.mark_attributed();
-    let mut r = Report::default();
-    let root = run.root();
-    let lock_now = run.exists("uv.lock");
-    let ci = run.all() || run.check.mode == RunMode::Since;
-    if !ci {
-        let lock_before = if run.changed().iter().any(|c| c == "uv.lock") {
-            run.base_path("uv.lock").is_some()
-        } else {
-            lock_now
-        };
-        if !lock_now && !lock_before {
-            return r;
-        }
-    } else if !lock_now {
-        r.findings.push(run.finding(
-            "uv.lock is missing: create it with `uv lock` and commit it, so every install resolves the same versions.",
-        ));
-        return r;
-    }
-    match run.opts.tools.run(root, root, "uv", "lock-check", &[]) {
-        ToolRun::Ran(o) if o.status == 0 => return r,
-        ToolRun::Ran(_) => {}
-        ToolRun::Missing(why) => {
-            r.notes
-                .push(run.note(NoteKind::MissingTool, format!("skipped: {why}")));
-            return r;
-        }
-        ToolRun::Unsupported(why) => {
-            r.notes.push(run.note(NoteKind::NotEnforced, why));
-            return r;
-        }
-    }
-    if ci {
-        r.findings.push(run.finding(
-            "uv.lock does not match pyproject.toml: run `uv lock` and commit the result.",
-        ));
-        return r;
-    }
-    match run.opts.tools.run(root, root, "uv", "lock", &[]) {
-        ToolRun::Ran(o) if o.status == 0 => {
-            let text = "uv.lock was updated to match pyproject.toml.";
-            if run.check.mode == RunMode::Changed {
-                r.findings
-                    .push(run.finding(format!("{text} Add it and commit again.")));
-            } else {
-                r.findings.push(Finding::advice(run.ctx.rule.clone(), text));
-            }
-        }
-        ToolRun::Ran(o) => {
-            let why = last_line(&o.stderr);
-            r.findings.push(run.finding(format!(
-                "pyproject.toml does not resolve, so uv.lock cannot be updated: {}",
-                if why.is_empty() {
-                    last_line(&o.stdout)
-                } else {
-                    why
-                }
-            )));
-        }
-        ToolRun::Missing(why) => r
-            .notes
-            .push(run.note(NoteKind::MissingTool, format!("skipped: {why}"))),
-        ToolRun::Unsupported(why) => r.notes.push(run.note(NoteKind::NotEnforced, why)),
-    }
-    r
+    crate::lock::keep(run, &crate::lock::UV)
 }

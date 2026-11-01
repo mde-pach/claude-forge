@@ -43,6 +43,19 @@ pub enum JsPm {
     Bun,
 }
 
+impl JsPm {
+    /// The `js.pm` fact's value (`none`: no package manager, None).
+    pub fn from_fact(s: &str) -> Option<JsPm> {
+        Some(match s {
+            "npm" => JsPm::Npm,
+            "pnpm" => JsPm::Pnpm,
+            "yarn" => JsPm::Yarn,
+            "bun" => JsPm::Bun,
+            _ => return None,
+        })
+    }
+}
+
 /// File lookups the checks make (is `tsc` in `node_modules/.bin`?); the hook runtime may
 /// answer them from a cache.
 pub trait Lookup {
