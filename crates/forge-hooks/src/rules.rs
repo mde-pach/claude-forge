@@ -1,10 +1,10 @@
 //! What a hook needs from the active rules, cached in the state directory so a hook does not load
 //! the packs: the guard rules, the languages with typed rules, and the package-manager facts.
 //!
-//! The cache is keyed by the lock: its size and mtime first (no parse when the lock did not
-//! change), then its `rule_set` hash (a lock rewritten with the same rules keeps the cache). The
-//! facts are keyed by the packaging files at the root (`uv.lock`, `pyproject.toml`, …), checked
-//! with one directory read.
+//! The cache is keyed by the lock's size and mtime and by the packaging files at the root
+//! (`uv.lock`, `pyproject.toml`, …), checked with one directory read: no parse, no plan while
+//! neither changed. A change of either plans the repository again, so the guard follows the
+//! packs active now (a project that moved from Poetry to uv during the session).
 
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -181,62 +181,76 @@ pub struct Source<'a> {
 pub fn load(state_dir: &Path, source: &Source) -> Option<HookCache> {
     let meta = meta_key(&source.lock)?;
     let file = state_dir.join("hook-cache.json");
-    let mut cache: HookCache = std::fs::read(&file)
+    let cache: HookCache = std::fs::read(&file)
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default();
     let build = build_id();
-    let mut dirty = false;
-    if cache.build != build || cache.lock_meta != meta {
-        let text = std::fs::read_to_string(&source.lock).ok()?;
-        let lock = forge_render::lock::Lock::parse(&text).ok()?;
-        if cache.build != build || cache.rule_set != lock.rule_set || lock.rule_set.is_empty() {
-            let fresh = rebuild(source, &lock)?;
-            cache = HookCache {
-                build: build.clone(),
-                rule_set: lock.rule_set.clone(),
-                ..fresh
-            };
-        }
-        cache.rules_files = lock
-            .files
-            .keys()
-            .filter(|f| f.starts_with(".claude/rules/"))
-            .cloned()
-            .collect();
-        cache.lock_meta = meta;
-        dirty = true;
+    let fk = source.repo.map(facts_key);
+    if cache.build == build && cache.lock_meta == meta && cache.facts_key == fk {
+        return Some(cache);
     }
-    if let Some(repo) = source.repo {
-        let fk = facts_key(repo);
-        if cache.facts_key.as_deref() != Some(fk.as_str()) {
-            let (py, js) = pm_facts(repo);
-            cache.python_pm = py;
-            cache.js_pm = js;
-            cache.facts_key = Some(fk);
-            dirty = true;
-        }
-    }
-    if dirty && state::ensure_dir(state_dir) {
-        if let Ok(b) = serde_json::to_vec(&cache) {
+    let text = std::fs::read_to_string(&source.lock).ok()?;
+    let lock = forge_render::lock::Lock::parse(&text).ok()?;
+    let mut fresh = rebuild(source, &lock)?;
+    fresh.build = build;
+    fresh.lock_meta = meta;
+    fresh.rule_set = lock.rule_set.clone();
+    fresh.facts_key = fk;
+    fresh.rules_files = lock
+        .files
+        .keys()
+        .filter(|f| f.starts_with(".claude/rules/"))
+        .cloned()
+        .collect();
+    if state::ensure_dir(state_dir) {
+        if let Ok(b) = serde_json::to_vec(&fresh) {
             state::write_atomic(&file, &b);
         }
     }
-    Some(cache)
+    Some(fresh)
 }
 
+/// The active rules: at user level, the lock's. In a repository, the rules a plan of the
+/// repository as it is now selects (packaging files created or removed during the session
+/// change the packs, as they do for the checks, §10.1), with the lock deciding for the packs it
+/// records: a rule of a pack the lock records is active only if the lock records it too; a pack
+/// the lock does not record gives the rules the plan selects. A plan that fails falls back to
+/// the lock's rules.
 fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache> {
     let opts = forge_packs::Options {
         cache_dir: source.packs_cache.as_deref(),
     };
     let set = forge_packs::load(source.repo, opts).ok()?;
-    let active: Vec<&Rule> = set
-        .packs
-        .values()
-        .flat_map(|p| p.rules.iter())
-        .chain(set.local_rules.iter())
-        .filter(|r| lock.rules.contains_key(&r.id))
-        .collect();
+    let all = || {
+        set.packs
+            .values()
+            .flat_map(|p| p.rules.iter())
+            .chain(set.local_rules.iter())
+    };
+    let by_lock = || -> Vec<&Rule> { all().filter(|r| lock.rules.contains_key(&r.id)).collect() };
+    let (active, (python_pm, js_pm)) = match source.repo {
+        None => (by_lock(), (None, None)),
+        Some(repo) => match plan_now(repo, &set) {
+            Err(_) => (by_lock(), pm_facts(repo)),
+            Ok((now, facts)) => {
+                // the rules of the packs the lock records, and the local rules: the lock's
+                let decided: Vec<&str> = set
+                    .packs
+                    .values()
+                    .filter(|p| p.rules.iter().any(|r| lock.rules.contains_key(&r.id)))
+                    .flat_map(|p| p.rules.iter())
+                    .chain(set.local_rules.iter())
+                    .map(|r| r.id.as_str())
+                    .collect();
+                let active = all()
+                    .filter(|r| now.contains(&r.id))
+                    .filter(|r| lock.rules.contains_key(&r.id) || !decided.contains(&r.id.as_str()))
+                    .collect();
+                (active, facts)
+            }
+        },
+    };
     let guard = active
         .iter()
         .filter_map(|r| forge_guard::converted::rule(r))
@@ -247,12 +261,35 @@ fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache
         typed: typed_languages(active.iter().copied()),
         typecheck: typecheck_languages(active.iter().copied()),
         rules: active.iter().map(|r| r.id.clone()).collect(),
+        python_pm,
+        js_pm,
         ..HookCache::default()
     })
 }
 
 /// The root's `python.pm` and `js.pm` facts.
-pub fn pm_facts(repo: &Path) -> (Option<String>, Option<String>) {
+type PmFacts = (Option<String>, Option<String>);
+
+/// The rule ids a plan of `repo` as it is now selects, and the root's package-manager facts.
+fn plan_now(repo: &Path, set: &forge_packs::PackSet) -> Result<(Vec<String>, PmFacts), String> {
+    let config = forge_packs::load_project_config(repo).map_err(|e| e.to_string())?;
+    let sel = forge_check::select::project(repo, set, config.as_ref())?;
+    let fact = |name| sel.facts.root.fact(name).map(str::to_owned);
+    Ok((
+        sel.plan
+            .active
+            .iter()
+            .map(|st| st.rule.id.clone())
+            .collect(),
+        (
+            fact(forge_detect::FACT_PYTHON_PM),
+            fact(forge_detect::FACT_JS_PM),
+        ),
+    ))
+}
+
+/// The root's `python.pm` and `js.pm` facts.
+pub fn pm_facts(repo: &Path) -> PmFacts {
     let files = forge_detect::list_repo_files(repo);
     match forge_detect::read_project_facts(repo, &files) {
         Ok(f) => (

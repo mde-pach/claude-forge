@@ -153,26 +153,54 @@ pub fn select(root: &Path, only: Option<&str>) -> Result<Selected, String> {
         }
         None => selection.rules,
     };
-    let context = selection
-        .plan
-        .packs
-        .iter()
-        .filter_map(|pk| {
-            let path = forge_render::context::rules_file_path(&pk.id);
-            let text = selection.plan.files.get(&path)?;
-            Some(forge_hooks::PackContextNow {
-                text: forge_render::context::rules_file_items(text).to_string(),
-                pack: pk.id.clone(),
-                path,
-            })
-        })
-        .collect();
+    let context = context_now(root, &set, &selection.plan);
     Ok(Selected {
         rules,
         roles: selection.roles.map().clone(),
         accept: config.and_then(|c| c.accept).unwrap_or_default(),
         context,
     })
+}
+
+/// The rules files the plan's packs give, and what the repository's rules files (written at
+/// apply, what the agent was given) hold that the packs active now no longer give: an item whose
+/// `when` no longer holds, a pack no longer active.
+fn context_now(
+    root: &Path,
+    set: &forge_packs::PackSet,
+    plan: &forge_render::plan::Plan,
+) -> Vec<forge_hooks::PackContextNow> {
+    use forge_render::context::{rules_file_items, rules_file_path};
+    let mut out = Vec::new();
+    for (id, pack) in &set.packs {
+        let path = rules_file_path(id);
+        let now = plan.files.get(&path).map(|t| rules_file_items(t));
+        let active = plan.packs.iter().any(|p| p.id == *id);
+        let given = std::fs::read_to_string(root.join(&path)).ok();
+        let given = given.as_deref().map(rules_file_items);
+        let gone: Vec<String> = match given {
+            Some(given) if active => pack
+                .context
+                .iter()
+                .filter(|i| i.when.is_some() && given.contains(i.text.as_str()))
+                .filter(|i| !now.is_some_and(|t| t.contains(i.text.as_str())))
+                .map(|i| i.text.trim_end().to_string())
+                .collect(),
+            _ => Vec::new(),
+        };
+        let inactive = !active && given.is_some();
+        if now.is_none() && gone.is_empty() && !inactive {
+            continue;
+        }
+        out.push(forge_hooks::PackContextNow {
+            path,
+            pack: id.clone(),
+            text: now.unwrap_or("").to_string(),
+            gone,
+            inactive,
+        });
+    }
+    out
 }
 
 /// The cache of [`select`] for the hooks.
