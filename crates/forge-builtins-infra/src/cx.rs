@@ -100,6 +100,17 @@ impl<'a> Cx<'a> {
         self.check.scope_files(self.root())
     }
 
+    /// The files a per-file tool checks: the check's files in a change (none when only a
+    /// `when_changed` file changed: nothing of its own to check), every in-scope file with
+    /// `--all`.
+    pub fn change_files(&self) -> Vec<String> {
+        if self.all() {
+            self.scope_files()
+        } else {
+            self.check.files.clone()
+        }
+    }
+
     /// `git <args>` in the root, one path per line (empty when git fails).
     pub fn git_files(&self, args: &[&str]) -> Vec<String> {
         Command::new("git")
@@ -180,19 +191,21 @@ impl<'a> Cx<'a> {
             .any(|a| a == text || a.contains(text))
     }
 
-    /// The findings the user did not accept, then `hint` when some remain.
+    /// The findings the user did not accept, each ending with `hint`: a line of its own would
+    /// name no location, and the checker keeps only the lines its findings are attributed by.
+    /// An accepted change matches the finding's text with or without the hint.
     pub fn unaccepted(&self, findings: Vec<Finding>, hint: &str) -> Report {
-        let mut r = Report {
+        Report {
             findings: findings
                 .into_iter()
                 .filter(|f| !self.accepted(&f.agent_text()))
+                .map(|mut f| {
+                    f.message = format!("{}. {hint}", f.message.trim_end_matches('.'));
+                    f
+                })
                 .collect(),
             notes: vec![],
-        };
-        if !r.findings.is_empty() {
-            r.findings.push(self.error(hint));
         }
-        r
     }
 
     /// A scratch directory: in the run's when there is one (so a later check of the same run

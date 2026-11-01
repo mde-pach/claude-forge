@@ -21,10 +21,12 @@ fn dockerfiles(cx: &Cx<'_>) -> Vec<String> {
         .collect()
 }
 
-/// One instruction: its first line and its text (continuation lines joined, comments dropped).
+/// One instruction: its first line and its text (continuation lines joined, comments dropped),
+/// and the lines it is made of.
 struct Record {
     line: u32,
     text: String,
+    parts: Vec<(u32, String)>,
 }
 
 impl Record {
@@ -35,6 +37,20 @@ impl Record {
             .next()
             .unwrap_or("")
             .to_uppercase()
+    }
+
+    /// The first of its lines, from line `from` on, holding `needle` (whitespace-separated
+    /// words, in a row); its first line when none does. A finding about one command of a RUN
+    /// then sits at the line the command is on, a continuation line included.
+    fn line_of(&self, needle: &[&str], from: u32) -> u32 {
+        self.parts
+            .iter()
+            .filter(|(n, _)| *n >= from)
+            .find(|(_, t)| {
+                let w = words(t);
+                !needle.is_empty() && w.windows(needle.len()).any(|x| x == needle)
+            })
+            .map_or(self.line, |(n, _)| *n)
     }
 
     /// The arguments: the text after the instruction word.
@@ -51,6 +67,7 @@ fn records(text: &str) -> Vec<Record> {
     re!(CONT, r"\\\s*$");
     let mut out = Vec::new();
     let mut cur: Option<String> = None;
+    let mut parts = Vec::new();
     let mut start = 0;
     for (i, raw) in text.lines().enumerate() {
         let line = raw.strip_suffix('\r').unwrap_or(raw);
@@ -68,14 +85,18 @@ fn records(text: &str) -> Vec<Record> {
         if let Some(m) = CONT.find(line) {
             c.push_str(&line[..m.start()]);
             c.push(' ');
+            parts.push((i as u32 + 1, line[..m.start()].to_string()));
             cur = Some(c);
             continue;
         }
         c.push_str(line);
+        parts.push((i as u32 + 1, line.to_string()));
+        let parts = std::mem::take(&mut parts);
         if !c.is_empty() {
             out.push(Record {
                 line: start,
                 text: c,
+                parts,
             });
         }
     }
@@ -83,6 +104,7 @@ fn records(text: &str) -> Vec<Record> {
         out.push(Record {
             line: start,
             text: c,
+            parts,
         });
     }
     out
@@ -367,7 +389,7 @@ pub fn secrets(cx: &Cx<'_>, _args: &[String]) -> Report {
                 if SECRET.is_match(&up) && !up.ends_with("_FILE") {
                     r.findings.push(cx.at(
                         df,
-                        rec.line,
+                        rec.line_of(&[word], 0),
                         format!(
                             "{instr} {name} puts a secret in the image or its history; use RUN --mount=type=secret,id=..."
                         ),
@@ -418,10 +440,14 @@ pub fn locked(cx: &Cx<'_>, _args: &[String]) -> Report {
             if rec.instr() != "RUN" {
                 continue;
             }
+            let mut from = 0;
             for c in commands(&rec.args()) {
                 let w = why(&c);
                 if !w.is_empty() {
-                    r.findings.push(cx.at(df, rec.line, format!("{c}: {w}")));
+                    let cw = words(&c);
+                    let line = rec.line_of(&cw[..cw.len().min(2)], from);
+                    from = line;
+                    r.findings.push(cx.at(df, line, format!("{c}: {w}")));
                 }
             }
         }
@@ -430,7 +456,9 @@ pub fn locked(cx: &Cx<'_>, _args: &[String]) -> Report {
 }
 
 /// `forge_docker_ignore`: each Dockerfile has a .dockerignore (`<Dockerfile>.dockerignore`, the
-/// one in its directory, or the one at the root) that excludes .env files.
+/// one in its directory, or the one at the root) that excludes .env files. A finding sits at the
+/// .dockerignore when the change touched it (edited, or removed: then at the removed one), else
+/// at the Dockerfile, so the change that took the exclusion away is the one it is put to.
 pub fn ignore(cx: &Cx<'_>, _args: &[String]) -> Report {
     re!(ENV, r"^\s*((\*\*/)?\.env(\*|\.\*)?|\*\.env|\*|\*\*)\s*$");
     let mut r = Report::default();
@@ -439,22 +467,38 @@ pub fn ignore(cx: &Cx<'_>, _args: &[String]) -> Report {
             continue;
         }
         let d = dir_of(&df);
-        let found = [
+        let candidates = [
             format!("{df}.dockerignore"),
             join(&d, ".dockerignore"),
             ".dockerignore".to_string(),
-        ]
-        .into_iter()
-        .find(|c| cx.exists(c));
-        match found {
-            None => r.findings.push(cx.at(
-                &df,
-                0,
-                "has no .dockerignore (next to it or at the root); add one that excludes .env files",
-            )),
+        ];
+        match candidates.iter().find(|c| cx.exists(c)) {
+            None => match candidates.iter().find(|c| cx.is_changed(c)) {
+                Some(gone) => r.findings.push(cx.at(
+                    gone,
+                    0,
+                    format!(
+                        "was removed, so {df} has no .dockerignore (next to it or at the root); keep one that excludes .env files"
+                    ),
+                )),
+                None => r.findings.push(cx.at(
+                    &df,
+                    0,
+                    "has no .dockerignore (next to it or at the root); add one that excludes .env files",
+                )),
+            },
             Some(ig) => {
-                let text = cx.now(&ig).unwrap_or_default();
-                if !text.lines().any(|l| ENV.is_match(l)) {
+                let text = cx.now(ig).unwrap_or_default();
+                if text.lines().any(|l| ENV.is_match(l)) {
+                    continue;
+                }
+                if cx.is_changed(ig) {
+                    r.findings.push(cx.at(
+                        ig,
+                        0,
+                        format!("does not exclude .env files from the build context of {df}; add .env* to it"),
+                    ));
+                } else {
                     r.findings.push(cx.at(
                         &df,
                         0,
@@ -527,6 +571,17 @@ mod tests {
         assert_eq!(t, [(2, "FROM a"), (4, "RUN x    && y"), (7, "USER app")]);
         assert_eq!(r[1].instr(), "RUN");
         assert_eq!(r[1].args(), "x    && y");
+        assert_eq!(r[1].line_of(&["&&", "y"], 0), 6);
+        assert_eq!(r[1].line_of(&["z"], 0), 4);
+    }
+
+    /// A command added on a continuation line of a RUN is reported at that line.
+    #[test]
+    fn a_command_is_reported_at_its_own_line() {
+        let r = records("RUN npm ci \\\n  && npm install left-pad \\\n  && npm i x\n");
+        assert_eq!(r[0].line_of(&["npm", "install"], 0), 2);
+        assert_eq!(r[0].line_of(&["npm", "i"], 0), 3);
+        assert_eq!(r[0].line_of(&["npm", "ci"], 0), 1);
     }
 
     #[test]

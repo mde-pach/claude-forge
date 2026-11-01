@@ -318,7 +318,7 @@ fn forge_internals(t: &Text, out: &mut Vec<Finding>) {
 
 /// A tool said to enforce the norm.
 static ENFORCEMENT_CLAIM: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(?:is|are) (?:rejected|linted|scanned|checked|flagged|blocked|caught|reported) (?:by|with)\b|\brejects?\b")
+    Regex::new(r"(?i)\b(?:is|are) (?:rejected|linted|scanned|checked|flagged|blocked|caught|reported) (?:by|with)\b|\b(?:is|are) rejected\b|\brejects?\b")
         .expect("regex")
 });
 
@@ -465,12 +465,14 @@ mod tests {
             "zizmor's check rejects tags",
             "Changed manifests are linted by kube-linter",
             "Added lines are scanned with gitleaks",
+            "`ignoreDeprecations` in a tsconfig is rejected",
+            "`bun add` and `uv add` are rejected",
         ] {
             assert!(ENFORCEMENT_CLAIM.is_match(claim), "{claim}");
         }
         for norm in [
             "Actions are pinned to a full commit SHA",
-            "`ignoreDeprecations` in a tsconfig is rejected",
+            "`ignoreDeprecations` in a tsconfig is not set",
             "the rejection of a promise",
         ] {
             assert!(!ENFORCEMENT_CLAIM.is_match(norm), "{norm}");

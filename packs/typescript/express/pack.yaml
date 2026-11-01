@@ -9,8 +9,8 @@ context:
   - text: |
       Behind a proxy, `trust proxy` (Express) is a hop count, the proxy subnets or a function, not `true`.
   - text: |
-      Express 5 (path-to-regexp 8): a wildcard is named (`/*splat`, `/{*splat}`), an optional segment is `{...}`; `?`, `+`, `(…)` in paths are rejected.
+      Express 5 (path-to-regexp 8): a wildcard is named (`/*splat`, `/{*splat}`), an optional segment is `{...}`; no `?`, `+`, `(…)` in paths.
     when: {deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]}
   - text: |
-      Express 5: `req.query` is a getter (keep parsed input in `res.locals`); async handlers need no wrapper (`express-async-errors` is rejected); `res.sendStatus(n)`, not `res.send(n)`; no `res.redirect("back")`.
+      Express 5: `req.query` is a getter (keep parsed input in `res.locals`); async handlers need no wrapper (not `express-async-errors`); `res.sendStatus(n)`, not `res.send(n)`; no `res.redirect("back")`.
     when: {deps: [{ecosystem: npm, name: express, version: ">=5.0.0"}]}

@@ -30,11 +30,12 @@ pub fn annotation(l: &str) -> Option<(String, std::collections::BTreeMap<String,
 }
 
 /// `forge_zizmor <audit>...`: zizmor (offline audits, inline ignores and ignore rules not
-/// honoured) on the in-scope files; the findings of the named audits.
+/// honoured) on the change's in-scope files (every one with --all; none when only a
+/// `when_changed` file changed); the findings of the named audits.
 pub fn zizmor(cx: &Cx<'_>, audits: &[String]) -> Report {
     re!(LOC, r"^[^:]*:[0-9]+: ");
     let mut r = Report::default();
-    let files = cx.scope_files();
+    let files = cx.change_files();
     if files.is_empty() {
         return r;
     }
@@ -223,19 +224,29 @@ fn workflow_jobs(text: &str) -> (bool, Vec<String>) {
 
 /// `forge_ci_jobs`: for each workflow of the change that existed in the base and ran on push or
 /// pull_request there, each job of the base that is gone now (the whole file deleted included),
-/// unless the user accepted that line.
+/// unless the user accepted that line. A job that moved is not gone: one a workflow of the change
+/// gained that runs on push or pull_request (a renamed workflow's jobs, a job moved to another
+/// workflow) matches a gone job of the same name.
 pub fn ci_jobs(cx: &Cx<'_>, _args: &[String]) -> Report {
-    let mut found = Vec::new();
-    for f in &cx.ctx.changed {
-        let wf =
-            f.starts_with(".github/workflows/") && (f.ends_with(".yml") || f.ends_with(".yaml"));
-        if !wf {
-            continue;
-        }
-        let Some(then) = cx
-            .base_path(f)
+    let is_wf = |f: &str| {
+        f.starts_with(".github/workflows/") && (f.ends_with(".yml") || f.ends_with(".yaml"))
+    };
+    let then_of = |f: &str| {
+        cx.base_path(f)
             .and_then(|b| std::fs::read_to_string(b).ok())
-        else {
+    };
+    // the jobs the change's workflows that run on push or pull_request gained
+    let mut gained: Vec<String> = Vec::new();
+    for f in cx.ctx.changed.iter().filter(|f| is_wf(f)) {
+        let Some((true, now)) = cx.now(f).map(|t| workflow_jobs(&t)) else {
+            continue;
+        };
+        let was = then_of(f).map(|t| workflow_jobs(&t).1).unwrap_or_default();
+        gained.extend(now.into_iter().filter(|j| !was.contains(j)));
+    }
+    let mut found = Vec::new();
+    for f in cx.ctx.changed.iter().filter(|f| is_wf(f)) {
+        let Some(then) = then_of(f) else {
             continue;
         };
         let (on, was) = workflow_jobs(&then);
@@ -244,12 +255,14 @@ pub fn ci_jobs(cx: &Cx<'_>, _args: &[String]) -> Report {
         }
         let now = cx.now(f).map(|t| workflow_jobs(&t).1).unwrap_or_default();
         for j in was.iter().filter(|j| !now.contains(j)) {
+            if let Some(i) = gained.iter().position(|g| g == j) {
+                gained.remove(i);
+                continue;
+            }
             found.push(cx.at(
                 f,
                 0,
-                format!(
-                    "job {j} was removed from a workflow that runs on push or pull_request; restore it rather than switching a check off"
-                ),
+                format!("job {j} was removed from a workflow that runs on push or pull_request"),
             ));
         }
     }

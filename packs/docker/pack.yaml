@@ -8,11 +8,11 @@ context:
       Docker. Multi-stage builds keep build tools out of the final stage, and the final stage runs as a non-root `USER`.
     when: {files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
   - text: |
-      `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are rejected. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
+      `RUN` installs from the lock file: `npm ci`, `bun install --frozen-lockfile`, `uv sync --locked`, `pnpm install --frozen-lockfile`, `yarn --immutable`; `bun add` and `uv add` are not used. Cache mounts (`RUN --mount=type=cache,target=...`) speed them up.
     when: {files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
   - text: |
-      `ARG` and `ENV` names like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` are rejected (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
+      No `ARG` or `ENV` is named like `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*API_KEY*` (`*_FILE` is fine); build secrets use `RUN --mount=type=secret,id=...`.
     when: {files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}
   - text: |
-      Base images name a version tag or a digest (not `latest`); each Dockerfile has a `.dockerignore` that excludes `.env` files.
+      Base images name a version tag or a digest (not `latest`). A new Dockerfile comes with a `.dockerignore` (next to it or at the root) that excludes `.env` files, and a `.dockerignore` keeps excluding them.
     when: {files: ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile"]}

@@ -18,8 +18,9 @@ type Vuln = (String, String, String, String);
 
 /// `forge_osv`: for each in-scope lock file of the change, the pinned osv-scanner on it and on
 /// its base copy, with an empty config of Forge's (osv-scanner.toml ignores do not apply): each
-/// vulnerability (package, version, advisory) it has now and the base did not. Not with `--all`
-/// (no base to compare with).
+/// vulnerability it has now whose (package, advisory) the base did not have: a version bump
+/// that keeps an advisory the package already had is not the change's. Not with `--all` (no
+/// base to compare with).
 pub struct Osv(pub Arc<Options>);
 
 impl CheckBuiltin for Osv {
@@ -85,14 +86,7 @@ impl CheckBuiltin for Osv {
                 },
                 _ => BTreeSet::new(),
             };
-            let old: BTreeSet<(&str, &str, &str)> = then
-                .iter()
-                .map(|(p, v, i, _)| (p.as_str(), v.as_str(), i.as_str()))
-                .collect();
-            for (p, v, id, fixed) in &now {
-                if old.contains(&(p.as_str(), v.as_str(), id.as_str())) {
-                    continue;
-                }
+            for (p, v, id, fixed) in new_vulns(&then, &now) {
                 let msg = if fixed.is_empty() {
                     format!(
                         "{p}@{v} has a known vulnerability, {id}, and no release fixes it yet; use another package or version"
@@ -108,6 +102,17 @@ impl CheckBuiltin for Osv {
         }
         r
     }
+}
+
+/// The vulnerabilities of `now` whose package and advisory `then` does not have (at any version).
+fn new_vulns<'a>(then: &BTreeSet<Vuln>, now: &'a BTreeSet<Vuln>) -> Vec<&'a Vuln> {
+    let old: BTreeSet<(&str, &str)> = then
+        .iter()
+        .map(|(p, _, i, _)| (p.as_str(), i.as_str()))
+        .collect();
+    now.iter()
+        .filter(|(p, _, i, _)| !old.contains(&(p.as_str(), i.as_str())))
+        .collect()
 }
 
 /// The vulnerabilities osv-scanner reports on `lock` (relative to `dir`).
@@ -171,7 +176,30 @@ fn parse_markdown(text: &str) -> BTreeSet<Vuln> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_markdown;
+    use std::collections::BTreeSet;
+
+    use super::{Vuln, new_vulns, parse_markdown};
+
+    /// A bump under an advisory the package already had is not new; a new advisory, or a new
+    /// package with one, is.
+    #[test]
+    fn a_vulnerability_is_new_by_package_and_advisory() {
+        let v = |p: &str, ver: &str, id: &str| -> Vuln {
+            (p.into(), ver.into(), id.into(), String::new())
+        };
+        let then: BTreeSet<Vuln> = [v("qs", "6.5.2", "GHSA-a")].into();
+        let now: BTreeSet<Vuln> = [
+            v("qs", "6.5.3", "GHSA-a"),
+            v("qs", "6.5.3", "GHSA-b"),
+            v("ms", "2.0.0", "GHSA-a"),
+        ]
+        .into();
+        let new: Vec<(&str, &str)> = new_vulns(&then, &now)
+            .into_iter()
+            .map(|(p, _, i, _)| (p.as_str(), i.as_str()))
+            .collect();
+        assert_eq!(new, [("ms", "GHSA-a"), ("qs", "GHSA-b")]);
+    }
 
     #[test]
     fn reads_the_markdown_table() {

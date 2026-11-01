@@ -5,4 +5,4 @@ detect:
   deps_any: [{ecosystem: npm, name: resend}]
 context:
   - text: |
-      Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (a discarded result is rejected).
+      Resend: `send()` returns `{ data, error }` instead of throwing; destructure it and handle `error` (the result is never discarded).

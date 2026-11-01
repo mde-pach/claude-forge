@@ -1514,6 +1514,10 @@ impl Checker {
             shell::fill(cmd)
         );
         let mut env = self.env_for(run, c);
+        // a builtin reads the tree it checks from FORGE_ROOT: on the base run, the base tree
+        if tree.is_some() {
+            env.insert(ENV_ROOT.into(), root.as_os_str().to_owned());
+        }
         if let Some(t) = tree
             && !t.pythonpath.is_empty()
         {
@@ -1525,7 +1529,6 @@ impl Checker {
                 "PYTHONPATH".into(),
                 std::env::join_paths(pp).unwrap_or_default(),
             );
-            env.insert(ENV_ROOT.into(), root.as_os_str().to_owned());
         }
         let timeout = c.target.timeout.map(|s| Duration::from_secs(s as u64));
         let dirs: Vec<Option<&String>> = match c.run_dirs.as_deref() {

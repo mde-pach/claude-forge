@@ -234,7 +234,8 @@ const TRIVY_TPL: &str = "{{- range . }}{{- $t := .Target }}{{- range .Misconfigu
 /// `forge_trivy_config`: the pinned trivy (its bundled checks, no update; an empty ignore file
 /// of Forge's, so .trivyignore does not apply) on each directory of a changed .tf / .tofu file,
 /// now and as it was at the base: each HIGH or CRITICAL Terraform misconfiguration (check,
-/// resource) the change introduced. Not with --all (no base to compare).
+/// resource) the change introduced, in any file of the directory (its findings are marked as
+/// the change's). Not with --all (no base to compare).
 pub fn trivy_config(cx: &Cx<'_>, _args: &[String]) -> Report {
     let mut r = Report::default();
     if cx.all() {
@@ -345,5 +346,10 @@ pub fn trivy_config(cx: &Cx<'_>, _args: &[String]) -> Report {
         }
     }
     let _ = std::fs::remove_dir_all(&work);
+    // compared with the base here: a new finding in an unchanged file of the directory (a
+    // variable the change set) is the change's
+    if !r.findings.is_empty() {
+        cx.check.mark_attributed();
+    }
     r
 }

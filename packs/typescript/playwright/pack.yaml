@@ -7,6 +7,6 @@ context:
   - text: |
       Playwright. Locate elements with `getByRole`, `getByLabel`, `getByText` or `getByTestId`; web-first assertions (`await expect(locator)...`) wait on their own.
   - text: |
-      `waitForTimeout` (a fixed wait) is rejected in end-to-end tests.
+      End-to-end tests do not use `waitForTimeout` (a fixed wait).
   - text: |
       Accessibility: `@axe-core/playwright` (`new AxeBuilder({ page }).analyze()`) checks pages for WCAG violations in end-to-end tests.
