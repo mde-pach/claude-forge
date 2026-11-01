@@ -723,6 +723,8 @@ fn apply_offers_a_ruff_config() {
     );
     let ruff = s.read("ruff.toml").unwrap();
     assert!(ruff.starts_with("line-length = 100\n"), "{ruff}");
+    // every code the active rules expect, whatever the template lists (S113: python/http-timeout)
+    assert!(ruff.contains("\"S113\""), "{ruff}");
     assert!(!s.ok(&["apply", "--yes"]).contains("ruff.toml"));
     // removed, and apply run without a terminal and without --yes: said, not written
     std::fs::remove_file(s.repo.join("ruff.toml")).unwrap();

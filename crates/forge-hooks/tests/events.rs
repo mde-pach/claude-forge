@@ -514,10 +514,16 @@ fn post_tool_use_reports_findings_on_the_changed_files() {
 /// (no turn known) it is denied.
 #[test]
 fn discarding_changes_is_judged_against_the_turn() {
-    let s = Sandbox::new(&["safety/git-discard"]);
+    // a user-level rule: the user lock holds it, and the user-level hook judges it in the project
+    let s = Sandbox::new(&[]);
+    std::fs::write(
+        s.user_home.join(".claude/forge-user.lock"),
+        lock(&["safety/git-discard"]),
+    )
+    .unwrap();
     let f = Fake::default();
     let decision = |cmd: &str| {
-        json_out(&s.run(&f, "pre-tool-use", bash(cmd, "t1")))["hookSpecificOutput"]
+        json_out(&s.run(&f, "user-pre-tool-use", bash(cmd, "t1")))["hookSpecificOutput"]
             ["permissionDecision"]
             .clone()
     };

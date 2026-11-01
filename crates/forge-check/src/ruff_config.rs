@@ -115,6 +115,45 @@ pub fn overrides<'a>(snippets: impl IntoIterator<Item = &'a str>) -> Vec<String>
     out
 }
 
+/// A ruff config file for a project: `template` (an `init/` ruff.toml) with what the active
+/// rules' snippets need merged in (codes into `lint.select`, banned APIs, …), so the file selects
+/// every code a rule expects however the template drifted. `None`: a template that is not TOML.
+pub fn file_config<'a>(
+    template: &str,
+    snippets: impl IntoIterator<Item = &'a str>,
+) -> Option<String> {
+    let mut config: Table = template.parse().ok()?;
+    for sn in snippets {
+        let Some(t) = parse(sn) else { continue };
+        if let Some(Value::Table(ruff)) = t.get("tool").and_then(|t| t.get("ruff")) {
+            merge(&mut config, ruff.clone());
+        }
+    }
+    let mut extra: Vec<Value> = Vec::new();
+    if let Some(Value::Array(a)) = config.remove("extend-select") {
+        extra.extend(a);
+    }
+    if let Some(Value::Table(lint)) = config.get_mut("lint") {
+        if let Some(Value::Array(a)) = lint.remove("extend-select") {
+            extra.extend(a);
+        }
+        match lint.get_mut("select") {
+            Some(Value::Array(select)) => {
+                for v in extra {
+                    if !select.contains(&v) {
+                        select.push(v);
+                    }
+                }
+            }
+            _ if !extra.is_empty() => {
+                lint.insert("extend-select".into(), Value::Array(extra));
+            }
+            _ => {}
+        }
+    }
+    toml::to_string(&config).ok()
+}
+
 /// `--config <override>` for each.
 pub fn config_args(overrides: impl IntoIterator<Item = impl Into<String>>) -> Vec<String> {
     overrides
@@ -141,6 +180,31 @@ mod tests {
                 "lint.select = [\"E4\", \"E7\", \"E9\", \"F\", \"S307\", \"TID251\"]".to_string(),
                 "lint.flake8-tidy-imports = { banned-api = { pytz = { msg = \"use zoneinfo.ZoneInfo\" }, imp = { msg = \"removed\" } } }".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn a_file_config_selects_what_the_rules_expect() {
+        let text = file_config(
+            "line-length = 100\n\n[lint]\nselect = [\"E\", \"F\"]\n",
+            [
+                "[tool.ruff.lint] extend-select = [\"T201\"]",
+                "[tool.ruff.lint]\nextend-select = [\"TID251\"]\n\n[tool.ruff.lint.flake8-tidy-imports.banned-api]\n\"pytz\".msg = \"use zoneinfo.ZoneInfo\"\n",
+            ],
+        )
+        .unwrap();
+        let t: Table = text.parse().unwrap();
+        assert_eq!(t["line-length"].as_integer(), Some(100));
+        let select: Vec<&str> = t["lint"]["select"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(select, ["E", "F", "T201", "TID251"]);
+        assert_eq!(
+            t["lint"]["flake8-tidy-imports"]["banned-api"]["pytz"]["msg"].as_str(),
+            Some("use zoneinfo.ZoneInfo")
         );
     }
 

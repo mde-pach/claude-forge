@@ -268,7 +268,7 @@ fn context_that_no_longer_holds_is_retracted_once() {
         std::fs::write(repo.join("fetch.py"), "print(1)\n").unwrap();
     });
     let rules = std::fs::read_to_string(s.repo.join(".claude/rules/forge-python.md")).unwrap();
-    assert!(rules.contains("no Python packaging file"), "{rules}");
+    assert!(rules.contains("declares no dependencies yet"), "{rules}");
     s.hook("user-prompt-submit", &json!({"prompt": "add a dependency"}));
     std::fs::write(s.repo.join("requirements.txt"), "httpx==0.27.2\n").unwrap();
     let edit = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": s.repo.join("requirements.txt")}});
@@ -279,7 +279,7 @@ fn context_that_no_longer_holds_is_retracted_once() {
         .as_str()
         .unwrap();
     assert!(
-        ctx.contains("This no longer applies: This project has no Python packaging file:"),
+        ctx.contains("This no longer applies: This project declares no dependencies yet:"),
         "{ctx}"
     );
     assert!(ctx.contains("This project now uses pip:\n"), "{ctx}");
@@ -332,12 +332,27 @@ fn a_pyproject_edit_relocks_a_stale_uv_lock() {
     };
     let pyproject = s.repo.join("pyproject.toml");
     let text = std::fs::read_to_string(&pyproject).unwrap();
+    // a new dependency: not resolved into the lock after the edit (Stop checks it first)
     std::fs::write(
         &pyproject,
         text.replace(
             "\"pydantic>=2.9\",",
             "\"pydantic>=2.9\",\n  \"httpx>=0.27\",",
         ),
+    )
+    .unwrap();
+    let out = typecheck("r0");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!log.exists());
+    // a change that names no new package (a narrower range): relocked
+    std::fs::write(
+        &pyproject,
+        text.replace("\"pydantic>=2.9\",", "\"pydantic>=2.10\","),
     )
     .unwrap();
     let out = typecheck("r1");

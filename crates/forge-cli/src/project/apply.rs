@@ -290,11 +290,9 @@ fn offer_ruff_config(ctx: &Ctx, flags: &Flags) -> Result<bool, Error> {
     if !confirm(&format!("{what}; create {RUFF} (from {pack})?"), flags.yes)? {
         return Ok(false);
     }
-    write_text(
-        &ctx.base.join(RUFF),
-        &String::from_utf8_lossy(&bytes),
-        false,
-    )?;
+    let template = String::from_utf8_lossy(&bytes).into_owned();
+    let text = ruff_file(ctx, &template).unwrap_or(template);
+    write_text(&ctx.base.join(RUFF), &text, false)?;
     println!("forge: created {RUFF} (from {pack}); commit it with Forge's files");
     Ok(true)
 }
@@ -524,6 +522,11 @@ pub fn init(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
                 println!("forge: would create {rel} (from {})", pk.id);
             } else {
                 let text = String::from_utf8_lossy(&bytes).into_owned();
+                let text = if rel == "ruff.toml" {
+                    ruff_file(&ctx, &text).unwrap_or(text)
+                } else {
+                    text
+                };
                 let text = switch_offs(&rel, &text, &ctx).unwrap_or(text);
                 write_text(&dest, &text, false)?;
                 println!("forge: created {rel} (from {})", pk.id);
@@ -531,6 +534,23 @@ pub fn init(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
         }
     }
     apply(flags, probe)
+}
+
+/// A ruff.toml from the pack's template with what the active `tool: ruff` targets' snippets need
+/// (the codes they expect, their settings), so every such rule is enforced by the file.
+fn ruff_file(ctx: &Ctx, template: &str) -> Option<String> {
+    use forge_packs::model::{AuditedTool, Target};
+    let snippets: Vec<&str> = ctx
+        .plan
+        .active
+        .iter()
+        .flat_map(|st| st.rule.enforce.iter())
+        .filter_map(|t| match t {
+            Target::Tool(t) if t.tool == AuditedTool::Ruff => Some(t.snippet.as_str()),
+            _ => None,
+        })
+        .collect();
+    forge_check::ruff_config::file_config(template, snippets)
 }
 
 /// The files of an `init/` directory: path below it → content, sorted.
