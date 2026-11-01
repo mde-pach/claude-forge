@@ -149,6 +149,78 @@ fn no_decrease_counts() {
     assert_eq!(o.status, Status::Pass, "{:?}", o.report);
 }
 
+/// Counts are totals per rule over the changed files: a match moved to another file is not a
+/// decrease; deleting the file that held it is.
+#[test]
+fn counts_are_totals_deleted_files_included() {
+    let keep = || {
+        rule(json!({
+            "id": "acme/protect", "description": "Keep the protections.",
+            "scope": {"language": "any"},
+            "enforce": [{"target": "grep", "mode": "no-decrease", "pattern": "prevent_destroy"}],
+        }))
+    };
+    let d = repo(&[("main.tf", "db prevent_destroy\nnet prevent_destroy\n")]);
+    put(d.path(), "main.tf", "\n");
+    put(d.path(), "db.tf", "db prevent_destroy\n");
+    put(d.path(), "net.tf", "net prevent_destroy\n");
+    let o = checker(d.path(), vec![keep()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    let d = repo(&[("db.tf", "db prevent_destroy\n"), ("app.tf", "x\n")]);
+    std::fs::remove_file(d.path().join("db.tf")).unwrap();
+    let o = checker(d.path(), vec![keep()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    assert_eq!(
+        o.report.findings[0].agent_text(),
+        "db.tf Keep the protections. (1 -> 0)"
+    );
+}
+
+/// A failing check that names no added line is run again on the base: what the base already
+/// reported is not the change's (a note says so); what is new fails.
+#[test]
+fn a_failure_the_base_already_had_is_not_the_changes() {
+    let lacks = || {
+        rule(json!({
+            "id": "acme/conf", "description": "conf.txt declares REQUIRED.",
+            "scope": {"language": "any"},
+            "enforce": [{"target": "check", "stage": "lint", "when_changed": ["conf.txt"],
+                "run": "grep -q REQUIRED conf.txt || { echo 'conf.txt does not declare REQUIRED'; exit 1; }"}],
+        }))
+    };
+    // already missing: an unrelated edit of the file passes
+    let d = repo(&[("conf.txt", "a = 1\n")]);
+    put(d.path(), "conf.txt", "a = 2\n");
+    let o = checker(d.path(), vec![lacks()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Pass, "{:?}", o.report);
+    assert!(
+        o.report
+            .notes
+            .iter()
+            .any(|n| n.text.contains("was already there")),
+        "{:?}",
+        o.report.notes
+    );
+    // removed by the change: it fails
+    let d = repo(&[("conf.txt", "REQUIRED\n")]);
+    put(d.path(), "conf.txt", "a = 2\n");
+    let o = checker(d.path(), vec![lacks()])
+        .check(Mode::Changed, &stop())
+        .unwrap();
+    assert_eq!(o.status, Status::Fail, "{:?}", o.report);
+    assert!(
+        o.report.findings[0]
+            .agent_text()
+            .contains("does not declare REQUIRED")
+    );
+}
+
 /// Step 2: a forbid grep fails on an added line only, names `path:line` and the description,
 /// and stops the stages; documentation files are never grepped.
 #[test]
@@ -185,7 +257,8 @@ fn a_failing_codegen_stage_stops_before_the_typecheck() {
     };
     let o = checker(
         d.path(),
-        rules("echo 'the client is stale'; echo 'run make gen'; echo more; echo more; exit 1"),
+        // stale only after the change (a failure the base already had is not the change's)
+        rules("grep -q 'x = 2' a.py || exit 0; echo 'the client is stale'; echo 'run make gen'; echo more; echo more; exit 1"),
     )
     .check(Mode::Changed, &stop())
     .unwrap();
@@ -470,7 +543,7 @@ fn failure_text_and_caps() {
         vec![check_rule(
             "acme/tests",
             "test",
-            "echo one; echo two; echo three; echo four; exit 1",
+            "grep -q v1 a.py || exit 0; echo one; echo two; echo three; echo four; exit 1",
         )],
     )
     .check(Mode::Changed, &stop())

@@ -713,19 +713,24 @@ impl Checker {
                 failed = true;
             }
         }
-        if change.existing.is_empty() {
+        if change.existing.is_empty() && change.inbase.is_empty() {
             return failed;
         }
         let counted = |m: RuleMode| m == RuleMode::NoIncrease || m == RuleMode::NoDecrease;
         let mut notes = Vec::new();
-        let langs: BTreeSet<&'static str> = change
+        let touched: Vec<String> = change
             .existing
+            .iter()
+            .chain(change.inbase.iter())
+            .cloned()
+            .collect();
+        let langs: BTreeSet<&'static str> = touched
             .iter()
             .filter_map(|f| astgrep::file_language(f))
             .map(lang_key)
             .collect();
         let ast: Vec<Compiled> = self
-            .ast_rules(&langs, Some(&change.existing), &mut notes)
+            .ast_rules(&langs, Some(&touched), &mut notes)
             .into_iter()
             .filter(|c| counted(c.mode()))
             .collect();
@@ -735,12 +740,9 @@ impl Checker {
             .filter(|g| counted(g.target.mode))
             .collect();
         run.report.notes.extend(notes);
-        let athead: Vec<String> = change
-            .inbase
-            .iter()
-            .filter(|p| !change.deleted.contains(p))
-            .cloned()
-            .collect();
+        // deleted files count at the base: moving a match to another file, or deleting the file
+        // that held it, is judged on the totals
+        let athead: Vec<String> = change.inbase.clone();
         let count = |dir: &Path, files: &[String]| -> BTreeMap<(String, String), usize> {
             let mut out = BTreeMap::new();
             let refs: Vec<&Compiled> = ast.iter().collect();
@@ -763,13 +765,23 @@ impl Checker {
         };
         let now = count(&self.root, &change.existing);
         let then = count(change.base_dir(), &athead);
+        // per rule: the totals over the changed files, and the files whose count moved
+        let mut totals: BTreeMap<&str, (usize, usize, Vec<String>)> = BTreeMap::new();
         let keys: BTreeSet<&(String, String)> = now.keys().chain(then.keys()).collect();
         for k in keys {
             let (t, w) = (
                 then.get(k).copied().unwrap_or(0),
                 now.get(k).copied().unwrap_or(0),
             );
-            let Some(a) = self.rules.iter().find(|a| a.rule.id == k.0) else {
+            let e = totals.entry(k.0.as_str()).or_default();
+            e.0 += t;
+            e.1 += w;
+            if t != w {
+                e.2.push(k.1.clone());
+            }
+        }
+        for (id, (t, w, moved)) in totals {
+            let Some(a) = self.rules.iter().find(|a| a.rule.id == id) else {
                 continue;
             };
             let mode = a.rule.enforce.iter().find_map(|t| match t {
@@ -783,10 +795,13 @@ impl Checker {
                 _ => false,
             };
             if bad {
-                run.report.findings.push(
-                    Finding::error(&k.0, format!("{} ({t} -> {w})", a.rule.description))
-                        .at(k.1.clone(), None),
-                );
+                let mut f = Finding::error(id, format!("{} ({t} -> {w})", a.rule.description));
+                if let [one] = moved.as_slice() {
+                    f = f.at(one.clone(), None);
+                } else {
+                    f.message.push_str(&format!(" in {}", moved.join(", ")));
+                }
+                run.report.findings.push(f);
                 failed = true;
             }
         }
@@ -924,7 +939,25 @@ impl Checker {
     }
 
     /// One check under Stop or `forge check` (`forge_run_check_one`).
+    /// One check: its result, attributed to the change. An advised check's findings go through
+    /// the same attribution, then are advice (§10.7).
     fn run_check(&self, run: &mut Run<'_>, c: &Check<'_>) -> CheckResult {
+        let result = self.check_attributed(run, c);
+        if !run.files.path(&advised_name(c.id())).exists() {
+            return result;
+        }
+        match result {
+            CheckResult::Fail(mut f) => {
+                for x in &mut f {
+                    x.severity = Severity::Advice;
+                }
+                CheckResult::Advice(f)
+            }
+            other => other,
+        }
+    }
+
+    fn check_attributed(&self, run: &mut Run<'_>, c: &Check<'_>) -> CheckResult {
         let change = &*run.change;
         let all = change.mode == Mode::All;
         let mode = change.mode.clone();
@@ -970,7 +1003,7 @@ impl Checker {
         }
         let mut cmd = c.target.run.clone();
         let mut whole = true;
-        if matches!(mode, Mode::Changed | Mode::Turn(_))
+        if matches!(mode, Mode::Changed | Mode::Since(_) | Mode::Turn(_))
             && let Some(cr) = &c.target.changed_run
             && !files.is_empty()
         {
@@ -979,7 +1012,6 @@ impl Checker {
         }
         let uses_files = !whole && cmd.contains("{files}");
         let (exit, out) = self.exec(run, c, &cmd, &files, uses_files, None);
-        let advised = run.files.path(&advised_name(c.id())).exists();
         match exit {
             Exit::Status(0) => return CheckResult::Pass,
             Exit::Budget(s) => {
@@ -1025,14 +1057,6 @@ impl Checker {
         } else {
             out
         };
-        if advised {
-            let mut f =
-                diagnostics::findings_of(&diagnostics::excerpt(&out, 15), c.id(), &self.root);
-            for x in &mut f {
-                x.severity = Severity::Advice;
-            }
-            return CheckResult::Advice(f);
-        }
         // a builtin that compared with the base itself: its findings are the change's, wherever
         // they are
         if run.files.path(&attributed_name(c.id())).exists() {
@@ -1081,6 +1105,17 @@ impl Checker {
                             return self
                                 .typecheck_compare(run, c, &cmd, &files, uses_files, &out, &lines);
                         }
+                        // a finding about a whole changed file (no line, or line 0) may be one
+                        // the file already had: compared with the base like an unplaced one
+                        let whole_file = level == Level::File
+                            || lines.iter().any(|l| {
+                                diagnostics::parse_location(l)
+                                    .is_none_or(|(_, n, _)| n.is_none_or(|n| n == 0))
+                            });
+                        if whole_file {
+                            let text = lines.join("\n");
+                            return self.base_compare(run, c, &cmd, &files, uses_files, &text, 15);
+                        }
                         return CheckResult::Fail(cap(
                             diagnostics::findings_of(&lines.join("\n"), c.id(), &self.root),
                             15,
@@ -1102,7 +1137,101 @@ impl Checker {
         } else {
             15
         };
+        if !all {
+            return self.base_compare(run, c, &cmd, &files, uses_files, &out, n);
+        }
         CheckResult::Fail(self.failure_findings(c.id(), c.target.stage, &out, n))
+    }
+
+    /// A failure in a change that names no added line (§10.2): the check run again on the base
+    /// tree, and only what it did not already report counts. Lines compare with their digits
+    /// left out, so a count or a line number the edit shifted is not new. After an edit there is
+    /// no base tree: the failure is a note, and Stop decides.
+    #[allow(clippy::too_many_arguments)]
+    fn base_compare(
+        &self,
+        run: &mut Run<'_>,
+        c: &Check<'_>,
+        cmd: &str,
+        files: &[String],
+        uses_files: bool,
+        now: &str,
+        n: usize,
+    ) -> CheckResult {
+        let stage = c.target.stage;
+        if run.opts.phase == Phase::PostEdit {
+            run.report.notes.push(note(
+                NoteKind::Environment,
+                c.id(),
+                "failed naming no added line; the Stop check compares it with the base",
+            ));
+            return CheckResult::Pass;
+        }
+        let base_name = run.change.base_name();
+        let why = match crate::base_tree::build(&*run.change) {
+            Err(w) => w,
+            Ok(tree) => {
+                let (exit, base_out) = self.exec(run, c, cmd, files, uses_files, Some(&tree));
+                match exit {
+                    Exit::Status(0) => {
+                        return CheckResult::Fail(self.failure_findings(c.id(), stage, now, n));
+                    }
+                    Exit::Status(_) => {
+                        let tree_path = tree.path().display().to_string();
+                        let root = self.root.display().to_string();
+                        let key = |l: &str| -> String {
+                            l.replace(&tree_path, &root)
+                                .trim()
+                                .chars()
+                                .filter(|ch| !ch.is_ascii_digit())
+                                .collect()
+                        };
+                        let mut before: Vec<String> = base_out
+                            .lines()
+                            .map(key)
+                            .filter(|k| !k.is_empty())
+                            .collect();
+                        let mut new = Vec::new();
+                        for l in now.lines() {
+                            let k = key(l);
+                            if k.is_empty() {
+                                continue;
+                            }
+                            match before.iter().position(|b| *b == k) {
+                                Some(i) => {
+                                    before.remove(i);
+                                }
+                                None => new.push(l),
+                            }
+                        }
+                        if new.is_empty() {
+                            run.report.notes.push(note(
+                                NoteKind::Environment,
+                                c.id(),
+                                format!("ok for this change: what it reports was already there at {base_name}"),
+                            ));
+                            return CheckResult::Pass;
+                        }
+                        return CheckResult::Fail(self.failure_findings(
+                            c.id(),
+                            stage,
+                            &new.join("\n"),
+                            n,
+                        ));
+                    }
+                    Exit::TimedOut(s) | Exit::Budget(s) => {
+                        format!("the run there was stopped after {s}s")
+                    }
+                    Exit::Failed(e) => e,
+                }
+            }
+        };
+        run.report.notes.push(note(
+            NoteKind::Environment,
+            c.id(),
+            format!("could not be compared with {base_name}: {why}; all of it counts"),
+        ));
+        CheckResult::Fail(self.failure_findings(c.id(), stage, now, n))
     }
 
     /// An unattributed failure: its output as findings when it names locations, else the stage's

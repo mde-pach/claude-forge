@@ -60,8 +60,8 @@ Each `enforce` entry has a `target` kind and the fields of that kind. Unknown fi
 **Modes** (`ast-grep` and `grep`):
 
 - `forbid`: a match on a line the change added fails; with `--all`, any match fails.
-- `no-increase`: a changed file with more matches than in the base fails.
-- `no-decrease`: a changed file with fewer matches than in the base fails.
+- `no-increase`: the changed files, deleted ones included, with more matches in all than in the base fail (§10.3).
+- `no-decrease`: the changed files, deleted ones included, with fewer matches in all than in the base fail (§10.3).
 - `advise`: a match on a line added during the turn is reported as advice after the edit (§10.8). Stop, the commit-time check and CI do not run it.
 
 The agent reads a match as `<path>:<line> <description>`; an `advise` match as `<path>:<line> Advice: <description>`. The `Advice: ` prefix comes from the mode: a description does not write it.
@@ -75,8 +75,8 @@ The agent reads a match as `<path>:<line> <description>`; an `advise` match as `
 | Field | Meaning |
 |---|---|
 | `stage` | `format`, `lint`, `codegen`, `typecheck`, `migration` or `test`: when it runs (§10.3) |
-| `run` | the shell command for the whole project (`--all`, `--since`, and when no `changed_run` applies) |
-| `changed_run` | optional: the command for the changed files (`{files}`), used with `--changed`, `--turn` and after an edit |
+| `run` | the shell command for the whole project (`--all`, and when no `changed_run` applies) |
+| `changed_run` | optional: the command for the changed files (`{files}`), used with `--changed`, `--since`, `--turn` and after an edit |
 | `fix_run` | optional, `{files}` required: safe fixes applied after an edit, before the lint (§10.8) |
 | `fix_lints` | optional, `true`, needs `fix_run` and `changed_run`: the fix run also reports what remains, so it is the edit's lint result and `changed_run` is not run again after the edit |
 | `format_stdin` | optional, `format` and `lint` only, `{file}` required: the formatter as a filter on stdin, formatting it as `{file}` would be; used to compute added lines (§10.2) |

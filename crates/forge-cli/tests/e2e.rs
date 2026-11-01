@@ -266,21 +266,17 @@ fn violation_then_fix(sample: &str, file: &str, bad: &str, rule: &str, agent_tex
     if let Some(at) = stdout.find("Notes:") {
         assert!(stdout.find(agent_text).unwrap() < at, "{stdout}");
     }
-    // run by Claude Code (its Bash tool, or the pre-commit hook it triggers): only what the
-    // agent can fix, without rule ids or notes
+    // run by Claude Code (its Bash tool): refused, Forge is not the agent's tool (§3.1); what
+    // the agent reads comes from the hooks (agent_text below)
     let mut c = Command::new(env!("CARGO_BIN_EXE_claude-forge"));
     c.args(["check", "--changed"]);
     s.env(&mut c);
     let out = c.env("CLAUDECODE", "1").output().unwrap();
-    let agent_out = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert_eq!(out.status.code(), Some(1), "{agent_out}");
-    assert!(agent_out.contains(agent_text), "{agent_out}");
-    assert!(!agent_out.contains(rule), "{agent_out}");
-    assert!(!agent_out.contains("Notes:"), "{agent_out}");
-    assert!(
-        forge_core::internals::find(&agent_out).is_empty(),
-        "{agent_out}"
-    );
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    let refusal = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(refusal.contains("they are not run by hand"), "{refusal}");
+    assert!(forge_core::internals::find(&refusal).is_empty(), "{refusal}");
     let out = s.forge(&["check", "--changed", "--json"]);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let findings = v["findings"].as_array().unwrap();

@@ -132,6 +132,8 @@ pub fn stub_sync(run: &Run<'_>, _args: &[String]) -> Report {
 /// In a change, only what the change broke: a setting the base already lacked is the project's
 /// setup, which `forge apply` offers and `forge status` reports, not the agent's to fix (§10).
 pub fn uv_cooldown(run: &Run<'_>, _args: &[String]) -> Report {
+    // compared with the base here: its findings are the change's as they are
+    run.check.mark_attributed();
     let (file, section) = if run.exists("uv.toml") {
         ("uv.toml", "")
     } else {
@@ -215,6 +217,7 @@ fn last_line(text: &str) -> &str {
 /// `--since`), nothing is written and a stale or missing lock is a finding. A change is never held
 /// to a lock the project never had: creating it is setup, which `forge apply` offers (§3.5).
 pub fn uv_lock(run: &Run<'_>, _args: &[String]) -> Report {
+    run.check.mark_attributed();
     let mut r = Report::default();
     let root = run.root();
     let lock_now = run.exists("uv.lock");

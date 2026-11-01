@@ -48,7 +48,7 @@ The change is computed once per run: the changed paths, which exist now, which w
 
 At Stop and with `forge check`, the steps run in order, and the run stops after the first step that fails:
 
-1. **Tests and counts.** A deleted test file fails (`<path> This test file was deleted: restore it (removing tests is the user's decision: ask them).`, rule `forge/deleted-test`). Test files are the paths matching `test_*.py`, `*/test_*.py`, `*_test.py`, `conftest.py`, `*/conftest.py`, `tests/*`, `*.test.*`, `*.spec.*`, `*/__tests__/*` or `e2e/*`, where `*` also matches `/`. Then every `no-increase` and `no-decrease` rule (ast-grep and grep) compares each changed file's count with the base: a failure reads `<path> <description> (<before> -> <after>)`.
+1. **Tests and counts.** A deleted test file fails (`<path> This test file was deleted: restore it (removing tests is the user's decision: ask them).`, rule `forge/deleted-test`). Test files are the paths matching `test_*.py`, `*/test_*.py`, `*_test.py`, `conftest.py`, `*/conftest.py`, `tests/*`, `*.test.*`, `*.spec.*`, `*/__tests__/*` or `e2e/*`, where `*` also matches `/`. Then every `no-increase` and `no-decrease` rule (ast-grep and grep) compares its total over the changed files, deleted ones included (counted at the base), with the base's: moving a match to another file is no change, deleting the file that held it is. A failure reads `<path> <description> (<before> -> <after>)` when one file's count moved, else `<description> (<before> -> <after>) in <paths>`.
 2. **Forbid rules.** ast-grep and grep `forbid` rules on the added lines (every line with `--all`): `<path>:<line> <description>`. An ast-grep match counts when its range overlaps an added line. `ast-grep-ignore` comments apply. A rule with `where` keeps only the matches the types engine confirms (§15); without the engine it is a note (`not enforced: its matches need the types engine, which is not available`). A rule that does not compile is a note.
 3. **Check stages**, in this order: `format`, `lint`, `codegen`, `typecheck`, `migration`, `test`. Each stage is a step: the run stops after a stage with a failing check, so a failing `codegen` check (stale generated code) stops before the typecheck, whose errors would only repeat it.
 
@@ -59,7 +59,7 @@ Advice never stops the steps after it.
 - Outside `--all`, a check runs only when one of its in-scope files changed; with `when_changed`, only when a changed file matches it (and then even with no in-scope file).
 - A check whose tool is missing is skipped with the note `skipped: <tool> not installed` (§10.9). Tools are the project's own (`node_modules/.bin`, `.venv/bin`, the project's Python environment), system tools on PATH (`uv`, `bun`, `docker`, `npm`, `pnpm`, `yarn` from Yarn 2, `helm`, `kubectl`, `tofu`; `terraform` is `tofu` in an OpenTofu project; `kustomize` falls back to `kubectl kustomize`), or Forge's pinned tools (§17).
 - A check with `requires_local_db` runs only when the database is on this machine: `DATABASE_URL` from the environment, else from `.env`, else `sqlalchemy.url` in `alembic.ini`, with host `localhost`, `127.0.0.1`, `::1`, empty, or a Unix socket. Otherwise it is skipped with the note `skipped: no local database`.
-- With `--changed` and `--turn`, a check with a `changed_run` runs it on its in-scope changed files (`{files}`); otherwise it runs `run`, for the whole project.
+- With `--changed`, `--since` and `--turn`, a check with a `changed_run` runs it on its in-scope changed files (`{files}`); otherwise it runs `run`, for the whole project.
 - A check whose rule's pack was detected only in some workspace packages runs in each of them, with its files relative to the package; paths in its output are prefixed with the package directory (§5).
 
 ### 10.4 A check's result
@@ -71,6 +71,7 @@ Advice never stops the steps after it.
 - **Attribution.** Outside `--all`, the diagnostics of a failing `lint` run count on the added lines, and those of a failing `typecheck` run (or a whole-project `format` run) in the changed files. Locations are read from the tools' plain output: `path:line[:col]`, `path(line,col)`, `--> path:line:col`, ESLint's stylish blocks (an absolute path alone on a line, then `line:col  error|warning  …` lines), `Would reformat: path`, Biome's `path format`, Prettier's `[warn] path` and `[error] path: …`. Absolute paths under the repository are made relative.
   - Nothing counts → the check passes with a note: `ok for the added lines (findings remain on lines this change did not add)` or `ok for the changed files (errors remain in unchanged files)`.
   - Only warnings and no error → it passes with the note `ok: only warnings`. With `fail_on_warnings`, warnings count as errors.
+  - **What the change did not add.** A failure that names no added line — no location, or findings about a whole changed file (no line, or line 0), or a stage whose output is not attributed — is run again on the base tree (§10.1 step 4) at Stop and with `forge check`, and only the output lines the base did not print count (lines compared with their digits left out, so a count or a line the edit shifted is not new). Nothing new: it passes with the note `ok for this change: what it reports was already there at <base>`. The base run passing: everything counts. No base tree: the note `could not be compared with <base>: <why>; all of it counts`, and everything counts. After an edit there is no base run: such a failure is the note `failed naming no added line; the Stop check compares it with the base`. A builtin that compares with the base itself marks its findings as the change's, and is not run again. Tests: `crates/forge-check/tests/spec_check.rs::a_failure_the_base_already_had_is_not_the_changes`, `::counts_are_totals_deleted_files_included`.
   - Only Forge's own files are named → it passes with a note.
   - Otherwise the diagnostics that count are the findings, at most 15, then `... and <n> more`.
   - `--all` fails on any error.
@@ -110,7 +111,7 @@ Under `--turn`, a failing `test` check with a `rerun` is compared with the start
 
 ### 10.7 Advice
 
-Advice is a finding that never fails a run alone (exit 4 when it is all there is):
+Advice is a finding that never fails a run alone (exit 4 when it is all there is). An advised check's output goes through the same attribution as a failing one (§10.4): only what the change added is advice.
 
 - `advise`-mode ast-grep and grep rules, after an edit only (§10.8);
 - `forge_once <command>`: each line the command prints is a finding. Under `--turn` it is advice, given once per finding and turn (the turn snapshot's `reported` file); elsewhere any output fails the check;
