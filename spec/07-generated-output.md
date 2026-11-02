@@ -38,8 +38,6 @@ Project level:
 | UserPromptSubmit | | `user-prompt-submit` | 1800 s | |
 | PreToolUse | `Bash` | `pre-tool-use` | 180 s | `onFailure: "block"` |
 | PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `pre-tool-use` | 180 s | |
-| PreToolUse | `AskUserQuestion` | `pre-tool-use` | 600 s | |
-| PostToolUse | `AskUserQuestion` | `post-tool-use` | 600 s | |
 | PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | `post-tool-use` | 60 s | |
 | | | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
 | PostToolUseFailure | `Bash` | `post-tool-use-failure` | 60 s | |

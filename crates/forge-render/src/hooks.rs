@@ -88,8 +88,8 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "UserPromptSubmit",
         matcher: None,
-        // the spec step on the first prompt (spec.rs: 1740 s at most, when nobody is there and
-        // the open questions are answered in it too)
+        // the first-prompt workflows, the spec step among them (session_workflows.rs: 1740 s at
+        // most)
         commands: &[cmd("user-prompt-submit", 1800)],
     },
     HookGroup {
@@ -101,18 +101,6 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
         event: "PreToolUse",
         matcher: Some(FILE_TOOLS),
         commands: &[cmd("pre-tool-use", 180)],
-    },
-    HookGroup {
-        // the statements' questions, answered by a reviewer when nobody is there (540 s at most)
-        event: "PreToolUse",
-        matcher: Some("AskUserQuestion"),
-        commands: &[cmd("pre-tool-use", 600)],
-    },
-    HookGroup {
-        // the statements, updated with the answers (540 s at most)
-        event: "PostToolUse",
-        matcher: Some("AskUserQuestion"),
-        commands: &[cmd("post-tool-use", 600)],
     },
     HookGroup {
         event: "PostToolUse",

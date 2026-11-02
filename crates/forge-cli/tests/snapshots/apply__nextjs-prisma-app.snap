@@ -133,29 +133,9 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
             "timeout": 180
           }
         ]
-      },
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'",
-            "timeout": 600
-          }
-        ]
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'",
-            "timeout": 600
-          }
-        ]
-      },
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
@@ -551,16 +531,6 @@ json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command
 file = ".claude/settings.json"
 path = "hooks.PreToolUse"
 json = """{"matcher":"Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":180}]}"""
-
-[[settings]]
-file = ".claude/settings.json"
-path = "hooks.PreToolUse"
-json = """{"matcher":"AskUserQuestion","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook pre-tool-use'","timeout":600}]}"""
-
-[[settings]]
-file = ".claude/settings.json"
-path = "hooks.PostToolUse"
-json = """{"matcher":"AskUserQuestion","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use'","timeout":600}]}"""
 
 [[settings]]
 file = ".claude/settings.json"

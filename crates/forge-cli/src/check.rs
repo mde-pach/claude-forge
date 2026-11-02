@@ -93,6 +93,9 @@ pub fn default_registry(tools: Arc<dyn ToolResolver>) -> Registry {
 }
 
 pub fn internal(args: InternalArgs) -> ExitCode {
+    if args.name == "workflow" {
+        return ExitCode::from(forge_hooks::workflow::cli(&args.args).clamp(0, 255) as u8);
+    }
     let tools = provisioning::builtin_tools();
     let code = forge_check::builtins::internal_main(
         &default_registry(tools.clone()),

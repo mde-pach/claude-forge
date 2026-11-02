@@ -14,7 +14,7 @@ use crate::checker::{StopOutcome, StopStatus};
 use crate::input::HookInput;
 use crate::proc::{GIT_CAP, git};
 use crate::snapshot::{self, BashSnapshots};
-use crate::{Output, Project, Runtime, engine, spec, state, testedit};
+use crate::{Output, Project, Runtime, engine, session_workflows, state, testedit};
 
 // ---- SessionStart
 
@@ -30,7 +30,7 @@ pub fn session_start(rt: &Runtime, input: &HookInput) -> Output {
         return with_system(Output::silent(), &system);
     };
     let mut context = session_context(&p.root);
-    if let Some(statements) = spec::after_compaction(input, &p) {
+    if let Some(statements) = session_workflows::after_compaction(input, &p) {
         if !context.is_empty() {
             context.push_str("\n\n");
         }
@@ -203,7 +203,7 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
         }
         state::write_atomic(&head_file, new.as_bytes());
     }
-    match spec::first_prompt(rt, input, &p) {
+    match session_workflows::first_prompt(rt, input, &p) {
         Some(context) => Output::json(json!({
             "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": context}
         })),
@@ -271,14 +271,6 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
         Some("PostToolUseFailure") => "PostToolUseFailure",
         _ => "PostToolUse",
     };
-    if input.tool() == "AskUserQuestion" {
-        return match spec::after_answer(rt, input, &p) {
-            Some(text) => Output::json(json!({
-                "hookSpecificOutput": {"hookEventName": event, "additionalContext": text}
-            })),
-            None => Output::silent(),
-        };
-    }
     let mut files = changed_files(rt, input, &p);
     // packs that became active (packaging files created during the session): their context,
     // once, after the findings

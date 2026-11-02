@@ -28,10 +28,11 @@ pub mod input;
 pub mod proc;
 mod review;
 pub mod rules;
+mod session_workflows;
 pub mod snapshot;
-mod spec;
 pub mod state;
 mod testedit;
+pub mod workflow;
 
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
@@ -93,7 +94,8 @@ pub struct Env {
     pub snapshot_cap: Duration,
     /// Start the types engine at SessionStart (`FORGE_ENGINE=off`: never).
     pub engine: bool,
-    /// The spec step on the session's first prompt (`FORGE_SPEC=off`: never).
+    /// The workflows triggered by the session's first prompt, the spec step among them
+    /// (`FORGE_SPEC=off`: never).
     pub spec: bool,
 }
 

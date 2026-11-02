@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::input::HookInput;
-use crate::{Output, REVIEW_CAP, Runtime, pre_decision, proc, snapshot, spec, state};
+use crate::{Output, REVIEW_CAP, Runtime, pre_decision, proc, session_workflows, snapshot, state};
 
 /// A rule's ask, for the reviewer: the rule's concern and the question to answer.
 pub struct Ask<'a> {
@@ -279,15 +279,15 @@ fn session_request(rt: &Runtime, input: &HookInput) -> Option<String> {
 }
 
 /// What the reviewer knows besides the action: what the turn did to the repository
-/// ([`turn_facts`]) and the session's validated statements (§8.5).
+/// ([`turn_facts`]) and what the session's first-prompt workflows handed over (§8.5).
 fn review_context(rt: &Runtime, input: &HookInput) -> String {
     let mut out = turn_facts(rt, input);
     if let Some(statements) = rt
         .project(input)
-        .and_then(|p| spec::validated_statements(&p))
+        .and_then(|p| session_workflows::results(&p))
     {
         out.push_str(&format!(
-            "\n\nWhat the user validated the work must do:\n<statements>\n{statements}</statements>"
+            "\n\nWhat an independent reading of the request established:\n<statements>\n{statements}\n</statements>"
         ));
     }
     out

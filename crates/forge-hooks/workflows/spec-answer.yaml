@@ -1,0 +1,165 @@
+id: spec-answer
+description: The spec step. A writer maps the request and the project, works the conflicts through on the project's data and writes the statements; its open questions are answered from the request and the project; conflicts stay open for the coding agent.
+on: first-prompt
+inputs: [request]
+steps:
+  writer:
+    tools: [Read, Grep, Glob]
+    max_turns: 90
+    output_schema:
+      type: object
+      additionalProperties: false
+      required: [coverage, conflicts, must_hold, must_stay_unchanged, open_questions]
+      properties:
+        coverage:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [item, role, used_by_code, status]
+            properties:
+              item: {type: string}
+              role: {type: string}
+              used_by_code: {type: boolean}
+              status: {type: string, enum: [clear, unclear]}
+        conflicts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [case, requirements, resolutions]
+            properties:
+              case: {type: string}
+              requirements:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [requirement, strictness]
+                  properties:
+                    requirement: {type: string}
+                    strictness: {type: string}
+              resolutions:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [resolution, gives]
+                  properties:
+                    resolution: {type: string}
+                    gives: {type: string}
+        must_hold: {type: array, items: {type: string}}
+        must_stay_unchanged: {type: array, items: {type: string}}
+        open_questions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [question, why]
+            properties:
+              question: {type: string}
+              why: {type: string}
+    prompt: |
+      You prepare a specification for a coding agent that will change this project to satisfy the request below and write the tests for it. You do not write code. You can read the project (Read, Grep, Glob): read the code the request touches and every input the code works from.
+
+      Work in this order.
+
+      1. coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter). For each: the item; what it changes in the result on the project's own data; whether the current code uses it; status. Status is "clear" when the request and the project settle that role, "unclear" otherwise. An item whose role changes nothing on the project's own data is unclear. A sentence that names a category covers every instance of it: name them.
+
+      2. conflicts: work the requested result through on the project's own data, far enough to find the cases where two requirements cannot both hold. A requirement can come from the request, the data or the code. For each case: where it happens, with the values; each requirement involved and what in the request or the data shows how strict it is, quoted; and every way to resolve it, including relaxing each requirement as far as the request and the data allow. For each resolution, compute what it gives in that case: the value of every output field it changes, as numbers. State the values only: no judgement of whether a resolution is acceptable, and do not choose between them.
+
+      3. must_hold: what the result must do, from the clear rows, most important first, at most 12. Each pins a concrete result for a given input: the exact output, value, file or error. Nothing that depends on how a conflict is resolved.
+
+      4. must_stay_unchanged: only what the request explicitly asks to keep, quoted.
+
+      5. open_questions: one per unclear row that is not part of a conflict (a row involved in a conflict is settled with the conflict): the question, naming the readings and what each gives on the project's own data; why it matters.
+
+      No design and no implementation steps.
+
+      Repository: {{ repo }}
+
+      REQUEST:
+      <request>
+      {{ request }}
+      </request>
+  answer:
+    if: steps.writer.output.open_questions | length > 0
+    tools: [Read, Grep, Glob]
+    max_turns: 40
+    output_schema:
+      type: object
+      additionalProperties: false
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [question, evidence, decided, answer]
+            properties:
+              question: {type: string}
+              evidence: {type: string}
+              decided: {type: boolean}
+              answer: {type: string}
+    prompt: |
+      A coding agent asks the questions below before it changes anything. Answer each from evidence: the user's request and the project's code and data, which you can read (Read, Grep, Glob).
+
+      For each question, in this order:
+      - evidence: what in the request or the project bears on it, citing the file, field or value.
+      - decided: true when the evidence points to one reading. Weigh the request's own words first; then prefer the reading under which everything the request and the project provide has a role: a reading that leaves something provided with no effect on any result is less likely to be the intended one. False only when the evidence supports the readings equally.
+      - answer: when decided, the reading the evidence supports, short; when not decided, empty.
+
+      Answer every question, with its exact text.
+
+      Repository: {{ repo }}
+
+      The user's request:
+      <request>
+      {{ request }}
+      </request>
+
+      The questions:
+      {% for q in steps.writer.output.open_questions %}
+      - {{ q.question }}
+      {% endfor %}
+result: |
+  Details that complete the request above, so its result can be checked; the request comes first where they differ.
+
+  Must hold:
+  {% for s in steps.writer.output.must_hold %}
+  S{{ loop.index }}. {{ s }}
+  {% endfor %}
+  {% if steps.writer.output.must_stay_unchanged %}
+
+  Kept, as the request asks:
+  {% for s in steps.writer.output.must_stay_unchanged %}
+  U{{ loop.index }}. {{ s }}
+  {% endfor %}
+  {% endif %}
+  {% if steps.answer.output %}
+  {% set decided = steps.answer.output.answers | selectattr("decided") | list %}
+  {% if decided %}
+
+  Settled from the request and the project:
+  {% for a in decided %}
+  - {{ a.question }} -> {{ a.answer }}
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+  {% set open = [] %}
+  {% if steps.answer.output %}{% set open = steps.answer.output.answers | rejectattr("decided") | list %}{% endif %}
+  {% if open or steps.writer.output.conflicts %}
+
+  Open, to settle while coding (each option with what it gives on the project's data):
+  {% for a in open %}
+  - {{ a.question }}
+  {% endfor %}
+  {% for c in steps.writer.output.conflicts %}
+  - {{ c.case }}
+    Options:
+  {% for o in c.resolutions %}
+    ({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }}
+  {% endfor %}
+  {% endfor %}
+  {% endif %}

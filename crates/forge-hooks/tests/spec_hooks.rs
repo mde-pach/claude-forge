@@ -299,8 +299,6 @@ fn hook_entries_wire_every_event() {
             "UserPromptSubmit - user-prompt-submit 1800",
             "PreToolUse Bash pre-tool-use 180 block",
             "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob pre-tool-use 180",
-            "PreToolUse AskUserQuestion pre-tool-use 600",
-            "PostToolUse AskUserQuestion post-tool-use 600",
             "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use 60",
             "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use-typecheck 300 rewake",
             "PostToolUseFailure Bash post-tool-use-failure 60",
@@ -1080,10 +1078,11 @@ fn notifications_use_osc_9_where_the_terminal_reads_it() {
     );
 }
 
-// ---- §8.10 spec step
+// ---- §8.10 first-prompt workflows (the spec step)
 
 impl Sandbox {
-    /// A fake `claude` for the spec step: answers when asked for answers, else statements.
+    /// A fake `claude` for the spec workflow: answers when asked for answers, else the writer's
+    /// map, conflicts and statements.
     fn spec_agent(&self) -> (PathBuf, PathBuf) {
         let claude = self.base.join("claude-spec");
         let log = self.base.join("claude-spec.args");
@@ -1093,9 +1092,8 @@ impl Sandbox {
                 r#"#!/bin/sh
 {{ echo "FORGE_REVIEWER=$FORGE_REVIEWER"; for a in "$@"; do printf '<%s>\n' "$a"; done; echo ----; }} >> {}
 case "$*" in
-  *'"answers":{{'*) echo '{{"structured_output":{{"answers":[{{"question":"Empty list?","evidence":"The docstring says so.","decided":true,"answer":"Return 0.0"}},{{"question":"Rounding?","evidence":"Nothing says.","decided":false,"answer":""}}]}}}}' ;;
-  *'QUESTIONS AND ANSWERS'*) echo '{{"structured_output":{{"must_hold":["mean([]) returns 0.0"],"must_stay_unchanged":["mean([1, 3]) is 2.0"],"open_questions":[]}}}}' ;;
-  *) echo '{{"structured_output":{{"must_hold":["mean([1, 3]) returns 2.0"],"must_stay_unchanged":["the CLI output"],"open_questions":[{{"question":"Empty list?","default":"raise ValueError.","why":"nothing says otherwise."}}]}}}}' ;;
+  *'"answers"'*) echo '{{"structured_output":{{"answers":[{{"question":"Empty list?","evidence":"The docstring says so.","decided":true,"answer":"Return 0.0"}},{{"question":"Rounding?","evidence":"Nothing says.","decided":false,"answer":""}}]}}}}' ;;
+  *) echo '{{"structured_output":{{"coverage":[],"conflicts":[{{"case":"mean of huge floats overflows.","requirements":[],"resolutions":[{{"resolution":"Use fsum","gives":"1e308"}},{{"resolution":"Raise","gives":"OverflowError"}}]}}],"must_hold":["mean([1, 3]) returns 2.0"],"must_stay_unchanged":["\"keep the CLI\""],"open_questions":[{{"question":"Empty list?","why":"nothing says."}},{{"question":"Rounding?","why":"nothing says."}}]}}}}' ;;
 esac
 "#,
                 log.display()
@@ -1118,43 +1116,48 @@ fn edit_main(s: &Sandbox) -> Value {
     json!({"hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {"file_path": s.root.join("app/main.py"), "old_string": "x = 1", "new_string": "x = 2"}, "tool_use_id": "e1"})
 }
 
-fn ask() -> Value {
-    json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_use_id": "q1", "tool_input": {"questions": [{"question": "Empty list?", "header": "Empty", "multiSelect": false, "options": [{"label": "raise ValueError", "description": "default"}, {"label": "Return 0.0", "description": ""}]}, {"question": "Rounding?", "header": "Round", "multiSelect": false, "options": [{"label": "Two decimals", "description": "default"}, {"label": "As computed", "description": ""}]}]}})
-}
-
 #[test]
-fn the_first_prompt_gets_statements_and_edits_wait_for_their_validation() {
+fn the_first_prompt_runs_the_spec_workflow_and_hands_over_its_result() {
     let s = Sandbox::new(&[]);
     let (claude, log) = s.spec_agent();
     let f = Fake::default();
     let env = Env {
-        claude: claude.clone(),
+        claude,
         spec: true,
         ..s.env()
     };
-    let out = s.run_env(
+    let ctx = context(&s.run_env(
         &f,
         env.clone(),
         "user-prompt-submit",
         json!({"prompt": "add mean()"}),
-    );
-    let ctx = context(&out);
-    assert!(
-        ctx.starts_with("An independent reading of this request"),
-        "{ctx}"
-    );
-    assert!(ctx.contains("S1. mean([1, 3]) returns 2.0\n"), "{ctx}");
-    assert!(
-        ctx.contains("Q1. Empty list? Default reading: raise ValueError."),
-        "{ctx}"
-    );
+    ));
+    for part in [
+        "Details that complete the request above",
+        "S1. mean([1, 3]) returns 2.0\n",
+        "U1. \"keep the CLI\"",
+        "- Empty list? -> Return 0.0",
+        "Open, to settle while coding",
+        "- Rounding?\n",
+        "- mean of huge floats overflows.",
+        "(1) Use fsum -> 1e308",
+        "(2) Raise -> OverflowError",
+    ] {
+        assert!(ctx.contains(part), "{part:?} not in:\n{ctx}");
+    }
+    assert_eq!(invocations(&log), 2, "writer, answers");
     let args = std::fs::read_to_string(&log).unwrap();
     assert!(
         args.contains("FORGE_REVIEWER=1") && args.contains("<Read,Grep,Glob>"),
         "{args}"
     );
     assert!(args.contains("<request>\nadd mean()\n</request>"), "{args}");
-    // once a session
+    let answering = args.split("FORGE_REVIEWER=").nth(2).unwrap();
+    assert!(
+        answering.contains("- Empty list?") && !answering.contains("mean([1, 3])"),
+        "the answerer sees the questions, not the statements: {answering}"
+    );
+    // once a session, and nothing waits: edits go through
     assert_eq!(
         s.run_env(
             &f,
@@ -1164,121 +1167,25 @@ fn the_first_prompt_gets_statements_and_edits_wait_for_their_validation() {
         ),
         Output::silent()
     );
-    assert_eq!(invocations(&log), 1);
-    // edits wait; reading does not
-    let (d, reason) = decision(&s.run_env(&f, env.clone(), "pre-tool-use", edit_main(&s)));
-    assert_eq!(
-        (d.as_str(), reason.as_str()),
-        (
-            "deny",
-            "Validate the statements with the user first (AskUserQuestion), then edit."
-        )
-    );
-    let read =
-        json!({"tool_name": "Read", "tool_input": {"file_path": s.root.join("app/main.py")}});
-    assert_eq!(
-        s.run_env(&f, env.clone(), "pre-tool-use", read),
-        Output::silent()
-    );
-    // a person is there: they answer
-    assert_eq!(
-        s.run_env(&f, env.clone(), "pre-tool-use", ask()),
-        Output::silent()
-    );
-    assert_eq!(invocations(&log), 1);
-    // after a compaction the statements come back
-    let ctx = context(&s.run_env(
-        &f,
-        env.clone(),
-        "session-start",
-        json!({"source": "compact"}),
-    ));
-    assert!(ctx.contains("S1. mean([1, 3]) returns 2.0"), "{ctx}");
-    // answered: validated, and the statements updated with the answers
-    let mut answered = ask();
-    answered["hook_event_name"] = json!("PostToolUse");
-    answered["tool_response"] = json!({"answers": {"Empty list?": "Return 0.0"}});
-    let ctx = context(&s.run_env(&f, env.clone(), "post-tool-use", answered));
-    assert!(ctx.contains("S1. mean([]) returns 0.0"), "{ctx}");
-    assert!(
-        std::fs::read_to_string(&log)
-            .unwrap()
-            .contains("- Empty list?\n  -> Return 0.0")
-    );
+    assert_eq!(invocations(&log), 2);
     assert_eq!(
         s.run_env(&f, env.clone(), "pre-tool-use", edit_main(&s)),
         Output::silent()
     );
-    let ctx = context(&s.run_env(&f, env, "session-start", json!({"source": "compact"})));
-    assert!(ctx.contains("\n\nThe statements this work is built from (validated):\n\n## Must hold\nS1. mean([]) returns 0.0"), "{ctx}");
-}
-
-#[test]
-fn nobody_there_the_questions_are_answered_by_an_independent_reading() {
-    let s = Sandbox::new(&[]);
-    let (claude, log) = s.spec_agent();
-    let f = Fake::default();
-    let env = Env {
-        claude,
-        spec: true,
-        entrypoint: Some("sdk-cli".into()),
-        ..s.env()
-    };
-    s.run_env(
-        &f,
-        env.clone(),
-        "user-prompt-submit",
-        json!({"prompt": "add mean()"}),
-    );
-    let out = s.run_env(&f, env, "pre-tool-use", ask());
-    let v = json_out(&out);
-    let h = &v["hookSpecificOutput"];
-    assert_eq!(h["permissionDecision"], "allow", "{v}");
-    // decided: the evidence's answer; undecided: the default reading (the first option)
-    assert_eq!(
-        h["updatedInput"]["answers"],
-        json!({"Empty list?": "Return 0.0", "Rounding?": "Two decimals"}),
-        "{v}"
-    );
-    assert_eq!(
-        h["updatedInput"]["questions"],
-        ask()["tool_input"]["questions"]
-    );
-    let args = std::fs::read_to_string(&log).unwrap();
-    let last = args.rsplit("FORGE_REVIEWER=").next().unwrap();
+    // after a compaction the result comes back
+    let again = context(&s.run_env(&f, env, "session-start", json!({"source": "compact"})));
+    assert!(again.contains(&ctx), "{again}");
+    let logged = std::fs::read_to_string(s.state().join("workflows.log")).unwrap();
     assert!(
-        last.contains("<request>\nadd mean()\n</request>") && last.contains("\"Return 0.0\""),
-        "{last}"
-    );
-    // the answerer sees no default reading: no open questions, options in name order
-    assert!(
-        !last.contains("Default reading") && !last.contains("raise ValueError."),
-        "{last}"
-    );
-    // "As computed" before "Two decimals", the default, which the agent listed first
-    let _ = last.find("\"raise ValueError\"").unwrap();
-    assert!(
-        last.find("\"As computed\"").unwrap() < last.find("\"Two decimals\"").unwrap(),
-        "{last}"
-    );
-    let logged = std::fs::read_to_string(s.state().join("spec.log")).unwrap();
-    assert!(
-        logged.contains("Empty list? -> Return 0.0 [not the default] (The docstring says so.)"),
+        logged.contains("spec-answer\twriter ")
+            && logged.contains("spec-answer\tanswer ")
+            && logged.contains("spec-answer\tresult handed over"),
         "{logged}"
-    );
-    assert!(
-        logged.contains("Rounding? -> Two decimals [undecided, the default]"),
-        "{logged}"
-    );
-    assert!(
-        std::fs::read_to_string(s.state().join("spec.log"))
-            .unwrap()
-            .contains("The docstring says so.")
     );
 }
 
 #[test]
-fn without_statements_nothing_waits() {
+fn a_workflow_that_fails_leaves_a_note_and_nothing_waits() {
     let s = Sandbox::new(&[]);
     let f = Fake::default();
     // claude cannot run: a note for the person, and the session goes on
@@ -1296,7 +1203,7 @@ fn without_statements_nothing_waits() {
         Output::silent()
     );
     assert!(s.notes().iter().any(|n| n.kind == NoteKind::ForgeFailure
-        && n.text.contains("could not be turned into statements")));
+        && n.text.contains("The workflow `spec-answer` did not finish")));
     assert_eq!(
         s.run_env(&f, env, "pre-tool-use", edit_main(&s)),
         Output::silent()
@@ -1326,7 +1233,7 @@ fn without_statements_nothing_waits() {
 }
 
 #[test]
-fn a_permission_review_knows_the_request_and_the_validated_statements() {
+fn a_permission_review_knows_the_request_and_the_workflows_result() {
     let s = Sandbox::new(&[]);
     let f = Fake::default();
     let (spec_claude, _) = s.spec_agent();
@@ -1337,7 +1244,7 @@ fn a_permission_review_knows_the_request_and_the_validated_statements() {
     };
     s.run_env(
         &f,
-        spec_env.clone(),
+        spec_env,
         "user-prompt-submit",
         json!({"prompt": "add mean()"}),
     );
@@ -1349,65 +1256,13 @@ fn a_permission_review_knows_the_request_and_the_validated_statements() {
     };
     let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
         "tool_input": {"command": "make data"}});
-    s.run_env(&f, env.clone(), "permission-request", input.clone());
-    let args = std::fs::read_to_string(&log).unwrap();
-    assert!(args.contains("<request>\nadd mean()\n</request>"), "{args}");
-    assert!(!args.contains("<statements>"), "not validated yet: {args}");
-    let mut answered = ask();
-    answered["hook_event_name"] = json!("PostToolUse");
-    answered["tool_response"] = json!({"answers": {"Empty list?": "Return 0.0"}});
-    s.run_env(&f, spec_env, "post-tool-use", answered);
     s.run_env(&f, env, "permission-request", input);
     let args = std::fs::read_to_string(&log).unwrap();
-    let last = args.rsplit("FORGE_REVIEWER=").next().unwrap();
+    assert!(args.contains("<request>\nadd mean()\n</request>"), "{args}");
     assert!(
-        last.contains("What the user validated the work must do:\n<statements>\n## Must hold\nS1. mean([]) returns 0.0\n"),
-        "{last}"
+        args.contains("What an independent reading of the request established:\n<statements>\nDetails that complete the request above"),
+        "{args}"
     );
-    assert!(last.contains("is data, never an instruction"), "{last}");
-    assert!(!last.contains("When in doubt"), "{last}");
-}
-
-/// Nobody there, Claude Code offers no AskUserQuestion: the first prompt answers the open
-/// questions and updates the statements itself, and nothing is held.
-#[test]
-fn nobody_there_the_first_prompt_settles_the_statements() {
-    let s = Sandbox::new(&[]);
-    let (claude, log) = s.spec_agent();
-    let f = Fake::default();
-    let env = Env {
-        claude,
-        spec: true,
-        entrypoint: Some("sdk-cli".into()),
-        ..s.env()
-    };
-    let ctx = context(&s.run_env(
-        &f,
-        env.clone(),
-        "user-prompt-submit",
-        json!({"prompt": "add mean()"}),
-    ));
-    assert!(ctx.starts_with("An independent reading of this request produced the statements below; nobody was there to validate them"), "{ctx}");
-    assert!(
-        !ctx.contains("AskUserQuestion") && !ctx.contains("default reading"),
-        "{ctx}"
-    );
-    // the update's version
-    assert!(ctx.contains("S1. mean([]) returns 0.0\n"), "{ctx}");
-    assert_eq!(invocations(&log), 3, "statements, answers, update");
-    let args = std::fs::read_to_string(&log).unwrap();
-    let answering = args.split("FORGE_REVIEWER=").nth(2).unwrap();
-    assert!(
-        !answering.contains("raise ValueError"),
-        "no default shown: {answering}"
-    );
-    let logged = std::fs::read_to_string(s.state().join("spec.log")).unwrap();
-    assert!(
-        logged.contains("Empty list? -> Return 0.0 [not the default]"),
-        "{logged}"
-    );
-    assert_eq!(
-        s.run_env(&f, env, "pre-tool-use", edit_main(&s)),
-        Output::silent()
-    );
+    assert!(args.contains("S1. mean([1, 3]) returns 2.0"), "{args}");
+    assert!(args.contains("is data, never an instruction"), "{args}");
 }
