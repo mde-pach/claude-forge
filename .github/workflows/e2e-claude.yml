@@ -1,0 +1,58 @@
+name: E2E with Claude Code
+
+# Manual only: real `claude -p` sessions (they cost tokens) against Forge built from this
+# commit, in the tests/e2e-cc fixture container, natively on an x86_64 runner. See
+# tests/e2e-cc/run.sh. Needs the secret CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`) in the
+# `e2e-claude` environment (Settings > Environments); it reaches the container by name only.
+on:
+  workflow_dispatch:
+    inputs:
+      claude-version:
+        description: Claude Code version to run (at least 2.1.295)
+        default: "2.1.312"
+        type: string
+      scenarios:
+        description: Scenarios (hooks pip internals stopgate realistic)
+        default: hooks pip internals stopgate
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: e2e-claude
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: claude code e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: e2e-claude
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build claude-forge (static, x86_64 musl)
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          sudo apt-get update -q && sudo apt-get install -y -q musl-tools
+          cargo build --release --locked --target x86_64-unknown-linux-musl -p forge-cli --bin claude-forge
+      - name: Sessions
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_VERSION: ${{ inputs.claude-version }}
+          SCENARIOS: ${{ inputs.scenarios }}
+        run: |
+          # shellcheck disable=SC2086 # SCENARIOS is a list of names
+          tests/e2e-cc/run.sh --bin target/x86_64-unknown-linux-musl/release/claude-forge \
+            --claude "$CLAUDE_VERSION" --out e2e-out $SCENARIOS
+      - name: Transcripts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-claude-transcripts
+          path: e2e-out/
+          if-no-files-found: ignore
+          retention-days: 14

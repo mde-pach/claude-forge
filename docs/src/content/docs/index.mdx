@@ -1,9 +1,9 @@
 ---
 title: Forge
-description: Guardrails for Claude Code, generated from rule packs.
+description: Guardrails for Claude Code, from rule packs.
 template: splash
 hero:
-  tagline: One command writes a standalone Claude Code setup — permissions, sandbox, hooks and a check script — from rule packs for your stack. It runs with plain Claude Code; nothing calls Forge.
+  tagline: One binary sets up Claude Code for your stack from rule packs — context, permissions, a Bash guard, checks after each edit and when Claude stops — and the repository keeps only config, the lock and the rules files.
   image:
     html: '<forge-mascot class="forge-hero-mascot" label="Forge, the anvil mascot"></forge-mascot>'
   actions:
@@ -24,20 +24,20 @@ import MascotScript from "../../components/MascotScript.astro";
 <MascotScript />
 
 <CardGrid>
-  <Card title="Standalone output" icon="seti:shell">
-    POSIX `sh`, `git`, `grep`, `sed`, `awk` and your project's own tools. Uninstall Forge and the setup keeps working.
+  <Card title="One binary" icon="seti:rust">
+    The checks, guards and helpers live in `claude-forge`, not in your repository. Forge needs no Python, Node or Bun of its own.
   </Card>
   <Card title="Closest native place" icon="setting">
     Your linter and type checker first, then ast-grep, then Claude Code permissions and the sandbox, then hooks.
   </Card>
-  <Card title="Cannot be changed unnoticed" icon="approve-check">
-    Forge's files sit behind a permission prompt and are hash-checked at every Stop, pre-commit and CI run.
+  <Card title="True messages only" icon="approve-check">
+    What Claude sees is actionable and free of Forge's internals; notes for you go to `forge status` and never block.
   </Card>
   <Card title="Rules are data" icon="document">
     One YAML file per rule, in a tree of packs — language, package, sub-package — with examples that are also tests.
   </Card>
-  <Card title="The tests are the spec" icon="list-format">
-    Every behaviour on this site is a test from the suite, shown where it matters, with its latest CI result.
+  <Card title="Structural guards" icon="seti:shell">
+    Bash commands are parsed: a quoted argument or a heredoc body is data, never a command.
   </Card>
   <Card title="Audits, never edits" icon="magnifier">
     Forge checks your Biome, ruff, ty and tsc configs against each rule and tells you the snippet to add.

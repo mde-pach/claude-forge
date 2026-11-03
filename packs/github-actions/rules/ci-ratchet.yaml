@@ -1,5 +1,5 @@
 id: github-actions/ci-ratchet
-description: "Workflow changes do not switch checks off: a changed workflow may not have more continue-on-error: true, run lines ending in || true / || exit 0 / || :, if: false or paths-ignore than it had. Fix the failing step instead; an accepted change goes through forge.yaml."
+description: "Workflow changes do not switch checks off: a changed workflow may not have more continue-on-error: true, run lines ending in || true / || exit 0 / || :, if: false or paths-ignore than it had. Fix the failing step instead; switching a check off is the user's decision: ask them."
 scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
 enforce:
   - target: grep

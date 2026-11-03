@@ -5,6 +5,8 @@ enforce:
   - target: ast-grep
     mode: forbid
     rule: {kind: import_statement, has: {field: source, regex: "^[\"']@prisma/client[\"']$"}}
+when:
+  deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]
 examples:
   match: ["import { PrismaClient } from \"@prisma/client\";"]
   no_match: ["import { PrismaClient } from \"@/generated/prisma/client\";"]

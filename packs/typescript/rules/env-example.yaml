@@ -1,5 +1,5 @@
 id: typescript/env-example
-description: "A key added to a Zod env schema (t3-env createEnv, or z.object(...) parsed from process.env) is listed in the .env template next to it (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always when it has no .default() or .optional(), and also otherwise when the template already lists at least half of the schema's keys. Checked at Stop and pre-commit."
+description: "A key of a Zod env schema (t3-env createEnv, or z.object(...) parsed from process.env) in a changed file is listed in the .env template next to it (.env.example, .env.template, .env.sample, .env.dist, .env.<name>.example): always when it has no .default() or .optional(), and also otherwise when the template already lists at least half of the schema's keys. Checked at Stop and pre-commit."
 scope: {language: typescript}
 enforce:
   - {target: check, stage: lint, run: "forge_env_example ts"}

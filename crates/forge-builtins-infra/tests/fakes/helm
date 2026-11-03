@@ -1,0 +1,29 @@
+#!/bin/sh
+# Fake helm 3 for the pack examples (not installed where the outputs were captured: formats from
+# the helm adapter's notes): lint passes; template renders the chart's
+# templates with .Release.Name and the values of values.yaml, and fails on a missing required value.
+case $1 in
+  version) echo 'v3.15.4+gfa9efb0'; exit 0 ;;
+  lint) shift; [ "$1" = --strict ] && shift
+    printf '==> Linting %s\n[INFO] Chart.yaml: icon is recommended\n\n1 chart(s) linted, 0 chart(s) failed\n' "$1"; exit 0 ;;
+  template) c=$3 ;;
+  *) echo "Error: unknown command \"$1\" for \"helm\"" >&2; exit 1 ;;
+esac
+name=$(sed -n 's/^name: *//p' "$c/Chart.yaml")
+for t in "$c"/templates/*.yaml; do
+  [ -f "$t" ] || continue
+  rel=${t#"$c"/}
+  out=$(awk -v vals="$c/values.yaml" -v src="$name/$rel" '
+    BEGIN { while ((getline l < vals) > 0) { k = l; sub(/:.*/, "", k); v = l; sub(/^[^:]*:[[:space:]]*/, "", v); val[k] = v } }
+    {
+      line = $0
+      gsub(/\{\{ \.Release\.Name \}\}/, "forge", line)
+      while (match(line, /\{\{ \.Values\.[a-z]+[^}]*\}\}/)) {
+        e = substr(line, RSTART, RLENGTH); k = e; sub(/^\{\{ \.Values\./, "", k); sub(/[^a-z].*$/, "", k)
+        if (!(k in val) && e ~ /required/) { m = e; sub(/^.*required "/, "", m); sub(/".*$/, "", m); printf "Error: execution error at (%s:%d:%d): %s\n", src, NR, RSTART + 3, m > "/dev/stderr"; exit 1 }
+        line = substr(line, 1, RSTART - 1) val[k] substr(line, RSTART + RLENGTH)
+      }
+      print line
+    }' "$t") || exit 1
+  printf -- '---\n# Source: %s\n%s\n' "$name/$rel" "$out"
+done

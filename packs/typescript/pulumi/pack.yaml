@@ -3,3 +3,6 @@ description: Pulumi programs in TypeScript.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@pulumi/pulumi"}]
+context:
+  - text: |
+      Pulumi: `protect: true` resource options are kept (a changed file may not have fewer); unprotecting or deleting protected resources is the user's call.

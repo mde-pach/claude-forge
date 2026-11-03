@@ -1,1 +1,0 @@
-jsonwebtoken: `jwt.verify(token, key, { algorithms: ["HS256"] })` names its algorithms (never `none`) and keeps expiry checks (no `ignoreExpiration: true`); `decode()` does not verify and is not used for trust decisions.

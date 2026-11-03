@@ -3,3 +3,6 @@ description: jsonwebtoken (verification options).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: jsonwebtoken}]
+context:
+  - text: |
+      jsonwebtoken: `jwt.verify(token, key, { algorithms: ["HS256"] })` names its algorithms (never `none`) and keeps expiry checks (no `ignoreExpiration: true`); `decode()` does not verify and is not used for trust decisions.

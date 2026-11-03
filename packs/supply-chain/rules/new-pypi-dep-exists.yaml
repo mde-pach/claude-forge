@@ -1,5 +1,5 @@
 id: supply-chain/new-pypi-dep-exists
-description: "Each dependency a pyproject.toml gains ([project] dependencies and optional-dependencies, [dependency-groups], [tool.uv] dev-dependencies, [tool.poetry.*dependencies]) exists on PyPI, has a release that is not yanked, and was first uploaded at least Forge's cooldown (3 days) ago; names an explicit private index serves (uv sources, Poetry explicit sources) and path, git or URL sources are not looked up, and an unreachable index is reported skipped."
+description: "Each dependency a pyproject.toml gains ([project] dependencies and optional-dependencies, [dependency-groups], [tool.uv] dev-dependencies, [tool.poetry.*dependencies]) exists on PyPI, has a release that is not yanked, and was first uploaded at least 3 days ago; names an explicit private index serves (uv sources, Poetry explicit sources) and path, git or URL sources are their own."
 scope: {language: any, files: ["**/pyproject.toml"]}
 enforce:
   - target: check

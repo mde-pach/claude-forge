@@ -5,10 +5,10 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])redis-cli[[:space:]].*([Ff][Ll][Uu][Ss][Hh]([Aa][Ll][Ll]|[Dd][Bb]))'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(supabase[[:space:]]+db[[:space:]]+reset|manage\.py[[:space:]]+flush)([[:space:];&|)]|$)'
+    command:
+      - {name: redis-cli, stdin: true, arg_regex: '(?im)^\s*flush(all|db)\b'}
+      - {name: supabase, sub: [db, reset]}
+      - {name: manage.py, sub: [flush]}
 examples:
   match: ["redis-cli FLUSHALL", "redis-cli -n 2 flushdb", "supabase db reset", "python manage.py flush --no-input", "uv run manage.py flush"]
   no_match: ["redis-cli get session:1", "supabase db push", "python manage.py migrate", "supabase db reset-password"]

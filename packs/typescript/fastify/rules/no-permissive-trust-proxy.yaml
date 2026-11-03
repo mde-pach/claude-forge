@@ -1,5 +1,5 @@
 id: typescript/fastify/no-permissive-trust-proxy
-description: "Advice: trustProxy: true in Fastify({...}) (fastify's default or named import, any local name) trusts every X-Forwarded-For hop, so the client sets request.ip (IP rate limits and logs are spoofable); give the hop count, the proxy addresses or a function."
+description: "trustProxy: true in Fastify({...}) (fastify's default or named import, any local name) trusts every X-Forwarded-For hop, so the client sets request.ip (IP rate limits and logs are spoofable); give the hop count, the proxy addresses or a function."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

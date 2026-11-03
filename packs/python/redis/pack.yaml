@@ -3,3 +3,6 @@ description: redis-py clients.
 level: project
 detect:
   deps_any: [{ecosystem: pypi, name: redis}, {ecosystem: pypi, name: aioredis}]
+context:
+  - text: |
+      redis-py. Iterate keys with `scan_iter(match=...)`, never `KEYS`; asyncio clients (`redis.asyncio`) are closed with `await r.aclose()`.

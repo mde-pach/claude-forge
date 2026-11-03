@@ -1,0 +1,31 @@
+# tsc, the TypeScript compiler of the project's `typescript` package (§16): the JavaScript
+# compiler up to 6.x, the native one (Go) from 7.0, the same command line. What changed
+# between its releases, for what Forge asks of it:
+#
+# - 4.0 is the oldest covered: it is the first release that takes `--incremental` with
+#   `--noEmit` (TypeScript 4.0 release notes, "`--incremental` with `--noEmit`",
+#   https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-0.html). 3.9 and
+#   earlier reject the pair (`error TS5053: Option 'noEmit' cannot be specified with option
+#   'incremental'.`, verified on 3.9.10), so typescript/typecheck cannot run there as Forge
+#   runs it; `--incremental` and `--tsBuildInfoFile` themselves date from 3.4. 4.0.2 is the
+#   first 4.0 release on npm.
+# - 5.x, 6.0 (deprecations of tsconfig options and targets, none of the flags Forge passes:
+#   https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/) and 7.0 (the native
+#   compiler: https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) take the
+#   same command line. 7.0 exits 1, not 2, when it finds type errors; Forge reads the
+#   diagnostics, not the status.
+# - Usage errors: exit 1 and a line `error TS<code>: ...` with no file in front (unknown
+#   option TS5023, "did you mean" TS5025, option without its argument TS6044, a value it does
+#   not take TS6046), on every covered release. Type errors and tsconfig errors always start
+#   with the file (`src/a.ts(1,14): error TS2322`, `tsconfig.json(1,22): error TS5023`).
+#   NOTE: tsc prints them on stdout, not stderr.
+
+tool: "tsc"
+verified: "7.0.2"
+usage: {exit: [1], pattern: "^error TS(5023|5025|6044|6046): "}
+ranges:
+  - from: "4.0.2"
+    source: "TypeScript 4.0 release notes: `--incremental` with `--noEmit` (typescriptlang.org/docs/handbook/release-notes/typescript-4-0.html)"
+    ops:
+      "typecheck": "--noEmit -p {args} --pretty false"
+      "typecheck-incremental": "--noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile {args}"

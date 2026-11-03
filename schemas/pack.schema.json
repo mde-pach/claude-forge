@@ -1,16 +1,10 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "forge:pack",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "id",
-    "description",
-    "level"
-  ],
   "properties": {
     "id": {
       "type": "string",
+      "description": "Path in the pack tree (\"typescript/nextjs/react\").",
       "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
     },
     "description": {
@@ -18,10 +12,18 @@
       "minLength": 1
     },
     "level": {
-      "enum": [
-        "user",
-        "project"
-      ]
+      "$ref": "#/$defs/Level"
+    },
+    "detect": {
+      "description": "A user-level pack has none.",
+      "$ref": "#/$defs/PackDetect"
+    },
+    "tool_off": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ToolOff"
+      },
+      "minItems": 1
     },
     "requires": {
       "type": "array",
@@ -29,9 +31,35 @@
         "type": "string",
         "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
       },
+      "default": [],
       "uniqueItems": true
     },
-    "detect": {
+    "context": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ContextItem"
+      },
+      "description": "What the agent reads while the pack is active."
+    }
+  },
+  "required": [
+    "id",
+    "description",
+    "level"
+  ],
+  "title": "pack",
+  "description": "A pack: `pack.yaml` plus what loading adds (its place in the tree, its rules).",
+  "$id": "forge:pack",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Level": {
+      "type": "string",
+      "enum": [
+        "user",
+        "project"
+      ]
+    },
+    "PackDetect": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -40,134 +68,219 @@
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "description": "A file matches one of the globs."
         },
         "deps_any": {
           "type": "array",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "ecosystem",
-              "name"
-            ],
-            "properties": {
-              "ecosystem": {
-                "enum": [
-                  "pypi",
-                  "npm"
-                ]
-              },
-              "name": {
-                "type": "string",
-                "minLength": 1
-              },
-              "version": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
+            "$ref": "#/$defs/DepSpec"
+          },
+          "description": "One of the dependencies is declared, in its version range."
         },
         "library_any": {
           "type": "array",
           "items": {
-            "enum": [
-              "pypi",
-              "npm"
-            ]
+            "$ref": "#/$defs/Ecosystem"
           },
+          "description": "The project publishes a library to one of the ecosystems.",
           "uniqueItems": true
         },
         "always": {
+          "type": "boolean",
+          "description": "Active in every repository (only `true`).",
           "const": true
         },
         "sources_any": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "description": "A source file matches one of the globs, outside vendored, generated and environment\ndirectories.",
+          "minItems": 1
         },
         "content_any": {
           "type": "array",
-          "minItems": 1,
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "files",
-              "pattern"
-            ],
-            "properties": {
-              "files": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "pattern": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
+            "$ref": "#/$defs/ContentMatch"
+          },
+          "description": "A line of a file matching the globs matches the pattern.",
+          "minItems": 1
         },
         "yaml_keys": {
           "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "description": "A .yaml / .yml file's first document is a mapping with all these top-level keys.",
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "facts_any": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/OneOrMany"
+          },
+          "description": "A named fact has one of the values (`python.pm: [poetry]`); any entry may hold.",
+          "minProperties": 1
         }
-      }
+      },
+      "description": "How a project-level pack is detected (§5.1): any one of these facts."
     },
-    "tool_off": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "tool",
-          "expects",
-          "reason"
-        ],
-        "properties": {
-          "tool": {
-            "enum": [
-              "biome"
-            ]
-          },
-          "expects": {
-            "type": "string",
-            "pattern": "^lint/[a-zA-Z]+/[a-zA-Z]+$"
-          },
-          "reason": {
+    "DepSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "$ref": "#/$defs/Ecosystem"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ecosystem",
+        "name"
+      ],
+      "description": "A dependency: by ecosystem and name, in a version range (npm semver, or PEP 440 for PyPI)."
+    },
+    "Ecosystem": {
+      "type": "string",
+      "enum": [
+        "pypi",
+        "npm"
+      ]
+    },
+    "ContentMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "minItems": 1
+        },
+        "pattern": {
+          "type": "string",
+          "description": "A regular expression, searched in each line.",
+          "minLength": 1
         }
-      }
-    }
-  },
-  "if": {
-    "properties": {
-      "level": {
-        "const": "user"
-      }
-    }
-  },
-  "then": {
-    "not": {
+      },
       "required": [
-        "detect"
+        "files",
+        "pattern"
       ]
+    },
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      ],
+      "description": "A value or a non-empty list of them, kept in the shape it was written."
+    },
+    "ToolOff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "type": "string",
+          "enum": [
+            "biome"
+          ]
+        },
+        "expects": {
+          "type": "string",
+          "pattern": "^lint/[a-zA-Z]+/[a-zA-Z]+$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "tool",
+        "expects",
+        "reason"
+      ],
+      "description": "A tool diagnostic a pack switches off where it is active."
+    },
+    "ContextItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Items with the same id are rendered once.",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "when": {
+          "$ref": "#/$defs/ContextWhen"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "description": "A piece of the text the agent reads while the pack is active: a norm, true wherever its\n`when` holds."
+    },
+    "ContextWhen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DepSpec"
+          },
+          "description": "Every dependency is declared, in its version range."
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "A file matches one of the globs."
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/OneOrMany"
+          },
+          "description": "Every named fact has the value (or one of the values): `python.pm: uv`."
+        },
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
+          },
+          "description": "One of these packs is active."
+        }
+      },
+      "description": "When a context item holds. Every condition given must hold, in one place the pack applies\nto (the root or a workspace package); `packs` is about the whole repository.",
+      "minProperties": 1
     }
   }
 }

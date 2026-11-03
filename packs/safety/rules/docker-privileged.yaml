@@ -4,10 +4,22 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(container[[:space:]]+)?(run|create|exec)[[:space:]][^;&|]*(--privileged|--(pid|ipc|userns)[= ]host|--cap-add[= ](ALL|SYS_ADMIN)|--security-opt[= ](seccomp|apparmor)[=:]unconfined|docker\.sock)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(container[[:space:]]+)?(run|create)[[:space:]][^;&|]*((-v|--volume)[= ](\\?")?|(source|src)=)(/|/etc|/root|~|\$HOME|\$\{HOME\})/?([:,[:space:]]|\\?"|$)'
+    command:
+      - name: [docker, podman]
+        sub: ['run|create|exec']
+        flags_any: [--privileged, '--pid=host', '--ipc=host', '--userns=host', '--cap-add=ALL', '--cap-add=SYS_ADMIN', '--security-opt=seccomp=unconfined', '--security-opt=seccomp:unconfined', '--security-opt=apparmor=unconfined', '--security-opt=apparmor:unconfined']
+        value_flags: [--pid, --ipc, --userns, --cap-add, --security-opt, -v, --volume, --mount, -e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
+      - name: [docker, podman]
+        sub: [container, 'run|create|exec']
+        flags_any: [--privileged, '--pid=host', '--ipc=host', '--userns=host', '--cap-add=ALL', '--cap-add=SYS_ADMIN', '--security-opt=seccomp=unconfined', '--security-opt=seccomp:unconfined', '--security-opt=apparmor=unconfined', '--security-opt=apparmor:unconfined']
+        value_flags: [--pid, --ipc, --userns, --cap-add, --security-opt, -v, --volume, --mount, -e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
+      - {name: [docker, podman], sub: ['run|create|exec|container'], arg_regex: 'docker\.sock'}
+      - name: [docker, podman]
+        sub: ['run|create|container']
+        option_values:
+          '-v|--volume': '^(/|/etc|/root|~|\$HOME|\$\{HOME\})/?(:|$)'
+          '--mount': '(^|,)(source|src)=(/|/etc|/root|~|\$HOME|\$\{HOME\})/?(,|$)'
+        value_flags: [-e, --env, --name, -p, --publish, -w, --workdir, -u, --user, --network, --entrypoint]
 examples:
   match: ["docker run --privileged -it alpine sh", "docker run --pid=host alpine ps", "docker container run --userns host app", "docker run --cap-add SYS_ADMIN app", "docker run --security-opt seccomp=unconfined app", "docker exec --privileged web sh", "docker run -v /var/run/docker.sock:/var/run/docker.sock app", "docker run -v /:/host alpine", "docker run -v ~/:/root app", "docker run -v \"$HOME:/home/app\" app", "docker run --mount type=bind,source=/etc,target=/host-etc alpine"]
   no_match: ["docker run --rm -p 127.0.0.1:5432:5432 postgres:17", "docker run -v ./data:/data app", "docker run -v /etc/nginx/conf.d:/etc/nginx/conf.d:ro nginx", "docker compose run --rm api pytest", "docker exec -it db psql -U app"]

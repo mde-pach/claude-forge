@@ -1,5 +1,5 @@
 id: python/pydantic/typeadapter-module-level
-description: "Advice: a TypeAdapter is built once, at module level or in a cached function (@cache, @lru_cache, @cached_property), not in a function body: each construction builds the validator and serializer again."
+description: "A TypeAdapter is built once, at module level or in a cached function (@cache, @lru_cache, @cached_property), not in a function body: each construction builds the validator and serializer again."
 scope: {language: python}
 enforce:
   - target: ast-grep

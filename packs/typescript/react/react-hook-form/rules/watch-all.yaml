@@ -1,5 +1,5 @@
 id: typescript/react/react-hook-form/watch-all
-description: "Advice: watch named fields (useWatch({ control, name: \"email\" }) or watch(\"email\")), not watch() with no argument: it subscribes to the whole form, so every keystroke re-renders the component, and it defeats React Compiler's memoization."
+description: "Watch named fields (useWatch({ control, name: \"email\" }) or watch(\"email\")), not watch() with no argument: it subscribes to the whole form, so every keystroke re-renders the component, and it defeats React Compiler's memoization."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

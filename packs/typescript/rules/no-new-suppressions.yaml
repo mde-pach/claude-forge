@@ -2,9 +2,12 @@ id: typescript/no-new-suppressions
 description: No new suppression comments (biome-ignore, eslint-disable and oxlint-disable in any form, deno-lint-ignore, prettier-ignore, @ts-expect-error) or coverage ignore hints (istanbul ignore, c8 ignore, v8 ignore); a changed file may not have more than it had. Fix the finding instead.
 scope: {language: typescript}
 enforce:
-  - target: grep
+  # comments only, the directive first: a string, or prose about a directive, is not a suppression
+  - target: ast-grep
     mode: no-increase
-    pattern: "biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore|(istanbul|c8|v8)[[:space:]]+ignore"
+    rule:
+      kind: comment
+      regex: "^(//|/\\*+)[ \\t]*(biome-ignore|@ts-expect-error|eslint-disable|oxlint-disable|deno-lint-ignore|prettier-ignore|(istanbul|c8|v8)[ \\t]+ignore)"
 examples:
   match:
     - "// biome-ignore lint/suspicious/noExplicitAny: legacy API\nexport const x: any = 1;"
@@ -22,3 +25,5 @@ examples:
     - "export const x: unknown = 1;"
     - "// ignore the cache when the flag is set"
     - "// eslint is not used here; Biome lints this file"
+    - "export const hint = \"add // eslint-disable-next-line to silence it\";"
+    - "// never add eslint-disable comments here"

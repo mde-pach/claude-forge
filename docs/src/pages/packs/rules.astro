@@ -1,15 +1,14 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import StatusBadge from "../../components/StatusBadge";
-import { enforcedBy, packs, packUrl, results, ruleAnchor, ruleStatus } from "../../lib/data";
+import { packs, packUrl, ruleAnchor } from "../../lib/data";
+import { enforcedBy } from "../../lib/lifecycle";
 
 const all = [...packs().values()];
-const r = results();
 ---
 
-<StarlightPage frontmatter={{ title: "All rules", description: "Every rule Forge ships, with how it is enforced and the CI result of its examples." }}>
+<StarlightPage frontmatter={{ title: "All rules", description: "Every rule Forge ships, with how it is enforced." }}>
   <table>
-    <thead><tr><th>Rule</th><th>Description</th><th>Enforced by</th><th>Examples</th></tr></thead>
+    <thead><tr><th>Rule</th><th>Description</th><th>Enforced by</th></tr></thead>
     <tbody>
       {
         all.flatMap((p) =>
@@ -18,7 +17,6 @@ const r = results();
               <td><a href={`${packUrl(p.id)}#${ruleAnchor(x.id)}`}><code>{x.id}</code></a></td>
               <td>{x.description}</td>
               <td>{enforcedBy(x).join(", ")}</td>
-              <td><StatusBadge status={ruleStatus(r, x.id)} /></td>
             </tr>
           )),
         )

@@ -1,5 +1,5 @@
 id: typescript/express/no-permissive-trust-proxy
-description: "Advice: app.set(\"trust proxy\", true) on an Express app trusts every X-Forwarded-For hop, so the client sets req.ip (IP rate limits and logs are spoofable); give the hop count, the proxy subnets or a function."
+description: "app.set(\"trust proxy\", true) on an Express app trusts every X-Forwarded-For hop, so the client sets req.ip (IP rate limits and logs are spoofable); give the hop count, the proxy subnets or a function."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

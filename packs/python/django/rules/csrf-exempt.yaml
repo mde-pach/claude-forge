@@ -1,5 +1,5 @@
 id: python/django/csrf-exempt
-description: "No @csrf_exempt and no csrf_exempt(view): turning off CSRF protection is the user's decision. Ask them (is the endpoint authenticated by something other than cookies, such as a signed webhook?); if they confirm, they disable the rule for that file in a local rule."
+description: "No @csrf_exempt and no csrf_exempt(view): turning off CSRF protection is the user's decision. Ask them (is the endpoint authenticated by something other than cookies, such as a signed webhook?)."
 scope: {language: python}
 enforce:
   - target: ast-grep

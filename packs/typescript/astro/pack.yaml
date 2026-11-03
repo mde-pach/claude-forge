@@ -3,3 +3,12 @@ description: Astro sites and their type checking.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: astro}]
+context:
+  - text: |
+      Astro. `.astro` components render on the server; the default output is static HTML.
+  - text: |
+      `.astro` files are type-checked with `astro check`, not `tsc`.
+  - text: |
+      Content collections are declared in `src/content.config.ts` with the `glob()` / `file()` loaders; entries are identified by `entry.id` (no `slug`).
+  - text: |
+      `Astro.glob()` is removed: use `getCollection()` or `import.meta.glob()`. View transitions use `<ClientRouter />`.

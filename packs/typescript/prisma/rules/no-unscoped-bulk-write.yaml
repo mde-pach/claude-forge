@@ -1,5 +1,5 @@
 id: typescript/prisma/no-unscoped-bulk-write
-description: "Advice on a Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose)."
+description: "A Prisma deleteMany() / updateMany() without a where: it deletes or rewrites the whole table (seeds and test resets do it on purpose)."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

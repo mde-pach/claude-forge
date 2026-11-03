@@ -1,5 +1,5 @@
 id: kubernetes/rbac-advice
-description: "Advice at Stop: changed RBAC objects pass kube-linter's wildcard-in-rules and cluster-admin-role-binding checks (grant named verbs and resources, not * or cluster-admin)."
+description: "Changed RBAC objects pass kube-linter's wildcard-in-rules and cluster-admin-role-binding checks (grant named verbs and resources, not * or cluster-admin)."
 scope: {language: any, files: ["**/*.yaml", "**/*.yml"]}
 enforce:
   - target: check

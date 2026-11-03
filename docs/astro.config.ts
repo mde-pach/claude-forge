@@ -4,8 +4,8 @@ import react from "@astrojs/react";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import type { AstroIntegration } from "astro";
-import { leaf, packs, REPO_URL, ROOT } from "./src/lib/data";
-import type { Pack } from "../src/types";
+import { DATA, leaf, packs, REPO_URL, ROOT } from "./src/lib/data";
+import type { Pack } from "./src/lib/types";
 
 type SidebarItem = { label: string; link: string } | { label: string; collapsed?: boolean; items: SidebarItem[] };
 
@@ -74,18 +74,17 @@ function sidebar(): SidebarItem[] {
   ];
 }
 
-/** Dev: pages re-read packs/ and tests/ on each request; adding or removing a pack or spec file restarts the server so the sidebar follows. */
+/** Dev: pages re-read docs/.data/ and packs/ on each request; a new dump (bun run data) restarts the server so the sidebar follows. */
 const forgeWatch: AstroIntegration = {
   name: "forge-watch",
   hooks: {
     "astro:server:setup": ({ server }) => {
-      server.watcher.add([join(ROOT, "packs"), join(ROOT, "tests", "spec")]);
-      const structural = (file: string) => file.endsWith("pack.yaml") || (file.includes("/tests/spec/") && file.endsWith(".test.ts"));
+      server.watcher.add([join(ROOT, "packs"), DATA]);
       const restart = (file: string) => {
-        if (structural(file)) utimesSync(join(ROOT, "docs", "astro.config.ts"), new Date(), new Date());
+        if (file.startsWith(DATA)) utimesSync(join(ROOT, "docs", "astro.config.ts"), new Date(), new Date());
       };
       server.watcher.on("add", restart);
-      server.watcher.on("unlink", restart);
+      server.watcher.on("change", restart);
     },
   },
 };
@@ -97,7 +96,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Forge",
-      description: "Guardrails for Claude Code, generated from rule packs.",
+      description: "Guardrails for Claude Code, from rule packs.",
       logo: { src: "./public/logo.svg" },
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: REPO_URL }],

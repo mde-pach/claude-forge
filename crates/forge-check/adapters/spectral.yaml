@@ -1,0 +1,16 @@
+# Spectral CLI, Forge's own pinned OpenAPI linter (§16.2 pinned tools): one range, the pin
+# (SPECTRAL_VERSION), proven on @stoplight/spectral-cli 6.17.0 through bunx. Forge's invocation
+# (openapi.sh forge_openapi_lint): `lint --ruleset <file> --format text --fail-severity error
+# <roots>`. Exit: 0 no result at or above error, 1 such results and also a usage error (yargs),
+# 2 a run that could not lint (no such document, an invalid ruleset).
+
+tool: "spectral"
+pinned: "6.17.0"
+verified: "6.17.0"
+runner: pinned
+usage: {exit: [1], pattern: "^(Unknown arguments?|Invalid values?):"}
+ranges:
+  - from: "6.17.0"
+    source: "@stoplight/spectral-cli 6.17.0: https://github.com/stoplightio/spectral/releases/tag/%40stoplight%2Fspectral-cli%406.17.0; spectral lint --help"
+    ops:
+      "lint": "lint --format text --fail-severity error --ruleset"

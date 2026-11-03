@@ -1,5 +1,5 @@
 id: docker/deps-before-copy
-description: "Advice, once per turn at Stop: in a build stage, copy the manifest and lock file and install dependencies before COPY . ., so a code change does not rebuild the dependency layer."
+description: "In a build stage, copy the manifest and lock file and install dependencies before COPY . ., so a code change does not rebuild the dependency layer."
 scope: {language: any, files: ["@dockerfile"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_docker_copy_order", when_changed: ["@dockerfile"]}

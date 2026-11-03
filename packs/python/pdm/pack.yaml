@@ -1,0 +1,8 @@
+id: python/pdm
+description: PDM is the Python package manager.
+level: project
+detect:
+  facts_any: {python.pm: pdm}
+context:
+  - text: |
+      The project is managed with PDM: dependencies are added with `pdm add <pkg>` (`pdm add --dev <pkg>` for tooling), and tools run through the project's environment (`pdm run <tool>`).

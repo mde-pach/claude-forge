@@ -1,0 +1,8 @@
+id: python/poetry
+description: Poetry is the Python package manager.
+level: project
+detect:
+  facts_any: {python.pm: poetry}
+context:
+  - text: |
+      The project is managed with Poetry: dependencies are added with `poetry add <pkg>` (`poetry add --group dev <pkg>` for tooling), and tools run through the project's environment (`poetry run <tool>`).

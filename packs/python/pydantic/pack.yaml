@@ -2,4 +2,7 @@ id: python/pydantic
 description: Pydantic v2 APIs only.
 level: project
 detect:
-  deps_any: [{ecosystem: pypi, name: pydantic, version: ">=2.0.0"}, {ecosystem: pypi, name: fastapi}]
+  deps_any: [{ecosystem: pypi, name: pydantic, version: ">=2.0.0"}, {ecosystem: pypi, name: fastapi, version: ">=0.100.0"}]
+context:
+  - text: |
+      Pydantic v2: `model_validate`, `model_dump`, `model_config = ConfigDict(...)`, `@field_validator`, `@model_validator`, `Field(pattern=...)`, `TypeAdapter(T).validate_python(...)` (not `parse_obj_as`), with the adapter built once at module level.

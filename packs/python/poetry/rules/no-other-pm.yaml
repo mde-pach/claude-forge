@@ -1,0 +1,16 @@
+id: python/poetry/no-other-pm
+description: "Dependencies are added with poetry add (the lock file is poetry.lock); Claude asks before pip installs, other package managers or a hand-made virtualenv."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command:
+      - {name: [pip, pip3, 'pip3.*'], sub: [install], flags_none: [--dry-run]}
+      - {name: uv, sub: [pip, install], flags_none: [--dry-run]}
+      - {name: [conda, mamba, micromamba], sub: [install]}
+      - {name: [venv, virtualenv]}
+      - {name: [uv, pdm], sub: [add]}
+      - {name: pipenv, sub: [install]}
+examples:
+  match: ["pip install requests", "uv add httpx", "pdm add httpx", "pipenv install requests", "python -m venv .venv"]
+  no_match: ["poetry add httpx", "poetry install", "poetry run pytest", "pip list", "pip install --dry-run requests"]

@@ -1,5 +1,5 @@
 id: python/pydantic/v2-api
-description: "No Pydantic v1 configuration that ty does not report: no class Config in a BaseModel or BaseSettings subclass (use model_config = ConfigDict(...) / SettingsConfigDict(...)), no json_encoders (use @field_serializer or PlainSerializer), no v1-only Field() arguments (env, regex, const, min_items, max_items, unique_items, allow_mutation, example)."
+description: "No Pydantic v1 configuration: no class Config in a BaseModel or BaseSettings subclass (use model_config = ConfigDict(...) / SettingsConfigDict(...)), no json_encoders (use @field_serializer or PlainSerializer), no v1-only Field() arguments (env, regex, const, min_items, max_items, unique_items, allow_mutation, example)."
 scope: {language: python}
 enforce:
   - target: ast-grep

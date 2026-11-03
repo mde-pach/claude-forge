@@ -1,5 +1,5 @@
 id: typescript/aws-cdk/removal-policy-destroy
-description: "Advice on RemovalPolicy.DESTROY and on autoDeleteObjects: true in a Bucket's props: they let cdk destroy (or a replacement) delete the data; keep them to throwaway stacks."
+description: "RemovalPolicy.DESTROY and autoDeleteObjects: true in a Bucket's props: they let cdk destroy (or a replacement) delete the data; keep them to throwaway stacks."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

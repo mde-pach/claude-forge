@@ -1,0 +1,18 @@
+# osv-scanner, Forge's own pinned vulnerability scanner (§13.5 release binary, §16.2 pinned
+# tools): one range, the pin (RELEASE_BINARIES["osv-scanner"]), proven on 2.7.0 (with
+# api.osv.dev reachable). Forge's invocation (supply-chain.sh forge_osv_scan): `scan source
+# --config <toml> --format markdown -L <lock>` (`requirements.txt:<path>` for a requirements*.txt).
+# Exit (docs/output.md, "Return Codes"): 0 packages, no vulnerability; 1 vulnerabilities; 127
+# a general error (unparsable or unknown lockfile, missing file, bad config, api.osv.dev
+# unreachable, and a usage error alike); 128 no packages found (a lockfile with no package).
+
+tool: "osv-scanner"
+pinned: "2.7.0"
+verified: "2.7.0"
+runner: pinned
+usage: {exit: [127], pattern: "^Incorrect Usage: "}
+ranges:
+  - from: "2.7.0"
+    source: "osv-scanner 2.7.0: https://github.com/google/osv-scanner/releases/tag/v2.7.0; https://github.com/google/osv-scanner/blob/v2.7.0/docs/output.md (Return Codes)"
+    ops:
+      "scan": "scan source --format markdown --config"

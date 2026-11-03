@@ -1,5 +1,5 @@
 id: python/asyncpg/pool-acquire-ctx
-description: "Advice: a connection is taken from an asyncpg pool with async with pool.acquire() as conn:, not conn = await pool.acquire(): a bare acquire leaks the connection unless every path releases it in finally, and the pool runs dry."
+description: "A connection is taken from an asyncpg pool with async with pool.acquire() as conn:, not conn = await pool.acquire(): a bare acquire leaks the connection unless every path releases it in finally, and the pool runs dry."
 scope: {language: python}
 enforce:
   - target: ast-grep

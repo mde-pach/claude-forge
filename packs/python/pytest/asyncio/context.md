@@ -1,2 +1,0 @@
-pytest-asyncio. Async tests are marked `@pytest.mark.asyncio` (or run in `asyncio_mode = "auto"`); async fixtures use `@pytest_asyncio.fixture`.
-The loop's lifetime is set with `loop_scope=` (`@pytest.mark.asyncio(loop_scope="session")`, `@pytest_asyncio.fixture(loop_scope=...)`) or `asyncio_default_fixture_loop_scope`; no `event_loop` fixture and no test requesting it (use `asyncio.get_running_loop()`); a custom loop comes from the `pytest_asyncio_loop_factories` hook, not an `event_loop_policy` fixture.

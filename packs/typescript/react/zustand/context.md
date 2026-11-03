@@ -1,1 +1,0 @@
-zustand 5: a store hook compares selector results with `Object.is`; a selector returning a new object or array (`useStore((s) => ({ a: s.a }))`) re-renders forever ("Maximum update depth"). Select one value per call, or wrap the selector in `useShallow` from `zustand/react/shallow`.
