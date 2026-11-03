@@ -276,7 +276,7 @@ impl Model for Claude {
             return Err(format!("claude took longer than {}s", cap.as_secs()));
         }
         if !out.ok {
-            return Err("claude failed".into());
+            return Err(failure(&out.stdout));
         }
         let v: Value = serde_json::from_slice(&out.stdout)
             .map_err(|e| format!("claude's output is not JSON: {e}"))?;
@@ -284,6 +284,35 @@ impl Model for Claude {
             Value::Null => Err("claude gave no structured answer".into()),
             so => Ok(so.clone()),
         }
+    }
+}
+
+/// Why a `claude -p` that exited with an error failed, from its JSON result: the result's subtype
+/// (`error_max_turns`, …), the API error, and its message, cut short.
+fn failure(stdout: &[u8]) -> String {
+    let Ok(v) = serde_json::from_slice::<Value>(stdout) else {
+        return "claude failed".into();
+    };
+    let mut why: Vec<String> = Vec::new();
+    for key in [
+        "subtype",
+        "terminal_reason",
+        "api_error",
+        "api_error_status",
+    ] {
+        match &v[key] {
+            Value::String(s) if !s.is_empty() && s != "success" => why.push(s.clone()),
+            Value::Number(n) => why.push(n.to_string()),
+            _ => {}
+        }
+    }
+    if let Some(r) = v["result"].as_str().filter(|r| !r.is_empty()) {
+        why.push(r.chars().take(200).collect());
+    }
+    if why.is_empty() {
+        "claude failed".into()
+    } else {
+        format!("claude failed: {}", why.join(", "))
     }
 }
 
@@ -666,7 +695,11 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         );
         assert!(
             !m.prompts.borrow()[1].contains("Q3"),
-            "a question on a row a conflict involves goes with the conflict"
+            "a question on a row a conflict involves skips the answerer"
+        );
+        assert!(
+            text.contains("- Q3, part of the conflict?\n"),
+            "and is handed over open, never dropped: {text}"
         );
         assert!(
             !m.prompts.borrow()[1].contains("S1."),
@@ -703,6 +736,18 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             settings(&read_only, Path::new("/repo"), false),
             json!({"disableAllHooks": true})
         );
+    }
+
+    #[test]
+    fn a_failed_claude_says_why() {
+        let out = br#"{"type":"result","subtype":"error_max_turns","is_error":true,"result":""}"#;
+        assert_eq!(failure(out), "claude failed: error_max_turns");
+        let out = br#"{"subtype":"success","is_error":true,"api_error_status":529,"api_error":"overloaded_error","result":"Overloaded"}"#;
+        assert_eq!(
+            failure(out),
+            "claude failed: overloaded_error, 529, Overloaded"
+        );
+        assert_eq!(failure(b"not json"), "claude failed");
     }
 
     #[test]

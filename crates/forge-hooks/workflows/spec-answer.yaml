@@ -66,11 +66,11 @@ steps:
 
       Work in this order.
 
-      1. coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter), numbered from 1 in the list's order. For each: the item; what it changes in the result on the project's own data, measured by running the current program where you can; whether the current code uses it; status. Status is "clear" when the request and the project settle that role, "unclear" otherwise. An item whose role changes nothing on the project's own data is unclear. A sentence that names a category covers every instance of it: name them.
+      1. coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter), numbered from 1 in the list's order. For each: the item; what it changes in the result on the project's own data, measured by running the current program where you can; whether the current code uses it; status. Status is "clear" only when a single reading of the request and the project gives that result; when another reading of what is provided (another input, or another way to use the same input) gives a different result, the row is "unclear". An item whose role changes nothing on the project's own data is unclear. A sentence that names a category covers every instance of it: name them. For each result the request asks for, try each input provided that could decide it, compute what each gives, and say whether they agree.
 
       2. conflicts: work the requested result through on the project's own data, far enough to find the cases where two requirements cannot both hold. A requirement can come from the request, the data or the code. For each case: the numbers of the coverage rows it involves; where it happens, with the values; each requirement involved and what in the request or the data shows how strict it is, quoted; and every way to resolve it, including relaxing each requirement as far as the request and the data allow. For each resolution, compute what it gives in that case by running code on the project's data: the value of every output field it changes. A value you could not compute says so, and why. State the values only: no judgement of whether a resolution is acceptable, and do not choose between them.
 
-      3. must_hold: what the result must do, from the clear rows, most important first, at most 12. Each pins a concrete result for a given input: the exact output, value, file or error, computed rather than estimated. Nothing that depends on how a conflict is resolved.
+      3. must_hold: what the result must do, from the clear rows, most important first, at most 12. Each pins a concrete result for a given input: the exact output, value, file or error, computed rather than estimated. Nothing that depends on how a conflict or an unclear row is resolved: a statement never picks between readings.
 
       4. must_stay_unchanged: only what the request explicitly asks to keep, quoted.
 
@@ -155,11 +155,20 @@ result: |
   {% endif %}
   {% set open = [] %}
   {% if steps.answer.output %}{% set open = steps.answer.output.answers | rejectattr("decided") | list %}{% endif %}
-  {% if open or steps.writer.output.conflicts %}
+  {# a question on a row a conflict involves skips the answerer: it is handed over open #}
+  {% set conflicts = namespace(rows=[]) %}
+  {% for c in steps.writer.output.conflicts %}
+  {% set conflicts.rows = conflicts.rows + c.rows %}
+  {% endfor %}
+  {% set held = steps.writer.output.open_questions | selectattr("row", "in", conflicts.rows) | list %}
+  {% if open or held or steps.writer.output.conflicts %}
 
   Open, to settle while coding (each option with what it gives on the project's data):
   {% for a in open %}
   - {{ a.question }}
+  {% endfor %}
+  {% for q in held %}
+  - {{ q.question }}
   {% endfor %}
   {% for c in steps.writer.output.conflicts %}
   - {{ c.case }}
