@@ -1093,7 +1093,7 @@ impl Sandbox {
 {{ echo "FORGE_REVIEWER=$FORGE_REVIEWER"; for a in "$@"; do printf '<%s>\n' "$a"; done; echo ----; }} >> {}
 case "$*" in
   *'"answers"'*) echo '{{"structured_output":{{"answers":[{{"question":"Empty list?","evidence":"The docstring says so.","decided":true,"answer":"Return 0.0"}},{{"question":"Rounding?","evidence":"Nothing says.","decided":false,"answer":""}}]}}}}' ;;
-  *) echo '{{"structured_output":{{"coverage":[],"conflicts":[{{"case":"mean of huge floats overflows.","requirements":[],"resolutions":[{{"resolution":"Use fsum","gives":"1e308"}},{{"resolution":"Raise","gives":"OverflowError"}}]}}],"must_hold":["mean([1, 3]) returns 2.0"],"must_stay_unchanged":["\"keep the CLI\""],"open_questions":[{{"question":"Empty list?","why":"nothing says."}},{{"question":"Rounding?","why":"nothing says."}}]}}}}' ;;
+  *) echo '{{"structured_output":{{"coverage":[],"conflicts":[{{"rows":[9],"case":"mean of huge floats overflows.","requirements":[],"resolutions":[{{"resolution":"Use fsum","gives":"1e308"}},{{"resolution":"Raise","gives":"OverflowError"}}]}}],"must_hold":["mean([1, 3]) returns 2.0"],"must_stay_unchanged":["\"keep the CLI\""],"open_questions":[{{"row":1,"question":"Empty list?","why":"nothing says."}},{{"row":2,"question":"Rounding?","why":"nothing says."}}]}}}}' ;;
 esac
 "#,
                 log.display()
@@ -1148,7 +1148,7 @@ fn the_first_prompt_runs_the_spec_workflow_and_hands_over_its_result() {
     assert_eq!(invocations(&log), 2, "writer, answers");
     let args = std::fs::read_to_string(&log).unwrap();
     assert!(
-        args.contains("FORGE_REVIEWER=1") && args.contains("<Read,Grep,Glob>"),
+        args.contains("FORGE_REVIEWER=1") && args.contains("<Read,Grep,Glob,Bash>"),
         "{args}"
     );
     assert!(args.contains("<request>\nadd mean()\n</request>"), "{args}");

@@ -60,7 +60,8 @@ pub struct Step {
     /// A Jinja expression; when false the step is skipped and its output is `none`.
     #[serde(default, rename = "if", skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
-    /// Claude Code tools the step may use (read-only ones: Read, Grep, Glob). Empty: none.
+    /// Claude Code tools the step may use: Read, Grep, Glob, and Bash, which runs in Claude
+    /// Code's sandbox with the repository read-only (see [`settings`]). Empty: none.
     #[serde(default)]
     pub tools: Vec<String>,
     pub max_turns: u32,
@@ -72,7 +73,9 @@ pub struct Step {
 
 /// The names templates may use besides the inputs.
 const BUILTIN_NAMES: [&str; 2] = ["repo", "steps"];
-const TOOLS: [&str; 3] = ["Read", "Grep", "Glob"];
+/// Jinja's own global functions, which templates may call.
+const JINJA_GLOBALS: [&str; 4] = ["namespace", "range", "dict", "debug"];
+const TOOLS: [&str; 4] = ["Read", "Grep", "Glob", "Bash"];
 
 /// The JSON Schema of a workflow file.
 pub fn schema() -> Value {
@@ -146,7 +149,10 @@ fn check(wf: &Workflow) -> Result<(), String> {
                 "{what} names `steps` without a step: write steps.<name>"
             ));
         }
-        if BUILTIN_NAMES.contains(&n) || wf.inputs.iter().any(|i| i == n) {
+        if BUILTIN_NAMES.contains(&n)
+            || JINJA_GLOBALS.contains(&n)
+            || wf.inputs.iter().any(|i| i == n)
+        {
             Ok(())
         } else {
             Err(format!(
@@ -198,8 +204,33 @@ pub trait Model {
     ) -> Result<Value, String>;
 }
 
-/// `claude -p` as Forge's own agents run it: no hooks, no MCP, no settings, the reviewer's
-/// environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output.
+/// The settings of a step's session: no hooks; with Bash, Claude Code's sandbox, required
+/// (`failIfUnavailable`, no unsandboxed retry), with `repo` not writable (scripts go in
+/// `$TMPDIR`) and no network. Inside a container the sandbox is the nested, weaker one, the
+/// container being the outer isolation.
+fn settings(step: &Step, repo: &Path, in_container: bool) -> Value {
+    let mut s = json!({ "disableAllHooks": true });
+    if step.tools.iter().any(|t| t == "Bash") {
+        s["sandbox"] = json!({
+            "enabled": true,
+            "failIfUnavailable": true,
+            "autoAllowBashIfSandboxed": true,
+            "allowUnsandboxedCommands": false,
+            "enableWeakerNestedSandbox": in_container,
+            "filesystem": { "denyWrite": [repo.display().to_string()] },
+            "network": { "allowedDomains": [], "strictAllowlist": true },
+        });
+    }
+    s
+}
+
+/// Running inside a container (Docker, Podman).
+fn in_container() -> bool {
+    Path::new("/.dockerenv").exists() || Path::new("/run/.containerenv").exists()
+}
+
+/// `claude -p` as Forge's own agents run it: no hooks, no MCP, no settings but [`settings`], the
+/// reviewer's environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output.
 pub struct Claude {
     pub exe: PathBuf,
     pub model: Option<String>,
@@ -216,6 +247,7 @@ impl Model for Claude {
     ) -> Result<Value, String> {
         let schema = step.output_schema.to_string();
         let tools = step.tools.join(",");
+        let settings = settings(step, cwd, in_container()).to_string();
         let mut cmd = Command::new(&self.exe);
         cmd.current_dir(cwd)
             .env("FORGE_REVIEWER", "1")
@@ -235,12 +267,7 @@ impl Model for Claude {
                 &step.max_turns.to_string(),
             ])
             .args(["--no-session-persistence", "--strict-mcp-config"])
-            .args([
-                "--setting-sources",
-                "",
-                "--settings",
-                r#"{"disableAllHooks":true}"#,
-            ]);
+            .args(["--setting-sources", "", "--settings", &settings]);
         if let Some(m) = &self.model {
             cmd.args(["--model", m]);
         }
@@ -381,13 +408,8 @@ pub fn run(
 }
 
 /// The workflows Forge ships.
-pub const BUILTIN: [(&str, &str); 2] = [
-    ("spec-answer", include_str!("../workflows/spec-answer.yaml")),
-    (
-        "spec-answer-update",
-        include_str!("../workflows/spec-answer-update.yaml"),
-    ),
-];
+pub const BUILTIN: [(&str, &str); 1] =
+    [("spec-answer", include_str!("../workflows/spec-answer.yaml"))];
 
 /// `forge internal workflow run <file|builtin name> --repo DIR [--input NAME=FILE]... [--cap SECS]
 /// [--reuse RUN.json]`: runs a workflow outside a session and prints the run as JSON. With
@@ -596,21 +618,22 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             .is_err()
         );
         assert!(
-            load(&TWO_STEPS.replacen("max_turns: 1", "tools: [Bash]\n    max_turns: 1", 1))
+            load(&TWO_STEPS.replacen("max_turns: 1", "tools: [Write]\n    max_turns: 1", 1))
                 .unwrap_err()
-                .contains("Bash")
+                .contains("Write")
         );
     }
 
     fn writer_output() -> Value {
         json!({
             "coverage": [],
-            "conflicts": [{"case": "Leg 2: weight against fuel.", "requirements": [],
+            "conflicts": [{"rows": [3], "case": "Leg 2: weight against fuel.", "requirements": [],
                            "resolutions": [{"resolution": "Cap fuel", "gives": "145.7 gal"},
                                            {"resolution": "Flag it", "gives": "route_feasible false"}]}],
             "must_hold": ["A", "B"],
             "must_stay_unchanged": ["\"data files are correct\""],
-            "open_questions": [{"question": "Q1?", "why": ""}, {"question": "Q2?", "why": ""}],
+            "open_questions": [{"row": 1, "question": "Q1?", "why": ""}, {"row": 2, "question": "Q2?", "why": ""},
+                               {"row": 3, "question": "Q3, part of the conflict?", "why": ""}],
         })
     }
 
@@ -637,9 +660,13 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         );
         let text = run.result.unwrap();
         assert!(
-            m.prompts.borrow()[1].contains("- Q1?\n- Q2?"),
+            m.prompts.borrow()[1].contains("- Q1?\n- Q2?\n"),
             "{}",
             m.prompts.borrow()[1]
+        );
+        assert!(
+            !m.prompts.borrow()[1].contains("Q3"),
+            "a question on a row a conflict involves goes with the conflict"
         );
         assert!(
             !m.prompts.borrow()[1].contains("S1."),
@@ -659,33 +686,22 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
     }
 
     #[test]
-    fn spec_answer_update_folds_the_decisions_into_the_statements() {
-        let update = json!({"checks": [], "must_hold": ["A", "B, yes"], "must_stay_unchanged": []});
-        let m = fake(vec![writer_output(), answers(), update]);
-        let run = run(
-            &builtin("spec-answer-update"),
-            &inputs(),
-            Path::new("/r"),
-            &m,
-            Duration::from_secs(60),
-        );
-        let text = run.result.unwrap();
-        assert!(
-            m.prompts.borrow()[2].contains("- Q1?\n  -> yes"),
-            "{}",
-            m.prompts.borrow()[2]
-        );
-        assert!(
-            !m.prompts.borrow()[2].contains("Q2?"),
-            "only decided answers are folded in"
-        );
-        assert!(
-            text.contains("S2. B, yes") && !text.contains("Kept") && !text.contains("-> yes"),
-            "{text}"
-        );
-        assert!(
-            text.contains("- Q2?\n") && text.contains("(1) Cap fuel"),
-            "{text}"
+    fn bash_runs_in_a_required_sandbox_with_the_repository_read_only() {
+        let wf = builtin("spec-answer");
+        let s = settings(&wf.steps["writer"], Path::new("/repo"), true);
+        assert_eq!(s["disableAllHooks"], true);
+        let sb = &s["sandbox"];
+        assert_eq!(sb["enabled"], true);
+        assert_eq!(sb["failIfUnavailable"], true);
+        assert_eq!(sb["allowUnsandboxedCommands"], false);
+        assert_eq!(sb["enableWeakerNestedSandbox"], true);
+        assert_eq!(sb["filesystem"]["denyWrite"], json!(["/repo"]));
+        assert_eq!(sb["network"]["strictAllowlist"], true);
+        let mut read_only = wf.steps["writer"].clone();
+        read_only.tools = vec!["Read".into()];
+        assert_eq!(
+            settings(&read_only, Path::new("/repo"), false),
+            json!({"disableAllHooks": true})
         );
     }
 
