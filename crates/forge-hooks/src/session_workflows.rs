@@ -61,8 +61,9 @@ pub fn first_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
     inputs.insert("request".into(), json!(request));
     let started = Instant::now();
     let mut results = Vec::new();
-    for (name, text) in workflow::BUILTIN {
-        let wf = match workflow::load(text) {
+    for (name, text) in workflow::available(rt.env.workflows_dir.as_deref()) {
+        let name = name.as_str();
+        let wf = match text.and_then(|t| workflow::load(&t)) {
             Ok(wf) if wf.on == Some(Trigger::FirstPrompt) => wf,
             Ok(_) => continue,
             Err(why) => {
@@ -116,12 +117,17 @@ pub fn first_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<Stri
     (!results.is_empty()).then(|| results.join("\n\n"))
 }
 
-/// The results the session's workflows handed over, in their order; None when there are none.
+/// The results the session's workflows handed over, in name order; None when there are none.
 pub fn results(p: &Project) -> Option<String> {
-    let out: Vec<String> = workflow::BUILTIN
+    let mut files: Vec<PathBuf> = std::fs::read_dir(runs_dir(p))
+        .map(|d| d.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    files.retain(|f| f.extension().is_some_and(|x| x == "json"));
+    files.sort();
+    let out: Vec<String> = files
         .iter()
-        .filter_map(|(name, _)| {
-            let text = std::fs::read(runs_dir(p).join(format!("{name}.json"))).ok()?;
+        .filter_map(|file| {
+            let text = std::fs::read(file).ok()?;
             let run: Value = serde_json::from_slice(&text).ok()?;
             run["error"]
                 .is_null()

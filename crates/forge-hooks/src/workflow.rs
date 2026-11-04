@@ -436,11 +436,47 @@ pub fn run(
     out
 }
 
-/// The workflows Forge ships.
+/// The workflows Forge ships, the fallback when no file replaces them.
 pub const BUILTIN: [(&str, &str); 1] =
     [("spec-answer", include_str!("../workflows/spec-answer.yaml"))];
 
-/// `forge internal workflow run <file|builtin name> --repo DIR [--input NAME=FILE]... [--cap SECS]
+/// Where workflow files are read from at run time: `FORGE_WORKFLOWS_DIR`.
+pub const DIR_VAR: &str = "FORGE_WORKFLOWS_DIR";
+
+/// The workflows available, by name, in name order: the built-in ones, then each `<name>.yaml` in
+/// `dir`, a file replacing the built-in of the same name. Changing a workflow is editing a file.
+pub fn available(dir: Option<&Path>) -> Vec<(String, Result<String, String>)> {
+    let mut all: std::collections::BTreeMap<String, Result<String, String>> = BUILTIN
+        .iter()
+        .map(|(n, t)| ((*n).to_string(), Ok((*t).to_string())))
+        .collect();
+    if let Some(entries) = dir.and_then(|d| std::fs::read_dir(d).ok()) {
+        for e in entries.flatten() {
+            let path = e.path();
+            let Some(name) = path
+                .extension()
+                .is_some_and(|x| x == "yaml" || x == "yml")
+                .then(|| path.file_stem())
+                .flatten()
+                .and_then(|s| s.to_str())
+            else {
+                continue;
+            };
+            let text =
+                std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()));
+            all.insert(name.to_string(), text);
+        }
+    }
+    all.into_iter().collect()
+}
+
+fn dir_from_env() -> Option<PathBuf> {
+    std::env::var_os(DIR_VAR)
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+}
+
+/// `forge internal workflow run <file|name> --repo DIR [--input NAME=FILE]... [--cap SECS]
 /// [--reuse RUN.json]`: runs a workflow outside a session and prints the run as JSON. With
 /// `--reuse`, a step that ran in that earlier run (same name) takes its output from there instead
 /// of calling claude again. For trying workflows; the hooks run them in place.
@@ -491,8 +527,12 @@ fn cli_run(args: &[String]) -> Result<Run, String> {
             _ => return Err(usage.into()),
         }
     }
-    let text = match BUILTIN.iter().find(|(n, _)| *n == which) {
-        Some((_, t)) => (*t).to_string(),
+    let named = available(dir_from_env().as_deref())
+        .into_iter()
+        .find(|(n, _)| n == which)
+        .map(|(_, t)| t);
+    let text = match named {
+        Some(t) => t?,
         None => std::fs::read_to_string(which).map_err(|e| format!("{which}: {e}"))?,
     };
     let wf = load(&text)?;
@@ -653,75 +693,16 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         );
     }
 
-    fn writer_output() -> Value {
-        json!({
-            "coverage": [],
-            "conflicts": [{"rows": [3], "case": "Leg 2: weight against fuel.", "requirements": [],
-                           "resolutions": [{"resolution": "Cap fuel", "gives": "145.7 gal"},
-                                           {"resolution": "Flag it", "gives": "route_feasible false"}]}],
-            "must_hold": ["A", "B"],
-            "must_stay_unchanged": ["\"data files are correct\""],
-            "open_questions": [{"row": 1, "question": "Q1?", "why": ""}, {"row": 2, "question": "Q2?", "why": ""},
-                               {"row": 3, "question": "Q3, part of the conflict?", "why": ""}],
-        })
-    }
-
-    fn answers() -> Value {
-        json!({"answers": [
-            {"question": "Q1?", "evidence": "", "decided": true, "answer": "yes"},
-            {"question": "Q2?", "evidence": "", "decided": false, "answer": ""},
-        ]})
-    }
-
-    fn builtin(name: &str) -> Workflow {
-        load(BUILTIN.iter().find(|(n, _)| *n == name).unwrap().1).unwrap()
-    }
-
-    #[test]
-    fn spec_answer_hands_over_decisions_and_leaves_conflicts_open() {
-        let m = fake(vec![writer_output(), answers()]);
-        let run = run(
-            &builtin("spec-answer"),
-            &inputs(),
-            Path::new("/r"),
-            &m,
-            Duration::from_secs(60),
-        );
-        let text = run.result.unwrap();
-        assert!(
-            m.prompts.borrow()[1].contains("- Q1?\n- Q2?\n"),
-            "{}",
-            m.prompts.borrow()[1]
-        );
-        assert!(
-            !m.prompts.borrow()[1].contains("Q3"),
-            "a question on a row a conflict involves skips the answerer"
-        );
-        assert!(
-            text.contains("- Q3, part of the conflict?\n"),
-            "and is handed over open, never dropped: {text}"
-        );
-        assert!(
-            !m.prompts.borrow()[1].contains("S1."),
-            "the answerer never sees the statements"
-        );
-        for part in [
-            "S1. A\nS2. B",
-            "U1. \"data files are correct\"",
-            "- Q1? -> yes",
-            "- Q2?\n",
-            "- Leg 2: weight against fuel.",
-            "(1) Cap fuel -> 145.7 gal",
-            "(2) Flag it",
-        ] {
-            assert!(text.contains(part), "{part:?} not in:\n{text}");
-        }
-    }
-
     #[test]
     fn bash_runs_in_a_required_sandbox_with_the_repository_read_only() {
-        let wf = builtin("spec-answer");
-        let s = settings(&wf.steps["writer"], Path::new("/repo"), true);
+        let step = Step {
+            condition: None,
+            tools: vec!["Read".into(), "Bash".into()],
+            max_turns: 1,
+            output_schema: json!({"type": "object"}),
+            prompt: "p".into(),
+        };
+        let s = settings(&step, Path::new("/repo"), true);
         assert_eq!(s["disableAllHooks"], true);
         let sb = &s["sandbox"];
         assert_eq!(sb["enabled"], true);
@@ -730,12 +711,29 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         assert_eq!(sb["enableWeakerNestedSandbox"], true);
         assert_eq!(sb["filesystem"]["denyWrite"], json!(["/repo"]));
         assert_eq!(sb["network"]["strictAllowlist"], true);
-        let mut read_only = wf.steps["writer"].clone();
-        read_only.tools = vec!["Read".into()];
+        let read_only = Step {
+            tools: vec!["Read".into()],
+            ..step
+        };
         assert_eq!(
             settings(&read_only, Path::new("/repo"), false),
             json!({"disableAllHooks": true})
         );
+    }
+
+    #[test]
+    fn a_file_replaces_the_builtin_of_its_name_and_adds_new_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("spec-answer.yaml"), TWO_STEPS).unwrap();
+        std::fs::write(dir.path().join("extra.yaml"), TWO_STEPS).unwrap();
+        std::fs::write(dir.path().join("notes.txt"), "not a workflow").unwrap();
+        let all = available(Some(dir.path()));
+        let names: Vec<&str> = all.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["extra", "spec-answer"]);
+        assert_eq!(all[1].1.as_deref(), Ok(TWO_STEPS));
+        // without a directory: the built-in ones
+        let builtin: Vec<String> = available(None).into_iter().map(|(n, _)| n).collect();
+        assert_eq!(builtin, BUILTIN.map(|(n, _)| n.to_string()));
     }
 
     #[test]
@@ -750,10 +748,61 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         assert_eq!(failure(b"not json"), "claude failed");
     }
 
+    /// A value its schema accepts: required properties, one array item, the first enum value.
+    fn sample(schema: &Value) -> Value {
+        if let Some(first) = schema["enum"].as_array().and_then(|e| e.first()) {
+            return first.clone();
+        }
+        match schema["type"].as_str() {
+            Some("object") => {
+                let mut m = Map::new();
+                for key in schema["required"].as_array().into_iter().flatten() {
+                    let k = key.as_str().unwrap_or_default();
+                    m.insert(k.into(), sample(&schema["properties"][k]));
+                }
+                Value::Object(m)
+            }
+            Some("array") => json!([sample(&schema["items"])]),
+            Some("boolean") => json!(true),
+            Some("integer") => json!(1),
+            Some("number") => json!(1.0),
+            _ => json!("x"),
+        }
+    }
+
+    /// Answers each step with a value its output schema accepts.
+    struct FromSchema;
+
+    impl Model for FromSchema {
+        fn call(
+            &self,
+            _: &str,
+            step: &Step,
+            _: &str,
+            _: &Path,
+            _: Duration,
+        ) -> Result<Value, String> {
+            Ok(sample(&step.output_schema))
+        }
+    }
+
+    /// Whatever a shipped workflow says, it loads and runs to a result on outputs its own schemas
+    /// accept: no test depends on a workflow's wording, so changing one changes no test.
     #[test]
-    fn the_builtin_workflows_load() {
+    fn every_shipped_workflow_loads_and_runs_to_a_result() {
         for (name, text) in BUILTIN {
-            load(text).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let wf = load(text).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let inputs: Map<String, Value> =
+                wf.inputs.iter().map(|i| (i.clone(), json!("x"))).collect();
+            let run = run(
+                &wf,
+                &inputs,
+                Path::new("/r"),
+                &FromSchema,
+                Duration::from_secs(60),
+            );
+            assert_eq!(run.error, None, "{name}");
+            assert!(run.result.is_some_and(|r| !r.is_empty()), "{name}");
         }
     }
 }

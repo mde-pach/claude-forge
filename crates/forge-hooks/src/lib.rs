@@ -97,6 +97,9 @@ pub struct Env {
     /// The workflows triggered by the session's first prompt, the spec step among them
     /// (`FORGE_SPEC=off`: never).
     pub spec: bool,
+    /// `FORGE_WORKFLOWS_DIR`: workflow files read at run time, replacing or adding to the
+    /// built-in ones.
+    pub workflows_dir: Option<PathBuf>,
 }
 
 impl Env {
@@ -121,6 +124,7 @@ impl Env {
             ),
             engine: var("FORGE_ENGINE").as_deref() != Some("off"),
             spec: var("FORGE_SPEC").as_deref() != Some("off"),
+            workflows_dir: var(workflow::DIR_VAR).map(PathBuf::from),
         }
     }
 }
