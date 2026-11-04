@@ -1,180 +1,130 @@
 id: spec-answer
-description: The spec step. A writer maps the request and the project, works the conflicts through on the project's data (running code to measure, in a read-only sandbox) and writes the statements; the open questions outside conflicts are answered from the request and the project; conflicts and undecided questions stay open for the coding agent.
+description: The spec step. A solver covers the request and the project, works conflicts through on the data, and derives each requested result (running code to measure, in a read-only sandbox); an independent verifier rebuilds the data inventory, quotes the request, and settles each result, conflict and unclear item only when the request's words decide; everything else stays open for the coding agent.
 on: first-prompt
 inputs: [request]
 steps:
-  writer:
-    tools: [Read, Grep, Glob, Bash]
+  solve:
+    tools: ["Read", "Grep", "Glob", "Bash"]
     max_turns: 120
-    output_schema:
-      type: object
-      additionalProperties: false
-      required: [coverage, conflicts, must_hold, must_stay_unchanged, open_questions]
-      properties:
-        coverage:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [item, role, used_by_code, status]
-            properties:
-              item: {type: string}
-              role: {type: string}
-              used_by_code: {type: boolean}
-              status: {type: string, enum: [clear, unclear]}
-        conflicts:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [rows, case, requirements, resolutions]
-            properties:
-              rows: {type: array, items: {type: integer}}
-              case: {type: string}
-              requirements:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: false
-                  required: [requirement, strictness]
-                  properties:
-                    requirement: {type: string}
-                    strictness: {type: string}
-              resolutions:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: false
-                  required: [resolution, gives]
-                  properties:
-                    resolution: {type: string}
-                    gives: {type: string}
-        must_hold: {type: array, items: {type: string}}
-        must_stay_unchanged: {type: array, items: {type: string}}
-        open_questions:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [row, question, why]
-            properties:
-              row: {type: integer}
-              question: {type: string}
-              why: {type: string}
+    output_schema: {"type": "object", "additionalProperties": false, "required": ["coverage", "conflicts", "results", "must_hold", "must_stay_unchanged"], "properties": {"coverage": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "role", "used_by_code", "status"], "properties": {"item": {"type": "string"}, "role": {"type": "string"}, "used_by_code": {"type": "boolean"}, "status": {"type": "string", "enum": ["clear", "unclear"]}}}}, "conflicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["case", "requirements", "resolutions"], "properties": {"case": {"type": "string"}, "requirements": {"type": "string"}, "resolutions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["resolution", "gives"], "properties": {"resolution": {"type": "string"}, "gives": {"type": "string"}}}}}}}, "results": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "derivation", "value", "alternatives"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "derivation": {"type": "string"}, "value": {"type": "string"}, "alternatives": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["derivation", "value"], "properties": {"derivation": {"type": "string"}, "value": {"type": "string"}}}}}}}, "must_hold": {"type": "array", "items": {"type": "string"}}, "must_stay_unchanged": {"type": "array", "items": {"type": "string"}}}}
     prompt: |
-      You prepare a specification for a coding agent that will change this project to satisfy the request below and write the tests for it. You can read the project (Read, Grep, Glob) and run commands (Bash) to measure: run the project's program, or a short script of your own, on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
+      You prepare the work of a coding agent that will change this project to satisfy the request below. First solve the request yourself, as an expert in its field would. You can read the project (Read, Grep, Glob) and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
 
-      Work in this order.
+      When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
 
-      1. coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter), numbered from 1 in the list's order. For each: the item; what it changes in the result on the project's own data, measured by running the current program where you can; whether the current code uses it; status. Status is "clear" only when a single reading of the request and the project gives that result; when another reading of what is provided (another input, or another way to use the same input) gives a different result, the row is "unclear". An item whose role changes nothing on the project's own data is unclear. A sentence that names a category covers every instance of it: name them. For each result the request asks for, try each input provided that could decide it, compute what each gives, and say whether they agree.
+      When the same entity appears in several files, find it in each file by what it is (its connections, its name, its type), never by its position or index, and check the identification in every file.
 
-      2. conflicts: work the requested result through on the project's own data, far enough to find the cases where two requirements cannot both hold. A requirement can come from the request, the data or the code. For each case: the numbers of the coverage rows it involves; where it happens, with the values; each requirement involved and what in the request or the data shows how strict it is, quoted; and every way to resolve it, including relaxing each requirement as far as the request and the data allow. For each resolution, compute what it gives in that case by running code on the project's data: the value of every output field it changes. A value you could not compute says so, and why. State the values only: no judgement of whether a resolution is acceptable, and do not choose between them.
+      Before any fit or derivation, read the data files themselves and list, per case, each field's value as written in the file, marking unknown only the fields that are missing or unknown there (a case with one unknown field still has its other fields). Every case with a value for the quantity being fitted enters the fit. Choosing a model form is decided, not left undecided. When the request names a kind of form (physically appropriate, standard, conventional), use the form the field uses for that kind of dependence, saying which and why; among forms of that kind, the lowest leave-one-out error on the data decides, and a near tie is not broken by the number of terms. The request's own examples set the conventions for a result (range, sign, units): for a quantity with symmetric equivalents (plus and minus, mirror images), report the one in the range the request's examples use.
 
-      3. must_hold: what the result must do, from the clear rows, most important first, at most 12. Each pins a concrete result for a given input: the exact output, value, file or error, computed rather than estimated. Nothing that depends on how a conflict or an unclear row is resolved: a statement never picks between readings.
+      First, in coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter). For each: the item; what it changes in the result on the project's own data, measured by running the current program where you can; whether the current code uses it; status: clear when the request and the project settle that role, unclear otherwise. An item whose role changes nothing on the project's own data is unclear. A sentence that names a category (for example things the code should do but does not) requires finding every instance of it in the code and the data: name them. Each instance, and each item a role is found for, becomes a result below or a must_hold statement. Each unclear row also becomes a result below: its readings (using the item, or not, and how), each with what it gives on the project's data. An input the code does not use is checked against the request's sentences about what the code misses or ignores: when one covers it, that sentence is the request's words on how the result is obtained. A use of an input that changes nothing on the project's data is not a use: find the reading under which it has an effect, and compute it; when a request sentence about what the code misses or ignores covers the input, that reading is confirmed; only otherwise, when the request's words do not choose between that reading and leaving the input unused, the verdict is undecided, with both.
 
-      4. must_stay_unchanged: only what the request explicitly asks to keep, quoted.
+      Then, in conflicts: work the requested result through on the project's own data, far enough to find the cases where two requirements cannot both hold (a requirement can come from the request, the data or the code). For each: case, where it happens, with the values; requirements, each requirement involved and what in the request or the data shows how strict it is, quoted; resolutions, every way to resolve it, including relaxing each requirement as far as the request and the data allow, each with what it gives on the data, computed by running code: the value of every output field it changes. State the values only: never mark a resolution as allowed, not allowed, safe or unsafe, and make no choice between them here. For a limit against a need, compute meeting the limit and reducing the need, and give what follows from it (for example what remains at the end).
 
-      5. open_questions: one per unclear row that no conflict involves: the row's number; the question, naming the readings and what each gives on the project's own data, computed; why it matters.
+      For each result the request asks for, and each instance found above, in results: the item; request_words: the request's own words that govern it, quoted, including the sentence that introduces the list or paragraph it belongs to; derivation: how you obtain it from what those words name, step by step, with the computations you ran; value: the value you obtain; alternatives: every other derivation someone could reasonably take, each with the value it gives, computed.
 
-      No design and no implementation steps.
+      Then must_hold: what the result must do besides those results (format, files, behaviour), each a concrete check; must_stay_unchanged: only what the request explicitly asks to keep, quoted.
 
-      Repository: {{ repo }}
+            Repository: {{ repo }}
 
-      REQUEST:
-      <request>
-      {{ request }}
-      </request>
-  answer:
-    if: steps.writer.output.open_questions | length > 0
-    tools: [Read, Grep, Glob, Bash]
+            REQUEST:
+            <request>
+            {{ request }}
+            </request>
+  verify:
+    tools: ["Read", "Grep", "Glob", "Bash"]
     max_turns: 60
-    output_schema:
-      type: object
-      additionalProperties: false
-      required: [answers]
-      properties:
-        answers:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [question, evidence, decided, answer]
-            properties:
-              question: {type: string}
-              evidence: {type: string}
-              decided: {type: boolean}
-              answer: {type: string}
+    output_schema: {"type": "object", "additionalProperties": false, "required": ["verdicts"], "properties": {"verdicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "check", "verdict", "value"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "check": {"type": "string"}, "verdict": {"type": "string", "enum": ["confirmed", "corrected", "undecided"]}, "value": {"type": "string"}}}}}}
     prompt: |
-      A coding agent asks the questions below before it changes anything. Answer each from evidence: the user's request and the project's code and data. You can read the project (Read, Grep, Glob) and run commands (Bash) to check what a reading gives on the project's data; the project's files are read-only to you: put any script you write in $TMPDIR.
+      Below is an independent solution of the request: for each result it asks for, the request's words that govern it, a derivation and a value, and other derivations. Check each result. You can read the project (Read, Grep, Glob) and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
 
-      For each question, in this order:
-      - evidence: what in the request or the project bears on it, citing the file, field or value, and what each reading gives on the project's data.
-      - decided: true when the evidence points to one reading. Weigh only the request and the project: general knowledge of the field does not decide a question. Weigh the request's own words first; then prefer the reading under which everything the request and the project provide has a role: a reading that leaves something provided with no effect on any result is less likely to be the intended one. False when the evidence supports the readings equally, when each reading gives a role to something the other leaves aside, or when you could not compute what the reading you would choose gives on the project's data.
-      - answer: when decided, the reading the evidence supports, short; when not decided, empty.
+      When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
 
-      Answer every question, with its exact text.
+      When the same entity appears in several files, find it in each file by what it is (its connections, its name, its type), never by its position or index, and check the identification in every file. Redo that identification yourself, in every file, before checking anything else: never reuse the solution's positions or indices.
 
-      Repository: {{ repo }}
+      Before any fit or derivation, read the data files themselves and list, per case, each field's value as written in the file, marking unknown only the fields that are missing or unknown there (a case with one unknown field still has its other fields). Every case with a value for the quantity being fitted enters the fit. Choosing a model form is decided, not left undecided. When the request names a kind of form (physically appropriate, standard, conventional), use the form the field uses for that kind of dependence, saying which and why; among forms of that kind, the lowest leave-one-out error on the data decides, and a near tie is not broken by the number of terms. The request's own examples set the conventions for a result (range, sign, units): for a quantity with symmetric equivalents (plus and minus, mirror images), report the one in the range the request's examples use. Rebuild that list from the files yourself, never from the solution's account of the data.
 
-      The user's request:
-      <request>
-      {{ request }}
-      </request>
+      Confirm or correct a result only when the request's words name how it is obtained, or when a single derivation is consistent with the request and the data. When two derivations both remain consistent with the request's words (for example two requirements the request does not rank, where it does not say which gives way), the verdict is undecided, with what each gives.
 
-      The questions:
-      {% set conflicts = namespace(rows=[]) %}
-      {% for c in steps.writer.output.conflicts %}
-      {% set conflicts.rows = conflicts.rows + c.rows %}
+      For each result and each item below, in verdicts, request_words first: the request's own words that bear on it, quoted, including any sentence about what the code misses or ignores; then the verdict follows from them.
+
+      For each result, in verdicts: item (as given); check: whether the derivation goes through what the request's words name and respects what the quantities are (units, range, symmetry, periodicity), and which derivation does, rerunning what you need; verdict: confirmed when the given derivation does, corrected when another one does (give its value), undecided when the request's words and the project leave two derivations equally valid (say which and what each gives); value: the value of the derivation that holds, empty when undecided.
+
+            Repository: {{ repo }}
+
+            REQUEST:
+            <request>
+            {{ request }}
+            </request>
+
+            THE SOLUTION:
+            {% for r in steps.solve.output.results %}
+            - {{ r.item }}
+              Request's words: {{ r.request_words }}
+              Derivation: {{ r.derivation }} -> {{ r.value }}
+              {% for a in r.alternatives %}
+              Other derivation: {{ a.derivation }} -> {{ a.value }}
+              {% endfor %}
+            {% endfor %}
+      ITEMS THE SOLUTION LEFT UNCLEAR (from its coverage of the request and the project): give a verdict for each too, with the same rules. Go through every field of every data file yourself as well: a field the code does not use that is missing from the list below gets a verdict the same way. First quote the request's sentences, if any, about features, data or inputs the code misses or ignores. An input the project's data provides that the code does not use falls under such a sentence: its verdict is confirmed, using it as its name and the data say, with value saying how and what it changes in the result. A use of an input that changes nothing on the project's data is not a use: find the reading under which it has an effect, and compute it; when a request sentence about what the code misses or ignores covers the input, that reading is confirmed; only otherwise, when the request's words do not choose between that reading and leaving the input unused, the verdict is undecided, with both. Its item is the text below; confirmed or corrected means the request's words (for example a sentence about what the code misses or ignores) settle how the item is used, with value saying how and what it gives; undecided means they do not.
+      {% for row in steps.solve.output.coverage if row.status == "unclear" %}
+      - {{ row.item }}: {{ row.role }}
       {% endfor %}
-      {% for q in steps.writer.output.open_questions if q.row not in conflicts.rows %}
-      - {{ q.question }}
+
+      CONFLICTS THE SOLUTION FOUND: give a verdict for each too. Its item is "Conflict: " followed by the case's first words. Confirmed or corrected only when the request's words decide which resolution holds (value: that resolution and what it gives); otherwise undecided.
+      {% for c in steps.solve.output.conflicts %}
+      - Conflict: {{ c.case }} Requirements: {{ c.requirements }} Resolutions: {% for o in c.resolutions %}({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }} {% endfor %}
+
       {% endfor %}
 result: |
   Details that complete the request above, so its result can be checked; the request comes first where they differ.
 
   Must hold:
-  {% for s in steps.writer.output.must_hold %}
+  {% for s in steps.solve.output.must_hold %}
   S{{ loop.index }}. {{ s }}
   {% endfor %}
-  {% if steps.writer.output.must_stay_unchanged %}
+  {% if steps.solve.output.must_stay_unchanged %}
 
   Kept, as the request asks:
-  {% for s in steps.writer.output.must_stay_unchanged %}
+  {% for s in steps.solve.output.must_stay_unchanged %}
   U{{ loop.index }}. {{ s }}
   {% endfor %}
   {% endif %}
-  {% if steps.answer.output %}
-  {% set decided = steps.answer.output.answers | selectattr("decided") | list %}
-  {% if decided %}
+  {% set v = steps.verify.output.verdicts if steps.verify.output else [] %}
+  {% set settled = v | rejectattr("verdict", "equalto", "undecided") | list %}
+  {% set open = v | selectattr("verdict", "equalto", "undecided") | list %}
+  {% if settled %}
 
   Settled from the request and the project:
-  {% for a in decided %}
-  - {{ a.question }} -> {{ a.answer }}
+  {% for x in settled %}
+  - {{ x.item }} -> {{ x.value }} ({{ x.check }})
   {% endfor %}
   {% endif %}
-  {% endif %}
-  {% set open = [] %}
-  {% if steps.answer.output %}{% set open = steps.answer.output.answers | rejectattr("decided") | list %}{% endif %}
-  {# a question on a row a conflict involves skips the answerer: it is handed over open #}
-  {% set conflicts = namespace(rows=[]) %}
-  {% for c in steps.writer.output.conflicts %}
-  {% set conflicts.rows = conflicts.rows + c.rows %}
+  {% set covered = namespace(items=[]) %}
+  {% for x in v %}{% set covered.items = covered.items + [x.item] %}{% endfor %}
+  {% set loose = namespace(rows=[]) %}
+  {% for row in steps.solve.output.coverage if row.status == "unclear" %}
+  {% set hit = namespace(v=false) %}
+  {% for t in covered.items %}{% if row.item[:40] in t or t[:40] in row.item %}{% set hit.v = true %}{% endif %}{% endfor %}
+  {% if not hit.v %}{% set loose.rows = loose.rows + [row] %}{% endif %}
   {% endfor %}
-  {% set held = steps.writer.output.open_questions | selectattr("row", "in", conflicts.rows) | list %}
-  {% if open or held or steps.writer.output.conflicts %}
+  {% if open or loose.rows or steps.solve.output.conflicts %}
 
   Open, to settle while coding (each option with what it gives on the project's data):
-  {% for a in open %}
-  - {{ a.question }}
+  {% for x in open if x.item is not startingwith("Conflict:") %}
+  - {{ x.item }}: {{ x.check }}
   {% endfor %}
-  {% for q in held %}
-  - {{ q.question }}
-  {% endfor %}
-  {% for c in steps.writer.output.conflicts %}
-  - {{ c.case }}
+  {% for c in steps.solve.output.conflicts %}
+  {% set hit = namespace(v=false) %}
+  {% for x in settled %}{% if x.item is startingwith("Conflict:") and c.case[:30] in x.item ~ " " ~ x.check %}{% set hit.v = true %}{% endif %}{% endfor %}
+  {% if not hit.v %}
+  - Conflict: {{ c.case }}
     Options:
   {% for o in c.resolutions %}
     ({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }}
   {% endfor %}
+  {% endif %}
+  {% endfor %}
+  {% for row in loose.rows %}
+  - {{ row.item }}: {{ row.role }}
   {% endfor %}
   {% endif %}
