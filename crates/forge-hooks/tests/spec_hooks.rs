@@ -1119,7 +1119,7 @@ impl Sandbox {
             format!(
                 r#"#!/bin/sh
 {{ echo "FORGE_REVIEWER=$FORGE_REVIEWER"; for a in "$@"; do printf '<%s>\n' "$a"; done; echo ----; }} >> {}
-echo '{{"structured_output":{{"text":"mean is the average"}}}}'
+echo '{{"type":"result","subtype":"success","structured_output":{{"text":"mean is the average"}}}}'
 "#,
                 log.display()
             ),

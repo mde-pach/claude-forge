@@ -194,14 +194,19 @@ fn check(wf: &Workflow) -> Result<(), String> {
 
 /// How a step's `claude -p` call is made (a fake one in tests).
 pub trait Model {
-    fn call(
-        &self,
-        name: &str,
-        step: &Step,
-        prompt: &str,
-        cwd: &Path,
-        cap: Duration,
-    ) -> Result<Value, String>;
+    fn call(&self, name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called;
+}
+
+/// What a step's call gave: its output, and what the call did when one was made ([`meta`]).
+pub struct Called {
+    pub output: Result<Value, String>,
+    pub meta: Option<Value>,
+}
+
+impl From<Result<Value, String>> for Called {
+    fn from(output: Result<Value, String>) -> Self {
+        Self { output, meta: None }
+    }
 }
 
 /// The settings of a step's session: no hooks; with Bash, Claude Code's sandbox, required
@@ -273,14 +278,16 @@ pub struct Claude {
 }
 
 impl Model for Claude {
-    fn call(
-        &self,
-        _name: &str,
-        step: &Step,
-        prompt: &str,
-        cwd: &Path,
-        cap: Duration,
-    ) -> Result<Value, String> {
+    fn call(&self, _name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called {
+        match self.run(step, prompt, cwd, cap) {
+            Ok(called) => called,
+            Err(e) => Err(e).into(),
+        }
+    }
+}
+
+impl Claude {
+    fn run(&self, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Result<Called, String> {
         let schema = step.output_schema.to_string();
         let tools = step.tools.join(",");
         let settings = settings(step, cwd, in_container()).to_string();
@@ -293,7 +300,8 @@ impl Model for Claude {
                 "-p",
                 prompt,
                 "--output-format",
-                "json",
+                "stream-json",
+                "--verbose",
                 "--json-schema",
                 &schema,
             ])
@@ -310,25 +318,126 @@ impl Model for Claude {
             cmd.args(["--model", m]);
         }
         let out = proc::run(&mut cmd, None, cap).ok_or("claude could not run or was stopped")?;
-        if out.timed_out {
-            return Err(format!("claude took longer than {}s", cap.as_secs()));
-        }
-        if !out.ok {
-            return Err(failure(&out.stdout));
-        }
-        let v: Value = serde_json::from_slice(&out.stdout)
-            .map_err(|e| format!("claude's output is not JSON: {e}"))?;
-        match &v["structured_output"] {
-            Value::Null => Err("claude gave no structured answer".into()),
-            so => Ok(so.clone()),
-        }
+        let (result, meta) = meta(&out.stdout, out.timed_out);
+        let output = if out.timed_out {
+            Err(format!("claude took longer than {}s", cap.as_secs()))
+        } else if !out.ok {
+            Err(failure(result.as_ref()))
+        } else {
+            match result.as_ref().map(|r| &r["structured_output"]) {
+                None => Err("claude gave no result".into()),
+                Some(Value::Null) => Err("claude gave no structured answer".into()),
+                Some(so) => Ok(so.clone()),
+            }
+        };
+        Ok(Called {
+            output,
+            meta: Some(meta),
+        })
     }
 }
 
-/// Why a `claude -p` that exited with an error failed, from its JSON result: the result's subtype
+/// What a step's `claude -p` did, read from its stream (`--output-format stream-json`), with the
+/// stream's `result` event when it got that far. Read as far as the stream goes, so a step killed
+/// at its cap still says what it had done: `model`, `session_id`, `turns` (the result's, else the
+/// model's messages), `api_calls` (the model's messages), `tool_calls` by tool, `last_tool`,
+/// `tokens` (`input`, `output`, `cache_read`, `cache_write`) with `tokens_from` (`result`, or
+/// `messages` when there is no result: each message's usage as streamed, its output tokens lower
+/// than the final count), `cost_usd` and `api_seconds` (from the result only), and `end` (the
+/// result's subtype, `killed at its cap` or `no result`).
+pub fn meta(stream: &[u8], timed_out: bool) -> (Option<Value>, Value) {
+    let mut init = Value::Null;
+    let mut messages: Vec<(String, Value)> = Vec::new();
+    let mut tools: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+    let mut seen = BTreeSet::new();
+    let mut last_tool = Value::Null;
+    let mut result = None;
+    for line in stream.split(|b| *b == b'\n') {
+        let Ok(e) = serde_json::from_slice::<Value>(line) else {
+            continue;
+        };
+        match e["type"].as_str() {
+            Some("system") if e["subtype"] == "init" => init = e,
+            Some("assistant") => {
+                let m = &e["message"];
+                let id = m["id"].as_str().unwrap_or_default().to_string();
+                match messages.iter_mut().find(|(i, _)| *i == id) {
+                    Some(seen) => seen.1 = m["usage"].clone(),
+                    None => messages.push((id, m["usage"].clone())),
+                }
+                for c in m["content"].as_array().into_iter().flatten() {
+                    let name = c["name"].as_str().unwrap_or_default();
+                    if c["type"] == "tool_use" && seen.insert(c["id"].to_string()) {
+                        *tools.entry(name.to_string()).or_default() += 1;
+                        last_tool = json!(name);
+                    }
+                }
+            }
+            Some("result") => result = Some(e),
+            _ => {}
+        }
+    }
+    let tokens = |u: &dyn Fn(&str) -> u64| {
+        json!({
+            "input": u("input_tokens"),
+            "output": u("output_tokens"),
+            "cache_read": u("cache_read_input_tokens"),
+            "cache_write": u("cache_creation_input_tokens"),
+        })
+    };
+    let r = result.clone().unwrap_or(Value::Null);
+    let (tokens, from) = if r["usage"].is_object() {
+        (tokens(&|k| r["usage"][k].as_u64().unwrap_or(0)), "result")
+    } else {
+        let sum = |k: &str| {
+            messages
+                .iter()
+                .map(|(_, u)| u[k].as_u64().unwrap_or(0))
+                .sum()
+        };
+        (tokens(&sum), "messages")
+    };
+    let end = if timed_out {
+        json!("killed at its cap")
+    } else if result.is_some() {
+        r["subtype"].clone()
+    } else {
+        json!("no result")
+    };
+    let turns = match &r["num_turns"] {
+        Value::Null => json!(messages.len()),
+        n => n.clone(),
+    };
+    let mut m = Map::new();
+    for (k, v) in [
+        ("model", init["model"].clone()),
+        ("session_id", init["session_id"].clone()),
+        ("turns", turns),
+        ("api_calls", json!(messages.len())),
+        ("tool_calls", json!(tools)),
+        ("last_tool", last_tool),
+        ("tokens", tokens),
+        ("tokens_from", json!(from)),
+        ("cost_usd", r["total_cost_usd"].clone()),
+        (
+            "api_seconds",
+            r["duration_api_ms"]
+                .as_f64()
+                .map_or(Value::Null, |ms| json!(ms / 1000.0)),
+        ),
+        ("end", end),
+    ] {
+        if !v.is_null() {
+            m.insert(k.into(), v);
+        }
+    }
+    (result, Value::Object(m))
+}
+
+/// Why a `claude -p` that exited with an error failed, from its result: the result's subtype
 /// (`error_max_turns`, …), the API error, and its message, cut short.
-fn failure(stdout: &[u8]) -> String {
-    let Ok(v) = serde_json::from_slice::<Value>(stdout) else {
+fn failure(result: Option<&Value>) -> String {
+    let Some(v) = result else {
         return "claude failed".into();
     };
     let mut why: Vec<String> = Vec::new();
@@ -363,6 +472,9 @@ pub struct StepRun {
     pub prompt: Option<String>,
     pub output: Value,
     pub seconds: f64,
+    /// What the step's call did (turns, tokens, cost, …): [`meta`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Value>,
 }
 
 /// A whole run: every step, then the result (absent when a step failed).
@@ -418,8 +530,8 @@ pub fn run(
             },
             None => false,
         };
-        let (prompt, output) = if skip {
-            (None, Value::Null)
+        let (prompt, output, meta) = if skip {
+            (None, Value::Null, None)
         } else {
             let prompt = match render(&step.prompt, &ctx) {
                 Ok(p) => p,
@@ -432,7 +544,8 @@ pub fn run(
                 fail(&mut out, "no time left".into());
                 return out;
             };
-            let result = model.call(name, step, &prompt, repo, left).and_then(|v| {
+            let called = model.call(name, step, &prompt, repo, left);
+            let result = called.output.and_then(|v| {
                 let validator =
                     jsonschema::validator_for(&step.output_schema).map_err(|e| e.to_string())?;
                 let refused = validator
@@ -442,7 +555,7 @@ pub fn run(
                 refused.map_or(Ok(v), Err)
             });
             match result {
-                Ok(v) => (Some(prompt), v),
+                Ok(v) => (Some(prompt), v, called.meta),
                 Err(e) => {
                     out.steps.push(StepRun {
                         step: name.clone(),
@@ -450,6 +563,7 @@ pub fn run(
                         prompt: Some(prompt),
                         output: Value::Null,
                         seconds: t.elapsed().as_secs_f64(),
+                        meta: called.meta,
                     });
                     fail(&mut out, e);
                     return out;
@@ -465,6 +579,7 @@ pub fn run(
             prompt,
             output,
             seconds: t.elapsed().as_secs_f64(),
+            meta,
         });
     }
     match render(&wf.result, &ctx) {
@@ -593,16 +708,9 @@ struct Reused {
 }
 
 impl Model for Reused {
-    fn call(
-        &self,
-        name: &str,
-        step: &Step,
-        prompt: &str,
-        cwd: &Path,
-        cap: Duration,
-    ) -> Result<Value, String> {
+    fn call(&self, name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called {
         match self.outputs.get(name) {
-            Some(v) => Ok(v.clone()),
+            Some(v) => Ok(v.clone()).into(),
             None => self.model.call(name, step, prompt, cwd, cap),
         }
     }
@@ -620,16 +728,9 @@ mod tests {
     }
 
     impl Model for Fake {
-        fn call(
-            &self,
-            _: &str,
-            _: &Step,
-            prompt: &str,
-            _: &Path,
-            _: Duration,
-        ) -> Result<Value, String> {
+        fn call(&self, _: &str, _: &Step, prompt: &str, _: &Path, _: Duration) -> Called {
             self.prompts.borrow_mut().push(prompt.to_string());
-            Ok(self.outputs.borrow_mut().remove(0))
+            Ok(self.outputs.borrow_mut().remove(0)).into()
         }
     }
 
@@ -759,6 +860,77 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         );
     }
 
+    /// A step's stream as `claude -p --output-format stream-json --verbose` writes it: init, two
+    /// model messages (the first streamed twice, as a message with several blocks is), a result.
+    const STREAM: &str = r#"{"type":"system","subtype":"init","model":"claude-sonnet-x","session_id":"s1"}
+{"type":"assistant","message":{"id":"m1","content":[{"type":"text","text":"Looking."}],"usage":{"input_tokens":2,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
+{"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}],"usage":{"input_tokens":2,"output_tokens":16,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}
+{"type":"assistant","message":{"id":"m2","content":[{"type":"tool_use","id":"t2","name":"Read","input":{}}],"usage":{"input_tokens":2,"output_tokens":24,"cache_read_input_tokens":3000,"cache_creation_input_tokens":100}}}
+{"type":"result","subtype":"success","num_turns":3,"total_cost_usd":0.0113,"duration_api_ms":2826,"usage":{"input_tokens":4,"output_tokens":174,"cache_read_input_tokens":3000,"cache_creation_input_tokens":3100},"structured_output":{"a":"x"}}
+"#;
+
+    #[test]
+    fn a_step_records_its_model_turns_tools_tokens_and_cost() {
+        let (result, m) = meta(STREAM.as_bytes(), false);
+        assert_eq!(result.unwrap()["structured_output"], json!({"a": "x"}));
+        assert_eq!(m["model"], "claude-sonnet-x");
+        assert_eq!(m["session_id"], "s1");
+        assert_eq!(m["turns"], 3);
+        assert_eq!(m["api_calls"], 2);
+        assert_eq!(m["tool_calls"], json!({"Bash": 1, "Read": 1}));
+        assert_eq!(m["last_tool"], "Read");
+        assert_eq!(
+            m["tokens"],
+            json!({"input": 4, "output": 174, "cache_read": 3000, "cache_write": 3100})
+        );
+        assert_eq!(m["tokens_from"], "result");
+        assert_eq!(m["cost_usd"], 0.0113);
+        assert_eq!(m["api_seconds"], 2.826);
+        assert_eq!(m["end"], "success");
+    }
+
+    #[test]
+    fn a_step_killed_at_its_cap_still_says_what_it_had_done() {
+        // the stream cut before the result, mid-line
+        let cut = STREAM.split("{\"type\":\"result\"").next().unwrap();
+        let (result, m) = meta(format!("{cut}{{\"type\":\"assi").as_bytes(), true);
+        assert!(result.is_none());
+        assert_eq!(m["end"], "killed at its cap");
+        assert_eq!(m["turns"], 2);
+        assert_eq!(m["tool_calls"], json!({"Bash": 1, "Read": 1}));
+        // each message counted once, at its last streamed usage
+        assert_eq!(
+            m["tokens"],
+            json!({"input": 4, "output": 40, "cache_read": 3000, "cache_write": 3100})
+        );
+        assert_eq!(m["tokens_from"], "messages");
+        assert!(m.get("cost_usd").is_none());
+    }
+
+    #[test]
+    fn a_failed_step_keeps_what_its_call_did_in_the_run() {
+        struct Killed;
+        impl Model for Killed {
+            fn call(&self, _: &str, _: &Step, _: &str, _: &Path, _: Duration) -> Called {
+                Called {
+                    output: Err("claude took longer than 5s".into()),
+                    meta: Some(json!({"end": "killed at its cap", "turns": 7})),
+                }
+            }
+        }
+        let wf = load(TWO_STEPS).unwrap();
+        let run = run(
+            &wf,
+            &inputs(),
+            Path::new("/r"),
+            &Killed,
+            Duration::from_secs(60),
+        );
+        assert!(run.error.unwrap().contains("longer than 5s"));
+        assert_eq!(run.steps[0].meta.as_ref().unwrap()["turns"], 7);
+    }
+
     #[test]
     fn a_step_writes_in_its_own_short_private_temp_directory_removed_after() {
         use std::os::unix::fs::PermissionsExt;
@@ -794,14 +966,12 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
 
     #[test]
     fn a_failed_claude_says_why() {
+        let why = |stream: &[u8]| failure(meta(stream, false).0.as_ref());
         let out = br#"{"type":"result","subtype":"error_max_turns","is_error":true,"result":""}"#;
-        assert_eq!(failure(out), "claude failed: error_max_turns");
-        let out = br#"{"subtype":"success","is_error":true,"api_error_status":529,"api_error":"overloaded_error","result":"Overloaded"}"#;
-        assert_eq!(
-            failure(out),
-            "claude failed: overloaded_error, 529, Overloaded"
-        );
-        assert_eq!(failure(b"not json"), "claude failed");
+        assert_eq!(why(out), "claude failed: error_max_turns");
+        let out = br#"{"type":"result","subtype":"success","is_error":true,"api_error_status":529,"api_error":"overloaded_error","result":"Overloaded"}"#;
+        assert_eq!(why(out), "claude failed: overloaded_error, 529, Overloaded");
+        assert_eq!(why(b"not json"), "claude failed");
     }
 
     /// A value its schema accepts: required properties, one array item, the first enum value.
@@ -830,15 +1000,8 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
     struct FromSchema;
 
     impl Model for FromSchema {
-        fn call(
-            &self,
-            _: &str,
-            step: &Step,
-            _: &str,
-            _: &Path,
-            _: Duration,
-        ) -> Result<Value, String> {
-            Ok(sample(&step.output_schema))
+        fn call(&self, _: &str, step: &Step, _: &str, _: &Path, _: Duration) -> Called {
+            Ok(sample(&step.output_schema)).into()
         }
     }
 
