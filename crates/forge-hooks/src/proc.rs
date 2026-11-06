@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct Ran {
     pub ok: bool,
+    /// What it wrote; when it ran past its cap, what it had written by then.
     pub stdout: Vec<u8>,
     /// It ran past its cap and was killed.
     pub timed_out: bool,
@@ -39,11 +40,32 @@ pub fn run(cmd: &mut Command, input: Option<&[u8]>, cap: Duration) -> Option<Ran
         })
     });
     let mut stdout = child.stdout.take()?;
-    let reader = std::thread::spawn(move || {
-        let mut out = Vec::new();
-        let _ = stdout.read_to_end(&mut out);
-        out
-    });
+    // read as it comes, so a run killed at its cap still gives what it wrote
+    let written = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let reader = {
+        let written = std::sync::Arc::clone(&written);
+        std::thread::spawn(move || {
+            let mut chunk = [0u8; 8192];
+            loop {
+                match stdout.read(&mut chunk) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        if let Ok(mut w) = written.lock() {
+                            w.extend_from_slice(&chunk[..n]);
+                        }
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(_) => break,
+                }
+            }
+        })
+    };
+    let take = || {
+        written
+            .lock()
+            .map(|mut w| std::mem::take(&mut *w))
+            .unwrap_or_default()
+    };
     let deadline = Instant::now() + cap;
     let mut sleep = Duration::from_micros(200);
     let (ok, timed_out) = loop {
@@ -69,14 +91,15 @@ pub fn run(cmd: &mut Command, input: Option<&[u8]>, cap: Duration) -> Option<Ran
         // a grandchild may still hold the pipes: the reader threads are left to end with it
         return Some(Ran {
             ok,
-            stdout: Vec::new(),
+            stdout: take(),
             timed_out,
         });
     }
     if let Some(w) = writer {
         let _ = w.join();
     }
-    let stdout = reader.join().unwrap_or_default();
+    let _ = reader.join();
+    let stdout = take();
     Some(Ran {
         ok,
         stdout,
@@ -192,5 +215,13 @@ mod tests {
         )
         .unwrap();
         assert!(r.timed_out && !r.ok);
+        // a run killed at its cap still gives what it wrote before
+        let r = run(
+            Command::new("sh").args(["-c", "echo before; sleep 5"]),
+            None,
+            Duration::from_millis(500),
+        )
+        .unwrap();
+        assert!(r.timed_out && r.stdout == b"before\n", "{r:?}");
     }
 }
