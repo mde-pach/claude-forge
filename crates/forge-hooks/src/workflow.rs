@@ -206,7 +206,7 @@ pub trait Model {
 
 /// The settings of a step's session: no hooks; with Bash, Claude Code's sandbox, required
 /// (`failIfUnavailable`, no unsandboxed retry), with `repo` not writable (scripts go in
-/// `$TMPDIR`) and no network. Inside a container the sandbox is the nested, weaker one, the
+/// `$TMPDIR`, the step's own: [`StepTmp`]) and no network. Inside a container the sandbox is the nested, weaker one, the
 /// container being the outer isolation.
 fn settings(step: &Step, repo: &Path, in_container: bool) -> Value {
     let mut s = json!({ "disableAllHooks": true });
@@ -229,6 +229,42 @@ fn in_container() -> bool {
     Path::new("/.dockerenv").exists() || Path::new("/run/.containerenv").exists()
 }
 
+/// A step's own temp directory, given to its session as `CLAUDE_CODE_TMPDIR`: the sandbox's
+/// writable `$TMPDIR` is then inside it, not the per-user one other Claude sessions share. Under
+/// `/tmp` and short, since Claude Code falls back to the shared one for a long path; private to
+/// the user; removed when it is dropped.
+struct StepTmp(PathBuf);
+
+impl StepTmp {
+    fn new() -> std::io::Result<Self> {
+        use std::os::unix::fs::DirBuilderExt;
+        let base = Path::new("/tmp");
+        let base = if base.is_dir() {
+            base.to_path_buf()
+        } else {
+            std::env::temp_dir()
+        };
+        // pid and a counter: unique among this process's steps, which may run at the same instant;
+        // one left by an earlier process of the same pid is skipped
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        loop {
+            let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let dir = base.join(format!("fw-{}-{n}", std::process::id()));
+            match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+                Ok(()) => return Ok(Self(dir)),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && n < 1000 => {}
+                Err(e) => return Err(e),
+            }
+        }
+    }
+}
+
+impl Drop for StepTmp {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// `claude -p` as Forge's own agents run it: no hooks, no MCP, no settings but [`settings`], the
 /// reviewer's environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output.
 pub struct Claude {
@@ -248,9 +284,11 @@ impl Model for Claude {
         let schema = step.output_schema.to_string();
         let tools = step.tools.join(",");
         let settings = settings(step, cwd, in_container()).to_string();
+        let tmp = StepTmp::new().map_err(|e| format!("no temp directory for the step: {e}"))?;
         let mut cmd = Command::new(&self.exe);
         cmd.current_dir(cwd)
             .env("FORGE_REVIEWER", "1")
+            .env("CLAUDE_CODE_TMPDIR", &tmp.0)
             .args([
                 "-p",
                 prompt,
@@ -719,6 +757,24 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             settings(&read_only, Path::new("/repo"), false),
             json!({"disableAllHooks": true})
         );
+    }
+
+    #[test]
+    fn a_step_writes_in_its_own_short_private_temp_directory_removed_after() {
+        use std::os::unix::fs::PermissionsExt;
+        let (a, b) = (StepTmp::new().unwrap(), StepTmp::new().unwrap());
+        assert_ne!(a.0, b.0);
+        assert!(
+            a.0.starts_with("/tmp") && a.0.as_os_str().len() < 40,
+            "{}",
+            a.0.display()
+        );
+        let mode = std::fs::metadata(&a.0).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o700);
+        std::fs::write(a.0.join("script.py"), "x").unwrap();
+        let dir = a.0.clone();
+        drop(a);
+        assert!(!dir.exists());
     }
 
     #[test]
