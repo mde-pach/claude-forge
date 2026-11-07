@@ -343,6 +343,15 @@ impl BashSnapshots {
     /// Added or modified files between two trees, outside Forge's, Claude's, git's and
     /// dependency directories.
     pub fn changed(&self, before: &str, after: &str) -> Vec<String> {
+        self.diff(before, after)
+            .into_iter()
+            .filter(|(status, path)| (status == "A" || status == "M") && !excluded(path))
+            .map(|(_, path)| path)
+            .collect()
+    }
+
+    /// Every path that differs between two trees, with its status (`A`, `M`, `D`, `T`).
+    pub fn diff(&self, before: &str, after: &str) -> Vec<(String, String)> {
         let Some((objects, _)) = git_paths(&self.root, &self.paths_cache) else {
             return Vec::new();
         };
@@ -374,15 +383,55 @@ impl BashSnapshots {
             .split(|b| *b == 0)
             .map(|s| String::from_utf8_lossy(s).into_owned())
             .collect();
-        let mut files = Vec::new();
-        for pair in parts.chunks(2) {
-            if let [status, path] = pair {
-                if (status == "A" || status == "M") && !excluded(path) {
-                    files.push(path.clone());
+        parts
+            .chunks(2)
+            .filter_map(|pair| match pair {
+                [status, path] if !path.is_empty() => Some((status.clone(), path.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Puts the working tree back from `after` to `before`, two trees from [`Self::tree`]: the
+    /// files added since are removed, the ones changed or deleted restored. The index is never
+    /// touched (a private one serves the restore). False when a file could not be put back.
+    pub fn put_back(&self, before: &str, after: &str, cap: Duration) -> bool {
+        let mut restore: Vec<u8> = Vec::new();
+        let mut ok = true;
+        for (status, path) in self.diff(before, after) {
+            if status == "A" {
+                match std::fs::remove_file(self.root.join(&path)) {
+                    Err(e) if e.kind() != std::io::ErrorKind::NotFound => ok = false,
+                    _ => {}
                 }
+            } else {
+                restore.extend_from_slice(path.as_bytes());
+                restore.push(0);
             }
         }
-        files
+        if restore.is_empty() {
+            return ok;
+        }
+        let Some((objects, _)) = git_paths(&self.root, &self.paths_cache) else {
+            return false;
+        };
+        let (objs, index) = (self.objects(), self.dir.join("put-back.index"));
+        let env: [(&str, &OsStr); 3] = [
+            ("GIT_INDEX_FILE", index.as_os_str()),
+            ("GIT_OBJECT_DIRECTORY", objs.as_os_str()),
+            ("GIT_ALTERNATE_OBJECT_DIRECTORIES", objects.as_os_str()),
+        ];
+        let source = format!("--source={before}");
+        let args = [
+            "restore",
+            source.as_str(),
+            "--worktree",
+            "--pathspec-from-file=-",
+            "--pathspec-file-nul",
+        ];
+        let restored = git_env(&self.root, &args, &env, Some(&restore), cap).is_some_and(|r| r.ok);
+        let _ = std::fs::remove_file(&index);
+        ok && restored
     }
 
     /// Done with a command's snapshot.

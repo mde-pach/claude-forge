@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::proc;
+use crate::snapshot::BashSnapshots;
 
 /// A workflow file.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
@@ -210,10 +211,11 @@ impl From<Result<Value, String>> for Called {
 }
 
 /// The settings of a step's session: no hooks; with Bash, Claude Code's sandbox, required
-/// (`failIfUnavailable`, no unsandboxed retry), with `repo` not writable (scripts go in
-/// `$TMPDIR`, the step's own: [`StepTmp`]) and no network. Inside a container the sandbox is the nested, weaker one, the
-/// container being the outer isolation.
-fn settings(step: &Step, repo: &Path, in_container: bool) -> Value {
+/// (`failIfUnavailable`, no unsandboxed retry), with no network and `deny` not writable: what
+/// [`PutBack`] cannot put back, or the whole of `repo` when there is no [`PutBack`] (scripts go
+/// in `$TMPDIR`, the step's own: [`StepTmp`]). Inside a container the sandbox is the nested,
+/// weaker one, the container being the outer isolation.
+fn settings(step: &Step, repo: &Path, deny: Option<&[PathBuf]>, in_container: bool) -> Value {
     let mut s = json!({ "disableAllHooks": true });
     if step.tools.iter().any(|t| t == "Bash") {
         s["sandbox"] = json!({
@@ -222,11 +224,154 @@ fn settings(step: &Step, repo: &Path, in_container: bool) -> Value {
             "autoAllowBashIfSandboxed": true,
             "allowUnsandboxedCommands": false,
             "enableWeakerNestedSandbox": in_container,
-            "filesystem": { "denyWrite": [repo.display().to_string()] },
+            "filesystem": { "denyWrite": match deny {
+                Some(paths) => paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
+                None => vec![repo.display().to_string()],
+            } },
             "network": { "allowedDomains": [], "strictAllowlist": true },
         });
     }
     s
+}
+
+/// How long one snapshot of the repository may take.
+const SNAPSHOT_CAP: Duration = Duration::from_secs(60);
+
+/// The repository around a step with Bash: writable while the step runs, so the project's own
+/// programs work as they would for the agent (one that logs what it does, a database that keeps
+/// a journal), then put back as it was. Before the step, the working tree is a git tree in a
+/// private object store ([`BashSnapshots`]: the user's index and objects are never touched), and
+/// its directories are listed; after it, the files the step added are removed (ignored ones
+/// too), the ones it changed or deleted restored, and the directories it made removed. What the
+/// tree does not hold stays not writable (`deny`): `.git`, Claude's worktrees, the ignored
+/// paths that were there.
+struct PutBack {
+    root: PathBuf,
+    snaps: BashSnapshots,
+    before: String,
+    ignored: Vec<String>,
+    dirs: BTreeSet<PathBuf>,
+    deny: Vec<PathBuf>,
+    _dir: StepTmp,
+}
+
+impl PutBack {
+    /// None outside a git repository, or when the snapshot fails: the step then runs with the
+    /// repository not writable.
+    fn take(repo: &Path) -> Option<Self> {
+        let out = proc::git(
+            repo,
+            &["rev-parse", "--show-toplevel", "--absolute-git-dir"],
+            proc::GIT_CAP,
+        )?;
+        let out = String::from_utf8_lossy(&out).into_owned();
+        let mut lines = out.lines();
+        let (root, git_dir) = (PathBuf::from(lines.next()?), PathBuf::from(lines.next()?));
+        let dir = StepTmp::new().ok()?;
+        let snaps = BashSnapshots::new(&root, &dir.0, &dir.0);
+        let before = snaps.tree("before", true, SNAPSHOT_CAP)?;
+        let ignored = ignored(&root, &[], true)?;
+        let mut deny = vec![
+            git_dir,
+            root.join(".git"),
+            root.join(".claude/worktrees"),
+            dir.0.clone(),
+        ];
+        deny.extend(ignored.iter().map(|p| root.join(p)));
+        let mut dirs = BTreeSet::new();
+        walk_dirs(&root, &deny, &mut dirs);
+        Some(Self {
+            root,
+            snaps,
+            before,
+            ignored,
+            dirs,
+            deny,
+            _dir: dir,
+        })
+    }
+
+    /// The repository as it was before the step; an error naming what could not be put back.
+    fn put_back(&self) -> Result<(), String> {
+        let not = |what: &str| {
+            format!("the step's changes to the repository could not be undone: {what}")
+        };
+        let after = self
+            .snaps
+            .tree("after", true, SNAPSHOT_CAP)
+            .ok_or_else(|| not("no snapshot after the step"))?;
+        let mut ok = self.snaps.put_back(&self.before, &after, SNAPSHOT_CAP);
+        // ignored files the step wrote, outside the ignored paths it could not write
+        for path in ignored(&self.root, &self.ignored, false).unwrap_or_default() {
+            ok &= std::fs::remove_file(self.root.join(path)).is_ok();
+        }
+        let mut now = BTreeSet::new();
+        walk_dirs(&self.root, &self.deny, &mut now);
+        // a directory the step made holds only what it wrote (a parent comes first and takes
+        // the ones it holds with it)
+        for made in now.difference(&self.dirs) {
+            if made.exists() {
+                ok &= std::fs::remove_dir_all(made).is_ok();
+            }
+        }
+        let check = self
+            .snaps
+            .tree("check", true, SNAPSHOT_CAP)
+            .ok_or_else(|| not("no snapshot after putting it back"))?;
+        let left: Vec<String> = self
+            .snaps
+            .diff(&self.before, &check)
+            .into_iter()
+            .map(|(_, p)| p)
+            .collect();
+        match (ok, left.is_empty()) {
+            (true, true) => Ok(()),
+            (_, false) => Err(not(&left.join(", "))),
+            (false, true) => Err(not("a file or directory it wrote")),
+        }
+    }
+}
+
+/// The ignored paths of the working tree outside `skip`: with `collapse`, a wholly ignored
+/// directory as one path; otherwise each file.
+fn ignored(root: &Path, skip: &[String], collapse: bool) -> Option<Vec<String>> {
+    let mut args = vec![
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "-z",
+    ];
+    if collapse {
+        args.push("--directory");
+    }
+    let excludes: Vec<String> = skip
+        .iter()
+        .map(|p| format!(":(exclude,top,literal){p}"))
+        .collect();
+    args.extend(["--", "."]);
+    args.extend(excludes.iter().map(String::as_str));
+    let out = proc::git(root, &args, proc::GIT_CAP)?;
+    Some(
+        out.split(|b| *b == 0)
+            .filter(|p| !p.is_empty())
+            .map(|p| String::from_utf8_lossy(p).trim_end_matches('/').to_string())
+            .collect(),
+    )
+}
+
+/// Every directory under `dir`, outside `skip`, symbolic links not followed.
+fn walk_dirs(dir: &Path, skip: &[PathBuf], into: &mut BTreeSet<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if e.file_type().is_ok_and(|t| t.is_dir()) && !skip.contains(&p) {
+            walk_dirs(&p, skip, into);
+            into.insert(p);
+        }
+    }
 }
 
 /// Running inside a container (Docker, Podman).
@@ -290,7 +435,14 @@ impl Claude {
     fn run(&self, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Result<Called, String> {
         let schema = step.output_schema.to_string();
         let tools = step.tools.join(",");
-        let settings = settings(step, cwd, in_container()).to_string();
+        let put_back = step
+            .tools
+            .iter()
+            .any(|t| t == "Bash")
+            .then(|| PutBack::take(cwd))
+            .flatten();
+        let deny = put_back.as_ref().map(|p| p.deny.as_slice());
+        let settings = settings(step, cwd, deny, in_container()).to_string();
         let tmp = StepTmp::new().map_err(|e| format!("no temp directory for the step: {e}"))?;
         let mut cmd = Command::new(&self.exe);
         cmd.current_dir(cwd)
@@ -317,7 +469,9 @@ impl Claude {
         if let Some(m) = &self.model {
             cmd.args(["--model", m]);
         }
-        let out = proc::run(&mut cmd, None, cap).ok_or("claude could not run or was stopped")?;
+        let out = proc::run(&mut cmd, None, cap);
+        let undone = put_back.map_or(Ok(()), |p| p.put_back());
+        let out = out.ok_or("claude could not run or was stopped")?;
         let (result, meta) = meta(&out.stdout, out.timed_out);
         let output = if out.timed_out {
             Err(format!("claude took longer than {}s", cap.as_secs()))
@@ -330,6 +484,7 @@ impl Claude {
                 Some(so) => Ok(so.clone()),
             }
         };
+        let output = undone.and(output);
         Ok(Called {
             output,
             meta: Some(meta),
@@ -833,7 +988,7 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
     }
 
     #[test]
-    fn bash_runs_in_a_required_sandbox_with_the_repository_read_only() {
+    fn bash_runs_in_a_required_sandbox_with_what_cannot_be_put_back_read_only() {
         let step = Step {
             condition: None,
             tools: vec!["Read".into(), "Bash".into()],
@@ -841,7 +996,7 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             output_schema: json!({"type": "object"}),
             prompt: "p".into(),
         };
-        let s = settings(&step, Path::new("/repo"), true);
+        let s = settings(&step, Path::new("/repo"), None, true);
         assert_eq!(s["disableAllHooks"], true);
         let sb = &s["sandbox"];
         assert_eq!(sb["enabled"], true);
@@ -850,12 +1005,18 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         assert_eq!(sb["enableWeakerNestedSandbox"], true);
         assert_eq!(sb["filesystem"]["denyWrite"], json!(["/repo"]));
         assert_eq!(sb["network"]["strictAllowlist"], true);
+        let deny = [PathBuf::from("/repo/.git"), PathBuf::from("/repo/cache")];
+        let s = settings(&step, Path::new("/repo"), Some(&deny), false);
+        assert_eq!(
+            s["sandbox"]["filesystem"]["denyWrite"],
+            json!(["/repo/.git", "/repo/cache"])
+        );
         let read_only = Step {
             tools: vec!["Read".into()],
             ..step
         };
         assert_eq!(
-            settings(&read_only, Path::new("/repo"), false),
+            settings(&read_only, Path::new("/repo"), None, false),
             json!({"disableAllHooks": true})
         );
     }
@@ -929,6 +1090,106 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         );
         assert!(run.error.unwrap().contains("longer than 5s"));
         assert_eq!(run.steps[0].meta.as_ref().unwrap()["turns"], 7);
+    }
+
+    #[test]
+    fn a_step_with_bash_writes_in_the_repository_and_leaves_it_as_it_was() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().canonicalize().unwrap();
+        let sh = |script: &str| {
+            let ok = Command::new("sh")
+                .args(["-c", script])
+                .current_dir(&repo)
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_AUTHOR_NAME", "t")
+                .env("GIT_AUTHOR_EMAIL", "t@t")
+                .env("GIT_COMMITTER_NAME", "t")
+                .env("GIT_COMMITTER_EMAIL", "t@t")
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "{script}");
+        };
+        sh(
+            "git init -q && printf '*.log\\ncache/\\n' > .gitignore && echo a > a.txt && echo b > b.txt \
+            && mkdir cache && echo c > cache/c && git add -A && git commit -qm base \
+            && echo staged > a.txt && git add a.txt && echo mine > a.txt && echo u > untracked.txt \
+            && mkdir output",
+        );
+        let index = std::fs::read(repo.join(".git/index")).unwrap();
+        // the step: changes a tracked, an untracked and a deleted file, adds files, ignored files
+        // (one in an empty directory that was there) and directories of its own, then answers
+        let claude = repo
+            .join("..")
+            .join(format!("claude-{}", std::process::id()));
+        std::fs::write(
+            &claude,
+            "#!/bin/sh\necho changed > a.txt; echo changed > untracked.txt; rm b.txt\n\
+             mkdir -p out && echo log > out/audit.log; echo log > output/audit.log\n\
+             echo new > new.txt; echo x > run.log\n\
+             mkdir __pycache__; echo p > __pycache__/m.pyc\n\
+             echo '{\"type\":\"result\",\"subtype\":\"success\",\"structured_output\":{}}'\n",
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+        sh("printf '__pycache__/\\n' >> .git/info/exclude");
+        let step = Step {
+            condition: None,
+            tools: vec!["Bash".into()],
+            max_turns: 1,
+            output_schema: json!({"type": "object"}),
+            prompt: "p".into(),
+        };
+        let model = Claude {
+            exe: claude.clone(),
+            model: None,
+        };
+        let called = model.call("s", &step, "p", &repo, Duration::from_secs(30));
+        let _ = std::fs::remove_file(&claude);
+        assert_eq!(called.output.unwrap(), json!({}));
+        let read = |p: &str| std::fs::read_to_string(repo.join(p)).ok();
+        assert_eq!(read("a.txt").as_deref(), Some("mine\n"));
+        assert_eq!(read("untracked.txt").as_deref(), Some("u\n"));
+        assert_eq!(read("b.txt").as_deref(), Some("b\n"));
+        assert_eq!(read("cache/c").as_deref(), Some("c\n"));
+        for gone in [
+            "out",
+            "output/audit.log",
+            "new.txt",
+            "run.log",
+            "__pycache__",
+        ] {
+            assert!(!repo.join(gone).exists(), "{gone} is left");
+        }
+        assert!(
+            repo.join("output").is_dir(),
+            "a directory that was there is removed"
+        );
+        assert_eq!(std::fs::read(repo.join(".git/index")).unwrap(), index);
+    }
+
+    #[test]
+    fn a_step_with_bash_cannot_write_what_could_not_be_put_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().canonicalize().unwrap();
+        let ok = Command::new("sh")
+            .args([
+                "-c",
+                "git init -q && printf 'cache/\\n' > .gitignore && mkdir cache && echo c > cache/c",
+            ])
+            .current_dir(&repo)
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok);
+        let p = PutBack::take(&repo).unwrap();
+        for denied in [repo.join(".git"), repo.join("cache"), p._dir.0.clone()] {
+            assert!(p.deny.contains(&denied), "{} not denied", denied.display());
+        }
+        assert!(!p.deny.contains(&repo));
+        let outside = tempfile::tempdir().unwrap();
+        assert!(PutBack::take(outside.path()).is_none());
     }
 
     #[test]
