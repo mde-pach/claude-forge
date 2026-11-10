@@ -416,7 +416,10 @@ impl Drop for StepTmp {
 }
 
 /// `claude -p` as Forge's own agents run it: no hooks, no MCP, no settings but [`settings`], the
-/// reviewer's environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output.
+/// reviewer's environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output, and no
+/// background tasks (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`): `claude -p` waits after its result
+/// for a command left running in the background, up to that command's own limit (30 minutes by
+/// default), so a step that left one would end only at its cap.
 pub struct Claude {
     pub exe: PathBuf,
     pub model: Option<String>,
@@ -447,6 +450,7 @@ impl Claude {
         let mut cmd = Command::new(&self.exe);
         cmd.current_dir(cwd)
             .env("FORGE_REVIEWER", "1")
+            .env("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1")
             .env("CLAUDE_CODE_TMPDIR", &tmp.0)
             .args([
                 "-p",
@@ -1128,7 +1132,7 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
              mkdir -p out && echo log > out/audit.log; echo log > output/audit.log\n\
              echo new > new.txt; echo x > run.log\n\
              mkdir __pycache__; echo p > __pycache__/m.pyc\n\
-             echo '{\"type\":\"result\",\"subtype\":\"success\",\"structured_output\":{}}'\n",
+             echo \"{\\\"type\\\":\\\"result\\\",\\\"subtype\\\":\\\"success\\\",\\\"structured_output\\\":{\\\"bg\\\":\\\"$CLAUDE_CODE_DISABLE_BACKGROUND_TASKS\\\"}}\"\n",
         )
         .unwrap();
         use std::os::unix::fs::PermissionsExt;
@@ -1147,7 +1151,8 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         };
         let called = model.call("s", &step, "p", &repo, Duration::from_secs(30));
         let _ = std::fs::remove_file(&claude);
-        assert_eq!(called.output.unwrap(), json!({}));
+        // and runs with no background tasks
+        assert_eq!(called.output.unwrap(), json!({"bg": "1"}));
         let read = |p: &str| std::fs::read_to_string(repo.join(p)).ok();
         assert_eq!(read("a.txt").as_deref(), Some("mine\n"));
         assert_eq!(read("untracked.txt").as_deref(), Some("u\n"));
