@@ -486,12 +486,18 @@ pub fn locate(
         Runner::Pinned => tools.pinned(&a.tool, &a.verified)?,
     };
     let args = a.version_args().to_string();
-    let v = cached_version(&cmd.bin, &args, || {
+    let ask = || {
         a.package
             .as_deref()
             .and_then(|p| package_version(&cmd.bin, p))
             .or_else(|| ask_version(&cmd, &args))
-    })
+    };
+    // a tool run through `uv run` is asked each time: its executable is uv's
+    let v = if crate::tools::through_uv(&cmd) {
+        ask_version(&cmd, &args)
+    } else {
+        cached_version(&cmd.bin, &args, ask)
+    }
     .ok_or_else(|| format!("the version of {} could not be read", a.tool))?;
     Ok((cmd, v))
 }
