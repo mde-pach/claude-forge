@@ -38,9 +38,11 @@ pub fn session_start(rt: &Runtime, input: &HookInput) -> Output {
     }
     let cache = p.rules(&rt.home);
     let mut notes = Vec::new();
-    // Forge's uv on the agent's PATH where the project uses uv (or no packaging at all)
+    // Forge's uv on the agent's PATH where the project uses uv, declares itself in a
+    // pyproject.toml naming no tool (the agent runs it with `uv run --isolated`, which writes no
+    // lock), or has no packaging at all
     if let (Some(c), Some(file)) = (&cache, &rt.env.env_file) {
-        if matches!(c.python_pm.as_deref(), Some("uv" | "none")) {
+        if matches!(c.python_pm.as_deref(), Some("uv" | "pyproject" | "none")) {
             if let Err(e) = forge_tools::append_path_export(file, &rt.home.path_dir()) {
                 notes.push(Note::new(
                     NoteKind::Setup,

@@ -16,6 +16,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 - A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
 - (when `python.pm` is `none`) This project declares no dependencies yet: a third-party package is declared before it is installed, either as `name==version` in requirements.txt (then `pip install -r requirements.txt`) or in a project created with `uv init --bare` (then `uv add name`).
 - (when `python.pm` is `pyproject`) Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
+- (when `python.pm` is `pyproject`) The project's commands (its tests, its scripts) run with `uv run --isolated <command>`: it installs the project and its dev dependency group in a temporary environment and writes no lock file, so the project keeps no package manager it did not choose.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|

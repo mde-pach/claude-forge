@@ -20,3 +20,6 @@ context:
   - text: |
       Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
     when: {facts: {python.pm: pyproject}}
+  - text: |
+      The project's commands (its tests, its scripts) run with `uv run --isolated <command>`: it installs the project and its dev dependency group in a temporary environment and writes no lock file, so the project keeps no package manager it did not choose.
+    when: {facts: {python.pm: pyproject}}
