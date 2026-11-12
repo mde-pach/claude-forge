@@ -1351,6 +1351,30 @@ fn the_first_prompt_runs_its_workflows_and_hands_over_their_results() {
 }
 
 #[test]
+fn after_a_step_the_next_one_is_asked_for_explicitly() {
+    let s = Sandbox::new(&[]);
+    let two = FIXTURE.replace(
+        "result: |",
+        "  check:\n    output_schema: {type: object, required: [ok], properties: {ok: {type: boolean}}}\n    prompt: \"Check: {{ steps.read.output.text }}\"\nresult: |",
+    );
+    let env = s.workflow_env();
+    std::fs::write(s.workflows().join("spec-answer.yaml"), &two).unwrap();
+    s.run_env(
+        &Fake::default(),
+        env.clone(),
+        "user-prompt-submit",
+        json!({"prompt": "go"}),
+    );
+    s.call_step(&env);
+    s.step_event(&env, "SubagentStart", json!({}));
+    let (_, back) = s.step_ends(&env, ANSWER);
+    assert_eq!(context(&back), forge_hooks::agents::NEXT_STEP);
+    // the gate stays closed until the next step runs, with Forge's prompt for it
+    assert_eq!(decision(&s.agents(&env, edit_main(&s))).0, "deny");
+    assert!(s.call_step(&env).starts_with("Check: mean is the average"));
+}
+
+#[test]
 fn a_step_answer_its_schema_refuses_goes_back_to_the_step() {
     let s = Sandbox::new(&[]);
     let env = s.workflow_env();

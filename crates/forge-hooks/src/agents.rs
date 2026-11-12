@@ -40,6 +40,9 @@ pub const REVIEW_AGENT: &str = "forge-reviewer";
 pub const STEP_CALL: &str = "Before anything else, call the Agent tool with subagent_type \"forge-workflow-step\" (any prompt: the tooling sets it). This project's tooling prepares, in a separate agent, the details your work on this request will be checked against; its answer comes back to you here.";
 /// The refusal of an ask that waits for the reviewer.
 pub const REVIEW_CALL: &str = "An independent review is needed before this call: call the Agent tool with subagent_type \"forge-reviewer\" (any prompt: the tooling sets it), then retry the same call unchanged.";
+/// What the main agent is told when a step returns and another one waits: its Agent call
+/// returned only "done", which reads as the end.
+pub const NEXT_STEP: &str = "That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type \"forge-workflow-step\" again now (any prompt: the tooling sets it).";
 const STEP_RUNNING: &str =
     "The tooling's step agent is already running; wait for its answer before calling it again.";
 const NO_REVIEW: &str = "No review is waiting.";
@@ -258,11 +261,12 @@ fn advance_queue(rt: &Runtime, p: &Project, session: &str, w: &mut Workflows) ->
     results
 }
 
-/// What the main agent is told: the results so far, then the instruction for a pending step.
-fn tell(results: &[String], pending: bool) -> Option<String> {
+/// What the main agent is told: the results so far, then the instruction for a pending step
+/// (`call`: [`STEP_CALL`] at the first prompt, [`NEXT_STEP`] after a step).
+fn tell(results: &[String], pending: bool, call: &str) -> Option<String> {
     let mut parts: Vec<String> = results.to_vec();
     if pending {
-        parts.push(STEP_CALL.to_string());
+        parts.push(call.to_string());
     }
     (!parts.is_empty()).then(|| parts.join("\n\n"))
 }
@@ -304,7 +308,7 @@ pub(crate) fn first_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Opti
     };
     let results = advance_queue(rt, p, &p.session.clone(), &mut w);
     save_wf(p, &w);
-    tell(&results, w.pending.is_some())
+    tell(&results, w.pending.is_some(), STEP_CALL)
 }
 
 /// Stop of the main agent: blocks while a step is pending (the gate), at most
@@ -717,7 +721,7 @@ fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
     }
     results.extend(advance_queue(rt, p, &p.session.clone(), &mut w));
     w.stop_blocks = 0;
-    w.notice = tell(&results, w.pending.is_some());
+    w.notice = tell(&results, w.pending.is_some(), NEXT_STEP);
     save_wf(p, &w);
     close(&p.session_dir, input)
 }
