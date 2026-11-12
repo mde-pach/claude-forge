@@ -90,7 +90,7 @@ User level (`~/.claude/settings.json`):
    ```
 
    The branch reads `(detached at <7 hex>)` or `(no commits yet)` when there is none; `1 changed file`; a `.` instead of `:` when nothing changed. The context holds repository facts only: no pack, tool or Forge state.
-2. **uv on the agent's PATH.** Where the project's `python.pm` fact is `uv` or `none` (no packaging), the hook appends an `export PATH=<cache>/path:$PATH` line to `CLAUDE_ENV_FILE`, so Forge's uv and uvx are on the PATH of the agent's Bash commands (§17). A failure to write it is a note.
+2. **uv on the agent's PATH.** Where the project's `python.pm` fact is `uv`, `pyproject` (packaging that names no tool) or `none` (no packaging), the hook appends an `export PATH=<cache>/path:$PATH` line to `CLAUDE_ENV_FILE`, so Forge's uv and uvx are on the PATH of the agent's Bash commands (§17). A failure to write it is a note.
 3. **The types engine.** When an active rule needs the types engine (§15), the hook registers the session with the running engine, or starts `forge engine start` detached (never twice: a start in progress holds `<socket>.lock`). `FORGE_ENGINE=off` never starts it. A failure to start is a `ForgeFailure` note.
 4. **Cleanup.** This session's Bash snapshots older than a day, and other sessions' directories untouched for three days, are removed.
 5. **For the person.** When the launcher ran another version than the one `forge.lock` pins because that one is not downloaded yet (§3), the hook prints the launcher's note as `systemMessage`, in and outside a project: "This project pins Forge <locked>, which is not downloaded yet, so Forge <running> ran instead. …". Missing tools and tool versions are never printed here: `forge apply` and `forge status` print them.

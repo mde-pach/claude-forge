@@ -591,6 +591,51 @@ fn session_start_gives_repository_context_only() {
     assert!(env.contains(&s.home.path_dir().display().to_string()));
 }
 
+/// Forge's uv goes on the agent's PATH where the project uses uv, declares itself in a
+/// pyproject.toml that names no tool, or has no packaging; not where another tool manages it.
+#[test]
+fn session_start_puts_uv_on_the_path_unless_another_tool_manages_the_project() {
+    for (case, remove, add, on_path) in [
+        ("uv", &[][..], &[][..], true),
+        ("pyproject", &["uv.lock"][..], &[][..], true),
+        (
+            "pip",
+            &["uv.lock", "pyproject.toml"][..],
+            &[("requirements.txt", "httpx==0.27.0\n")][..],
+            false,
+        ),
+        (
+            "poetry",
+            &["uv.lock"][..],
+            &[("poetry.lock", "# lock\n")][..],
+            false,
+        ),
+    ] {
+        let s = Sandbox::new(&[]);
+        for f in remove {
+            std::fs::remove_file(s.root.join(f)).unwrap();
+        }
+        for (f, text) in add {
+            std::fs::write(s.root.join(f), text).unwrap();
+        }
+        sh(
+            &s.root,
+            "git add -A && git commit -qm packaging --allow-empty",
+        );
+        s.run(
+            &Fake::default(),
+            "session-start",
+            json!({"source": "startup"}),
+        );
+        let env = std::fs::read_to_string(&s.env_file).unwrap_or_default();
+        assert_eq!(
+            env.contains(&s.home.path_dir().display().to_string()),
+            on_path,
+            "{case}: {env}"
+        );
+    }
+}
+
 #[test]
 fn test_edits_ask() {
     let s = Sandbox::new(&[]);

@@ -87,7 +87,7 @@ When a pinned tool is not in the cache and may not be downloaded, Forge runs an 
 
 ### 17.6 Forge's uv on the agent's PATH
 
-Claude Code gives SessionStart hooks a file, `CLAUDE_ENV_FILE`, whose `export` lines run before each Bash command of the session. Where the project's `python.pm` fact (§5) is `uv` or `none` (no packaging yet), the SessionStart hook appends one line:
+Claude Code gives SessionStart hooks a file, `CLAUDE_ENV_FILE`, whose `export` lines run before each Bash command of the session. Where the project's `python.pm` fact (§5) is `uv`, `pyproject` (a pyproject.toml that names no tool: the rules text has the agent run its commands with `uv run --isolated`, which writes no lock file, so the project is not switched to uv) or `none` (no packaging yet), the SessionStart hook appends one line:
 
 ```sh
 export PATH='<cache>/path'"${PATH:+:$PATH}"

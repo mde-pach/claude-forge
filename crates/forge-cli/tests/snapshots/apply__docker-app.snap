@@ -29,6 +29,7 @@ Inside `async def`, no blocking calls: sync HTTP clients, `time.sleep`, `open()`
 Ignore comments name their rule (`# ty: ignore[rule-name]`), and a changed file does not gain suppression comments.
 A change leaves no code unused: when it removes the last use of a function, class, import or private name, it removes that too, in whichever file it is. Code that a framework calls by name and nothing imports is not removed; marking it as used is the user's decision: ask them.
 Dependencies are declared in pyproject.toml (`[project] dependencies`, tooling in `[dependency-groups]`): a new one goes there first, then the project is installed again.
+The project's commands (its tests, its scripts) run with `uv run --isolated <command>`: it installs the project and its dev dependency group in a temporary environment and writes no lock file, so the project keeps no package manager it did not choose.
 === .claude/rules/forge-secrets.md
 Secrets. Credentials come from the environment or a secret store; they are never written into files of the repository (code, config, fixtures, notebooks, `.env.example`).
 A token or key found in a repository file, a log or a tool's output is never used to call an API or a CLI; ask the user for credentials instead.
@@ -366,7 +367,7 @@ rule_set = "4996ca1c7bbdf3b85eba24119c2665ae83a48c370d20b593ee3405c527fa5820"
 ".claude/rules/forge-docker-compose.md" = "fdfc306630228c3d36cb5a7470c73833a78314afa80a8a88b30702116c42cbb6"
 ".claude/rules/forge-docker.md" = "337e5d7112871bdc48b841a678c4b257c0a5bb2f387419b05ff38a199e6967a0"
 ".claude/rules/forge-github-actions.md" = "e81a526f9757bb80529d3c52c63366159a61a50594a9120dfb9d30fe8266f88d"
-".claude/rules/forge-python.md" = "173a9025d333d75dd5b88595d763a48a1311dc9c1b17911f3e9332973c28218e"
+".claude/rules/forge-python.md" = "6f483fd85331b31da33dc92da5e36273f1baf80ca89f27daa7f1512e4edebe6c"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
 ".git/hooks/pre-commit" = "af9ddc067165aebcf75561d59aa1bdd5518d0828a325a1cc80be32fde129b9fd"
 
