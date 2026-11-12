@@ -122,7 +122,7 @@ pub struct Ctx {
 }
 
 /// Claude Code's user config directory: `$CLAUDE_CONFIG_DIR`, else `~/.claude`.
-fn claude_config_dir() -> Result<PathBuf, Error> {
+pub(super) fn claude_config_dir() -> Result<PathBuf, Error> {
     let var = |k: &str| std::env::var_os(k).map(PathBuf::from);
     forge_render::lock::claude_config_dir(
         var("CLAUDE_CONFIG_DIR"),

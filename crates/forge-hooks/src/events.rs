@@ -267,6 +267,18 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
+    // Forge's own agents: a step is told when its time runs short, and is checked only when its
+    // workflow asks for it; the reviewer never
+    match crate::agents::who(input) {
+        crate::agents::Who::Reviewer => return Output::silent(),
+        crate::agents::Who::Step => {
+            let checks = crate::agents::step_hooks(rt, &p).is_some_and(|h| h.checks);
+            if !checks {
+                return crate::agents::step_after_call(&p).unwrap_or_else(Output::silent);
+            }
+        }
+        _ => {}
+    }
     let event = match input.hook_event_name.as_deref() {
         Some("PostToolUseFailure") => "PostToolUseFailure",
         _ => "PostToolUse",
@@ -483,6 +495,15 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
+    match crate::agents::who(input) {
+        crate::agents::Who::Reviewer => return Output::silent(),
+        crate::agents::Who::Step
+            if !crate::agents::step_hooks(rt, &p).is_some_and(|h| h.checks) =>
+        {
+            return Output::silent();
+        }
+        _ => {}
+    }
     if rewake_blocks(rt, &p) {
         return Output::silent();
     }
@@ -689,6 +710,10 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
     };
     if !state::ensure_dir(&p.session_dir) {
         return Output::silent();
+    }
+    // a workflow step still to run (the gate)
+    if let Some(out) = crate::agents::stop(rt, &p) {
+        return out;
     }
     let counter = p.session_dir.join("blocks");
     if !input.stop_hook_active {

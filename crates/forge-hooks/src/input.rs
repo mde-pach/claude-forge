@@ -24,6 +24,14 @@ pub struct HookInput {
     pub message: Option<String>,
     /// SessionStart: startup, resume, clear, compact.
     pub source: Option<String>,
+    /// A subagent's own events and tool calls: its id (absent for the main agent).
+    pub agent_id: Option<String>,
+    /// A subagent's type (the agent definition's `name`).
+    pub agent_type: Option<String>,
+    /// SubagentStop: the subagent's final message.
+    pub last_assistant_message: Option<String>,
+    /// SubagentStop: the subagent's own transcript.
+    pub agent_transcript_path: Option<String>,
 }
 
 impl HookInput {
@@ -53,6 +61,12 @@ impl HookInput {
     /// The tool call's id, safe as a file name.
     pub fn tool_key(&self) -> Option<String> {
         safe_key(self.tool_use_id.as_deref()?)
+    }
+
+    /// The subagent the event or tool call belongs to, safe as a file name; None for the main
+    /// agent.
+    pub fn agent_key(&self) -> Option<String> {
+        safe_key(self.agent_id.as_deref()?)
     }
 }
 

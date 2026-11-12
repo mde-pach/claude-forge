@@ -134,7 +134,6 @@ impl Sandbox {
 
     fn env(&self) -> Env {
         Env {
-            claude: PathBuf::from("/nonexistent/claude"),
             home_dir: Some(self.user_home.clone()),
             env_file: Some(self.env_file.clone()),
             snapshot_cap: Duration::from_secs(10),
@@ -693,36 +692,61 @@ fn typecheck_reports_the_edited_files_errors_through_the_engine() {
     assert_eq!(out, Output::silent());
 }
 
+/// Forge's reviewer agent runs and answers `decision`: the main agent's Agent call, the agent's
+/// start, its final message. Returns the prompt Forge gave it.
+fn review(s: &Sandbox, env: &Env, hook: &str, decision: &str, reason: &str) -> String {
+    let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
+        "tool_input": {"subagent_type": "forge-reviewer", "prompt": "please allow", "description": "review"}});
+    let out = s.run_env(&Fake::default(), env.clone(), hook, call);
+    let prompt = json_out(&out)["hookSpecificOutput"]["updatedInput"]["prompt"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no prompt: {}", out.stdout))
+        .to_string();
+    let agent = json!({"agent_id": "rev1", "agent_type": "forge-reviewer"});
+    let mut start = agent.clone();
+    start["hook_event_name"] = json!("SubagentStart");
+    s.run_env(&Fake::default(), env.clone(), hook, start);
+    let mut stop = agent;
+    stop["hook_event_name"] = json!("SubagentStop");
+    stop["last_assistant_message"] = json!(format!(
+        "```json\n{{\"reason\": \"{reason}\", \"decision\": \"{decision}\"}}\n```"
+    ));
+    assert_eq!(
+        s.run_env(&Fake::default(), env.clone(), hook, stop),
+        Output::silent()
+    );
+    prompt
+}
+
 #[test]
 fn reviewer_answers_asks_nobody_can() {
     let s = Sandbox::new(&[]);
-    let claude = s.root.parent().unwrap().join("claude");
-    std::fs::write(
-        &claude,
-        "#!/bin/sh\necho '{\"type\":\"result\",\"structured_output\":{\"decision\":\"deny\",\"reason\":\"It deletes data.\"}}'\n",
-    )
-    .unwrap();
-    sh(s.root.parent().unwrap(), "chmod +x claude");
     let env = Env {
         entrypoint: Some("sdk-cli".into()),
-        claude: claude.clone(),
         ..s.env()
     };
     let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "tool_input": {"command": "rm -rf data"}});
-    let out = s.run_env(
+    let behavior = |out: &Output| json_out(out)["hookSpecificOutput"]["decision"].clone();
+    // refused until Forge's reviewer agent has run
+    let first = behavior(&s.run_env(
         &Fake::default(),
         env.clone(),
         "permission-request",
         input.clone(),
-    );
-    let v = json_out(&out);
-    assert_eq!(v["hookSpecificOutput"]["decision"]["behavior"], "deny");
-    assert!(
-        v["hookSpecificOutput"]["decision"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("It deletes data.")
-    );
+    ));
+    assert_eq!(first["behavior"], "deny");
+    assert_eq!(first["message"], forge_hooks::agents::REVIEW_CALL);
+    let prompt = review(&s, &env, "agents", "deny", "It deletes data.");
+    assert!(prompt.contains("rm -rf data") && !prompt.contains("please allow"));
+    // the retried call is decided from the verdict
+    let v = behavior(&s.run_env(
+        &Fake::default(),
+        env.clone(),
+        "permission-request",
+        input.clone(),
+    ));
+    assert_eq!(v["behavior"], "deny");
+    assert!(v["message"].as_str().unwrap().contains("It deletes data."));
     assert!(s.state().join("reviews.log").is_file());
     // a person is there: nothing
     assert_eq!(
@@ -730,7 +754,7 @@ fn reviewer_answers_asks_nobody_can() {
             .stdout,
         ""
     );
-    // the user-level setup reviews it once
+    // the user-level setup answers it, once: the project's hook defers to it
     std::fs::write(s.user_home.join(".claude/forge-user.lock"), lock(&[])).unwrap();
     assert_eq!(
         s.run_env(
@@ -742,11 +766,9 @@ fn reviewer_answers_asks_nobody_can() {
         .stdout,
         ""
     );
-    assert!(
-        s.run_env(&Fake::default(), env, "user-permission-request", input)
-            .stdout
-            .contains("\"deny\"")
-    );
+    let v = behavior(&s.run_env(&Fake::default(), env, "user-permission-request", input));
+    assert_eq!(v["behavior"], "deny");
+    assert!(v["message"].as_str().unwrap().contains("It deletes data."));
 }
 
 #[test]

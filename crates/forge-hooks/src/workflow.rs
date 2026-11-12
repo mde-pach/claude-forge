@@ -1,12 +1,15 @@
-//! Workflows: a chain of read-only `claude -p` steps described in a YAML file, and the text the
-//! chain ends with. The spec step is one workflow; the engine knows nothing of specs.
+//! Workflows: a chain of read-only steps described in a YAML file, and the text the chain ends
+//! with. Each step runs as Forge's step agent, a native Claude Code subagent of the session
+//! (`crate::agents`); this module is the chain itself: what each step is asked, what its answer
+//! must be, and what the workflow ends with. The spec step is one workflow; the engine knows
+//! nothing of specs.
 //!
 //! A workflow file (strict YAML, as packs are) has an optional trigger `on` (when a session runs
-//! it), `inputs` (names given by the caller), `steps`
-//! (run in the file's order) and `result` (a template: the text the caller gets). Each step has a
-//! `prompt` template, the `tools` it may use, `max_turns`, an `output_schema` (JSON Schema, which
-//! `claude --json-schema` fills and the engine checks again) and an optional `if` (a Jinja
-//! expression; false skips the step, whose `output` is then `none`).
+//! it), `inputs` (names given by the caller), `steps` (run in the file's order) and `result` (a
+//! template: the text the caller gets). Each step has a `prompt` template, the `tools` it may use,
+//! an `output_schema` (JSON Schema its answer must match), an optional `if` (a Jinja expression;
+//! false skips the step, whose `output` is then `none`) and `forge`, the hooks of Forge that apply
+//! to its tool calls.
 //!
 //! Templates are Jinja ([minijinja]) with strict undefined values. They see each input by its
 //! name, `repo` (the directory the steps read) and `steps.<name>.output`. A template may only
@@ -14,8 +17,6 @@
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::{Duration, Instant};
 
 use indexmap::IndexMap;
 use minijinja::{Environment, UndefinedBehavior};
@@ -33,8 +34,7 @@ pub struct Workflow {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// When a session runs it on its own; without one, only when asked
-    /// (`forge internal workflow run`).
+    /// When a session runs it on its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on: Option<Trigger>,
     /// The names the caller gives values for; templates see each by its name.
@@ -54,22 +54,50 @@ pub enum Trigger {
     FirstPrompt,
 }
 
-/// One `claude -p` call.
+/// One step: one run of Forge's step agent.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Step {
     /// A Jinja expression; when false the step is skipped and its output is `none`.
     #[serde(default, rename = "if", skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
-    /// Claude Code tools the step may use: Read, Grep, Glob, and Bash, which runs in Claude
-    /// Code's sandbox with the repository read-only (see [`settings`]). Empty: none.
+    /// Claude Code tools the step may use: Read, Grep, Glob, and Bash. Empty: none. The step
+    /// never changes the repository: an edit is refused, and what its Bash writes is put back.
     #[serde(default)]
     pub tools: Vec<String>,
-    pub max_turns: u32,
-    /// The JSON Schema the step's output follows.
+    /// Accepted from older files and not used: the clock bounds a step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_turns: Option<u32>,
+    /// The JSON Schema the step's answer follows.
     pub output_schema: Value,
     /// A Jinja template: what the step is asked.
     pub prompt: String,
+    /// Forge's hooks that apply to the step's tool calls.
+    #[serde(default)]
+    pub forge: StepHooks,
+}
+
+/// Which of Forge's hooks apply to a step's own tool calls (the step runs inside the session,
+/// where every hook fires).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields, default)]
+pub struct StepHooks {
+    /// The Bash guard (§9.2).
+    pub guard: bool,
+    /// The refusal of Forge's own paths (§9.3).
+    pub internals: bool,
+    /// The edit-time checks after a Bash command (§8.6).
+    pub checks: bool,
+}
+
+impl Default for StepHooks {
+    fn default() -> Self {
+        Self {
+            guard: true,
+            internals: true,
+            checks: false,
+        }
+    }
 }
 
 /// The names templates may use besides the inputs.
@@ -193,72 +221,34 @@ fn check(wf: &Workflow) -> Result<(), String> {
     Ok(())
 }
 
-/// How a step's `claude -p` call is made (a fake one in tests).
-pub trait Model {
-    fn call(&self, name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called;
-}
-
-/// What a step's call gave: its output, and what the call did when one was made ([`meta`]).
-pub struct Called {
-    pub output: Result<Value, String>,
-    pub meta: Option<Value>,
-}
-
-impl From<Result<Value, String>> for Called {
-    fn from(output: Result<Value, String>) -> Self {
-        Self { output, meta: None }
-    }
-}
-
-/// The settings of a step's session: no hooks; with Bash, Claude Code's sandbox, required
-/// (`failIfUnavailable`, no unsandboxed retry), with no network and `deny` not writable: what
-/// [`PutBack`] cannot put back, or the whole of `repo` when there is no [`PutBack`] (scripts go
-/// in `$TMPDIR`, the step's own: [`StepTmp`]). Inside a container the sandbox is the nested,
-/// weaker one, the container being the outer isolation.
-fn settings(step: &Step, repo: &Path, deny: Option<&[PathBuf]>, in_container: bool) -> Value {
-    let mut s = json!({ "disableAllHooks": true });
-    if step.tools.iter().any(|t| t == "Bash") {
-        s["sandbox"] = json!({
-            "enabled": true,
-            "failIfUnavailable": true,
-            "autoAllowBashIfSandboxed": true,
-            "allowUnsandboxedCommands": false,
-            "enableWeakerNestedSandbox": in_container,
-            "filesystem": { "denyWrite": match deny {
-                Some(paths) => paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
-                None => vec![repo.display().to_string()],
-            } },
-            "network": { "allowedDomains": [], "strictAllowlist": true },
-        });
-    }
-    s
-}
+// ---- The repository around a step
 
 /// How long one snapshot of the repository may take.
-const SNAPSHOT_CAP: Duration = Duration::from_secs(60);
+const SNAPSHOT_CAP: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// The repository around a step with Bash: writable while the step runs, so the project's own
-/// programs work as they would for the agent (one that logs what it does, a database that keeps
-/// a journal), then put back as it was. Before the step, the working tree is a git tree in a
-/// private object store ([`BashSnapshots`]: the user's index and objects are never touched), and
-/// its directories are listed; after it, the files the step added are removed (ignored ones
-/// too), the ones it changed or deleted restored, and the directories it made removed. What the
-/// tree does not hold stays not writable (`deny`): `.git`, Claude's worktrees, the ignored
-/// paths that were there.
-struct PutBack {
+/// The repository around a step: the step may write in it while it runs, so the project's own
+/// programs work as they would for the agent (one that logs what it does, a database that keeps a
+/// journal), then it is put back as it was. When the step starts, the working tree is a git tree
+/// in a private object store under `dir` ([`BashSnapshots`]: the user's index and objects are
+/// never touched), and its directories are listed; when it ends, the files the step added are
+/// removed (ignored ones too), the ones it changed or deleted restored, and the directories it
+/// made removed. Saved between the step's start and its end, which are separate hook calls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PutBack {
     root: PathBuf,
-    snaps: BashSnapshots,
+    dir: PathBuf,
     before: String,
     ignored: Vec<String>,
     dirs: BTreeSet<PathBuf>,
-    deny: Vec<PathBuf>,
-    _dir: StepTmp,
+    /// What the walk of directories skips: `.git`, Claude's worktrees, the ignored paths that
+    /// were there.
+    skip: Vec<PathBuf>,
 }
 
 impl PutBack {
-    /// None outside a git repository, or when the snapshot fails: the step then runs with the
-    /// repository not writable.
-    fn take(repo: &Path) -> Option<Self> {
+    /// The repository of `repo` as it is now, its snapshot kept in `dir`. None outside a git
+    /// repository, or when the snapshot fails.
+    pub fn take(repo: &Path, dir: &Path) -> Option<Self> {
         let out = proc::git(
             repo,
             &["rev-parse", "--show-toplevel", "--absolute-git-dir"],
@@ -267,46 +257,41 @@ impl PutBack {
         let out = String::from_utf8_lossy(&out).into_owned();
         let mut lines = out.lines();
         let (root, git_dir) = (PathBuf::from(lines.next()?), PathBuf::from(lines.next()?));
-        let dir = StepTmp::new().ok()?;
-        let snaps = BashSnapshots::new(&root, &dir.0, &dir.0);
+        std::fs::create_dir_all(dir).ok()?;
+        let snaps = BashSnapshots::new(&root, dir, dir);
         let before = snaps.tree("before", true, SNAPSHOT_CAP)?;
         let ignored = ignored(&root, &[], true)?;
-        let mut deny = vec![
-            git_dir,
-            root.join(".git"),
-            root.join(".claude/worktrees"),
-            dir.0.clone(),
-        ];
-        deny.extend(ignored.iter().map(|p| root.join(p)));
+        let mut skip = vec![git_dir, root.join(".git"), root.join(".claude/worktrees")];
+        skip.extend(ignored.iter().map(|p| root.join(p)));
         let mut dirs = BTreeSet::new();
-        walk_dirs(&root, &deny, &mut dirs);
+        walk_dirs(&root, &skip, &mut dirs);
         Some(Self {
             root,
-            snaps,
+            dir: dir.to_path_buf(),
             before,
             ignored,
             dirs,
-            deny,
-            _dir: dir,
+            skip,
         })
     }
 
-    /// The repository as it was before the step; an error naming what could not be put back.
-    fn put_back(&self) -> Result<(), String> {
+    /// The repository as it was when the step started; an error naming what could not be put
+    /// back.
+    pub fn put_back(&self) -> Result<(), String> {
         let not = |what: &str| {
             format!("the step's changes to the repository could not be undone: {what}")
         };
-        let after = self
-            .snaps
+        let snaps = BashSnapshots::new(&self.root, &self.dir, &self.dir);
+        let after = snaps
             .tree("after", true, SNAPSHOT_CAP)
             .ok_or_else(|| not("no snapshot after the step"))?;
-        let mut ok = self.snaps.put_back(&self.before, &after, SNAPSHOT_CAP);
-        // ignored files the step wrote, outside the ignored paths it could not write
+        let mut ok = snaps.put_back(&self.before, &after, SNAPSHOT_CAP);
+        // ignored files the step wrote, outside the ignored paths that were there
         for path in ignored(&self.root, &self.ignored, false).unwrap_or_default() {
             ok &= std::fs::remove_file(self.root.join(path)).is_ok();
         }
         let mut now = BTreeSet::new();
-        walk_dirs(&self.root, &self.deny, &mut now);
+        walk_dirs(&self.root, &self.skip, &mut now);
         // a directory the step made holds only what it wrote (a parent comes first and takes
         // the ones it holds with it)
         for made in now.difference(&self.dirs) {
@@ -314,12 +299,10 @@ impl PutBack {
                 ok &= std::fs::remove_dir_all(made).is_ok();
             }
         }
-        let check = self
-            .snaps
+        let check = snaps
             .tree("check", true, SNAPSHOT_CAP)
             .ok_or_else(|| not("no snapshot after putting it back"))?;
-        let left: Vec<String> = self
-            .snaps
+        let left: Vec<String> = snaps
             .diff(&self.before, &check)
             .into_iter()
             .map(|(_, p)| p)
@@ -374,378 +357,319 @@ fn walk_dirs(dir: &Path, skip: &[PathBuf], into: &mut BTreeSet<PathBuf>) {
     }
 }
 
-/// Running inside a container (Docker, Podman).
-fn in_container() -> bool {
-    Path::new("/.dockerenv").exists() || Path::new("/run/.containerenv").exists()
-}
+// ---- What a step did
 
-/// A step's own temp directory, given to its session as `CLAUDE_CODE_TMPDIR`: the sandbox's
-/// writable `$TMPDIR` is then inside it, not the per-user one other Claude sessions share. Under
-/// `/tmp` and short, since Claude Code falls back to the shared one for a long path; private to
-/// the user; removed when it is dropped.
-struct StepTmp(PathBuf);
-
-impl StepTmp {
-    fn new() -> std::io::Result<Self> {
-        use std::os::unix::fs::DirBuilderExt;
-        let base = Path::new("/tmp");
-        let base = if base.is_dir() {
-            base.to_path_buf()
-        } else {
-            std::env::temp_dir()
-        };
-        // pid and a counter: unique among this process's steps, which may run at the same instant;
-        // one left by an earlier process of the same pid is skipped
-        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        loop {
-            let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let dir = base.join(format!("fw-{}-{n}", std::process::id()));
-            match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
-                Ok(()) => return Ok(Self(dir)),
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && n < 1000 => {}
-                Err(e) => return Err(e),
-            }
-        }
-    }
-}
-
-impl Drop for StepTmp {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-/// `claude -p` as Forge's own agents run it: no hooks, no MCP, no settings but [`settings`], the
-/// reviewer's environment (`FORGE_REVIEWER=1`: Forge's hooks stay out), structured output, and no
-/// background tasks (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`): `claude -p` waits after its result
-/// for a command left running in the background, up to that command's own limit (30 minutes by
-/// default), so a step that left one would end only at its cap.
-pub struct Claude {
-    pub exe: PathBuf,
-    pub model: Option<String>,
-}
-
-impl Model for Claude {
-    fn call(&self, _name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called {
-        match self.run(step, prompt, cwd, cap) {
-            Ok(called) => called,
-            Err(e) => Err(e).into(),
-        }
-    }
-}
-
-impl Claude {
-    fn run(&self, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Result<Called, String> {
-        let schema = step.output_schema.to_string();
-        let tools = step.tools.join(",");
-        let put_back = step
-            .tools
-            .iter()
-            .any(|t| t == "Bash")
-            .then(|| PutBack::take(cwd))
-            .flatten();
-        let deny = put_back.as_ref().map(|p| p.deny.as_slice());
-        let settings = settings(step, cwd, deny, in_container()).to_string();
-        let tmp = StepTmp::new().map_err(|e| format!("no temp directory for the step: {e}"))?;
-        let mut cmd = Command::new(&self.exe);
-        cmd.current_dir(cwd)
-            .env("FORGE_REVIEWER", "1")
-            .env("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1")
-            .env("CLAUDE_CODE_TMPDIR", &tmp.0)
-            .args([
-                "-p",
-                prompt,
-                "--output-format",
-                "stream-json",
-                "--verbose",
-                "--json-schema",
-                &schema,
-            ])
-            .args(["--tools", &tools, "--allowedTools", &tools])
-            .args([
-                "--permission-mode",
-                "dontAsk",
-                "--max-turns",
-                &step.max_turns.to_string(),
-            ])
-            .args(["--no-session-persistence", "--strict-mcp-config"])
-            .args(["--setting-sources", "", "--settings", &settings]);
-        if let Some(m) = &self.model {
-            cmd.args(["--model", m]);
-        }
-        let out = proc::run(&mut cmd, None, cap);
-        let undone = put_back.map_or(Ok(()), |p| p.put_back());
-        let out = out.ok_or("claude could not run or was stopped")?;
-        let (result, meta) = meta(&out.stdout, out.timed_out);
-        let output = if out.timed_out {
-            Err(format!("claude took longer than {}s", cap.as_secs()))
-        } else if !out.ok {
-            Err(failure(result.as_ref()))
-        } else {
-            match result.as_ref().map(|r| &r["structured_output"]) {
-                None => Err("claude gave no result".into()),
-                Some(Value::Null) => Err("claude gave no structured answer".into()),
-                Some(so) => Ok(so.clone()),
-            }
-        };
-        let output = undone.and(output);
-        Ok(Called {
-            output,
-            meta: Some(meta),
-        })
-    }
-}
-
-/// What a step's `claude -p` did, read from its stream (`--output-format stream-json`), with the
-/// stream's `result` event when it got that far. Read as far as the stream goes, so a step killed
-/// at its cap still says what it had done: `model`, `session_id`, `turns` (the result's, else the
-/// model's messages), `api_calls` (the model's messages), `tool_calls` by tool, `last_tool`,
-/// `tokens` (`input`, `output`, `cache_read`, `cache_write`) with `tokens_from` (`result`, or
-/// `messages` when there is no result: each message's usage as streamed, its output tokens lower
-/// than the final count), `cost_usd` and `api_seconds` (from the result only), and `end` (the
-/// result's subtype, `killed at its cap` or `no result`).
-pub fn meta(stream: &[u8], timed_out: bool) -> (Option<Value>, Value) {
-    let mut init = Value::Null;
+/// What an agent did, read from its transcript (one JSON event per line, as Claude Code writes
+/// it): `model`, `turns` (the model's messages), `tool_calls` by tool, `last_tool`, and `tokens`
+/// (`input`, `output`, `cache_read`, `cache_write`; each message counted once, at its last
+/// usage).
+pub fn meta(transcript: &[u8]) -> Value {
+    let mut model = Value::Null;
     let mut messages: Vec<(String, Value)> = Vec::new();
     let mut tools: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
     let mut seen = BTreeSet::new();
     let mut last_tool = Value::Null;
-    let mut result = None;
-    for line in stream.split(|b| *b == b'\n') {
+    for line in transcript.split(|b| *b == b'\n') {
         let Ok(e) = serde_json::from_slice::<Value>(line) else {
             continue;
         };
-        match e["type"].as_str() {
-            Some("system") if e["subtype"] == "init" => init = e,
-            Some("assistant") => {
-                let m = &e["message"];
-                let id = m["id"].as_str().unwrap_or_default().to_string();
-                match messages.iter_mut().find(|(i, _)| *i == id) {
-                    Some(seen) => seen.1 = m["usage"].clone(),
-                    None => messages.push((id, m["usage"].clone())),
-                }
-                for c in m["content"].as_array().into_iter().flatten() {
-                    let name = c["name"].as_str().unwrap_or_default();
-                    if c["type"] == "tool_use" && seen.insert(c["id"].to_string()) {
-                        *tools.entry(name.to_string()).or_default() += 1;
-                        last_tool = json!(name);
-                    }
-                }
+        if e["type"] != "assistant" {
+            continue;
+        }
+        let m = &e["message"];
+        if m["model"].is_string() {
+            model = m["model"].clone();
+        }
+        let id = m["id"].as_str().unwrap_or_default().to_string();
+        match messages.iter_mut().find(|(i, _)| *i == id) {
+            Some(seen) => seen.1 = m["usage"].clone(),
+            None => messages.push((id, m["usage"].clone())),
+        }
+        for c in m["content"].as_array().into_iter().flatten() {
+            let name = c["name"].as_str().unwrap_or_default();
+            if c["type"] == "tool_use" && seen.insert(c["id"].to_string()) {
+                *tools.entry(name.to_string()).or_default() += 1;
+                last_tool = json!(name);
             }
-            Some("result") => result = Some(e),
-            _ => {}
         }
     }
-    let tokens = |u: &dyn Fn(&str) -> u64| {
-        json!({
-            "input": u("input_tokens"),
-            "output": u("output_tokens"),
-            "cache_read": u("cache_read_input_tokens"),
-            "cache_write": u("cache_creation_input_tokens"),
-        })
-    };
-    let r = result.clone().unwrap_or(Value::Null);
-    let (tokens, from) = if r["usage"].is_object() {
-        (tokens(&|k| r["usage"][k].as_u64().unwrap_or(0)), "result")
-    } else {
-        let sum = |k: &str| {
-            messages
-                .iter()
-                .map(|(_, u)| u[k].as_u64().unwrap_or(0))
-                .sum()
-        };
-        (tokens(&sum), "messages")
-    };
-    let end = if timed_out {
-        json!("killed at its cap")
-    } else if result.is_some() {
-        r["subtype"].clone()
-    } else {
-        json!("no result")
-    };
-    let turns = match &r["num_turns"] {
-        Value::Null => json!(messages.len()),
-        n => n.clone(),
+    let sum = |k: &str| -> u64 {
+        messages
+            .iter()
+            .map(|(_, u)| u[k].as_u64().unwrap_or(0))
+            .sum()
     };
     let mut m = Map::new();
     for (k, v) in [
-        ("model", init["model"].clone()),
-        ("session_id", init["session_id"].clone()),
-        ("turns", turns),
-        ("api_calls", json!(messages.len())),
+        ("model", model),
+        ("turns", json!(messages.len())),
         ("tool_calls", json!(tools)),
         ("last_tool", last_tool),
-        ("tokens", tokens),
-        ("tokens_from", json!(from)),
-        ("cost_usd", r["total_cost_usd"].clone()),
         (
-            "api_seconds",
-            r["duration_api_ms"]
-                .as_f64()
-                .map_or(Value::Null, |ms| json!(ms / 1000.0)),
+            "tokens",
+            json!({
+                "input": sum("input_tokens"),
+                "output": sum("output_tokens"),
+                "cache_read": sum("cache_read_input_tokens"),
+                "cache_write": sum("cache_creation_input_tokens"),
+            }),
         ),
-        ("end", end),
     ] {
         if !v.is_null() {
             m.insert(k.into(), v);
         }
     }
-    (result, Value::Object(m))
+    Value::Object(m)
 }
 
-/// Why a `claude -p` that exited with an error failed, from its result: the result's subtype
-/// (`error_max_turns`, …), the API error, and its message, cut short.
-fn failure(result: Option<&Value>) -> String {
-    let Some(v) = result else {
-        return "claude failed".into();
-    };
-    let mut why: Vec<String> = Vec::new();
-    for key in [
-        "subtype",
-        "terminal_reason",
-        "api_error",
-        "api_error_status",
-    ] {
-        match &v[key] {
-            Value::String(s) if !s.is_empty() && s != "success" => why.push(s.clone()),
-            Value::Number(n) => why.push(n.to_string()),
-            _ => {}
-        }
-    }
-    if let Some(r) = v["result"].as_str().filter(|r| !r.is_empty()) {
-        why.push(r.chars().take(200).collect());
-    }
-    if why.is_empty() {
-        "claude failed".into()
-    } else {
-        format!("claude failed: {}", why.join(", "))
-    }
-}
+// ---- A run, one step at a time
 
 /// One step of a run, for the log.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StepRun {
     pub step: String,
     pub skipped: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
     pub output: Value,
     pub seconds: f64,
-    /// What the step's call did (turns, tokens, cost, …): [`meta`].
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// How many answers the step gave (the ones its schema refused, then the last).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempts: Option<u32>,
+    /// The step agent's transcript.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript: Option<String>,
+    /// What the step agent did (turns, tools, tokens): [`meta`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<Value>,
 }
 
 /// A whole run: every step, then the result (absent when a step failed).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Run {
     pub workflow: String,
     pub steps: Vec<StepRun>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
-/// Runs `wf` in `repo` with `inputs`, every step within what is left of `cap`. A failed step
-/// (no answer, out of time, an output its schema refuses) ends the run without a result.
-pub fn run(
+/// A run in progress, saved between the hook calls that drive it: the step it waits for and
+/// everything earlier steps gave.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Pending {
+    /// The workflow's name (its file name).
+    pub name: String,
+    pub inputs: Map<String, Value>,
+    pub repo: PathBuf,
+    /// The step the run waits for (its index in the file).
+    pub index: usize,
+    /// What that step is asked: its rendered prompt and the answer it must end with.
+    pub prompt: String,
+    /// Answers the step gave so far that its schema refused.
+    pub refused: u32,
+    /// When the run must be done (seconds since the Unix epoch).
+    pub deadline: u64,
+    pub run: Run,
+}
+
+/// Where a run goes next.
+#[derive(Debug)]
+pub enum Next {
+    /// A step to run.
+    Step(Box<Pending>),
+    /// Done: the run with its result, or with its error.
+    Done(Run),
+}
+
+/// The step at `index` of `wf`.
+pub fn step_at(wf: &Workflow, index: usize) -> Option<(&String, &Step)> {
+    wf.steps.get_index(index)
+}
+
+/// What a step is asked: its prompt, then the answer it must end with.
+fn with_contract(prompt: &str, schema: &Value) -> String {
+    format!(
+        "{}\n\nEnd with your answer: one JSON object, alone in a ```json block, that matches this JSON Schema:\n{schema}",
+        prompt.trim_end()
+    )
+}
+
+/// The context templates see after the steps of `run`.
+fn context(inputs: &Map<String, Value>, repo: &Path, run: &Run) -> Map<String, Value> {
+    let mut ctx = inputs.clone();
+    ctx.insert("repo".into(), json!(repo.display().to_string()));
+    let steps: Map<String, Value> = run
+        .steps
+        .iter()
+        .map(|s| (s.step.clone(), json!({ "output": s.output })))
+        .collect();
+    ctx.insert("steps".into(), Value::Object(steps));
+    ctx
+}
+
+fn render(src: &str, ctx: &Map<String, Value>) -> Result<String, String> {
+    env()
+        .template_from_str(src)
+        .and_then(|t| t.render(ctx))
+        .map_err(|e| e.to_string())
+}
+
+/// The run from step `index` on: the first step to run (skipped ones recorded), or the result.
+fn from_step(
     wf: &Workflow,
+    name: &str,
+    inputs: Map<String, Value>,
+    repo: &Path,
+    deadline: u64,
+    mut run: Run,
+    mut index: usize,
+) -> Next {
+    while let Some((step_name, step)) = step_at(wf, index) {
+        let ctx = context(&inputs, repo, &run);
+        let skip = match &step.condition {
+            Some(c) => match render(&condition_template(c), &ctx) {
+                Ok(v) => v != "true",
+                Err(e) => return Next::Done(failed(run, step_name, &e)),
+            },
+            None => false,
+        };
+        if !skip {
+            return match render(&step.prompt, &ctx) {
+                Ok(p) => Next::Step(Box::new(Pending {
+                    name: name.to_string(),
+                    inputs,
+                    repo: repo.to_path_buf(),
+                    index,
+                    prompt: with_contract(&p, &step.output_schema),
+                    refused: 0,
+                    deadline,
+                    run,
+                })),
+                Err(e) => Next::Done(failed(run, step_name, &e)),
+            };
+        }
+        run.steps.push(StepRun {
+            step: step_name.clone(),
+            skipped: true,
+            prompt: None,
+            output: Value::Null,
+            seconds: 0.0,
+            attempts: None,
+            transcript: None,
+            meta: None,
+        });
+        index += 1;
+    }
+    let ctx = context(&inputs, repo, &run);
+    match render(&wf.result, &ctx) {
+        Ok(r) => run.result = Some(r.trim().to_string()),
+        Err(e) => run.error = Some(format!("result: {e}")),
+    }
+    Next::Done(run)
+}
+
+fn failed(mut run: Run, step: &str, why: &str) -> Run {
+    run.error = Some(format!("step `{step}`: {why}"));
+    run
+}
+
+/// Starts `wf` (named `name`) in `repo` with `inputs`, to be done by `deadline`.
+pub fn start(
+    wf: &Workflow,
+    name: &str,
     inputs: &Map<String, Value>,
     repo: &Path,
-    model: &dyn Model,
-    cap: Duration,
-) -> Run {
-    let started = Instant::now();
-    let mut out = Run {
+    deadline: u64,
+) -> Next {
+    let run = Run {
         workflow: wf.id.clone(),
         steps: Vec::new(),
         result: None,
         error: None,
     };
     if let Some(missing) = wf.inputs.iter().find(|i| !inputs.contains_key(*i)) {
-        out.error = Some(format!("input `{missing}` is missing"));
-        return out;
+        let mut run = run;
+        run.error = Some(format!("input `{missing}` is missing"));
+        return Next::Done(run);
     }
-    let mut ctx = inputs.clone();
-    ctx.insert("repo".into(), json!(repo.display().to_string()));
-    ctx.insert("steps".into(), json!({}));
-    let env = env();
-    let render = |src: &str, ctx: &Map<String, Value>| -> Result<String, String> {
-        env.template_from_str(src)
-            .and_then(|t| t.render(ctx))
-            .map_err(|e| e.to_string())
+    from_step(wf, name, inputs.clone(), repo, deadline, run, 0)
+}
+
+/// What a step did besides its answer, for its log entry.
+#[derive(Debug, Clone, Default)]
+pub struct Done {
+    pub seconds: f64,
+    pub transcript: Option<String>,
+    pub meta: Option<Value>,
+}
+
+/// The pending step answered `output` (already checked against its schema): the run goes on.
+pub fn accept(wf: &Workflow, p: Pending, output: Value, done: Done) -> Next {
+    let Some((step, _)) = step_at(wf, p.index) else {
+        return Next::Done(failed(
+            p.run,
+            "?",
+            "the workflow file changed during the run",
+        ));
     };
-    for (name, step) in &wf.steps {
-        let t = Instant::now();
-        let fail = |out: &mut Run, e: String| out.error = Some(format!("step `{name}`: {e}"));
-        let skip = match &step.condition {
-            Some(c) => match render(&condition_template(c), &ctx) {
-                Ok(v) => v != "true",
-                Err(e) => {
-                    fail(&mut out, e);
-                    return out;
-                }
-            },
-            None => false,
-        };
-        let (prompt, output, meta) = if skip {
-            (None, Value::Null, None)
-        } else {
-            let prompt = match render(&step.prompt, &ctx) {
-                Ok(p) => p,
-                Err(e) => {
-                    fail(&mut out, e);
-                    return out;
-                }
-            };
-            let Some(left) = cap.checked_sub(started.elapsed()) else {
-                fail(&mut out, "no time left".into());
-                return out;
-            };
-            let called = model.call(name, step, &prompt, repo, left);
-            let result = called.output.and_then(|v| {
-                let validator =
-                    jsonschema::validator_for(&step.output_schema).map_err(|e| e.to_string())?;
-                let refused = validator
-                    .iter_errors(&v)
-                    .next()
-                    .map(|e| format!("output refused by its schema: {}: {e}", e.instance_path()));
-                refused.map_or(Ok(v), Err)
-            });
-            match result {
-                Ok(v) => (Some(prompt), v, called.meta),
-                Err(e) => {
-                    out.steps.push(StepRun {
-                        step: name.clone(),
-                        skipped: false,
-                        prompt: Some(prompt),
-                        output: Value::Null,
-                        seconds: t.elapsed().as_secs_f64(),
-                        meta: called.meta,
-                    });
-                    fail(&mut out, e);
-                    return out;
-                }
-            }
-        };
-        if let Some(Value::Object(steps)) = ctx.get_mut("steps") {
-            steps.insert(name.clone(), json!({ "output": output }));
-        }
-        out.steps.push(StepRun {
-            step: name.clone(),
-            skipped: skip,
-            prompt,
-            output,
-            seconds: t.elapsed().as_secs_f64(),
-            meta,
-        });
+    let mut run = p.run;
+    run.steps.push(StepRun {
+        step: step.clone(),
+        skipped: false,
+        prompt: Some(p.prompt),
+        output,
+        seconds: done.seconds,
+        attempts: Some(p.refused + 1),
+        transcript: done.transcript,
+        meta: done.meta,
+    });
+    from_step(wf, &p.name, p.inputs, &p.repo, p.deadline, run, p.index + 1)
+}
+
+/// The pending step failed (`why`): the run ends without a result.
+pub fn fail(wf: &Workflow, p: Pending, why: &str, done: Done) -> Run {
+    let step = step_at(wf, p.index).map_or("?".to_string(), |(s, _)| s.clone());
+    let mut run = p.run;
+    run.steps.push(StepRun {
+        step: step.clone(),
+        skipped: false,
+        prompt: Some(p.prompt),
+        output: Value::Null,
+        seconds: done.seconds,
+        attempts: Some(p.refused + 1),
+        transcript: done.transcript,
+        meta: done.meta,
+    });
+    failed(run, &step, why)
+}
+
+/// A step's answer: the last ```json block of its final message (else the whole message), checked
+/// against its schema. The error says what to correct.
+pub fn answer(step: &Step, message: &str) -> Result<Value, String> {
+    let block = message
+        .rsplit("```json")
+        .next()
+        .filter(|_| message.contains("```json"))
+        .and_then(|rest| rest.split("```").next());
+    let text = block.unwrap_or(message).trim();
+    let value: Value = serde_json::from_str(text)
+        .map_err(|e| format!("your answer is not one JSON object in a ```json block ({e})"))?;
+    let validator = jsonschema::validator_for(&step.output_schema).map_err(|e| e.to_string())?;
+    let problems: Vec<String> = validator
+        .iter_errors(&value)
+        .take(10)
+        .map(|e| format!("{}: {e}", e.instance_path()))
+        .collect();
+    if problems.is_empty() {
+        Ok(value)
+    } else {
+        Err(format!(
+            "your answer does not match its JSON Schema: {}",
+            problems.join("; ")
+        ))
     }
-    match render(&wf.result, &ctx) {
-        Ok(r) => out.result = Some(r.trim().to_string()),
-        Err(e) => out.error = Some(format!("result: {e}")),
-    }
-    out
 }
 
 /// The workflows Forge ships, the fallback when no file replaces them.
@@ -782,129 +706,25 @@ pub fn available(dir: Option<&Path>) -> Vec<(String, Result<String, String>)> {
     all.into_iter().collect()
 }
 
-fn dir_from_env() -> Option<PathBuf> {
-    std::env::var_os(DIR_VAR)
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-}
-
-/// `forge internal workflow run <file|name> --repo DIR [--input NAME=FILE]... [--cap SECS]
-/// [--reuse RUN.json]`: runs a workflow outside a session and prints the run as JSON. With
-/// `--reuse`, a step that ran in that earlier run (same name) takes its output from there instead
-/// of calling claude again. For trying workflows; the hooks run them in place.
-pub fn cli(args: &[String]) -> i32 {
-    match cli_run(args) {
-        Ok(run) => {
-            println!("{}", serde_json::to_string_pretty(&run).unwrap_or_default());
-            i32::from(run.error.is_some())
-        }
-        Err(e) => {
-            eprintln!("forge internal workflow: {e}");
-            2
-        }
-    }
-}
-
-fn cli_run(args: &[String]) -> Result<Run, String> {
-    let usage = "usage: workflow run <file|name> --repo DIR [--input NAME=FILE]... [--cap SECS] [--reuse RUN.json]";
-    let mut it = args.iter();
-    if it.next().map(String::as_str) != Some("run") {
-        return Err(usage.into());
-    }
-    let which = it.next().ok_or(usage)?;
-    let (mut repo, mut inputs, mut cap) = (None, Map::new(), Duration::from_secs(1740));
-    let mut reused = Map::new();
-    while let Some(a) = it.next() {
-        let v = it.next().ok_or(usage)?;
-        match a.as_str() {
-            "--repo" => repo = Some(PathBuf::from(v)),
-            "--input" => {
-                let (k, file) = v.split_once('=').ok_or("--input takes NAME=FILE")?;
-                let text = std::fs::read_to_string(file).map_err(|e| format!("{file}: {e}"))?;
-                inputs.insert(k.to_string(), json!(text.trim()));
-            }
-            "--cap" => cap = Duration::from_secs(v.parse().map_err(|_| "--cap takes seconds")?),
-            "--reuse" => {
-                let text = std::fs::read_to_string(v).map_err(|e| format!("{v}: {e}"))?;
-                let earlier: Value =
-                    serde_json::from_str(&text).map_err(|e| format!("{v}: {e}"))?;
-                for s in earlier["steps"].as_array().into_iter().flatten() {
-                    if let (Some(name), false) =
-                        (s["step"].as_str(), s["skipped"].as_bool().unwrap_or(true))
-                    {
-                        reused.insert(name.to_string(), s["output"].clone());
-                    }
-                }
-            }
-            _ => return Err(usage.into()),
-        }
-    }
-    let named = available(dir_from_env().as_deref())
+/// The workflow named `name`, loaded; an error when it is missing or invalid.
+pub fn named(dir: Option<&Path>, name: &str) -> Result<Workflow, String> {
+    let text = available(dir)
         .into_iter()
-        .find(|(n, _)| n == which)
-        .map(|(_, t)| t);
-    let text = match named {
-        Some(t) => t?,
-        None => std::fs::read_to_string(which).map_err(|e| format!("{which}: {e}"))?,
-    };
-    let wf = load(&text)?;
-    let model = Reused {
-        outputs: reused,
-        model: Claude {
-            exe: PathBuf::from("claude"),
-            model: std::env::var("FORGE_REVIEW_MODEL")
-                .ok()
-                .filter(|m| !m.is_empty()),
-        },
-    };
-    Ok(run(&wf, &inputs, &repo.ok_or(usage)?, &model, cap))
-}
-
-/// Outputs of an earlier run, by step name, before the real model.
-struct Reused {
-    outputs: Map<String, Value>,
-    model: Claude,
-}
-
-impl Model for Reused {
-    fn call(&self, name: &str, step: &Step, prompt: &str, cwd: &Path, cap: Duration) -> Called {
-        match self.outputs.get(name) {
-            Some(v) => Ok(v.clone()).into(),
-            None => self.model.call(name, step, prompt, cwd, cap),
-        }
-    }
+        .find(|(n, _)| n == name)
+        .map(|(_, t)| t)
+        .ok_or_else(|| format!("no workflow `{name}`"))??;
+    load(&text)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-
-    /// Answers each step with the next canned output, and records the prompts.
-    struct Fake {
-        outputs: RefCell<Vec<Value>>,
-        prompts: RefCell<Vec<String>>,
-    }
-
-    impl Model for Fake {
-        fn call(&self, _: &str, _: &Step, prompt: &str, _: &Path, _: Duration) -> Called {
-            self.prompts.borrow_mut().push(prompt.to_string());
-            Ok(self.outputs.borrow_mut().remove(0)).into()
-        }
-    }
-
-    fn fake(outputs: Vec<Value>) -> Fake {
-        Fake {
-            outputs: RefCell::new(outputs),
-            prompts: RefCell::new(Vec::new()),
-        }
-    }
+    use std::process::Command;
 
     const TWO_STEPS: &str = r#"id: t
 inputs: [request]
 steps:
   ask:
-    max_turns: 1
     output_schema: {type: object, properties: {qs: {type: array, items: {type: string}}}, required: [qs]}
     prompt: "Request: {{ request }}"
   answer:
@@ -921,45 +741,112 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         m
     }
 
+    fn pending(n: Next) -> Pending {
+        match n {
+            Next::Step(p) => *p,
+            Next::Done(r) => panic!("done: {r:?}"),
+        }
+    }
+
+    fn done(n: Next) -> Run {
+        match n {
+            Next::Done(r) => r,
+            Next::Step(p) => panic!("pending step {}", p.index),
+        }
+    }
+
+    /// Drives a run, answering each step with the next of `outputs`, and returns the prompts.
+    fn drive(wf: &Workflow, outputs: Vec<Value>) -> (Vec<String>, Run) {
+        let mut prompts = Vec::new();
+        let mut next = start(wf, "t", &inputs(), Path::new("/r"), u64::MAX);
+        for out in outputs {
+            let p = pending(next);
+            prompts.push(
+                p.prompt
+                    .split("\n\nEnd with your answer")
+                    .next()
+                    .unwrap()
+                    .to_string(),
+            );
+            next = accept(wf, p, out, Done::default());
+        }
+        (prompts, done(next))
+    }
+
     #[test]
     fn steps_run_in_order_and_see_earlier_outputs() {
         let wf = load(TWO_STEPS).unwrap();
-        let m = fake(vec![json!({"qs": ["q1", "q2"]}), json!({"a": "yes"})]);
-        let run = run(&wf, &inputs(), Path::new("/r"), &m, Duration::from_secs(60));
+        let (prompts, run) = drive(&wf, vec![json!({"qs": ["q1", "q2"]}), json!({"a": "yes"})]);
         assert_eq!(run.error, None);
-        assert_eq!(*m.prompts.borrow(), vec!["Request: fix it", "q1;q2;"]);
+        assert_eq!(prompts, ["Request: fix it", "q1;q2;"]);
         assert_eq!(run.result.as_deref(), Some("2 yes"));
+        assert_eq!(run.steps[0].attempts, Some(1));
+    }
+
+    #[test]
+    fn a_step_is_told_the_answer_it_must_end_with() {
+        let wf = load(TWO_STEPS).unwrap();
+        let p = pending(start(&wf, "t", &inputs(), Path::new("/r"), 0));
+        assert!(
+            p.prompt
+                .starts_with("Request: fix it\n\nEnd with your answer: one JSON object")
+        );
+        assert!(
+            p.prompt
+                .ends_with(&wf.steps["ask"].output_schema.to_string())
+        );
     }
 
     #[test]
     fn a_false_condition_skips_the_step() {
         let wf = load(TWO_STEPS).unwrap();
-        let m = fake(vec![json!({"qs": []})]);
-        let run = run(&wf, &inputs(), Path::new("/r"), &m, Duration::from_secs(60));
+        let (prompts, run) = drive(&wf, vec![json!({"qs": []})]);
         assert!(run.steps[1].skipped);
-        assert_eq!(m.prompts.borrow().len(), 1);
+        assert_eq!(prompts.len(), 1);
         assert_eq!(run.result.as_deref(), Some("0 none"));
     }
 
     #[test]
-    fn an_output_its_schema_refuses_ends_the_run() {
+    fn an_answer_is_its_last_json_block_checked_against_its_schema() {
         let wf = load(TWO_STEPS).unwrap();
-        let m = fake(vec![json!({"other": 1})]);
-        let run = run(&wf, &inputs(), Path::new("/r"), &m, Duration::from_secs(60));
-        assert!(run.error.unwrap().contains("refused by its schema"));
+        let step = &wf.steps["ask"];
+        let msg = "Done.\n```json\n{\"qs\": [\"x\"]}\n```";
+        assert_eq!(answer(step, msg).unwrap(), json!({"qs": ["x"]}));
+        assert_eq!(answer(step, "{\"qs\": []}").unwrap(), json!({"qs": []}));
+        let e = answer(step, "```json\n{\"other\": 1}\n```").unwrap_err();
+        assert!(e.contains("does not match its JSON Schema"), "{e}");
+        assert!(
+            answer(step, "no json here")
+                .unwrap_err()
+                .contains("not one JSON object")
+        );
+    }
+
+    #[test]
+    fn a_failed_step_ends_the_run_with_what_it_did() {
+        let wf = load(TWO_STEPS).unwrap();
+        let p = pending(start(&wf, "t", &inputs(), Path::new("/r"), 0));
+        let meta = json!({"turns": 7});
+        let run = fail(
+            &wf,
+            p,
+            "out of time",
+            Done {
+                seconds: 3.0,
+                transcript: Some("/t.jsonl".into()),
+                meta: Some(meta),
+            },
+        );
+        assert_eq!(run.error.as_deref(), Some("step `ask`: out of time"));
         assert_eq!(run.result, None);
+        assert_eq!(run.steps[0].meta.as_ref().unwrap()["turns"], 7);
+        assert_eq!(run.steps[0].transcript.as_deref(), Some("/t.jsonl"));
     }
 
     #[test]
     fn a_missing_input_ends_the_run() {
         let wf = load(TWO_STEPS).unwrap();
-        let run = run(
-            &wf,
-            &Map::new(),
-            Path::new("/r"),
-            &fake(vec![]),
-            Duration::from_secs(60),
-        );
+        let run = done(start(&wf, "t", &Map::new(), Path::new("/r"), 0));
         assert_eq!(run.error.as_deref(), Some("input `request` is missing"));
     }
 
@@ -977,183 +864,119 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
 
     #[test]
     fn an_unknown_field_or_tool_is_refused_at_load() {
+        assert!(load(&TWO_STEPS.replace("max_turns: 1", "max_turn: 1")).is_err());
         assert!(
-            load(&TWO_STEPS.replace(
-                "max_turns: 1\n    output_schema: {type: object, properties: {a",
-                "max_turn: 1\n    output_schema: {type: object, properties: {a"
+            load(&TWO_STEPS.replacen(
+                "prompt: \"Request",
+                "tools: [Write]\n    prompt: \"Request",
+                1
+            ))
+            .unwrap_err()
+            .contains("Write")
+        );
+        assert!(
+            load(&TWO_STEPS.replacen(
+                "prompt: \"Request",
+                "forge: {guards: true}\n    prompt: \"Request",
+                1
             ))
             .is_err()
         );
-        assert!(
-            load(&TWO_STEPS.replacen("max_turns: 1", "tools: [Write]\n    max_turns: 1", 1))
-                .unwrap_err()
-                .contains("Write")
-        );
     }
 
     #[test]
-    fn bash_runs_in_a_required_sandbox_with_what_cannot_be_put_back_read_only() {
-        let step = Step {
-            condition: None,
-            tools: vec!["Read".into(), "Bash".into()],
-            max_turns: 1,
-            output_schema: json!({"type": "object"}),
-            prompt: "p".into(),
-        };
-        let s = settings(&step, Path::new("/repo"), None, true);
-        assert_eq!(s["disableAllHooks"], true);
-        let sb = &s["sandbox"];
-        assert_eq!(sb["enabled"], true);
-        assert_eq!(sb["failIfUnavailable"], true);
-        assert_eq!(sb["allowUnsandboxedCommands"], false);
-        assert_eq!(sb["enableWeakerNestedSandbox"], true);
-        assert_eq!(sb["filesystem"]["denyWrite"], json!(["/repo"]));
-        assert_eq!(sb["network"]["strictAllowlist"], true);
-        let deny = [PathBuf::from("/repo/.git"), PathBuf::from("/repo/cache")];
-        let s = settings(&step, Path::new("/repo"), Some(&deny), false);
-        assert_eq!(
-            s["sandbox"]["filesystem"]["denyWrite"],
-            json!(["/repo/.git", "/repo/cache"])
+    fn a_step_declares_which_of_forges_hooks_apply_to_its_calls() {
+        let wf = load(TWO_STEPS).unwrap();
+        assert_eq!(wf.steps["ask"].forge, StepHooks::default());
+        assert!(wf.steps["ask"].forge.guard && wf.steps["ask"].forge.internals);
+        assert!(!wf.steps["ask"].forge.checks);
+        let text = TWO_STEPS.replacen(
+            "prompt: \"Request",
+            "forge: {guard: false, checks: true}\n    prompt: \"Request",
+            1,
         );
-        let read_only = Step {
-            tools: vec!["Read".into()],
-            ..step
-        };
+        let f = load(&text).unwrap().steps["ask"].forge;
         assert_eq!(
-            settings(&read_only, Path::new("/repo"), None, false),
-            json!({"disableAllHooks": true})
+            f,
+            StepHooks {
+                guard: false,
+                internals: true,
+                checks: true
+            }
         );
     }
 
-    /// A step's stream as `claude -p --output-format stream-json --verbose` writes it: init, two
-    /// model messages (the first streamed twice, as a message with several blocks is), a result.
-    const STREAM: &str = r#"{"type":"system","subtype":"init","model":"claude-sonnet-x","session_id":"s1"}
-{"type":"assistant","message":{"id":"m1","content":[{"type":"text","text":"Looking."}],"usage":{"input_tokens":2,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
-{"type":"assistant","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}],"usage":{"input_tokens":2,"output_tokens":16,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
+    /// An agent's transcript as Claude Code writes it: two model messages (the first written
+    /// twice, as a message with several blocks is), a tool result between them.
+    const TRANSCRIPT: &str = r#"{"type":"user","message":{"content":"task"}}
+{"type":"assistant","message":{"id":"m1","model":"claude-sonnet-x","content":[{"type":"text","text":"Looking."}],"usage":{"input_tokens":2,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
+{"type":"assistant","message":{"id":"m1","model":"claude-sonnet-x","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}],"usage":{"input_tokens":2,"output_tokens":16,"cache_read_input_tokens":0,"cache_creation_input_tokens":3000}}}
 {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}
-{"type":"assistant","message":{"id":"m2","content":[{"type":"tool_use","id":"t2","name":"Read","input":{}}],"usage":{"input_tokens":2,"output_tokens":24,"cache_read_input_tokens":3000,"cache_creation_input_tokens":100}}}
-{"type":"result","subtype":"success","num_turns":3,"total_cost_usd":0.0113,"duration_api_ms":2826,"usage":{"input_tokens":4,"output_tokens":174,"cache_read_input_tokens":3000,"cache_creation_input_tokens":3100},"structured_output":{"a":"x"}}
-"#;
+{"type":"assistant","message":{"id":"m2","model":"claude-sonnet-x","content":[{"type":"tool_use","id":"t2","name":"Read","input":{}}],"usage":{"input_tokens":2,"output_tokens":24,"cache_read_input_tokens":3000,"cache_creation_input_tokens":100}}}
+{"type":"assistant","message":{"id":"m3","mod"#;
 
     #[test]
-    fn a_step_records_its_model_turns_tools_tokens_and_cost() {
-        let (result, m) = meta(STREAM.as_bytes(), false);
-        assert_eq!(result.unwrap()["structured_output"], json!({"a": "x"}));
+    fn a_step_records_its_model_turns_tools_and_tokens() {
+        let m = meta(TRANSCRIPT.as_bytes());
         assert_eq!(m["model"], "claude-sonnet-x");
-        assert_eq!(m["session_id"], "s1");
-        assert_eq!(m["turns"], 3);
-        assert_eq!(m["api_calls"], 2);
-        assert_eq!(m["tool_calls"], json!({"Bash": 1, "Read": 1}));
-        assert_eq!(m["last_tool"], "Read");
-        assert_eq!(
-            m["tokens"],
-            json!({"input": 4, "output": 174, "cache_read": 3000, "cache_write": 3100})
-        );
-        assert_eq!(m["tokens_from"], "result");
-        assert_eq!(m["cost_usd"], 0.0113);
-        assert_eq!(m["api_seconds"], 2.826);
-        assert_eq!(m["end"], "success");
-    }
-
-    #[test]
-    fn a_step_killed_at_its_cap_still_says_what_it_had_done() {
-        // the stream cut before the result, mid-line
-        let cut = STREAM.split("{\"type\":\"result\"").next().unwrap();
-        let (result, m) = meta(format!("{cut}{{\"type\":\"assi").as_bytes(), true);
-        assert!(result.is_none());
-        assert_eq!(m["end"], "killed at its cap");
         assert_eq!(m["turns"], 2);
         assert_eq!(m["tool_calls"], json!({"Bash": 1, "Read": 1}));
-        // each message counted once, at its last streamed usage
+        assert_eq!(m["last_tool"], "Read");
+        // each message counted once, at its last usage; a line cut short is skipped
         assert_eq!(
             m["tokens"],
             json!({"input": 4, "output": 40, "cache_read": 3000, "cache_write": 3100})
         );
-        assert_eq!(m["tokens_from"], "messages");
-        assert!(m.get("cost_usd").is_none());
     }
 
-    #[test]
-    fn a_failed_step_keeps_what_its_call_did_in_the_run() {
-        struct Killed;
-        impl Model for Killed {
-            fn call(&self, _: &str, _: &Step, _: &str, _: &Path, _: Duration) -> Called {
-                Called {
-                    output: Err("claude took longer than 5s".into()),
-                    meta: Some(json!({"end": "killed at its cap", "turns": 7})),
-                }
-            }
-        }
-        let wf = load(TWO_STEPS).unwrap();
-        let run = run(
-            &wf,
-            &inputs(),
-            Path::new("/r"),
-            &Killed,
-            Duration::from_secs(60),
-        );
-        assert!(run.error.unwrap().contains("longer than 5s"));
-        assert_eq!(run.steps[0].meta.as_ref().unwrap()["turns"], 7);
-    }
-
-    #[test]
-    fn a_step_with_bash_writes_in_the_repository_and_leaves_it_as_it_was() {
+    fn git_repo() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let repo = dir.path().canonicalize().unwrap();
-        let sh = |script: &str| {
-            let ok = Command::new("sh")
-                .args(["-c", script])
-                .current_dir(&repo)
-                .env("GIT_CONFIG_NOSYSTEM", "1")
-                .env("GIT_AUTHOR_NAME", "t")
-                .env("GIT_AUTHOR_EMAIL", "t@t")
-                .env("GIT_COMMITTER_NAME", "t")
-                .env("GIT_COMMITTER_EMAIL", "t@t")
-                .status()
-                .unwrap()
-                .success();
-            assert!(ok, "{script}");
-        };
+        (dir, repo)
+    }
+
+    fn sh(repo: &Path, script: &str) {
+        let ok = Command::new("sh")
+            .args(["-c", script])
+            .current_dir(repo)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok, "{script}");
+    }
+
+    #[test]
+    fn a_step_writes_in_the_repository_and_leaves_it_as_it_was() {
+        let (_d, repo) = git_repo();
         sh(
+            &repo,
             "git init -q && printf '*.log\\ncache/\\n' > .gitignore && echo a > a.txt && echo b > b.txt \
             && mkdir cache && echo c > cache/c && git add -A && git commit -qm base \
             && echo staged > a.txt && git add a.txt && echo mine > a.txt && echo u > untracked.txt \
-            && mkdir output",
+            && mkdir output && printf '__pycache__/\\n' >> .git/info/exclude",
         );
         let index = std::fs::read(repo.join(".git/index")).unwrap();
+        let state = tempfile::tempdir().unwrap();
+        // taken when the step starts, saved, read back when it ends (separate hook calls)
+        let saved =
+            serde_json::to_string(&PutBack::take(&repo, &state.path().join("snap")).unwrap())
+                .unwrap();
         // the step: changes a tracked, an untracked and a deleted file, adds files, ignored files
-        // (one in an empty directory that was there) and directories of its own, then answers
-        let claude = repo
-            .join("..")
-            .join(format!("claude-{}", std::process::id()));
-        std::fs::write(
-            &claude,
-            "#!/bin/sh\necho changed > a.txt; echo changed > untracked.txt; rm b.txt\n\
-             mkdir -p out && echo log > out/audit.log; echo log > output/audit.log\n\
-             echo new > new.txt; echo x > run.log\n\
-             mkdir __pycache__; echo p > __pycache__/m.pyc\n\
-             echo \"{\\\"type\\\":\\\"result\\\",\\\"subtype\\\":\\\"success\\\",\\\"structured_output\\\":{\\\"bg\\\":\\\"$CLAUDE_CODE_DISABLE_BACKGROUND_TASKS\\\"}}\"\n",
-        )
-        .unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
-        sh("printf '__pycache__/\\n' >> .git/info/exclude");
-        let step = Step {
-            condition: None,
-            tools: vec!["Bash".into()],
-            max_turns: 1,
-            output_schema: json!({"type": "object"}),
-            prompt: "p".into(),
-        };
-        let model = Claude {
-            exe: claude.clone(),
-            model: None,
-        };
-        let called = model.call("s", &step, "p", &repo, Duration::from_secs(30));
-        let _ = std::fs::remove_file(&claude);
-        // and runs with no background tasks
-        assert_eq!(called.output.unwrap(), json!({"bg": "1"}));
-        let read = |p: &str| std::fs::read_to_string(repo.join(p)).ok();
+        // (one in an empty directory that was there) and directories of its own
+        sh(
+            &repo,
+            "echo changed > a.txt; echo changed > untracked.txt; rm b.txt; \
+             mkdir -p out && echo log > out/audit.log; echo log > output/audit.log; \
+             echo new > new.txt; echo x > run.log; mkdir __pycache__; echo p > __pycache__/m.pyc",
+        );
+        let p: PutBack = serde_json::from_str(&saved).unwrap();
+        p.put_back().unwrap();
+        let read = |f: &str| std::fs::read_to_string(repo.join(f)).ok();
         assert_eq!(read("a.txt").as_deref(), Some("mine\n"));
         assert_eq!(read("untracked.txt").as_deref(), Some("u\n"));
         assert_eq!(read("b.txt").as_deref(), Some("b\n"));
@@ -1175,44 +998,19 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
     }
 
     #[test]
-    fn a_step_with_bash_cannot_write_what_could_not_be_put_back() {
-        let dir = tempfile::tempdir().unwrap();
-        let repo = dir.path().canonicalize().unwrap();
-        let ok = Command::new("sh")
-            .args([
-                "-c",
-                "git init -q && printf 'cache/\\n' > .gitignore && mkdir cache && echo c > cache/c",
-            ])
-            .current_dir(&repo)
-            .status()
-            .unwrap()
-            .success();
-        assert!(ok);
-        let p = PutBack::take(&repo).unwrap();
-        for denied in [repo.join(".git"), repo.join("cache"), p._dir.0.clone()] {
-            assert!(p.deny.contains(&denied), "{} not denied", denied.display());
-        }
-        assert!(!p.deny.contains(&repo));
-        let outside = tempfile::tempdir().unwrap();
-        assert!(PutBack::take(outside.path()).is_none());
-    }
-
-    #[test]
-    fn a_step_writes_in_its_own_short_private_temp_directory_removed_after() {
-        use std::os::unix::fs::PermissionsExt;
-        let (a, b) = (StepTmp::new().unwrap(), StepTmp::new().unwrap());
-        assert_ne!(a.0, b.0);
-        assert!(
-            a.0.starts_with("/tmp") && a.0.as_os_str().len() < 40,
-            "{}",
-            a.0.display()
+    fn a_step_writing_in_what_was_ignored_cannot_be_put_back() {
+        let (_d, repo) = git_repo();
+        sh(
+            &repo,
+            "git init -q && printf 'cache/\\n' > .gitignore && mkdir cache && echo c > cache/c",
         );
-        let mode = std::fs::metadata(&a.0).unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o700);
-        std::fs::write(a.0.join("script.py"), "x").unwrap();
-        let dir = a.0.clone();
-        drop(a);
-        assert!(!dir.exists());
+        let state = tempfile::tempdir().unwrap();
+        let p = PutBack::take(&repo, &state.path().join("snap")).unwrap();
+        // the ignored directory that was there is not the step's: what it writes there stays,
+        // and the walk does not go into it
+        assert!(p.skip.contains(&repo.join("cache")) && p.skip.contains(&repo.join(".git")));
+        let outside = tempfile::tempdir().unwrap();
+        assert!(PutBack::take(outside.path(), &state.path().join("x")).is_none());
     }
 
     #[test]
@@ -1225,19 +1023,11 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         let names: Vec<&str> = all.iter().map(|(n, _)| n.as_str()).collect();
         assert_eq!(names, ["extra", "spec-answer"]);
         assert_eq!(all[1].1.as_deref(), Ok(TWO_STEPS));
+        assert_eq!(named(Some(dir.path()), "extra").unwrap().id, "t");
+        assert!(named(None, "extra").is_err());
         // without a directory: the built-in ones
         let builtin: Vec<String> = available(None).into_iter().map(|(n, _)| n).collect();
         assert_eq!(builtin, BUILTIN.map(|(n, _)| n.to_string()));
-    }
-
-    #[test]
-    fn a_failed_claude_says_why() {
-        let why = |stream: &[u8]| failure(meta(stream, false).0.as_ref());
-        let out = br#"{"type":"result","subtype":"error_max_turns","is_error":true,"result":""}"#;
-        assert_eq!(why(out), "claude failed: error_max_turns");
-        let out = br#"{"type":"result","subtype":"success","is_error":true,"api_error_status":529,"api_error":"overloaded_error","result":"Overloaded"}"#;
-        assert_eq!(why(out), "claude failed: overloaded_error, 529, Overloaded");
-        assert_eq!(why(b"not json"), "claude failed");
     }
 
     /// A value its schema accepts: required properties, one array item, the first enum value.
@@ -1262,16 +1052,7 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
         }
     }
 
-    /// Answers each step with a value its output schema accepts.
-    struct FromSchema;
-
-    impl Model for FromSchema {
-        fn call(&self, _: &str, step: &Step, _: &str, _: &Path, _: Duration) -> Called {
-            Ok(sample(&step.output_schema)).into()
-        }
-    }
-
-    /// Whatever a shipped workflow says, it loads and runs to a result on outputs its own schemas
+    /// Whatever a shipped workflow says, it loads and runs to a result on answers its own schemas
     /// accept: no test depends on a workflow's wording, so changing one changes no test.
     #[test]
     fn every_shipped_workflow_loads_and_runs_to_a_result() {
@@ -1279,13 +1060,18 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             let wf = load(text).unwrap_or_else(|e| panic!("{name}: {e}"));
             let inputs: Map<String, Value> =
                 wf.inputs.iter().map(|i| (i.clone(), json!("x"))).collect();
-            let run = run(
-                &wf,
-                &inputs,
-                Path::new("/r"),
-                &FromSchema,
-                Duration::from_secs(60),
-            );
+            let mut next = start(&wf, name, &inputs, Path::new("/r"), u64::MAX);
+            let run = loop {
+                match next {
+                    Next::Step(p) => {
+                        let (_, step) = step_at(&wf, p.index).unwrap();
+                        let a = format!("```json\n{}\n```", sample(&step.output_schema));
+                        let v = answer(step, &a).unwrap_or_else(|e| panic!("{name}: {e}"));
+                        next = accept(&wf, *p, v, Done::default());
+                    }
+                    Next::Done(run) => break run,
+                }
+            };
             assert_eq!(run.error, None, "{name}");
             assert!(run.result.is_some_and(|r| !r.is_empty()), "{name}");
         }

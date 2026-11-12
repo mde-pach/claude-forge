@@ -17,10 +17,20 @@
 //! | Stop               |                                              | `stop`                    | 600 s   |                  |
 //! | PermissionRequest  |                                              | `permission-request`      | 180 s   |                  |
 //! | SessionEnd         |                                              | `session-end`             | 10 s    |                  |
+//! | PreToolUse         | `*`                                          | `agents`                  | 30 s    |                  |
+//! | PostToolUse        | [`AGENT_TOOL`]                               | `agents`                  | 30 s    |                  |
+//! | SubagentStart      | [`FORGE_AGENTS`]                             | `agents`                  | 30 s    |                  |
+//! | SubagentStop       | [`FORGE_AGENTS`]                             | `agents`                  | 600 s   |                  |
+//!
+//! The `agents` entries run Forge's own agents (the workflow steps and the reviewer, native
+//! subagents): the gate while a step is pending matches every tool, the others the Agent call and
+//! the two agents' start and end.
 //!
 //! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`), PreToolUse
 //! [`FILE_TOOLS`] → `user-pre-tool-use` (180 s: the internals refusal), PermissionRequest → `user-permission-request` (180 s), Notification
-//! `permission_prompt|idle_prompt` → `user-notification` (5 s). The `user-` events are the
+//! `permission_prompt|idle_prompt` → `user-notification` (5 s), and the reviewer agent's entries
+//! (PreToolUse [`REVIEW_TOOLS`], PostToolUse [`AGENT_TOOL`], SubagentStart and SubagentStop
+//! `forge-reviewer` → `user-agents`). The `user-` events are the
 //! user-level setup's own (its rules, not the project's), so a project with both runs each once.
 //!
 //! The 180 s timeouts leave room for a question nobody is there to answer, which a reviewer
@@ -79,6 +89,15 @@ pub const FILE_TOOLS: &str = "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob";
 /// Claude Code's tools that edit files, and Bash.
 pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
 
+/// The Agent tool (`Task` in older Claude Code).
+pub const AGENT_TOOL: &str = "Agent|Task";
+
+/// Forge's own agents (`forge_hooks::agents`).
+pub const FORGE_AGENTS: &str = "forge-workflow-step|forge-reviewer";
+
+/// The reviewer's calls at user level: its start (the Agent call) and its own read-only tools.
+pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob";
+
 pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "SessionStart",
@@ -127,6 +146,27 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
         matcher: None,
         commands: &[cmd("session-end", 10)],
     },
+    HookGroup {
+        event: "PreToolUse",
+        matcher: Some("*"),
+        commands: &[cmd("agents", 30)],
+    },
+    HookGroup {
+        event: "PostToolUse",
+        matcher: Some(AGENT_TOOL),
+        commands: &[cmd("agents", 30)],
+    },
+    HookGroup {
+        event: "SubagentStart",
+        matcher: Some(FORGE_AGENTS),
+        commands: &[cmd("agents", 30)],
+    },
+    HookGroup {
+        event: "SubagentStop",
+        matcher: Some(FORGE_AGENTS),
+        // putting the repository back and starting the next step
+        commands: &[cmd("agents", 600)],
+    },
 ];
 
 pub const USER_HOOKS: &[HookGroup] = &[
@@ -149,6 +189,26 @@ pub const USER_HOOKS: &[HookGroup] = &[
         event: "Notification",
         matcher: Some("permission_prompt|idle_prompt"),
         commands: &[cmd("user-notification", 5)],
+    },
+    HookGroup {
+        event: "PreToolUse",
+        matcher: Some(REVIEW_TOOLS),
+        commands: &[cmd("user-agents", 30)],
+    },
+    HookGroup {
+        event: "PostToolUse",
+        matcher: Some(AGENT_TOOL),
+        commands: &[cmd("user-agents", 30)],
+    },
+    HookGroup {
+        event: "SubagentStart",
+        matcher: Some("forge-reviewer"),
+        commands: &[cmd("user-agents", 30)],
+    },
+    HookGroup {
+        event: "SubagentStop",
+        matcher: Some("forge-reviewer"),
+        commands: &[cmd("user-agents", 30)],
     },
 ];
 
@@ -222,5 +282,37 @@ mod tests {
         );
         let pt = group_value(&PROJECT_HOOKS[4]);
         assert_eq!(pt["hooks"][1]["asyncRewake"], true);
+    }
+
+    #[test]
+    fn forges_agents_have_entries_at_both_levels() {
+        let at = |groups: &[HookGroup], event: &str, hook: &str| {
+            groups
+                .iter()
+                .find(|g| g.event == event && g.commands.iter().any(|c| c.event == hook))
+                .map(|g| g.matcher)
+        };
+        // the gate holds every tool of the main agent
+        assert_eq!(at(PROJECT_HOOKS, "PreToolUse", "agents"), Some(Some("*")));
+        assert_eq!(
+            at(PROJECT_HOOKS, "PostToolUse", "agents"),
+            Some(Some(AGENT_TOOL))
+        );
+        assert_eq!(
+            at(PROJECT_HOOKS, "SubagentStart", "agents"),
+            Some(Some(FORGE_AGENTS))
+        );
+        assert_eq!(
+            at(PROJECT_HOOKS, "SubagentStop", "agents"),
+            Some(Some(FORGE_AGENTS))
+        );
+        assert_eq!(
+            at(USER_HOOKS, "SubagentStop", "user-agents"),
+            Some(Some("forge-reviewer"))
+        );
+        assert_eq!(
+            at(USER_HOOKS, "PreToolUse", "user-agents"),
+            Some(Some(REVIEW_TOOLS))
+        );
     }
 }

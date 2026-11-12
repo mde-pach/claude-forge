@@ -7,15 +7,37 @@ use forge_core::{Note, NoteKind};
 use forge_guard::parse::{self, Dir, Parsed, Start};
 use forge_guard::{GuardCtx, Outcome, PythonPm};
 
+use crate::agents::{self, Who};
 use crate::input::HookInput;
 use crate::review::{self, Ask};
 use crate::rules::{self, HookCache};
 use crate::snapshot::BashSnapshots;
+use crate::workflow::StepHooks;
 use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, testedit};
 
 pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let cwd = rt.cwd(input);
     let tool = input.tool();
+    // Forge's own agents: a step gets the hooks its workflow declares; the reviewer, the internals
+    // refusal; neither edits, so the test-edit ask never applies
+    let me = agents::who(input);
+    let hooks = match me {
+        Who::Step => rt
+            .project(input)
+            .and_then(|p| agents::step_hooks(rt, &p))
+            .unwrap_or_default(),
+        Who::Reviewer => StepHooks {
+            guard: false,
+            internals: true,
+            checks: false,
+        },
+        _ => StepHooks {
+            guard: true,
+            internals: true,
+            checks: true,
+        },
+    };
+    let mine = matches!(me, Who::Step | Who::Reviewer);
     let parsed = match (tool, input.command()) {
         ("Bash", Some(cmd)) => Some(parse::parse(
             cmd,
@@ -26,20 +48,29 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
         )),
         _ => None,
     };
-    if names_internal(rt, input, &cwd, parsed.as_ref()) {
+    if hooks.internals && names_internal(rt, input, &cwd, parsed.as_ref()) {
         return pre_decision("deny", INTERNAL_REASON);
     }
-    if parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
+    if hooks.internals && parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
         return pre_decision("deny", RUN_REASON);
     }
     match (tool, parsed) {
-        ("Bash", Some(parsed)) => bash(rt, input, &cwd, &parsed, user),
-        ("Edit" | "Write" | "MultiEdit", _) if !user => testedit::pre(rt, input, &cwd),
+        ("Bash", Some(parsed)) if hooks.guard => bash(rt, input, &cwd, &parsed, user, hooks.checks),
+        ("Edit" | "Write" | "MultiEdit", _) if !user && !mine => testedit::pre(rt, input, &cwd),
         _ => Output::silent(),
     }
 }
 
-fn bash(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: &Parsed, user: bool) -> Output {
+/// The guard on a Bash command, then (`snapshot`) the working tree before it runs, for the
+/// checks after it.
+fn bash(
+    rt: &Runtime,
+    input: &HookInput,
+    cwd: &Path,
+    parsed: &Parsed,
+    user: bool,
+    snapshot: bool,
+) -> Output {
     let command = input.command().unwrap_or("");
     let project = rt.project(input);
     let (cache, root) = if user {
@@ -115,7 +146,7 @@ fn bash(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: &Parsed, user: bool
         }
         Outcome::None => Output::silent(),
     };
-    if !user {
+    if !user && snapshot {
         if let Some(p) = &project {
             bash_snapshot(rt, input, p);
         }
