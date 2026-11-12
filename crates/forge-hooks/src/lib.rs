@@ -15,11 +15,14 @@
 //! | `user-pre-tool-use`        | the user-level guard                                               |
 //! | `user-permission-request`  | the reviewer, user level                                           |
 //! | `user-notification`        | a terminal notification                                            |
+//! | `agents`                   | Forge's own agents: the gate, their prompts, their calls, their end |
+//! | `user-agents`              | the reviewer agent, user level                                     |
 //!
 //! What the agent reads is findings and refusal reasons only: never Forge's internals and never
 //! notes. Notes go to the state directory for `forge status`. A failure of Forge itself never
 //! blocks or denies anything: the hook then says nothing.
 
+pub mod agents;
 pub mod checker;
 pub mod engine;
 mod events;
@@ -65,6 +68,8 @@ pub const EVENTS: &[&str] = &[
     "user-pre-tool-use",
     "user-permission-request",
     "user-notification",
+    "agents",
+    "user-agents",
 ];
 
 /// What the hooks read from the environment (kept apart from `std::env` for tests).
@@ -74,11 +79,6 @@ pub struct Env {
     pub entrypoint: Option<String>,
     /// `FORGE_ASK_REVIEW`: `always`, `never`, else auto.
     pub ask_review: Option<String>,
-    /// Set inside a review: never review again.
-    pub in_review: bool,
-    pub review_model: Option<String>,
-    /// The `claude` executable the reviewer runs.
-    pub claude: PathBuf,
     /// `CLAUDE_ENV_FILE` (SessionStart).
     pub env_file: Option<PathBuf>,
     pub term_program: Option<String>,
@@ -108,9 +108,6 @@ impl Env {
         Env {
             entrypoint: var("CLAUDE_CODE_ENTRYPOINT"),
             ask_review: var("FORGE_ASK_REVIEW"),
-            in_review: var("FORGE_REVIEWER").is_some(),
-            review_model: var("FORGE_REVIEW_MODEL"),
-            claude: PathBuf::from("claude"),
             env_file: var("CLAUDE_ENV_FILE").map(PathBuf::from),
             term_program: var("TERM_PROGRAM"),
             home_dir: var("HOME").map(PathBuf::from),
@@ -282,6 +279,8 @@ fn dispatch(rt: &Runtime, event: &str, input: &HookInput) -> Output {
         "user-permission-request" => review::permission_request(rt, input, true),
         "user-notification" => events::notify(rt, input),
         "session-end" => events::session_end(rt, input),
+        "agents" => agents::hook(rt, input, false),
+        "user-agents" => agents::hook(rt, input, true),
         _ => Output::silent(),
     }
 }
@@ -296,6 +295,3 @@ pub(crate) fn pre_decision(decision: &str, reason: &str) -> Output {
         }
     }))
 }
-
-/// Where a typecheck or a reviewer spends its time on a hook's path: never past its hook's timeout.
-pub(crate) const REVIEW_CAP: Duration = Duration::from_secs(170);
