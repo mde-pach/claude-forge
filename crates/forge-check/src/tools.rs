@@ -87,17 +87,34 @@ impl LocalTools {
 }
 
 impl LocalTools {
-    /// A Python tool the project's environment does not have, run through uv as the project's
-    /// packaging says (§16): `uv run --frozen` where the project uses uv (its environment, its
-    /// lock as it is: a check never rewrites uv.lock), `uv run --isolated` where its
-    /// pyproject.toml names no package manager (a temporary environment with the project and its
-    /// dev group: no lock is written, so the project is not switched to uv). None for another
-    /// package manager, or without uv.
+    /// A Python tool the project declares (a dependency, optional or in a group) and its
+    /// environment does not have, run through uv as the project's packaging says (§16):
+    /// `uv run --frozen` where the project uses uv (its environment, its lock as it is: a check
+    /// never rewrites uv.lock), `uv run --isolated` where its pyproject.toml names no package
+    /// manager (a temporary environment with the project and its dev group: no lock is written,
+    /// so the project is not switched to uv). None for a tool it does not declare (uv could not
+    /// run it; the adapter's fallback, Forge's own release, may), for another package manager,
+    /// or without uv.
     fn through_uv(&self, root: &Path, cwd: &Path, name: &str) -> Option<ToolCmd> {
+        use forge_detect::deps::{norm_py, pyproject_deps, read_toml};
         if !PYTHON_TOOLS.contains(&name) || name == "python" {
             return None;
         }
-        let pyproject = forge_detect::deps::read_toml(&cwd.join("pyproject.toml"));
+        let pyproject = read_toml(&cwd.join("pyproject.toml"));
+        let root_pyproject = (cwd != root)
+            .then(|| read_toml(&root.join("pyproject.toml")))
+            .flatten();
+        let declared = [&pyproject, &root_pyproject]
+            .into_iter()
+            .flatten()
+            .any(|t| {
+                pyproject_deps(t)
+                    .keys()
+                    .any(|k| norm_py(k) == norm_py(name))
+            });
+        if !declared {
+            return None;
+        }
         let how = match forge_detect::pm::python_pm(cwd, root, pyproject.as_ref(), &[]) {
             forge_detect::pm::PythonPm::Uv => "--frozen",
             forge_detect::pm::PythonPm::Pyproject => "--isolated",
@@ -309,7 +326,8 @@ mod tests {
         (dir, root, tools)
     }
 
-    const PYPROJECT: &str = "[project]\nname = \"x\"\nversion = \"0\"\n";
+    const PYPROJECT: &str =
+        "[project]\nname = \"x\"\nversion = \"0\"\n\n[dependency-groups]\ndev = [\"pytest>=8\"]\n";
 
     #[test]
     fn a_python_tool_not_installed_runs_through_uv_as_the_project_packaging_says() {
@@ -326,8 +344,10 @@ mod tests {
         let cmd = tools.project(&root, &root, "pytest").unwrap();
         assert_eq!(cmd.argv[1..].join(" "), "run -q --isolated pytest");
         assert!(through_uv(&cmd));
-        // python itself is never run through uv
+        // python itself is never run through uv, nor a tool the project does not declare (the
+        // adapter's fallback, Forge's own release, runs it)
         assert_eq!(words(tools.project(&root, &root, "python")), None);
+        assert_eq!(words(tools.project(&root, &root, "ruff")), None);
         // another package manager, or no uv: not run
         let (_d, root, tools) =
             project_with(&[("pyproject.toml", PYPROJECT), ("poetry.lock", "")], true);
