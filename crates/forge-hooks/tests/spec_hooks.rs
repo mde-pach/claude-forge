@@ -250,8 +250,12 @@ impl Sandbox {
         let stop = with(json!({"hook_event_name": "SubagentStop",
             "last_assistant_message": format!("```json\n{{\"reason\": \"It is routine.\", \"decision\": \"{decision}\"}}\n```")}))
         .merge(&agent);
+        let out = self.run_env(&Fake::default(), env.clone(), hook, stop.clone());
+        assert!(closes(&out), "{}", out.stdout);
+        // its last message, all the main agent sees, is "done"
+        let done = stop.merge(&json!({"last_assistant_message": "done", "stop_hook_active": true}));
         assert_eq!(
-            self.run_env(&Fake::default(), env.clone(), hook, stop),
+            self.run_env(&Fake::default(), env.clone(), hook, done),
             Output::silent()
         );
         prompt
@@ -269,6 +273,14 @@ impl Merge for Value {
         }
         self
     }
+}
+
+/// The agent's answer is recorded and it is told to end with "done".
+fn closes(out: &Output) -> bool {
+    serde_json::from_str::<Value>(&out.stdout).is_ok_and(|v| {
+        v["decision"] == "block"
+            && v["reason"] == "Your answer is recorded. End now with only the word: done."
+    })
 }
 
 fn json_out(out: &Output) -> Value {
@@ -1306,7 +1318,7 @@ fn the_first_prompt_runs_its_workflows_and_hands_over_their_results() {
     // what the step writes in the repository is put back when it ends
     std::fs::write(s.root.join("scratch.csv"), "1,2\n").unwrap();
     let (stop, back) = s.step_ends(&env, ANSWER);
-    assert_eq!(stop, Output::silent());
+    assert!(closes(&stop));
     assert!(!s.root.join("scratch.csv").exists());
     assert_eq!(context(&back), "Fixture result: mean is the average");
     // the gate is open; once a session
@@ -1361,7 +1373,7 @@ fn a_step_answer_its_schema_refuses_goes_back_to_the_step() {
     );
     assert_eq!(back, Output::silent());
     let (stop, back) = s.step_ends(&env, ANSWER);
-    assert_eq!(stop, Output::silent());
+    assert!(closes(&stop));
     assert_eq!(context(&back), "Fixture result: mean is the average");
 }
 
@@ -1386,7 +1398,8 @@ fn a_workflow_that_fails_leaves_a_note_and_nothing_waits() {
         );
     }
     let (stop, back) = s.step_ends(&env, "no answer");
-    assert_eq!((stop, back), (Output::silent(), Output::silent()));
+    assert!(closes(&stop));
+    assert_eq!(back, Output::silent());
     assert!(s.notes().iter().any(|n| n.kind == NoteKind::ForgeFailure
         && n.text.contains("The workflow `spec-answer` did not finish")));
     assert_eq!(s.agents(&env, edit_main(&s)), Output::silent());
@@ -1459,7 +1472,7 @@ fn past_its_deadline_a_step_can_only_answer() {
     assert!(reason.starts_with("Time is up"));
     // a refused answer past the deadline is not sent back: the workflow fails
     let (stop, _) = s.step_ends(&env, "no answer");
-    assert_eq!(stop, Output::silent());
+    assert!(closes(&stop));
     assert!(s.notes().iter().any(|n| n.kind == NoteKind::ForgeFailure));
 }
 

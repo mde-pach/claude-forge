@@ -46,6 +46,9 @@ const NO_REVIEW: &str = "No review is waiting.";
 const READ_ONLY: &str = "You never change the project's files.";
 const TIME_UP: &str = "Time is up: end now with your answer as it stands.";
 const REVIEWED: &str = "The review is recorded: retry the same call unchanged.";
+/// What a step or the reviewer is told once its answer is recorded: its last message is what
+/// the main agent's Agent call returns, and the answer is not the main agent's to read.
+const CLOSE: &str = "Your answer is recorded. End now with only the word: done.";
 
 /// The longest the first prompt's workflows may take together.
 pub const WORKFLOWS_CAP: u64 = 1740;
@@ -414,6 +417,30 @@ fn session_dir_of(rt: &Runtime, input: &HookInput) -> PathBuf {
     )
 }
 
+// ---- Closing: the agent's answer stays out of the main agent's context
+
+/// The marker of an agent whose answer is recorded and which now ends with [`CLOSE`].
+fn closing_file(dir: &Path, agent: &str) -> PathBuf {
+    dir.join("agents").join("closing").join(agent)
+}
+
+/// Marks `input`'s agent as closing and sends it back with [`CLOSE`].
+fn close(dir: &Path, input: &HookInput) -> Output {
+    if let Some(agent) = input.agent_key() {
+        let f = closing_file(dir, &agent);
+        if f.parent().is_some_and(state::ensure_dir) {
+            state::write_atomic(&f, b"");
+        }
+    }
+    Output::json(json!({"decision": "block", "reason": CLOSE}))
+}
+
+fn is_closing(dir: &Path, input: &HookInput) -> bool {
+    input
+        .agent_key()
+        .is_some_and(|a| closing_file(dir, &a).is_file())
+}
+
 // ---- The hook
 
 /// `forge hook agents` (project level) and `user-agents` (user level: reviews only, and only
@@ -427,6 +454,21 @@ pub fn hook(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let workflows_here = !user;
     let event = input.hook_event_name.as_deref().unwrap_or("");
     let me = who(input);
+    if matches!(me, Who::Step | Who::Reviewer) {
+        let dir = session_dir_of(rt, input);
+        if is_closing(&dir, input) {
+            return match event {
+                "SubagentStop" => {
+                    if let Some(a) = input.agent_key() {
+                        let _ = std::fs::remove_file(closing_file(&dir, &a));
+                    }
+                    Output::silent()
+                }
+                "PreToolUse" => pre_decision("deny", CLOSE),
+                _ => Output::silent(),
+            };
+        }
+    }
     match (event, me) {
         ("PreToolUse", Who::Main) => {
             if workflows_here {
@@ -677,7 +719,7 @@ fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
     w.stop_blocks = 0;
     w.notice = tell(&results, w.pending.is_some());
     save_wf(p, &w);
-    Output::silent()
+    close(&p.session_dir, input)
 }
 
 /// PreToolUse of the main agent's Agent call for the reviewer: the oldest waiting review's
@@ -776,7 +818,7 @@ fn review_stopped(input: &HookInput, dir: &Path) -> Output {
             );
             crate::review::log_verdict(&r.log_state, input, allow, &r.tool, &r.tool_input, &reason);
             let _ = std::fs::remove_file(&path);
-            Output::silent()
+            close(dir, input)
         }
         Err(why) if r.refused + 1 < ANSWERS_MAX && in_time => {
             r.refused += 1;

@@ -711,6 +711,14 @@ fn review(s: &Sandbox, env: &Env, hook: &str, decision: &str, reason: &str) -> S
     stop["last_assistant_message"] = json!(format!(
         "```json\n{{\"reason\": \"{reason}\", \"decision\": \"{decision}\"}}\n```"
     ));
+    let out = s.run_env(&Fake::default(), env.clone(), hook, stop.clone());
+    assert!(
+        out.stdout.contains("Your answer is recorded"),
+        "{}",
+        out.stdout
+    );
+    stop["last_assistant_message"] = json!("done");
+    stop["stop_hook_active"] = json!(true);
     assert_eq!(
         s.run_env(&Fake::default(), env.clone(), hook, stop),
         Output::silent()
