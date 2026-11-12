@@ -432,16 +432,19 @@ fn provision(ctx: &Ctx) {
 }
 
 /// Forge's own agents (the workflow step and the reviewer) in Claude Code's user config
-/// directory, with `FORGE_REVIEW_MODEL` as their model when it is set; rewritten when they differ.
+/// directory, with `FORGE_REVIEW_MODEL` as their model when it is set and `FORGE_REVIEW_EFFORT` as
+/// their effort (else medium); rewritten when they differ.
 fn install_agents() -> Result<(), Error> {
     let dir = super::claude_config_dir()?;
     let model = std::env::var("FORGE_REVIEW_MODEL").ok();
-    let written = forge_hooks::agents::install(&dir, model.as_deref()).map_err(|e| {
-        Error::new(format!(
-            "forge: cannot write Claude Code's agents in {}: {e}",
-            dir.display()
-        ))
-    })?;
+    let effort = std::env::var("FORGE_REVIEW_EFFORT").ok();
+    let written =
+        forge_hooks::agents::install(&dir, model.as_deref(), effort.as_deref()).map_err(|e| {
+            Error::new(format!(
+                "forge: cannot write Claude Code's agents in {}: {e}",
+                dir.display()
+            ))
+        })?;
     if !written.is_empty() {
         println!(
             "forge: wrote its agents in {}",

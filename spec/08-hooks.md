@@ -188,6 +188,7 @@ A commit made during the turn is part of the turn: the snapshot's `head` is the 
 | `TERM_PROGRAM` | The notification's sequence | |
 | `FORGE_ASK_REVIEW` | `always`: review every ask; `never`: never review; else auto (§9.5) | auto |
 | `FORGE_REVIEW_MODEL` | Read by `forge apply`: the `model` of Forge's agents, the workflow steps and the reviewer (§8.13) | the session's |
+| `FORGE_REVIEW_EFFORT` | Read by `forge apply`: the `effort` of Forge's agents (`low`, `medium`, `high`, `xhigh`, `max`) | `medium` |
 | `FORGE_EDIT_TYPECHECK` | `always` / `never` run the edit-time typecheck (§8.7) | auto |
 | `FORGE_ENGINE` | `off`: SessionStart never starts the types engine | on |
 | `FORGE_SPEC` | `off`: no first-prompt workflows, the spec step among them (§8.5) | on |
@@ -239,7 +240,7 @@ Forge never starts a `claude -p` process. What it asks a model, it asks one of i
 | `forge-workflow-step` | Read, Grep, Glob, Bash | one step of a workflow (§8.5) |
 | `forge-reviewer` | Read, Grep, Glob | one review of an ask (§9.5) |
 
-`forge apply` (either level) writes their definitions into Claude Code's user config directory (`agents/forge-workflow-step.md`, `agents/forge-reviewer.md`; §7.7): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
+`forge apply` (either level) writes their definitions into Claude Code's user config directory (`agents/forge-workflow-step.md`, `agents/forge-reviewer.md`; §7.7): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `effort` is `FORGE_REVIEW_EFFORT` (else `medium`, Claude Code's default for the current models: without it the agents would take the session's level, a harness's `--effort max` included), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
 
 - **Forge writes the prompt.** PreToolUse of the main agent's Agent call for one of them answers with `updatedInput`: the `prompt` replaced by the pending step's or review's, `model` removed, `run_in_background` false. The main agent starts Forge's agents but never shapes what they are told; they start with a fresh context and see no conversation.
 - **The gate** (§8.5): while a step is pending, every other tool call of the main agent (one with no `agent_id`) is refused with "Before anything else, call the Agent tool with subagent_type "forge-workflow-step" (any prompt: the tooling sets it). …", and so is a second call while the step agent runs.
