@@ -86,6 +86,43 @@ impl LocalTools {
     }
 }
 
+impl LocalTools {
+    /// A Python tool the project's environment does not have, run through uv as the project's
+    /// packaging says (§16): `uv run --frozen` where the project uses uv (its environment, its
+    /// lock as it is: a check never rewrites uv.lock), `uv run --isolated` where its
+    /// pyproject.toml names no package manager (a temporary environment with the project and its
+    /// dev group: no lock is written, so the project is not switched to uv). None for another
+    /// package manager, or without uv.
+    fn through_uv(&self, root: &Path, cwd: &Path, name: &str) -> Option<ToolCmd> {
+        if !PYTHON_TOOLS.contains(&name) || name == "python" {
+            return None;
+        }
+        let pyproject = forge_detect::deps::read_toml(&cwd.join("pyproject.toml"));
+        let how = match forge_detect::pm::python_pm(cwd, root, pyproject.as_ref(), &[]) {
+            forge_detect::pm::PythonPm::Uv => "--frozen",
+            forge_detect::pm::PythonPm::Pyproject => "--isolated",
+            _ => return None,
+        };
+        let uv = self.on_path("uv")?;
+        Some(ToolCmd {
+            argv: vec![
+                uv.to_string_lossy().into_owned(),
+                "run".into(),
+                "-q".into(),
+                how.into(),
+                name.into(),
+            ],
+            bin: uv,
+        })
+    }
+}
+
+/// Whether `cmd` runs its tool through `uv run` ([`LocalTools`]): its executable is uv, so the
+/// version cache, which goes by executable, does not tell its tools apart.
+pub fn through_uv(cmd: &ToolCmd) -> bool {
+    cmd.argv.get(1).is_some_and(|w| w == "run") && cmd.bin.file_name().is_some_and(|n| n == "uv")
+}
+
 pub fn is_exe(p: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
     p.metadata()
@@ -116,7 +153,9 @@ impl ToolResolver for LocalTools {
             if is_exe(&venv) {
                 return Some(ToolCmd::exe(venv));
             }
-            return self.python_tool(name);
+            return self
+                .python_tool(name)
+                .or_else(|| self.through_uv(root, cwd, name));
         } else if is_exe(&nm) {
             return Some(ToolCmd::exe(nm));
         } else if is_exe(&venv) {
@@ -130,6 +169,7 @@ impl ToolResolver for LocalTools {
             None
         } else {
             self.python_tool(name)
+                .or_else(|| self.through_uv(root, cwd, name))
         }
     }
 
@@ -246,6 +286,61 @@ pub fn check_tools(commands: &[&str]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A project with `files`, and a PATH holding only a fake `uv` (or nothing).
+    fn project_with(files: &[(&str, &str)], uv: bool) -> (tempfile::TempDir, PathBuf, LocalTools) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        for (f, text) in files {
+            std::fs::write(root.join(f), text).unwrap();
+        }
+        let bin = root.join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        if uv {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::write(bin.join("uv"), "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(bin.join("uv"), std::fs::Permissions::from_mode(0o755))
+                .unwrap();
+        }
+        let tools = LocalTools {
+            path: Some(bin.display().to_string()),
+            ..LocalTools::default()
+        };
+        (dir, root, tools)
+    }
+
+    const PYPROJECT: &str = "[project]\nname = \"x\"\nversion = \"0\"\n";
+
+    #[test]
+    fn a_python_tool_not_installed_runs_through_uv_as_the_project_packaging_says() {
+        let words = |cmd: Option<ToolCmd>| cmd.map(|c| c.argv[1..].join(" "));
+        // uv is set up: the project's environment, its lock as it is
+        let (_d, root, tools) =
+            project_with(&[("pyproject.toml", PYPROJECT), ("uv.lock", "")], true);
+        assert_eq!(
+            words(tools.project(&root, &root, "pytest")).as_deref(),
+            Some("run -q --frozen pytest")
+        );
+        // a pyproject.toml naming no tool: a temporary environment, no lock written
+        let (_d, root, tools) = project_with(&[("pyproject.toml", PYPROJECT)], true);
+        let cmd = tools.project(&root, &root, "pytest").unwrap();
+        assert_eq!(cmd.argv[1..].join(" "), "run -q --isolated pytest");
+        assert!(through_uv(&cmd));
+        // python itself is never run through uv
+        assert_eq!(words(tools.project(&root, &root, "python")), None);
+        // another package manager, or no uv: not run
+        let (_d, root, tools) =
+            project_with(&[("pyproject.toml", PYPROJECT), ("poetry.lock", "")], true);
+        assert_eq!(words(tools.project(&root, &root, "pytest")), None);
+        let (_d, root, tools) = project_with(&[("pyproject.toml", PYPROJECT)], false);
+        assert_eq!(words(tools.project(&root, &root, "pytest")), None);
+        // installed in the project's environment: that one
+        let (_d, root, tools) = project_with(&[("pyproject.toml", PYPROJECT)], true);
+        std::fs::create_dir_all(root.join(".venv/bin")).unwrap();
+        std::fs::copy(root.join("bin/uv"), root.join(".venv/bin/pytest")).unwrap();
+        let cmd = tools.project(&root, &root, "pytest").unwrap();
+        assert!(!through_uv(&cmd) && cmd.bin.ends_with(".venv/bin/pytest"));
+    }
 
     #[test]
     fn tools_of_commands() {
