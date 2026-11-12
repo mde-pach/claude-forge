@@ -71,10 +71,23 @@ const BASH_DEFAULT_MS: u64 = 120_000;
 /// The agents' system prompt: the task is the message the hook sets.
 const BODY: &str = "You do one task for this project's tooling. The task is the message you receive: follow it exactly. You never change the project's files. End with your answer as the message describes, and nothing else.";
 
+/// The reasoning effort of Forge's agents when `FORGE_REVIEW_EFFORT` is unset: Claude Code's
+/// default for the current models (Sonnet, Opus and Haiku 5.5, Fable 5.2), which the `claude -p`
+/// steps ran at. Without an `effort` field an agent would take the session's level (`--effort
+/// max` in a benchmark harness: a step thirty times longer).
+pub const DEFAULT_EFFORT: &str = "medium";
+
+/// The levels `effort` accepts.
+const EFFORTS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+
 /// The definitions `forge apply` writes into `<claude config dir>/agents/`: (file name, text).
-/// `model`: `FORGE_REVIEW_MODEL` as it is when `forge apply` runs, else the session's model.
-pub fn definitions(model: Option<&str>) -> Vec<(String, String)> {
+/// `model`: `FORGE_REVIEW_MODEL` as it is when `forge apply` runs, else the session's model;
+/// `effort`: `FORGE_REVIEW_EFFORT`, else [`DEFAULT_EFFORT`] (an unknown level too).
+pub fn definitions(model: Option<&str>, effort: Option<&str>) -> Vec<(String, String)> {
     let model = model.filter(|m| !m.is_empty()).unwrap_or("inherit");
+    let effort = effort
+        .filter(|e| EFFORTS.contains(e))
+        .unwrap_or(DEFAULT_EFFORT);
     [
         (
             STEP_AGENT,
@@ -92,7 +105,7 @@ pub fn definitions(model: Option<&str>) -> Vec<(String, String)> {
         (
             format!("{name}.md"),
             format!(
-                "---\nname: {name}\ndescription: {description}\ntools: {tools}\nmodel: {model}\nbackground: false\n---\n\n{BODY}\n"
+                "---\nname: {name}\ndescription: {description}\ntools: {tools}\nmodel: {model}\neffort: {effort}\nbackground: false\n---\n\n{BODY}\n"
             ),
         )
     })
@@ -100,11 +113,15 @@ pub fn definitions(model: Option<&str>) -> Vec<(String, String)> {
 }
 
 /// Writes the definitions into `claude_dir/agents/` where they differ; the files written.
-pub fn install(claude_dir: &Path, model: Option<&str>) -> std::io::Result<Vec<PathBuf>> {
+pub fn install(
+    claude_dir: &Path,
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> std::io::Result<Vec<PathBuf>> {
     let dir = claude_dir.join("agents");
     std::fs::create_dir_all(&dir)?;
     let mut written = Vec::new();
-    for (file, text) in definitions(model) {
+    for (file, text) in definitions(model, effort) {
         let path = dir.join(file);
         if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
             std::fs::write(&path, &text)?;

@@ -1535,36 +1535,41 @@ fn a_permission_review_knows_the_request_and_the_workflows_result() {
 
 #[test]
 fn forge_apply_installs_its_agents_with_the_review_model() {
+    use forge_hooks::agents::install;
     let dir = tempfile::tempdir().unwrap();
-    let written = forge_hooks::agents::install(dir.path(), Some("claude-sonnet-x")).unwrap();
-    assert_eq!(written.len(), 2);
-    let step = std::fs::read_to_string(dir.path().join("agents/forge-workflow-step.md")).unwrap();
-    assert!(
-        step.starts_with("---\nname: forge-workflow-step\n"),
-        "{step}"
-    );
-    assert!(
-        step.contains(
-            "\ntools: Read, Grep, Glob, Bash\nmodel: claude-sonnet-x\nbackground: false\n"
-        )
-    );
-    let review = std::fs::read_to_string(dir.path().join("agents/forge-reviewer.md")).unwrap();
-    assert!(review.contains("\ntools: Read, Grep, Glob\n"));
-    // unchanged: nothing written; another model: rewritten; none: the session's
-    assert!(
-        forge_hooks::agents::install(dir.path(), Some("claude-sonnet-x"))
-            .unwrap()
-            .is_empty()
-    );
+    let read = |f: &str| std::fs::read_to_string(dir.path().join("agents").join(f)).unwrap();
     assert_eq!(
-        forge_hooks::agents::install(dir.path(), None)
+        install(dir.path(), Some("claude-sonnet-x"), None)
             .unwrap()
             .len(),
         2
     );
+    let step = read("forge-workflow-step.md");
     assert!(
-        std::fs::read_to_string(dir.path().join("agents/forge-reviewer.md"))
-            .unwrap()
-            .contains("\nmodel: inherit\n")
+        step.starts_with("---\nname: forge-workflow-step\n"),
+        "{step}"
     );
+    // their own effort, never the session's (a harness's `--effort max`)
+    assert!(step.contains(
+        "\ntools: Read, Grep, Glob, Bash\nmodel: claude-sonnet-x\neffort: medium\nbackground: false\n"
+    ));
+    assert!(read("forge-reviewer.md").contains("\ntools: Read, Grep, Glob\n"));
+    // unchanged: nothing written; another effort: rewritten; an unknown one: the default
+    assert!(
+        install(dir.path(), Some("claude-sonnet-x"), None)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        install(dir.path(), Some("claude-sonnet-x"), Some("high"))
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(read("forge-reviewer.md").contains("\neffort: high\n"));
+    install(dir.path(), Some("claude-sonnet-x"), Some("ultra")).unwrap();
+    assert!(read("forge-reviewer.md").contains("\neffort: medium\n"));
+    // no model: the session's
+    assert_eq!(install(dir.path(), None, None).unwrap().len(), 2);
+    assert!(read("forge-reviewer.md").contains("\nmodel: inherit\n"));
 }
