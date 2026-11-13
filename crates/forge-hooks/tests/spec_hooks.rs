@@ -1724,7 +1724,7 @@ fn a_run_of_reads_and_searches_of_code_without_serena_is_reminded_once() {
             Output::silent()
         );
     }
-    let langs = serena::languages(|p| p == "python", |_| false);
+    let langs = serena::languages(|p| p == "python", |_| false, None);
     std::fs::create_dir_all(s.root.join(".serena")).unwrap();
     std::fs::write(
         s.root.join(serena::PROJECT_FILE),
@@ -1855,7 +1855,7 @@ fn reads_refused_while_a_workflow_step_is_pending_are_not_counted_for_serena() {
     let s = Sandbox::new(&[]);
     let f = Fake::default();
     let env = s.workflow_env();
-    let langs = serena::languages(|p| p == "python", |_| false);
+    let langs = serena::languages(|p| p == "python", |_| false, None);
     std::fs::create_dir_all(s.root.join(".serena")).unwrap();
     std::fs::write(
         s.root.join(serena::PROJECT_FILE),

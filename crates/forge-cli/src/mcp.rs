@@ -263,7 +263,7 @@ fn write_config(home: &forge_home::Home, root: &Path, note: &dyn Fn(String)) {
         .unwrap_or_else(|_| "claude-forge".into());
     let mut servers: Vec<(&str, Vec<String>)> = Vec::new();
     for l in serena::LANGUAGES {
-        let Provider::Forge(tool, _) = l.provider else {
+        let Provider::Forge(tools) = l.provider else {
             continue;
         };
         if !listed
@@ -272,10 +272,11 @@ fn write_config(home: &forge_home::Home, root: &Path, note: &dyn Fn(String)) {
         {
             continue;
         }
-        match install(home, tool) {
-            Ok(_) => servers.push((l.id, vec![exe.clone(), "lsp".into(), l.id.into()])),
+        match tools.iter().try_for_each(|t| install(home, t).map(|_| ())) {
+            Ok(()) => servers.push((l.id, vec![exe.clone(), "lsp".into(), l.id.into()])),
             Err(e) => note(format!(
-                "Forge's {tool} could not be installed for Serena ({e}); Serena uses its own"
+                "Forge's server for {} could not be installed for Serena ({e}); Serena uses its own",
+                l.id
             )),
         }
     }
@@ -305,10 +306,10 @@ pub fn lsp(language: &str, hub: bool) -> ExitCode {
         eprintln!("forge: unknown language server {language:?}");
         return ExitCode::from(2);
     };
-    let Provider::Forge(tool, args) = lang.provider else {
+    if !matches!(lang.provider, Provider::Forge(_)) {
         eprintln!("forge: Forge does not provide the {language} server");
         return ExitCode::from(2);
-    };
+    }
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let root = match forge_home::find_repo_root(&cwd) {
         Ok(Some(r)) => r.path().to_path_buf(),
@@ -328,19 +329,18 @@ pub fn lsp(language: &str, hub: bool) -> ExitCode {
     let state = home.repo_state_dir(&id);
     let socket = forge_engine::socket_addr(&state.join(format!("lsp-{language}.sock")));
     if hub {
-        let server = match install(&home, tool) {
-            Ok(p) => p,
+        let (command, init_options) = match hub_command(&home, &root, language) {
+            Ok(c) => c,
             Err(e) => {
                 eprintln!("forge: {e}");
                 return ExitCode::from(1);
             }
         };
-        let mut command = vec![server.to_string_lossy().into_owned()];
-        command.extend(args.iter().map(|a| a.to_string()));
         let config = forge_engine::hub::HubConfig {
             root,
             socket,
             command,
+            init_options,
             idle: HUB_IDLE,
             log: Some(state.join(format!("lsp-{language}.log"))),
             starting: Some(state.join(format!("lsp-{language}.starting"))),
@@ -384,6 +384,70 @@ pub fn lsp(language: &str, hub: bool) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+/// The server the hub runs for `language` in the repository at `root`, and the initialization
+/// options it adds to the first client's: the project's own install where it has one (the
+/// TypeScript it builds with), else Forge's pinned one.
+fn hub_command(
+    home: &forge_home::Home,
+    root: &Path,
+    language: &str,
+) -> Result<(Vec<String>, Option<Value>), String> {
+    let s = |p: &Path| p.to_string_lossy().into_owned();
+    // a pinned npm tool's install directory (`<dir>/bin/<binary>` is its command)
+    let npm_dir = |tool: &str| -> Result<PathBuf, String> {
+        let bin = install(home, tool)?;
+        bin.parent()
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .ok_or_else(|| format!("{tool}: no install directory"))
+    };
+    match language {
+        "python_ty" => Ok((vec![s(&install(home, "ty")?), "server".into()], None)),
+        "typescript" => {
+            let node =
+                which("node").ok_or("node is not installed (TypeScript's server runs on it)")?;
+            let tls = npm_dir("typescript-language-server")?
+                .join("node_modules/typescript-language-server/lib/cli.mjs");
+            let own = root.join("node_modules/typescript/lib/tsserver.js");
+            let tsserver = if own.is_file() && serena::typescript_major(root).is_none_or(|m| m <= 6)
+            {
+                own
+            } else {
+                npm_dir("typescript")?.join("node_modules/typescript/lib/tsserver.js")
+            };
+            Ok((
+                vec![s(&node), s(&tls), "--stdio".into()],
+                Some(json!({"tsserver": {"path": s(&tsserver)}})),
+            ))
+        }
+        "typescript_tsgo" => {
+            let native = |base: &Path| -> Option<PathBuf> {
+                std::fs::read_dir(base.join("node_modules/@typescript"))
+                    .ok()?
+                    .flatten()
+                    .map(|e| e.path().join("lib/tsc"))
+                    .find(|p| p.is_file())
+            };
+            let tsc = match native(root) {
+                Some(p) => p,
+                None => native(&npm_dir("typescript-native")?.join("node_modules/typescript"))
+                    .or_else(|| native(&npm_dir("typescript-native").ok()?))
+                    .ok_or("TypeScript 7's native compiler was not found")?,
+            };
+            Ok((vec![s(&tsc), "--lsp".into(), "--stdio".into()], None))
+        }
+        other => Err(format!("Forge provides no server for {other}")),
+    }
+}
+
+fn which(name: &str) -> Option<PathBuf> {
+    std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|d| d.join(name))
+            .find(|p| p.is_file())
+    })
 }
 
 /// How long a hub runs without a client before it stops its server and itself.

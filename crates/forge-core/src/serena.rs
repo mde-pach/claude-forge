@@ -22,10 +22,11 @@ pub fn language(id: &str) -> Option<&'static Language> {
 /// shared servers) read this one table: giving Forge a server for a language is one entry here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
-    /// One of Forge's pinned tools (its catalog name) and the arguments that make it a language
-    /// server, run by Forge's hub (`claude-forge lsp <language>`), which Serena reaches as the
-    /// server's path.
-    Forge(&'static str, &'static [&'static str]),
+    /// Forge's hub runs it (`claude-forge lsp <language>`, which Serena starts as the server),
+    /// shared by every session of the repository; the hub's command for the language is chosen by
+    /// `claude-forge lsp` (the project's own install where it has one), and these pinned tools of
+    /// Forge's (catalog names) are installed for it.
+    Forge(&'static [&'static str]),
     /// Serena downloads and runs it (`serena download-ls-dependencies`).
     Serena,
 }
@@ -41,7 +42,18 @@ pub struct Language {
     pub files: &'static [&'static str],
     /// The extensions of its source files (the server is checked on one of them).
     pub exts: &'static [&'static str],
+    /// For TypeScript: the project's TypeScript major versions it serves.
+    pub typescript: TypeScript,
     pub provider: Provider,
+}
+
+/// Which TypeScript a TypeScript server serves: up to 6 (`tsserver`, driven by
+/// typescript-language-server) or 7 and later (the native compiler's own server, `tsc --lsp`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypeScript {
+    Any,
+    UpTo6,
+    From7,
 }
 
 pub const LANGUAGES: &[Language] = &[
@@ -50,20 +62,31 @@ pub const LANGUAGES: &[Language] = &[
         pack: Some("python"),
         files: &[],
         exts: &["py"],
-        provider: Provider::Forge("ty", &["server"]),
+        typescript: TypeScript::Any,
+        provider: Provider::Forge(&["ty"]),
     },
     Language {
         id: "typescript",
         pack: Some("typescript"),
         files: &[],
         exts: &["ts", "tsx", "js", "jsx", "mts", "cts"],
-        provider: Provider::Serena,
+        typescript: TypeScript::UpTo6,
+        provider: Provider::Forge(&["typescript-language-server", "typescript"]),
+    },
+    Language {
+        id: "typescript_tsgo",
+        pack: Some("typescript"),
+        files: &[],
+        exts: &["ts", "tsx", "js", "jsx", "mts", "cts"],
+        typescript: TypeScript::From7,
+        provider: Provider::Forge(&["typescript-native"]),
     },
     Language {
         id: "terraform",
         pack: Some("terraform"),
         files: &[],
         exts: &["tf"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -71,6 +94,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["Cargo.toml"],
         exts: &["rs"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -78,6 +102,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["go.mod"],
         exts: &["go"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -85,6 +110,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["pom.xml", "build.gradle", "build.gradle.kts"],
         exts: &["java"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -92,6 +118,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["Gemfile"],
         exts: &["rb"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -99,6 +126,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["composer.json"],
         exts: &["php"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -106,6 +134,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["*.csproj", "*.sln"],
         exts: &["cs"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
     Language {
@@ -113,6 +142,7 @@ pub const LANGUAGES: &[Language] = &[
         pack: None,
         files: &["Package.swift"],
         exts: &["swift"],
+        typescript: TypeScript::Any,
         provider: Provider::Serena,
     },
 ];
@@ -122,12 +152,44 @@ pub const LANGUAGES: &[Language] = &[
 pub fn languages(
     pack_active: impl Fn(&str) -> bool,
     has_file: impl Fn(&str) -> bool,
+    typescript_major: Option<u32>,
 ) -> Vec<Language> {
     LANGUAGES
         .iter()
         .filter(|l| l.pack.is_some_and(&pack_active) || l.files.iter().any(|f| has_file(f)))
+        .filter(|l| match l.typescript {
+            TypeScript::Any => true,
+            TypeScript::UpTo6 => typescript_major.is_none_or(|m| m <= 6),
+            TypeScript::From7 => typescript_major.is_some_and(|m| m >= 7),
+        })
         .copied()
         .collect()
+}
+
+/// The major version of the project's own TypeScript at `root`: the installed one
+/// (`node_modules/typescript/package.json`), else the one `package.json` asks for (its first
+/// number); None when it has none.
+pub fn typescript_major(root: &std::path::Path) -> Option<u32> {
+    let read = |p: std::path::PathBuf| -> Option<serde_json::Value> {
+        serde_json::from_slice(&std::fs::read(p).ok()?).ok()
+    };
+    let major = |v: &str| -> Option<u32> {
+        let digits: String = v
+            .chars()
+            .skip_while(|c| !c.is_ascii_digit())
+            .take_while(char::is_ascii_digit)
+            .collect();
+        digits.parse().ok()
+    };
+    if let Some(v) = read(root.join("node_modules/typescript/package.json")) {
+        if let Some(m) = v["version"].as_str().and_then(major) {
+            return Some(m);
+        }
+    }
+    let pkg = read(root.join("package.json"))?;
+    ["devDependencies", "dependencies", "peerDependencies"]
+        .iter()
+        .find_map(|k| pkg[k]["typescript"].as_str().and_then(major))
 }
 
 /// Serena's project folder in the repository.
@@ -334,15 +396,25 @@ mod tests {
 
     #[test]
     fn languages_from_packs_and_manifests() {
-        let l = languages(|p| p == "python", |f| f == "go.mod");
+        let l = languages(|p| p == "python", |f| f == "go.mod", None);
         let ids: Vec<&str> = l.iter().map(|l| l.id).collect();
         assert_eq!(ids, ["python_ty", "go"]);
-        assert_eq!(l[0].provider, Provider::Forge("ty", &["server"]));
+        assert_eq!(l[0].provider, Provider::Forge(&["ty"]));
+        // TypeScript: one server by the project's TypeScript (none installed: up to 6)
+        let ts = |m| -> Vec<&str> {
+            languages(|p| p == "typescript", |_| false, m)
+                .iter()
+                .map(|l| l.id)
+                .collect()
+        };
+        assert_eq!(ts(None), ["typescript"]);
+        assert_eq!(ts(Some(5)), ["typescript"]);
+        assert_eq!(ts(Some(7)), ["typescript_tsgo"]);
     }
 
     #[test]
     fn project_yml_lists_every_key() {
-        let y = project_yml("app", &languages(|p| p == "python", |_| false));
+        let y = project_yml("app", &languages(|p| p == "python", |_| false, None));
         assert!(y.contains("project_name: \"app\"\n"));
         assert!(y.contains("language_servers:\n- python_ty\n"));
         assert!(y.contains("activation_command_timeout: 180.0\n"));
@@ -360,6 +432,28 @@ mod tests {
         assert_eq!(global_config(&after, &[("python_ty", cmd)]), after);
         // a file Serena has not written yet gets the key it requires
         assert!(global_config("", &[]).starts_with("projects: []\n"));
+    }
+
+    #[test]
+    fn the_project_s_typescript_major() {
+        let d = std::env::temp_dir().join(format!("forge-ts-major-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("node_modules/typescript")).unwrap();
+        assert_eq!(typescript_major(&d), None);
+        std::fs::write(
+            d.join("package.json"),
+            r#"{"devDependencies":{"typescript":"^7.0.2"}}"#,
+        )
+        .unwrap();
+        assert_eq!(typescript_major(&d), Some(7));
+        // the installed one wins over what package.json asks for
+        std::fs::write(
+            d.join("node_modules/typescript/package.json"),
+            r#"{"version":"5.9.3"}"#,
+        )
+        .unwrap();
+        assert_eq!(typescript_major(&d), Some(5));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

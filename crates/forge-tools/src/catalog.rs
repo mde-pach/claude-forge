@@ -323,6 +323,35 @@ pub static TOOLS: &[ToolSpec] = &[
         },
     },
     // OpenAPI linters, the project's config choosing.
+    // TypeScript's language server for Serena, through Forge's hub (§17.8): it drives tsserver,
+    // the project's own (TypeScript 5 or 6) or this pinned one when the project has none.
+    ToolSpec {
+        name: "typescript-language-server",
+        version: "6.0.2",
+        source: Source::Npm {
+            package: "typescript-language-server",
+            binary: "typescript-language-server",
+        },
+    },
+    // The last TypeScript with tsserver (TypeScript 7 has none), for a project without its own.
+    ToolSpec {
+        name: "typescript",
+        version: "6.0.3",
+        source: Source::Npm {
+            package: "typescript",
+            binary: "tsserver",
+        },
+    },
+    // TypeScript 7, the native compiler, whose own language server (`tsc --lsp --stdio`) serves a
+    // TypeScript 7 project that has not installed its own.
+    ToolSpec {
+        name: "typescript-native",
+        version: "7.0.2",
+        source: Source::Npm {
+            package: "typescript",
+            binary: "tsc",
+        },
+    },
     ToolSpec {
         name: "redocly",
         version: "2.62.1",

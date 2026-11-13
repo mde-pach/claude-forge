@@ -259,6 +259,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         let languages = forge_core::serena::languages(
             |pack| activation.packs.iter().any(|p| p.id == pack),
             |glob| input.facts.is_some_and(|f| f.root.has_files(glob)),
+            forge_core::serena::typescript_major(input.base),
         );
         // Serena where it has a language to serve; never with --local, which writes no shared
         // file (.mcp.json is one, and Claude Code takes MCP servers from nowhere else)
