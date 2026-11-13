@@ -130,6 +130,36 @@ fn the_installed_release_decides_first() {
     );
 }
 
+/// Biome's code history names a category by its group: a nursery rule newer than the project's
+/// Biome is `unavailable`, never a snippet its config would reject.
+#[test]
+fn a_biome_rule_newer_than_the_release_is_unavailable() {
+    home();
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("biome.json"), "{}\n").unwrap();
+    exe(
+        d.path(),
+        "node_modules/.bin/biome",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'Version: 2.0.6'; exit 0 ;; esac\nexit 0\n",
+    );
+    let a = audit(
+        d.path(),
+        &rule(
+            "biome",
+            "lint/nursery/noMisusedPromises",
+            "typescript",
+            "if (p()) {}",
+            "x",
+        ),
+    );
+    assert_eq!(a.status, AuditStatus::Unavailable, "{a:?}");
+    assert_eq!(
+        a.detail.as_deref(),
+        Some("lint/nursery/noMisusedPromises needs biome ≥ 2.1.0; this project has 2.0.6")
+    );
+    assert!(a.snippet.is_none());
+}
+
 /// A configured tool that is not installed is skipped, never satisfied.
 #[test]
 fn a_tool_not_installed_is_skipped() {

@@ -1,0 +1,17 @@
+id: typescript/no-misused-promises
+description: "A promise is not used where a value is expected: if (isAdmin(id)) on an async function is always true, and an async callback passed to filter or forEach is never awaited. Await it first."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/noMisusedPromises
+    snippet: '"linter": {"rules": {"nursery": {"noMisusedPromises": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-misused-promises"
+    snippet: '"rules": {"@typescript-eslint/no-misused-promises": "error"}'
+examples:
+  match:
+    - "async function isAdmin(id: string): Promise<boolean> {\n  const r = await fetch(`/users/${id}`);\n  return r.ok;\n}\n\nexport function guard(id: string): string {\n  if (isAdmin(id)) {\n    return \"admin\";\n  }\n  return \"user\";\n}\n"
+  no_match:
+    - "async function isAdmin(id: string): Promise<boolean> {\n  const r = await fetch(`/users/${id}`);\n  return r.ok;\n}\n\nexport async function guard(id: string): Promise<string> {\n  if (await isAdmin(id)) {\n    return \"admin\";\n  }\n  return \"user\";\n}\n"

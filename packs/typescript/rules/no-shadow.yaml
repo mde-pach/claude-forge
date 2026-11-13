@@ -1,0 +1,17 @@
+id: typescript/no-shadow
+description: "No variable shadows one of an enclosing scope: an edit made later to the inner one is easily meant for the outer one. Rename one of them."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noShadow
+    snippet: '"linter": {"rules": {"suspicious": {"noShadow": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-shadow"
+    snippet: '"rules": {"@typescript-eslint/no-shadow": "error"}'
+examples:
+  match:
+    - "export function total(items: { price: number }[], price: number): number {\n  return items.reduce((sum, item) => {\n    const price = item.price;\n    return sum + price;\n  }, price);\n}\n"
+  no_match:
+    - "export function total(items: { price: number }[], base: number): number {\n  return items.reduce((sum, item) => {\n    const price = item.price;\n    return sum + price;\n  }, base);\n}\n"

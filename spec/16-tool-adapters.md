@@ -21,7 +21,7 @@ Each adapter is one file, `crates/forge-check/adapters/<tool>.yaml`, embedded in
 - `usage`: how the tool says its command line is wrong: the exit statuses and a POSIX extended regular expression matched on each line of its output (stdout and stderr, colour codes removed). `null` when the tool has no usage signature distinct from its findings.
 - `direct`: how a check command that runs the tool itself is recognised (§16.1), when it is not just the tool's name.
 - `ranges`: consecutive version ranges, oldest first, without gaps: `from` inclusive, `to` exclusive, the last one open. Each cites its `source` (the changelog or release notes) and gives, for every operation, the arguments after the tool's name, or `null`: this range cannot. The caller's arguments replace the words `{1}`, `{2}`, … by rank and `{args}` (the others); without `{args}` they follow the adapter's words.
-- `codes`: for a tool with rule codes, the operation that lists the installed release's rules, and the history of each code Forge's rules expect: the release it is stable from (`since`), and the codes and names the same rule had. The checker reads only `since` (§16.3); the listing operation is not run.
+- `codes`: for a tool with rule codes, the operation that lists the installed release's rules (when the tool has one; Biome has none), and the history of each code Forge's rules expect: the release it is stable from (`since`), and the codes and names the same rule had. The checker reads only `since` (§16.3); the listing operation is not run.
 
 ### 16.3 Selection and notes
 
@@ -184,6 +184,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 1.7.0 – 1.8.0: CHANGELOG_v1.md 1.7.0: `--reporter=json` and `--reporter=json-pretty`
 - 1.8.0 – 1.9.0: CHANGELOG_v1.md 1.8.0: new options `--write`, `--fix` and `--unsafe` (`--apply` deprecated, removed in 2.0.0)
 - 1.9.0 –: CHANGELOG_v1.md v1.9.0: `--max-diagnostics` accepts `none`
+- Codes: the history of 6 codes Forge's rules expect (§16.3).
 
 #### bun
 
