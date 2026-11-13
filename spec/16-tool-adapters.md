@@ -23,10 +23,11 @@ Each adapter is one file, `crates/forge-check/adapters/<tool>.yaml`, embedded in
 - `direct`: how a check command that runs the tool itself is recognised (§16.1), when it is not just the tool's name.
 - `ranges`: consecutive version ranges, oldest first, without gaps: `from` inclusive, `to` exclusive, the last one open. Each cites its `source` (the changelog or release notes) and gives, for every operation, the arguments after the tool's name, or `null`: this range cannot. The caller's arguments replace the words `{1}`, `{2}`, … by rank and `{args}` (the others); without `{args}` they follow the adapter's words.
 - `codes`: for a tool with rule codes, the operation that lists the installed release's rules, and the history of each code Forge's rules expect: the release it is stable from (`since`), and the codes and names the same rule had. The checker reads only `since` (§16.3); the listing operation is not run.
+- `engine`: the operations (`ops`) the repository's running types engine of `lang` settles for a change in the tool's place (§15.8), without starting the tool: the changed files named like `files` (`*.ts`) go to the engine; a changed file named like `whole` (`tsconfig*.json`, `*.d.ts`, `package.json`) reaches the whole project and the tool runs. `line` prints each diagnostic as the tool would (`{path}`, `{line}`, `{column}`, `{code}`, `{message}`), so the check reads the engine's answer as the tool's output.
 
 ### 16.3 Selection and notes
 
-`forge_do <tool> <operation> [arguments]` takes the adapter (after its `pick`), finds the tool, reads its version, and takes the range covering that version. Versions compare by their first three numbers. The range's arguments run in the check's directory; once the tool exits, its stdout and stderr are passed on and its exit status is the command's.
+`forge_do <tool> <operation> [arguments]` takes the adapter (after its `pick`), finds the tool, reads its version, and takes the range covering that version. Versions compare by their first three numbers. The range's arguments run in the check's directory; once the tool exits, its stdout and stderr are passed on and its exit status is the command's. When the adapter's `engine` covers the operation, `forge_do` first asks the engine (§15.8); the tool runs when it cannot answer.
 
 When it cannot run the operation, `forge_do` exits 0 and leaves a note for the person (§10), tied to the rule. It is never a finding:
 

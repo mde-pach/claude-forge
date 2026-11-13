@@ -19,6 +19,10 @@
 #   not take TS6046), on every covered release. Type errors and tsconfig errors always start
 #   with the file (`src/a.ts(1,14): error TS2322`, `tsconfig.json(1,22): error TS5023`).
 #   NOTE: tsc prints them on stdout, not stderr.
+# - engine: a change's typecheck asks the repository's running types engine (§15) instead:
+#   tsserver's `fileReferences` names the files that import the changed ones (5.x and 6.x; the
+#   native server of 7.0 has no such request, so 7.0 runs tsc). A declaration file or a
+#   tsconfig/package.json change reaches the whole project: tsc. Lines as tsc prints them.
 
 tool: "tsc"
 verified: "7.0.2"
@@ -29,3 +33,9 @@ ranges:
     ops:
       "typecheck": "--noEmit -p {args} --pretty false"
       "typecheck-incremental": "--noEmit -p tsconfig.json --pretty false --incremental --tsBuildInfoFile {args}"
+engine:
+  lang: typescript
+  ops: ["typecheck-incremental"]
+  files: ["*.ts", "*.tsx", "*.mts", "*.cts"]
+  whole: ["*.d.ts", "*.d.mts", "*.d.cts", "tsconfig*.json", "package.json"]
+  line: "{path}({line},{column}): error TS{code}: {message}"

@@ -71,6 +71,7 @@ When a rule loads, Forge rejects: `where` on a mode other than `forbid` or `advi
 | `changed` | `paths` (repository-relative) | nothing; a dependency or configuration file restarts the servers (below) |
 | `types` | `lang`, `matches` (file, rule, line, bindings with byte offsets and text, `where`) | `verdicts`: per match `holds`, `fails` or `unchecked` with `why` |
 | `diagnostics` | `lang`, `files` (path and base copy), `warnings` | `diagnostics`: those the change added (15.5) |
+| `check` | `lang`, `files` (the changed files: path and base copy) | `diagnostics`: the errors of the changed files and those the change caused in the files importing them (15.8); `error` when the engine cannot settle it |
 | `restart` | | the servers stop; the next question starts them |
 | `stop` | | answered once the servers have exited |
 
@@ -162,6 +163,16 @@ A rule may mix `type` and `declared` conditions on different metavariables.
 3. A declaration is never a use.
 
 Only TypeScript's engine answers it; Python's deprecations are ty's own `deprecated` rule (`python/no-deprecated`).
+
+### 15.8 The change's typecheck
+
+A check whose tool's adapter has an `engine` for its operation (§16.2: tsc's `typecheck-incremental`, run by `typescript/typecheck`) asks the repository's running daemon instead of starting the tool, when it checks a change (`--changed`, Stop, not `--all`), outside a workspace package, and no changed file reaches the whole project (`whole`) or was deleted (its importers can no longer be named). The daemon answers `check` with the server already loaded for the session:
+
+1. it syncs the changed files and names their importers, transitively, through tsserver's `fileReferences` (inside the repository, outside `node_modules`);
+2. the changed files' errors count, old or new (§10's touched files);
+3. an importer's error counts when the importer did not have it with the changed files as they were: the server is shown the base texts, the importers' errors are read again, and the current texts come back.
+
+The check prints the answer as the tool would (the adapter's `line`) and marks its result attributed, so no base-tree run follows. The tool runs instead when no daemon answers, or the daemon declines: a changed file with `declare global` or `declare module`, more than 300 importers, or a server without `fileReferences` (TypeScript 7's native server). On a warm session it takes tens of milliseconds where tsc takes most of a second.
 
 ### Tests
 

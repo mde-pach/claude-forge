@@ -93,6 +93,12 @@ pub enum Request {
         #[serde(default)]
         warnings: bool,
     },
+    /// The Stop check's typecheck (TypeScript): the errors of the changed files and those the
+    /// change caused in their importers; an error when the server cannot settle it.
+    Check {
+        lang: Lang,
+        files: Vec<DiagFile>,
+    },
     /// Restarts the servers (the dependencies changed).
     Restart,
     /// Stops the daemon; answered once its servers have exited.
@@ -312,6 +318,15 @@ impl Client {
             lang,
             files: files.to_vec(),
             warnings,
+        })
+        .map(|r| r.diagnostics.unwrap_or_default())
+    }
+
+    /// The Stop check's typecheck through the server ([`Request::Check`]).
+    pub fn check(&self, lang: Lang, files: &[DiagFile]) -> Result<Vec<Diagnostic>, EngineError> {
+        self.checked(&Request::Check {
+            lang,
+            files: files.to_vec(),
         })
         .map(|r| r.diagnostics.unwrap_or_default())
     }
