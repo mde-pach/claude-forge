@@ -85,6 +85,32 @@ pub fn command(
     Ok(cmd)
 }
 
+/// `forge apply`: Serena's symbol index of the project (`serena project index`, its cache in
+/// `.serena/cache/`, not committed), so a session's first symbol queries do not wait for the
+/// language servers to read every file. Returns how long it took.
+pub fn index(home: &forge_home::Home, root: &Path) -> Result<Duration, String> {
+    let bin =
+        install(home, serena::TOOL).map_err(|e| format!("Serena could not be installed: {e}"))?;
+    write_config(home, root, &|_| {});
+    let started = Instant::now();
+    let out = Command::new(&bin)
+        .args(["project", "index"])
+        .arg(root)
+        .args(["--log-level", "WARNING"])
+        .current_dir(root)
+        .env("SERENA_HOME", serena_home(home))
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| format!("Serena could not run: {e}"))?;
+    if out.status.success() {
+        Ok(started.elapsed())
+    } else {
+        let err = String::from_utf8_lossy(&out.stderr);
+        let tail: Vec<&str> = err.lines().rev().take(4).collect();
+        Err(tail.into_iter().rev().collect::<Vec<_>>().join("\n    "))
+    }
+}
+
 /// `forge apply`: starts Serena once and asks each language's server for the symbols of one of
 /// the project's files, so a session never begins with a server that cannot start. Downloads what
 /// Serena runs for a language on the way. `Err`: the languages whose server failed, and why.

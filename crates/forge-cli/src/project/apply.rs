@@ -462,6 +462,15 @@ fn serena_ready(ctx: &Ctx) -> Result<(), Error> {
         Ok(ok) if ok.is_empty() => Ok(()),
         Ok(ok) => {
             println!("forge: Serena's language servers start ({})", ok.join(", "));
+            match crate::mcp::index(&home, &ctx.base) {
+                Ok(took) => println!(
+                    "forge: Serena indexed the project's symbols ({:.0}s)",
+                    took.as_secs_f64()
+                ),
+                Err(e) => println!(
+                    "forge: note: Serena could not index the project's symbols (its first queries will be slower):\n    {e}"
+                ),
+            }
             Ok(())
         }
         Err(failed) => Err(Error::new(format!(

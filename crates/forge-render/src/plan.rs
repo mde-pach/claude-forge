@@ -171,6 +171,15 @@ fn serena_setup(
             },
             append: true,
         },
+        // its tools run without a permission prompt; Forge's hooks still apply their rules to them
+        DesiredEntry {
+            entry: SettingsEntry {
+                file: settings_file.into(),
+                path: "permissions.allow".into(),
+                value: serde_json::Value::String(format!("mcp__{}", serena::SERVER)),
+            },
+            append: true,
+        },
     ];
     (files, settings)
 }
