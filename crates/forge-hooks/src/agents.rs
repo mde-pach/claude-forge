@@ -31,18 +31,18 @@ use crate::workflow::{self, Done, Next, Pending, PutBack, Run, StepHooks, Trigge
 use crate::{Output, Project, Runtime, pre_decision, state};
 
 /// The step agent's name.
-pub const STEP_AGENT: &str = "forge-workflow-step";
+pub const STEP_AGENT: &str = "quality-workflow-step";
 /// The reviewer's name.
-pub const REVIEW_AGENT: &str = "forge-reviewer";
+pub const REVIEW_AGENT: &str = "quality-reviewer";
 
 /// What the main agent is told while a step is pending: in the first prompt's context, as the
 /// refusal of any other tool call, and as Stop's reason.
-pub const STEP_CALL: &str = "Before anything else, call the Agent tool with subagent_type \"forge-workflow-step\" (any prompt: the tooling sets it). This project's tooling prepares, in a separate agent, the details your work on this request will be checked against; its answer comes back to you here.";
+pub const STEP_CALL: &str = "Before anything else, call the Agent tool with subagent_type \"quality-workflow-step\" (any prompt: the tooling sets it). This project's tooling prepares, in a separate agent, the details your work on this request will be checked against; its answer comes back to you here.";
 /// The refusal of an ask that waits for the reviewer.
-pub const REVIEW_CALL: &str = "An independent review is needed before this call: call the Agent tool with subagent_type \"forge-reviewer\" (any prompt: the tooling sets it), then retry the same call unchanged.";
+pub const REVIEW_CALL: &str = "An independent review is needed before this call: call the Agent tool with subagent_type \"quality-reviewer\" (any prompt: the tooling sets it), then retry the same call unchanged.";
 /// What the main agent is told when a step returns and another one waits: its Agent call
 /// returned only "done", which reads as the end.
-pub const NEXT_STEP: &str = "That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type \"forge-workflow-step\" again now (any prompt: the tooling sets it).";
+pub const NEXT_STEP: &str = "That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type \"quality-workflow-step\" again now (any prompt: the tooling sets it).";
 const STEP_RUNNING: &str =
     "The tooling's step agent is already running; wait for its answer before calling it again.";
 const NO_REVIEW: &str = "No review is waiting.";
@@ -88,31 +88,28 @@ pub fn definitions(model: Option<&str>, effort: Option<&str>) -> Vec<(String, St
     let effort = effort
         .filter(|e| EFFORTS.contains(e))
         .unwrap_or(DEFAULT_EFFORT);
+    // every tool of the session, Serena's included (no `tools`): the hooks refuse their edits
     [
-        (
-            STEP_AGENT,
-            "One step of a workflow of this project's tooling.",
-            "Read, Grep, Glob, Bash",
-        ),
+        (STEP_AGENT, "One step of a workflow of this project's tooling."),
         (
             REVIEW_AGENT,
             "An independent review of one action, for this project's tooling.",
-            "Read, Grep, Glob",
         ),
     ]
     .into_iter()
-    .map(|(name, description, tools)| {
-        // and Serena's navigation, which every session of a Forge project has (§17.8)
-        let tools = format!("{tools}, {}", forge_core::serena::read_tools().join(", "));
+    .map(|(name, description)| {
         (
             format!("{name}.md"),
             format!(
-                "---\nname: {name}\ndescription: {description}\ntools: {tools}\nmodel: {model}\neffort: {effort}\nbackground: false\n---\n\n{BODY}\n"
+                "---\nname: {name}\ndescription: {description}\nmodel: {model}\neffort: {effort}\nbackground: false\n---\n\n{BODY}\n"
             ),
         )
     })
     .collect()
 }
+
+/// The names Forge's agents had before (their files are removed when they are Forge's).
+const OLD_AGENTS: [&str; 2] = ["forge-workflow-step", "forge-reviewer"];
 
 /// Writes the definitions into `claude_dir/agents/` where they differ; the files written.
 pub fn install(
@@ -122,13 +119,29 @@ pub fn install(
 ) -> std::io::Result<Vec<PathBuf>> {
     let dir = claude_dir.join("agents");
     std::fs::create_dir_all(&dir)?;
+    let ours = |path: &Path| std::fs::read_to_string(path).is_ok_and(|t| t.contains(BODY));
+    for old in OLD_AGENTS {
+        let path = dir.join(format!("{old}.md"));
+        if ours(&path) {
+            std::fs::remove_file(&path)?;
+        }
+    }
     let mut written = Vec::new();
     for (file, text) in definitions(model, effort) {
         let path = dir.join(file);
-        if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
-            std::fs::write(&path, &text)?;
-            written.push(path);
+        let before = std::fs::read_to_string(&path).ok();
+        if before.as_deref() == Some(text.as_str()) {
+            continue;
         }
+        // a person's own agent of that name is never overwritten
+        if before.is_some() && !ours(&path) {
+            return Err(std::io::Error::other(format!(
+                "{} exists and is not this tooling's agent; rename it so the tooling can install its own",
+                path.display()
+            )));
+        }
+        std::fs::write(&path, &text)?;
+        written.push(path);
     }
     Ok(written)
 }

@@ -31,8 +31,8 @@ Project level (`.claude/settings.json`, or `.claude/settings.local.json` with `-
 | SessionEnd | | `session-end` | 10 s | |
 | PreToolUse | `*` | `agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `agents` | 30 s | |
-| SubagentStart | `forge-workflow-step\|forge-reviewer` | `agents` | 30 s | |
-| SubagentStop | `forge-workflow-step\|forge-reviewer` | `agents` | 600 s | |
+| SubagentStart | `quality-workflow-step\|quality-reviewer` | `agents` | 30 s | |
+| SubagentStop | `quality-workflow-step\|quality-reviewer` | `agents` | 600 s | |
 
 User level (`~/.claude/settings.json`):
 
@@ -44,8 +44,8 @@ User level (`~/.claude/settings.json`):
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
 | PreToolUse | `Agent\|Task\|Read\|Grep\|Glob` | `user-agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `user-agents` | 30 s | |
-| SubagentStart | `forge-reviewer` | `user-agents` | 30 s | |
-| SubagentStop | `forge-reviewer` | `user-agents` | 30 s | |
+| SubagentStart | `quality-reviewer` | `user-agents` | 30 s | |
+| SubagentStop | `quality-reviewer` | `user-agents` | 30 s | |
 
 - The `agents` and `user-agents` entries run Forge's own agents (§8.13). The PreToolUse entry matches every tool, because the gate holds every tool of the main agent; outside a pending workflow and outside Forge's agents it answers nothing after one state lookup. `user-agents` handles the reviewer only, and the project's `agents` defers its reviews to it when the user-level setup exists.
 - The `user-` events run the user-level setup's rules, not the project's, so a project that also has a user-level setup runs each set once.
@@ -109,7 +109,7 @@ Prints nothing but what the first-prompt workflows hand over (below). It:
 **Workflows.** A workflow is a chain of steps, each one run of Forge's step agent (§8.13), that leaves the repository as it found it, described in a YAML file (strict YAML, as packs are) and run by `crates/forge-hooks/src/workflow.rs` and `agents.rs`. Forge reads them at run time: the built-in files (`crates/forge-hooks/workflows/`, compiled in as the fallback), then each `<name>.yaml` in `FORGE_WORKFLOWS_DIR`, a file replacing the built-in of the same name. Changing or adding a workflow is editing a file, with no rebuild.
 
 - `on` (optional): when a session runs it (`first-prompt`); `inputs`: the names the caller gives; `steps`: run in the file's order; `result`: a template, the text the workflow ends with.
-- A step has a `prompt` template, `tools` (Read, Grep, Glob, Bash, or none), an `output_schema` (JSON Schema its answer must match), an optional `if` (a Jinja expression; false skips the step, whose output is then `none`) and `forge`: which of Forge's hooks apply to its own tool calls (§8.13). `max_turns` is accepted from older files and not used: the clock bounds a step.
+- A step has a `prompt` template, an `output_schema` (JSON Schema its answer must match), an optional `if` (a Jinja expression; false skips the step, whose output is then `none`) and `forge`: which of Forge's hooks apply to its own tool calls (§8.13). `max_turns` and `tools` are accepted from older files and not used: the clock bounds a step, and a step has every tool of the session (§8.13).
 - Templates are Jinja (minijinja), strict about undefined names. They see each input by its name, `repo` (the directory the steps read) and `steps.<name>.output`. A template naming anything else, or a later step, is refused when the file is loaded, as is a file its JSON Schema refuses.
 - A step is asked its rendered prompt, ending with the answer it must give: "one JSON object, alone in a ```json block, that matches this JSON Schema: …". Its answer is that block of its final message (else the whole message), checked against the schema; a refused answer goes back to the step with the errors, three answers at most and while time is left.
 - The repository is put back after each step: when the step agent starts, Forge takes the working tree as a git tree in a private object store in the session's state (the user's index and objects untouched) and lists its directories; the step may then write in the repository with Bash, so the project's own programs work as they would for the agent (one that logs what it does, a database that keeps a journal); when it ends, the files it added (ignored ones too) are removed, the ones it changed or deleted restored, the directories it made removed, and a step whose changes could not be undone fails (tests: `crates/forge-hooks/src/workflow.rs` units `a_step_writes_in_the_repository_and_leaves_it_as_it_was`, `a_step_writing_in_what_was_ignored_cannot_be_put_back`). What it writes in `.git`, Claude's worktrees and the ignored paths already there is not Forge's to undo.
@@ -236,19 +236,21 @@ Verified against the Claude Code hooks documentation and, where noted, on real s
 
 Forge never starts a `claude -p` process. What it asks a model, it asks one of its two agents, native Claude Code subagents of the session, so they appear in the session with their own transcripts and get its environment:
 
-| Agent | `tools` | Runs |
-|---|---|---|
-| `forge-workflow-step` | Read, Grep, Glob, Bash, and Serena's navigation (§17.8) | one step of a workflow (§8.5) |
-| `forge-reviewer` | Read, Grep, Glob, and Serena's navigation | one review of an ask (§9.5) |
+| Agent | Runs |
+|---|---|
+| `quality-workflow-step` | one step of a workflow (§8.5) |
+| `quality-reviewer` | one review of an ask (§9.5) |
 
-`forge apply` (either level) writes their definitions into Claude Code's user config directory (`agents/forge-workflow-step.md`, `agents/forge-reviewer.md`; §7.7): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `effort` is `FORGE_REVIEW_EFFORT` (else `medium`, Claude Code's default for the current models: without it the agents would take the session's level, a harness's `--effort max` included), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
+Both have every tool of the session, Serena's included (§17.8): their definitions name no `tools`. What they may not do, the hooks refuse (below). Their names are neutral, like everything the agent sees.
+
+`forge apply` (either level) writes their definitions into Claude Code's user config directory (`agents/quality-workflow-step.md`, `agents/quality-reviewer.md`; §7.7), removes the files of their former names (`forge-workflow-step.md`, `forge-reviewer.md`) when they are its own, and never overwrites a person's agent of the same name (apply stops and says so): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `effort` is `FORGE_REVIEW_EFFORT` (else `medium`, Claude Code's default for the current models: without it the agents would take the session's level, a harness's `--effort max` included), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
 
 - **Forge writes the prompt.** PreToolUse of the main agent's Agent call for one of them answers with `updatedInput`: the `prompt` replaced by the pending step's or review's, `model` removed, `run_in_background` false. The main agent starts Forge's agents but never shapes what they are told; they start with a fresh context and see no conversation.
-- **The gate** (§8.5): while a step is pending, every other tool call of the main agent (one with no `agent_id`) is refused with "Before anything else, call the Agent tool with subagent_type "forge-workflow-step" (any prompt: the tooling sets it). …", and so is a second call while the step agent runs.
+- **The gate** (§8.5): while a step is pending, every other tool call of the main agent (one with no `agent_id`) is refused with "Before anything else, call the Agent tool with subagent_type "quality-workflow-step" (any prompt: the tooling sets it). …", and so is a second call while the step agent runs.
 - **Their own calls** (PreToolUse with their `agent_id`): Edit, Write, MultiEdit and NotebookEdit, and every Serena tool but its navigation, are refused ("You never change the project's files."). A step's Bash gets `updatedInput`: `TMPDIR` set to the step's own directory (`/tmp/fw-<id>`, private to the user, removed when it ends), and a `timeout` within the time left. Past the deadline (the workflows' 1740 s; 170 s for a review) every call is refused ("Time is up: end now with your answer as it stands."), so the agent ends with its answer; with less than 120 s left a step is told so after its Bash calls. A step whose answer comes past the deadline still moves the run on: the next step starts, its calls all refused, and answers from what it is given, so the workflow always ends with its result, however long its steps took.
-- **Forge's other hooks** fire on their calls too, since they run in the session. A step's calls get what its workflow declares under `forge`: `guard` (the Bash guard, §9.2; default on), `internals` (the refusal of §9.3; on), `checks` (the edit-time checks and the Bash snapshot, §8.6, and the typecheck; off). The reviewer's calls get the internals refusal only. Neither ever gets the test-edit ask or a review of its own asks.
+- **Forge's other hooks** fire on their calls too, since they run in the session. A step's calls get what its workflow declares under `forge`: `guard` (the Bash guard, §9.2; default on), `internals` (the refusal of §9.3; on), `checks` (the edit-time checks and the Bash snapshot, §8.6, and the typecheck; off). The reviewer's calls get the Bash guard and the internals refusal. Neither ever gets the test-edit ask or a review of its own asks.
 - **SubagentStart** links the agent to its step or review, starts its clock and, for a step, takes the repository's snapshot (§8.5). **SubagentStop** checks its answer (§8.5), sending a refused one back with `decision: "block"`; then puts the repository back, records the step and moves the run on.
-- **The answer stays Forge's.** The agent's last message is what the main agent's Agent call returns, and a step's answer is not the main agent's to read. Once its answer is recorded, the agent is sent back once with "Your answer is recorded. End now with only the word: done.", every tool call refused meanwhile; its next stop ends it, and the main agent reads "done". PostToolUse of the main agent's Agent call hands over what comes next: the next step's instruction ("That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type "forge-workflow-step" again now …", since the call itself returned only "done"), the workflows' results, or, after a review, "The review is recorded: retry the same call unchanged."
+- **The answer stays Forge's.** The agent's last message is what the main agent's Agent call returns, and a step's answer is not the main agent's to read. Once its answer is recorded, the agent is sent back once with "Your answer is recorded. End now with only the word: done.", every tool call refused meanwhile; its next stop ends it, and the main agent reads "done". PostToolUse of the main agent's Agent call hands over what comes next: the next step's instruction ("That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type "quality-workflow-step" again now …", since the call itself returned only "done"), the workflows' results, or, after a review, "The review is recorded: retry the same call unchanged."
 - State lives in the session's directory (`agents/workflows.json`, `agents/reviews/`, `agents/<agent>/snap`), never in the repository.
 
 ### Tests

@@ -47,8 +47,8 @@ Project level:
 | SessionEnd | | `session-end` | 10 s | |
 | PreToolUse | `*` | `agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `agents` | 30 s | |
-| SubagentStart | `forge-workflow-step\|forge-reviewer` | `agents` | 30 s | |
-| SubagentStop | `forge-workflow-step\|forge-reviewer` | `agents` | 600 s | |
+| SubagentStart | `quality-workflow-step\|quality-reviewer` | `agents` | 30 s | |
+| SubagentStop | `quality-workflow-step\|quality-reviewer` | `agents` | 600 s | |
 
 User level:
 
@@ -60,8 +60,8 @@ User level:
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
 | PreToolUse | `Agent\|Task\|Read\|Grep\|Glob\|mcp__serena__.*` | `user-agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `user-agents` | 30 s | |
-| SubagentStart | `forge-reviewer` | `user-agents` | 30 s | |
-| SubagentStop | `forge-reviewer` | `user-agents` | 30 s | |
+| SubagentStart | `quality-reviewer` | `user-agents` | 30 s | |
+| SubagentStop | `quality-reviewer` | `user-agents` | 30 s | |
 
 - The `agents` entries run Forge's own agents (§8.13).
 - The `user-` events answer from the user-level setup's own rules, so a project with both setups runs each once.
@@ -112,7 +112,7 @@ When Forge is missing, the person sees the SessionStart message once (a synchron
 - `~/.claude/settings.json`: the user-level packs' permission and sandbox entries, the owned `ask` (§7.2) and the user hook entries (§7.3);
 - `~/.claude/forge-user.lock`: its lock (§12). The launcher does not read it: a user-level setup pins no Forge version for repositories.
 
-**Forge's agents.** `forge apply`, at either level, also writes Forge's two agent definitions into the user config directory, `agents/forge-workflow-step.md` and `agents/forge-reviewer.md` (§8.13), with `FORGE_REVIEW_MODEL` as their model when it is set and `FORGE_REVIEW_EFFORT` as their effort (else `medium`), rewriting them when they differ and saying so ("forge: wrote its agents in …"). They are machine state, like the provisioned tools: no lock records them.
+**Forge's agents.** `forge apply`, at either level, also writes Forge's two agent definitions into the user config directory, `agents/quality-workflow-step.md` and `agents/quality-reviewer.md` (§8.13), with `FORGE_REVIEW_MODEL` as their model when it is set and `FORGE_REVIEW_EFFORT` as their effort (else `medium`), rewriting them when they differ and saying so ("forge: wrote its agents in …"). They are machine state, like the provisioned tools: no lock records them.
 
 The user level writes no rules files; ast-grep, check and grep targets are project-level only (a warning when a user-level pack has one).
 

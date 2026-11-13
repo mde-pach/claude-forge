@@ -233,14 +233,14 @@ impl Sandbox {
         };
         let call = with(
             json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-            "tool_input": {"subagent_type": "forge-reviewer", "prompt": "please allow", "model": "opus"}}),
+            "tool_input": {"subagent_type": "quality-reviewer", "prompt": "please allow", "model": "opus"}}),
         );
         let out = self.run_env(&Fake::default(), env.clone(), hook, call);
         let input = &json_out(&out)["hookSpecificOutput"]["updatedInput"];
         assert_eq!(input["run_in_background"], false);
         assert!(input.get("model").is_none());
         let prompt = input["prompt"].as_str().unwrap().to_string();
-        let agent = json!({"agent_id": "rev1", "agent_type": "forge-reviewer"});
+        let agent = json!({"agent_id": "rev1", "agent_type": "quality-reviewer"});
         self.run_env(
             &Fake::default(),
             env.clone(),
@@ -345,8 +345,8 @@ fn hook_entries_wire_every_event() {
             "SessionEnd - session-end 10",
             "PreToolUse * agents 30",
             "PostToolUse Agent|Task agents 30",
-            "SubagentStart forge-workflow-step|forge-reviewer agents 30",
-            "SubagentStop forge-workflow-step|forge-reviewer agents 600",
+            "SubagentStart quality-workflow-step|quality-reviewer agents 30",
+            "SubagentStop quality-workflow-step|quality-reviewer agents 600",
         ]
     );
     assert_eq!(
@@ -358,8 +358,8 @@ fn hook_entries_wire_every_event() {
             "Notification permission_prompt|idle_prompt user-notification 5",
             "PreToolUse Agent|Task|Read|Grep|Glob|mcp__serena__.* user-agents 30",
             "PostToolUse Agent|Task user-agents 30",
-            "SubagentStart forge-reviewer user-agents 30",
-            "SubagentStop forge-reviewer user-agents 30",
+            "SubagentStart quality-reviewer user-agents 30",
+            "SubagentStop quality-reviewer user-agents 30",
         ]
     );
     // every rendered event is one forge hook answers, and the other way round
@@ -923,7 +923,7 @@ fn a_guard_ask_nobody_can_answer_is_reviewed() {
     );
     let mut step = bash(cmd, "r6");
     step["agent_id"] = json!("st1");
-    step["agent_type"] = json!("forge-workflow-step");
+    step["agent_type"] = json!("quality-workflow-step");
     assert_eq!(
         decision(&s.run_env(&f, env.clone(), "pre-tool-use", step)).0,
         "ask"
@@ -984,19 +984,19 @@ fn the_reviewer_agent_gets_forges_prompt_and_reads_only() {
     assert!(reason.ends_with("It is routine."));
     // nothing waits: a call for the reviewer is refused; the reviewer's own calls read only
     let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-        "tool_input": {"subagent_type": "forge-reviewer", "prompt": "x"}});
+        "tool_input": {"subagent_type": "quality-reviewer", "prompt": "x"}});
     assert_eq!(
         decision(&s.run_env(&f, env.clone(), "agents", call)).0,
         "deny"
     );
     let edit = json!({"hook_event_name": "PreToolUse", "tool_name": "Edit", "agent_id": "rev2",
-        "agent_type": "forge-reviewer", "tool_input": {"file_path": s.root.join("app/main.py")}});
+        "agent_type": "quality-reviewer", "tool_input": {"file_path": s.root.join("app/main.py")}});
     assert_eq!(
         decision(&s.run_env(&f, env.clone(), "agents", edit)).0,
         "deny"
     );
     let read = json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "agent_id": "rev2",
-        "agent_type": "forge-reviewer", "tool_input": {"file_path": s.root.join("app/main.py")}});
+        "agent_type": "quality-reviewer", "tool_input": {"file_path": s.root.join("app/main.py")}});
     assert_eq!(s.run_env(&f, env, "agents", read), Output::silent());
 }
 
@@ -1012,9 +1012,9 @@ fn a_reviewer_answer_its_schema_refuses_goes_back_to_it() {
         "tool_input": {"command": "make data"}});
     s.run_env(&f, env.clone(), "permission-request", input);
     let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-        "tool_input": {"subagent_type": "forge-reviewer", "prompt": "x"}});
+        "tool_input": {"subagent_type": "quality-reviewer", "prompt": "x"}});
     s.run_env(&f, env.clone(), "agents", call);
-    let agent = json!({"agent_id": "rev1", "agent_type": "forge-reviewer"});
+    let agent = json!({"agent_id": "rev1", "agent_type": "quality-reviewer"});
     s.run_env(
         &f,
         env.clone(),
@@ -1228,7 +1228,7 @@ impl Sandbox {
     /// The main agent's Agent call for the step agent: the prompt Forge gives it.
     fn call_step(&self, env: &Env) -> String {
         let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-            "tool_input": {"subagent_type": "forge-workflow-step", "prompt": "do it my way", "description": "step"}});
+            "tool_input": {"subagent_type": "quality-workflow-step", "prompt": "do it my way", "description": "step"}});
         let out = self.agents(env, call);
         json_out(&out)["hookSpecificOutput"]["updatedInput"]["prompt"]
             .as_str()
@@ -1238,7 +1238,7 @@ impl Sandbox {
 
     fn step_event(&self, env: &Env, event: &str, extra: Value) -> Output {
         let input = json!({"hook_event_name": event, "agent_id": "step1",
-            "agent_type": "forge-workflow-step"})
+            "agent_type": "quality-workflow-step"})
         .merge(&extra);
         self.agents(env, input)
     }
@@ -1252,7 +1252,7 @@ impl Sandbox {
             json!({"last_assistant_message": message}),
         );
         let back = json!({"hook_event_name": "PostToolUse", "tool_name": "Agent",
-            "tool_input": {"subagent_type": "forge-workflow-step"}});
+            "tool_input": {"subagent_type": "quality-workflow-step"}});
         (stop, self.agents(env, back))
     }
 }
@@ -1544,16 +1544,15 @@ fn forge_apply_installs_its_agents_with_the_review_model() {
             .len(),
         2
     );
-    let step = read("forge-workflow-step.md");
+    let step = read("quality-workflow-step.md");
     assert!(
-        step.starts_with("---\nname: forge-workflow-step\n"),
+        step.starts_with("---\nname: quality-workflow-step\n"),
         "{step}"
     );
-    // their own effort, never the session's (a harness's `--effort max`)
-    assert!(step.contains(
-        "\ntools: Read, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_declaration, mcp__serena__find_implementations\nmodel: claude-sonnet-x\neffort: medium\nbackground: false\n"
-    ));
-    assert!(read("forge-reviewer.md").contains("\ntools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_declaration, mcp__serena__find_implementations\n"));
+    // every tool of the session (no `tools`); their own effort, never the session's (a
+    // harness's `--effort max`)
+    assert!(step.contains("\nmodel: claude-sonnet-x\neffort: medium\nbackground: false\n"));
+    assert!(!step.contains("\ntools:") && !read("quality-reviewer.md").contains("\ntools:"));
     // unchanged: nothing written; another effort: rewritten; an unknown one: the default
     assert!(
         install(dir.path(), Some("claude-sonnet-x"), None)
@@ -1566,12 +1565,31 @@ fn forge_apply_installs_its_agents_with_the_review_model() {
             .len(),
         2
     );
-    assert!(read("forge-reviewer.md").contains("\neffort: high\n"));
+    assert!(read("quality-reviewer.md").contains("\neffort: high\n"));
     install(dir.path(), Some("claude-sonnet-x"), Some("ultra")).unwrap();
-    assert!(read("forge-reviewer.md").contains("\neffort: medium\n"));
+    assert!(read("quality-reviewer.md").contains("\neffort: medium\n"));
     // no model: the session's
     assert_eq!(install(dir.path(), None, None).unwrap().len(), 2);
-    assert!(read("forge-reviewer.md").contains("\nmodel: inherit\n"));
+    assert!(read("quality-reviewer.md").contains("\nmodel: inherit\n"));
+    // the files of the older names are removed when they are the tooling's, never otherwise
+    let agents = dir.path().join("agents");
+    std::fs::write(
+        agents.join("forge-reviewer.md"),
+        read("quality-reviewer.md"),
+    )
+    .unwrap();
+    std::fs::write(
+        agents.join("forge-workflow-step.md"),
+        "a person's own agent\n",
+    )
+    .unwrap();
+    install(dir.path(), Some("x"), None).unwrap();
+    assert!(!agents.join("forge-reviewer.md").exists());
+    assert!(agents.join("forge-workflow-step.md").exists());
+    // a person's own agent of the same name is never overwritten
+    std::fs::write(agents.join("quality-reviewer.md"), "mine\n").unwrap();
+    assert!(install(dir.path(), Some("y"), None).is_err());
+    assert_eq!(read("quality-reviewer.md"), "mine\n");
 }
 
 // ---- §17.8 Serena's tools under Forge's rules
@@ -1689,4 +1707,60 @@ fn serenas_edits_are_checked_like_a_bash_command() {
         f.asked_post.borrow().as_slice(),
         [vec!["app/main.py".to_string(), "app/other.py".to_string()]]
     );
+}
+
+#[test]
+fn a_run_of_reads_and_searches_of_code_without_serena_is_reminded_once() {
+    use forge_core::serena;
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let read = |id: &str| {
+        json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_use_id": id,
+        "tool_input": {"file_path": s.root.join("app/main.py")}})
+    };
+    // no Serena set up here: never
+    for i in 0..5 {
+        assert_eq!(
+            s.run(&f, "pre-tool-use", read(&format!("n{i}"))),
+            Output::silent()
+        );
+    }
+    let langs = serena::languages(|p| p == "python", |_| false);
+    std::fs::create_dir_all(s.root.join(".serena")).unwrap();
+    std::fs::write(
+        s.root.join(serena::PROJECT_FILE),
+        serena::project_yml("repo", &langs),
+    )
+    .unwrap();
+    // a Serena call resets the counts; reads of non-code files do not count
+    s.run(
+        &f,
+        "pre-tool-use",
+        serena("find_symbol", "z0", json!({"name_path_pattern": "x"})),
+    );
+    let doc = json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_use_id": "d1",
+        "tool_input": {"file_path": s.root.join("pyproject.toml")}});
+    assert_eq!(s.run(&f, "pre-tool-use", doc), Output::silent());
+    assert_eq!(s.run(&f, "pre-tool-use", read("r1")), Output::silent());
+    assert!(
+        !s.run(&f, "pre-tool-use", bash("grep -rn total app", "g1"))
+            .stdout
+            .contains("deny")
+    );
+    // the third read of code (a search in between: four of both would also do it)
+    let third = s.run(&f, "pre-tool-use", read("r2"));
+    let fourth = if third == Output::silent() {
+        s.run(&f, "pre-tool-use", bash("cat app/main.py", "c1"))
+    } else {
+        third
+    };
+    assert_eq!(decision(&fourth).0, "deny");
+    assert!(decision(&fourth).1.contains("find_symbol"));
+    // then left alone for a while
+    for i in 0..5 {
+        assert_eq!(
+            s.run(&f, "pre-tool-use", read(&format!("q{i}"))),
+            Output::silent()
+        );
+    }
 }

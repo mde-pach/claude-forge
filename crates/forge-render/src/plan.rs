@@ -148,9 +148,11 @@ fn serena_setup(
         ),
     ]);
     let version = forge_tools_pin(serena::TOOL);
+    // its tools load with the session, not on demand (Claude Code's tool search would hide them)
     let server = serde_json::json!({
         "command": "sh",
         "args": ["-c", serena::mcp_command(&version)],
+        "alwaysLoad": true,
     });
     let settings = vec![
         DesiredEntry {

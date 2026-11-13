@@ -4,11 +4,10 @@ on: first-prompt
 inputs: [request]
 steps:
   solve:
-    tools: ["Read", "Grep", "Glob", "Bash"]
     max_turns: 120
     output_schema: {"type": "object", "additionalProperties": false, "required": ["coverage", "conflicts", "results", "must_hold", "must_stay_unchanged"], "properties": {"coverage": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "role", "used_by_code", "status"], "properties": {"item": {"type": "string"}, "role": {"type": "string"}, "used_by_code": {"type": "boolean"}, "status": {"type": "string", "enum": ["clear", "unclear"]}}}}, "conflicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["case", "requirements", "resolutions"], "properties": {"case": {"type": "string"}, "requirements": {"type": "string"}, "resolutions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["resolution", "gives"], "properties": {"resolution": {"type": "string"}, "gives": {"type": "string"}}}}}}}, "results": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "derivation", "value", "alternatives"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "derivation": {"type": "string"}, "value": {"type": "string"}, "alternatives": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["derivation", "value"], "properties": {"derivation": {"type": "string"}, "value": {"type": "string"}}}}}}}, "must_hold": {"type": "array", "items": {"type": "string"}}, "must_stay_unchanged": {"type": "array", "items": {"type": "string"}}}}
     prompt: |
-      You prepare the work of a coding agent that will change this project to satisfy the request below. First solve the request yourself, as an expert in its field would. You can read the project (Read, Grep, Glob) and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
+      You prepare the work of a coding agent that will change this project to satisfy the request below. First solve the request yourself, as an expert in its field would. You can read the project, search and navigate its code, and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
 
       When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
 
@@ -24,6 +23,8 @@ steps:
 
       Then must_hold: what the result must do besides those results (format, files, behaviour), each a concrete check; must_stay_unchanged: only what the request explicitly asks to keep, quoted.
 
+      Every field you write is about the request, the project and the results, for the agent that will make the change: never an account of your own work (what you read, ran or did not run).
+
             Repository: {{ repo }}
 
             REQUEST:
@@ -31,11 +32,10 @@ steps:
             {{ request }}
             </request>
   verify:
-    tools: ["Read", "Grep", "Glob", "Bash"]
     max_turns: 60
     output_schema: {"type": "object", "additionalProperties": false, "required": ["verdicts"], "properties": {"verdicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "check", "verdict", "value"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "check": {"type": "string"}, "verdict": {"type": "string", "enum": ["confirmed", "corrected", "undecided"]}, "value": {"type": "string"}}}}}}
     prompt: |
-      Below is an independent solution of the request: for each result it asks for, the request's words that govern it, a derivation and a value, and other derivations. Check each result. You can read the project (Read, Grep, Glob) and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
+      Below is an independent solution of the request: for each result it asks for, the request's words that govern it, a derivation and a value, and other derivations. Check each result. You can read the project, search and navigate its code, and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
 
       When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
 
@@ -46,6 +46,8 @@ steps:
       Confirm or correct a result only when the request's words name how it is obtained, or when a single derivation is consistent with the request and the data. When two derivations both remain consistent with the request's words (for example two requirements the request does not rank, where it does not say which gives way), the verdict is undecided, with what each gives.
 
       For each result and each item below, in verdicts, request_words first: the request's own words that bear on it, quoted, including any sentence about what the code misses or ignores; then the verdict follows from them.
+
+      Every field you write is about the request, the project and the results, for the agent that will make the change: never an account of your own work (what you read, ran or did not run).
 
       For each result, in verdicts: item (as given); check: whether the derivation goes through what the request's words name and respects what the quantities are (units, range, symmetry, periodicity), and which derivation does, rerunning what you need; verdict: confirmed when the given derivation does, corrected when another one does (give its value), undecided when the request's words and the project leave two derivations equally valid (say which and what each gives); value: the value of the derivation that holds, empty when undecided.
 

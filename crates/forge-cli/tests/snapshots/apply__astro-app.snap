@@ -197,7 +197,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
     ],
     "SubagentStart": [
       {
-        "matcher": "forge-workflow-step|forge-reviewer",
+        "matcher": "quality-workflow-step|quality-reviewer",
         "hooks": [
           {
             "type": "command",
@@ -209,7 +209,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
     ],
     "SubagentStop": [
       {
-        "matcher": "forge-workflow-step|forge-reviewer",
+        "matcher": "quality-workflow-step|quality-reviewer",
         "hooks": [
           {
             "type": "command",
@@ -515,17 +515,17 @@ json = """{"matcher":"Agent|Task","hooks":[{"type":"command","command":"sh -c 'c
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.SubagentStart"
-json = """{"matcher":"forge-workflow-step|forge-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
+json = """{"matcher":"quality-workflow-step|quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
 
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.SubagentStop"
-json = """{"matcher":"forge-workflow-step|forge-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":600}]}"""
+json = """{"matcher":"quality-workflow-step|quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":600}]}"""
 
 [[settings]]
 file = ".mcp.json"
 path = "mcpServers.serena"
-json = '{"command":"sh","args":["-c","command -v claude-forge >/dev/null 2>&1 && exec claude-forge mcp serena; exec uvx --python 3.12 --from serena-agent==2.1.0 serena start-mcp-server --project-from-cwd --context claude-code --agent-interface tools --enable-web-dashboard false --open-web-dashboard false --enable-gui-log-window false --log-level WARNING"]}'
+json = '{"command":"sh","args":["-c","command -v claude-forge >/dev/null 2>&1 && exec claude-forge mcp serena; exec uvx --python 3.12 --from serena-agent==2.1.0 serena start-mcp-server --project-from-cwd --context claude-code --agent-interface tools --enable-web-dashboard false --open-web-dashboard false --enable-gui-log-window false --log-level WARNING"],"alwaysLoad":true}'
 
 [[settings]]
 file = ".claude/settings.json"
