@@ -1,7 +1,7 @@
 //! `claude-forge mcp serena` (§17.8): what the project's `.mcp.json` runs to start Serena.
 //!
 //! It installs the pinned Serena when it is missing, writes the machine-dependent settings
-//! (`.serena/project.local.yml`: the paths of the servers Forge provides), and stays between
+//! (Serena's machine configuration: the paths of the servers Forge provides), and stays between
 //! Claude Code and Serena as a line pass-through. When Serena exits during the session it is
 //! started again and the MCP handshake replayed, so the session keeps its tools; the calls that
 //! were in flight are answered with an error, to be made again. Each restart is a note.
@@ -72,8 +72,8 @@ pub fn command(
 ) -> Result<Command, String> {
     let bin =
         install(home, serena::TOOL).map_err(|e| format!("Serena could not be installed: {e}"))?;
-    write_local(home, root, note);
-    let serena_home = home.cache_root().join("serena").join("home");
+    write_config(home, root, note);
+    let serena_home = serena_home(home);
     let _ = std::fs::create_dir_all(&serena_home);
     let mut cmd = Command::new(&bin);
     cmd.args(serena::server_args(&root.to_string_lossy()))
@@ -109,6 +109,12 @@ pub fn check(home: &forge_home::Home, root: &Path) -> Result<Vec<String>, Vec<St
         .unwrap_or_default();
     let notes = std::cell::RefCell::new(Vec::new());
     let mut cmd = command(home, root, &|n| notes.borrow_mut().push(n)).map_err(|e| vec![e])?;
+    // Serena's own errors, quoted when it does not start
+    let err_log = serena_home(home).join("logs").join("forge-check.stderr");
+    let _ = std::fs::create_dir_all(serena_home(home).join("logs"));
+    if let Ok(f) = std::fs::File::create(&err_log) {
+        cmd.stderr(f);
+    }
     let mut child = cmd
         .spawn()
         .map_err(|e| vec![format!("Serena could not start: {e}")])?;
@@ -154,7 +160,21 @@ pub fn check(home: &forge_home::Home, root: &Path) -> Result<Vec<String>, Vec<St
     let mut ok = Vec::new();
     let mut failed = Vec::new();
     match call(1, "initialize", init, Duration::from_secs(120)) {
-        Err(e) => failed.push(format!("Serena did not start: {e}")),
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let text = std::fs::read_to_string(&err_log).unwrap_or_default();
+            let tail: Vec<&str> = text.lines().rev().take(6).collect();
+            let tail: Vec<&str> = tail.into_iter().rev().collect();
+            failed.push(if tail.is_empty() {
+                format!("Serena did not start: {e}")
+            } else {
+                format!(
+                    "Serena did not start: {e}; it said:\n    {}",
+                    tail.join("\n    ")
+                )
+            });
+        }
         Ok(_) => {
             for (n, l) in langs.iter().enumerate() {
                 let Some(file) = files.split('\0').find(|f| {
@@ -205,13 +225,19 @@ fn install(home: &forge_home::Home, tool: &str) -> Result<PathBuf, String> {
     p.ensure(tool).map_err(|n| n.to_string())
 }
 
-/// `.serena/project.local.yml`: the path of each server Forge provides for the project's languages
-/// (those `.serena/project.yml` lists).
-fn write_local(home: &forge_home::Home, root: &Path, note: &dyn Fn(String)) {
+/// Serena's machine configuration in its home (Forge's): for each language of the project (those
+/// `.serena/project.yml` lists) whose server Forge provides, the command Serena starts it with,
+/// `claude-forge lsp <language>`: the shim to Forge's hub, so every Serena of the repository
+/// shares one server. Serena takes a server's command only from this file (Forge trusts no
+/// project in Serena's sense).
+fn write_config(home: &forge_home::Home, root: &Path, note: &dyn Fn(String)) {
     let listed = std::fs::read_to_string(root.join(serena::PROJECT_FILE)).unwrap_or_default();
-    let mut servers: Vec<(&str, String)> = Vec::new();
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "claude-forge".into());
+    let mut servers: Vec<(&str, Vec<String>)> = Vec::new();
     for l in serena::LANGUAGES {
-        let Provider::Forge(tool) = l.provider else {
+        let Provider::Forge(tool, _) = l.provider else {
             continue;
         };
         if !listed
@@ -221,19 +247,120 @@ fn write_local(home: &forge_home::Home, root: &Path, note: &dyn Fn(String)) {
             continue;
         }
         match install(home, tool) {
-            Ok(path) => servers.push((l.id, path.to_string_lossy().into_owned())),
+            Ok(_) => servers.push((l.id, vec![exe.clone(), "lsp".into(), l.id.into()])),
             Err(e) => note(format!(
                 "Forge's {tool} could not be installed for Serena ({e}); Serena uses its own"
             )),
         }
     }
-    let text = serena::local_yml(&servers);
-    let path = root.join(serena::LOCAL_FILE);
-    if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
-        let _ = std::fs::create_dir_all(root.join(serena::DIR));
-        let _ = std::fs::write(&path, text);
+    let home_dir = serena_home(home);
+    let path = home_dir.join("serena_config.yml");
+    let before = std::fs::read_to_string(&path).unwrap_or_default();
+    let text = serena::global_config(&before, &servers);
+    if before != text {
+        let _ = std::fs::create_dir_all(&home_dir);
+        let tmp = home_dir.join(format!(".serena_config.{}", std::process::id()));
+        if std::fs::write(&tmp, &text).is_ok() {
+            let _ = std::fs::rename(&tmp, &path);
+        }
     }
 }
+
+/// Serena's home: its machine configuration, the servers it downloads, its logs.
+fn serena_home(home: &forge_home::Home) -> PathBuf {
+    home.cache_root().join("serena").join("home")
+}
+
+/// `claude-forge lsp <language>`: the shim between a language-server client (Serena) and Forge's
+/// hub for this repository and language, which it starts when none answers. With `hub`, this
+/// process is the hub.
+pub fn lsp(language: &str, hub: bool) -> ExitCode {
+    let Some(lang) = serena::language(language) else {
+        eprintln!("forge: unknown language server {language:?}");
+        return ExitCode::from(2);
+    };
+    let Provider::Forge(tool, args) = lang.provider else {
+        eprintln!("forge: Forge does not provide the {language} server");
+        return ExitCode::from(2);
+    };
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let root = match forge_home::find_repo_root(&cwd) {
+        Ok(Some(r)) => r.path().to_path_buf(),
+        _ => cwd,
+    };
+    let home = match forge_home::Home::from_env() {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("forge: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let Ok(id) = forge_home::RepoId::for_root(&root) else {
+        eprintln!("forge: {} is not readable", root.display());
+        return ExitCode::from(2);
+    };
+    let state = home.repo_state_dir(&id);
+    let socket = forge_engine::socket_addr(&state.join(format!("lsp-{language}.sock")));
+    if hub {
+        let server = match install(&home, tool) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("forge: {e}");
+                return ExitCode::from(1);
+            }
+        };
+        let mut command = vec![server.to_string_lossy().into_owned()];
+        command.extend(args.iter().map(|a| a.to_string()));
+        let config = forge_engine::hub::HubConfig {
+            root,
+            socket,
+            command,
+            idle: HUB_IDLE,
+            log: Some(state.join(format!("lsp-{language}.log"))),
+        };
+        return match forge_engine::hub::serve(config) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("forge: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
+    let start = || -> std::io::Result<()> {
+        // one starter at a time: the others wait for its hub to answer
+        let lock = state.join(format!("lsp-{language}.starting"));
+        let _ = std::fs::create_dir_all(&state);
+        if std::fs::create_dir(&lock).is_err() {
+            let fresh = std::fs::metadata(&lock)
+                .and_then(|m| m.modified())
+                .is_ok_and(|t| t.elapsed().unwrap_or_default() < Duration::from_secs(15));
+            if fresh {
+                return Ok(());
+            }
+            let _ = std::fs::remove_dir(&lock);
+            let _ = std::fs::create_dir(&lock);
+        }
+        let mut cmd = Command::new(std::env::current_exe()?);
+        cmd.args(["lsp", language, "--hub"]).current_dir(&root);
+        let r = forge_engine::spawn_detached(&mut cmd);
+        let lock2 = lock.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(15));
+            let _ = std::fs::remove_dir(lock2);
+        });
+        r
+    };
+    match forge_engine::hub::shim(&socket, start) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("forge: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+/// How long a hub runs without a client before it stops its server and itself.
+const HUB_IDLE: Duration = Duration::from_secs(600);
 
 enum Event {
     /// A line from Claude Code.

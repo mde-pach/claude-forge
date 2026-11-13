@@ -18,6 +18,7 @@
 mod config;
 mod daemon;
 mod diag;
+pub mod hub;
 mod python;
 mod rpc;
 mod spec;

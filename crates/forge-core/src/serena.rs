@@ -13,14 +13,19 @@ pub const TOOL_PREFIX: &str = "mcp__serena__";
 pub const PACKAGE: &str = "serena-agent";
 pub const TOOL: &str = "serena";
 
+/// The language Serena serves under `id`.
+pub fn language(id: &str) -> Option<&'static Language> {
+    LANGUAGES.iter().find(|l| l.id == id)
+}
+
 /// Who provides a language's server. Both phases (Serena running its servers, and later Forge's
 /// shared servers) read this one table: giving Forge a server for a language is one entry here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
-    /// One of Forge's pinned tools (its catalog name), passed to Serena as the server's path.
-    Forge(&'static str),
-    /// The project's own installation (its `node_modules/typescript`), which Serena loads.
-    Project,
+    /// One of Forge's pinned tools (its catalog name) and the arguments that make it a language
+    /// server, run by Forge's hub (`claude-forge lsp <language>`), which Serena reaches as the
+    /// server's path.
+    Forge(&'static str, &'static [&'static str]),
     /// Serena downloads and runs it (`serena download-ls-dependencies`).
     Serena,
 }
@@ -45,14 +50,14 @@ pub const LANGUAGES: &[Language] = &[
         pack: Some("python"),
         files: &[],
         exts: &["py"],
-        provider: Provider::Forge("ty"),
+        provider: Provider::Forge("ty", &["server"]),
     },
     Language {
         id: "typescript",
         pack: Some("typescript"),
         files: &[],
         exts: &["ts", "tsx", "js", "jsx", "mts", "cts"],
-        provider: Provider::Project,
+        provider: Provider::Serena,
     },
     Language {
         id: "terraform",
@@ -129,10 +134,8 @@ pub fn languages(
 pub const DIR: &str = ".serena";
 pub const PROJECT_FILE: &str = ".serena/project.yml";
 pub const GITIGNORE_FILE: &str = ".serena/.gitignore";
-/// Machine-dependent settings, written at each launch and never committed.
-pub const LOCAL_FILE: &str = ".serena/project.local.yml";
 
-/// Serena's own `.gitignore` for its folder: its symbol cache and the local settings.
+/// Serena's own `.gitignore` for its folder: its symbol cache and local overrides.
 pub const GITIGNORE: &str = "/cache\n/project.local.yml\n";
 
 /// `.serena/project.yml`: every key Serena 2.1 reads, so it never re-saves the file.
@@ -172,19 +175,41 @@ pub fn project_yml(name: &str, languages: &[Language]) -> String {
     s
 }
 
-/// `.serena/project.local.yml`: the paths of the servers Forge provides (`(language id, path)`).
-pub fn local_yml(servers: &[(&str, String)]) -> String {
-    let mut s =
-        String::from("# Written at each start of Serena; machine-dependent, not committed.\n");
+/// Serena's machine configuration (`<SERENA_HOME>/serena_config.yml`, in Forge's cache) with
+/// `ls_specific_settings` giving each server Forge provides its exact command
+/// (`(language id, command)`), the rest of the file as it is. Serena reads a server's command only
+/// from here: a project it does not trust (Forge trusts none) cannot choose what Serena runs.
+pub fn global_config(existing: &str, servers: &[(&str, Vec<String>)]) -> String {
+    let mut out = String::new();
+    let mut skipping = false;
+    for line in existing.lines() {
+        if line.starts_with("ls_specific_settings:") {
+            skipping = true;
+            continue;
+        }
+        if skipping && (line.starts_with(' ') || line.starts_with('\t') || line.is_empty()) {
+            continue;
+        }
+        skipping = false;
+        out.push_str(line);
+        out.push('\n');
+    }
+    // a file Serena did not write yet: the one key it requires (it fills in the rest)
+    if !out.lines().any(|l| l.starts_with("projects:")) {
+        out.insert_str(0, "projects: []\n");
+    }
     if servers.is_empty() {
-        s.push_str("ls_specific_settings: {}\n");
-        return s;
+        out.push_str("ls_specific_settings: {}\n");
+        return out;
     }
-    s.push_str("ls_specific_settings:\n");
-    for (id, path) in servers {
-        s.push_str(&format!("  {id}:\n    ls_path: {}\n", yaml_str(path)));
+    out.push_str("ls_specific_settings:\n");
+    for (id, cmd) in servers {
+        let list = serde_json::to_string(cmd).unwrap_or_else(|_| "[]".into());
+        out.push_str(&format!(
+            "  {id}:\n    ls_base_cmd: {list}\n    ls_args: []\n"
+        ));
     }
-    s
+    out
 }
 
 /// A YAML double-quoted scalar.
@@ -312,7 +337,7 @@ mod tests {
         let l = languages(|p| p == "python", |f| f == "go.mod");
         let ids: Vec<&str> = l.iter().map(|l| l.id).collect();
         assert_eq!(ids, ["python_ty", "go"]);
-        assert_eq!(l[0].provider, Provider::Forge("ty"));
+        assert_eq!(l[0].provider, Provider::Forge("ty", &["server"]));
     }
 
     #[test]
@@ -324,9 +349,17 @@ mod tests {
     }
 
     #[test]
-    fn local_yml_points_at_forge_s_servers() {
-        let y = local_yml(&[("python_ty", "/c/tools/ty/0.0.86/bin/ty".into())]);
-        assert!(y.contains("  python_ty:\n    ls_path: \"/c/tools/ty/0.0.86/bin/ty\"\n"));
+    fn global_config_gives_forge_s_commands_and_keeps_the_rest() {
+        let before = "projects: []\nweb_dashboard: false\nls_specific_settings:\n  python_ty:\n    ls_path: /old\n\nlog_level: 30\n";
+        let cmd = vec!["/c/forge".to_string(), "lsp".into(), "python_ty".into()];
+        let after = global_config(before, &[("python_ty", cmd.clone())]);
+        assert_eq!(
+            after,
+            "projects: []\nweb_dashboard: false\nlog_level: 30\nls_specific_settings:\n  python_ty:\n    ls_base_cmd: [\"/c/forge\",\"lsp\",\"python_ty\"]\n    ls_args: []\n"
+        );
+        assert_eq!(global_config(&after, &[("python_ty", cmd)]), after);
+        // a file Serena has not written yet gets the key it requires
+        assert!(global_config("", &[]).starts_with("projects: []\n"));
     }
 
     #[test]

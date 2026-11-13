@@ -5,7 +5,7 @@
 - One binary, installed as `forge` and `claude-forge` (§18). Both names run the same program.
 - Every command first runs the launcher (§3.3), except `forge internal …` and `forge engine …`, which are always run by the binary that started them.
 - Errors go to stderr as one line starting with `forge: `. A refused or failed command exits 1; a usage error exits 2.
-- **Not the agent's tool.** Run by a Claude Code agent's command (`CLAUDECODE` set), every command but `hook`, `internal`, `engine`, `mcp` (Serena's launcher, which Claude Code starts, §17.8) and `test` exits 1 at once with `This project's checks run by themselves after each edit and when you stop; they are not run by hand.` on stderr. Forge is the agent's harness: its checks run in the hooks, and the agent does not choose to run them. `forge test` stays open: it runs a project's local rules' examples, which the agent writes when asked to. The guard refuses such a command before it runs (§9.3).
+- **Not the agent's tool.** Run by a Claude Code agent's command (`CLAUDECODE` set), every command but `hook`, `internal`, `engine`, `mcp` and `lsp` (Serena's launcher and Forge's language-server hub, which Claude Code and Serena start, §17.8) and `test` exits 1 at once with `This project's checks run by themselves after each edit and when you stop; they are not run by hand.` on stderr. Forge is the agent's harness: its checks run in the hooks, and the agent does not choose to run them. `forge test` stays open: it runs a project's local rules' examples, which the agent writes when asked to. The guard refuses such a command before it runs (§9.3).
 
 ### 3.2 Commands
 
