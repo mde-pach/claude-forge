@@ -31,6 +31,7 @@ pub mod input;
 pub mod proc;
 mod review;
 pub mod rules;
+mod serena_remind;
 mod session_workflows;
 pub mod snapshot;
 pub mod state;

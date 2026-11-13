@@ -30,7 +30,7 @@
 //! [`FILE_TOOLS`] → `user-pre-tool-use` (180 s: the internals refusal), PermissionRequest → `user-permission-request` (180 s), Notification
 //! `permission_prompt|idle_prompt` → `user-notification` (5 s), and the reviewer agent's entries
 //! (PreToolUse [`REVIEW_TOOLS`], PostToolUse [`AGENT_TOOL`], SubagentStart and SubagentStop
-//! `forge-reviewer` → `user-agents`). The `user-` events are the
+//! `quality-reviewer` → `user-agents`). The `user-` events are the
 //! user-level setup's own (its rules, not the project's), so a project with both runs each once.
 //!
 //! The 180 s timeouts leave room for a question nobody is there to answer, which a reviewer
@@ -93,7 +93,7 @@ pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__se
 pub const AGENT_TOOL: &str = "Agent|Task";
 
 /// Forge's own agents (`forge_hooks::agents`).
-pub const FORGE_AGENTS: &str = "forge-workflow-step|forge-reviewer";
+pub const FORGE_AGENTS: &str = "quality-workflow-step|quality-reviewer";
 
 /// The reviewer's calls at user level: its start (the Agent call) and its own read-only tools.
 pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob|mcp__serena__.*";
@@ -202,12 +202,12 @@ pub const USER_HOOKS: &[HookGroup] = &[
     },
     HookGroup {
         event: "SubagentStart",
-        matcher: Some("forge-reviewer"),
+        matcher: Some("quality-reviewer"),
         commands: &[cmd("user-agents", 30)],
     },
     HookGroup {
         event: "SubagentStop",
-        matcher: Some("forge-reviewer"),
+        matcher: Some("quality-reviewer"),
         commands: &[cmd("user-agents", 30)],
     },
 ];
@@ -308,7 +308,7 @@ mod tests {
         );
         assert_eq!(
             at(USER_HOOKS, "SubagentStop", "user-agents"),
-            Some(Some("forge-reviewer"))
+            Some(Some("quality-reviewer"))
         );
         assert_eq!(
             at(USER_HOOKS, "PreToolUse", "user-agents"),

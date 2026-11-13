@@ -27,8 +27,9 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
             .project(input)
             .and_then(|p| agents::step_hooks(rt, &p))
             .unwrap_or_default(),
+        // the reviewer has every tool of the session: its commands go through the guard
         Who::Reviewer => StepHooks {
-            guard: false,
+            guard: true,
             internals: true,
             checks: false,
         },
@@ -54,6 +55,15 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     }
     if hooks.internals && parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
         return pre_decision("deny", RUN_REASON);
+    }
+    // a run of searches and reads of code without Serena: reminded once (§17.8)
+    if !user {
+        if let Some(out) = rt
+            .project(input)
+            .and_then(|p| crate::serena_remind::check(&p, input, parsed.as_ref()))
+        {
+            return out;
+        }
     }
     if let Some(st) = serena::tool_of(tool) {
         return serena_call(rt, input, &cwd, st, user, mine, hooks.checks);

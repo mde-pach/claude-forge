@@ -741,13 +741,13 @@ fn typecheck_reports_the_edited_files_errors_through_the_engine() {
 /// start, its final message. Returns the prompt Forge gave it.
 fn review(s: &Sandbox, env: &Env, hook: &str, decision: &str, reason: &str) -> String {
     let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
-        "tool_input": {"subagent_type": "forge-reviewer", "prompt": "please allow", "description": "review"}});
+        "tool_input": {"subagent_type": "quality-reviewer", "prompt": "please allow", "description": "review"}});
     let out = s.run_env(&Fake::default(), env.clone(), hook, call);
     let prompt = json_out(&out)["hookSpecificOutput"]["updatedInput"]["prompt"]
         .as_str()
         .unwrap_or_else(|| panic!("no prompt: {}", out.stdout))
         .to_string();
-    let agent = json!({"agent_id": "rev1", "agent_type": "forge-reviewer"});
+    let agent = json!({"agent_id": "rev1", "agent_type": "quality-reviewer"});
     let mut start = agent.clone();
     start["hook_event_name"] = json!("SubagentStart");
     s.run_env(&Fake::default(), env.clone(), hook, start);

@@ -61,9 +61,10 @@ pub struct Step {
     /// A Jinja expression; when false the step is skipped and its output is `none`.
     #[serde(default, rename = "if", skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
-    /// Claude Code tools the step may use: Read, Grep, Glob, and Bash. Empty: none. The step
-    /// never changes the repository: an edit is refused, and what its Bash writes is put back.
-    #[serde(default)]
+    /// Accepted from older files and not used: a step has every tool of the session, Serena's
+    /// included. It never changes the repository: an edit is refused, and what its Bash writes is
+    /// put back.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<String>,
     /// Accepted from older files and not used: the clock bounds a step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -104,7 +105,6 @@ impl Default for StepHooks {
 const BUILTIN_NAMES: [&str; 2] = ["repo", "steps"];
 /// Jinja's own global functions, which templates may call.
 const JINJA_GLOBALS: [&str; 4] = ["namespace", "range", "dict", "debug"];
-const TOOLS: [&str; 4] = ["Read", "Grep", "Glob", "Bash"];
 
 /// The JSON Schema of a workflow file.
 pub fn schema() -> Value {
@@ -194,12 +194,6 @@ fn check(wf: &Workflow) -> Result<(), String> {
         if BUILTIN_NAMES.contains(&name.as_str()) || wf.inputs.contains(name) {
             return Err(format!(
                 "step `{name}` has the name of an input or of `repo`/`steps`"
-            ));
-        }
-        if let Some(t) = step.tools.iter().find(|t| !TOOLS.contains(&t.as_str())) {
-            return Err(format!(
-                "step `{name}`: tool `{t}` is not one of {}",
-                TOOLS.join(", ")
             ));
         }
         jsonschema::validator_for(&step.output_schema)
@@ -863,16 +857,16 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
     }
 
     #[test]
-    fn an_unknown_field_or_tool_is_refused_at_load() {
+    fn an_unknown_field_is_refused_and_tools_are_accepted_at_load() {
         assert!(load(&TWO_STEPS.replace("max_turns: 1", "max_turn: 1")).is_err());
+        // older files' tool lists load; a step has every tool of the session
         assert!(
             load(&TWO_STEPS.replacen(
                 "prompt: \"Request",
                 "tools: [Write]\n    prompt: \"Request",
                 1
             ))
-            .unwrap_err()
-            .contains("Write")
+            .is_ok()
         );
         assert!(
             load(&TWO_STEPS.replacen(
