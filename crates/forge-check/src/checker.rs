@@ -217,6 +217,55 @@ struct Run<'a> {
     branch: Option<Result<ChangeSet, String>>,
 }
 
+/// What a check reads of the run, and where it leaves its notes and its tools' time: shared by the
+/// checks of a stage, which run at the same time ([`Checker::run_stage`]).
+struct Ctx<'a> {
+    change: &'a ChangeSet,
+    opts: &'a Options,
+    files: &'a RunFiles,
+    deadline: Instant,
+    branch: Option<&'a Result<ChangeSet, String>>,
+    notes: std::sync::Mutex<Vec<Note>>,
+    took: std::sync::Mutex<Duration>,
+}
+
+impl<'a> Ctx<'a> {
+    fn of(run: &'a Run<'_>) -> Ctx<'a> {
+        Ctx {
+            change: &*run.change,
+            opts: run.opts,
+            files: &run.files,
+            deadline: run.deadline,
+            branch: run.branch.as_ref(),
+            notes: std::sync::Mutex::new(Vec::new()),
+            took: std::sync::Mutex::new(Duration::ZERO),
+        }
+    }
+
+    fn note(&self, n: Note) {
+        self.notes.lock().unwrap_or_else(|e| e.into_inner()).push(n);
+    }
+
+    fn notes(&self, ns: impl IntoIterator<Item = Note>) {
+        self.notes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend(ns);
+    }
+
+    fn add_time(&self, d: Duration) {
+        *self.took.lock().unwrap_or_else(|e| e.into_inner()) += d;
+    }
+
+    /// Its notes and time, for the run.
+    fn finish(self) -> (Vec<Note>, Duration) {
+        (
+            self.notes.into_inner().unwrap_or_else(|e| e.into_inner()),
+            self.took.into_inner().unwrap_or_else(|e| e.into_inner()),
+        )
+    }
+}
+
 const DELETED_TESTS: &[&str] = &[
     "test_*.py",
     "*/test_*.py",
@@ -442,7 +491,6 @@ impl Checker {
             })
             .collect();
         let _ = std::fs::write(run.files.path("checks"), ids.join("\n"));
-        let _ = std::fs::write(run.files.path("notes"), "");
         let status = match opts.phase {
             Phase::Stop => self.stop_steps(&mut run),
             Phase::PostEdit => self.edit_steps(&mut run),
@@ -528,7 +576,7 @@ impl Checker {
                 continue;
             }
             let cmd = c.target.changed_run.clone().unwrap_or_default();
-            let _ = self.exec(run, c, &cmd, &files, true, None);
+            let _ = self.exec_run(run, c, &cmd, &files);
         }
         // safe fixes, then lint; copies first, to tell what the fixes changed
         let pre = tempfile::tempdir().ok();
@@ -556,7 +604,7 @@ impl Checker {
                 continue;
             }
             let cmd = c.target.fix_run.clone().unwrap_or_default();
-            let (exit, out) = self.exec(run, c, &cmd, &files, true, None);
+            let (exit, out) = self.exec_run(run, c, &cmd, &files);
             for (f, code) in ruff_fixes(&out) {
                 fixed_codes.entry(f).or_default().insert(code);
             }
@@ -609,7 +657,7 @@ impl Checker {
                 continue;
             }
             lint_ran = true;
-            let (exit, out) = self.exec(run, c, &cmd, &files, true, None);
+            let (exit, out) = self.exec_run(run, c, &cmd, &files);
             lint_runs.push((
                 c.id().to_string(),
                 c.target.stage,
@@ -904,11 +952,52 @@ impl Checker {
 
     // ---------------------------------------------------------------- step 3: check stages
 
-    /// Runs the checks of a stage; whether one failed.
+    /// Runs the checks of a stage; whether one failed. The checks run at the same time (they read
+    /// the repository and write only their own files), at most one per core; their results are
+    /// taken in the rules' order, so the report is the same as one after the other.
     fn run_stage(&self, run: &mut Run<'_>, stage: Stage) -> bool {
+        let all = self.checks();
+        let checks: Vec<&Check<'_>> = all.iter().filter(|c| c.target.stage == stage).collect();
+        if checks.is_empty() {
+            return false;
+        }
+        // a branch check's change is computed once, before they start
+        let branch: Vec<bool> = checks.iter().map(|c| self.branch_change(run, c)).collect();
+        let timings = std::env::var_os("FORGE_TIMINGS").is_some_and(|v| !v.is_empty());
+        let cx = Ctx::of(run);
+        let workers = std::thread::available_parallelism()
+            .map_or(1, std::num::NonZeroUsize::get)
+            .min(checks.len());
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let slots: Vec<std::sync::Mutex<Option<(CheckResult, Duration)>>> =
+            checks.iter().map(|_| std::sync::Mutex::new(None)).collect();
+        std::thread::scope(|s| {
+            for _ in 0..workers {
+                s.spawn(|| {
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(c) = checks.get(i) else { break };
+                        let started = Instant::now();
+                        let r = self.run_check(&cx, c, branch[i]);
+                        *slots[i].lock().unwrap_or_else(|e| e.into_inner()) =
+                            Some((r, started.elapsed()));
+                    }
+                });
+            }
+        });
+        let (notes, took) = cx.finish();
+        run.report.notes.extend(notes);
+        run.tool_time += took;
         let mut failed = false;
-        for c in self.checks().iter().filter(|c| c.target.stage == stage) {
-            match self.drop_accepted(self.run_check(run, c)) {
+        for (c, slot) in checks.iter().zip(slots) {
+            let Some((result, elapsed)) = slot.into_inner().unwrap_or_else(|e| e.into_inner())
+            else {
+                continue;
+            };
+            if timings {
+                eprintln!("{:>6} ms  {}", elapsed.as_millis(), c.id());
+            }
+            match self.drop_accepted(result) {
                 CheckResult::Pass => {}
                 CheckResult::Fail(f) => {
                     run.report.findings.extend(f);
@@ -1014,8 +1103,7 @@ impl Checker {
     /// One check under Stop or `forge check` (`forge_run_check_one`).
     /// One check: its result, attributed to the change. An advised check's findings go through
     /// the same attribution, then are advice (§10.7).
-    fn run_check(&self, run: &mut Run<'_>, c: &Check<'_>) -> CheckResult {
-        let branch = self.branch_change(run, c);
+    fn run_check(&self, run: &Ctx<'_>, c: &Check<'_>, branch: bool) -> CheckResult {
         let mut result = self.check_attributed(run, c);
         // a branch check judges the branch, but blames the run only for the files it changed:
         // a finding about a file only earlier commits of the branch changed is not this change's
@@ -1048,8 +1136,8 @@ impl Checker {
         }
     }
 
-    fn check_attributed(&self, run: &mut Run<'_>, c: &Check<'_>) -> CheckResult {
-        let change = &*run.change;
+    fn check_attributed(&self, run: &Ctx<'_>, c: &Check<'_>) -> CheckResult {
+        let change = run.change;
         let all = change.mode == Mode::All;
         let mode = change.mode.clone();
         let mut files = Vec::new();
@@ -1077,7 +1165,7 @@ impl Checker {
             }
         }
         if let Some(t) = self.missing_tool(c) {
-            run.report.notes.push(note(
+            run.note(note(
                 NoteKind::MissingTool,
                 c.id(),
                 format!("skipped: {t} not installed"),
@@ -1085,7 +1173,7 @@ impl Checker {
             return CheckResult::Pass;
         }
         if c.target.requires_local_db == Some(true) && !builtins::is_local_db(&self.root) {
-            run.report.notes.push(note(
+            run.note(note(
                 NoteKind::Environment,
                 c.id(),
                 "skipped: no local database",
@@ -1106,7 +1194,7 @@ impl Checker {
         match exit {
             Exit::Status(0) => return CheckResult::Pass,
             Exit::Budget(s) => {
-                run.report.notes.push(note(NoteKind::ForgeFailure, c.id(), format!("not checked: the run's time budget ran out after {s}s, before this check finished")));
+                run.note(note(NoteKind::ForgeFailure, c.id(), format!("not checked: the run's time budget ran out after {s}s, before this check finished")));
                 return CheckResult::Pass;
             }
             Exit::TimedOut(s) => {
@@ -1121,7 +1209,7 @@ impl Checker {
                 return CheckResult::Fail(vec![f]);
             }
             Exit::Failed(why) => {
-                run.report.notes.push(note(
+                run.note(note(
                     NoteKind::ForgeFailure,
                     c.id(),
                     format!("not checked: the check could not start ({why})"),
@@ -1137,9 +1225,7 @@ impl Checker {
             if missing.is_empty() {
                 out
             } else {
-                run.report
-                    .notes
-                    .push(crate::pydeps::missing_note(&missing, c.id()));
+                run.note(crate::pydeps::missing_note(&missing, c.id()));
                 if !kept.lines().any(diagnostics::is_error_diagnostic) {
                     return CheckResult::Pass;
                 }
@@ -1159,10 +1245,10 @@ impl Checker {
         }
         let warn = c.target.fail_on_warnings == Some(true);
         if diagnostics::attributed(c.target.stage, whole) {
-            let target = DiagTarget::of(&*run.change);
+            let target = DiagTarget::of(run.change);
             let (what, lines) = diagnostics::attribute(&out, &self.root, &target, warn);
             if what == Attribution::Forge {
-                run.report.notes.push(note(
+                run.note(note(
                     NoteKind::Setup,
                     c.id(),
                     "ok: its findings are only in Forge's own files",
@@ -1183,11 +1269,7 @@ impl Checker {
                         return self.base_compare(run, c, &cmd, &files, uses_files, &out, 15);
                     }
                     Attribution::Warnings => {
-                        run.report.notes.push(note(
-                            NoteKind::Environment,
-                            c.id(),
-                            "ok: only warnings",
-                        ));
+                        run.note(note(NoteKind::Environment, c.id(), "ok: only warnings"));
                         return CheckResult::Pass;
                     }
                     // every finding in a file the change touched, old or new
@@ -1220,7 +1302,7 @@ impl Checker {
     #[allow(clippy::too_many_arguments)]
     fn base_compare(
         &self,
-        run: &mut Run<'_>,
+        run: &Ctx<'_>,
         c: &Check<'_>,
         cmd: &str,
         files: &[String],
@@ -1230,7 +1312,7 @@ impl Checker {
     ) -> CheckResult {
         let stage = c.target.stage;
         if run.opts.phase == Phase::PostEdit {
-            run.report.notes.push(note(
+            run.note(note(
                 NoteKind::Environment,
                 c.id(),
                 "failed naming no added line; the Stop check compares it with the base",
@@ -1238,7 +1320,7 @@ impl Checker {
             return CheckResult::Pass;
         }
         let base_name = run.change.base_name();
-        let why = match crate::base_tree::build(&*run.change) {
+        let why = match crate::base_tree::build(run.change) {
             Err(w) => w,
             Ok(tree) => {
                 let (exit, base_out) = self.exec(run, c, cmd, files, uses_files, Some(&tree));
@@ -1275,7 +1357,7 @@ impl Checker {
                             }
                         }
                         if new.is_empty() {
-                            run.report.notes.push(note(
+                            run.note(note(
                                 NoteKind::Environment,
                                 c.id(),
                                 format!("ok for this change: what it reports was already there at {base_name}"),
@@ -1296,7 +1378,7 @@ impl Checker {
                 }
             }
         };
-        run.report.notes.push(note(
+        run.note(note(
             NoteKind::Environment,
             c.id(),
             format!("could not be compared with {base_name}: {why}; all of it counts"),
@@ -1342,14 +1424,14 @@ impl Checker {
     #[allow(clippy::too_many_arguments)]
     fn typecheck_compare(
         &self,
-        run: &mut Run<'_>,
+        run: &Ctx<'_>,
         c: &Check<'_>,
         cmd: &str,
         files: &[String],
         uses_files: bool,
         out: &str,
     ) -> CheckResult {
-        let now = diagnostics::diag_keys(out, &self.root, &DiagTarget::of(&*run.change));
+        let now = diagnostics::diag_keys(out, &self.root, &DiagTarget::of(run.change));
         let changed: Vec<String> = now
             .iter()
             .filter(|k| k.in_changed)
@@ -1361,11 +1443,11 @@ impl Checker {
         }
         let base_name = run.change.base_name();
         let why;
-        match crate::base_tree::build(&*run.change) {
+        match crate::base_tree::build(run.change) {
             Err(w) => why = w,
             Ok(tree) => {
                 let (exit, base_out) = self.exec(run, c, cmd, files, uses_files, Some(&tree));
-                let target = DiagTarget::of(&*run.change);
+                let target = DiagTarget::of(run.change);
                 match exit {
                     Exit::Status(0) => {
                         let (new, _) = diagnostics::compare_with_base(&now, &[]);
@@ -1389,7 +1471,7 @@ impl Checker {
                 }
             }
         }
-        run.report.notes.push(note(
+        run.note(note(
             NoteKind::Environment,
             c.id(),
             format!("its errors in other files could not be compared with {base_name}: {why}; only those in the changed files count"),
@@ -1412,7 +1494,7 @@ impl Checker {
     /// tree when given. Returns how it ended and its output.
     fn exec(
         &self,
-        run: &mut Run<'_>,
+        run: &Ctx<'_>,
         c: &Check<'_>,
         cmd: &str,
         files: &[String],
@@ -1479,7 +1561,7 @@ impl Checker {
                 timeout,
                 budget: Some(budget),
             });
-            run.tool_time += r.took;
+            run.add_time(r.took);
             let text = match d {
                 Some(d) => diagnostics::prefix_paths(&r.output, d),
                 None => r.output,
@@ -1499,9 +1581,7 @@ impl Checker {
             }
         }
         // notes the builtins wrote, and the old protocol's "forge:<id> …" lines
-        run.report
-            .notes
-            .extend(take_notes(&run.files.path("notes")));
+        run.notes(take_notes(&run.files.path(&notes_name(c.id()))));
         let mut kept = Vec::new();
         for l in output.lines() {
             let plain = crate::adapters::strip_ansi(l);
@@ -1509,9 +1589,7 @@ impl Checker {
                 let (rule, text) = rest.split_once(' ').unwrap_or((rest, ""));
                 let text = text.trim();
                 if !text.is_empty() && !text.starts_with("timed out") {
-                    run.report
-                        .notes
-                        .push(note(NoteKind::NotEnforced, rule, text.to_string()));
+                    run.note(note(NoteKind::NotEnforced, rule, text.to_string()));
                 }
                 continue;
             }
@@ -1524,9 +1602,25 @@ impl Checker {
         (status, out)
     }
 
+    /// [`Self::exec`] for a step that holds the run itself: its notes and time merged back.
+    fn exec_run(
+        &self,
+        run: &mut Run<'_>,
+        c: &Check<'_>,
+        cmd: &str,
+        files: &[String],
+    ) -> (Exit, String) {
+        let cx = Ctx::of(run);
+        let r = self.exec(&cx, c, cmd, files, true, None);
+        let (notes, took) = cx.finish();
+        run.report.notes.extend(notes);
+        run.tool_time += took;
+        r
+    }
+
     /// The environment of a check's commands (forge-core's protocol and the checker's).
-    fn env_for(&self, run: &Run<'_>, c: &Check<'_>) -> BTreeMap<String, OsString> {
-        let change = &*run.change;
+    fn env_for(&self, run: &Ctx<'_>, c: &Check<'_>) -> BTreeMap<String, OsString> {
+        let change = run.change;
         let mut env = shell::base_env(&run.opts.exe);
         let s = |p: &Path| p.as_os_str().to_owned();
         env.insert(ENV_ROOT.into(), s(&self.root));
@@ -1548,7 +1642,7 @@ impl Checker {
             .into(),
         );
         if change.mode != Mode::All {
-            match &run.branch {
+            match run.branch {
                 Some(Ok(b)) if c.target.branch_base() => {
                     env.insert(ENV_BASE.into(), s(b.base_dir()));
                     env.insert(ENV_CHANGED.into(), s(&run.files.path("changed.branch")));
@@ -1559,7 +1653,7 @@ impl Checker {
                 }
             }
         }
-        env.insert(ENV_NOTES.into(), s(&run.files.path("notes")));
+        env.insert(ENV_NOTES.into(), s(&run.files.path(&notes_name(c.id()))));
         env.insert(builtins::ENV_TMP.into(), s(run.files.dir.path()));
         // a missing pinned tool may be installed at Stop and `forge check`, never after an edit
         if run.opts.phase == Phase::Stop {
@@ -1632,7 +1726,7 @@ impl Checker {
                 shell::preamble(c.id(), &c.tools),
                 shell::fill(&cmd)
             );
-            let mut env = self.env_for(run, c);
+            let mut env = self.env_for(&Ctx::of(run), c);
             env.insert("FORGE_FILE".into(), path.into());
             let r = shell::run(&Spec {
                 script,
@@ -1643,7 +1737,7 @@ impl Checker {
                 budget: Some(run.deadline.saturating_duration_since(Instant::now())),
             });
             run.tool_time += r.took;
-            let _ = take_notes(&run.files.path("notes"));
+            let _ = take_notes(&run.files.path(&notes_name(c.id())));
             if !r.exit.ok() || (r.output.is_empty() && !cur.is_empty()) {
                 return None;
             }
@@ -1817,6 +1911,11 @@ fn safe(id: &str) -> String {
             }
         })
         .collect()
+}
+
+/// The file a check's builtins write their notes to: its own, as checks run at the same time.
+fn notes_name(rule: &str) -> String {
+    format!("notes.{}", safe(rule))
 }
 
 fn advised_name(id: &str) -> String {
