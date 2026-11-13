@@ -58,7 +58,7 @@ User level:
 | PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob\|mcp__serena__.*` | `user-pre-tool-use` | 180 s | |
 | PermissionRequest | | `user-permission-request` | 180 s | |
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
-| PreToolUse | `Agent\|Task\|Read\|Grep\|Glob\|mcp__serena__.*` | `user-agents` | 30 s | |
+| PreToolUse | `Agent\|Task\|Read\|Grep\|Glob\|SubagentHandback\|SendMessage\|mcp__serena__.*` | `user-agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `user-agents` | 30 s | |
 | SubagentStart | `quality-reviewer` | `user-agents` | 30 s | |
 | SubagentStop | `quality-reviewer` | `user-agents` | 30 s | |
