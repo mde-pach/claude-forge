@@ -356,7 +356,7 @@ fn hook_entries_wire_every_event() {
             "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.* user-pre-tool-use 180",
             "PermissionRequest - user-permission-request 180",
             "Notification permission_prompt|idle_prompt user-notification 5",
-            "PreToolUse Agent|Task|Read|Grep|Glob|SubagentHandback|mcp__serena__.* user-agents 30",
+            "PreToolUse Agent|Task|Read|Grep|Glob|SubagentHandback|SendMessage|mcp__serena__.* user-agents 30",
             "PostToolUse Agent|Task user-agents 30",
             "SubagentStart quality-reviewer user-agents 30",
             "SubagentStop quality-reviewer user-agents 30",
@@ -1880,4 +1880,25 @@ fn reads_refused_while_a_workflow_step_is_pending_are_not_counted_for_serena() {
         );
     }
     assert!(!s.session().join("serena/main.json").exists());
+}
+
+#[test]
+fn forges_agents_take_and_send_no_messages_and_other_agents_are_left_alone() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let start = |id: &str, kind: &str| json!({"hook_event_name": "SubagentStart", "agent_id": id, "agent_type": kind});
+    s.run(&f, "agents", start("rev1", "quality-reviewer"));
+    s.run(&f, "agents", start("helper1", "general-purpose"));
+    let send = |to: &str| {
+        json!({"hook_event_name": "PreToolUse", "tool_name": "SendMessage",
+        "tool_input": {"to": to, "message": "what did you answer?"}})
+    };
+    // the main agent to one of Forge's agents: refused; to any other agent: left alone
+    assert_eq!(decision(&s.run(&f, "agents", send("rev1"))).0, "deny");
+    assert_eq!(s.run(&f, "agents", send("helper1")), Output::silent());
+    // Forge's own agents send none
+    let mut from_reviewer = send("helper1");
+    from_reviewer["agent_id"] = json!("rev1");
+    from_reviewer["agent_type"] = json!("quality-reviewer");
+    assert_eq!(decision(&s.run(&f, "agents", from_reviewer)).0, "deny");
 }

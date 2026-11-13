@@ -516,6 +516,17 @@ pub fn hook(rt: &Runtime, input: &HookInput, user: bool) -> Output {
             };
         }
     }
+    // messages: Forge's agents neither send nor receive any (their answers stay Forge's); every
+    // other agent of the session messages as it likes
+    if event == "PreToolUse" && input.tool() == MESSAGE_TOOL {
+        if matches!(me, Who::Step | Who::Reviewer) {
+            return pre_decision("deny", NO_MESSAGES);
+        }
+        let to = input.input_str("to").and_then(crate::input::safe_key);
+        if to.is_some_and(|t| ours(&session_dir_of(rt, input), &t)) {
+            return pre_decision("deny", NOT_REACHABLE);
+        }
+    }
     match (event, me) {
         ("PreToolUse", Who::Main) => {
             if workflows_here {
@@ -551,12 +562,14 @@ pub fn hook(rt: &Runtime, input: &HookInput, user: bool) -> Output {
             _ => Output::silent(),
         },
         ("SubagentStart", Who::Step) if workflows_here => {
+            remember(&session_dir_of(rt, input), input);
             if let Some(p) = &project {
                 step_started(input, p);
             }
             Output::silent()
         }
         ("SubagentStart", Who::Reviewer) if reviews_here => {
+            remember(&session_dir_of(rt, input), input);
             review_started(input, &session_dir_of(rt, input));
             Output::silent()
         }
@@ -794,6 +807,34 @@ fn step_answered(
     } else {
         close(&p.session_dir, input)
     }
+}
+
+/// Claude Code's tool through which agents of a session message each other.
+const MESSAGE_TOOL: &str = "SendMessage";
+/// To one of Forge's agents sending a message.
+const NO_MESSAGES: &str = "This agent sends no messages: end with your answer.";
+/// To an agent messaging one of Forge's agents.
+const NOT_REACHABLE: &str =
+    "That agent worked for this project's tooling and has finished: it takes no messages.";
+
+/// `<session>/agents/ids`: the ids of the session's Forge agents, one per line.
+fn ids_file(dir: &Path) -> PathBuf {
+    dir.join("agents").join("ids")
+}
+
+/// Records the starting agent as one of Forge's.
+fn remember(dir: &Path, input: &HookInput) {
+    if let Some(a) = input.agent_key() {
+        let f = ids_file(dir);
+        if f.parent().is_some_and(state::ensure_dir) {
+            state::append_line(&f, &a);
+        }
+    }
+}
+
+/// Whether `agent` (an id, file-name safe) is one of the session's Forge agents.
+fn ours(dir: &Path, agent: &str) -> bool {
+    std::fs::read_to_string(ids_file(dir)).is_ok_and(|t| t.lines().any(|l| l == agent))
 }
 
 /// The name of Claude Code's tool through which a subagent hands its report to its caller (newer
