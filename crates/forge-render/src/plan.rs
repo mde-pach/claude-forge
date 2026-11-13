@@ -249,8 +249,13 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
             |pack| activation.packs.iter().any(|p| p.id == pack),
             |glob| input.facts.is_some_and(|f| f.root.has_files(glob)),
         );
-        // Serena where it has a language to serve
-        if !languages.is_empty() {
+        // Serena where it has a language to serve; never with --local, which writes no shared
+        // file (.mcp.json is one, and Claude Code takes MCP servers from nowhere else)
+        if input.local && !languages.is_empty() {
+            warnings.push(
+                "Serena is not set up with --local: its server goes in .mcp.json, a shared file; run forge apply without --local to set it up".into(),
+            );
+        } else if !languages.is_empty() {
             let (serena_files, serena_settings) =
                 serena_setup(input.base, settings_file, &languages);
             files.extend(serena_files);
