@@ -521,6 +521,24 @@ impl Worker {
                     Err(e) => self.failed(lang, e),
                 }
             }
+            Request::Check { lang, files } => {
+                let result = match lang {
+                    Lang::Typescript => self.typescript().and_then(|t| t.check_change(&files)),
+                    Lang::Python => Err("checks Python through ty, not the server".into()),
+                };
+                self.shared.log(&format!(
+                    "{lang}: checked {} file(s) and their importers in {:.1} ms",
+                    files.len(),
+                    t.elapsed().as_secs_f64() * 1000.0
+                ));
+                match result {
+                    Ok(d) => Response {
+                        diagnostics: Some(d),
+                        ..Response::default()
+                    },
+                    Err(e) => self.failed(lang, e),
+                }
+            }
             Request::Ping
             | Request::Register { .. }
             | Request::Unregister { .. }

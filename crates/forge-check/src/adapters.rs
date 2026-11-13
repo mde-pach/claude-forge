@@ -108,6 +108,48 @@ pub struct Adapter {
     pub ranges: Vec<Range>,
     #[serde(default)]
     pub codes: Option<Codes>,
+    #[serde(default)]
+    pub engine: Option<EngineOps>,
+}
+
+/// The operations of a tool that the repository's running types engine settles for a change, in
+/// the tool's place (§15, §16): the errors of the changed files and those the change caused in
+/// the files that import them, without starting the tool.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EngineOps {
+    pub lang: forge_engine::Lang,
+    pub ops: Vec<String>,
+    /// The changed files the engine checks, by name (`*.ts`); the others are not its concern.
+    pub files: Vec<String>,
+    /// A changed file named so needs the tool itself (`tsconfig*.json`, `*.d.ts`).
+    pub whole: Vec<String>,
+    /// One diagnostic as the tool prints it: `{path}`, `{line}`, `{column}`, `{code}`,
+    /// `{message}`.
+    pub line: String,
+}
+
+impl EngineOps {
+    /// Whether a file name matches one of `patterns`, each with at most one `*`.
+    pub fn matches(patterns: &[String], name: &str) -> bool {
+        patterns.iter().any(|p| match p.split_once('*') {
+            Some((pre, post)) => {
+                name.len() >= pre.len() + post.len()
+                    && name.starts_with(pre)
+                    && name.ends_with(post)
+            }
+            None => name == p,
+        })
+    }
+
+    pub fn print(&self, d: &forge_engine::Diagnostic) -> String {
+        self.line
+            .replace("{path}", &d.path)
+            .replace("{line}", &d.line.to_string())
+            .replace("{column}", &d.column.to_string())
+            .replace("{code}", d.code.as_deref().unwrap_or("0"))
+            .replace("{message}", &d.message)
+    }
 }
 
 /// What a version of a tool does for an operation.
@@ -874,6 +916,47 @@ mod tests {
         }
         let ruff = Adapter::load("ruff").unwrap();
         assert!(ruff.codes.as_ref().unwrap().history.contains_key("ANN001"));
+        // an operation the engine settles is one the tool has
+        for a in &all {
+            if let Some(e) = &a.engine {
+                for op in &e.ops {
+                    assert!(a.ops().contains(op), "{}: engine op {op}", a.tool);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_engine_takes_the_changed_code_files_and_prints_as_the_tool() {
+        let e = Adapter::load("tsc").unwrap().engine.unwrap();
+        assert_eq!(e.lang, forge_engine::Lang::Typescript);
+        for name in ["a.ts", "b.tsx", "c.mts"] {
+            assert!(EngineOps::matches(&e.files, name), "{name}");
+        }
+        assert!(!EngineOps::matches(&e.files, "a.js"));
+        for name in [
+            "types.d.ts",
+            "tsconfig.json",
+            "tsconfig.build.json",
+            "package.json",
+        ] {
+            assert!(EngineOps::matches(&e.whole, name), "{name}");
+        }
+        assert!(!EngineOps::matches(&e.whole, "a.ts"));
+        // a pattern's two ends never overlap
+        assert!(!EngineOps::matches(&["ab*ba".into()], "aba"));
+        let d = forge_engine::Diagnostic {
+            path: "src/use.ts".into(),
+            line: 3,
+            column: 14,
+            severity: "error".into(),
+            code: Some("2322".into()),
+            message: "Type 'string' is not assignable to type 'number'.".into(),
+        };
+        assert_eq!(
+            e.print(&d),
+            "src/use.ts(3,14): error TS2322: Type 'string' is not assignable to type 'number'."
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! TypeScript's engine: the project's own TypeScript (spec §15.1–§15.2, §15.6, §15.7), the port
+//! TypeScript's engine: the project's own TypeScript (spec §15.1–§15.2, §15.6–§15.8), the port
 //! of `types_typescript.mjs`. TypeScript 7 and later through its language server
 //! (`tsc --lsp --stdio`, the native compiler run directly); 5 and 6 through their tsserver.
 
@@ -568,6 +568,24 @@ impl Server {
         }
     }
 
+    /// The files that reference `file` (import it), as tsserver's `fileReferences` gives them;
+    /// None for a server without it (TypeScript 7's).
+    fn file_references(&self, file: &Path) -> Option<Result<Vec<PathBuf>, String>> {
+        let Server::TsServer { rpc, .. } = self else {
+            return None;
+        };
+        Some(
+            rpc.request("fileReferences", json!({"file": file}))
+                .wait()
+                .map(|r| {
+                    as_array(&r["refs"])
+                        .iter()
+                        .filter_map(|x| x["file"].as_str().map(PathBuf::from))
+                        .collect()
+                }),
+        )
+    }
+
     /// The errors and warnings of what the server has for `file`.
     fn diagnostics(&self, file: &Path, rel: &str) -> Result<Vec<Diagnostic>, String> {
         match self {
@@ -611,6 +629,14 @@ impl Server {
             }
         }
     }
+}
+
+/// Most importers [`TypeScript::check_change`] follows; beyond, `tsc` checks the project.
+const IMPORTERS_MAX: usize = 300;
+
+/// A diagnostic without its position: the same error in an importer whose lines did not move.
+fn key(d: &Diagnostic) -> (String, Option<String>, String) {
+    (d.path.clone(), d.code.clone(), d.message.clone())
 }
 
 pub(crate) struct TypeScript {
@@ -1123,6 +1149,100 @@ impl TypeScript {
             found.insert((*n, v.clone()), Found::Deprecated(deprecated));
         }
         Ok(found)
+    }
+
+    /// A change's typecheck through the running server (§15.8): the errors of the changed
+    /// `files`, and those the change caused in the files that import them, followed transitively
+    /// (at most [`IMPORTERS_MAX`]): an importer's errors with the changed files as they are, less
+    /// those it has with them as they were (`base`; a file the change created is empty then).
+    /// Err when the server cannot settle it, and `tsc` decides: TypeScript 7's server (no file
+    /// references), a global declaration in a changed file (it reaches files that do not import
+    /// it), too many importers.
+    pub fn check_change(&mut self, files: &[DiagFile]) -> Result<Vec<Diagnostic>, String> {
+        let global = |t: &str| t.contains("declare global") || t.contains("declare module");
+        let mut changed: Vec<(PathBuf, String, String)> = Vec::new();
+        for f in files {
+            let path = self.root.join(&f.path);
+            let now = read_text(&path).ok_or_else(|| format!("cannot read {}", f.path))?;
+            let base = f
+                .base
+                .as_ref()
+                .and_then(|b| read_text(b))
+                .unwrap_or_default();
+            if f.path.ends_with(".d.ts") || global(&now) || global(&base) {
+                return Err(format!("skips the change: {} declares globals", f.path));
+            }
+            changed.push((path, f.path.clone(), base));
+        }
+        for (path, _, _) in &changed {
+            self.sync(path)?;
+        }
+        // the importers, transitively, inside the repository and outside its dependencies
+        let mut seen: std::collections::BTreeSet<PathBuf> =
+            changed.iter().map(|(p, _, _)| p.clone()).collect();
+        let mut queue: Vec<PathBuf> = seen.iter().cloned().collect();
+        let mut importers: Vec<(PathBuf, String)> = Vec::new();
+        while let Some(p) = queue.pop() {
+            let refs = self
+                .server
+                .file_references(&p)
+                .ok_or("gives no file references")??;
+            for r in refs {
+                let Ok(rel) = r.strip_prefix(&self.root) else {
+                    continue;
+                };
+                let rel = rel.to_string_lossy().into_owned();
+                if rel.split('/').any(|c| c == "node_modules") || !seen.insert(r.clone()) {
+                    continue;
+                }
+                if importers.len() == IMPORTERS_MAX {
+                    return Err(format!(
+                        "skips the change: more than {IMPORTERS_MAX} importers"
+                    ));
+                }
+                importers.push((r.clone(), rel));
+                queue.push(r);
+            }
+        }
+        let errors = |d: Vec<Diagnostic>| d.into_iter().filter(|d| d.severity == "error");
+        let mut out = Vec::new();
+        for (path, rel, _) in &changed {
+            out.extend(errors(self.server.diagnostics(path, rel)?));
+        }
+        let mut now_importers = Vec::new();
+        for (path, rel) in &importers {
+            self.sync(path)?;
+            now_importers.extend(errors(self.server.diagnostics(path, rel)?));
+        }
+        if now_importers.is_empty() {
+            return Ok(out);
+        }
+        // the importers with the changed files as they were, then as they are again
+        for (path, _, base) in &changed {
+            self.server.show(path, base);
+        }
+        let mut before = std::collections::BTreeSet::new();
+        let mut result = Ok(());
+        for (path, rel) in &importers {
+            match self.server.diagnostics(path, rel) {
+                Ok(d) => before.extend(errors(d).map(|d| key(&d))),
+                Err(e) => {
+                    result = Err(e);
+                    break;
+                }
+            }
+        }
+        for (path, _, _) in &changed {
+            let now = self.texts.get(path).cloned().unwrap_or_default();
+            self.server.show(path, &now);
+        }
+        result?;
+        out.extend(
+            now_importers
+                .into_iter()
+                .filter(|d| !before.contains(&key(d))),
+        );
+        Ok(out)
     }
 
     pub fn diagnose(

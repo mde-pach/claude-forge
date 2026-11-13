@@ -57,6 +57,9 @@ fn forge_do(inv: &Invocation<'_>, out: &mut dyn Write, err: &mut dyn Write) -> i
         let _ = writeln!(err, "usage: forge_do <tool> <operation> [arguments]");
         return 2;
     };
+    if let Some(status) = engine_do(inv, tool, op, out) {
+        return status;
+    }
     let ctx = DoCtx {
         root: inv.root(),
         cwd: &inv.cwd,
@@ -67,6 +70,59 @@ fn forge_do(inv: &Invocation<'_>, out: &mut dyn Write, err: &mut dyn Write) -> i
     let outcome = run_do(tool, op, &inv.args[2..], &ctx, out, err);
     inv.ctx.write_notes(&outcome.notes);
     outcome.status
+}
+
+/// A change's operation through the repository's running types engine, when the tool's adapter
+/// says the engine settles it (`engine`, §16) and it can here: the errors of the changed files and
+/// those the change caused in their importers (§15), printed as the tool prints them. None when the
+/// tool must run: `--all`, a workspace package, no engine, a deleted file, a change the whole
+/// project depends on, or one the engine declines (too many importers, a server without them).
+fn engine_do(inv: &Invocation<'_>, tool: &str, op: &str, out: &mut dyn Write) -> Option<i32> {
+    use crate::adapters::EngineOps;
+    use forge_core::builtin::Scope;
+    if inv.ctx.scope == Scope::All || inv.ws_root.is_some() || inv.ctx.changed.is_empty() {
+        return None;
+    }
+    let root = inv.root();
+    let adapter = Adapter::load(&picked(tool, root, inv.tools.as_ref()))?;
+    let engine = adapter
+        .engine
+        .as_ref()
+        .filter(|e| e.ops.iter().any(|o| o == op))?;
+    let mut files = Vec::new();
+    for p in &inv.ctx.changed {
+        let name = p.rsplit('/').next().unwrap_or(p);
+        if EngineOps::matches(&engine.whole, name) {
+            return None;
+        }
+        if !EngineOps::matches(&engine.files, name) || p.split('/').any(|c| c == "node_modules") {
+            continue;
+        }
+        // a deleted file breaks its importers, which the server can no longer name
+        if !root.join(p).is_file() {
+            return None;
+        }
+        files.push(forge_engine::DiagFile {
+            path: p.clone(),
+            base: inv.base_copy(p),
+        });
+    }
+    if files.is_empty() {
+        return None;
+    }
+    let home = forge_home::Home::from_env().ok()?;
+    let id = forge_home::RepoId::for_root(root).ok()?;
+    let socket = forge_engine::socket_addr(&home.engine_socket(&id));
+    let diags = forge_engine::Client::new(&socket)
+        .with_timeout(std::time::Duration::from_secs(60))
+        .check(engine.lang, &files)
+        .ok()?;
+    for d in &diags {
+        let _ = writeln!(out, "{}", engine.print(d));
+    }
+    // what the change caused in other files is already settled
+    inv.mark_attributed();
+    Some(i32::from(!diags.is_empty()))
 }
 
 /// `forge_exec_tool <name> [args…]`: the project's own tool; 127 when absent.

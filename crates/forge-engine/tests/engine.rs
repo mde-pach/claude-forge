@@ -687,6 +687,66 @@ fn typescript_engine(version: &str) {
     std::fs::remove_file(root.join("src/a.ts")).unwrap();
     assert_eq!(added.len(), 1, "{added:?}");
     assert_eq!((added[0].line, added[0].code.as_deref()), (1, Some("2322")));
+
+    // a change checked with its importers: the errors it causes in them, direct or not, and not
+    // the one an importer already had
+    let w = |p: &str, t: &str| std::fs::write(root.join(p), t).unwrap();
+    let base = root.join("base_lib.ts.txt");
+    w(
+        "base_lib.ts.txt",
+        "export function mean(v: number[]): number {\n  return v[0];\n}\n",
+    );
+    w(
+        "src/lib.ts",
+        "export function mean(v: number[]): string {\n  return String(v[0]);\n}\n",
+    );
+    w(
+        "src/user.ts",
+        "import { mean } from \"./lib.js\";\n\nexport const n: number = mean([1]);\n",
+    );
+    w(
+        "src/old.ts",
+        "import { mean } from \"./lib.js\";\n\nexport const bad: number = \"old\";\nexport const m = mean([1]);\n",
+    );
+    w(
+        "src/far.ts",
+        "import { m } from \"./old.js\";\n\nexport const k: number = m;\n",
+    );
+    let files = ["src/lib.ts", "src/user.ts", "src/old.ts", "src/far.ts"].map(String::from);
+    client.changed(&files).unwrap();
+    let t = Instant::now();
+    let checked = client.check(
+        Lang::Typescript,
+        &[DiagFile {
+            path: "src/lib.ts".into(),
+            base: Some(base),
+        }],
+    );
+    eprintln!(
+        "typescript {version}: change checked in {:.0} ms: {checked:?}",
+        t.elapsed().as_secs_f64() * 1000.0
+    );
+    for f in &files {
+        std::fs::remove_file(root.join(f)).unwrap();
+    }
+    if version.starts_with('7') {
+        // the native server names no importers: the check runs tsc
+        assert!(checked.is_err());
+    } else {
+        let mut got: Vec<_> = checked
+            .unwrap()
+            .iter()
+            .map(|d| (d.path.clone(), d.line, d.code.clone().unwrap_or_default()))
+            .collect();
+        got.sort();
+        assert_eq!(
+            got,
+            [
+                ("src/far.ts".to_owned(), 3, "2322".to_owned()),
+                ("src/user.ts".to_owned(), 3, "2322".to_owned()),
+            ]
+        );
+    }
     client.stop().unwrap();
     assert!(client.ping().is_err());
 }
