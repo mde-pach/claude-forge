@@ -23,27 +23,115 @@ pub fn pre(rt: &Runtime, input: &HookInput, cwd: &Path) -> Output {
     let Some(file) = input.input_str("file_path").and_then(|f| p.rel(f, cwd)) else {
         return Output::silent();
     };
-    let Some(rule) = rt.checker.test_edit_rule(&p.root, &file) else {
+    decide(rt, input, cwd, &p, &file, |before, blocks| {
+        apply(input, before).map(|after| blocks(&after))
+    })
+}
+
+/// A Serena edit of one file (`relative_path`, from the project root): its tests after the edit,
+/// when they can be known before it runs. A symbol edit of a test changes or removes that test;
+/// an insertion around a symbol changes none. When they cannot be known (a pattern Forge cannot
+/// read), the Stop check still reports each test changed without approval.
+pub fn pre_serena(rt: &Runtime, input: &HookInput, cwd: &Path, tool: &str) -> Output {
+    let Some(p) = rt.project(input) else {
         return Output::silent();
     };
-    let Ok(before) = std::fs::read_to_string(p.root.join(&file)) else {
+    let Some(file) = input
+        .input_str("relative_path")
+        .and_then(|f| p.rel(&p.root.join(f).to_string_lossy(), cwd))
+    else {
         return Output::silent();
     };
-    let Some(base) = base_text(&p, &file) else {
+    decide(rt, input, cwd, &p, &file, |before, blocks| {
+        let then = blocks(before);
+        let symbol = || {
+            input
+                .input_str("name_path")
+                .or_else(|| input.input_str("name_path_pattern"))
+                .map(|n| n.trim_matches('/').replace('/', " > "))
+        };
+        match tool {
+            "replace_content" => replace_content(input, before).map(|after| blocks(&after)),
+            "create_text_file" => input.input_str("content").map(blocks),
+            "replace_symbol_body" => {
+                let key = symbol()?;
+                let mut now = then.clone();
+                let body = blocks(input.input_str("body")?);
+                match body.into_values().next() {
+                    Some(print) if now.contains_key(&key) => {
+                        now.insert(key, print);
+                    }
+                    _ => {
+                        now.remove(&key);
+                    }
+                }
+                Some(now)
+            }
+            "insert_before_symbol" | "insert_after_symbol" => Some(then),
+            _ => None,
+        }
+    })
+}
+
+/// `replace_content`'s result on `before`: `needle` replaced by `repl`, literally or as a regular
+/// expression, once (Serena refuses several matches unless `allow_multiple_occurrences`).
+fn replace_content(input: &HookInput, before: &str) -> Option<String> {
+    let needle = input.input_str("needle")?;
+    let repl = input.input_str("repl")?;
+    let many = input
+        .tool_input
+        .get("allow_multiple_occurrences")
+        .and_then(Value::as_bool)
+        == Some(true);
+    if input.input_str("mode") == Some("regex") {
+        let re = regex::Regex::new(&format!("(?ms){needle}")).ok()?;
+        let n = re.find_iter(before).count();
+        if n == 0 || (n > 1 && !many) {
+            return None;
+        }
+        Some(re.replace_all(before, regex::NoExpand(repl)).into_owned())
+    } else {
+        let n = before.matches(needle).count();
+        if needle.is_empty() || n == 0 || (n > 1 && !many) {
+            return None;
+        }
+        Some(before.replace(needle, repl))
+    }
+}
+
+/// The ask for an edit of `file` whose tests after it `now` gives (None: not known, no ask).
+fn decide(
+    rt: &Runtime,
+    input: &HookInput,
+    cwd: &Path,
+    p: &Project,
+    file: &str,
+    now: impl FnOnce(
+        &str,
+        &dyn Fn(&str) -> BTreeMap<String, String>,
+    ) -> Option<BTreeMap<String, String>>,
+) -> Output {
+    let Some(rule) = rt.checker.test_edit_rule(&p.root, file) else {
         return Output::silent();
     };
-    let Some(after) = apply(input, &before) else {
+    let Ok(before) = std::fs::read_to_string(p.root.join(file)) else {
+        return Output::silent();
+    };
+    let Some(base) = base_text(p, file) else {
         return Output::silent();
     };
     let blocks = |s: &str| -> BTreeMap<String, String> {
         rt.checker
-            .test_blocks(&file, s)
+            .test_blocks(file, s)
             .into_iter()
             .filter(|b| !b.key.starts_with("support:"))
             .map(|b| (b.key, b.print))
             .collect()
     };
-    let (base, then, now) = (blocks(&base), blocks(&before), blocks(&after));
+    let Some(now) = now(&before, &blocks) else {
+        return Output::silent();
+    };
+    let (base, then) = (blocks(&base), blocks(&before));
     let mut asked: Vec<(String, &str)> = Vec::new();
     for (k, print) in &then {
         if !base.contains_key(k) {

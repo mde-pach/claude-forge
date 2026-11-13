@@ -335,9 +335,9 @@ fn hook_entries_wire_every_event() {
             "SessionStart startup|resume|clear|compact session-start 10",
             "UserPromptSubmit - user-prompt-submit 1800",
             "PreToolUse Bash pre-tool-use 180 block",
-            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob pre-tool-use 180",
-            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use 60",
-            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash post-tool-use-typecheck 300 rewake",
+            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.* pre-tool-use 180",
+            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__serena__.* post-tool-use 60",
+            "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__serena__.* post-tool-use-typecheck 300 rewake",
             "PostToolUseFailure Bash post-tool-use-failure 60",
             "PostToolUseFailure Bash post-tool-use-typecheck 300 rewake",
             "Stop - stop 600",
@@ -353,10 +353,10 @@ fn hook_entries_wire_every_event() {
         row(USER_HOOKS),
         [
             "PreToolUse Bash user-pre-tool-use 180 block",
-            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob user-pre-tool-use 180",
+            "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.* user-pre-tool-use 180",
             "PermissionRequest - user-permission-request 180",
             "Notification permission_prompt|idle_prompt user-notification 5",
-            "PreToolUse Agent|Task|Read|Grep|Glob user-agents 30",
+            "PreToolUse Agent|Task|Read|Grep|Glob|mcp__serena__.* user-agents 30",
             "PostToolUse Agent|Task user-agents 30",
             "SubagentStart forge-reviewer user-agents 30",
             "SubagentStop forge-reviewer user-agents 30",
@@ -1551,9 +1551,9 @@ fn forge_apply_installs_its_agents_with_the_review_model() {
     );
     // their own effort, never the session's (a harness's `--effort max`)
     assert!(step.contains(
-        "\ntools: Read, Grep, Glob, Bash\nmodel: claude-sonnet-x\neffort: medium\nbackground: false\n"
+        "\ntools: Read, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_declaration, mcp__serena__find_implementations\nmodel: claude-sonnet-x\neffort: medium\nbackground: false\n"
     ));
-    assert!(read("forge-reviewer.md").contains("\ntools: Read, Grep, Glob\n"));
+    assert!(read("forge-reviewer.md").contains("\ntools: Read, Grep, Glob, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__find_declaration, mcp__serena__find_implementations\n"));
     // unchanged: nothing written; another effort: rewritten; an unknown one: the default
     assert!(
         install(dir.path(), Some("claude-sonnet-x"), None)
@@ -1572,4 +1572,121 @@ fn forge_apply_installs_its_agents_with_the_review_model() {
     // no model: the session's
     assert_eq!(install(dir.path(), None, None).unwrap().len(), 2);
     assert!(read("forge-reviewer.md").contains("\nmodel: inherit\n"));
+}
+
+// ---- §17.8 Serena's tools under Forge's rules
+
+fn serena(tool: &str, id: &str, input: Value) -> Value {
+    json!({"hook_event_name": "PreToolUse", "tool_name": format!("mcp__serena__{tool}"), "tool_input": input, "tool_use_id": id})
+}
+
+#[test]
+fn serenas_shell_and_configuration_are_refused() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let shell = s.run(
+        &f,
+        "pre-tool-use",
+        serena("execute_shell_command", "x1", json!({"command": "ls"})),
+    );
+    assert_eq!(
+        decision(&shell),
+        ("deny".into(), forge_core::serena::SHELL_REASON.into())
+    );
+    let config = s.run(
+        &f,
+        "pre-tool-use",
+        serena("get_current_config", "x2", json!({})),
+    );
+    assert_eq!(decision(&config).0, "deny");
+    // navigation and notes: nothing to say
+    let nav = serena(
+        "find_symbol",
+        "x3",
+        json!({"name_path_pattern": "total", "relative_path": "app/main.py"}),
+    );
+    assert_eq!(s.run(&f, "pre-tool-use", nav), Output::silent());
+}
+
+#[test]
+fn serena_never_reads_forges_internals() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let inside = s.home.cache_root().join("bin/forge-0.6.0");
+    let out = s.run(
+        &f,
+        "pre-tool-use",
+        serena(
+            "get_symbols_overview",
+            "i1",
+            json!({"relative_path": inside}),
+        ),
+    );
+    assert_eq!(decision(&out).0, "deny");
+}
+
+#[test]
+fn serenas_edits_of_a_test_ask_like_edit() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    s.run(
+        &f,
+        "user-prompt-submit",
+        json!({"prompt": "the total is now 90"}),
+    );
+    let file = "tests/test_cart.py";
+    // a symbol body that changes the test
+    let body = "def test_total():\n    assert total([40, 60]) == 90\n";
+    let symbol = serena(
+        "replace_symbol_body",
+        "t1",
+        json!({"name_path": "test_total", "relative_path": file, "body": body}),
+    );
+    assert_eq!(decision(&s.run(&f, "pre-tool-use", symbol)).0, "ask");
+    // a text replacement that changes it
+    let text = serena(
+        "replace_content",
+        "t2",
+        json!({"relative_path": file, "needle": "== 100", "repl": "== 90", "mode": "literal"}),
+    );
+    assert_eq!(decision(&s.run(&f, "pre-tool-use", text)).0, "ask");
+    // the same body: no change, no ask; an insertion next to it changes no test
+    let same = serena(
+        "replace_symbol_body",
+        "t3",
+        json!({"name_path": "test_total", "relative_path": file, "body": "def test_total():\n    assert total([40, 60]) == 100\n"}),
+    );
+    assert_eq!(s.run(&f, "pre-tool-use", same), Output::silent());
+    let insert = serena(
+        "insert_after_symbol",
+        "t4",
+        json!({"name_path": "test_total", "relative_path": file, "body": "def test_more():\n    assert 1\n"}),
+    );
+    assert_eq!(s.run(&f, "pre-tool-use", insert), Output::silent());
+}
+
+#[test]
+fn serenas_edits_are_checked_like_a_bash_command() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let rename = |event: &str| {
+        let mut v = serena(
+            "rename_symbol",
+            "r1",
+            json!({"name_path": "x", "relative_path": "app/main.py", "new_name": "y"}),
+        );
+        v["hook_event_name"] = json!(event);
+        v
+    };
+    assert_eq!(
+        s.run(&f, "pre-tool-use", rename("PreToolUse")),
+        Output::silent()
+    );
+    std::fs::write(s.root.join("app/main.py"), "y = 1\n").unwrap();
+    std::fs::write(s.root.join("app/other.py"), "from app.main import y\n").unwrap();
+    s.run(&f, "post-tool-use", rename("PostToolUse"));
+    assert_eq!(
+        f.asked_post.borrow().as_slice(),
+        [vec!["app/main.py".to_string(), "app/other.py".to_string()]]
+    );
 }

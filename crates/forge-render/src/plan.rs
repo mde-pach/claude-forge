@@ -19,6 +19,8 @@ use crate::settings::{DesiredEntry, SettingsEntry};
 
 pub const SETTINGS_FILE: &str = ".claude/settings.json";
 pub const LOCAL_SETTINGS_FILE: &str = ".claude/settings.local.json";
+/// The project's MCP servers, where Forge registers Serena.
+pub const MCP_FILE: &str = ".mcp.json";
 /// The user level's settings, relative to Claude Code's config directory.
 pub const USER_SETTINGS_FILE: &str = "settings.json";
 
@@ -73,7 +75,7 @@ pub fn display_path(level: Level, base: &Path, rel: &str) -> String {
 /// The settings files a level may write to.
 pub fn settings_files(level: Level) -> &'static [&'static str] {
     match level {
-        Level::Project => &[SETTINGS_FILE, LOCAL_SETTINGS_FILE],
+        Level::Project => &[SETTINGS_FILE, LOCAL_SETTINGS_FILE, MCP_FILE],
         Level::User => &[USER_SETTINGS_FILE],
     }
 }
@@ -121,6 +123,62 @@ pub struct Plan {
     /// Where each audited tool's audits run ("" is the root).
     pub tool_dirs: BTreeMap<AuditedTool, Vec<String>>,
     pub rule_set: String,
+}
+
+/// Serena, every session's (§17.8): its project files in `.serena/`, its server in `.mcp.json`,
+/// and the setting that lets Claude Code start it without asking.
+fn serena_setup(
+    base: &Path,
+    settings_file: &str,
+    languages: &[forge_core::serena::Language],
+) -> (BTreeMap<String, String>, Vec<DesiredEntry>) {
+    use forge_core::serena;
+    let name = base
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "project".into());
+    let files = BTreeMap::from([
+        (
+            serena::PROJECT_FILE.to_string(),
+            serena::project_yml(&name, languages),
+        ),
+        (
+            serena::GITIGNORE_FILE.to_string(),
+            serena::GITIGNORE.to_string(),
+        ),
+    ]);
+    let version = forge_tools_pin(serena::TOOL);
+    let server = serde_json::json!({
+        "command": "sh",
+        "args": ["-c", serena::mcp_command(&version)],
+    });
+    let settings = vec![
+        DesiredEntry {
+            entry: SettingsEntry {
+                file: MCP_FILE.into(),
+                path: format!("mcpServers.{}", serena::SERVER),
+                value: server,
+            },
+            append: false,
+        },
+        DesiredEntry {
+            entry: SettingsEntry {
+                file: settings_file.into(),
+                path: "enabledMcpjsonServers".into(),
+                value: serde_json::Value::String(serena::SERVER.into()),
+            },
+            append: true,
+        },
+    ];
+    (files, settings)
+}
+
+/// A tool's pin in Forge's catalog.
+fn forge_tools_pin(tool: &str) -> String {
+    forge_tools::Catalog::builtin()
+        .get(tool)
+        .map(|t| t.version.to_string())
+        .unwrap_or_default()
 }
 
 pub struct PlanInput<'a> {
@@ -187,6 +245,17 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
             })
             .collect();
         files = render_rules_files(&contexts, input.facts, &activation);
+        let languages = forge_core::serena::languages(
+            |pack| activation.packs.iter().any(|p| p.id == pack),
+            |glob| input.facts.is_some_and(|f| f.root.has_files(glob)),
+        );
+        // Serena where it has a language to serve
+        if !languages.is_empty() {
+            let (serena_files, serena_settings) =
+                serena_setup(input.base, settings_file, &languages);
+            files.extend(serena_files);
+            settings.extend(serena_settings);
+        }
     }
 
     let rules: BTreeMap<String, String> = selected

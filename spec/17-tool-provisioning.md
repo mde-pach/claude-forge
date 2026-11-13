@@ -29,6 +29,7 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | uv | 0.13.1 | release asset, `https://github.com/astral-sh/uv/releases/download/0.13.1/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | bun | 1.4.3 | release asset, `https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-x86_64-musl`, `Linux-aarch64`, `Linux-aarch64-musl`, `Darwin-arm64`, `Darwin-x86_64` |
 | ty | 0.0.86 | PyPI `ty`, installed by Forge's uv | the version only |
+| serena | 2.1.0 | PyPI `serena-agent`, installed by Forge's uv | the version only |
 | ruff | 0.17.1 | PyPI `ruff`, installed by Forge's uv | the version only |
 | zizmor | 1.30.1 | PyPI `zizmor`, installed by Forge's uv | the version only |
 | condor | 0.3.0 | PyPI `cndr`, installed by Forge's uv | the version only |
@@ -60,7 +61,7 @@ Platform keys are `uname -s`-`uname -m`: `Linux-x86_64`, `Linux-aarch64`, `Darwi
 Every install runs under a lock file of the tool version (`tools/<name>/.<version>.lock`), and checks again once it holds the lock, so concurrent processes download once.
 
 - **Release asset** (uv, Bun, and the release binaries in 17.2). Forge downloads the platform's asset into a temporary sibling of the tool directory and computes its sha256 while it streams. A sha256 other than the pinned one installs nothing: `The downloaded <tool> <version> (<url>) does not match its pinned sha256 <want> (got <got>), so it was not installed. The checks that use it are skipped.` Forge then extracts only the named executables (`uv` and `uvx`, `bun`, or the tool's binary) from the `.tar.gz` or `.zip` (or takes a raw binary as is) and renames the directory into place, so `tools/<name>/<version>/` exists only when complete.
-- **PyPI package** (ty, ruff, zizmor, condor, hadolint, squawk, ast-grep). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
+- **PyPI package** (ty, ruff, zizmor, condor, hadolint, squawk, ast-grep, serena). Forge's uv runs `uv tool install --quiet --managed-python --python 3.12 <package>==<version>` from the tool directory, so no project's `uv.toml` or `pyproject.toml` applies, with `UV_TOOL_DIR=<dir>/env`, `UV_TOOL_BIN_DIR=<dir>/bin`, the shared uv cache and Python directory, and `VIRTUAL_ENV`, `UV_PYTHON` and `UV_SYSTEM_PYTHON` removed. The executable is `<dir>/bin/<binary>`. A wheel that repackages an upstream binary (hadolint's `hadolint-bin`) must hold that binary: its sha256 is compared with the upstream release's per platform, and a mismatch removes the install. The package itself comes from PyPI over HTTPS through uv; Forge pins its version, not its hash.
 - **npm package** (redocly, spectral, lockfile-lint). Forge first provisions its pinned Bun, writes a `package.json` with the exact version, runs `bun install --production --ignore-scripts`, and writes `<dir>/bin/<binary>`, a script that runs `bun --bun <the package's bin script>`. Forge pins the version, not the hash.
 - A PyPI or npm install counts as installed only once its `.forge-installed` marker is written, last. An install without its marker is removed and done again.
 
@@ -76,7 +77,7 @@ Downloads happen only where a person waits anyway, or in the background:
 
 | Where | What may be downloaded |
 |---|---|
-| `forge apply` | uv (and `path/` is filled), and the pinned tools the active checks name. It prints `forge: installed <tool> <version>, …` and `forge: note: <note>` for each failure. |
+| `forge apply` | uv (and `path/` is filled), Serena and what its check starts (17.8), and the pinned tools the active checks name. It prints `forge: installed <tool> <version>, …` and `forge: note: <note>` for each failure. |
 | `forge check`, Stop | a pinned tool a check or the types engine needs and the cache lacks (the builtins they start get `FORGE_TOOL_DOWNLOAD=1`). |
 | SessionStart | nothing in the hook process. The detached `forge engine start` it leaves may install ty (§15.3); the launcher may start a background download of the pinned Forge version (§3). |
 | every other hook (PreToolUse, PostToolUse, the typecheck, UserPromptSubmit, PermissionRequest, Notification, SessionEnd) | nothing: a tool is looked up with a few `stat` calls and skipped when absent. |
@@ -99,9 +100,39 @@ The directory comes first and no empty entry is added when `PATH` was empty. The
 
 Every provisioning outcome the person must know is a note (§10), never text for the agent: `forge apply` prints it, and the hooks record theirs for `forge status`. The kinds are `missing-tool` (no asset for this platform), `environment` (a download or an install failed: no network, a registry error), `setup` (a sha256 mismatch, an install without its executable) and `forge-failure` (the cache cannot be written, an unknown tool).
 
+### 17.8 Serena
+
+Serena (PyPI `serena-agent`, an MCP server over language servers: navigation by symbol and symbol edits) is one of Forge's tools, part of every Forge project's setup. Its tools are under Forge's rules exactly as the built-in tool each stands next to (§8.6, §9.3, §9.4), and every agent of the session has it, Forge's own agents included (§8.13). `crates/forge-core/src/serena.rs` holds what every crate shares: the language table, the files, the launch arguments, and what each Serena tool is.
+
+**Languages.** One table says, for each language Serena serves, when the project has it and who provides its server; both the current setup and Forge's shared servers (below) read it, so giving Forge a server for a language is one entry there.
+
+| Serena server | The project has it when | Server |
+|---|---|---|
+| `python_ty` | the python pack is active | Forge's pinned ty (`ls_path`) |
+| `typescript` | the typescript pack is active | `typescript-language-server`, loading the project's own TypeScript |
+| `terraform` | the terraform pack is active | Serena's |
+| `rust`, `go`, `java`, `ruby`, `php`, `csharp`, `swift` | its manifest is at the root (`Cargo.toml`, `go.mod`, `pom.xml` or `build.gradle[.kts]`, `Gemfile`, `composer.json`, `*.csproj` or `*.sln`, `Package.swift`) | Serena's |
+
+A project with none of them gets no Serena.
+
+**What `forge apply` writes** (project level, Forge-owned, recorded in the lock and removed by `forge remove`):
+
+- `.mcp.json`: the server `serena`, run as `sh -c 'command -v claude-forge >/dev/null 2>&1 && exec claude-forge mcp serena; exec uvx --python 3.12 --from serena-agent==<pin> serena start-mcp-server --project-from-cwd <arguments>'`. Where Forge is not installed (a teammate's clone), the same pinned Serena starts with uv and the same arguments, from the same `.serena/`: Serena works there too, without Forge's rules, as none of Forge's hooks run there either.
+- `.claude/settings.json`: `enabledMcpjsonServers: ["serena"]`, so Claude Code starts it without asking.
+- `.serena/project.yml`: the languages and every key Serena 2.1 reads (`ignore_all_files_in_gitignore: true`, `read_only: false`), so Serena never re-saves it; `.serena/.gitignore`: Serena's own (`/cache`, `/project.local.yml`). The agent's notes (`.serena/memories/`) are the project's, versioned with the code.
+
+Then it installs Serena with the other tools (17.3), starts it once on the project and asks each language's server for the symbols of one of the project's files (downloading what Serena runs for that language on the way): `forge: Serena's language servers start (python_ty, …)`. A server that cannot start stops the apply, as a missing tool would: `forge: Serena's code tools cannot start on this project: <language>: <why>`. With downloads turned off it is a note and nothing is checked. When git ignores `.serena/` (a `.gitignore`, or the person's global excludes file), apply says so: the project's settings would not reach other clones. A Serena plugin the person enabled (`serena@…` in Claude Code's user settings) is turned off for the project in `.claude/settings.local.json`, and apply says so: the agent would otherwise have two Serenas.
+
+**`claude-forge mcp serena`** (what `.mcp.json` runs): installs the pinned Serena when it is missing, writes `.serena/project.local.yml` (the path of each server Forge provides; machine-dependent, never committed), and runs `serena start-mcp-server --project <root> --context claude-code --agent-interface tools --enable-web-dashboard false --open-web-dashboard false --enable-gui-log-window false --log-level WARNING` with `SERENA_HOME=<cache>/serena/home` (the language servers Serena downloads and its logs, shared by every repository; a person's own `~/.serena` is never read or changed). It stays between Claude Code and Serena as a line pass-through: when Serena exits during the session it is started again and the MCP handshake replayed, so the session keeps its tools; the calls in flight get an error to make again. Each restart is a note; after 5 within 5 minutes it is not started again that session. The command line refuses to run for the agent (§3) except `mcp`, which Claude Code starts.
+
+**Serena's context is kept.** `claude-code` tells the agent to prefer Serena's tools on code and leaves out the tools Claude Code already has (`read_file`, `create_text_file`, `list_dir`, `find_file`, `search_for_pattern`, `execute_shell_command`). Forge's rules apply to both kinds of tool alike, so following it loses no coverage.
+
+**Forge's shared servers (next).** Forge's per-repository daemon (§15.3) will own one server per language, shared through a `claude-forge lsp <language>` stdio shim that Serena launches through the table's `ls_path`: one `initialize`, request ids remapped, one document store with the disk as the truth, watchers fed from Forge's change lists. Forge's type questions keep a private ty (they edit documents in memory with another configuration).
+
 ### Tests
 
 - 17.1, 17.3, 17.4: `crates/forge-tools/tests/provision.rs` (release `.tar.gz`, `.zip` and raw assets; checksum mismatch; network failures as notes; truncated downloads; concurrent installs; unknown tool and missing platform; uv on `path/` and uv tools; markers; repackaged binaries; npm tools through Bun; `ensure_all`), `crates/forge-tools/src/catalog.rs` (unit: the table is well formed; musl lookup), `crates/forge-home/src/lib.rs` (unit: layout, components cannot escape).
 - 17.2: `crates/forge-tools/tests/spec_pins.rs` (the generated table is in sync), `crates/forge-cli/src/provisioning.rs` (unit: adapter pins are the catalog's).
 - 17.5: `crates/forge-launcher/src/policy.rs` (unit: only SessionStart and apply download Forge), `crates/forge-launcher/src/lib.rs` (unit: `downloads_off_never_fetches_the_pinned_version`), `crates/forge-tools/tests/network.rs` (real downloads, opt-in with `FORGE_TEST_NETWORK=1`). (no test: `FORGE_NO_DOWNLOAD` and the "no download after an edit" path of the resolver are exercised only through the hook and checker tests that run with downloads off.)
 - 17.6: `crates/forge-tools/tests/env_file.rs` (appended once, sourced by `sh`; the file is created), `crates/forge-tools/src/env_file.rs` (unit: quoting).
+- 17.8: `crates/forge-core/src/serena.rs` (unit: languages, the project files, tool kinds), `crates/forge-cli/tests/apply.rs` (snapshots: the entries and files), `crates/forge-hooks/tests/spec_hooks.rs` (Serena's tools under the hooks: shell and configuration refused, internals, the test-edit ask on symbol and text edits, edits checked like Bash). (no test: the launcher's restart and handshake replay, and the apply-time check, which need a real Serena; checked on real sessions.)

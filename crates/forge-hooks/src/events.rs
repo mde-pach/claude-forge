@@ -218,7 +218,18 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
 /// The files the tool call changed (repository-relative), for the edit-time checks.
 fn changed_files(rt: &Runtime, input: &HookInput, p: &Project) -> Vec<String> {
     let cwd = rt.cwd(input);
-    match input.tool() {
+    if let Some(rel) = serena_edit(input) {
+        // its pending tests were approved: it ran
+        if let Some(rel) = rel.and_then(|f| p.rel(&p.root.join(f).to_string_lossy(), &cwd)) {
+            testedit::post(p, input, &rel);
+        }
+    }
+    let tool = if serena_edit(input).is_some() {
+        "Bash"
+    } else {
+        input.tool()
+    };
+    match tool {
         "Bash" => {
             let Some(key) = input.tool_key() else {
                 return Vec::new();
@@ -259,6 +270,18 @@ fn changed_files(rt: &Runtime, input: &HookInput, p: &Project) -> Vec<String> {
             vec![rel]
         }
         _ => Vec::new(),
+    }
+}
+
+/// A Serena tool that edits (§17.8): checked like a Bash command, from the snapshot taken before
+/// it; with the one file it names, if any.
+fn serena_edit(input: &HookInput) -> Option<Option<&str>> {
+    use forge_core::serena::{Kind, kind, tool_of};
+    let tool = tool_of(input.tool())?;
+    match kind(tool) {
+        Kind::Edit => Some(input.input_str("relative_path")),
+        Kind::MultiEdit => Some(None),
+        _ => None,
     }
 }
 
@@ -510,7 +533,7 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
         return Output::silent();
     }
     let cwd = rt.cwd(input);
-    let files: Vec<String> = if input.tool() == "Bash" {
+    let files: Vec<String> = if input.tool() == "Bash" || serena_edit(input).is_some() {
         let Some(key) = input.tool_key() else {
             return Output::silent();
         };

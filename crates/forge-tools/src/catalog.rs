@@ -232,6 +232,16 @@ pub static TOOLS: &[ToolSpec] = &[
             binary_sha256: &[],
         },
     },
+    // Code navigation and symbol edits over language servers, every session's (§17.8).
+    ToolSpec {
+        name: "serena",
+        version: "2.1.0",
+        source: Source::UvTool {
+            package: "serena-agent",
+            binary: "serena",
+            binary_sha256: &[],
+        },
+    },
     // Python linter, where the project does not configure its own (§11.2).
     ToolSpec {
         name: "ruff",

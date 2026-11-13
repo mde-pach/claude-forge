@@ -152,6 +152,7 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     install_agents()?;
     if ctx.level == Level::Project {
         provision(&ctx);
+        serena_ready(&ctx)?;
     }
     offer_uv_setup(&ctx, flags)?;
     offer_js_setup(&ctx, flags)?;
@@ -412,7 +413,7 @@ fn offer_js_setup(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
 /// Installs the tools the lock pins that this setup uses: uv (Forge's PATH directory for the
 /// agent) and the pinned tools the active checks and the types engine run. For the person.
 fn provision(ctx: &Ctx) {
-    let mut names = vec!["uv".to_string()];
+    let mut names = vec!["uv".to_string(), forge_core::serena::TOOL.to_string()];
     names.extend(forge_check::probe::pinned_tools(&ctx.plan));
     let report = crate::provisioning::ensure_tools(&names);
     let installed: Vec<String> = report
@@ -429,6 +430,88 @@ fn provision(ctx: &Ctx) {
     }
     // On a first apply, uv was not in Forge's PATH directory when main put it on PATH.
     crate::provisioning::use_forge_path();
+}
+
+/// Serena (§17.8): started once on the project, each language's server asked for one file's
+/// symbols. A server that cannot start stops the apply, as a missing tool would: a session never
+/// begins with code tools known to be broken. With downloads turned off, it is a note.
+fn serena_ready(ctx: &Ctx) -> Result<(), Error> {
+    if crate::provisioning::downloads_off() {
+        println!(
+            "forge: note: Serena was not installed or checked: downloads are turned off ({})",
+            crate::provisioning::ENV_NO_DOWNLOAD
+        );
+        return Ok(());
+    }
+    if !ctx.base.join(forge_core::serena::PROJECT_FILE).is_file() {
+        return Ok(());
+    }
+    serena_plugin_off(&ctx.base);
+    let ignored = std::process::Command::new("git")
+        .args(["check-ignore", "-q", forge_core::serena::PROJECT_FILE])
+        .current_dir(&ctx.base)
+        .status()
+        .is_ok_and(|s| s.success());
+    if ignored {
+        println!(
+            "forge: note: git ignores .serena/ here (a .gitignore or your global excludes file): commit .serena/project.yml and .serena/.gitignore with `git add -f`, or remove that ignore, so every clone gets Serena's project settings"
+        );
+    }
+    let home = forge_home::Home::from_env().map_err(|e| Error::new(format!("forge: {e}")))?;
+    match crate::mcp::check(&home, &ctx.base) {
+        Ok(ok) if ok.is_empty() => Ok(()),
+        Ok(ok) => {
+            println!("forge: Serena's language servers start ({})", ok.join(", "));
+            Ok(())
+        }
+        Err(failed) => Err(Error::new(format!(
+            "forge: Serena's code tools cannot start on this project:\n  {}\nfix it and re-run forge apply",
+            failed.join("\n  ")
+        ))),
+    }
+}
+
+/// A Serena plugin the person enabled (`serena@<marketplace>` in Claude Code's user settings)
+/// would give the agent a second Serena with its own tools, outside Forge's configuration: it is
+/// turned off for this project, in `.claude/settings.local.json` (this machine's, not committed).
+fn serena_plugin_off(base: &std::path::Path) {
+    let Ok(dir) = super::claude_config_dir() else {
+        return;
+    };
+    let user = std::fs::read_to_string(dir.join("settings.json")).unwrap_or_default();
+    let Ok(Some(serde_json::Value::Object(plugins))) =
+        forge_render::settings::get(&user, "enabledPlugins")
+    else {
+        return;
+    };
+    let local_file = base.join(forge_render::plan::LOCAL_SETTINGS_FILE);
+    let mut local = std::fs::read_to_string(&local_file).unwrap_or_default();
+    let mut off = Vec::new();
+    for (id, on) in plugins {
+        if !(id.starts_with("serena@") && on == serde_json::Value::Bool(true)) || id.contains('.') {
+            continue;
+        }
+        let path = ["enabledPlugins", id.as_str()];
+        if forge_render::settings::get(&local, &path.join("."))
+            .ok()
+            .flatten()
+            == Some(serde_json::Value::Bool(false))
+        {
+            continue;
+        }
+        if let Ok(t) =
+            forge_render::settings::set_value(&local, &path, &serde_json::Value::Bool(false))
+        {
+            local = t;
+            off.push(id);
+        }
+    }
+    if !off.is_empty() && write_text(&local_file, &local, false).is_ok() {
+        println!(
+            "forge: turned off the {} plugin for this project (.claude/settings.local.json): Serena is already part of this project's setup",
+            off.join(", ")
+        );
+    }
 }
 
 /// Forge's own agents (the workflow step and the reviewer) in Claude Code's user config
