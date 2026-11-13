@@ -343,6 +343,7 @@ pub fn lsp(language: &str, hub: bool) -> ExitCode {
             command,
             idle: HUB_IDLE,
             log: Some(state.join(format!("lsp-{language}.log"))),
+            starting: Some(state.join(format!("lsp-{language}.starting"))),
         };
         return match forge_engine::hub::serve(config) {
             Ok(()) => ExitCode::SUCCESS,
