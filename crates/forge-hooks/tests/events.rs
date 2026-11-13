@@ -393,8 +393,10 @@ fn stop_blocks_on_findings_not_on_notes() {
     std::fs::write(s.root.join("app/main.py"), "x = eval('1')\n").unwrap();
     let out = s.run(&f, "stop", json!({}));
     let v = json_out(&out);
-    assert_eq!(v["decision"], "block");
-    assert_eq!(v["reason"], "app/main.py:1 No eval().");
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "app/main.py:1 No eval()."
+    );
     assert!(!out.stdout.contains("ruff"), "notes stay out");
     assert!(
         s.notes()
@@ -415,7 +417,10 @@ fn stop_blocks_on_findings_not_on_notes() {
     for i in 0..3 {
         std::fs::write(s.root.join("app/main.py"), format!("x = eval('{i}')\n")).unwrap();
         let out = s.run(&f, "stop", json!({"stop_hook_active": true}));
-        assert_eq!(json_out(&out)["decision"], "block", "block {i}");
+        assert!(
+            json_out(&out)["hookSpecificOutput"]["additionalContext"].is_string(),
+            "block {i}"
+        );
     }
     std::fs::write(s.root.join("app/main.py"), "x = eval('9')\n").unwrap();
     let out = s.run(&f, "stop", json!({"stop_hook_active": true}));
@@ -460,7 +465,10 @@ fn advice_blocks_once() {
         ..Fake::default()
     };
     let v = json_out(&s.run(&f, "stop", json!({})));
-    assert_eq!(v["reason"], "Advice: Add a test.");
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "Advice: Add a test."
+    );
     assert_eq!(
         s.run(&f, "stop", json!({"stop_hook_active": true})).stdout,
         ""

@@ -8,6 +8,7 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde_json::Value;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
@@ -22,6 +23,27 @@ pub struct Ask<'a> {
     pub question: Option<&'a str>,
     /// The user's request for the turn.
     pub request: Option<&'a str>,
+}
+
+/// A call's input as its identity for the verdicts: keys sorted, and `false` and `null` values
+/// left out, so the same action sent twice (an agent's parallel calls spell `replace_all: false`
+/// or leave it out, in any key order) gets one verdict.
+fn identity(v: &Value) -> String {
+    fn canon(v: &Value) -> Value {
+        match v {
+            Value::Object(m) => {
+                let sorted: std::collections::BTreeMap<&String, Value> = m
+                    .iter()
+                    .filter(|(_, x)| !matches!(x, Value::Null | Value::Bool(false)))
+                    .map(|(k, x)| (k, canon(x)))
+                    .collect();
+                serde_json::to_value(sorted).unwrap_or(Value::Null)
+            }
+            Value::Array(a) => Value::Array(a.iter().map(canon).collect()),
+            x => x.clone(),
+        }
+    }
+    canon(v).to_string()
 }
 
 /// Whether an ask goes to a reviewer: `FORGE_ASK_REVIEW=always`, or (auto) a run nobody
@@ -56,7 +78,7 @@ pub fn review_ask(
     if !wanted(rt, input) {
         return None;
     }
-    let tool_input = input.tool_input.to_string();
+    let tool_input = identity(&input.tool_input);
     let request = ask
         .request
         .map(str::to_string)
@@ -131,7 +153,7 @@ pub fn permission_request(rt: &Runtime, input: &HookInput, user: bool) -> Output
         return Output::silent();
     }
     let cwd = rt.cwd(input);
-    let tool_input = input.tool_input.to_string();
+    let tool_input = identity(&input.tool_input);
     let request = session_request(rt, input);
     let norm: String = format!(
         "permission\t{}\t{tool_input}\t{}",

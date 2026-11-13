@@ -360,9 +360,7 @@ pub(crate) fn stop(rt: &Runtime, p: &Project) -> Option<Output> {
     w.pending = Some(pending);
     w.stop_blocks += 1;
     save_wf(p, &w);
-    Some(Output::json(
-        json!({"decision": "block", "reason": STEP_CALL}),
-    ))
+    Some(crate::stop_continue(STEP_CALL))
 }
 
 fn named_fail(rt: &Runtime, pending: Pending, why: &str) -> Run {
@@ -492,6 +490,19 @@ pub fn hook(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let me = who(input);
     if matches!(me, Who::Step | Who::Reviewer) {
         let dir = session_dir_of(rt, input);
+        if event == "PreToolUse" && input.tool() == HANDBACK {
+            let message = input.input_str("message").unwrap_or("").to_string();
+            if is_closing(&dir, input) {
+                return handed_back(input);
+            }
+            return match me {
+                Who::Step if workflows_here => project.as_ref().map_or_else(Output::silent, |p| {
+                    step_answered(rt, input, p, &message, true)
+                }),
+                Who::Reviewer if reviews_here => review_answered(input, &dir, &message, true),
+                _ => Output::silent(),
+            };
+        }
         if is_closing(&dir, input) {
             return match event {
                 "SubagentStop" => {
@@ -701,6 +712,20 @@ fn step_tmp(agent: &str) -> PathBuf {
 /// time left and fewer than [`ANSWERS_MAX`] answers), the repository put back, the run moved
 /// on; what the main agent is told next waits in `notice`.
 fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
+    let message = input.last_assistant_message.as_deref().unwrap_or("");
+    step_answered(rt, input, p, message, false)
+}
+
+/// A step's answer (its last message at SubagentStop, or the message of its `SubagentHandback`
+/// call: `handback`), checked; see [`step_stopped`]. Through a hand-back, a refused answer
+/// refuses the call, and an accepted one lets it through as "done".
+fn step_answered(
+    rt: &Runtime,
+    input: &HookInput,
+    p: &Project,
+    message: &str,
+    handback: bool,
+) -> Output {
     let Some(mut w) = load_wf(p) else {
         return Output::silent();
     };
@@ -713,7 +738,6 @@ fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
     let Some((_, step)) = workflow::step_at(&wf, pending.index) else {
         return Output::silent();
     };
-    let message = input.last_assistant_message.as_deref().unwrap_or("");
     let answered = workflow::answer(step, message);
     let time_left = (pending.deadline as f64) > now();
     if let Err(why) = &answered {
@@ -722,10 +746,7 @@ fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
             w.pending = Some(pending);
             w.running = Some(running);
             save_wf(p, &w);
-            return Output::json(json!({
-                "decision": "block",
-                "reason": format!("{why}. End again with the corrected answer: one JSON object, alone in a ```json block."),
-            }));
+            return answer_again(why, handback);
         }
     }
     let undone = running.put_back.as_ref().map_or(Ok(()), PutBack::put_back);
@@ -763,7 +784,41 @@ fn step_stopped(rt: &Runtime, input: &HookInput, p: &Project) -> Output {
     w.stop_blocks = 0;
     w.notice = tell(&results, w.pending.is_some(), NEXT_STEP);
     save_wf(p, &w);
-    close(&p.session_dir, input)
+    if handback {
+        handed_back(input)
+    } else {
+        close(&p.session_dir, input)
+    }
+}
+
+/// The name of Claude Code's tool through which a subagent hands its report to its caller (newer
+/// versions); its message is what the caller reads.
+pub const HANDBACK: &str = "SubagentHandback";
+
+/// A refused answer goes back to the agent: its stop is blocked, or its hand-back refused.
+fn answer_again(why: &str, handback: bool) -> Output {
+    if handback {
+        return pre_decision(
+            "deny",
+            &format!(
+                "{why}. Hand back again with the corrected answer: one JSON object, alone in a ```json block."
+            ),
+        );
+    }
+    Output::json(json!({
+        "decision": "block",
+        "reason": format!("{why}. End again with the corrected answer: one JSON object, alone in a ```json block."),
+    }))
+}
+
+/// The hand-back goes through with "done" as its message: the answer stays Forge's.
+fn handed_back(input: &HookInput) -> Output {
+    let mut call = match &input.tool_input {
+        Value::Object(m) => m.clone(),
+        _ => Map::new(),
+    };
+    call.insert("message".into(), json!("done"));
+    rewrite(Value::Object(call))
 }
 
 /// PreToolUse of the main agent's Agent call for the reviewer: the oldest waiting review's
@@ -830,6 +885,12 @@ pub fn verdict_schema() -> Value {
 /// SubagentStop of the reviewer: its verdict into the review cache and `reviews.log`; a refused
 /// answer goes back to it.
 fn review_stopped(input: &HookInput, dir: &Path) -> Output {
+    let message = input.last_assistant_message.as_deref().unwrap_or("");
+    review_answered(input, dir, message, false)
+}
+
+/// The reviewer's answer, from its stop or its hand-back (see [`step_answered`]).
+fn review_answered(input: &HookInput, dir: &Path, message: &str, handback: bool) -> Output {
     let Some((path, mut r)) = review_of(input, dir) else {
         return Output::silent();
     };
@@ -842,7 +903,6 @@ fn review_stopped(input: &HookInput, dir: &Path) -> Output {
         prompt: String::new(),
         forge: StepHooks::default(),
     };
-    let message = input.last_assistant_message.as_deref().unwrap_or("");
     let in_time = r.started.is_none_or(|s| now() - s <= REVIEW_CAP as f64);
     match workflow::answer(&step, message) {
         Ok(v) => {
@@ -862,20 +922,25 @@ fn review_stopped(input: &HookInput, dir: &Path) -> Output {
             );
             crate::review::log_verdict(&r.log_state, input, allow, &r.tool, &r.tool_input, &reason);
             let _ = std::fs::remove_file(&path);
-            close(dir, input)
+            if handback {
+                handed_back(input)
+            } else {
+                close(dir, input)
+            }
         }
         Err(why) if r.refused + 1 < ANSWERS_MAX && in_time => {
             r.refused += 1;
             save_review(&path, &r);
-            Output::json(json!({
-                "decision": "block",
-                "reason": format!("{why}. End again with the corrected answer: one JSON object, alone in a ```json block."),
-            }))
+            answer_again(&why, handback)
         }
         Err(_) => {
             // no verdict: the ask stands
             let _ = std::fs::remove_file(&path);
-            Output::silent()
+            if handback {
+                handed_back(input)
+            } else {
+                Output::silent()
+            }
         }
     }
 }

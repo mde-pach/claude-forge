@@ -163,6 +163,15 @@ fn sweep(p: &Project) {
 // ---- UserPromptSubmit
 
 pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
+    // a subagent's report delivered to the main agent (newer Claude Code queues it as a prompt):
+    // not the person's request, and not a new turn
+    if input
+        .prompt
+        .as_deref()
+        .is_some_and(|t| t.trim_start().starts_with("<agent-message"))
+    {
+        return Output::silent();
+    }
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
@@ -788,7 +797,7 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
             }
             None => cap(&text),
         };
-        Output::json(json!({"decision": "block", "reason": reason}))
+        crate::stop_continue(&reason)
     };
     if same_failure && reason_file.is_file() {
         // Claude was shown these findings and stopped again without changing anything: it chose

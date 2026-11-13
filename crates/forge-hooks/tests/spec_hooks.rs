@@ -356,7 +356,7 @@ fn hook_entries_wire_every_event() {
             "PreToolUse Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.* user-pre-tool-use 180",
             "PermissionRequest - user-permission-request 180",
             "Notification permission_prompt|idle_prompt user-notification 5",
-            "PreToolUse Agent|Task|Read|Grep|Glob|mcp__serena__.* user-agents 30",
+            "PreToolUse Agent|Task|Read|Grep|Glob|SubagentHandback|mcp__serena__.* user-agents 30",
             "PostToolUse Agent|Task user-agents 30",
             "SubagentStart quality-reviewer user-agents 30",
             "SubagentStop quality-reviewer user-agents 30",
@@ -699,8 +699,9 @@ fn the_block_reason_is_capped_and_a_new_prompt_resets_the_count() {
     s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
     std::fs::write(s.root.join("app/main.py"), "x = eval('2')\n").unwrap();
     let v = json_out(&s.run(&f, "stop", json!({})));
-    assert_eq!(v["decision"], "block");
-    let reason = v["reason"].as_str().unwrap();
+    let reason = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
     assert!(reason.lines().count() <= 40 && reason.len() <= 6000);
     assert!(reason.starts_with("app/main.py:1 No eval() 0."));
     assert_eq!(
@@ -714,9 +715,8 @@ fn the_block_reason_is_capped_and_a_new_prompt_resets_the_count() {
     assert_eq!(f.asked_stop.borrow().len(), 1);
     // a new block in the same turn, then a new prompt resets the count
     std::fs::write(s.root.join("app/main.py"), "x = eval('3')\n").unwrap();
-    assert_eq!(
-        json_out(&s.run(&f, "stop", json!({"stop_hook_active": true})))["decision"],
-        "block"
+    assert!(
+        json_out(&s.run(&f, "stop", json!({"stop_hook_active": true})))["hookSpecificOutput"]["additionalContext"].is_string()
     );
     s.run(&f, "user-prompt-submit", json!({"prompt": "again"}));
     assert!(!s.session().join("blocks").exists());
@@ -1289,7 +1289,7 @@ fn the_first_prompt_runs_its_workflows_and_hands_over_their_results() {
         )
     );
     let stop = json_out(&s.run_env(&f, env.clone(), "stop", json!({})));
-    assert_eq!(stop["decision"], "block");
+    assert!(stop["hookSpecificOutput"]["additionalContext"].is_string());
     // the step agent gets Forge's prompt, never the main agent's
     let prompt = s.call_step(&env);
     assert!(
@@ -1452,9 +1452,8 @@ fn an_agent_that_never_runs_the_step_is_let_stop_after_three_blocks() {
         json!({"prompt": "go"}),
     );
     for _ in 0..3 {
-        assert_eq!(
-            json_out(&s.run_env(&f, env.clone(), "stop", json!({})))["decision"],
-            "block"
+        assert!(
+            json_out(&s.run_env(&f, env.clone(), "stop", json!({})))["hookSpecificOutput"]["additionalContext"].is_string()
         );
     }
     assert_eq!(
@@ -1763,4 +1762,89 @@ fn a_run_of_reads_and_searches_of_code_without_serena_is_reminded_once() {
             Output::silent()
         );
     }
+}
+
+// ---- newer Claude Code: a subagent hands its report back through a tool call
+
+#[test]
+fn a_reviewer_hand_back_is_its_answer_and_reaches_the_main_agent_as_done() {
+    let s = Sandbox::new(&[]);
+    let env = Env {
+        entrypoint: Some("sdk-cli".into()),
+        ..s.env()
+    };
+    let f = Fake::default();
+    let edit = json!({"tool_name": "Edit", "tool_use_id": "e1", "tool_input": {
+        "file_path": s.root.join("tests/test_cart.py"), "old_string": "== 100", "new_string": "== 90"}});
+    s.run_env(
+        &f,
+        env.clone(),
+        "user-prompt-submit",
+        json!({"prompt": "the total is now 90"}),
+    );
+    assert_eq!(
+        decision(&s.run_env(&f, env.clone(), "pre-tool-use", edit.clone())).0,
+        "deny"
+    );
+    let call = json!({"hook_event_name": "PreToolUse", "tool_name": "Agent",
+        "tool_input": {"subagent_type": "quality-reviewer", "prompt": "x"}});
+    s.run_env(&f, env.clone(), "agents", call);
+    let agent = json!({"agent_id": "rev1", "agent_type": "quality-reviewer"});
+    s.run_env(
+        &f,
+        env.clone(),
+        "agents",
+        json!({"hook_event_name": "SubagentStart"}).merge(&agent),
+    );
+    let handback = |message: &str| {
+        json!({"hook_event_name": "PreToolUse", "tool_name": "SubagentHandback",
+            "tool_input": {"message": message}})
+        .merge(&agent)
+    };
+    // a refused answer: the hand-back is refused with what is wrong, nothing shows the command
+    let wrong = s.run_env(&f, env.clone(), "agents", handback("I think it is fine."));
+    let (d, why) = decision(&wrong);
+    assert_eq!(d, "deny");
+    assert!(why.contains("Hand back again"), "{why}");
+    // the answer: recorded, and the hand-back goes through as "done"
+    let ok = s.run_env(
+        &f,
+        env.clone(),
+        "agents",
+        handback(
+            "```json\n{\"reason\": \"The request changes it.\", \"decision\": \"allow\"}\n```",
+        ),
+    );
+    assert_eq!(
+        json_out(&ok)["hookSpecificOutput"]["updatedInput"]["message"],
+        "done"
+    );
+    // its stop then has nothing to do
+    let stop =
+        json!({"hook_event_name": "SubagentStop", "last_assistant_message": ""}).merge(&agent);
+    assert_eq!(s.run_env(&f, env.clone(), "agents", stop), Output::silent());
+    // the report, delivered to the main agent as a prompt, is neither the request nor a new turn
+    let delivered = "<agent-message from=\"rev1\">\n[Subagent hand-back] The report follows:\n  done\n</agent-message>";
+    s.run_env(
+        &f,
+        env.clone(),
+        "user-prompt-submit",
+        json!({"prompt": delivered}),
+    );
+    assert_eq!(
+        std::fs::read_to_string(s.session().join("prompt")).unwrap(),
+        "the total is now 90"
+    );
+    // the retried call is decided from the verdict, however its input is spelled
+    assert_eq!(
+        decision(&s.run_env(&f, env.clone(), "pre-tool-use", edit)).0,
+        "allow"
+    );
+    let respelled = json!({"tool_name": "Edit", "tool_use_id": "e2", "tool_input": {
+        "replace_all": false, "new_string": "== 90", "old_string": "== 100",
+        "file_path": s.root.join("tests/test_cart.py")}});
+    assert_eq!(
+        decision(&s.run_env(&f, env, "pre-tool-use", respelled)).0,
+        "allow"
+    );
 }

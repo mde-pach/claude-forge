@@ -181,8 +181,9 @@ impl Sample {
             "stop",
             serde_json::json!({"hook_event_name": "Stop", "stop_hook_active": continuing}),
         )?;
-        assert_eq!(v["decision"], "block", "{v}");
-        Some(v["reason"].as_str().unwrap().to_string())
+        let text = v["hookSpecificOutput"]["additionalContext"].as_str();
+        assert!(text.is_some(), "{v}");
+        text.map(str::to_string)
     }
 }
 

@@ -286,6 +286,15 @@ fn dispatch(rt: &Runtime, event: &str, input: &HookInput) -> Output {
     }
 }
 
+/// Stop of the main agent: keep it working with `text`. Sent as Stop's additional context, which
+/// Claude Code shows as feedback; a `decision: "block"` is shown as a "blocking error" naming the
+/// hook's command (newer Claude Code), which the agent must not read.
+pub(crate) fn stop_continue(text: &str) -> Output {
+    Output::json(serde_json::json!({
+        "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}
+    }))
+}
+
 /// A PreToolUse decision.
 pub(crate) fn pre_decision(decision: &str, reason: &str) -> Output {
     Output::json(json!({
