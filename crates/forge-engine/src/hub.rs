@@ -69,6 +69,9 @@ pub struct HubConfig {
     /// Stops after this long without a client.
     pub idle: Duration,
     pub log: Option<PathBuf>,
+    /// The starters' marker (`<state>/lsp-<language>.starting`), removed once the hub answers: a
+    /// marker left by a hub that died would make the next client wait for nothing.
+    pub starting: Option<PathBuf>,
 }
 
 enum Event {
@@ -137,6 +140,9 @@ pub fn serve(config: HubConfig) -> Result<(), String> {
     }
     let listener =
         UnixListener::bind(&config.socket).map_err(|e| format!("cannot bind the socket: {e}"))?;
+    if let Some(m) = &config.starting {
+        let _ = std::fs::remove_dir(m);
+    }
     let (tx, rx) = channel();
     let accept_tx = tx.clone();
     thread::spawn(move || {
