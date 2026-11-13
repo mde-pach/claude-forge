@@ -120,6 +120,10 @@ pub fn check(p: &Project, input: &HookInput, parsed: Option<&Parsed>) -> Option<
     if call == Call::Other {
         return None;
     }
+    // the main agent's calls are refused while a workflow step is pending: they read nothing
+    if input.agent_id.is_none() && crate::agents::gate_pending(p) {
+        return None;
+    }
     let dir = p.session_dir.join("serena");
     let file = dir.join(format!(
         "{}.json",

@@ -589,6 +589,11 @@ fn rewrite(input: Value) -> Output {
 
 /// The gate: while a step is pending, only the Agent call for the step agent, with Forge's
 /// prompt; every other call of the main agent is refused.
+/// Whether a workflow step is pending: the main agent's calls other than the step's are refused.
+pub(crate) fn gate_pending(p: &Project) -> bool {
+    load_wf(p).is_some_and(|w| w.pending.is_some())
+}
+
 fn gate(input: &HookInput, p: &Project) -> Option<Output> {
     let w = load_wf(p)?;
     let pending = w.pending.as_ref()?;
