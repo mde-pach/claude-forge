@@ -1,5 +1,5 @@
 id: typescript/anthropic/no-budget-tokens
-description: "No thinking: { type: 'enabled', budget_tokens } in a messages call whose model is a literal that rejects it with a 400 (Opus 4.7 and later, Sonnet 5 and 5.5, Fable 5 and 5.1, Mythos 5 and 5.1, Haiku 5.5; Bedrock's anthropic. prefix included): use thinking: { type: 'adaptive' } and output_config: { effort }. The model list comes from packs/ai-models/models.tsv."
+description: "No thinking: { type: 'enabled', budget_tokens } in a messages call whose model is a literal that rejects it with a 400 (Opus 4.7 and later, Sonnet 5 and 5.5, Fable 5 and 5.1, Mythos 5 and 5.1, Haiku 5.5; Bedrock's anthropic. prefix included): use thinking: { type: 'adaptive' } and output_config: { effort }."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

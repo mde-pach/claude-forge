@@ -1,0 +1,18 @@
+# Trivy, Forge's own pinned misconfiguration scanner (§13.5 release binary, §16.2 pinned tools):
+# one range, the pin (RELEASE_BINARIES.trivy), proven on 0.75.0 with its bundled checks
+# (--skip-check-update). Forge's invocation (terraform.sh forge_trivy_config): `config --quiet
+# --cache-dir <dir> --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update
+# --ignorefile <file> --format template --template @<tpl> <dir>`. Without --exit-code findings
+# exit 0; 1 is a fatal error (usage, missing target or template), logged as "<time> FATAL Fatal
+# error <why>" (tab-separated). An unparsable .tf is not an error: no finding, exit 0.
+
+tool: "trivy"
+pinned: "0.75.0"
+verified: "0.75.0"
+runner: pinned
+usage: {exit: [1], pattern: "FATAL[[:space:]]+Fatal error[[:space:]]+(unknown (shorthand )?flag|unknown command|flag error)"}
+ranges:
+  - from: "0.75.0"
+    source: "trivy 0.75.0: https://github.com/aquasecurity/trivy/releases/tag/v0.75.0; trivy config --help"
+    ops:
+      "scan": "config --quiet --misconfig-scanners terraform --severity HIGH,CRITICAL --skip-check-update --format template {args}"

@@ -1,5 +1,5 @@
 id: python/sqlalchemy/session-context
-description: "Advice: a Session or AsyncSession (Session(engine), a sessionmaker's call) is opened in a with / async with block, or returned or yielded to the code that closes it (a framework dependency): a session left open keeps its connection. A try/finally that calls close() is also right."
+description: "A Session or AsyncSession (Session(engine), a sessionmaker's call) is opened in a with / async with block, or returned or yielded to the code that closes it (a framework dependency): a session left open keeps its connection. A try/finally that calls close() is also right."
 scope: {language: python}
 enforce:
   - target: ast-grep

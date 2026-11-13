@@ -1,5 +1,5 @@
 id: gitlab-ci/pinned-images
-description: "image: and services: entries name a version tag (or a digest), never latest or nothing; $VARIABLE images are not checked."
+description: "image: and services: entries name a version tag (or a digest), never latest or nothing."
 scope: {language: yaml, files: [".gitlab-ci.yml", ".gitlab/ci/**/*.yml", ".gitlab/ci/**/*.yaml"]}
 enforce:
   - target: ast-grep

@@ -2,4 +2,7 @@ id: typescript/yarn
 description: Yarn (Berry, 2 and later) is the package manager.
 level: project
 detect:
-  files_any: [.yarnrc.yml]
+  facts_any: {js.yarn: berry}
+context:
+  - text: |
+      Yarn (Berry) is the package manager: `yarn add`, `yarn install`; npm, pnpm and bun installs ask.

@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])typeorm(-ts-node-(esm|commonjs))?[[:space:]]+migration:revert([[:space:];&|)]|$)'
+    command: {name: [typeorm, typeorm-ts-node-esm, typeorm-ts-node-commonjs], sub: ['migration:revert']}
 examples:
   match: ["npx typeorm migration:revert -d src/data-source.ts", "npx typeorm-ts-node-commonjs migration:revert -d ./src/db.ts"]
   no_match: ["npx typeorm migration:run -d src/data-source.ts", "npx typeorm migration:show -d src/data-source.ts"]

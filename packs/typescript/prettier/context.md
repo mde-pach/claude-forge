@@ -1,1 +1,0 @@
-Prettier formats the project: files are written with `prettier --write` after each edit, and `prettier --check` rejects an unformatted file; its options live in the Prettier config, never in a file's own comments.

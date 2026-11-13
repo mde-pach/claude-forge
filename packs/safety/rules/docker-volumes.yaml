@@ -4,10 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])docker[- ]compose[[:space:]][^|;&]*down[^|;&]*[[:space:]](-v|--volumes)([[:space:]=;&|)]|$)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])docker[[:space:]]+(volume[[:space:]]+(rm|prune)|system[[:space:]]+prune[^|;&]*--volumes)([[:space:];&|)]|$)'
+    command:
+      - {name: docker, sub: [compose], args_any: [down], flags_any: [-v, --volumes]}
+      - {name: docker-compose, sub: [down], flags_any: [-v, --volumes]}
+      - {name: docker, sub: [volume, 'rm|prune']}
+      - {name: docker, sub: [system, prune], flags_any: [--volumes]}
 examples:
   match: ["docker compose down -v", "docker-compose -f dev.yml down --volumes", "docker volume rm app_pgdata", "docker volume prune -f", "docker system prune -a --volumes"]
   no_match: ["docker compose down", "docker compose up -d db", "docker volume ls", "docker system prune"]

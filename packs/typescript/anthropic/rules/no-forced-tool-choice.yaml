@@ -1,5 +1,5 @@
 id: typescript/anthropic/no-forced-tool-choice
-description: "No tool_choice: { type: 'any' } or { type: 'tool' } in a messages call whose model is a literal that rejects forced tool use with a 400 (claude-opus-5-5, claude-sonnet-5-5, claude-fable-5-1, claude-mythos-5-1): use tool_choice: { type: 'auto' } with strict: true tools and an instruction naming the tool, or structured outputs (output_config.format). The model list comes from packs/ai-models/models.tsv."
+description: "No tool_choice: { type: 'any' } or { type: 'tool' } in a messages call whose model is a literal that rejects forced tool use with a 400 (claude-opus-5-5, claude-sonnet-5-5, claude-fable-5-1, claude-mythos-5-1): use tool_choice: { type: 'auto' } with strict: true tools and an instruction naming the tool, or structured outputs (output_config.format)."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

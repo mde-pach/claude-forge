@@ -5,7 +5,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[;&|(][[:space:]]*|\\n[[:space:]]*)((sudo|env|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)[[:space:]]+)*((npm|pnpm|yarn|bun)[[:space:]]+(install|i|add)|(yarn|pnpm)[[:space:]]+global[[:space:]]+add|(uv[[:space:]]+)?pip3?[[:space:]]+install|python[0-9.]*[[:space:]]+-m[[:space:]]+pip[[:space:]]+install|(uv|poetry|pdm)[[:space:]]+add|pipenv[[:space:]]+install|pipx[[:space:]]+install|uv[[:space:]]+tool[[:space:]]+install)([[:space:]]+(-[A-Za-z]*[rce]|--requirement|--constraint|--editable)[[:space:]]+[^[:space:];&|]+|[[:space:]]+-[A-Za-z]*[abd-qs-zA-Z0-9]|[[:space:]]+--[A-Za-z][A-Za-z-]*(=[^[:space:];&|]*)?)*[[:space:]]+[^-.[:space:];&|"][^[:space:];&|]*'
+    check: package-add
 examples:
   match:
     - "bun add zod-email-validator"

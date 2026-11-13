@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: 'PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION'
+    command: {env_any: [PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION]}
 examples:
   match: ["PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes bunx prisma migrate reset --force", "export PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=1"]
   no_match: ["bunx prisma migrate dev --create-only", "bunx prisma generate"]

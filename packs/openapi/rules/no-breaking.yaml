@@ -1,5 +1,5 @@
 id: openapi/no-breaking
-description: "A changed OpenAPI document has no breaking change against its base version (oasdiff breaking, level ERR: removed paths and fields, new required parameters, narrowed types), $refs to other files included; reported once per turn at Stop, and fails pre-commit and CI until fixed or accepted in forge.yaml."
+description: "A changed OpenAPI document has no breaking change against its base version (oasdiff breaking, level ERR: removed paths and fields, new required parameters, narrowed types), $refs to other files included; a breaking change is the user's decision: ask them."
 scope: {language: any, files: ["**/*.yaml", "**/*.yml", "**/*.json"]}
 enforce:
   - target: check

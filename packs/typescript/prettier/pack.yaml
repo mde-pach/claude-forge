@@ -4,3 +4,6 @@ level: project
 detect:
   files_any: [.prettierrc, .prettierrc.json, .prettierrc.json5, .prettierrc.yaml, .prettierrc.yml, .prettierrc.toml, .prettierrc.js, .prettierrc.mjs, .prettierrc.cjs, .prettierrc.ts, .prettierrc.mts, .prettierrc.cts, prettier.config.js, prettier.config.mjs, prettier.config.cjs, prettier.config.ts, prettier.config.mts, prettier.config.cts]
   deps_any: [{ecosystem: npm, name: prettier}]
+context:
+  - text: |
+      Prettier formats the project; its options live in the Prettier config, never in a file's own comments.

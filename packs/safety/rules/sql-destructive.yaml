@@ -4,13 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(psql|mysql|mariadb|sqlite3)[[:space:]].*(([Dd][Rr][Oo][Pp][[:space:]]+([Tt][Aa][Bb][Ll][Ee]|[Dd][Aa][Tt][Aa][Bb][Aa][Ss][Ee]|[Ss][Cc][Hh][Ee][Mm][Aa])|[Tt][Rr][Uu][Nn][Cc][Aa][Tt][Ee])([[:space:];]|\\?["'']|$)|[Dd][Ee][Ll][Ee][Tt][Ee][[:space:]]+[Ff][Rr][Oo][Mm][[:space:]]+[A-Za-z0-9_."]+[[:space:]]*(;|\\?["'']|$))'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(mongosh|mongo)[[:space:]].*(dropDatabase[[:space:]]*\(|\.drop[[:space:]]*\()'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(heroku[[:space:]]+pg:reset|supabase[[:space:]]+db[[:space:]]+reset[^;&|]*(--linked|--db-url))'
+    command:
+      - {name: [psql, mysql, mariadb, sqlite3], stdin: true, arg_regex: '(?i)(\bdrop\s+(table|database|schema)(\s|;|$)|\btruncate(\s|;|$)|\bdelete\s+from\s+[a-z0-9_."]+\s*(;|$))'}
+      - {name: [mongosh, mongo], stdin: true, arg_regex: '(dropDatabase|\.drop)\s*\('}
+      - {name: heroku, sub: ['pg:reset']}
+      - {name: supabase, sub: [db, reset], flags_any: [--linked, --db-url]}
 examples:
   match:
     - "psql \"$DATABASE_URL\" -c 'DROP TABLE users;'"

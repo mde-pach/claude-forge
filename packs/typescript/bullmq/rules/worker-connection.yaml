@@ -1,5 +1,5 @@
 id: typescript/bullmq/worker-connection
-description: "A BullMQ Worker whose connection is an inline new IORedis(…) passes maxRetriesPerRequest: null in that client's options; otherwise blocking commands fail after the retries and the worker stops processing jobs. (A connection held in a variable is not followed.)"
+description: "A BullMQ Worker whose connection is an inline new IORedis(…) passes maxRetriesPerRequest: null in that client's options; otherwise blocking commands fail after the retries and the worker stops processing jobs."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

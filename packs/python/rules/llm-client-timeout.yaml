@@ -1,5 +1,5 @@
 id: python/llm-client-timeout
-description: "Anthropic and OpenAI SDK clients and calls never set timeout=None (the client constructor, with_options(), a request): a request could then wait forever, and is retried. Keep the SDK's default or pass a number of seconds. requests and httpx are python/http-timeout."
+description: "Anthropic and OpenAI SDK clients and calls never set timeout=None (the client constructor, with_options(), a request): a request could then wait forever, and is retried. Keep the SDK's default or pass a number of seconds."
 scope: {language: python}
 enforce:
   - target: ast-grep

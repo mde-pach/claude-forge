@@ -1,5 +1,5 @@
 id: typescript/nestjs/validation-pipe-forbid-non-whitelisted
-description: "Advice: new ValidationPipe({...}) sets forbidNonWhitelisted: true, so a request with undeclared fields is rejected (400) instead of silently stripped."
+description: "new ValidationPipe({...}) sets forbidNonWhitelisted: true, so a request with undeclared fields is rejected (400) instead of silently stripped."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

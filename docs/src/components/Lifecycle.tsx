@@ -22,13 +22,7 @@ export const EFFECT_LABEL: Record<Effect, string> = {
 };
 
 function Inline({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(/(`[^`]+`)/).map((part, i) =>
-        part.startsWith("`") && part.endsWith("`") && part.length > 1 ? <code key={i}>{part.slice(1, -1)}</code> : <span key={i}>{part}</span>,
-      )}
-    </>
-  );
+  return <>{text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith("`") && part.endsWith("`") && part.length > 1 ? <code key={i}>{part.slice(1, -1)}</code> : <span key={i}>{part}</span>))}</>;
 }
 
 export function EffectPill({ effect }: { effect: Effect }) {

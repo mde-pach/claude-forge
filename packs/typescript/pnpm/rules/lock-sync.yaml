@@ -1,18 +1,15 @@
 id: typescript/pnpm/lock-sync
-description: "pnpm-lock.yaml matches the package.json files (pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes)."
+description: "pnpm-lock.yaml matches the package.json files; a stale lock is updated with pnpm install --lockfile-only --ignore-scripts (checked with pnpm install --frozen-lockfile --lockfile-only, which writes nothing; pnpm 8.6.12 and later: before, it rewrites a stale lock and passes)."
 scope: {language: any}
 enforce:
+  # Forge keeps the lock in sync (forge_js_lock relocks a stale one; §10.5), after the lint
+  # stage's new-dependency checks
   - target: check
-    stage: lint
-    run: forge_do pnpm lock-check
+    stage: codegen
+    run: forge_js_lock pnpm
     when_changed: ["**/package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
 examples:
-  match:
-    - head:
-        package.json: "{\"name\": \"shop\", \"private\": true}\n"
-        pnpm-lock.yaml: "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
-      files:
-        package.json: "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"
+  # a stale lock needs the package manager: crates/forge-cli/tests/check.rs::the_js_lock_is_kept_in_sync
   no_match:
     # nothing the lock depends on changed: not run
     - head:
@@ -20,3 +17,8 @@ examples:
         pnpm-lock.yaml: "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
       files:
         src/index.ts: "export const x = 1;\n"
+    # a lock the project never had is setup (forge apply), not the change's
+    - head:
+        package.json: "{\"name\": \"shop\", \"private\": true}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"

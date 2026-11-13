@@ -1,0 +1,14 @@
+[package]
+name = "forge-launcher"
+description = "Runs the exact Forge version pinned in forge.lock (rustup-style launcher)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+forge-home.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+toml.workspace = true

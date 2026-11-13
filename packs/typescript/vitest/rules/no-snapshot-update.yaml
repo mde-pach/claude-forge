@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])vitest([[:space:]]+run)?[^|;&]*[[:space:]](-u|--update)([[:space:]=;&|)]|$)'
+    command: {name: vitest, flags_any: [-u, --update]}
 examples:
   match: ["bunx vitest run -u", "vitest --update", "bun run vitest run src/a.test.ts -u"]
   no_match: ["bunx vitest run", "bunx vitest run --changed", "vitest --ui"]

@@ -1,5 +1,5 @@
 id: openapi/config-ratchet
-description: "The OpenAPI linter config is not loosened: in redocly.yaml or .spectral.yaml a rule lowered (error > warn > info / hint > off) or removed, an extends entry removed or an overrides entry added, and new entries in .redocly.lint-ignore.yaml, are reported; an accepted change goes in forge.yaml."
+description: "The OpenAPI linter config is not loosened: in redocly.yaml or .spectral.yaml a rule lowered (error > warn > info / hint > off) or removed, an extends entry removed or an overrides entry added, and new entries in .redocly.lint-ignore.yaml, are reported; loosening the linter is the user's decision: ask them."
 scope: {language: any, files: [redocly.yaml, .redocly.yaml, .spectral.yaml, .spectral.yml, .redocly.lint-ignore.yaml]}
 enforce:
   - target: check

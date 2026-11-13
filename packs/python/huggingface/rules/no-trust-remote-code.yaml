@@ -1,5 +1,5 @@
 id: python/huggingface/no-trust-remote-code
-description: "Advice: trust_remote_code=True (from_pretrained, pipeline, load_dataset, SentenceTransformer, vLLM) runs Python from the model or dataset repository. Prefer a model that does not need it; otherwise pin the revision= that was reviewed."
+description: "trust_remote_code=True (from_pretrained, pipeline, load_dataset, SentenceTransformer, vLLM) runs Python from the model or dataset repository. Prefer a model that does not need it; otherwise pin the revision= that was reviewed."
 scope: {language: python}
 enforce:
   - target: ast-grep

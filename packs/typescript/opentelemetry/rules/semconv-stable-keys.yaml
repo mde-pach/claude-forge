@@ -1,5 +1,5 @@
 id: typescript/opentelemetry/semconv-stable-keys
-description: "span.setAttribute(s) uses the stable semantic convention keys, not the old ones: http.request.method (not http.method), http.response.status_code (http.status_code), url.full (http.url), url.path / url.query (http.target), url.scheme (http.scheme), user_agent.original (http.user_agent), server.address / server.port (net.peer.name / net.peer.port, net.host.name / net.host.port), db.query.text (db.statement), db.system.name (db.system). A backend that still wants the old keys overrides this rule in .forge/rules."
+description: "span.setAttribute(s) uses the stable semantic convention keys, not the old ones: http.request.method (not http.method), http.response.status_code (http.status_code), url.full (http.url), url.path / url.query (http.target), url.scheme (http.scheme), user_agent.original (http.user_agent), server.address / server.port (net.peer.name / net.peer.port, net.host.name / net.host.port), db.query.text (db.statement), db.system.name (db.system). Keeping the old keys for a backend that needs them is the user's decision: ask them."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

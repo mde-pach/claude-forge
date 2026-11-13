@@ -1,0 +1,22 @@
+[package]
+name = "forge-detect"
+description = "What Forge sees in a repository: dependencies and versions, workspace packages, package managers, file roles, active packs and where they apply."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-packs.workspace = true
+fancy-regex.workspace = true
+indexmap.workspace = true
+nodejs-semver.workspace = true
+regex.workspace = true
+saphyr-parser.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

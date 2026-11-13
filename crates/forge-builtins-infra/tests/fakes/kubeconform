@@ -1,0 +1,21 @@
+#!/bin/sh
+# Fake kubeconform 0.8.0 for the pack examples: an unknown field and a removed apiVersion, in
+# the real binary's JSON (captured); only documents that are not valid are listed; exit 1 then.
+[ "$1" = -v ] && { echo v0.8.0; exit 0; }
+for a in "$@"; do f=$a; done
+[ -f "$f" ] || { printf '{\n  "resources": [\n    {\n      "filename": "%s",\n      "kind": "",\n      "name": "",\n      "version": "",\n      "status": "statusError",\n      "msg": "lstat %s: no such file or directory"\n    }\n  ]\n}\n' "$f" "$f"; exit 1; }
+awk -v f="$f" '
+  function flush() {
+    if (kind == "") return
+    if (canary) add("statusInvalid", "problem validating schema. Check JSON formatting: jsonschema validation failed with '"'"'https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone-strict/deployment-apps-v1.json#'"'"' - at '"'"'/spec/strategy'"'"': additional properties '"'"'canary'"'"' not allowed")
+    else if (api == "extensions/v1beta1") add("statusError", "could not find schema for " kind)
+    kind = ""; canary = 0; name = ""
+  }
+  function add(status, msg) {
+    gsub(/"/, "\\\"", msg)
+    out = out (n++ ? ",\n" : "") "    {\n      \"filename\": \"" f "\",\n      \"kind\": \"" kind "\",\n      \"name\": \"" name "\",\n      \"version\": \"" api "\",\n      \"status\": \"" status "\",\n      \"msg\": \"" msg "\"\n    }"
+  }
+  /^---/ { flush(); next }
+  /^apiVersion:/ { api = $2 } /^kind:/ { kind = $2 } /^  name:/ { name = $2 }
+  /^    canary:/ { canary = 1 }
+  END { flush(); if (n) { print "{\n  \"resources\": [\n" out "\n  ]\n}"; exit 1 } print "{\n  \"resources\": []\n}" }' "$f"

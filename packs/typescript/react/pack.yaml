@@ -3,3 +3,14 @@ description: React 19 components, shared by every React setup (Next.js, Astro is
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: react, version: ">=19.0.0"}]
+context:
+  - text: |
+      React 19: `ref` is a regular prop of function components; `forwardRef` is not needed.
+  - text: |
+      Form actions use `useActionState` from `react` (not `useFormState` from `react-dom`); `act` comes from `react`, not `react-dom/test-utils`.
+  - text: |
+      Function components have no `propTypes` or `defaultProps`: use TypeScript types and default parameter values; an object, array or function default is hoisted to a module constant.
+  - text: |
+      `ReactDOM.render` is removed: use `createRoot` from `react-dom/client`.
+  - text: |
+      Components follow the React Compiler's rules: no `setState` called synchronously in an effect, no ref read or written while rendering, no `Date.now()` / `Math.random()` while rendering; props are never assigned to.

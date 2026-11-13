@@ -1,28 +1,27 @@
 ---
 title: Internals
-description: Shared shell helpers, generator snapshots, and the checks that keep this site honest.
+description: The crates of the Forge binary, and how this site is built.
 ---
 
-import Spec from "../../../components/Spec.astro";
+Forge is one Rust binary, built from the Cargo workspace in `crates/`:
 
-## lib.sh
-
-<Spec file="09-scripts" describe="lib.sh on %s" />
-
-## Tool adapters
-
-How each release of a tool Forge drives is asked for what a rule needs, proven on real binaries of the releases it claims.
-
-<Spec file="16-adapters" />
-
-<Spec file="16-2-adapter-matrix" />
+| Crate | Does |
+|---|---|
+| `forge-packs` | the strict YAML loader, the schemas (`schemas/*.json` are generated from its types), content lints, built-in packs embedded and cached parsed |
+| `forge-detect` | project facts (manifests, locks, workspaces, `python.pm`), activation and placement |
+| `forge-render` | the rules files, the settings entries, the lock, the pre-commit block, the person's report |
+| `forge-guard` | Bash command parsing (tree-sitter-bash) and the structural guard matcher |
+| `forge-check` | the change set, ast-grep and grep targets, the tool adapters (`crates/forge-check/adapters/*.yaml`), stages, ratchets |
+| `forge-builtins-*`, `forge-helpers` | the checks packs call by name (`forge_hadolint`, `forge_ratchet`, …) |
+| `forge-engine` | the types engine: LSP clients for ty and TypeScript, a per-repository daemon |
+| `forge-hooks` | `claude-forge hook <event>`: the guard, snapshots, post-edit, Stop, the reviewer |
+| `forge-tools`, `forge-home` | provisioning of uv and the pinned tools; the cache and state layout |
+| `forge-launcher`, `forge-cli` | the launcher (runs the locked version) and the commands |
 
 ## Generator samples
 
-Each sample repository in `tests/generator/` is applied and compared with a stored snapshot.
+`fixtures/samples/` holds small repositories (FastAPI, Next.js with Prisma, Astro, a pnpm workspace, …). `crates/forge-cli/tests/apply.rs` applies each and compares everything written with an `insta` snapshot; after a change that alters the output, review it with `cargo insta review`.
 
-<Spec file="14-2-generator" />
+## This site
 
-## Building blocks and this site
-
-<Spec file="99-internals" />
+The site (Astro and Starlight, in `docs/`) reads what it shows from the binary: `bun run data` runs `claude-forge packs dump --json` and every command's `--help` into `docs/.data/`, and the schema pages read `schemas/*.json`. `bun run dev` and `bun run build` run it first. `FORGE_BIN` names a binary to use instead of building this checkout's.

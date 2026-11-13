@@ -1,0 +1,27 @@
+#!/bin/sh
+# Fake Spectral CLI 6.17.0 for the pack examples: operation-tags when the ruleset sets it to
+# error, in the text format of the real CLI (captured: absolute paths, quoted messages);
+# exit 1 with an error result.
+[ "$1" = lint ] || { echo 'Unknown argument: x' >&2; exit 1; }
+shift
+rs=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    --ruleset) rs=$2; shift 2 ;;
+    --format|--fail-severity) shift 2 ;;
+    *) break ;;
+  esac
+done
+[ -f "$rs" ] || { echo "Could not read ruleset $rs" >&2; exit 2; }
+grep -q 'operation-tags: error' "$rs" || exit 0
+rc=0
+for f in "$@"; do
+  abs=$(cd "$(dirname "$f")" && pwd)/$(basename "$f")
+  out=$(awk -v f="$abs" '
+    /^    (get|post|put|delete|patch):/ { if (op && !tags) printf "%s:%d:%d error operation-tags \"Operation must have non-empty \"tags\" array.\"\n", f, op, 9; op = NR; tags = 0 }
+    /tags: \[/ { tags = 1 }
+    END { if (op && !tags) printf "%s:%d:%d error operation-tags \"Operation must have non-empty \"tags\" array.\"\n", f, op, 9 }
+  ' "$f")
+  [ -n "$out" ] && { printf '%s\n' "$out"; rc=1; }
+done
+exit "$rc"

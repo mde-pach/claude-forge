@@ -1,0 +1,19 @@
+# ast-grep, Forge's own pinned structural matcher (§16.2 pinned tools): its version is the pin
+# (AST_GREP_VERSION), so one range, proven on that release (ast-grep-cli through uvx and
+# @ast-grep/cli through bunx, both 0.45.3). Forge's invocations (`forge_do ast-grep scan|scan-meta`: check.sh
+# forge_counts / forge_forbid, post-edit.sh, tests.sh forge_test_blocks / snapshot values):
+# `scan -c <sgconfig> [--inline-rules <yaml>] --filter <re> --json=stream [--include-metadata] <files>`.
+# Exit: 0 no error-severity match (matches of other severities are still printed), 1 an
+# error-severity match, 2 a usage error (clap), 6 no readable sgconfig.
+
+tool: "ast-grep"
+pinned: "0.45.3"
+verified: "0.45.3"
+runner: pinned
+usage: {exit: [2], pattern: "^For more information, try .--help."}
+ranges:
+  - from: "0.45.3"
+    source: "ast-grep 0.45.3: https://github.com/ast-grep/ast-grep/releases/tag/0.45.3; ast-grep scan --help"
+    ops:
+      "scan": "scan --json=stream -c"
+      "scan-meta": "scan --json=stream --include-metadata -c"

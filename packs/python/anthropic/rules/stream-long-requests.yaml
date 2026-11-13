@@ -1,5 +1,5 @@
 id: python/anthropic/stream-long-requests
-description: "Advice: a messages.create() or messages.parse() call with max_tokens above 21,333 and no stream=True streams instead (client.messages.stream(...), then get_final_message()): the SDK refuses such a non-streaming request before sending it (expected to exceed 10 minutes), and with a custom timeout the HTTP request may time out."
+description: "A messages.create() or messages.parse() call with max_tokens above 21,333 and no stream=True streams instead (client.messages.stream(...), then get_final_message()): the SDK refuses such a non-streaming request before sending it (expected to exceed 10 minutes), and with a custom timeout the HTTP request may time out."
 scope: {language: python}
 enforce:
   - target: ast-grep

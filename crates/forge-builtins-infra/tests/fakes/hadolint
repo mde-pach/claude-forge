@@ -1,0 +1,67 @@
+#!/bin/sh
+# Fake hadolint 2.15.1 for the pack examples: the rules the examples exercise, in hadolint's
+# tty format (captured from the real binary): "path:line CODE level: message"; a Dockerfile it
+# cannot parse is "path:line:column message". --no-fail: exit 0.
+cfg=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    -c) cfg=$2; shift 2 ;;
+    -f) shift 2 ;;
+    --*) shift ;;
+    *) break ;;
+  esac
+done
+[ -n "$cfg" ] || { echo 'Invalid option'; exit 1; }
+for f in "$@"; do
+  [ -f "$f" ] || { echo "hadolint: $f: withBinaryFile: does not exist (No such file or directory)" >&2; exit 1; }
+  awk -v f="$f" '
+    function out(l, code, lvl, msg) { print f ":" l " " code " " lvl ": " msg }
+    {
+      line = $0
+      if (cur == "") { if (line ~ /^[[:space:]]*(#|$)/) next; start = NR }
+      if (line ~ /\\[[:space:]]*$/) { sub(/\\[[:space:]]*$/, " ", line); cur = cur line; next }
+      cur = cur line; rec(start, cur); cur = ""
+    }
+    function rec(l, t,   instr, args, n, w) {
+      instr = toupper(t); sub(/[[:space:]].*$/, "", instr)
+      args = t; sub(/^[[:space:]]*[A-Za-z]+[[:space:]]*/, "", args)
+      if (instr !~ /^(FROM|RUN|CMD|LABEL|MAINTAINER|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)$/) {
+        print f ":" l ":" length(instr) " missing whitespace "; return
+      }
+      if (instr == "FROM") {
+        stage = ""; workdir = 0; cmds = 0; lastrun = 0
+        n = split(args, w, /[[:space:]]+/)
+        if (tolower(w[2]) == "as") { stage = w[3]; alias[w[3]] = 1 }
+        img = w[1]
+        if (img ~ /:latest$/) out(l, "DL3007", "warning", "Using latest is prone to errors if the image will ever update. Pin the version explicitly to a release tag")
+        else if (img !~ /[:@]/ && img != "scratch" && !(img in alias)) out(l, "DL3006", "warning", "Always tag the version of an image explicitly")
+      }
+      if (instr == "SHELL" && args ~ /pipefail/) pipefail = 1
+      if (instr == "WORKDIR") { workdir = 1; if (args !~ /^[\/$]/) out(l, "DL3000", "error", "Use absolute WORKDIR") }
+      if (instr == "MAINTAINER") out(l, "DL4000", "error", "MAINTAINER is deprecated")
+      if (instr == "ADD") out(l, "DL3020", "error", "Use COPY instead of ADD for files and folders")
+      if (instr == "COPY") {
+        n = split(args, w, /[[:space:]]+/)
+        if (args ~ /--from=/) { fr = args; sub(/^.*--from=/, "", fr); sub(/[[:space:]].*$/, "", fr); if (fr == stage) out(l, "DL3023", "error", "`COPY --from` cannot reference its own `FROM` alias") }
+        if (!workdir && w[n] !~ /^[\/$]/) out(l, "DL3045", "warning", "`COPY` to a relative destination without `WORKDIR` set.")
+      }
+      if (instr == "CMD") {
+        cmds++
+        if (cmds > 1) out(l, "DL4003", "warning", "Multiple `CMD` instructions found. If you list more than one `CMD` then only the last `CMD` will take effect")
+        if (args !~ /^\[/) out(l, "DL3025", "warning", "Use arguments JSON notation for CMD and ENTRYPOINT arguments")
+      }
+      if (instr == "RUN") {
+        if (lastrun && args !~ /^--/) out(l, "DL3059", "info", "Multiple consecutive `RUN` instructions. Consider consolidation.")
+        if (args ~ /[^|]\|[^|]/ && !pipefail) out(l, "DL4006", "warning", "Set the SHELL option -o pipefail before RUN with a pipe in it. If you are using /bin/sh in an alpine image or if your shell is symlinked to busybox then consider explicitly setting your SHELL to /bin/ash, or disable this check")
+        if (args ~ /apt-get install/) {
+          if (args !~ /rm -rf \/var\/lib\/apt\/lists/) out(l, "DL3009", "info", "Delete the apt lists (/var/lib/apt/lists) after installing something")
+          if (args !~ /--no-install-recommends/) out(l, "DL3015", "info", "Avoid additional packages by specifying `--no-install-recommends`")
+          if (args !~ /(^|[[:space:]])-y([[:space:]]|$)/) out(l, "DL3014", "warning", "Use the `-y` switch to avoid manual input `apt-get -y install <package>`")
+        }
+        if (args ~ /pip install/ && args !~ /--no-cache-dir/ && args !~ /type=cache/) out(l, "DL3042", "warning", "Avoid use of cache directory with pip. Use `pip install --no-cache-dir <package>`")
+        lastrun = 1
+      } else lastrun = 0
+      if (instr == "USER" && args !~ /^[0-9]/) out(l, "DL3066", "info", "Non-numeric user-id may not be resolvable by host system")
+    }' "$f"
+done
+exit 0

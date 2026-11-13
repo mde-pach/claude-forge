@@ -1,5 +1,5 @@
 id: typescript/express/no-async-handler
-description: "Advice: express-async-handler and express-promise-router are redundant with Express 5, which passes a rejected promise of a handler to next(err); use plain async handlers and express.Router()."
+description: "express-async-handler and express-promise-router are redundant with Express 5, which passes a rejected promise of a handler to next(err); use plain async handlers and express.Router()."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

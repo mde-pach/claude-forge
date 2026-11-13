@@ -3,3 +3,8 @@ description: Temporal TypeScript SDK workflows (deterministic sandbox).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@temporalio/workflow"}]
+context:
+  - text: |
+      Temporal: workflow code runs in a deterministic sandbox. A file importing `@temporalio/workflow` imports no Node built-ins and no `@temporalio/activity` / `client` / `worker`; activities are reached through `proxyActivities<typeof activities>()` with `import type * as activities`.
+  - text: |
+      In workflows, `uuid4()` from `@temporalio/workflow` replaces `crypto.randomUUID()`.

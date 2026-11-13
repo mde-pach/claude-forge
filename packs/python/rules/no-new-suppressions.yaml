@@ -1,20 +1,25 @@
 id: python/no-new-suppressions
-description: No new suppression comments (# noqa, # ty: ignore, # type: ignore, # pyright: ignore) or coverage pragmas (# pragma: no cover, # pragma: no branch); a changed file may not have more than it had. Fix the finding instead.
+description: "No new suppression comments (# noqa, # ty: ignore, # type: ignore, # pyright: ignore) or coverage pragmas (# pragma: no cover, # pragma: no branch); a changed file may not have more than it had. Fix the finding instead."
 scope: {language: python}
 enforce:
-  - target: grep
+  # comments only: a string or docstring that mentions them is not a suppression
+  - target: ast-grep
     mode: no-increase
-    pattern: "#[[:space:]]*(noqa|ty:[[:space:]]*ignore|type:[[:space:]]*ignore|pyright:[[:space:]]*ignore|pragma:[[:space:]]*no[[:space:]]+(cover|branch))"
+    rule:
+      kind: comment
+      regex: "^#[ \\t]*(noqa|ty:[ \\t]*ignore|type:[ \\t]*ignore|pyright:[ \\t]*ignore|pragma:[ \\t]*no[ \\t]+(cover|branch))"
 examples:
   match:
-    - "import os  # noqa: F401"
-    - "x = f()  # type: ignore[attr-defined]"
-    - "y = g()  # pyright: ignore[reportUnknownVariableType]"
-    - "w = k()  # ty: ignore[unresolved-attribute]"
-    - "z = h()  #noqa"
+    - "import os  # noqa: F401\n"
+    - "x = f()  # type: ignore[attr-defined]\n"
+    - "y = g()  # pyright: ignore[reportUnknownVariableType]\n"
+    - "w = k()  # ty: ignore[unresolved-attribute]\n"
+    - "z = h()  #noqa\n"
     - "if TYPE_CHECKING:  # pragma: no cover\n    import x\n"
     - "while True:  # pragma: no branch\n    step()\n"
   no_match:
-    - "x = f()  # typed in stubs/f.pyi"
-    - "ignore = True"
+    - "x = f()  # typed in stubs/f.pyi\n"
+    - "ignore = True\n"
     - "# pragma: allowlist secret\n"
+    - "HELP = \"add # noqa to silence ruff\"\n"
+    - "def f() -> None:\n    \"\"\"Never add # type: ignore here.\"\"\"\n"

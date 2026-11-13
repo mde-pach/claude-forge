@@ -1,5 +1,5 @@
 id: python/config-ratchet
-description: Python tool configs are not loosened (ruff rules dropped or ignored, ty rule levels lowered, excludes added, pytest paths or coverage thresholds reduced, mypy strictness turned off or errors ignored, pyright checking mode or report levels lowered); a deliberate change is accepted in forge.yaml.
+description: "Python tool configs are not loosened (ruff rules dropped or ignored, ty rule levels lowered, excludes added, pytest paths or coverage thresholds reduced, mypy strictness turned off or errors ignored, pyright checking mode or report levels lowered); loosening one is the user's decision: ask them."
 scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml", "**/mypy.ini", "**/.mypy.ini", "**/pyrightconfig.json"]}
 enforce:
   - target: check

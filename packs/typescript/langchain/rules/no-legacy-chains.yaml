@@ -1,5 +1,5 @@
 id: typescript/langchain/no-legacy-chains
-description: "Advice: no new imports of LLMChain, ConversationChain, RetrievalQAChain, ConversationalRetrievalQAChain, initializeAgentExecutorWithOptions or AgentExecutor from @langchain/classic or langchain/chains / langchain/agents: LangChain 1 moved them to @langchain/classic as legacy; build agents with createAgent from langchain."
+description: "No new imports of LLMChain, ConversationChain, RetrievalQAChain, ConversationalRetrievalQAChain, initializeAgentExecutorWithOptions or AgentExecutor from @langchain/classic or langchain/chains / langchain/agents: LangChain 1 moved them to @langchain/classic as legacy; build agents with createAgent from langchain."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

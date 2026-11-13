@@ -1,0 +1,23 @@
+{
+  "name": "@maximedepachtere/claude-forge",
+  "version": "0.0.0",
+  "description": "Generates a standalone Claude Code setup from rule packs.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mde-pach/claude-forge.git"
+  },
+  "bin": {
+    "claude-forge": "bin/claude-forge.js",
+    "forge": "bin/claude-forge.js"
+  },
+  "files": ["bin/"],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@maximedepachtere/claude-forge-darwin-arm64": "0.0.0",
+    "@maximedepachtere/claude-forge-darwin-x64": "0.0.0",
+    "@maximedepachtere/claude-forge-linux-arm64": "0.0.0",
+    "@maximedepachtere/claude-forge-linux-x64": "0.0.0"
+  }
+}

@@ -4,13 +4,12 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(terraform|tofu)[[:space:]]+(destroy|apply[^|;&]*-auto-approve)([[:space:]=;&|)]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(terraform|tofu)[[:space:]]+(-chdir=[^[:space:]]+[[:space:]]+)?(state[[:space:]]+(rm|mv|push|replace-provider)|force-unlock|import|workspace[[:space:]]+delete)([[:space:];&|)]|$)'
-  - target: guard
-    decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(terraform|tofu)[[:space:]]+(-chdir=[^[:space:]]+[[:space:]]+)?apply[[:space:]][^;&|]*(-replace=|-target=|-lock=false)'
+    command:
+      - {name: [terraform, tofu], sub: [destroy]}
+      - {name: [terraform, tofu], sub: [apply], flags_any: [-auto-approve, --auto-approve, -replace, -target, '-lock=false']}
+      - {name: [terraform, tofu], sub: [state, 'rm|mv|push|replace-provider']}
+      - {name: [terraform, tofu], sub: ['force-unlock|import']}
+      - {name: [terraform, tofu], sub: [workspace, delete]}
 examples:
   match: ["terraform destroy", "terraform apply -auto-approve", "tofu destroy -target=aws_db_instance.main", "terraform state rm aws_s3_bucket.logs", "tofu import aws_instance.web i-0abc", "terraform -chdir=infra apply -target=module.db", "terraform force-unlock 1234", "terraform workspace delete staging", "terraform apply -replace=aws_instance.web"]
   no_match: ["terraform plan", "terraform fmt", "terraform apply", "terraform plan -target=module.db", "terraform state list", "terraform workspace select staging"]

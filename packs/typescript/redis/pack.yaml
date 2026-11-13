@@ -3,3 +3,6 @@ description: Redis clients (ioredis, node-redis).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: ioredis}, {ecosystem: npm, name: redis}, {ecosystem: npm, name: "@redis/client"}]
+context:
+  - text: |
+      Redis: no `KEYS` (`client.keys(pattern)`) in application code; iterate with `scanStream()` (ioredis), `scanIterator()` (node-redis) or `SCAN`.

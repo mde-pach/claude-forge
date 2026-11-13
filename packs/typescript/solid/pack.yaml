@@ -3,3 +3,8 @@ description: SolidJS components (fine-grained reactivity).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: solid-js}]
+context:
+  - text: |
+      SolidJS: a component runs once; props are reactive getters, so they are read as `props.x` (or split with `splitProps`), never destructured.
+  - text: |
+      Lists render with `<For each={...}>` (or `<Index>`), not `.map()` in JSX.

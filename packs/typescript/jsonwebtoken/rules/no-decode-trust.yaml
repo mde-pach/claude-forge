@@ -1,5 +1,5 @@
 id: typescript/jsonwebtoken/no-decode-trust
-description: "Advice: jsonwebtoken's decode() does not verify the signature; use verify() whenever the claims decide anything (identity, permissions, expiry)."
+description: "jsonwebtoken's decode() does not verify the signature; use verify() whenever the claims decide anything (identity, permissions, expiry)."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

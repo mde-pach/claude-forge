@@ -1,0 +1,234 @@
+name: Release
+
+# A `v<version>` tag push builds Forge for every platform, then, each after an approval
+# in its environment (Settings > Environments: `release`, `pypi`, `npm`, each with
+# required reviewers):
+# - `release`: the GitHub release: one claude-forge-<version>-<target>.tar.gz per
+#   platform, install.sh, SHA256SUMS and build-provenance attestations;
+# - `pypi`: the wheels (maturin, one per platform), by trusted publishing;
+# - `npm`: the main package and one package per platform, by trusted publishing.
+# The launcher (crates/forge-tools/src/forge_release.rs) and install.sh download from the
+# GitHub release and check SHA256SUMS.
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MATURIN: maturin==1.15.0
+
+jobs:
+  check:
+    name: tag matches the version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "forge-cli") | .version')
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match the workspace version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build (${{ matrix.target }})
+    needs: check
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # Static musl binaries: the release archive and the musllinux wheel.
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            archive: true
+            wheel-flags: --compatibility musllinux_1_2
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            archive: true
+            wheel-flags: --compatibility musllinux_1_2
+          # glibc wheels for pip on glibc Linux (manylinux), linked against glibc 2.17 by zig.
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+            archive: false
+            wheel-flags: --zig --compatibility manylinux_2_17
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            archive: false
+            wheel-flags: --zig --compatibility manylinux_2_17
+          - target: aarch64-apple-darwin
+            runner: macos-15
+            archive: true
+            wheel-flags: ""
+          - target: x86_64-apple-darwin
+            runner: macos-15
+            archive: true
+            wheel-flags: ""
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ matrix.target }}
+      VERSION: ${{ needs.check.outputs.version }}
+      WHEEL_FLAGS: ${{ matrix.wheel-flags }}
+      ARCHIVE: ${{ matrix.archive }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: |
+          rustup show active-toolchain
+          rustup target add "$TARGET"
+          case $TARGET in
+            *-linux-musl) sudo apt-get update -q && sudo apt-get install -y -q musl-tools ;;
+          esac
+      - name: Binary and archive
+        if: matrix.archive
+        run: |
+          cargo build --release --locked --target "$TARGET" -p forge-cli --bin claude-forge
+          name=claude-forge-$VERSION-$TARGET
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/claude-forge" "dist/$name/"
+          case $TARGET in
+            *-linux-musl) file "dist/$name/claude-forge" | grep -q 'static' || { echo "::error::not a static binary"; exit 1; } ;;
+          esac
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+      - name: Wheel
+        working-directory: python
+        run: |
+          spec=$MATURIN
+          case $WHEEL_FLAGS in *--zig*) spec="maturin[zig]${MATURIN#maturin}" ;; esac
+          # shellcheck disable=SC2086 # WHEEL_FLAGS is a list of flags
+          pipx run --spec "$spec" maturin build --release --locked --target "$TARGET" --out ../wheels $WHEEL_FLAGS
+      - if: matrix.archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archive-${{ matrix.target }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wheel-${{ matrix.target }}
+          path: wheels/*.whl
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    needs: [check, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the attestations
+      attestations: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: archive-*
+          path: dist
+          merge-multiple: true
+      - name: install.sh and SHA256SUMS
+        run: |
+          sed "s/@@FORGE_VERSION@@/$VERSION/" install.sh > dist/install.sh
+          grep -q "default_version='$VERSION'" dist/install.sh
+          cd dist
+          set -- claude-forge-*.tar.gz && test "$#" -eq 4
+          sha256sum claude-forge-*.tar.gz install.sh > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/claude-forge-*.tar.gz
+            dist/install.sh
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=
+          case $VERSION in *-*) pre=--prerelease ;; esac
+          gh release create "$TAG" dist/* --verify-tag --title "$TAG" $pre \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "Install: curl -LsSf https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/install.sh | sh"
+
+  pypi:
+    name: PyPI
+    needs: [check, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/claude-forge/
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: wheel-*
+          path: wheels
+          merge-multiple: true
+      - run: set -- wheels/*.whl && printf "%s\n" "$@" && test "$#" -eq 6
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: wheels/
+
+  npm:
+    name: npm
+    needs: [check, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@maximedepachtere/claude-forge
+    permissions:
+      contents: read
+      id-token: write # trusted publishing and provenance
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: archive-*
+          path: dist
+          merge-multiple: true
+      # Node 24 ships npm 11, which publishes with OIDC trusted publishing (no token).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Publish
+        run: |
+          node npm/stage.mjs "$VERSION" dist out
+          tag=latest
+          case $VERSION in *-*) tag=next ;; esac
+          # The platform packages first: the main package depends on them.
+          for dir in out/darwin-arm64 out/darwin-x64 out/linux-arm64 out/linux-x64 out/claude-forge; do
+            (cd "$dir" && npm publish --access public --provenance --tag "$tag")
+          done

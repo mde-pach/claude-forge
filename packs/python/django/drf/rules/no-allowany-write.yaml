@@ -1,5 +1,5 @@
 id: python/django/drf/no-allowany-write
-description: "AllowAny is not set on an endpoint that writes (a ModelViewSet, a Create/Update/Destroy view or mixin, a view with post/put/patch/delete, an @api_view accepting POST/PUT/PATCH/DELETE) nor made the DEFAULT_PERMISSION_CLASSES: opening a write endpoint to anonymous callers is the user's decision. Ask; if they confirm, they disable the rule for that file in a local rule."
+description: "AllowAny is not set on an endpoint that writes (a ModelViewSet, a Create/Update/Destroy view or mixin, a view with post/put/patch/delete, an @api_view accepting POST/PUT/PATCH/DELETE) nor made the DEFAULT_PERMISSION_CLASSES: opening a write endpoint to anonymous callers is the user's decision. Ask them first."
 scope: {language: python, files: ["!**/tests/**", "!**/test_*.py"]}
 enforce:
   - target: ast-grep

@@ -1,20 +1,16 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "html": { "experimentalFullSupportEnabled": true },
   "formatter": { "enabled": true, "indentStyle": "space" },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "a11y": "error",
       "complexity": { "noBannedTypes": "error" },
-      "nursery": {
-        "noVueRefAsOperand": "error",
-        "useVueValidVFor": "error",
-        "useSvelteRequireEachKey": "error",
-        "noSvelteAtDebugTags": "error"
-      },
+      "correctness": { "noVueRefAsOperand": "error", "useVueValidVFor": "error" },
+      "nursery": { "useSvelteRequireEachKey": "error", "noSvelteAtDebugTags": "error" },
       "style": { "useImportType": "error", "useExportType": "error", "useErrorCause": "error" },
       "suspicious": {
         "noExplicitAny": "error",

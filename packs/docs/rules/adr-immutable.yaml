@@ -1,8 +1,8 @@
 id: docs/adr-immutable
-description: An accepted architecture decision record (file role @adr, adr-tools' .adr-dir) is not rewritten; only its status may change (superseded, deprecated), and a new decision goes in a new ADR that supersedes it. Advisory, it blocks Stop once per turn.
+description: An accepted architecture decision record already on the default branch (file role @adr, adr-tools' .adr-dir) is not rewritten; only its status may change (superseded, deprecated), and a new decision goes in a new ADR that supersedes it. Advisory, it blocks Stop once per turn.
 scope: {language: any, files: ["@adr"]}
 enforce:
-  - {target: check, stage: lint, run: "forge_advise forge_adr_edits"}
+  - {target: check, stage: lint, run: "forge_advise forge_adr_edits", base: branch}
 examples:
   match:
     - head: {docs/adr/0002-use-postgres.md: "# 2. Use PostgreSQL\n\nDate: 2026-03-02\n\n## Status\n\nAccepted\n\n## Context\n\nWe need transactions across orders and payments.\n\n## Decision\n\nWe use PostgreSQL 17.\n"}

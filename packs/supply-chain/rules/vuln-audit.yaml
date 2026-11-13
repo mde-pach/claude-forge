@@ -1,5 +1,5 @@
 id: supply-chain/vuln-audit
-description: "A changed lock file brings in no dependency version with a known vulnerability (OSV, through osv-scanner) that its base version did not already have; osv-scanner.toml ignores do not apply. Needs api.osv.dev: offline, it is reported skipped."
+description: "A changed lock file brings in no known vulnerability (OSV, through osv-scanner) that its base version did not already have for that package (a bump under the same advisory is not new); osv-scanner.toml ignores do not apply. Needs api.osv.dev: offline, it is reported skipped."
 scope: {language: any, files: ["**/package-lock.json", "**/pnpm-lock.yaml", "**/yarn.lock", "**/bun.lock", "**/bun.lockb", "**/uv.lock", "**/poetry.lock", "**/requirements*.txt", "**/Pipfile.lock", "**/pdm.lock", "**/Cargo.lock"]}
 enforce:
   - target: check

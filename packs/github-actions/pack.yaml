@@ -3,3 +3,14 @@ description: GitHub Actions workflows, audited with zizmor.
 level: project
 detect:
   files_any: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
+context:
+  - text: |
+      GitHub Actions. Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v5`), never a tag or branch, which can be moved.
+  - text: |
+      Workflows set `permissions: {}` at the top and grant each job only what it needs.
+  - text: |
+      `actions/checkout` sets `persist-credentials: false` unless a later step pushes.
+  - text: |
+      Attacker-controllable `${{ }}` values (issue and PR titles, bodies, branch names) are never expanded inside `run:`: pass them through `env:` and use the shell variable.
+  - text: |
+      `pull_request_target` and `workflow_run` run with secrets on untrusted code: do not add them.

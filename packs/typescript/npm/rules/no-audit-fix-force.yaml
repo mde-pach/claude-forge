@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])npm[[:space:]]+audit[[:space:]]+fix[[:space:]][^;&|]*--force'
+    command: {name: npm, sub: [audit, fix], flags_any: [--force]}
 examples:
   match: ["npm audit fix --force", "npm audit fix --omit=dev --force"]
   no_match: ["npm audit fix", "npm audit", "npm audit fix && git push --force"]

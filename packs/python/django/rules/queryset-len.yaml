@@ -1,5 +1,5 @@
 id: python/django/queryset-len
-description: "Advice: len(queryset) loads every row to count them; when the rows are not used afterwards, queryset.count() asks the database for the number (a SELECT COUNT(*))."
+description: "len(queryset) loads every row to count them; when the rows are not used afterwards, queryset.count() asks the database for the number (a SELECT COUNT(*))."
 scope: {language: python}
 enforce:
   - target: ast-grep
