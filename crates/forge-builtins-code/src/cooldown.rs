@@ -268,7 +268,7 @@ pub fn setup(pm: &str, read: &dyn Fn(&str) -> Option<String>) -> Vec<Setup> {
                 out.push((
                     "package.json",
                     t,
-                    "devEngines.packageManager npm >=11.10.0".into(),
+                    "devEngines.packageManager npm >=11.10.0 (onFail: warn)".into(),
                 ));
             }
         }
@@ -354,6 +354,9 @@ fn append(text: &str, line: &str) -> String {
 
 /// package.json requiring npm >= 11.10 through `devEngines.packageManager`, when it pins no npm
 /// (neither `packageManager` nor `devEngines`); None otherwise, or when it is not a JSON object.
+/// The requirement warns (`onFail: warn`): npm 11.10 and later read the cooldown, an older npm
+/// says it is older than the project asks and still works (without the cooldown) instead of
+/// refusing every install in the project.
 fn with_npm_engine(text: &str) -> Option<String> {
     let v: Value = serde_json::from_str(text).ok()?;
     let o = v.as_object()?;
@@ -362,8 +365,7 @@ fn with_npm_engine(text: &str) -> Option<String> {
     }
     let open = text.find('{')?;
     let rest = &text[open + 1..];
-    let entry =
-        "\"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}";
+    let entry = "\"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"warn\"}}";
     let new = if o.is_empty() {
         let close = open + 1 + rest.find('}')?;
         format!("{}{{\n  {entry}\n}}{}", &text[..open], &text[close + 1..])
@@ -616,7 +618,7 @@ mod tests {
         );
         assert_eq!(
             s[1].text,
-            "{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}},\n  \"name\": \"shop\"\n}\n"
+            "{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"warn\"}},\n  \"name\": \"shop\"\n}\n"
         );
         assert_eq!(
             setup(
@@ -624,7 +626,7 @@ mod tests {
                 &of(&[("package.json", "{}"), (".npmrc", "min-release-age=1")])
             )[0]
             .text,
-            "{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}\n}"
+            "{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"warn\"}}\n}"
         );
         // a value the project set is kept
         assert!(
