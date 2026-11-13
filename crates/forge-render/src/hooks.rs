@@ -96,7 +96,7 @@ pub const AGENT_TOOL: &str = "Agent|Task";
 pub const FORGE_AGENTS: &str = "quality-workflow-step|quality-reviewer";
 
 /// The reviewer's calls at user level: its start (the Agent call) and its own read-only tools.
-pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob|mcp__serena__.*";
+pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob|SubagentHandback|mcp__serena__.*";
 
 pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
