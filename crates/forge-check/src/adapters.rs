@@ -475,6 +475,12 @@ pub fn locate(
         // configured but not installed (a config `forge apply` created): Forge's release with the
         // project's config
         Runner::Project => match (tools.project(root, cwd, &a.tool), &a.fallback) {
+            // a copy outside the repository (PATH, an active virtualenv) is the machine's, not the
+            // project's: Forge runs its own release, which reads the config Forge wrote (an older
+            // one may not)
+            (Some(c), Some(pin)) if !c.bin.starts_with(root) && !crate::tools::through_uv(&c) => {
+                return Ok((tools.pinned(&a.tool, pin)?, pin.clone()));
+            }
             (Some(c), _) => c,
             (None, Some(pin)) => return Ok((tools.pinned(&a.tool, pin)?, pin.clone())),
             (None, None) => return Err(format!("{} is not installed", a.tool)),

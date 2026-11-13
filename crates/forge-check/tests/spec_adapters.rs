@@ -566,3 +566,40 @@ fn caller_arguments_by_rank() {
         args(&["format", "--stdin-filename", "src/a.py", "-"])
     );
 }
+
+/// The machine's ruff (outside the repository) and Forge's pinned one.
+struct MachineAndPinned {
+    machine: PathBuf,
+    pinned: PathBuf,
+}
+
+impl ToolResolver for MachineAndPinned {
+    fn project(&self, _: &Path, _: &Path, _: &str) -> Option<ToolCmd> {
+        Some(ToolCmd::exe(self.machine.clone()))
+    }
+    fn pinned(&self, _: &str, _: &str) -> Result<ToolCmd, String> {
+        Ok(ToolCmd::exe(self.pinned.clone()))
+    }
+}
+
+/// A project that configures ruff but does not install it: a ruff found outside the repository
+/// is the machine's (PATH, an active virtualenv), maybe older than the config Forge wrote; Forge
+/// runs its pinned release. One inside the repository is the project's.
+#[test]
+fn a_machine_s_ruff_never_stands_for_the_project_s() {
+    let (d, _) = fake("0.17.1", "exit 0");
+    let elsewhere = tempfile::tempdir().unwrap();
+    let tools = MachineAndPinned {
+        machine: elsewhere.path().join("ruff"),
+        pinned: PathBuf::from("/forge/tools/ruff/0.17.1/bin/ruff"),
+    };
+    let a = forge_check::adapters::Adapter::all()
+        .unwrap()
+        .into_iter()
+        .find(|a| a.tool == "ruff")
+        .unwrap();
+    let root = d.path().canonicalize().unwrap();
+    let (cmd, version) = forge_check::adapters::locate(&a, &tools, &root, &root).unwrap();
+    assert_eq!(cmd.bin, tools.pinned);
+    assert_eq!(version, "0.17.1");
+}
