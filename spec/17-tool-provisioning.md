@@ -36,6 +36,9 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | hadolint | 2.15.1 | PyPI `hadolint-bin`, installed by Forge's uv | the upstream binary's sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | squawk | 2.70.0 | PyPI `squawk-cli`, installed by Forge's uv | the version only |
 | ast-grep | 0.45.3 | PyPI `ast-grep-cli`, installed by Forge's uv | the version only |
+| typescript-language-server | 6.0.2 | npm `typescript-language-server`, installed by Forge's Bun | the version only |
+| typescript | 6.0.3 | npm `typescript`, installed by Forge's Bun | the version only |
+| typescript-native | 7.0.2 | npm `typescript`, installed by Forge's Bun | the version only |
 | redocly | 2.62.1 | npm `@redocly/cli`, installed by Forge's Bun | the version only |
 | spectral | 6.17.0 | npm `@stoplight/spectral-cli`, installed by Forge's Bun | the version only |
 | lockfile-lint | 5.1.0 | npm `lockfile-lint`, installed by Forge's Bun | the version only |
@@ -109,7 +112,8 @@ Serena (PyPI `serena-agent`, an MCP server over language servers: navigation by 
 | Serena server | The project has it when | Server |
 |---|---|---|
 | `python_ty` | the python pack is active | Forge's pinned ty, through Forge's hub (below) |
-| `typescript` | the typescript pack is active | Serena's (`typescript-language-server` and Serena's pinned TypeScript) |
+| `typescript` | the typescript pack is active and the project's TypeScript is 6 or older (or none) | Forge's hub: Forge's pinned `typescript-language-server` 6.0.2 on Node, driving the project's own `tsserver` (`node_modules/typescript`), or Forge's pinned TypeScript 6.0.3 when the project has none installed |
+| `typescript_tsgo` | the typescript pack is active and the project's TypeScript is 7 or later (TypeScript 7 has no `tsserver`) | Forge's hub: the project's own native compiler as its server (`node_modules/@typescript/typescript-<platform>/lib/tsc --lsp --stdio`), or Forge's pinned TypeScript 7.0.2 |
 | `terraform` | the terraform pack is active | Serena's |
 | `rust`, `go`, `java`, `ruby`, `php`, `csharp`, `swift` | its manifest is at the root (`Cargo.toml`, `go.mod`, `pom.xml` or `build.gradle[.kts]`, `Gemfile`, `composer.json`, `*.csproj` or `*.sln`, `Package.swift`) | Serena's |
 
@@ -129,16 +133,18 @@ Then it installs Serena with the other tools (17.3), starts it once on the proje
 
 **Serena's context is kept.** `claude-code` tells the agent to prefer Serena's tools on code and leaves out the tools Claude Code already has (`read_file`, `create_text_file`, `list_dir`, `find_file`, `search_for_pattern`, `execute_shell_command`). Forge's rules apply to both kinds of tool alike, so following it loses no coverage.
 
-**Forge's shared servers.** `claude-forge lsp <language>` (what Serena runs for a server Forge provides) is a stdio shim to the repository's hub for that language, `claude-forge lsp <language> --hub`, which it starts when none answers on `<state>/<repo>/lsp-<language>.sock` (one starter at a time; the others wait for it). The hub runs one server (`ty server` for `python_ty`) for every client of the repository, Serena in each session:
+The project's TypeScript version is the installed one (`node_modules/typescript/package.json`), else the first number `package.json` asks for. Using the project's own TypeScript keeps Serena's view of the code the project's (its syntax, its compiler options), the same TypeScript Forge's own checks use; it is the project's installed tooling, not a command its configuration names.
 
-- the first client's `initialize` starts the server; later clients get the same answer, and their `initialized`, `shutdown` and `exit` are not passed on;
+**Forge's shared servers.** `claude-forge lsp <language>` (what Serena runs for a server Forge provides) is a stdio shim to the repository's hub for that language, `claude-forge lsp <language> --hub`, which it starts when none answers on `<state>/<repo>/lsp-<language>.sock` (one starter at a time; the others wait for it). The hub runs one server (`ty server` for `python_ty`; the TypeScript servers of the table) for every client of the repository, Serena in each session. `ty` reads the project's environment itself (its `.venv`, its `requires-python`), so the shared server resolves imports into the project's installed packages:
+
+- the first client's `initialize` starts the server, with the hub's own process id as `processId` (a server that watches it, as TypeScript's do, would otherwise stop with the first session) and, for `typescript`, `initializationOptions.tsserver.path` set to the `tsserver` above; later clients get the same answer, and their `initialized`, `shutdown` and `exit` are not passed on; a client arriving after the server stopped starts it again;
 - each request gets the hub's own id towards the server and the client's back on the answer; `$/cancelRequest` follows the mapping;
 - the server's requests are answered by the hub (`workspace/configuration`: none; `workspace/workspaceFolders`: the root; others: null);
 - one copy of each open document: a client opening a document already open sends its text (a change when it differs), each change is applied (positions in UTF-16, or UTF-8 when the server chose it) and sent whole, and the document closes when its last client closes it or leaves;
 - the server's notifications go to every client;
 - a server that exits while clients remain is started again, the handshake and the open documents replayed, the requests in flight answered with an error; after 10 minutes without a client the hub stops the server and itself. Its log is `<state>/<repo>/lsp-<language>.log`.
 
-Forge's type questions (§15) keep their own private ty: they edit documents in memory with another configuration. Per repository, Python runs at most two ty processes, whatever the number of sessions.
+Forge's type questions (§15) keep their own private ty: they edit documents in memory with another configuration. Per repository, Python runs at most two ty processes and TypeScript at most two TypeScript servers (the shared one, Forge's own for its type questions), whatever the number of sessions.
 
 ### Tests
 

@@ -66,6 +66,8 @@ pub struct HubConfig {
     pub socket: PathBuf,
     /// The server's command line.
     pub command: Vec<String>,
+    /// Merged into the first client's `initializationOptions` (TypeScript's: which tsserver).
+    pub init_options: Option<Value>,
     /// Stops after this long without a client.
     pub idle: Duration,
     pub log: Option<PathBuf>,
@@ -121,6 +123,8 @@ struct Hub {
     waiting: HashMap<i64, Waiting>,
     next_id: i64,
     docs: BTreeMap<String, Doc>,
+    /// The server answered its `initialize` (the clients' messages wait in the backlog until then).
+    server_ready: bool,
     utf8: bool,
     idle_since: Option<Instant>,
     log: Option<std::fs::File>,
@@ -193,6 +197,7 @@ pub fn serve(config: HubConfig) -> Result<(), String> {
         waiting: HashMap::new(),
         next_id: 0,
         docs: BTreeMap::new(),
+        server_ready: false,
         utf8: false,
         idle_since: Some(Instant::now()),
         log,
@@ -289,6 +294,7 @@ impl Hub {
             stdin,
             generation,
         });
+        self.server_ready = false;
         self.log(&format!("server started ({generation})"));
         true
     }
@@ -316,9 +322,20 @@ impl Hub {
 
     /// Sends `initialize` (the first client's) to a newly started server.
     fn handshake(&mut self) {
-        let Some(params) = self.init_params.clone() else {
+        let Some(mut params) = self.init_params.clone() else {
             return;
         };
+        // the server watches this process, not the first client's: servers that exit when it does
+        // (TypeScript's) would stop with the first session
+        if let Some(p) = params.as_object_mut() {
+            p.insert("processId".into(), json!(std::process::id()));
+        }
+        if let (Some(extra), Some(p)) = (&self.config.init_options, params.as_object_mut()) {
+            let opts = p
+                .entry("initializationOptions")
+                .or_insert_with(|| json!({}));
+            merge(opts, extra);
+        }
         self.next_id += 1;
         let id = self.next_id;
         self.waiting.insert(id, Waiting::Initialize);
@@ -340,6 +357,13 @@ impl Hub {
         match method.as_deref() {
             Some("initialize") => {
                 let id = id.unwrap_or(Value::Null);
+                if self.init_params.is_none() {
+                    self.init_params = msg.get("params").cloned();
+                }
+                // no server (the first client, or it stopped since): start it with the handshake
+                if self.server.is_none() && self.start_server() {
+                    self.handshake();
+                }
                 if let Some(result) = &self.init_result {
                     self.send_client(
                         client,
@@ -351,12 +375,6 @@ impl Hub {
                     return;
                 }
                 self.init_waiting.push((client, id));
-                if self.server.is_none() {
-                    self.init_params = msg.get("params").cloned();
-                    if self.start_server() {
-                        self.handshake();
-                    }
-                }
                 return;
             }
             Some("initialized") | Some("exit") => return,
@@ -366,7 +384,7 @@ impl Hub {
             }
             _ => {}
         }
-        if self.init_result.is_none() || self.server.is_none() {
+        if !self.server_ready {
             self.backlog.push_back((client, msg));
             return;
         }
@@ -582,6 +600,7 @@ impl Hub {
         }
         let first = self.init_result.is_none();
         self.init_result = Some(result.clone());
+        self.server_ready = true;
         let waiting: Vec<(u64, Value)> = self.init_waiting.drain(..).collect();
         for (client, id) in waiting {
             if first || msg.get("error").is_some() {
@@ -608,6 +627,7 @@ impl Hub {
         if let Some(mut s) = self.server.take() {
             let _ = s.child.wait();
         }
+        self.server_ready = false;
         self.log("server exited");
         // the requests in flight will not be answered
         let lost: Vec<(u64, Value)> = self
@@ -627,6 +647,18 @@ impl Hub {
         if self.start_server() {
             self.handshake();
         }
+    }
+}
+
+/// `extra` merged into `into`: objects key by key, anything else replaced.
+fn merge(into: &mut Value, extra: &Value) {
+    match (into, extra) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (slot, v) => *slot = v.clone(),
     }
 }
 
@@ -722,6 +754,19 @@ mod tests {
             t.len()
         );
         assert_eq!(offset(t, &json!({"line": 0, "character": 99}), false), 2);
+    }
+
+    #[test]
+    fn initialization_options_are_merged() {
+        let mut a = json!({"tsserver": {"path": "/serena/ts", "logVerbosity": "off"}, "x": 1});
+        merge(
+            &mut a,
+            &json!({"tsserver": {"path": "/app/node_modules/typescript/lib/tsserver.js"}}),
+        );
+        assert_eq!(
+            a,
+            json!({"tsserver": {"path": "/app/node_modules/typescript/lib/tsserver.js", "logVerbosity": "off"}, "x": 1})
+        );
     }
 
     #[test]
