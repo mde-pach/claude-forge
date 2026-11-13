@@ -1848,3 +1848,36 @@ fn a_reviewer_hand_back_is_its_answer_and_reaches_the_main_agent_as_done() {
         "allow"
     );
 }
+
+#[test]
+fn reads_refused_while_a_workflow_step_is_pending_are_not_counted_for_serena() {
+    use forge_core::serena;
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let env = s.workflow_env();
+    let langs = serena::languages(|p| p == "python", |_| false);
+    std::fs::create_dir_all(s.root.join(".serena")).unwrap();
+    std::fs::write(
+        s.root.join(serena::PROJECT_FILE),
+        serena::project_yml("repo", &langs),
+    )
+    .unwrap();
+    s.run_env(
+        &f,
+        env.clone(),
+        "user-prompt-submit",
+        json!({"prompt": "add mean()"}),
+    );
+    let read = |id: &str| {
+        json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_use_id": id,
+        "tool_input": {"file_path": s.root.join("app/main.py")}})
+    };
+    // the gate refuses them; the reminder counts none of them
+    for i in 0..5 {
+        assert_eq!(
+            s.run_env(&f, env.clone(), "pre-tool-use", read(&format!("g{i}"))),
+            Output::silent()
+        );
+    }
+    assert!(!s.session().join("serena/main.json").exists());
+}

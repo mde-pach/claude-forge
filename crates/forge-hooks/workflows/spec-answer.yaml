@@ -109,22 +109,25 @@ result: |
   {% for t in covered.items %}{% if row.item[:40] in t or t[:40] in row.item %}{% set hit.v = true %}{% endif %}{% endfor %}
   {% if not hit.v %}{% set loose.rows = loose.rows + [row] %}{% endif %}
   {% endfor %}
-  {% if open or loose.rows or steps.solve.output.conflicts %}
-
-  Open, to settle while coding (each option with what it gives on the project's data):
-  {% for x in open if x.item is not startingwith("Conflict:") %}
-  - {{ x.item }}: {{ x.check }}
-  {% endfor %}
+  {% set open_items = open | rejectattr("item", "startingwith", "Conflict:") | list %}
+  {% set open_conflicts = namespace(rows=[]) %}
   {% for c in steps.solve.output.conflicts %}
   {% set hit = namespace(v=false) %}
   {% for x in settled %}{% if x.item is startingwith("Conflict:") and c.case[:30] in x.item ~ " " ~ x.check %}{% set hit.v = true %}{% endif %}{% endfor %}
-  {% if not hit.v %}
+  {% if not hit.v %}{% set open_conflicts.rows = open_conflicts.rows + [c] %}{% endif %}
+  {% endfor %}
+  {% if open_items or open_conflicts.rows or loose.rows %}
+
+  Open, to settle while coding (each option with what it gives on the project's data):
+  {% for x in open_items %}
+  - {{ x.item }}: {{ x.check }}
+  {% endfor %}
+  {% for c in open_conflicts.rows %}
   - Conflict: {{ c.case }}
     Options:
   {% for o in c.resolutions %}
     ({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }}
   {% endfor %}
-  {% endif %}
   {% endfor %}
   {% for row in loose.rows %}
   - {{ row.item }}: {{ row.role }}

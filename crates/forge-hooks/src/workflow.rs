@@ -1070,4 +1070,35 @@ result: "{{ steps.ask.output.qs | length }} {% if steps.answer.output %}{{ steps
             assert!(run.result.is_some_and(|r| !r.is_empty()), "{name}");
         }
     }
+
+    /// The built-in spec-answer's result: no "Open" heading when the verify step settled every
+    /// conflict the solve step found; the heading with the conflict when it did not.
+    #[test]
+    fn spec_answer_shows_open_items_only_when_there_are_some() {
+        let wf = load(BUILTIN[0].1).unwrap();
+        let solve = json!({
+            "coverage": [], "results": [], "must_hold": ["mean([]) returns 0.0"],
+            "must_stay_unchanged": [],
+            "conflicts": [{"case": "The unused helper the request asks for", "requirements": "r",
+                "resolutions": [{"resolution": "keep it", "gives": "kept"}]}],
+        });
+        let verdict = |v: &str| {
+            json!({"verdicts": [{"item": "Conflict: The unused helper the request asks for",
+            "request_words": "add a function", "check": "the request asks for it", "verdict": v, "value": "keep it"}]})
+        };
+        let (_, settled) = drive(&wf, vec![solve.clone(), verdict("confirmed")]);
+        let text = settled.result.unwrap();
+        assert!(!text.contains("Open, to settle"), "{text}");
+        assert!(
+            text.contains("Settled from the request and the project"),
+            "{text}"
+        );
+        let (_, open) = drive(&wf, vec![solve, verdict("undecided")]);
+        let text = open.result.unwrap();
+        assert!(text.contains("Open, to settle"), "{text}");
+        assert!(
+            text.contains("- Conflict: The unused helper the request asks for"),
+            "{text}"
+        );
+    }
 }
