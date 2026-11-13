@@ -46,15 +46,19 @@ A Bash command that runs Forge's command line (`claude-forge`, or a `forge` that
 
 The command line refuses it too (§3.1). Neither reason names Forge.
 
-- Read, Edit, Write, MultiEdit: `file_path`. NotebookEdit: `notebook_path`. Grep and Glob: `path`, and a `pattern` that starts with `/` or `~`. Bash: any word or redirection target holding `/` or starting with `~`, or naming a lock (for `NAME=value`, the value), resolved against the directory it runs in, when the command mentions `forge` or a root's path.
+Serena's shell (`execute_shell_command`) is refused: `Run commands with Bash in this project.` Bash keeps the guard, Claude Code's sandbox and the person's `Bash(...)` permission rules, none of which reach a command Serena starts itself. Serena's project and configuration tools (`activate_project`, `remove_project`, `get_current_config`, `open_dashboard`, `switch_modes`) are refused too: Forge fixes them. Serena's `claude-code` context does not offer the shell; the refusal holds if a later version does.
+
+- Read, Edit, Write, MultiEdit: `file_path`. NotebookEdit: `notebook_path`. Serena's tools (§17.8): `relative_path`, resolved against the repository's root. Grep and Glob: `path`, and a `pattern` that starts with `/` or `~`. Bash: any word or redirection target holding `/` or starting with `~`, or naming a lock (for `NAME=value`, the value), resolved against the directory it runs in, when the command mentions `forge` or a root's path.
 - `~`, `~/`, `$HOME/` and `${HOME}/` are expanded. A path matches lexically (`..` resolved) or physically (through symlinks, a symlink in the repository pointing into the cache included).
-- Nothing points the agent at these paths, so the refusal should rarely fire. The PreToolUse matchers are `Bash` and `Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob`, at project and at user level; at user level the second entry runs only this refusal.
+- Nothing points the agent at these paths, so the refusal should rarely fire. The PreToolUse matchers are `Bash` and `Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.*`, at project and at user level; at user level the second entry runs only this refusal.
 
 ### 9.4 Edits to tests ask
 
 At project level, an Edit, Write or MultiEdit of a file in the scope of a rule whose check runs the `forge_test_edits` builtin (§6) is compared at three points: the file at the start of the turn (the turn snapshot's copy, else HEAD's), now, and after the edit (Claude Code's `old_string`/`new_string`, `replace_all`, `edits`, or `content`). A test that existed at the start of the turn and that the edit removes, or changes beyond formatting, makes the hook ask:
 
 > This edit changes or removes tests in `<file>` that existed before this turn: "`<test>`" (changed), "`<test>`" (removed). Make it only if the task changes the behaviour these tests assert; otherwise leave the tests as they are and change the code instead.
+
+Serena's edits of one file ask the same way, from the tests they leave: `replace_content` (its `needle` replaced by `repl`, literally or as a regular expression), `create_text_file` (its content), `replace_symbol_body` (the test named by `name_path` gets the body's text; a body that is no test removes it); `insert_before_symbol` and `insert_after_symbol` change no test. Edits that may touch several files (`rename_symbol`, `replace_in_files`, `safe_delete_symbol`) cannot be read beforehand: Stop reports each test they changed without approval.
 
 New tests, reformatting and test support code (fixtures, fakes, helpers) do not ask; Stop reports changed support code (§10). The tests asked about are pending for the tool call (`<turn>/tests-pending/<tool_use_id>`). When the call runs, PostToolUse moves them to `<turn>/tests-approved`, which Stop does not block on.
 

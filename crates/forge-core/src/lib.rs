@@ -11,6 +11,7 @@
 pub mod builtin;
 pub mod examples;
 pub mod internals;
+pub mod serena;
 pub mod tools;
 
 use std::fmt;

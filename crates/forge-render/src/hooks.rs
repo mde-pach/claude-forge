@@ -83,11 +83,11 @@ const USER_GUARD: HookCommand = HookCommand {
     ..cmd("user-pre-tool-use", 180)
 };
 
-/// Claude Code's tools that read, search or edit files (every one taking a path).
-pub const FILE_TOOLS: &str = "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob";
+/// Claude Code's tools that read, search or edit files (every one taking a path), and Serena's.
+pub const FILE_TOOLS: &str = "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|mcp__serena__.*";
 
-/// Claude Code's tools that edit files, and Bash.
-pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash";
+/// Claude Code's tools that edit files, Bash, and Serena's (its edits are checked like them).
+pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__serena__.*";
 
 /// The Agent tool (`Task` in older Claude Code).
 pub const AGENT_TOOL: &str = "Agent|Task";
@@ -96,7 +96,7 @@ pub const AGENT_TOOL: &str = "Agent|Task";
 pub const FORGE_AGENTS: &str = "forge-workflow-step|forge-reviewer";
 
 /// The reviewer's calls at user level: its start (the Agent call) and its own read-only tools.
-pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob";
+pub const REVIEW_TOOLS: &str = "Agent|Task|Read|Grep|Glob|mcp__serena__.*";
 
 pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {

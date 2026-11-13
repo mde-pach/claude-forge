@@ -77,8 +77,11 @@ pub fn read_lock(base: &Path, level: Level, lock_path: &str) -> Result<Option<Lo
 /// Whether a path is one Forge owns at this level (a rules file).
 pub fn is_owned_path(level: Level, p: &str) -> bool {
     level == Level::Project
-        && p.strip_prefix(".claude/rules/forge-")
+        && (p
+            .strip_prefix(".claude/rules/forge-")
             .is_some_and(|rest| rest.ends_with(".md") && !rest.contains('/'))
+            || p == forge_core::serena::PROJECT_FILE
+            || p == forge_core::serena::GITIGNORE_FILE)
 }
 
 fn inside(base: &Path, level: Level, p: &str) -> bool {
@@ -336,7 +339,7 @@ pub fn compute(
     // settings: re-add recorded entries, add new ones, remove the ones no longer wanted
     let desired: BTreeSet<String> = plan.settings.iter().map(|e| e.entry.key()).collect();
     let mut files: Vec<String> = vec![plan.settings_file.clone()];
-    for e in &prev.settings {
+    for e in plan.settings.iter().map(|d| &d.entry).chain(&prev.settings) {
         if !files.contains(&e.file) {
             files.push(e.file.clone());
         }

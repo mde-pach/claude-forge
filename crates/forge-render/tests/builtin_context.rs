@@ -84,7 +84,9 @@ fn python_package_managers() {
         no_lock["python"].contains("Dependencies are declared in pyproject.toml"),
         "{no_lock:?}"
     );
-    assert!(!all(&no_lock).contains("uv "), "{no_lock:?}");
+    // uv only as the runner of the project's commands, never as its package manager
+    assert!(!all(&no_lock).contains("uv add"), "{no_lock:?}");
+    assert!(!all(&no_lock).contains("uv sync"), "{no_lock:?}");
     // uv's settings are its mark, before any lock
     let settings = rules_files(&[(
         "pyproject.toml",

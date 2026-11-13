@@ -37,8 +37,8 @@ Project level:
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start` | 10 s | |
 | UserPromptSubmit | | `user-prompt-submit` | 1800 s | |
 | PreToolUse | `Bash` | `pre-tool-use` | 180 s | `onFailure: "block"` |
-| PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `pre-tool-use` | 180 s | |
-| PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | `post-tool-use` | 60 s | |
+| PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob\|mcp__serena__.*` | `pre-tool-use` | 180 s | |
+| PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|mcp__serena__.*` | `post-tool-use` | 60 s | |
 | | | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
 | PostToolUseFailure | `Bash` | `post-tool-use-failure` | 60 s | |
 | | | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
@@ -55,10 +55,10 @@ User level:
 | Claude Code event | Matcher | `forge hook` event | Timeout | Options |
 |---|---|---|---|---|
 | PreToolUse | `Bash` | `user-pre-tool-use` | 180 s | `onFailure: "block"` |
-| PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `user-pre-tool-use` | 180 s | |
+| PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob\|mcp__serena__.*` | `user-pre-tool-use` | 180 s | |
 | PermissionRequest | | `user-permission-request` | 180 s | |
 | Notification | `permission_prompt\|idle_prompt` | `user-notification` | 5 s | |
-| PreToolUse | `Agent\|Task\|Read\|Grep\|Glob` | `user-agents` | 30 s | |
+| PreToolUse | `Agent\|Task\|Read\|Grep\|Glob\|mcp__serena__.*` | `user-agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `user-agents` | 30 s | |
 | SubagentStart | `forge-reviewer` | `user-agents` | 30 s | |
 | SubagentStop | `forge-reviewer` | `user-agents` | 30 s | |
@@ -67,6 +67,8 @@ User level:
 - The `user-` events answer from the user-level setup's own rules, so a project with both setups runs each once.
 - The 180 s timeouts leave room for a reviewer when nobody is there to answer an ask (§9.5); the usual answer takes milliseconds.
 - `onFailure: "block"` on the Bash guard makes a crash or a missing binary block the command (§2.3). The wrapper of §7.4 exits 0 when Forge is not installed, so a teammate without Forge is not blocked.
+
+Serena's tools (`mcp__serena__*`, §17.8) are in the file-tool and edit matchers: the guard, the internals refusal and the test-edit ask before them, the checks after their edits.
 
 ### 7.4 The hook wrapper
 

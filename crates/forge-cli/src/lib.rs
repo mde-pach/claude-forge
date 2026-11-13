@@ -9,6 +9,7 @@ use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 pub mod check;
 mod hook;
+pub mod mcp;
 pub mod project;
 pub mod provisioning;
 pub mod test_cmd;
@@ -45,6 +46,12 @@ enum Command {
     Hook {
         /// The hook event (session-start, pre-tool-use, stop, ...).
         event: String,
+    },
+    /// Starts one of Forge's MCP servers (what the project's `.mcp.json` runs).
+    #[command(hide = true)]
+    Mcp {
+        /// The server (`serena`).
+        server: String,
     },
     /// The types engine (started by the SessionStart hook).
     #[command(hide = true)]
@@ -106,14 +113,14 @@ fn parse_cli() -> Cli {
 pub const AGENT_REFUSAL: &str = "This project's checks run by themselves after each edit and when you stop; they are not run by hand.";
 
 /// Whether this run comes from a Claude Code agent's command (`CLAUDECODE` is set) and is not one
-/// of the hook entries or what they start (`hook`, `internal`, `engine`): Forge is the agent's
+/// of the hook entries or what they start (`hook`, `internal`, `engine`, `mcp`): Forge is the agent's
 /// harness, never a tool it operates. `forge test` stays open: it runs a project's local rules'
 /// examples, which the agent writes when asked to, and checks nothing of its work.
 fn run_by_the_agent() -> bool {
     std::env::var_os("CLAUDECODE").is_some_and(|v| !v.is_empty())
         && !matches!(
             std::env::args().nth(1).as_deref(),
-            Some("hook" | "internal" | "engine" | "test")
+            Some("hook" | "internal" | "engine" | "test" | "mcp")
         )
 }
 
@@ -142,6 +149,7 @@ pub fn main() -> ExitCode {
         Command::Check(args) => return check::run(args),
         Command::Test(args) => return test_cmd::run(args),
         Command::Internal(args) => return check::internal(args),
+        Command::Mcp { server } => return mcp::run(&server),
         command => Cli { command },
     };
     let result = match cli.command {
@@ -175,7 +183,7 @@ pub fn main() -> ExitCode {
         Command::Hook { event } => Ok(hook::run(&event, notes)),
         Command::Engine { command } => Ok(hook::engine(command)),
         Command::Project(c) => Ok(project::run(c)),
-        Command::Check(_) | Command::Test(_) | Command::Internal(_) => {
+        Command::Check(_) | Command::Test(_) | Command::Internal(_) | Command::Mcp { .. } => {
             unreachable!("handled above")
         }
     };

@@ -14,6 +14,7 @@ use crate::rules::{self, HookCache};
 use crate::snapshot::BashSnapshots;
 use crate::workflow::StepHooks;
 use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, testedit};
+use forge_core::serena;
 
 pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let cwd = rt.cwd(input);
@@ -54,11 +55,49 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     if hooks.internals && parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
         return pre_decision("deny", RUN_REASON);
     }
+    if let Some(st) = serena::tool_of(tool) {
+        return serena_call(rt, input, &cwd, st, user, mine, hooks.checks);
+    }
     match (tool, parsed) {
         ("Bash", Some(parsed)) if hooks.guard => bash(rt, input, &cwd, &parsed, user, hooks.checks),
         ("Edit" | "Write" | "MultiEdit", _) if !user && !mine => testedit::pre(rt, input, &cwd),
         _ => Output::silent(),
     }
+}
+
+/// A Serena tool (§17.8), under the rules of the built-in tool it stands next to: its shell and
+/// configuration refused; an edit of one file gets the test-edit ask; every edit, the working tree
+/// snapshotted before it (`snapshot`), for the checks after it, as for a Bash command.
+fn serena_call(
+    rt: &Runtime,
+    input: &HookInput,
+    cwd: &Path,
+    tool: &str,
+    user: bool,
+    mine: bool,
+    snapshot: bool,
+) -> Output {
+    let kind = serena::kind(tool);
+    match kind {
+        serena::Kind::Shell => return pre_decision("deny", serena::SHELL_REASON),
+        serena::Kind::Config => return pre_decision("deny", serena::CONFIG_REASON),
+        serena::Kind::Read | serena::Kind::Memory => return Output::silent(),
+        serena::Kind::Edit | serena::Kind::MultiEdit => {}
+    }
+    if user || mine {
+        return Output::silent();
+    }
+    let answer = if kind == serena::Kind::Edit {
+        testedit::pre_serena(rt, input, cwd, tool)
+    } else {
+        Output::silent()
+    };
+    if snapshot {
+        if let Some(p) = rt.project(input) {
+            bash_snapshot(rt, input, &p);
+        }
+    }
+    answer
 }
 
 /// The guard on a Bash command, then (`snapshot`) the working tree before it runs, for the
@@ -236,6 +275,14 @@ fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&P
             None => false,
         }
     };
+    if serena::tool_of(input.tool()).is_some() {
+        // Serena's paths are relative to the project root
+        let root = git_root(cwd).unwrap_or_else(|| cwd.to_path_buf());
+        return ["relative_path", "file_path"]
+            .iter()
+            .filter_map(|k| input.input_str(k))
+            .any(|p| check(p, &root));
+    }
     match input.tool() {
         "Read" | "Edit" | "Write" | "MultiEdit" => {
             input.input_str("file_path").is_some_and(|p| check(p, cwd))

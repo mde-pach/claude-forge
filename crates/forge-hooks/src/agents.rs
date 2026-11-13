@@ -102,6 +102,8 @@ pub fn definitions(model: Option<&str>, effort: Option<&str>) -> Vec<(String, St
     ]
     .into_iter()
     .map(|(name, description, tools)| {
+        // and Serena's navigation, which every session of a Forge project has (§17.8)
+        let tools = format!("{tools}, {}", forge_core::serena::read_tools().join(", "));
         (
             format!("{name}.md"),
             format!(
@@ -584,10 +586,18 @@ fn gate(input: &HookInput, p: &Project) -> Option<Output> {
 
 const EDITS: [&str; 4] = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
 
+/// A call Forge's read-only agents may not make: an edit, or a Serena tool other than its
+/// navigation (its edits, notes, shell and configuration).
+fn edits(tool: &str) -> bool {
+    EDITS.contains(&tool)
+        || forge_core::serena::tool_of(tool)
+            .is_some_and(|t| forge_core::serena::kind(t) != forge_core::serena::Kind::Read)
+}
+
 /// A step agent's own call: no edits; past the deadline nothing; Bash with the step's `TMPDIR`
 /// and a timeout within the time left.
 fn step_call(input: &HookInput, p: &Project) -> Output {
-    if EDITS.contains(&input.tool()) {
+    if edits(input.tool()) {
         return pre_decision("deny", READ_ONLY);
     }
     let Some(w) = load_wf(p) else {
@@ -780,7 +790,7 @@ fn review_of(input: &HookInput, dir: &Path) -> Option<(PathBuf, Review)> {
 
 /// The reviewer's own call: no edits; past its time, nothing.
 fn reviewer_call(input: &HookInput, dir: &Path) -> Output {
-    if EDITS.contains(&input.tool()) {
+    if edits(input.tool()) {
         return pre_decision("deny", READ_ONLY);
     }
     match review_of(input, dir) {
