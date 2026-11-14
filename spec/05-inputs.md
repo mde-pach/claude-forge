@@ -129,6 +129,9 @@ files:                      # file roles (§15.4)
   <role>: {add: [glob], set: [glob]}
 python:
   untyped-packages: any | source   # installed packages without typing: Any to ty (default), or inferred from their source (§15.2)
+docker:
+  compose:
+    not-dependencies: [service]    # compose services run from an image that no test depends on (docker/compose/tests-use-testcontainers)
 ```
 
 - A `disable` naming a rule that is not active is a warning.

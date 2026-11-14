@@ -10,11 +10,12 @@ use forge_detect::roles::{Roles, apply_roles};
 use forge_packs::PackSet;
 use forge_packs::model::{
     AstGrepTarget, CheckTarget, Disable, GrepTarget, GuardTarget, Level, ProjectConfig, Rule,
-    Target, ToolTarget,
+    SandboxOs, Target, ToolTarget,
 };
 use forge_packs::roles::roles_of_rule;
 use serde::Serialize;
 
+use crate::plan::LOCAL_SETTINGS_FILE;
 use crate::settings::{DesiredEntry, SettingsEntry};
 
 /// What a rule's targets do here.
@@ -100,6 +101,9 @@ fn in_dirs(dirs: &Option<Vec<String>>) -> String {
 pub struct SettingsTarget<'a> {
     pub file: &'a str,
     pub label: &'a str,
+    /// The system Claude Code's sandbox runs on here: a `sandbox` target for another one adds
+    /// nothing.
+    pub os: Option<SandboxOs>,
 }
 
 /// Selects and plans the rules. `site` knows the repository; `level`, the settings file and
@@ -339,36 +343,41 @@ fn plan_rule(
                         .push(format!("guard {} (PreToolUse Bash)", g.decision));
                 }
             }
+            Target::Sandbox(s) if s.os.is_some_and(|o| Some(o) != settings.os) => {}
             Target::Sandbox(s) => {
-                if level != Level::User {
-                    warnings.push(format!("{}: sandbox targets are user-level only", rule.id));
-                    continue;
-                }
+                // the user level turns the sandbox on for every project; a project's rule adds
+                // what its own commands need, in this machine's settings file: its values can
+                // name this machine's paths ({docker-socket})
+                let (file, label) = match level {
+                    Level::User => (settings_file, settings_label),
+                    Level::Project => (LOCAL_SETTINGS_FILE, LOCAL_SETTINGS_FILE),
+                };
                 let path = format!("sandbox.{}", s.path);
+                let mut push = |value: serde_json::Value, append: bool| {
+                    out.settings.push(DesiredEntry {
+                        entry: SettingsEntry {
+                            file: file.to_string(),
+                            path: path.clone(),
+                            value,
+                        },
+                        append,
+                    })
+                };
                 match &s.value {
                     serde_json::Value::Array(items) => {
                         for v in items {
-                            out.settings.push(DesiredEntry {
-                                entry: SettingsEntry {
-                                    file: settings_file.to_string(),
-                                    path: path.clone(),
-                                    value: v.clone(),
-                                },
-                                append: true,
-                            });
+                            match sandbox_value(v) {
+                                Ok(vs) => vs.into_iter().for_each(|v| push(v, true)),
+                                Err(why) => warnings.push(format!("{}: {why}", rule.id)),
+                            }
                         }
                     }
-                    v => out.settings.push(DesiredEntry {
-                        entry: SettingsEntry {
-                            file: settings_file.to_string(),
-                            path: path.clone(),
-                            value: v.clone(),
-                        },
-                        append: false,
-                    }),
+                    v => match sandbox_value(v) {
+                        Ok(vs) => vs.into_iter().for_each(|v| push(v, false)),
+                        Err(why) => warnings.push(format!("{}: {why}", rule.id)),
+                    },
                 }
-                st.enforced
-                    .push(format!("sandbox {} ({settings_label})", s.path));
+                st.enforced.push(format!("sandbox {} ({label})", s.path));
             }
             Target::Check(c) => {
                 if level == Level::User {
@@ -411,3 +420,33 @@ fn plan_rule(
     }
     Ok(st)
 }
+
+/// A sandbox target's value with this machine's values in place of its placeholders:
+/// `{docker-socket}` is each path of the Docker socket found here (§7.2), and an error says why
+/// there is none.
+fn sandbox_value(v: &serde_json::Value) -> Result<Vec<serde_json::Value>, String> {
+    if v.as_str() != Some(DOCKER_SOCKET) {
+        return Ok(vec![v.clone()]);
+    }
+    let env = forge_core::docker::Env::current();
+    match forge_core::docker::socket(&env) {
+        // `~/…` under the home directory (Claude Code expands it): the same entry, and the same
+        // lock, for each teammate on the same runtime
+        Some(sock) => Ok(forge_core::docker::sandbox_paths(&env, &sock)
+            .into_iter()
+            .map(|p| {
+                let home = env.home.as_deref().and_then(|h| p.strip_prefix(h).ok());
+                serde_json::Value::String(match home {
+                    Some(rest) => format!("~/{}", rest.display()),
+                    None => p.display().to_string(),
+                })
+            })
+            .collect()),
+        None => Err(
+            "no Docker socket found on this machine (DOCKER_HOST, rootless Docker, Podman, the Docker context, Docker Desktop, OrbStack, Colima, /var/run/docker.sock): Claude's sandboxed commands cannot reach Docker; start Docker and run forge apply again".into(),
+        ),
+    }
+}
+
+/// The placeholder a sandbox target's value names the Docker socket by.
+pub const DOCKER_SOCKET: &str = "{docker-socket}";

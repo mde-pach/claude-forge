@@ -31,7 +31,7 @@ Only the text outside the generated markers of this file is written by hand.
 |---|---|---|---|
 | [ai-models](ai-models.md) | project | 1 | 2 |
 | [code](code.md) | project | 2 | 2 |
-| [docker](docker.md) | project | 2 | 24 |
+| [docker](docker.md) | project | 2 | 25 |
 | [docs](docs.md) | project | 1 | 2 |
 | [git](git.md) | project | 1 | 5 |
 | [github-actions](github-actions.md) | project | 1 | 5 |
@@ -46,10 +46,11 @@ Only the text outside the generated markers of this file is written by hand.
 | [sql](sql.md) | project | 1 | 3 |
 | [supply-chain](supply-chain.md) | project | 1 | 9 |
 | [terraform](terraform.md) | project | 1 | 8 |
+| [testcontainers](testcontainers.md) | project | 1 | 1 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
 | [typescript](typescript.md) | project | 78 | 433 |
 
-152 packs, 844 rules.
+153 packs, 846 rules.
 <!-- /generated:packs -->
 
 ### Tests

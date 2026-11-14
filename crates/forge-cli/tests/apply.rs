@@ -117,6 +117,10 @@ impl Sandbox {
     }
 
     fn forge(&self, args: &[&str]) -> Output {
+        self.forge_with(args, &[])
+    }
+
+    fn forge_with(&self, args: &[&str], env: &[(&str, &str)]) -> Output {
         let path = format!(
             "{}:{}",
             self.bin.display(),
@@ -136,6 +140,7 @@ impl Sandbox {
             .env_remove("CLAUDE_PROJECT_DIR")
             .env_remove("FORGE_LAUNCHED_VERSION")
             .env("GIT_CONFIG_NOSYSTEM", "1")
+            .envs(env.iter().copied())
             .stdin(Stdio::null())
             .output()
             .unwrap()
@@ -409,4 +414,62 @@ fn migration_keeps_a_modified_old_file_without_force() {
     assert!(s.read(".forge/check.sh").is_some());
     s.ok(&["apply", "--yes", "--force"]);
     assert!(s.read(".forge/check.sh").is_none());
+}
+
+/// A project whose tests use Testcontainers: its sandbox entries go to this machine's settings
+/// file, shown and never in the shared one (§7.2). On macOS, the Docker socket found here and
+/// the containers' ports; on Linux, the test commands Claude Code runs outside its sandbox, with
+/// the note saying so.
+#[test]
+fn testcontainers_sandbox_entries_go_to_the_local_settings() {
+    let s = Sandbox::new("fastapi-app");
+    let py = s.read("pyproject.toml").unwrap().replace(
+        "dev = [\"pytest>=8.3\", \"ruff>=0.8\"]",
+        "dev = [\"pytest>=8.3\", \"ruff>=0.8\", \"testcontainers[postgres]>=4.10\"]",
+    );
+    s.write("pyproject.toml", &py);
+    let out = s.forge_with(
+        &["apply", "--yes"],
+        &[("DOCKER_HOST", "unix:///run/user/1000/docker.sock")],
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout.contains(
+            "forge: .claude/settings.local.json (this machine's settings, not committed):"
+        ),
+        "{stdout}"
+    );
+    let local: serde_json::Value =
+        serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
+    let linux_note = "Claude Code's sandbox on Linux cannot reach Docker's containers";
+    if cfg!(target_os = "linux") {
+        assert!(local.get("sandbox").is_none(), "{local}");
+        assert!(stdout.contains(linux_note), "{stdout}");
+    } else if cfg!(target_os = "macos") {
+        assert_eq!(
+            local["sandbox"],
+            serde_json::json!({"network": {
+                "allowUnixSockets": ["/run/user/1000/docker.sock"],
+                "allowLocalBinding": true
+            }})
+        );
+        assert!(!stdout.contains(linux_note), "{stdout}");
+    }
+    assert!(!s.read(".claude/settings.json").unwrap().contains("sandbox"));
+    assert!(
+        s.read("forge.lock")
+            .unwrap()
+            .contains("testcontainers/sandbox-docker")
+    );
+    // the same machine: nothing to change
+    let again = s.forge_with(
+        &["apply", "--yes"],
+        &[("DOCKER_HOST", "unix:///run/user/1000/docker.sock")],
+    );
+    assert!(String::from_utf8_lossy(&again.stdout).contains("forge: up to date"));
 }

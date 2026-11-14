@@ -9,6 +9,7 @@
 //! A failure of Forge itself is always a note: it never fails a check and never blocks the agent.
 
 pub mod builtin;
+pub mod docker;
 pub mod examples;
 pub mod internals;
 pub mod serena;

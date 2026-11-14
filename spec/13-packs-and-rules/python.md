@@ -718,7 +718,7 @@ Child of `python`: active only where it is.
 | `python/pytest/no-test-env-branch` | Application code does not branch on whether it runs under pytest. | python: `**/*.py`, `!@python-tests`, `!tests/**` | ast-grep forbid |
 | `python/pytest/pydantic-deprecations-error` | When pydantic is a dependency, pytest's filterwarnings turns PydanticDeprecationWarning (the v1-style APIs Pydantic 3 removes) into errors with "error::pydantic.warnings.PydanticDeprecationWarning" (or a bare "error"): as a warning it lets the tests pass on code the next release breaks. | any: `**/pyproject.toml`, `**/pytest.ini`, `**/.pytest.ini`, `**/tox.ini`, `**/setup.cfg` | check lint: a shell script calling `forge_helper` (when `pyproject.toml`, `pytest.ini`, `.pytest.ini`, `tox.ini` or `setup.cfg` changes)<br>applies where `pydantic >=2.0.0` (PyPI) declared |
 | `python/pytest/raises-single-statement` | A pytest.raises block holds only the statement expected to raise: the setup goes before it, or an earlier statement raising the same exception passes the test. | python: `@python-tests`, `!**/conftest.py` | tool ruff `PT012` |
-| `python/pytest/run` | Tests pass. | python | check test: `forge_do pytest test` (timeout 300 s) |
+| `python/pytest/run` | Tests pass. | python | check test: `forge_tests_docker python && forge_do pytest test` (timeout 300 s) |
 | `python/pytest/untested-change` | A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn. | python: `**/*.py`, `!@python-tests`, `!**/tests/**`, `!@django-migrations`, `!@alembic-migrations` | check lint: `forge_advise forge_untested_change`<br>advice, never blocks |
 
 ### python/pytest/asyncio

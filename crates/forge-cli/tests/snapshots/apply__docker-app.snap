@@ -225,7 +225,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "65d4aad9f815492d59cbdd5bc340bb12078b389064ad64e50e87092100f2d60b"
+rule_set = "d8b57b96255566b0b6995e3607ae81dd6bd3a6547bd696f410a87af413091e3d"
 
 [rules]
 "code/no-versioned-duplicates" = "8579216d8466fffdbb48bdf8765eec422d989785c15a7f2f16d83f1363c0486e"
@@ -239,6 +239,7 @@ rule_set = "65d4aad9f815492d59cbdd5bc340bb12078b389064ad64e50e87092100f2d60b"
 "docker/compose/no-privileged" = "5870ca015ca64a9cb94b4e66aff16e9f12b5e832ee4f79c5c5d7e323e0fce856"
 "docker/compose/no-version-key" = "91ec3635e4dd2da89e4a10a2a8aab160d3106d38a24389bb84ece0174e65d2b7"
 "docker/compose/pinned-images" = "13729d3fc187e8e27b993e53842a96e4d73ac1dde1f55502d32a9d501764f2cd"
+"docker/compose/tests-use-testcontainers" = "763835045ca195c335df21572d0470294819ff9f937d990f3ab9a594ffd870f0"
 "docker/copy-not-add" = "5c3ab1b028c86b84d5ef86e0486b97cd9470fbb31056f788b6b8713ed5cfe83a"
 "docker/deps-before-copy" = "f278c09be6735f572d46b9dee0c7bc26d8de3cc46d274b00a4e9c2e2f64442be"
 "docker/dockerignore" = "652926638a8b1b9ff96aaf19ce389fbc0f7782604bf8d2a113cb9b9bea1e5864"
@@ -406,6 +407,7 @@ env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.en
 gunicorn-config = ["**/gunicorn.conf.py"]
 procfile = ["Procfile", "Procfile.*"]
 python-tests = ["**/test_*.py", "**/*_test.py", "**/conftest.py"]
+ts-tests = ["**/*.{test,spec}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}", "**/__tests__/**"]
 
 [tools]
 actionlint = "1.7.12"

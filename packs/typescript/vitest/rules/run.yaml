@@ -2,4 +2,4 @@ id: typescript/vitest/run
 description: Tests pass.
 scope: {language: typescript}
 enforce:
-  - {target: check, stage: test, run: "forge_do vitest test", changed_run: "forge_do vitest test-changed", timeout: 300}
+  - {target: check, stage: test, run: "forge_tests_docker typescript && forge_do vitest test", changed_run: "forge_tests_docker typescript && forge_do vitest test-changed", timeout: 300}

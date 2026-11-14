@@ -70,6 +70,7 @@ export interface SandboxTarget {
   target: "sandbox";
   path: string;
   value: unknown;
+  os?: "macos" | "linux";
 }
 export interface CheckTarget {
   target: "check";

@@ -462,7 +462,8 @@ fn pytest(ctx: &Ctx) -> Option<Offer> {
             "--allow-unix-socket".to_string(),
         ]);
         let local = LOCAL_SERVICES.iter().any(|d| deps.contains(*d))
-            || !forge_detect::compose::dependency_services(&ctx.base, &[]).is_empty();
+            || !forge_detect::compose::dependency_services(&ctx.base, &not_dependencies(ctx))
+                .is_empty();
         if local {
             want.addopts
                 .push("--allow-hosts=127.0.0.1,localhost,::1".to_string());
@@ -805,7 +806,7 @@ fn has_role_files(ctx: &Ctx, role: &str) -> bool {
 /// PyPI `testcontainers[<extras>]` for Python tests, npm `testcontainers` and
 /// `@testcontainers/<module>` for JavaScript ones. Forge never writes the fixtures.
 fn testcontainers(ctx: &Ctx) -> Vec<Offer> {
-    let services = forge_detect::compose::dependency_services(&ctx.base, &[]);
+    let services = forge_detect::compose::dependency_services(&ctx.base, &not_dependencies(ctx));
     if services.is_empty() {
         return Vec::new();
     }
@@ -1044,4 +1045,15 @@ fn bun_text_lock(ctx: &Ctx) -> Option<Offer> {
             }
         }))],
     })
+}
+
+/// The Compose services the project's `forge.yaml` says are not dependencies
+/// (`docker.compose.not-dependencies`).
+fn not_dependencies(ctx: &Ctx) -> Vec<String> {
+    ctx.config
+        .as_ref()
+        .and_then(|c| c.docker.as_ref())
+        .and_then(|d| d.compose.as_ref())
+        .and_then(|c| c.not_dependencies.clone())
+        .unwrap_or_default()
 }

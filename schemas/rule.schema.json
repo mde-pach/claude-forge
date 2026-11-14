@@ -222,7 +222,11 @@
               "type": "string",
               "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$"
             },
-            "value": true
+            "value": true,
+            "os": {
+              "description": "Only where Claude Code's sandbox runs on this system: its sandbox differs by platform\n(macOS filters Unix sockets and local ports by path and port; Linux isolates the\ncommand's whole network).",
+              "$ref": "#/$defs/SandboxOs"
+            }
           },
           "required": [
             "target",
@@ -656,6 +660,14 @@
         }
       ],
       "description": "The guard's built-in checks, each reading the whole parsed command line."
+    },
+    "SandboxOs": {
+      "type": "string",
+      "enum": [
+        "macos",
+        "linux"
+      ],
+      "description": "A system Claude Code's sandbox runs on."
     },
     "Stage": {
       "type": "string",
