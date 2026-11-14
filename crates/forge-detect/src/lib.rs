@@ -8,6 +8,7 @@
 //! - [`roles`]: file roles' effective patterns (tool configs, forge.yaml).
 
 pub mod activate;
+pub mod compose;
 pub mod deps;
 pub mod facts;
 pub mod jsonc;

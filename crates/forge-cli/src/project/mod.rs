@@ -3,6 +3,7 @@
 
 mod apply;
 mod io;
+mod offers;
 mod precommit;
 mod remove;
 mod status;

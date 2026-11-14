@@ -2,14 +2,13 @@
 
 use std::io::IsTerminal;
 
-use forge_builtins_data::python::with_uv_cooldown;
 use forge_packs::model::{Level, PackSource};
 use forge_render::changes::{Changes, line_diff};
 use forge_render::plan::display_path;
 use forge_render::report::{ToolProbe, audit_rules, format_audits};
 
 use super::io::{Error, confirm, delete_path, prune_dirs, show_diff, write_settings, write_text};
-use super::{Ctx, Flags, claude_gate, context, person_notes, precommit};
+use super::{Ctx, Flags, claude_gate, context, offers, person_notes, precommit};
 
 /// Prints what apply would change. Returns whether anything differs.
 pub fn print_diff(ctx: &Ctx, ch: &Changes) -> bool {
@@ -154,8 +153,7 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
         provision(&ctx);
         serena_ready(&ctx)?;
     }
-    offer_uv_setup(&ctx, flags)?;
-    offer_js_setup(&ctx, flags)?;
+    offers::ask(&ctx, flags)?;
     for o in &ch.overridden {
         eprintln!("forge: {o}");
     }
@@ -171,91 +169,6 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     report(&ctx, probe);
     Ok(0)
-}
-
-/// Offers the uv setup the active rules ask of the project, where it lacks it: uv's cooldown in
-/// `pyproject.toml` (`python/uv/exclude-newer`), and a `uv.lock` matching it
-/// (`python/uv/lock-sync`), which `uv lock` creates or updates after the cooldown changed what
-/// resolves. Setup is the person's, accepted here; the agent is never sent to add it (a change is
-/// held only to what it broke, §10.5). Without a terminal and without `--yes`, it is left for
-/// `forge status` to report.
-fn offer_uv_setup(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
-    let active = |id: &str| ctx.plan.active.iter().any(|st| st.rule.id == id);
-    if ctx.level != Level::Project || ctx.base.join("uv.toml").is_file() {
-        return Ok(());
-    }
-    let path = ctx.base.join("pyproject.toml");
-    let Some(before) = std::fs::read_to_string(&path).ok() else {
-        return Ok(());
-    };
-    let cooldown = if active("python/uv/exclude-newer") {
-        with_uv_cooldown(&before)
-    } else {
-        None
-    };
-    let no_lock = !ctx.base.join("uv.lock").is_file();
-    let lock = active("python/uv/lock-sync") && (no_lock || cooldown.is_some());
-    if cooldown.is_none() && !lock {
-        return Ok(());
-    }
-    let what = match (&cooldown, lock, no_lock) {
-        (Some(_), true, true) => {
-            "add uv's cooldown to pyproject.toml and create uv.lock with `uv lock`"
-        }
-        (Some(_), true, false) => {
-            "add uv's cooldown to pyproject.toml and update uv.lock with `uv lock`"
-        }
-        (Some(_), false, _) => "add uv's cooldown to pyproject.toml",
-        (None, _, _) => "create uv.lock with `uv lock`",
-    };
-    if !flags.yes && !std::io::stdin().is_terminal() {
-        println!("forge: the project's uv setup is incomplete; re-run with --yes to {what}");
-        return Ok(());
-    }
-    if let Some(after) = &cooldown {
-        show_diff(Some(&before), Some(after), "pyproject.toml");
-    }
-    if !confirm(
-        &format!("{what} (uv then resolves only versions published at least 7 days ago)?"),
-        flags.yes,
-    )? {
-        return Ok(());
-    }
-    let mut done = Vec::new();
-    if let Some(after) = &cooldown {
-        write_text(&path, after, false)?;
-        done.push("pyproject.toml: added [tool.uv] exclude-newer and required-version".to_string());
-    }
-    if lock {
-        let out = std::process::Command::new("uv")
-            .args(["lock", "--quiet"])
-            .current_dir(&ctx.base)
-            .stdin(std::process::Stdio::null())
-            .output();
-        match out {
-            Ok(o) if o.status.success() => done.push(format!(
-                "uv.lock {}",
-                if no_lock { "created" } else { "updated" }
-            )),
-            Ok(o) => {
-                let err = String::from_utf8_lossy(&o.stderr);
-                let why = err
-                    .lines()
-                    .rev()
-                    .find(|l| !l.trim().is_empty())
-                    .unwrap_or("")
-                    .trim();
-                println!(
-                    "forge: uv lock failed ({why}); run it yourself once pyproject.toml resolves"
-                );
-            }
-            Err(e) => println!("forge: uv lock could not run ({e}); run it yourself"),
-        }
-    }
-    if !done.is_empty() {
-        println!("forge: {}; commit them with Forge's files", done.join(", "));
-    }
-    Ok(())
 }
 
 /// Offers a ruff config of the project's where the Python checks run and the project has none:
@@ -297,117 +210,6 @@ fn offer_ruff_config(ctx: &Ctx, flags: &Flags) -> Result<bool, Error> {
     write_text(&ctx.base.join(RUFF), &text, false)?;
     println!("forge: created {RUFF} (from {pack}); commit it with Forge's files");
     Ok(true)
-}
-
-/// Offers the setup the active rules of the project's JavaScript package manager ask of it, where
-/// it lacks it, as [`offer_uv_setup`] does for uv: the cooldown settings
-/// (`typescript/<pm>/release-age`, [`forge_builtins_code::cooldown::setup`]), and a lock
-/// (`typescript/<pm>/lock-sync`): created when the project has none, and updated when the
-/// cooldown changed package.json and the lock no longer matches it. Without a terminal and
-/// without `--yes`, it is left for `forge status` to report.
-fn offer_js_setup(ctx: &Ctx, flags: &Flags) -> Result<(), Error> {
-    use forge_check::builtins::{AdapterTools, BuiltinTools, ToolRun};
-    let active = |id: String| ctx.plan.active.iter().any(|st| st.rule.id == id);
-    if ctx.level != Level::Project {
-        return Ok(());
-    }
-    let Some(pm) = ["npm", "pnpm", "yarn", "bun"].into_iter().find(|pm| {
-        active(format!("typescript/{pm}/release-age"))
-            || active(format!("typescript/{pm}/lock-sync"))
-    }) else {
-        return Ok(());
-    };
-    let Some(lock) = forge_builtins_data::lock::js(pm) else {
-        return Ok(());
-    };
-    let read = |f: &str| std::fs::read_to_string(ctx.base.join(f)).ok();
-    let edits = if active(format!("typescript/{pm}/release-age")) {
-        forge_builtins_code::cooldown::setup(pm, &read)
-    } else {
-        Vec::new()
-    };
-    let has_lock = lock.files.iter().any(|f| ctx.base.join(f).is_file());
-    let create = active(format!("typescript/{pm}/lock-sync"))
-        && !has_lock
-        && ctx.base.join("package.json").is_file();
-    if edits.is_empty() && !create {
-        return Ok(());
-    }
-    let files: Vec<&str> = edits.iter().map(|e| e.file).collect();
-    let cooldown = format!("add {pm}'s cooldown to {}", files.join(" and "));
-    let what = match (edits.is_empty(), create) {
-        (false, true) => format!(
-            "{cooldown} and create {} with `{}`",
-            lock.default, lock.command
-        ),
-        (false, false) => cooldown,
-        (true, _) => format!("create {} with `{}`", lock.default, lock.command),
-    };
-    if !flags.yes && !std::io::stdin().is_terminal() {
-        println!("forge: the project's {pm} setup is incomplete; re-run with --yes to {what}");
-        return Ok(());
-    }
-    for e in &edits {
-        show_diff(read(e.file).as_deref(), Some(&e.text), e.file);
-    }
-    let question = if edits.is_empty() {
-        format!("{what}?")
-    } else {
-        format!("{what} ({pm} then installs only versions published at least 7 days ago)?")
-    };
-    if !confirm(&question, flags.yes)? {
-        return Ok(());
-    }
-    let mut done = Vec::new();
-    for e in &edits {
-        write_text(&ctx.base.join(e.file), &e.text, false)?;
-        done.push(format!("{}: added {}", e.file, e.added));
-    }
-    let tools = AdapterTools::new(
-        crate::provisioning::builtin_tools(),
-        forge_tools::lock_pins(),
-    );
-    let base = ctx.base.as_path();
-    // a lock the cooldown's package.json change left behind is updated too
-    let stale = has_lock
-        && files.contains(&"package.json")
-        && active(format!("typescript/{pm}/lock-sync"))
-        && matches!(tools.run(base, base, pm, "lock-check", &[]), ToolRun::Ran(o) if o.status != 0);
-    if create || stale {
-        match tools.run(base, base, pm, "lock", &[]) {
-            ToolRun::Ran(o) if o.status == 0 => done.push(format!(
-                "{} {}",
-                lock.files
-                    .iter()
-                    .find(|f| base.join(f).is_file())
-                    .unwrap_or(&lock.default),
-                if create { "created" } else { "updated" }
-            )),
-            ToolRun::Ran(o) => {
-                let why = o
-                    .stderr
-                    .lines()
-                    .rev()
-                    .find(|l| !l.trim().is_empty())
-                    .unwrap_or("")
-                    .trim();
-                println!(
-                    "forge: `{}` failed ({why}); run it yourself once package.json resolves",
-                    lock.command
-                );
-            }
-            ToolRun::Missing(why) | ToolRun::Unsupported(why) => {
-                println!(
-                    "forge: `{}` could not run ({why}); run it yourself",
-                    lock.command
-                )
-            }
-        }
-    }
-    if !done.is_empty() {
-        println!("forge: {}; commit them with Forge's files", done.join(", "));
-    }
-    Ok(())
 }
 
 /// Installs the tools the lock pins that this setup uses: uv (Forge's PATH directory for the

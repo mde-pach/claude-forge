@@ -1,0 +1,12 @@
+id: typescript/no-network-setup
+description: "The tests' no-network setup file keeps its nock.disableNetConnect(): without it every test may reach the network again. A test that needs a remote service mocks it or starts it locally; letting tests reach the network is the user's decision: ask them."
+scope: {language: any, files: ["**/test/no-network.ts"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "disableNetConnect\\(\\)"
+examples:
+  match:
+    - "import nock from \"nock\";\n\nnock.disableNetConnect();\nnock.enableNetConnect((host) => /^(localhost|127\\.0\\.0\\.1)(:\\d+)?$/.test(host));\n"
+  no_match:
+    - "import nock from \"nock\";\n\nnock.enableNetConnect();\n"

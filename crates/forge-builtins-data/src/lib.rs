@@ -26,6 +26,7 @@ pub mod lock;
 pub mod python;
 mod release;
 mod sql;
+pub mod test_setup;
 mod util;
 
 use std::sync::Arc;

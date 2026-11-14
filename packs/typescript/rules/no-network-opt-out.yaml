@@ -1,0 +1,18 @@
+id: typescript/no-network-opt-out
+description: "Tests are not let back onto the network: no new nock.enableNetConnect() or nock.restore() in tests. A test that needs a remote service mocks it (nock, msw) or starts it locally; letting a test reach the network is the user's decision: ask them."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+when:
+  deps: [{ecosystem: npm, name: nock, version: "*"}]
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {pattern: "nock.enableNetConnect($$$)"}
+        - {pattern: "nock.restore()"}
+examples:
+  match:
+    - "import nock from \"nock\";\nimport { expect, it } from \"vitest\";\n\nit(\"reads live rates\", async () => {\n  nock.enableNetConnect();\n  const res = await fetch(\"https://api.example.com/rates\");\n  expect(res.ok).toBe(true);\n});\n"
+    - "import nock from \"nock\";\nimport { afterAll } from \"vitest\";\n\nafterAll(() => {\n  nock.restore();\n});\n"
+  no_match:
+    - "import nock from \"nock\";\nimport { expect, it } from \"vitest\";\n\nit(\"reads rates\", async () => {\n  nock(\"https://api.example.com\").get(\"/rates\").reply(200, { eur: 1 });\n  const res = await fetch(\"https://api.example.com/rates\");\n  expect(res.ok).toBe(true);\n});\n"
