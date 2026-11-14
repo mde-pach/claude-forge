@@ -1,0 +1,29 @@
+id: typescript/zod/no-coerce-boolean
+description: "No z.coerce.boolean(): it applies Boolean(), so every non-empty string, \"false\" and \"0\" included, parses as true (an env var or a query flag set to false turns the feature on). Parse string flags with z.stringbool() (Zod 4), or with z.enum([\"true\", \"false\"]).transform((v) => v === \"true\") on Zod 3."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^boolean$"}
+              - has: {field: object, kind: member_expression, has: {field: property, regex: "^coerce$"}}
+    # the call builds a Zod schema (Zod 3's ZodBoolean, Zod 4's ZodCoercedBoolean), not a
+    # project helper that happens to be called coerce.boolean()
+    where:
+      CALL: {type: {package: zod}}
+examples:
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}]
+  match:
+    - "import { z } from \"zod\";\n\nexport const Env = z.object({ FEATURE_X: z.coerce.boolean().default(false) });\n"
+    - "import * as zod from \"zod\";\n\nexport const Query = zod.object({ archived: zod.coerce.boolean() });\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nexport const Env = z.object({ FEATURE_X: z.stringbool().default(false) });\n"
+    - "import { z } from \"zod\";\n\nexport const Query = z.object({ archived: z.enum([\"true\", \"false\"]).transform((v) => v === \"true\"), page: z.coerce.number() });\n"
+    - "const cast = { coerce: { boolean: (v: unknown): boolean => v === \"true\" } };\n\nexport const on = cast.coerce.boolean();\n"

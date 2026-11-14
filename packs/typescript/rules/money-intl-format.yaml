@@ -1,0 +1,36 @@
+id: typescript/money-intl-format
+description: "An amount is formatted by gluing toFixed(…) to a currency symbol or code: the symbol's position, the decimal and grouping separators and the number of decimals depend on the currency and the locale. Format it with Intl.NumberFormat(locale, { style: \"currency\", currency }) (or toLocaleString with the same options)."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      to-fixed:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, regex: "^toFixed$"}}
+      currency-text:
+        regex: "[$€£¥₹₩₽]|(^|[^A-Za-z])(USD|EUR|GBP|JPY|CHF|CAD|AUD|CNY|INR|SEK|NOK|DKK|PLN|BRL|MXN)([^A-Za-z]|$)"
+    rule:
+      any:
+        # "€" + price.toFixed(2), price.toFixed(2) + " EUR"
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: "^\\+$"}
+            - has: {any: [{matches: to-fixed}, {kind: parenthesized_expression, has: {matches: to-fixed}}]}
+            - has: {kind: string, matches: currency-text}
+        # `${price.toFixed(2)} €`, `$${price.toFixed(2)}`
+        - kind: template_string
+          all:
+            - has: {kind: template_substitution, has: {matches: to-fixed}}
+            - has: {kind: string_fragment, matches: currency-text}
+examples:
+  match:
+    - "export const label = (price: number): string => price.toFixed(2) + \" €\";\n"
+    - "export const label = (price: number): string => \"$\" + price.toFixed(2);\n"
+    - "export const label = (cents: number): string => `${(cents / 100).toFixed(2)} EUR`;\n"
+    - "export const label = (price: number): string => `$${price.toFixed(2)}`;\n"
+  no_match:
+    - "const eur = new Intl.NumberFormat(\"fr-FR\", { style: \"currency\", currency: \"EUR\" });\n\nexport const label = (price: number): string => eur.format(price);\n"
+    - "export const label = (ratio: number): string => `${(ratio * 100).toFixed(1)} %`;\n"
+    - "export const label = (km: number): string => km.toFixed(2) + \" km\";\n"
+    - "export const label = (n: number): string => `Used ${n.toFixed(0)} of ${n}`;\n"
