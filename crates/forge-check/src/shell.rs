@@ -62,6 +62,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "lockfile_updated",
     "model_ids",
     "models_registered",
+    "new_files",
     "oasdiff",
     "once",
     "openapi_lint",

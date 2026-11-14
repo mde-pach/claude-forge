@@ -190,9 +190,10 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "4a4bc38fe271e8d0cfdd5d0da85b33933ace05b8212cd7c25ddfac06e2656fb2"
+rule_set = "d0faaf9bc478c76fb2871ce01253e3b999fad53992c6cd699d90834ab0f9a251"
 
 [rules]
+"code/no-versioned-duplicates" = "8579216d8466fffdbb48bdf8765eec422d989785c15a7f2f16d83f1363c0486e"
 "docker/compose/config-valid" = "b87377426380c917a3d0496c579860b4167ae96f6df1e50de5fa1e7c5a454a8d"
 "docker/compose/datastore-loopback" = "aee19288b76804eb2b75ecb1cd5214c616b8a902ed9283c76c1308157ca46725"
 "docker/compose/healthy-depends" = "28a47bf2921dd7041a878ff5d7c089ce75a0711aefb88e00b599c51b95e5aa29"
@@ -236,6 +237,7 @@ rule_set = "4a4bc38fe271e8d0cfdd5d0da85b33933ace05b8212cd7c25ddfac06e2656fb2"
 "python/env-misuse" = "5a5cc025a0ab1b58dc61ab934840895b9e91f856ca683b8d3b4bc7fcd23de339"
 "python/format" = "8318b1f65f2c50fda053034fcbaef0c48b4556e32441cf08d04dda2153928f33"
 "python/generic-type-args" = "e5482c9180512f5108b343c341e7838779923ee5737812bc6a659766a33af3e4"
+"python/hardcoded-tmp" = "534399129c150ef9fb4f0686577e8872da52045acd9fdee2f5665cc78d01b732"
 "python/hmac-compare" = "73bd6611568c027294db648c172eb8f0fd7319e7fefc709748cc3131dddffaf4"
 "python/http-timeout" = "6dd6636dced7f6e05fa730e2e89e612def7de4c8824b792b268efbacd58bca94"
 "python/jinja-autoescape" = "ce92237b1d07b1e3ca62b3bc850f072c0ac6c689bccb1041f0b1b1af15734f52"
@@ -267,6 +269,7 @@ rule_set = "4a4bc38fe271e8d0cfdd5d0da85b33933ace05b8212cd7c25ddfac06e2656fb2"
 "python/no-global-statement" = "19d5b2acc7c201af57b1c29fdd6c7b9cb515caa6db46d5ec747a02c649d83f2a"
 "python/no-hardcoded-password" = "d209f33885ad20af5c9fcf483c4537703dff0b26551c922e531bdef8e202c36e"
 "python/no-jump-in-finally" = "7a0cfb2d8894b112ab04f6b4bf01e7888e97640bb80c5462b12c03f61e120746"
+"python/no-localhost-in-src" = "5152181d7161ae2841a80921250007c93e61d5e5cc77374c2ceeb2da6f0759c6"
 "python/no-mutable-defaults" = "9b431e94f8974c5ab1b937f224674196aa31520649925e40579908702af678a5"
 "python/no-nest-asyncio" = "42bd48664c16e28b8b2761b7b9e872b71bcf1f756c2474ca4a7f06342892d12f"
 "python/no-new-suppressions" = "1dcdd508c0db4dafb6bb73a23bfc644e15606923ba717965756ee646a7c7a8bb"
@@ -317,6 +320,7 @@ rule_set = "4a4bc38fe271e8d0cfdd5d0da85b33933ace05b8212cd7c25ddfac06e2656fb2"
 "python/typecheck" = "f20a77cb92eccf2fbe6e119e9f3db3448aa26fd77df903a1c02dabcf14492baf"
 "python/typed-decorators" = "66b653512ceac7b90b1ade3aee59fffd19229659209bac9a9eb9ba063b44df75"
 "python/typeis-over-typeguard" = "142bffbf8bb71178e49d988b67e273e1f4e1713a690b40acdf7ed43ce7e2c2a9"
+"python/url-open-scheme" = "6cbd717cdf604bfad16d75c9f6a3dbbb6cc1c2f6f82c704321a7b891fcdbd8eb"
 "python/uv/dependency-groups" = "f03198e481e741b2d5d7fed98c6408e2c7c643d79e048f0b2791fc94e5cc138a"
 "python/uv/exclude-newer" = "5f47cdc494211d45fb754d0cbb69491f6a4ac161b29e4211bf8dbc552cbce87b"
 "python/uv/lock-sync" = "ad113b0741738e0c2e01426f456301807bac75b55254ce77376e63b6bfaf2364"
@@ -353,11 +357,13 @@ alembic-migrations = ["alembic/versions/**", "migrations/versions/**"]
 build-artifacts = ["**/node_modules/**", "**/__pycache__/**", "**/*.pyc", "**/.next/**", "**/.nuxt/**", "**/.svelte-kit/**", "**/.turbo/**", "**/.coverage", "**/.DS_Store"]
 compose = ["**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml"]
 django-migrations = ["**/migrations/[0-9]*.py"]
+django-settings = ["**/settings.py", "**/settings/*.py"]
 dockerfile = ["**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "!**/*.dockerignore"]
 env-files = ["**/.env", "**/.env.*", "!**/.env.example", "!**/.env.sample", "!**/.env.template", "!**/.env.dist"]
 env-template = ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
 gunicorn-config = ["**/gunicorn.conf.py"]
 procfile = ["Procfile", "Procfile.*"]
+python-tests = ["**/test_*.py", "**/*_test.py", "**/conftest.py"]
 
 [tools]
 actionlint = "1.7.12"
