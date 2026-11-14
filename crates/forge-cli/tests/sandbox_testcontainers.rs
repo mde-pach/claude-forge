@@ -2,11 +2,13 @@
 //! use Testcontainers let Claude's test runs reach Docker on this machine. A project with a
 //! Testcontainers Postgres test in Python (pytest) and in Node (`npm test`, node:test) gets
 //! `forge apply --yes`; then each test command runs as Claude Code runs it with the
-//! `.claude/settings.local.json` apply wrote: outside the sandbox when `sandbox.excludedCommands`
-//! lists it (Linux), else inside Claude Code's sandbox runtime (`srt`, from
+//! `.claude/settings.local.json` apply wrote, inside Claude Code's sandbox runtime (`srt`, from
 //! `@anthropic-ai/sandbox-runtime`, the sandbox Claude Code runs commands in) with the entries'
-//! `network` settings (macOS). Each must pass; and inside the sandbox without those entries it
-//! must fail, so the entries are what makes it pass.
+//! `network` settings. On macOS each must pass, and fail without those entries, so the entries
+//! are what makes it pass. On Linux apply writes nothing and no sandbox setting can do it (each
+//! sandboxed command has a network namespace of its own): the test proves that limit, which
+//! `forge apply` states in a note, by checking that each run fails, even with every Unix socket
+//! allowed.
 //!
 //! The test runs use this machine's own Docker configuration (`~/.docker/config.json`): when it
 //! names a credential helper (`credsStore`, `credHelpers`), Testcontainers runs it when it pulls
@@ -102,18 +104,6 @@ fn text(out: &Output) -> String {
     )
 }
 
-/// Whether Claude Code's `sandbox.excludedCommands` takes `cmd` out of the sandbox: an entry
-/// `X *` matches `X` and `X …`; another entry, the command itself.
-fn excluded(cmd: &str, entries: &[Value]) -> bool {
-    entries
-        .iter()
-        .filter_map(Value::as_str)
-        .any(|e| match e.strip_suffix(" *") {
-            Some(start) => cmd == start || cmd.starts_with(&format!("{start} ")),
-            None => cmd == e,
-        })
-}
-
 /// srt's settings for Claude Code's `sandbox` settings: the `network` entries as they are (a
 /// `~/` path under the home directory), no domain allowed (images are pulled by the daemon), and
 /// writes to the project and the temporary directory, as Claude Code allows them.
@@ -162,29 +152,6 @@ fn remove_image(image: &str) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
-}
-
-/// A test command run as Claude Code runs it with `sandbox` (its settings), from `project`.
-fn claude_runs(cmd: &str, sandbox: &Value, project: &Path, env: &[(&str, String)]) -> Output {
-    let entries = sandbox
-        .get("excludedCommands")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    if excluded(cmd, &entries) {
-        eprintln!(
-            "[sandbox e2e] {cmd}: listed in sandbox.excludedCommands, run outside the sandbox"
-        );
-        Command::new("sh")
-            .args(["-c", cmd])
-            .current_dir(project)
-            .envs(env.iter().map(|(k, v)| (*k, v)))
-            .stdin(Stdio::null())
-            .output()
-            .unwrap()
-    } else {
-        in_srt(cmd, sandbox, project, env)
-    }
 }
 
 fn in_srt(cmd: &str, sandbox: &Value, project: &Path, env: &[(&str, String)]) -> Output {
@@ -293,7 +260,29 @@ fn testcontainers_tests_pass_with_the_sandbox_entries_apply_writes() {
         if !had_image {
             remove_image(&image);
         }
-        let out = claude_runs(cmd, &sandbox, &project, &env);
+        if cfg!(target_os = "linux") {
+            // no sandbox setting reaches the ports the containers publish on the host's
+            // loopback: not the entries apply wrote (none), not every Unix socket allowed
+            for (what, settings) in [
+                ("apply's settings", sandbox.clone()),
+                (
+                    "every Unix socket allowed",
+                    json!({"network": {"allowAllUnixSockets": true}}),
+                ),
+            ] {
+                let out = in_srt(cmd, &settings, &project, &env);
+                assert!(
+                    !out.status.success(),
+                    "{cmd} passed in the Linux sandbox with {what}:\n{}",
+                    text(&out)
+                );
+                eprintln!(
+                    "[sandbox e2e] {cmd}: fails in the Linux sandbox with {what}, as expected"
+                );
+            }
+            continue;
+        }
+        let out = in_srt(cmd, &sandbox, &project, &env);
         let t = text(&out);
         assert!(out.status.success() && t.contains(ok), "{cmd}:\n{t}");
         let line = t
@@ -310,20 +299,6 @@ fn testcontainers_tests_pass_with_the_sandbox_entries_apply_writes() {
             text(&out)
         );
         eprintln!("[sandbox e2e] {cmd}: fails in the sandbox without the entries, as expected");
-        // on Linux no sandbox entry does it: every Unix socket allowed reaches the Docker API,
-        // but not the ports the containers publish on the host's loopback
-        if cfg!(target_os = "linux") {
-            let all = json!({"network": {"allowAllUnixSockets": true}});
-            let out = in_srt(cmd, &all, &project, &env);
-            assert!(
-                !out.status.success(),
-                "{cmd} passed in the Linux sandbox with every Unix socket allowed:\n{}",
-                text(&out)
-            );
-            eprintln!(
-                "[sandbox e2e] {cmd}: fails in the Linux sandbox with every Unix socket allowed, as expected"
-            );
-        }
     }
     if !had_image {
         remove_image(&image);

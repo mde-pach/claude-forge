@@ -418,12 +418,10 @@ fn testcontainers_sandbox_entries_go_to_the_local_settings() {
     );
     let local: serde_json::Value =
         serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
-    let excluded = "Claude Code runs the commands listed in .claude/settings.local.json's sandbox.excludedCommands outside its sandbox";
+    let linux_note = "Claude Code's sandbox on Linux cannot reach Docker's containers";
     if cfg!(target_os = "linux") {
-        assert!(local["sandbox"].get("network").is_none(), "{local}");
-        let commands = local["sandbox"]["excludedCommands"].as_array().unwrap();
-        assert!(commands.contains(&serde_json::json!("pytest *")), "{local}");
-        assert!(stdout.contains(excluded), "{stdout}");
+        assert!(local.get("sandbox").is_none(), "{local}");
+        assert!(stdout.contains(linux_note), "{stdout}");
     } else if cfg!(target_os = "macos") {
         assert_eq!(
             local["sandbox"],
@@ -432,7 +430,7 @@ fn testcontainers_sandbox_entries_go_to_the_local_settings() {
                 "allowLocalBinding": true
             }})
         );
-        assert!(!stdout.contains(excluded), "{stdout}");
+        assert!(!stdout.contains(linux_note), "{stdout}");
     }
     assert!(!s.read(".claude/settings.json").unwrap().contains("sandbox"));
     assert!(

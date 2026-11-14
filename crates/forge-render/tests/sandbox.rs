@@ -80,25 +80,9 @@ fn sandbox_entries(os: Option<SandboxOs>) -> (Vec<(String, String, Value)>, Vec<
 }
 
 #[test]
-fn on_linux_the_test_commands_run_outside_the_sandbox() {
+fn on_linux_nothing_is_written() {
     let (entries, warnings) = sandbox_entries(Some(SandboxOs::Linux));
-    assert!(
-        entries
-            .iter()
-            .all(|(f, p, _)| f == LOCAL_SETTINGS_FILE && p == "sandbox.excludedCommands"),
-        "{entries:?}"
-    );
-    let commands: Vec<&str> = entries.iter().filter_map(|(_, _, v)| v.as_str()).collect();
-    for c in [
-        "pytest *",
-        "uv run pytest *",
-        "python -m pytest *",
-        "npx vitest *",
-        "bun test *",
-        "npm test *",
-    ] {
-        assert!(commands.contains(&c), "{c} in {commands:?}");
-    }
+    assert!(entries.is_empty(), "{entries:?}");
     // no socket is looked for: no entry names one, so no warning says none was found
     assert!(
         !warnings.iter().any(|w| w.contains("Docker socket")),
@@ -118,12 +102,6 @@ fn on_macos_the_sandbox_reaches_the_socket_and_the_ports() {
         "sandbox.network.allowLocalBinding".to_string(),
         Value::Bool(true)
     )));
-    assert!(
-        !entries
-            .iter()
-            .any(|(_, p, _)| p == "sandbox.excludedCommands"),
-        "{entries:?}"
-    );
     // the socket this machine has, or the warning that it has none
     assert!(
         entries

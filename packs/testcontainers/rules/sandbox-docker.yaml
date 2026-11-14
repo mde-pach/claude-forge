@@ -1,28 +1,6 @@
 id: testcontainers/sandbox-docker
-description: "Claude's test runs reach Docker through the project's .claude/settings.local.json: on macOS the sandbox allows this machine's Docker socket (rootless Docker or Podman first) and the containers' published ports on localhost, the socket giving the tests control of the Docker daemon; on Linux, where a sandboxed command cannot reach those ports, the usual test commands (pytest, vitest, jest, bun test, npm test) run outside the sandbox, after Claude Code's permission check."
+description: "On macOS, Claude's sandboxed test runs reach Docker through the project's .claude/settings.local.json: the sandbox allows this machine's Docker socket (rootless Docker or Podman first) and the containers' published ports on localhost, the socket giving the tests control of the Docker daemon. On Linux no sandbox setting reaches those ports, so nothing is written there."
 scope: {language: any}
 enforce:
   - {target: sandbox, os: macos, path: network.allowUnixSockets, value: ["{docker-socket}"]}
   - {target: sandbox, os: macos, path: network.allowLocalBinding, value: true}
-  - target: sandbox
-    os: linux
-    path: excludedCommands
-    value:
-      - "pytest *"
-      - "python -m pytest *"
-      - "python3 -m pytest *"
-      - "uv run pytest *"
-      - "poetry run pytest *"
-      - "vitest *"
-      - "npx vitest *"
-      - "pnpm vitest *"
-      - "pnpm exec vitest *"
-      - "yarn vitest *"
-      - "bunx vitest *"
-      - "jest *"
-      - "npx jest *"
-      - "bun test *"
-      - "npm test *"
-      - "npm run test *"
-      - "pnpm test *"
-      - "yarn test *"
