@@ -7,9 +7,11 @@
 //! A chain the change made holds an import it added or rerouted, so it is in or about a module
 //! the change touched: a chain counts when a module of one of its links is in a file the change
 //! touched, and every chain counts when the change edited the contracts themselves. No base run
-//! is needed. An entry that names no import (an `acyclic_siblings` contract's package
-//! dependencies) counts only when the contracts changed, or in CI's full run; otherwise it is a
-//! note for the person.
+//! is needed for those. An entry that names no import (an `acyclic_siblings` contract's package
+//! dependency, `.orders -> .billing (1 import)`) cannot be placed in a file: it counts when the
+//! contracts changed, in CI's full run, and otherwise when import-linter run on the tree as it
+//! was at the base did not report it (the change made that dependency; one the base already had
+//! that gains an import does not count). A base tree that cannot be made leaves a note.
 //!
 //! Every chain that counts fails the check: the contracts are the project's declared
 //! architecture, which its CI enforces.
@@ -236,6 +238,15 @@ fn config_changed(run: &Run<'_>) -> bool {
         })
 }
 
+/// A package dependency entry without its import count: `.db -> .web (2 imports)` is `.db ->
+/// .web`, so a dependency the base had that gains an import is the same one.
+pub fn dependency(entry: &str) -> String {
+    match entry.rfind(" (") {
+        Some(i) if entry.ends_with(')') => entry[..i].trim().to_owned(),
+        _ => entry.trim().to_owned(),
+    }
+}
+
 /// `forge_import_linter`.
 pub fn run(run: &Run<'_>) -> Report {
     // rich wraps its report at 80 columns when it is not a terminal: one chain, one line
@@ -299,19 +310,51 @@ pub fn run(run: &Run<'_>) -> Report {
         })
         .collect();
     let mut notes = Vec::new();
+    // the entries the base run reported too, by contract and dependency (not its import count)
+    let before: Result<Vec<(String, String)>, String> = if every || broken.other.is_empty() {
+        Ok(Vec::new())
+    } else {
+        run.base_tree().and_then(|tree| {
+            let out = run
+                .tool(tree.path(), "lint-imports", "lint", &[], &env)
+                .map_err(|n| n.text)?;
+            if out.status == 0 {
+                return Ok(Vec::new());
+            }
+            parse(&out.stdout).or_else(|_| parse(&out.text())).map(|b| {
+                b.other
+                    .iter()
+                    .map(|(c, t)| (c.clone(), dependency(t)))
+                    .collect()
+            })
+        })
+    };
     for (contract, text) in &broken.other {
-        if every {
+        let new = match &before {
+            Ok(base) => !base.contains(&(contract.clone(), dependency(text))),
+            Err(_) => false,
+        };
+        if new {
+            // the entry is where import-linter would cut the cycle, not necessarily the import
+            // the change added
+            errors.push(Finding::error(
+                run.ctx.rule.clone(),
+                format!(
+                    "the change made a dependency cycle between sibling packages, which the import-linter contract `{contract}` forbids (import-linter would cut it at {text}). Remove the import the change added that closes the cycle; the contracts are the project's, change them only if the user asks."
+                ),
+            ));
+        } else if every {
             errors.push(Finding::error(
                 run.ctx.rule.clone(),
                 format!(
                     "the import-linter contract `{contract}` is broken: {text}. Remove those imports; the contracts are the project's, change them only if the user asks."
                 ),
             ));
-        } else {
+        } else if let Err(why) = &before {
             notes.push(run.note(
                 NoteKind::NotEnforced,
                 format!(
-                    "not checked: the import-linter contract `{contract}` is broken naming no import ({text}), so whether the change broke it cannot be told"
+                    "not checked: the import-linter contract `{contract}` is broken naming no import ({text}), and the base could not be checked to tell whether the change broke it: {why}"
                 ),
             ));
         }
@@ -369,6 +412,13 @@ mod tests {
             Some("src/shop/web/__init__.py")
         );
         assert_eq!(module_file(&files, "requests"), None);
+    }
+
+    #[test]
+    fn a_dependency_is_compared_without_its_count() {
+        assert_eq!(dependency(".db -> .web (1 import)"), ".db -> .web");
+        assert_eq!(dependency(".db -> .web (2 imports)"), ".db -> .web");
+        assert_eq!(dependency(".db -> .web"), ".db -> .web");
     }
 
     #[test]

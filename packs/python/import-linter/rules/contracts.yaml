@@ -41,6 +41,16 @@ examples:
         shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
       files:
         pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n\n[[tool.importlinter.contracts]]\nname = \"Web never touches the database\"\ntype = \"forbidden\"\nsource_modules = [\"shop.web\"]\nforbidden_modules = [\"shop.db\"]\n"
+    # a new module makes the sibling packages import each other: a cycle the base did not have
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Siblings\"\ntype = \"acyclic_siblings\"\nancestors = [\"shop\"]\n"
+        shop/__init__.py: ""
+        shop/orders/__init__.py: ""
+        shop/billing/__init__.py: ""
+        shop/billing/invoice.py: "def total() -> int:\n    return 1\n"
+        shop/orders/cart.py: "from shop.billing.invoice import total\n\n\ndef checkout() -> int:\n    return total()\n"
+      files:
+        shop/billing/refund.py: "from shop.orders.cart import checkout\n\n\ndef refund() -> int:\n    return -checkout()\n"
   no_match:
     # an import the layers allow
     - head:
@@ -67,3 +77,14 @@ examples:
         shop/db/legacy.py: "from shop.web import views\n\nLEGACY = views\n"
       files:
         shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name.title()\n    return user\n"
+    # the cycle was already there; the change only edits a module of it
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Siblings\"\ntype = \"acyclic_siblings\"\nancestors = [\"shop\"]\n"
+        shop/__init__.py: ""
+        shop/orders/__init__.py: ""
+        shop/billing/__init__.py: ""
+        shop/billing/invoice.py: "def total() -> int:\n    return 1\n"
+        shop/orders/cart.py: "from shop.billing.invoice import total\n\n\ndef checkout() -> int:\n    return total()\n"
+        shop/billing/refund.py: "from shop.orders.cart import checkout\n\n\ndef refund() -> int:\n    return -checkout()\n"
+      files:
+        shop/orders/cart.py: "from shop.billing.invoice import total\n\n\ndef checkout() -> int:\n    return total() + 0\n"

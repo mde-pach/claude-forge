@@ -82,7 +82,7 @@ impl Run<'_> {
     }
 
     /// The tree as it was at the base, with the project's installed dependencies.
-    fn base_tree(&self) -> Result<BaseTree, String> {
+    pub(crate) fn base_tree(&self) -> Result<BaseTree, String> {
         let inbase: Vec<String> = self
             .ctx
             .changed
