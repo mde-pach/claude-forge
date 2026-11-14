@@ -1,0 +1,82 @@
+id: typescript/log-pii
+description: "A log call (console, logger) does not write passwords, tokens, secrets, API keys, cookies, Authorization headers, card numbers or whole request headers or bodies: logs are kept long and read widely. Log an id, a masked value or a boolean (hasToken: !!token) instead."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      sensitive-name:
+        regex: "(?i)^[\"']?(password|passwd|token|access_?token|refresh_?token|id_?token|secret|client_?secret|authorization|cookies?|api_?key|card_?number|cvv|ssn)[\"']?$"
+      # not the object of a member access (password.length, req.body.email)
+      whole-value:
+        not: {inside: {kind: member_expression, field: object}}
+      sensitive:
+        any:
+          - {kind: identifier, matches: sensitive-name}
+          - {kind: member_expression, has: {field: property, matches: sensitive-name}}
+          - {kind: shorthand_property_identifier, matches: sensitive-name}
+          - kind: pair
+            all:
+              - has: {field: key, matches: sensitive-name}
+              - has: {field: value, any: [{kind: identifier}, {kind: member_expression}]}
+          - {kind: subscript_expression, has: {field: index, kind: string, matches: sensitive-name}}
+          - {kind: member_expression, regex: "^(req|request)\\.(headers|body)$"}
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, regex: "^(console|logger|log|[\\w.]*\\.logger|[\\w.]*\\.log)\\.(log|info|warn|error|debug|trace|fatal|verbose)$"}
+        - has:
+            field: arguments
+            has:
+              # a call, a test or a computation of the value (mask(token), !!token, token ? ... : ...) is not the value
+              stopBy: {any: [{kind: call_expression}, {kind: unary_expression}, {kind: binary_expression}, {kind: ternary_expression}]}
+              all: [{matches: sensitive}, {matches: whole-value}]
+examples:
+  match:
+    - |
+      export async function login(email: string, password: string) {
+        console.log("login attempt", email, password);
+        return auth.signIn(email, password);
+      }
+    - |
+      import type { Request } from "express";
+
+      export function audit(req: Request) {
+        logger.info({ headers: req.headers, path: req.path }, "request");
+      }
+    - |
+      export class TokenService {
+        async refresh(user: User) {
+          const { accessToken } = await this.client.refresh(user.refreshToken);
+          this.logger.debug(`refreshed ${user.id}: ${accessToken}`);
+          return accessToken;
+        }
+      }
+    - |
+      import type { Request } from "express";
+
+      export function trace(req: Request) {
+        console.debug("auth header", req.headers["authorization"]);
+      }
+  no_match:
+    - |
+      export async function login(email: string, password: string) {
+        logger.info({ email, passwordLength: password.length }, "login attempt");
+        return auth.signIn(email, password);
+      }
+    - |
+      import type { Request } from "express";
+
+      export function audit(req: Request) {
+        logger.info({ hasAuth: !!req.headers.authorization, email: req.body.email }, "request");
+      }
+    - |
+      export function report(token: string) {
+        console.log("token issued", mask(token));
+        log.warn("token expired, refreshing");
+      }
+    - |
+      export function save(settings: Settings) {
+        console.log({ password: "***", user: settings.user });
+        return store.write(settings);
+      }
