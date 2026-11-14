@@ -1026,3 +1026,43 @@ fn a_refused_commit_names_the_accept_entry() {
     let (code, text) = person();
     assert_eq!(code, Some(0), "{text}");
 }
+
+/// Every example of a built-in rule with a type constraint, `no_match` ones included, through the
+/// checker and the types engine (`forge test --builtin --engine`): a `match` example is reported,
+/// a `no_match` one is not, and the engine decides each. Opt-in (`FORGE_TEST_ENGINE=1`): it
+/// installs the examples' dependencies with Forge's Bun and uv, which needs the network once.
+#[test]
+fn engine_examples() {
+    if std::env::var_os("FORGE_TEST_ENGINE").is_none() {
+        eprintln!("skipped: set FORGE_TEST_ENGINE=1 to run the typed examples through the engine");
+        return;
+    }
+    let home = std::env::var_os("FORGE_ENGINE_TEST_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("engine-examples")
+        });
+    std::fs::create_dir_all(&home).unwrap();
+    let cwd = tempfile::tempdir().unwrap();
+    let out = Command::new(exe())
+        .args(["test", "--builtin", "--engine", "--json"])
+        .current_dir(cwd.path())
+        .env("FORGE_HOME", &home)
+        .env_remove("VIRTUAL_ENV")
+        .env_remove("CLAUDECODE")
+        .env_remove("DATABASE_URL")
+        .output()
+        .expect("forge test");
+    let lines: Vec<Value> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    let (summary, results) = lines.split_last().expect("a summary");
+    let fail: Vec<String> = results
+        .iter()
+        .filter(|r| r["verdict"] == "fail" && r["target"] == "ast-grep")
+        .map(|r| format!("{} {} {}: {}", r["rule"], r["kind"], r["index"], r["why"]))
+        .collect();
+    eprintln!("forge test --builtin --engine: {summary}");
+    assert!(fail.is_empty(), "{}", fail.join("\n"));
+}

@@ -53,6 +53,11 @@ jobs:
         env:
           FORGE_TEST_INSTALL_TOOLS: "1"
         run: cargo test --locked -p forge-builtins-code -p forge-builtins-data -p forge-builtins-infra
+      - name: Type-checked rules' examples through the types engine
+        if: ${{ !cancelled() }}
+        env:
+          FORGE_TEST_ENGINE: "1"
+        run: cargo test --locked -p forge-cli --test check engine_examples -- --nocapture
 
   report:
     name: open an issue on failure

@@ -3,7 +3,7 @@
 //!
 //! - ast-grep and grep: a `match` code example must match, a `no_match` one must not. A rule
 //!   with a `where` (the types engine) proves only its `match` examples here; its `no_match`
-//!   examples are skipped, with a note.
+//!   examples are skipped, with a note; [`typed`] runs them all through the types engine.
 //! - check: each code example (a file at a path in the rule's scope) or fixture (`head`
 //!   committed, then `files`) is a turn of a fresh git repository, checked with the rule alone
 //!   (a format stage checks the whole tree): a `match` example must give the rule a finding, a
@@ -212,8 +212,9 @@ fn check_one(
     ex: &Example,
     exe: &Path,
     tools: &Arc<dyn ToolResolver>,
+    project: Option<&Project>,
 ) -> Result<(Vec<String>, Vec<Note>), String> {
-    let (head, changed): (BTreeMap<String, String>, BTreeMap<String, String>) = match ex {
+    let (mut head, changed): (BTreeMap<String, String>, BTreeMap<String, String>) = match ex {
         Example::Code(code) => (
             BTreeMap::new(),
             [(example_path(rule), code.clone())].into_iter().collect(),
@@ -227,7 +228,18 @@ fn check_one(
         ),
         Example::Command(_) => return Ok((Vec::new(), Vec::new())),
     };
+    // the examples' project (its manifest, tsconfig), under the example's own files
+    if let Some(p) = project {
+        for (f, t) in &p.files {
+            head.entry(f.clone()).or_insert_with(|| t.clone());
+        }
+    }
     let turn = Turn::new(&head, &changed)?;
+    // its installed dependencies (node_modules or .venv, which the repository ignores)
+    if let Some((name, target)) = project.and_then(|p| p.link.as_ref()) {
+        std::os::unix::fs::symlink(target, turn.repo.path().join(name))
+            .map_err(|e| format!("{name}: {e}"))?;
+    }
     // the repository root as git and the checker see it (the temp dir may be behind a link)
     let root: PathBuf = turn.repo.path().canonicalize().map_err(|e| e.to_string())?;
     // the example's forge.yaml (its file roles, its accepted changes), as `forge check` reads it
@@ -237,6 +249,27 @@ fn check_one(
     checker.roles = selection.roles;
     checker.accept = config.and_then(|c| c.accept).unwrap_or_default();
     checker.tools = tools.clone();
+    // a type-checked example: the types engine, as `forge check` starts it (its daemon exits
+    // once the throwaway repository is gone)
+    if project.is_some() {
+        let (oracle, notes) = crate::engine::start(
+            &root,
+            &checker.rules,
+            checker.tools.as_ref(),
+            true,
+            exe,
+            env!("CARGO_PKG_VERSION"),
+            None,
+        );
+        let Some(oracle) = oracle else {
+            let why: Vec<&str> = notes.iter().map(|n| n.text.as_str()).collect();
+            return Err(format!(
+                "the types engine did not start: {}",
+                why.join("; ")
+            ));
+        };
+        checker.types = Some(Arc::new(oracle));
+    }
     let mode = if stage == Stage::Format {
         Mode::All
     } else {
@@ -290,7 +323,7 @@ pub fn check(
         if matches!(ex, Example::Command(_)) {
             continue;
         }
-        let mut res = match check_one(rule, set, stage, ex, exe, tools) {
+        let mut res = match check_one(rule, set, stage, ex, exe, tools, None) {
             Err(e) => ExampleResult::new(
                 &rule.id,
                 "check",
@@ -330,4 +363,146 @@ pub fn check(
         out.push(res);
     }
     out
+}
+
+/// The TypeScript of a type-checked examples' project whose `examples.deps` name none.
+pub const EXAMPLES_TYPESCRIPT: &str = "5.9.3";
+
+/// The project a rule's type-checked examples run in: the manifest declaring `examples.deps`
+/// (and, for TypeScript, a tsconfig with their `@types` packages), and the installed
+/// dependencies' directory to link in (`node_modules` or `.venv`, with its path).
+#[derive(Debug, Clone, Default)]
+pub struct Project {
+    pub files: BTreeMap<String, String>,
+    pub link: Option<(String, PathBuf)>,
+}
+
+/// The manifest files of the examples' project of `rule`: what an installer writes before
+/// installing (`bun install`, `uv sync`), and what each example's repository holds. `None` for
+/// a rule without a type-checked ast-grep target.
+pub fn project_files(rule: &Rule) -> Option<BTreeMap<String, String>> {
+    astgrep::target_of(rule).filter(|t| t.where_.is_some())?;
+    let deps = rule
+        .examples
+        .as_ref()
+        .and_then(|e| e.deps.clone())
+        .unwrap_or_default();
+    let version = |d: &forge_packs::model::DepSpec| d.version.clone().unwrap_or_default();
+    let mut files = BTreeMap::new();
+    match rule.scope.language {
+        Language::Python => {
+            let reqs: Vec<String> = deps
+                .iter()
+                .filter(|d| d.ecosystem == forge_packs::model::Ecosystem::Pypi)
+                .map(|d| format!("{:?}", format!("{}=={}", d.name, version(d))))
+                .collect();
+            files.insert(
+                "pyproject.toml".into(),
+                format!(
+                    "[project]\nname = \"examples\"\nversion = \"0\"\nrequires-python = \">=3.12\"\ndependencies = [{}]\n",
+                    reqs.join(", ")
+                ),
+            );
+        }
+        _ => {
+            let npm: Vec<_> = deps
+                .iter()
+                .filter(|d| d.ecosystem == forge_packs::model::Ecosystem::Npm)
+                .collect();
+            let mut dev: serde_json::Map<String, serde_json::Value> = npm
+                .iter()
+                .map(|d| (d.name.clone(), serde_json::Value::String(version(d))))
+                .collect();
+            // the engine answers with the project's TypeScript: the examples' own, else this one
+            dev.entry("typescript")
+                .or_insert_with(|| serde_json::Value::String(EXAMPLES_TYPESCRIPT.into()));
+            let package =
+                serde_json::json!({"name": "examples", "private": true, "devDependencies": dev});
+            files.insert("package.json".into(), format!("{package:#}\n"));
+            let types: Vec<String> = npm
+                .iter()
+                .filter_map(|d| d.name.strip_prefix("@types/").map(str::to_string))
+                .collect();
+            let tsconfig = serde_json::json!({"compilerOptions": {
+                "strict": true, "target": "es2022", "module": "esnext", "moduleResolution": "bundler",
+                "jsx": "preserve", "lib": ["es2022", "dom"], "skipLibCheck": true, "noEmit": true,
+                "types": types,
+            }});
+            files.insert("tsconfig.json".into(), format!("{tsconfig:#}\n"));
+        }
+    }
+    Some(files)
+}
+
+/// The rule's ast-grep target with a `where`, on all its examples (code and fixtures), through
+/// the checker and the types engine: each example is a turn of its own repository holding
+/// `project` (see [`project_files`]), checked with the rule alone. A `match` example must give
+/// the rule a finding, a `no_match` one none; a note about the rule (the engine could not
+/// decide, a dependency is missing) fails the example, since the engine was asked. None for a
+/// rule without such a target.
+pub fn typed(
+    rule: &Rule,
+    set: &PackSet,
+    exe: &Path,
+    tools: &Arc<dyn ToolResolver>,
+    project: &Result<Project, String>,
+) -> Vec<ExampleResult> {
+    if astgrep::target_of(rule).is_none_or(|t| t.where_.is_none()) {
+        return Vec::new();
+    }
+    let Some(examples) = &rule.examples else {
+        return Vec::new();
+    };
+    // what the examples test is what the rule matches: an advice pattern reports only after an
+    // edit, so it runs here as a forbid one would, at the end of the turn
+    let mut judged = rule.clone();
+    for t in &mut judged.enforce {
+        if let Target::AstGrep(a) = t
+            && a.mode == forge_packs::model::Mode::Advise
+        {
+            a.mode = forge_packs::model::Mode::Forbid;
+        }
+    }
+    let rule = &judged;
+    examples
+        .listed()
+        .into_iter()
+        .filter(|(_, _, ex)| !matches!(ex, Example::Command(_)))
+        .map(|(kind, n, ex)| {
+            let verdict = match project {
+                Err(e) => ExampleVerdict::Skip {
+                    note: Note::new(
+                        NoteKind::MissingTool,
+                        format!("the examples' dependencies could not be installed: {e}"),
+                    )
+                    .for_rule(&rule.id),
+                },
+                Ok(p) => match check_one(rule, set, Stage::Lint, ex, exe, tools, Some(p)) {
+                    Err(e) => ExampleVerdict::Fail {
+                        why: format!("the example could not run: {e}"),
+                    },
+                    Ok((_, notes)) if !notes.is_empty() => ExampleVerdict::Fail {
+                        why: format!(
+                            "the types engine did not decide: {}",
+                            notes
+                                .iter()
+                                .map(|n| n.text.as_str())
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        ),
+                    },
+                    Ok((texts, _)) => match (kind, texts.is_empty()) {
+                        (ExampleKind::Match, true) => ExampleVerdict::Fail {
+                            why: "the rule reported nothing".into(),
+                        },
+                        (ExampleKind::NoMatch, false) => ExampleVerdict::Fail {
+                            why: format!("the rule reported: {}", texts.join("; ")),
+                        },
+                        _ => ExampleVerdict::Pass,
+                    },
+                },
+            };
+            ExampleResult::new(&rule.id, "ast-grep", kind, n, verdict)
+        })
+        .collect()
 }
