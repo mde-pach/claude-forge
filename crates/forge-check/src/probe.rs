@@ -246,7 +246,14 @@ pub fn pinned_tools(plan: &Plan) -> Vec<String> {
 // ------------------------------------------------------------------------------- audits
 
 /// A tool rule's examples: code in the rule's scope, or a one-file fixture (its path).
-fn tool_examples(rule: &Rule, matching: bool) -> Vec<(String, Option<String>)> {
+/// A tool example: one file's text (at the rule's example path, or at its own `path`), or a
+/// fixture of several files that reference each other (an import cycle), written together.
+enum ToolExample {
+    One(String, Option<String>),
+    Many(Vec<(String, String)>),
+}
+
+fn tool_examples(rule: &Rule, matching: bool) -> Vec<ToolExample> {
     let ex = rule.examples.as_ref().and_then(|e| {
         if matching {
             e.match_.as_ref()
@@ -257,11 +264,17 @@ fn tool_examples(rule: &Rule, matching: bool) -> Vec<(String, Option<String>)> {
     ex.into_iter()
         .flatten()
         .filter_map(|e| match e {
-            Example::Code(c) => Some((c.clone(), None)),
+            Example::Code(c) => Some(ToolExample::One(c.clone(), None)),
             Example::Fixture(f) if f.head.is_none() && f.files.len() == 1 => {
                 let (p, c) = f.files.iter().next()?;
-                Some((c.clone(), Some(p.clone())))
+                Some(ToolExample::One(c.clone(), Some(p.clone())))
             }
+            Example::Fixture(f) if f.head.is_none() => Some(ToolExample::Many(
+                f.files
+                    .iter()
+                    .map(|(p, c)| (p.clone(), c.clone()))
+                    .collect(),
+            )),
             _ => None,
         })
         .collect()
@@ -522,6 +535,41 @@ fn first_line(s: &str) -> String {
     }
 }
 
+/// A fixture of several files, written under a directory of its own inside the rule's scope
+/// (their paths kept, so they can import each other) and run together. Ruff reads one file on
+/// stdin and tsc one file per config, so only Biome and ESLint run such an example.
+#[allow(clippy::too_many_arguments)]
+fn run_many(
+    tool: AuditedTool,
+    cmd: &ToolCmd,
+    words: &str,
+    extra: &[String],
+    dir: &Path,
+    rule: &Rule,
+    files: &[(String, String)],
+    n: usize,
+) -> Option<ToolRun> {
+    if matches!(tool, AuditedTool::Ruff | AuditedTool::Tsc | AuditedTool::Ty) {
+        return None;
+    }
+    let stem = stem_of(n);
+    let base = example_path(rule, &stem);
+    let root = match base.rsplit_once('/') {
+        Some((d, _)) => format!("{d}/{stem}"),
+        None => stem,
+    };
+    let rels: Vec<String> = files.iter().map(|(p, _)| format!("{root}/{p}")).collect();
+    let pairs: Vec<(&str, &str)> = rels
+        .iter()
+        .zip(files)
+        .map(|(r, (_, c))| (r.as_str(), c.as_str()))
+        .collect();
+    let _files = TempFiles::write(dir, &pairs)?;
+    let mut args = build_args(words, &rels);
+    args.extend(extra.iter().cloned());
+    run(cmd, &args, dir, None)
+}
+
 /// Runs the tool on one example.
 #[allow(clippy::too_many_arguments)]
 fn run_example(
@@ -674,21 +722,41 @@ pub fn audit_target(
     }
     let mut n = 0;
     let mut seen = BTreeSet::new();
-    for (expect_match, (code, path)) in matching
+    for (expect_match, ex) in matching
         .iter()
         .map(|e| (true, e))
         .chain(not_matching.iter().map(|e| (false, e)))
     {
-        let rel = example_rel(rule, path.as_deref(), n);
-        n += 1;
-        if !seen.insert(rel.clone()) {
-            continue;
-        }
-        let shown = match path {
-            Some(p) => format!("{p}: {code}"),
-            None => code.clone(),
+        let (shown, r) = match ex {
+            ToolExample::One(code, path) => {
+                let rel = example_rel(rule, path.as_deref(), n);
+                n += 1;
+                if !seen.insert(rel.clone()) {
+                    continue;
+                }
+                let shown = match path {
+                    Some(p) => format!("{p}: {code}"),
+                    None => code.clone(),
+                };
+                (
+                    shown,
+                    run_example(tool, &cmd, &words, &extra, &cwd, &rel, code, n),
+                )
+            }
+            ToolExample::Many(files) => {
+                n += 1;
+                let shown = files
+                    .iter()
+                    .map(|(p, c)| format!("{p}: {}", first_line(c)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                (
+                    shown,
+                    run_many(tool, &cmd, &words, &extra, &cwd, rule, files, n),
+                )
+            }
         };
-        let Some(r) = run_example(tool, &cmd, &words, &extra, &cwd, &rel, code, n) else {
+        let Some(r) = r else {
             return result(
                 AuditStatus::Skipped,
                 Some(format!("{name} could not run on the examples")),

@@ -184,7 +184,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 1.7.0 – 1.8.0: CHANGELOG_v1.md 1.7.0: `--reporter=json` and `--reporter=json-pretty`
 - 1.8.0 – 1.9.0: CHANGELOG_v1.md 1.8.0: new options `--write`, `--fix` and `--unsafe` (`--apply` deprecated, removed in 2.0.0)
 - 1.9.0 –: CHANGELOG_v1.md v1.9.0: `--max-diagnostics` accepts `none`
-- Codes: the history of 6 codes Forge's rules expect (§16.3).
+- Codes: the history of 7 codes Forge's rules expect (§16.3).
 
 #### bun
 
