@@ -314,7 +314,24 @@ pub fn person_notes(ctx: &Ctx, probe: &dyn ToolProbe) -> Vec<String> {
     }
     out.extend(probe.notes(&ctx.plan).into_iter().map(|n| n.to_string()));
     out.extend(sandbox_note(ctx));
+    out.extend(sandbox_docker_note(ctx));
     out
+}
+
+/// A project whose sandbox entries let Claude's commands reach Docker (§7.2), on Linux: Claude
+/// Code ignores `network.allowUnixSockets` there, and a sandboxed command's localhost is its own,
+/// so those entries cannot do it.
+fn sandbox_docker_note(ctx: &Ctx) -> Option<String> {
+    (cfg!(target_os = "linux")
+        && ctx.level == Level::Project
+        && ctx
+            .plan
+            .settings
+            .iter()
+            .any(|e| e.entry.path == "sandbox.network.allowUnixSockets"))
+    .then(|| {
+        "Claude Code's sandbox on Linux cannot reach Docker (it ignores network.allowUnixSockets, and a sandboxed command's localhost is its own): tests that use Testcontainers fail when Claude runs them in the sandbox; Forge's Stop check runs them outside it.".to_string()
+    })
 }
 
 /// The sandbox the settings turn on, when this Linux machine lacks what it runs on: Claude Code
@@ -325,7 +342,7 @@ fn sandbox_note(ctx: &Ctx) -> Option<String> {
             .plan
             .settings
             .iter()
-            .any(|e| e.entry.path.starts_with("sandbox"))
+            .any(|e| e.entry.path == "sandbox.enabled")
     {
         return None;
     }

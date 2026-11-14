@@ -141,6 +141,17 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
             return Err(Error::new("forge: cancelled; nothing written"));
         }
     }
+    // this machine's settings beside the level's own (the project's sandbox entries, §7.2):
+    // shown, not confirmed, as nobody else gets them
+    for s in ch
+        .settings
+        .iter()
+        .filter(|s| !s.shared && s.file != ctx.plan.settings_file)
+    {
+        let file = display_path(ctx.level, &ctx.base, &s.file);
+        println!("forge: {file} (this machine's settings, not committed):");
+        show_diff(Some(&s.before), s.after.as_deref(), &file);
+    }
     if offer_ruff_config(&ctx, flags)? {
         ctx = context(flags)?;
         ch = ctx.changes()?;

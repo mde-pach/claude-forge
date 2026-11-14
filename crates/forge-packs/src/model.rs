@@ -712,7 +712,31 @@ pub struct ProjectConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub python: Option<PythonConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docker: Option<DockerConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accept: Option<Vec<Accept>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DockerConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compose: Option<ComposeConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ComposeConfig {
+    /// Compose services that run from an image but that no test depends on (a mock server
+    /// the developers browse, a log shipper): not third-party services to start with
+    /// Testcontainers.
+    #[serde(
+        rename = "not-dependencies",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(inner(length(min = 1)))]
+    pub not_dependencies: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
