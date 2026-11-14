@@ -1,0 +1,85 @@
+id: typescript/nextjs/open-redirect
+description: "redirect() and permanentRedirect() are not given a URL taken straight from the request (searchParams, formData.get(), a ?next= / callbackUrl value) without a check: anyone can link to your site with ?next=https://evil.example and the user lands there. Accept only same-site paths (starts with \"/\" and not \"//\", or new URL(next, base).origin === base) or look the target up in an allowlist."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(redirect|permanentRedirect)$"}
+        - inside:
+            kind: program
+            stopBy: end
+            has: {kind: import_statement, has: {field: source, regex: "^[\"']next/navigation[\"']$"}}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - matches: untrusted-url
+                # a variable read from the request and never checked in this block
+                - all:
+                    - any:
+                        - {kind: identifier, pattern: $V}
+                        - {kind: binary_expression, has: {field: operator, regex: "^(\\?\\?|\\|\\|)$"}, all: [{has: {field: left, kind: identifier, pattern: $V}}]}
+                        - {kind: as_expression, has: {nthChild: 1, kind: identifier, pattern: $V}}
+                    - inside:
+                        stopBy: end
+                        kind: statement_block
+                        all:
+                          - has:
+                              stopBy: end
+                              any:
+                                - {kind: variable_declarator, all: [{has: {field: name, pattern: $V}}, {has: {field: value, matches: untrusted-url}}]}
+                                - kind: variable_declarator
+                                  all:
+                                    - has: {field: value, matches: url-params}
+                                    - has: {field: name, kind: object_pattern, has: {kind: shorthand_property_identifier_pattern, regex: "^(next|redirect|redirectTo|redirect_to|redirectUrl|returnTo|return_to|returnUrl|callbackUrl|callback_url|continue|url|to|target|goto|dest|destination)$", pattern: $V}}
+                          - not:
+                              has:
+                                stopBy: end
+                                any:
+                                  - {kind: member_expression, has: {field: object, pattern: $V}}
+                                  - {kind: binary_expression, all: [{has: {field: operator, regex: "^(===|!==|==|!=)$"}}, {has: {pattern: $V}}]}
+                                  - kind: arguments
+                                    has: {pattern: $V}
+                                    not: {inside: {kind: call_expression, stopBy: neighbor, has: {field: function, regex: "^(redirect|permanentRedirect)$"}}}
+    utils:
+      url-params:
+        any:
+          - regex: "^(searchParams|params)$"
+          - regex: "^\\(\\s*await\\s+(searchParams|params)\\s*\\)$"
+          - regex: "^await\\s+(searchParams|params)$"
+      request-read:
+        any:
+          # searchParams.get("next"), formData.get("redirectTo"), url.searchParams.get(…)
+          - kind: call_expression
+            all:
+              - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^get$"}}, {has: {field: object, pattern: $X}}]}
+              - has: {field: arguments, has: {kind: string, nthChild: 1}}
+          # (await searchParams).next, searchParams.callbackUrl
+          - kind: member_expression
+            has: {field: object, matches: url-params}
+      untrusted-url:
+        any:
+          - matches: request-read
+          - {kind: as_expression, has: {nthChild: 1, matches: request-read}}
+          - {kind: non_null_expression, has: {matches: request-read}}
+          - {kind: binary_expression, all: [{has: {field: operator, regex: "^(\\?\\?|\\|\\|)$"}}, {has: {field: left, matches: request-read}}]}
+          - {kind: call_expression, all: [{has: {field: function, regex: "^String$"}}, {has: {field: arguments, has: {nthChild: 1, matches: request-read}}}]}
+    # .get() of the request's own URLSearchParams or FormData, not of any map
+    where:
+      X: {type: [{package: typescript, name: [URLSearchParams, FormData]}, {package: undici-types, name: FormData}, {package: next, name: ReadonlyURLSearchParams}]}
+examples:
+  match:
+    - "import { redirect } from \"next/navigation\";\n\nexport default async function Login({ searchParams }: { searchParams: Promise<{ next?: string }> }) {\n  redirect((await searchParams).next ?? \"/\");\n}\n"
+    - "'use server';\n\nimport { redirect } from \"next/navigation\";\n\nexport async function signIn(formData: FormData) {\n  await login(formData);\n  redirect(formData.get(\"redirectTo\") as string);\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport async function GET(request: Request) {\n  const url = new URL(request.url);\n  const next = url.searchParams.get(\"next\") || \"/\";\n  redirect(next);\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport default async function Page({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {\n  const { callbackUrl } = await searchParams;\n  redirect(callbackUrl ?? \"/\");\n}\n"
+  no_match:
+    - "import { redirect } from \"next/navigation\";\n\nexport default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {\n  const { next } = await searchParams;\n  redirect(next === \"/billing\" ? next : \"/\");\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport async function GET(request: Request) {\n  const next = new URL(request.url).searchParams.get(\"next\") ?? \"/\";\n  if (!next.startsWith(\"/\") || next.startsWith(\"//\")) redirect(\"/\");\n  redirect(next);\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {\n  const next = (await searchParams).next;\n  redirect(safePath(next));\n}\n"
+    - "'use server';\n\nimport { redirect } from \"next/navigation\";\n\nexport async function create(formData: FormData) {\n  const post = await save(formData);\n  redirect(`/posts/${post.id}`);\n}\n"
+    - "import { redirect } from \"next/navigation\";\n\nexport default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {\n  const next = (await searchParams).next;\n  if (next && ALLOWED.includes(next)) redirect(next);\n  redirect(\"/\");\n}\n"

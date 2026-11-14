@@ -1,0 +1,22 @@
+id: typescript/nextjs/global-error-html
+description: "global-error.tsx replaces the root layout when it renders, so it returns its own <html> and <body>. Wrap its content in <html><body>…</body></html>."
+scope: {language: tsx, files: ["app/global-error.*", "src/app/global-error.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: export_statement
+      regex: "^export\\s+default\\s"
+      inside:
+        kind: program
+        stopBy: end
+        not:
+          all:
+            - has: {stopBy: end, kind: jsx_opening_element, has: {field: name, regex: "^html$"}}
+            - has: {stopBy: end, kind: jsx_opening_element, has: {field: name, regex: "^body$"}}
+examples:
+  match:
+    - "'use client';\n\nexport default function GlobalError({ reset }: { reset: () => void }) {\n  return (\n    <div>\n      <h2>Something went wrong</h2>\n      <button onClick={() => reset()}>Try again</button>\n    </div>\n  );\n}\n"
+    - "'use client';\n\nexport default function GlobalError() {\n  return (\n    <html lang=\"en\">\n      <h2>Something went wrong</h2>\n    </html>\n  );\n}\n"
+  no_match:
+    - "'use client';\n\nexport default function GlobalError({ reset }: { reset: () => void }) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <h2>Something went wrong</h2>\n        <button onClick={() => reset()}>Try again</button>\n      </body>\n    </html>\n  );\n}\n"
