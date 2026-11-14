@@ -14,7 +14,7 @@ Each adapter is one file, `crates/forge-check/adapters/<tool>.yaml`, embedded in
 
 - `tool`: the tool's name, equal to the file name.
 - `verified`: the newest release the adapter is proven on.
-- `runner`: where the tool comes from. `project` (the default): the project's own install (`node_modules/.bin`, `.venv/bin`, the project's Python environment; in a workspace package, then the root's). A Python tool the project declares (a dependency, optional or in a group) and its environment does not have (pytest, ruff, alembic, sqlfluff) runs through uv as the project's packaging says (`python.pm`, §5): `uv run -q --frozen <tool>` where the project uses uv (its environment, its lock as it is: a check never rewrites `uv.lock`), `uv run -q --isolated <tool>` where its pyproject.toml names no package manager (a temporary environment with the project and its dev group, no lock written, so the project is not switched to uv); with another package manager it is not run, and a tool the project does not declare is left to the adapter's `fallback` (Forge's own release), as uv could not run it. Its version is asked each time (the version cache goes by executable, here uv's). `path`: the executable on `PATH` (Terraform, Helm, kubectl, Docker, the package managers). `pinned`: Forge's pinned release from its tool cache (§17).
+- `runner`: where the tool comes from. `project` (the default): the project's own install (`node_modules/.bin`, `.venv/bin`, the project's Python environment; in a workspace package, then the root's). A Python tool the project declares (a dependency, optional or in a group) and its environment does not have (pytest, ruff, alembic, sqlfluff, `lint-imports` declared as its package `import-linter`) runs through uv as the project's packaging says (`python.pm`, §5): `uv run -q --frozen <tool>` where the project uses uv (its environment, its lock as it is: a check never rewrites `uv.lock`), `uv run -q --isolated <tool>` where its pyproject.toml names no package manager (a temporary environment with the project and its dev group, no lock written, so the project is not switched to uv); with another package manager it is not run, and a tool the project does not declare is left to the adapter's `fallback` (Forge's own release), as uv could not run it. Its version is asked each time (the version cache goes by executable, here uv's). `path`: the executable on `PATH` (Terraform, Helm, kubectl, Docker, the package managers). `pinned`: Forge's pinned release from its tool cache (§17).
 - `pinned`: Forge's pin. The version is the pin; it is never asked of the binary.
 - `fallback`: for a project tool, the pinned release Forge runs where the project does not configure the tool (ruff, §11.1), and where it configures it without installing it: a copy found outside the repository (on `PATH`, in an active virtualenv) is the machine's, maybe older than the config `forge apply` wrote, so Forge runs its own release; one in the repository (`.venv`, `node_modules`) or a declared one run through uv is the project's. `fallback_ops`: what that release does of an operation there: another operation in its place, or `null`: it does not run (a `not run` note, status 0). An operation not listed runs as it is.
 - `version_args`: the arguments that print the version (default `--version`). The version is the first `x.y` or `x.y.z` the tool prints on stdout or stderr. `package`: read the version from that npm package's `package.json` instead, found by walking up from the executable's real path.
@@ -22,7 +22,7 @@ Each adapter is one file, `crates/forge-check/adapters/<tool>.yaml`, embedded in
 - `usage`: how the tool says its command line is wrong: the exit statuses and a POSIX extended regular expression matched on each line of its output (stdout and stderr, colour codes removed). `null` when the tool has no usage signature distinct from its findings.
 - `direct`: how a check command that runs the tool itself is recognised (§16.1), when it is not just the tool's name.
 - `ranges`: consecutive version ranges, oldest first, without gaps: `from` inclusive, `to` exclusive, the last one open. Each cites its `source` (the changelog or release notes) and gives, for every operation, the arguments after the tool's name, or `null`: this range cannot. The caller's arguments replace the words `{1}`, `{2}`, … by rank and `{args}` (the others); without `{args}` they follow the adapter's words.
-- `codes`: for a tool with rule codes, the operation that lists the installed release's rules, and the history of each code Forge's rules expect: the release it is stable from (`since`), and the codes and names the same rule had. The checker reads only `since` (§16.3); the listing operation is not run.
+- `codes`: for a tool with rule codes, the operation that lists the installed release's rules (when the tool has one; Biome has none), and the history of each code Forge's rules expect: the release it is stable from (`since`), and the codes and names the same rule had. The checker reads only `since` (§16.3); the listing operation is not run.
 - `engine`: the operations (`ops`) the repository's running types engine of `lang` settles for a change in the tool's place (§15.8), without starting the tool: the changed files named like `files` (`*.ts`) go to the engine; a changed file named like `whole` (`tsconfig*.json`, `*.d.ts`, `package.json`) reaches the whole project and the tool runs. `line` prints each diagnostic as the tool would (`{path}`, `{line}`, `{column}`, `{code}`, `{message}`), so the check reads the engine's answer as the tool's output.
 
 ### 16.3 Selection and notes
@@ -56,6 +56,8 @@ When it cannot run the operation, `forge_do` exits 0 and leaves a note for the p
 
 **Builtins that run a tool.** A builtin that runs a tool itself (`forge_squawk`, `forge_condor`) asks the same adapters for the operation, so the cases above are notes for it too. `forge_condor` (`python/no-dead-code`) runs Forge's pinned condor from the tree's root, so that condor reads the project's `[tool.condor]` / `[tool.vulture]`, with Forge's excludes (environments, `node_modules`, nested worktrees, `.forge`) anchored at the tree and added to the project's, and `.` only when that config names no paths. Every finding in a changed file counts; when it reports something in another file, it runs a second time on a copy of the base holding only `*.py`, `*.pyi` and `pyproject.toml`, and only what the change left unused there counts. A file condor cannot parse in one of the two runs but not the other is a note (`not checked`), since their findings cannot be compared. When the run also has the `python/lint` check and the adapters can run `ruff lint`, condor's unused imports are dropped: ruff's F401 reports them (on the added lines), and the agent reads one finding, not two. A method, and a class nested in a class's body (read from the source's indentation), is advice unless its name is private: a framework calls the methods its base classes declare and reads nested classes (`get_queryset`, Django's `class Meta`), which condor cannot see.
 
+**The project's whole-project tools.** Where the project set them up itself (their config, §13: `typescript/knip`, `typescript/dependency-cruiser`, `python/import-linter`, `code/jscpd`), `forge_knip`, `forge_depcruise`, `forge_import_linter` and `forge_jscpd` run the project's own knip, dependency-cruiser, `lint-imports` and jscpd through their adapters, with the project's config, and read their machine-readable report (knip's codeclimate report, dependency-cruiser's JSON result, jscpd's JSON report, import-linter's text report with `COLUMNS` set so a chain is not wrapped). Forge pins none of them and writes no config of theirs: a project without the tool installed gets the `skipped` note and the check passes. They run only in the check stages (Stop, pre-commit, CI): their checks have no `{files}` form, so never after an edit. Each reports on the whole project, so its builtin attributes its findings itself (§10.4, `forge_check::builtins::whole`): a finding in or about a file the change touched counts (an import of a touched file, a cycle or an import chain through one, the other copy of a duplicate); knip and dependency-cruiser, whose findings can land in a file the change did not touch (an export or a file it left unused, a module it left an orphan), run a second time on the base tree, and only what that run did not report counts. An import chain or a duplicate the change made always holds a module or a copy it touched, so jscpd runs once, and import-linter too unless the report has an entry that names no import (below). What fails follows the project's config: knip's issue types at `error` and dependency-cruiser's rules of `error` severity fail, those at `warn` are advice at Stop, once per turn; every broken import-linter contract chain fails; jscpd's duplicates are advice, and fail when the config fails jscpd on them (`threshold` exceeded, or `exitCode`). An import-linter entry that names no import (an `acyclic_siblings` contract's package dependency, `.orders -> .billing (1 import)`) cannot be placed in a file: it counts when the change edited the contracts, in CI's full run, and otherwise when `lint-imports` run on the base tree did not report that dependency (compared without its import count); a base tree that cannot be made leaves a `not checked` note. `lint-imports` is a Python tool whose PyPI package is `import-linter`: a project that declares that package without installing it runs it through uv as §16.2 says.
+
 **Codes.** The audit of a `tool` target (§11) whose expected code has a history, on a project tool older than the code's `since`, is `unavailable`: `<code> needs <tool> ≥ <since>; this project has <version>`. It prints no snippet: a code the release does not know would break the project's config. The other codes of the same tool stay enforced.
 
 ### 16.4 Adapters
@@ -81,6 +83,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [biome](#biome) | the project's own | `biome --version` | `2.6.3` | exit 1, a line matching `^(flags/invalid\|Error: )` |  |
 | [bun](#bun) | `PATH` | `bun --version` | `1.4.4` | exit 1, a line matching `^error: bun [a-z]+ has no .* flag` |  |
 | [condor](#condor) | Forge's pin `0.3.0` | the pin | `0.3.0` | exit 2, a line matching `^condor: error: ` |  |
+| [depcruise](#depcruise) | the project's own | `dependency-cruiser`'s `package.json` | `18.7.2` | exit 1, a line matching `^error: (unknown option\|too many arguments\|option .* argument missing\|missing required argument)` |  |
 | [docker](#docker) | `PATH` | `docker compose version` | `5.6.1` | exit 1 or 16, a line matching `^unknown (shorthand )?flag: \|^invalid argument .+ flag\|^flag needs an argument` |  |
 | [editorconfig-checker](#editorconfig-checker) | Forge's pin `4.0.2` | the pin | `4.0.2` | exit 2, a line matching `^(flag provided but not defined: \|invalid (boolean )?value )` |  |
 | [eslint](#eslint) | the project's own | `eslint --version` | `10.13.0` | exit 2, a line matching `^Invalid (option .--\|value for option )` |  |
@@ -88,10 +91,14 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [graphql-codegen](#graphql-codegen) | the project's own | `@graphql-codegen/cli`'s `package.json` | `7.4.6` | none (no signature distinct from findings) |  |
 | [hadolint](#hadolint) | Forge's pin `2.15.1` | the pin | `2.15.1` | exit 1, a line matching `^(Invalid (option\|argument) \|option -.*: cannot parse value )` |  |
 | [helm](#helm) | `PATH` | `helm version --short` | `4.3.1` | exit 1, a line matching `^Error: (unknown (shorthand )?flag\|invalid argument .+ flag\|flag needs an argument)` |  |
+| [jest](#jest) | the project's own | `jest --version` | `30.5.2` | exit 1, a line matching `Unrecognized CLI Parameter` |  |
+| [jscpd](#jscpd) | the project's own | `jscpd`'s `package.json` | `5.4.3` | exit 1 or 2, a line matching `^error: (unknown option\|unexpected argument) ` |  |
+| [knip](#knip) | the project's own | `knip`'s `package.json` | `6.45.1` | exit 1, a line matching `^Unknown option '` |  |
 | [kube-linter](#kube-linter) | Forge's pin `0.8.3` | the pin | `0.8.3` | exit 1, a line matching `^Error: (unknown (shorthand )?flag\|unknown command\|invalid argument\|invalid format)` |  |
 | [kubeconform](#kubeconform) | Forge's pin `0.8.0` | the pin | `0.8.0` | exit 1, a line matching `^(flag provided but not defined: \|invalid (boolean )?value \|.outputFormat. must be )` |  |
 | [kubectl](#kubectl) | `PATH` | `kubectl version --client` | `1.37.2` | exit 1, a line matching `^[Ee]rror: (unknown (shorthand )?flag\|invalid argument .+ flag\|flag needs an argument\|specify one path to kustomization)` |  |
 | [kustomize](#kustomize) | `PATH` | `kustomize version` | `5.8.3` | exit 1, a line matching `^[Ee]rror: (unknown (shorthand )?flag\|invalid argument .+ flag\|flag needs an argument\|specify one path to kustomization)` | `kubectl` when `kustomize` is not on `PATH` |
+| [lint-imports](#lint-imports) | the project's own | `lint-imports --version` | `2.16` | exit 2, a line matching `^Try .[^ ]+ (-h\|--help). for help` |  |
 | [lockfile-lint](#lockfile-lint) | Forge's pin `5.1.0` | the pin | `5.1.0` | exit 1, a line matching `^Unable to find relevant lockfile parser for type ` |  |
 | [mikro-orm](#mikro-orm) | the project's own | `mikro-orm --version` | `7.2.5` | exit 1, a line matching `^Unknown arguments?: ` |  |
 | [ngc](#ngc) | the project's own | `@angular/compiler-cli`'s `package.json` | `22.2.3` | exit 1, a line matching `error.* TS(5023\|5025): .*Unknown compiler option .--\|error.* TS6044: ` |  |
@@ -125,7 +132,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [yarn](#yarn) | `PATH` | `yarn --version` | `4.18.1` | exit 1, a line matching `(Unknown Syntax Error\|Usage Error)` |  |
 | [zizmor](#zizmor) | Forge's pin `1.30.1` | the pin | `1.30.1` | exit 2, a line matching `^For more information, try .--help.` |  |
 
-51 adapters.
+56 adapters.
 
 #### actionlint
 
@@ -186,6 +193,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - 1.7.0 – 1.8.0: CHANGELOG_v1.md 1.7.0: `--reporter=json` and `--reporter=json-pretty`
 - 1.8.0 – 1.9.0: CHANGELOG_v1.md 1.8.0: new options `--write`, `--fix` and `--unsafe` (`--apply` deprecated, removed in 2.0.0)
 - 1.9.0 –: CHANGELOG_v1.md v1.9.0: `--max-diagnostics` accepts `none`
+- Codes: the history of 7 codes Forge's rules expect (§16.3).
 
 #### bun
 
@@ -194,6 +202,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | `lock` | cannot | cannot | `install --lockfile-only --ignore-scripts` |
 | `lock-check` | cannot | cannot | `install --frozen-lockfile --lockfile-only` |
 | `test-files` | cannot | `test` | `test` |
+| `text-lock` | cannot | cannot | `install --save-text-lockfile --frozen-lockfile --lockfile-only` |
 
 - 1.0.0 – 1.0.16: bun 1.0.0–1.0.15 binaries: bun test ./file runs 0 files, exit 0 (release notes silent; fixed in 1.0.16, bun.sh/blog/bun-v1.0.16)
 - 1.0.16 – 1.1.43: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.1.43 (--lockfile-only is new: before, bun install installs)
@@ -207,6 +216,14 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | `dead-code` | `--format json` |
 
 - 0.3.0 –: condor 0.3.0 (same JSON, kinds and exit codes as 0.2.0): condor --help; https://mde-pach.github.io/condor/ (exit codes); CHANGELOG.md
+
+#### depcruise
+
+| Operation | 16.0.0 – |
+|---|---|
+| `cruise-json` | `--output-type json --config {args}` |
+
+- 16.0.0 –: dependency-cruiser 16.0.0, 16.10.4, 17.0.0, 17.3.10, 18.7.2 (same JSON violations); 16.10 runs on Node.js 24
 
 #### docker
 
@@ -270,6 +287,32 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 
 - 3.0.0 –: github.com/helm/helm/releases/tag/v3.0.0 (template NAME CHART; -n is --namespace); v4.0.0 release notes (no change to lint/template invocations, verified)
 
+#### jest
+
+| Operation | 20.0.0 – |
+|---|---|
+| `test` | `` |
+| `test-changed` | `--onlyChanged` |
+
+- 20.0.0 –: jestjs.io/docs/cli (--onlyChanged); verified 20.0.4 to 30.5.2
+
+#### jscpd
+
+| Operation | 3.0.0 – |
+|---|---|
+| `duplicates-json` | `--reporters json --silent --output {args}` |
+
+- 3.0.0 –: jscpd 3.0.0, 3.5.10, 4.0.0, 4.3.0, 5.0.4, 5.4.3: the same json report (--reporters json --output)
+
+#### knip
+
+| Operation | 5.0.0 – 5.46.0 | 5.46.0 – |
+|---|---|---|
+| `unused` | cannot | `--reporter codeclimate --no-progress` |
+
+- 5.0.0 – 5.46.0: knip 5.46.0 dist/reporters/codeclimate.js (the codeclimate reporter is new; 5.45.0 cannot load it)
+- 5.46.0 –: knip 5.46.0 dist/reporters/codeclimate.js (severity major/minor from the issue type's rule); 6.0.0 prefixes descriptions
+
 #### kube-linter
 
 | Operation | 0.8.3 – |
@@ -301,6 +344,14 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | `build` | `build` |
 
 - 4.0.0 –: kubernetes CHANGELOG-1.21 (Kustomize Updates in Kubectl: v2.0.3 -> v4.0.5); github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv5.0.0
+
+#### lint-imports
+
+| Operation | 2.11 – |
+|---|---|
+| `lint` | `--no-cache` |
+
+- 2.11 –: import-linter docs/release_notes.md 2.11 (--version); verified 2.11 and 2.16
 
 #### lockfile-lint
 
@@ -616,4 +667,4 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 - §16.2: `crates/forge-check/src/adapters.rs (unit)` (`every_adapter_loads`, `ranges_and_ops`, `args_by_rank`, `versions`, `version_facts_drop_the_least_recently_used`), `crates/forge-check/tests/spec_adapters.rs::ranges_are_consecutive_and_name_every_operation`, `::caller_arguments_by_rank`.
 - §16.3: `crates/forge-check/tests/spec_adapters.rs` (`a_release_newer_than_proven_is_driven_as_the_newest_range`, `a_release_that_cannot_is_not_enforced_and_passes`, `a_usage_error_is_a_note_never_a_finding`, `an_absent_tool_is_skipped_with_a_note`), `crates/forge-cli/tests/check.rs::forge_do_drives_a_fake_tool_and_notes_what_it_cannot`. The `Tool versions` report lines: (no test of their text: `forge status` with stand-in tools is not covered here). The version facts cache: (no test).
 - §16.4: `crates/forge-check/tests/spec_adapters.rs::spec_16_tables_are_generated_from_the_adapters`.
-- Each adapter against real releases of its tool: (no test: the TypeScript Forge's opt-in release matrix was not ported; adapters are proven by the pack examples on the tools installed where the tests run, `crates/forge-cli/tests/check.rs::check_examples`). condor: `crates/forge-builtins-data/tests/dead_code.rs` runs `python/no-dead-code`'s examples on a stand-in (`tests/fake_condor.py`), and on the pinned cndr with `FORGE_REAL_CONDOR=1` (opt-in: it downloads through uvx); `::unused_imports_are_left_to_ruff_when_it_lints`; nesting and what blocks: `crates/forge-builtins-data/src/dead_code.rs` (unit).
+- Each adapter against real releases of its tool: (no test: the TypeScript Forge's opt-in release matrix was not ported; adapters are proven by the pack examples on the tools installed where the tests run, `crates/forge-cli/tests/check.rs::check_examples`). condor: `crates/forge-builtins-data/tests/dead_code.rs` runs `python/no-dead-code`'s examples on a stand-in (`tests/fake_condor.py`), and on the pinned cndr with `FORGE_REAL_CONDOR=1` (opt-in: it downloads through uvx); `::unused_imports_are_left_to_ruff_when_it_lints`; nesting and what blocks: `crates/forge-builtins-data/src/dead_code.rs` (unit). knip, dependency-cruiser, import-linter and jscpd: `crates/forge-builtins-code/tests/project_tools.rs` runs their rules' examples with the real tools installed in `FORGE_TEST_PROJECT_TOOLS` (opt-in), and without them checks each is skipped with a missing-tool note; their reports' parsing: `crates/forge-builtins-code/src/{knip,depcruise,import_linter,jscpd}.rs` (unit); attribution: `crates/forge-check/src/builtins/whole.rs` (unit).

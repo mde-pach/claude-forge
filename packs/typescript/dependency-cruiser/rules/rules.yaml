@@ -1,0 +1,49 @@
+id: typescript/dependency-cruiser/rules
+description: "The change keeps the import rules the project's dependency-cruiser config declares: a rule of `error` severity it breaks (an import the rule forbids, a cycle, an orphan it leaves) fails, one of `warn` severity is advice. Change the imports to follow the rule; the rules are the project's, so change them only if the user asks."
+scope: {language: any, files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.vue", "**/*.svelte", "**/package.json", "**/tsconfig*.json", ".dependency-cruiser.js", ".dependency-cruiser.cjs", ".dependency-cruiser.mjs", ".dependency-cruiser.json"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_depcruise"}
+examples:
+  match:
+    # a UI module now imports the database client, which the project's rule forbids
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"devDependencies\": {\n    \"dependency-cruiser\": \"18.7.2\",\n    \"typescript\": \"5.9.3\"\n  }\n}\n"
+        .dependency-cruiser.cjs: "module.exports = {\n  forbidden: [\n    {\n      name: \"ui-not-to-db\",\n      severity: \"error\",\n      comment: \"The UI reads data through the services, never the database client.\",\n      from: { path: \"^src/ui\" },\n      to: { path: \"^src/db\" },\n    },\n  ],\n  options: { doNotFollow: { path: \"node_modules\" }, tsPreCompilationDeps: true },\n};\n"
+        tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"
+        src/db/client.ts: "export const db = { query: (sql: string): string[] => [sql] };\n"
+        src/services/users.ts: "import { db } from \"../db/client\";\n\nexport function users(): string[] {\n  return db.query(\"select name from users\");\n}\n"
+        src/ui/page.ts: "import { users } from \"../services/users\";\n\nexport function render(): string {\n  return users().join(\", \");\n}\n"
+      files:
+        src/ui/page.ts: "import { db } from \"../db/client\";\n\nexport function render(): string {\n  return db.query(\"select name from users\").join(\", \");\n}\n"
+    # a new UI module importing the database client
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"devDependencies\": {\n    \"dependency-cruiser\": \"18.7.2\",\n    \"typescript\": \"5.9.3\"\n  }\n}\n"
+        .dependency-cruiser.cjs: "module.exports = {\n  forbidden: [\n    {\n      name: \"ui-not-to-db\",\n      severity: \"error\",\n      comment: \"The UI reads data through the services, never the database client.\",\n      from: { path: \"^src/ui\" },\n      to: { path: \"^src/db\" },\n    },\n  ],\n  options: { doNotFollow: { path: \"node_modules\" }, tsPreCompilationDeps: true },\n};\n"
+        tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"
+        src/db/client.ts: "export const db = { query: (sql: string): string[] => [sql] };\n"
+        src/services/users.ts: "import { db } from \"../db/client\";\n\nexport function users(): string[] {\n  return db.query(\"select name from users\");\n}\n"
+        src/ui/page.ts: "import { users } from \"../services/users\";\n\nexport function render(): string {\n  return users().join(\", \");\n}\n"
+      files:
+        src/ui/admin.ts: "import { db } from \"../db/client\";\n\nexport function wipe(): string[] {\n  return db.query(\"delete from users\");\n}\n"
+  no_match:
+    # a UI module importing through the services, as the rule allows
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"devDependencies\": {\n    \"dependency-cruiser\": \"18.7.2\",\n    \"typescript\": \"5.9.3\"\n  }\n}\n"
+        .dependency-cruiser.cjs: "module.exports = {\n  forbidden: [\n    {\n      name: \"ui-not-to-db\",\n      severity: \"error\",\n      comment: \"The UI reads data through the services, never the database client.\",\n      from: { path: \"^src/ui\" },\n      to: { path: \"^src/db\" },\n    },\n  ],\n  options: { doNotFollow: { path: \"node_modules\" }, tsPreCompilationDeps: true },\n};\n"
+        tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"
+        src/db/client.ts: "export const db = { query: (sql: string): string[] => [sql] };\n"
+        src/services/users.ts: "import { db } from \"../db/client\";\n\nexport function users(): string[] {\n  return db.query(\"select name from users\");\n}\n"
+        src/ui/page.ts: "import { users } from \"../services/users\";\n\nexport function render(): string {\n  return users().join(\", \");\n}\n"
+      files:
+        src/ui/list.ts: "import { users } from \"../services/users\";\n\nexport function count(): number {\n  return users().length;\n}\n"
+    # a forbidden import the base already had, in a file the change did not touch
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"devDependencies\": {\n    \"dependency-cruiser\": \"18.7.2\",\n    \"typescript\": \"5.9.3\"\n  }\n}\n"
+        .dependency-cruiser.cjs: "module.exports = {\n  forbidden: [\n    {\n      name: \"ui-not-to-db\",\n      severity: \"error\",\n      comment: \"The UI reads data through the services, never the database client.\",\n      from: { path: \"^src/ui\" },\n      to: { path: \"^src/db\" },\n    },\n  ],\n  options: { doNotFollow: { path: \"node_modules\" }, tsPreCompilationDeps: true },\n};\n"
+        tsconfig.json: "{\"compilerOptions\": {\"strict\": true, \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"target\": \"es2022\"}, \"include\": [\"src\"]}\n"
+        src/db/client.ts: "export const db = { query: (sql: string): string[] => [sql] };\n"
+        src/services/users.ts: "import { db } from \"../db/client\";\n\nexport function users(): string[] {\n  return db.query(\"select name from users\");\n}\n"
+        src/ui/page.ts: "import { users } from \"../services/users\";\n\nexport function render(): string {\n  return users().join(\", \");\n}\n"
+        src/ui/legacy.ts: "import { db } from \"../db/client\";\n\nexport const legacy = db;\n"
+      files:
+        src/services/users.ts: "import { db } from \"../db/client\";\n\nexport function users(): string[] {\n  return db.query(\"select name from users order by name\");\n}\n"

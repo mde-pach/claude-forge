@@ -117,6 +117,7 @@ files:
 | `generated-clients` | none | each `generator` block's `output` in the Prisma schema (relative to it) + `/**` |
 | `gunicorn-config` | `**/gunicorn.conf.py` | — |
 | `lockfiles` | `uv.lock`, `bun.lock`, `bun.lockb`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` | — |
+| `nextjs-public-endpoints` | none: set it in `forge.yaml` (Server Action files and route handlers that need no session, such as a newsletter sign-up) | — |
 | `prisma-migrations` | `prisma/migrations/**` | `package.json` `prisma.schema` (its directory) + `/migrations/**` |
 | `procfile` | `Procfile`, `Procfile.*` | — |
 | `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py` | pytest `testpaths` × `python_files` (default `test_*.py`, `*_test.py`), plus `**/conftest.py`; the options come from the first of `pytest.ini` `[pytest]`, `pyproject.toml` `[tool.pytest]` / `[tool.pytest.ini_options]`, `tox.ini` `[pytest]`, `setup.cfg` `[tool:pytest]` |

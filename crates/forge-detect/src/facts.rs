@@ -126,6 +126,14 @@ impl DepFacts {
             Ecosystem::Npm => (&self.npm, dep.name.clone()),
             Ecosystem::Pypi => (&self.pypi, norm_py(&dep.name)),
         };
+        // `@scope/*`: any package of an npm scope (`@testcontainers/postgresql`)
+        if dep.ecosystem == Ecosystem::Npm
+            && let Some(scope) = name.strip_suffix('*').filter(|s| s.ends_with('/'))
+        {
+            return map
+                .iter()
+                .any(|(k, v)| k.starts_with(scope) && satisfies(v, dep.version.as_deref()));
+        }
         map.get(&name)
             .is_some_and(|v| satisfies(v, dep.version.as_deref()))
     }

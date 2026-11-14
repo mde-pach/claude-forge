@@ -63,3 +63,41 @@ fn grep_examples() {
         failures.join("\n")
     );
 }
+
+/// Every built-in ruff target's snippet merges into the generated ruff.toml and selects the code
+/// the rule expects: `file_config` skips a snippet it cannot parse, so a broken one would leave
+/// its rule unenforced without a word.
+#[test]
+fn ruff_snippets_select_their_codes() {
+    use forge_packs::model::{AuditedTool, Target};
+    let mut checked = 0;
+    for rule in rules() {
+        for t in &rule.enforce {
+            let Target::Tool(t) = t else { continue };
+            if t.tool != AuditedTool::Ruff {
+                continue;
+            }
+            let text = forge_check::ruff_config::file_config(
+                "[lint]\nselect = []\n",
+                [t.snippet.as_str()],
+            )
+            .unwrap_or_else(|| panic!("{}: the template did not parse", rule.id));
+            let config: toml::Table = text.parse().unwrap();
+            let select: Vec<&str> = config["lint"]["select"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|v| v.as_str())
+                .collect();
+            assert!(
+                select.iter().any(|c| t.expects.starts_with(c)),
+                "{}: its snippet does not select {} (got {select:?}): {}",
+                rule.id,
+                t.expects,
+                t.snippet
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked > 100, "{checked} ruff targets");
+}

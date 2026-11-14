@@ -1,0 +1,13 @@
+id: python/url-open-scheme
+description: "No urllib.request.urlopen (or Request) on a URL the code does not control: it also opens file:// and custom schemes. Check the scheme first, or use an HTTP client."
+scope: {language: python, files: ["**/*.py", "!@python-tests"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S310
+    snippet: "[tool.ruff.lint] extend-select = [\"S310\"]\n[tool.ruff.lint.per-file-ignores] \"tests/**\" = [\"S310\"]"
+examples:
+  match:
+    - "from urllib.request import urlopen\n\n\ndef fetch(url: str) -> bytes:\n    with urlopen(url) as r:\n        return r.read()\n"
+  no_match:
+    - "import httpx\n\n\ndef fetch(url: str) -> bytes:\n    if not url.startswith(\"https://\"):\n        raise ValueError(f\"not an https URL: {url}\")\n    return httpx.get(url, timeout=10).content\n"

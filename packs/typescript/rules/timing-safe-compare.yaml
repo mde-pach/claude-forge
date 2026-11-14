@@ -1,0 +1,87 @@
+id: typescript/timing-safe-compare
+description: "A signature, HMAC, digest, token, secret or API key is compared in constant time, not with === or !==, which stops at the first differing character and leaks it through timing: use crypto.timingSafeEqual on equal-length buffers (or compare digests of both values)."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      secret-value:
+        any:
+          - {kind: identifier, regex: "(?i)(signature|hmac|digest|token|secret|api_?key)$"}
+          - {kind: member_expression, has: {field: property, regex: "(?i)(signature|hmac|digest|token|secret|api_?key)$"}}
+          - {kind: subscript_expression, has: {field: index, kind: string, regex: "(?i)(signature|hmac|digest|token|secret|api_?key)[\"']$"}}
+          - {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^digest$"}}}
+      # a presence, type or length check, not a comparison of two secrets
+      trivial:
+        any:
+          - {kind: string}
+          - {kind: number}
+          - {kind: "null"}
+          - {kind: undefined}
+          - {kind: "true"}
+          - {kind: "false"}
+          - {kind: template_string, not: {has: {kind: template_substitution}}}
+          - {kind: unary_expression}
+          - {kind: member_expression, has: {field: property, regex: "^length$"}}
+    rule:
+      kind: binary_expression
+      has: {field: operator, regex: "^[!=]==?$"}
+      any:
+        - has: {field: left, matches: secret-value}
+        - has: {field: right, matches: secret-value}
+      not:
+        any:
+          - has: {field: left, matches: trivial}
+          - has: {field: right, matches: trivial}
+examples:
+  match:
+    - |
+      import { createHmac } from "node:crypto";
+
+      export function verifyWebhook(body: string, signature: string, secret: string): boolean {
+        const expected = createHmac("sha256", secret).update(body).digest("hex");
+        return expected === signature;
+      }
+    - |
+      export function authorize(req: Request): boolean {
+        return req.headers.get("x-api-key") !== null && req.headers.get("x-api-key") === process.env.apiKey;
+      }
+    - |
+      import { createHash } from "node:crypto";
+
+      export async function consumeReset(id: string, token: string) {
+        const row = await db.reset.findUnique({ where: { id } });
+        if (!row || row.tokenHash !== createHash("sha256").update(token).digest("hex")) {
+          throw new Error("invalid reset link");
+        }
+      }
+    - |
+      export function checkHeader(headers: Record<string, string>, expected: string): boolean {
+        return headers["x-hub-signature"] == expected;
+      }
+  no_match:
+    - |
+      import { createHmac, timingSafeEqual } from "node:crypto";
+
+      export function verifyWebhook(body: string, signature: string, secret: string): boolean {
+        const expected = Buffer.from(createHmac("sha256", secret).update(body).digest("hex"));
+        const given = Buffer.from(signature);
+        return expected.length === given.length && timingSafeEqual(expected, given);
+      }
+    - |
+      export function bearer(header: string | undefined): string | null {
+        const token = header?.replace(/^Bearer /, "");
+        if (token === undefined || token === "") return null;
+        if (typeof token !== "string") return null;
+        return token;
+      }
+    - |
+      export function parse(tokens: Token[], i: number) {
+        const token = tokens[i];
+        if (token.type === "comma") return null;
+        return token.value;
+      }
+    - |
+      export function sameUser(a: User, b: User): boolean {
+        return a.id === b.id && a.tokenCount === b.tokenCount;
+      }

@@ -53,6 +53,33 @@ fn git(repo: &Path, args: &[&str]) {
     );
 }
 
+/// The package managers, refusing to add a dependency (the test setup apply offers would download
+/// it): their other commands run the real one, where it is installed.
+fn no_dev_dependencies(bin: &Path) {
+    for pm in [
+        "uv", "bun", "npm", "pnpm", "yarn", "poetry", "pdm", "pipenv",
+    ] {
+        let real = std::env::var("PATH")
+            .unwrap_or_default()
+            .split(':')
+            .map(|d| Path::new(d).join(pm))
+            .find(|p| p.is_file());
+        let run = real.map_or("exit 127".to_string(), |r| {
+            format!("exec '{}' \"$@\"", r.display())
+        });
+        let body = format!(
+            "#!/bin/sh\ncase \"$1 $2\" in add\\ *|'install --save-dev'|'install --dev') echo 'no downloads in tests' >&2; exit 1 ;; esac\n{run}\n"
+        );
+        let f = bin.join(pm);
+        std::fs::write(&f, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+}
+
 impl Sandbox {
     fn new(sample: &str) -> Sandbox {
         Self::with_claude(sample, "2.1.300")
@@ -76,6 +103,7 @@ impl Sandbox {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
+        no_dev_dependencies(&bin);
         let home = tmp.path().join("home");
         let forge_home = tmp.path().join("forge-home");
         std::fs::create_dir_all(&home).unwrap();
@@ -89,6 +117,10 @@ impl Sandbox {
     }
 
     fn forge(&self, args: &[&str]) -> Output {
+        self.forge_with(args, &[])
+    }
+
+    fn forge_with(&self, args: &[&str], env: &[(&str, &str)]) -> Output {
         let path = format!(
             "{}:{}",
             self.bin.display(),
@@ -108,6 +140,7 @@ impl Sandbox {
             .env_remove("CLAUDE_PROJECT_DIR")
             .env_remove("FORGE_LAUNCHED_VERSION")
             .env("GIT_CONFIG_NOSYSTEM", "1")
+            .envs(env.iter().copied())
             .stdin(Stdio::null())
             .output()
             .unwrap()
@@ -381,4 +414,65 @@ fn migration_keeps_a_modified_old_file_without_force() {
     assert!(s.read(".forge/check.sh").is_some());
     s.ok(&["apply", "--yes", "--force"]);
     assert!(s.read(".forge/check.sh").is_none());
+}
+
+/// A project whose tests use Testcontainers: its sandbox entries go to this machine's settings
+/// file, shown and never in the shared one (§7.2). On macOS, the Docker socket found here and
+/// the containers' ports; on Linux, the test commands Claude Code runs outside its sandbox, with
+/// the note saying so.
+#[test]
+fn testcontainers_sandbox_entries_go_to_the_local_settings() {
+    let s = Sandbox::new("fastapi-app");
+    let py = s.read("pyproject.toml").unwrap().replace(
+        "dev = [\"pytest>=8.3\", \"ruff>=0.8\"]",
+        "dev = [\"pytest>=8.3\", \"ruff>=0.8\", \"testcontainers[postgres]>=4.10\"]",
+    );
+    s.write("pyproject.toml", &py);
+    let out = s.forge_with(
+        &["apply", "--yes"],
+        &[("DOCKER_HOST", "unix:///run/user/1000/docker.sock")],
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let local_shown =
+        "forge: .claude/settings.local.json (this machine's settings, not committed):";
+    let linux_note = "Claude Code's sandbox on Linux cannot reach Docker's containers";
+    if cfg!(target_os = "linux") {
+        // no sandbox entry is written there: no local settings file, the limit is stated
+        let local: serde_json::Value = s
+            .read(".claude/settings.local.json")
+            .map(|t| serde_json::from_str(&t).unwrap())
+            .unwrap_or_default();
+        assert!(local.get("sandbox").is_none(), "{local}");
+        assert!(!stdout.contains(local_shown), "{stdout}");
+        assert!(stdout.contains(linux_note), "{stdout}");
+    } else if cfg!(target_os = "macos") {
+        assert!(stdout.contains(local_shown), "{stdout}");
+        let local: serde_json::Value =
+            serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
+        assert_eq!(
+            local["sandbox"],
+            serde_json::json!({"network": {
+                "allowUnixSockets": ["/run/user/1000/docker.sock"],
+                "allowLocalBinding": true
+            }})
+        );
+        assert!(!stdout.contains(linux_note), "{stdout}");
+    }
+    assert!(!s.read(".claude/settings.json").unwrap().contains("sandbox"));
+    assert!(
+        s.read("forge.lock")
+            .unwrap()
+            .contains("testcontainers/sandbox-docker")
+    );
+    // the same machine: nothing to change
+    let again = s.forge_with(
+        &["apply", "--yes"],
+        &[("DOCKER_HOST", "unix:///run/user/1000/docker.sock")],
+    );
+    assert!(String::from_utf8_lossy(&again.stdout).contains("forge: up to date"));
 }

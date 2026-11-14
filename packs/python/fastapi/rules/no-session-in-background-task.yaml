@@ -1,0 +1,108 @@
+id: python/fastapi/no-session-in-background-task
+description: "A background task does not receive the request's SQLAlchemy session (background_tasks.add_task(fn, ..., db)): the session belongs to the request's dependency, which may close it before the task runs or hold its connection through the task. Pass ids and open a new session inside the task function."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      pattern: $S
+      all:
+        - any: [{kind: identifier}, {kind: attribute}]
+        - any:
+            - inside: {kind: argument_list, inside: {kind: call, pattern: "$BT.add_task($$$)"}}
+            - inside: {kind: keyword_argument, field: value, inside: {kind: argument_list, inside: {kind: call, pattern: "$BT.add_task($$$)"}}}
+    # FastAPI's BackgroundTasks derives from Starlette's
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, AsyncSession, scoped_session, async_scoped_session]}}
+      BT: {type: {package: starlette, name: BackgroundTasks}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}, {ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - |
+      from collections.abc import Iterator
+      from typing import Annotated
+
+      from fastapi import BackgroundTasks, Depends, FastAPI
+      from sqlalchemy import create_engine, text
+      from sqlalchemy.orm import Session
+
+      engine = create_engine("sqlite://")
+      app = FastAPI()
+
+
+      def get_db() -> Iterator[Session]:
+          with Session(engine) as session:
+              yield session
+
+
+      def audit(db: Session, order_id: int) -> None:
+          db.execute(text("INSERT INTO audit (order_id) VALUES (:id)"), {"id": order_id})
+          db.commit()
+
+
+      @app.post("/orders/{order_id}/pay")
+      def pay(order_id: int, background_tasks: BackgroundTasks, db: Annotated[Session, Depends(get_db)]) -> dict[str, int]:
+          background_tasks.add_task(audit, db, order_id)
+          return {"id": order_id}
+    - |
+      from collections.abc import AsyncIterator
+      from typing import Annotated
+
+      from fastapi import BackgroundTasks, Depends, FastAPI
+      from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+      SessionLocal = async_sessionmaker(create_async_engine("sqlite+aiosqlite://"), expire_on_commit=False)
+      app = FastAPI()
+
+
+      async def get_db() -> AsyncIterator[AsyncSession]:
+          async with SessionLocal() as session:
+              yield session
+
+
+      async def notify(user_id: int, session: AsyncSession) -> None:
+          await session.commit()
+
+
+      @app.post("/users/{user_id}/notify")
+      async def send(user_id: int, tasks: BackgroundTasks, session: Annotated[AsyncSession, Depends(get_db)]) -> None:
+          tasks.add_task(notify, user_id, session=session)
+  no_match:
+    - |
+      from collections.abc import Iterator
+      from typing import Annotated
+
+      from fastapi import BackgroundTasks, Depends, FastAPI
+      from sqlalchemy import create_engine, text
+      from sqlalchemy.orm import Session
+
+      engine = create_engine("sqlite://")
+      app = FastAPI()
+
+
+      def get_db() -> Iterator[Session]:
+          with Session(engine) as session:
+              yield session
+
+
+      def audit(order_id: int) -> None:
+          with Session(engine) as db:
+              db.execute(text("INSERT INTO audit (order_id) VALUES (:id)"), {"id": order_id})
+              db.commit()
+
+
+      @app.post("/orders/{order_id}/pay")
+      def pay(order_id: int, background_tasks: BackgroundTasks, db: Annotated[Session, Depends(get_db)]) -> dict[str, int]:
+          background_tasks.add_task(audit, order_id)
+          return {"id": order_id}
+    - |
+      from sqlalchemy.orm import Session
+
+
+      class Scheduler:
+          def add_task(self, fn: object, *args: object) -> None:
+              pass
+
+
+      def plan(scheduler: Scheduler, db: Session) -> None:
+          scheduler.add_task(print, db)

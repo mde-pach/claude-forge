@@ -75,7 +75,9 @@ pub struct CodeHistory {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Codes {
-    pub op: String,
+    /// The operation that lists the installed release's rules, for a tool that has one.
+    #[serde(default)]
+    pub op: Option<String>,
     pub history: BTreeMap<String, CodeHistory>,
 }
 
@@ -897,7 +899,7 @@ mod tests {
     #[test]
     fn every_adapter_loads() {
         let all = Adapter::all().unwrap();
-        assert_eq!(all.len(), 51);
+        assert_eq!(all.len(), 56);
         for a in &all {
             assert!(!a.ranges.is_empty(), "{}", a.tool);
             // oldest first, without gaps

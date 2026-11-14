@@ -1,0 +1,31 @@
+id: typescript/no-blind-throws
+description: "An assertion that code throws names what it expects (toThrow(NotFound), toThrow(/missing/), assert.throws(fn, NotFound)): a bare toThrow(), toThrow(Error) or assert.throws(fn) also passes when the code crashes for another reason (a TypeError from a typo)."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      any:
+        # expect(f).toThrow(), expect(p).rejects.toThrowError(Error); not .not.toThrow()
+        - all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                  - has: {field: property, regex: "^toThrow(Error)?$"}
+                  - not: {has: {field: object, kind: member_expression, has: {field: property, regex: "^not$"}}}
+            - has: {field: arguments, regex: "^\\((Error)?\\)$"}
+        # assert.throws(fn), assert.rejects(p)
+        - all:
+            - has: {field: function, regex: "^(assert|[A-Za-z_$][A-Za-z0-9_$]*\\.assert)\\.(throws|rejects)$"}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+examples:
+  match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects\", () => {\n  expect(() => parse(\"\")).toThrow();\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects\", async () => {\n  await expect(load(\"x\")).rejects.toThrow(Error);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\n\ntest(\"rejects\", () => {\n  assert.throws(() => parse(\"\"));\n});\n"
+  no_match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects\", () => {\n  expect(() => parse(\"\")).toThrow(ParseError);\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"parses\", () => {\n  expect(() => parse(\"1\")).not.toThrow();\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\n\ntest(\"rejects\", () => {\n  assert.throws(() => parse(\"\"), /empty/);\n});\n"

@@ -30,8 +30,8 @@ Only the text outside the generated markers of this file is written by hand.
 | Root pack | Level | Packs | Rules |
 |---|---|---|---|
 | [ai-models](ai-models.md) | project | 1 | 2 |
-| [code](code.md) | project | 1 | 0 |
-| [docker](docker.md) | project | 2 | 23 |
+| [code](code.md) | project | 2 | 2 |
+| [docker](docker.md) | project | 2 | 25 |
 | [docs](docs.md) | project | 1 | 2 |
 | [git](git.md) | project | 1 | 5 |
 | [github-actions](github-actions.md) | project | 1 | 5 |
@@ -39,17 +39,18 @@ Only the text outside the generated markers of this file is written by hand.
 | [kubernetes](kubernetes.md) | project | 3 | 7 |
 | [openapi](openapi.md) | project | 1 | 3 |
 | [pre-commit](pre-commit.md) | project | 1 | 1 |
-| [python](python.md) | project | 52 | 256 |
+| [python](python.md) | project | 53 | 292 |
 | [release](release.md) | project | 1 | 3 |
 | [safety](safety.md) | user | 1 | 35 |
 | [secrets](secrets.md) | project | 1 | 3 |
 | [sql](sql.md) | project | 1 | 3 |
 | [supply-chain](supply-chain.md) | project | 1 | 9 |
 | [terraform](terraform.md) | project | 1 | 8 |
+| [testcontainers](testcontainers.md) | project | 1 | 1 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
-| [typescript](typescript.md) | project | 75 | 314 |
+| [typescript](typescript.md) | project | 78 | 433 |
 
-147 packs, 686 rules.
+153 packs, 846 rules.
 <!-- /generated:packs -->
 
 ### Tests

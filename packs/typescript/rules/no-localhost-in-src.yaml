@@ -1,0 +1,20 @@
+id: typescript/no-localhost-in-src
+description: "Application code does not hard-code a localhost URL (http://localhost:3000, http://127.0.0.1:8000, redis://localhost:6379), not even as a fallback (?? \"http://localhost:3000\"): read it from the environment or the project's config module, so the code works where it is deployed. Tests, config files and scripts may use one."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests", "!**/*.config.*", "!**/config.*", "!**/config/**", "!**/env.*", "!scripts/**", "!**/scripts/**", "!**/__mocks__/**", "!**/mocks/**", "!**/fixtures/**", "!**/*.stories.*", "!docs/**", "!examples/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: string}, {kind: template_string}]
+      regex: "(?i)\\b(https?|wss?|postgres(ql)?|mysql|redis|mongodb|amqp)://([^/@\\s\"'`]*@)?(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)([:/\"'`]|$)"
+examples:
+  match:
+    - "export const api = \"http://localhost:8000/api\";\n"
+    - "const base = process.env.API_URL ?? \"http://localhost:3000\";\n"
+    - "const ws = new WebSocket(`ws://127.0.0.1:${port}/live`);\n"
+    - "const redis = createClient({ url: \"redis://localhost:6379\" });\n"
+  no_match:
+    - "const base = process.env.API_URL;\n"
+    - "// against http://localhost:3000 in development\nconst base = env.API_URL;\n"
+    - "app.listen(3000, \"localhost\");\n"
+    - "const site = \"https://localhost-tools.example.com\";\n"

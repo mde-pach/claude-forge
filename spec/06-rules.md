@@ -53,9 +53,9 @@ Each `enforce` entry has a `target` kind and the fields of that kind. Unknown fi
 | `check` | see below | the checker runs the command (§10) |
 | `guard` | `decision: deny \| ask`, `command` and/or `check`, `reason` (optional) | the PreToolUse hook on Bash commands (§9) |
 | `permission` | `decision: deny \| ask`, `rule` (a Claude Code permission rule, `Tool` or `Tool(specifier)`) | an entry in the settings file's `permissions.<decision>` (§7) |
-| `sandbox` | `path` (a dotted key under `sandbox`), `value` | an entry in `~/.claude/settings.json` `sandbox` (§7); user level only |
+| `sandbox` | `path` (a dotted key under `sandbox`), `value`, optional `os` (`macos` or `linux`: only where Claude Code's sandbox runs on that system) | an entry under `sandbox`: in `~/.claude/settings.json` at user level, in `.claude/settings.local.json` at project level (§7.2) |
 
-`ast-grep`, `grep` and `check` targets are project level only; `sandbox` targets are user level only. A target used at the wrong level is skipped with a warning. A rule has at most one `ast-grep` target.
+`ast-grep`, `grep` and `check` targets are project level only. A target used at the wrong level is skipped with a warning. A rule has at most one `ast-grep` target.
 
 **Modes** (`ast-grep` and `grep`):
 
@@ -67,6 +67,8 @@ Each `enforce` entry has a `target` kind and the fields of that kind. Unknown fi
 The agent reads a match as `<path>:<line> <description>`; an `advise` match as `<path>:<line> Advice: <description>`. The `Advice: ` prefix comes from the mode: a description does not write it.
 
 `grep` targets are for text ast-grep does not parse: configuration, comments. Counts are matching lines per file. A grep target never reads documentation or prose files (`*.md`, `*.mdx`, `*.rst`, `*.markdown`, `*.adoc`, `docs/**`, `doc/**`, `README*`, `CHANGELOG*`, at any depth), whatever its scope.
+
+A rule has at most one `ast-grep` target and at most one `grep` target: a pattern needing another mode or another language is another rule. Loading rejects a second one (`invalid rule: 2 grep targets; a rule has at most one`).
 
 **Tool targets and their stand-in.** A `tool` target is audited where its tool is configured (§11). An `ast-grep` target in the same rule stands in for it: it is used only when none of the rule's `tool` targets has its tool configured, and no active pack switched that diagnostic off (§5 `tool_off`). Where the tool is configured, the ast-grep target is not run.
 

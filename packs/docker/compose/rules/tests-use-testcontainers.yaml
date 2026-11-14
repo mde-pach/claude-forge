@@ -1,0 +1,49 @@
+id: docker/compose/tests-use-testcontainers
+description: "Tests start the third-party services they need (a compose service run from someone else's image: database, broker, cache) with Testcontainers, declared as a test dependency and imported by the test suite (a test file, conftest.py or a vitest/jest/bun setup file), so they do not depend on a compose stack someone left running. Advisory: checked at Stop when the turn touched test files; it blocks once per turn."
+scope: {language: any, files: ["@python-tests", "@ts-tests"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_advise forge_testcontainers_advice"}
+examples:
+  match:
+    - head:
+        compose.yaml: "services:\n  api:\n    build: .\n    depends_on:\n      db:\n        condition: service_healthy\n  db:\n    image: postgres:17\n    healthcheck:\n      test: [\"CMD\", \"pg_isready\"]\n"
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"psycopg>=3.2\"]\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n"
+        app/orders.py: "import psycopg\n\n\ndef count(conn: psycopg.Connection) -> int:\n    return conn.execute(\"select count(*) from orders\").fetchone()[0]\n"
+      files:
+        tests/test_orders.py: "import os\n\nimport psycopg\n\nfrom app.orders import count\n\n\ndef test_count():\n    with psycopg.connect(os.environ[\"DATABASE_URL\"]) as conn:\n        assert count(conn) == 0\n"
+    - head:
+        docker-compose.yml: "services:\n  cache:\n    image: redis:7.4\n  proxy:\n    image: nginx:1.27\n"
+        package.json: "{\n  \"name\": \"web\",\n  \"type\": \"module\",\n  \"dependencies\": {\"ioredis\": \"^5.4.1\"},\n  \"devDependencies\": {\"vitest\": \"^3.2.4\", \"@testcontainers/redis\": \"^11.5.1\"}\n}\n"
+        src/cache.ts: "import { Redis } from \"ioredis\";\n\nexport const remember = (r: Redis, k: string, v: string) => r.set(k, v);\n"
+      files:
+        src/cache.test.ts: "import { Redis } from \"ioredis\";\nimport { expect, it } from \"vitest\";\nimport { remember } from \"./cache\";\n\nit(\"remembers\", async () => {\n  const r = new Redis(\"redis://localhost:6379\");\n  await remember(r, \"a\", \"1\");\n  expect(await r.get(\"a\")).toBe(\"1\");\n});\n"
+  no_match:
+    - head:
+        compose.yaml: "services:\n  db:\n    image: postgres:17\n"
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\ndependencies = [\"psycopg>=3.2\"]\n\n[dependency-groups]\ndev = [\"pytest>=8.3\", \"testcontainers[postgres]>=4.10\"]\n"
+        tests/conftest.py: "import psycopg\nimport pytest\nfrom testcontainers.postgres import PostgresContainer\n\n\n@pytest.fixture(scope=\"session\")\ndef conn():\n    with PostgresContainer(\"postgres:17\", driver=None) as pg:\n        with psycopg.connect(pg.get_connection_url()) as c:\n            yield c\n"
+      files:
+        tests/test_orders.py: "from app.orders import count\n\n\ndef test_count(conn):\n    assert count(conn) == 0\n"
+    - head:
+        compose.yaml: "services:\n  api:\n    build: .\n    image: acme/api:dev\n  proxy:\n    image: traefik:v3.1\n  dashboards:\n    image: grafana/grafana:11.2.0\n  traces:\n    image: jaegertracing/all-in-one:1.60\n"
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n"
+      files:
+        tests/test_prices.py: "def test_round():\n    assert round(2.5) == 2\n"
+    - head:
+        compose.yaml: "services:\n  mock-api:\n    image: wiremock/wiremock:3.9.1\n"
+        forge.yaml: "forge: \"0.6\"\ndocker:\n  compose:\n    not-dependencies: [mock-api]\n"
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n"
+      files:
+        tests/test_prices.py: "def test_round():\n    assert round(2.5) == 2\n"
+    - head:
+        compose.yaml: "services:\n  cache:\n    image: redis:7.4\n"
+        package.json: "{\n  \"name\": \"web\",\n  \"type\": \"module\",\n  \"devDependencies\": {\"vitest\": \"^3.2.4\", \"@testcontainers/redis\": \"^11.5.1\"}\n}\n"
+        vitest.setup.ts: "import { RedisContainer } from \"@testcontainers/redis\";\n\nexport async function setup() {\n  const redis = await new RedisContainer(\"redis:7.4\").start();\n  process.env.REDIS_URL = redis.getConnectionUrl();\n  return () => redis.stop();\n}\n"
+      files:
+        src/cache.test.ts: "import { Redis } from \"ioredis\";\nimport { expect, it } from \"vitest\";\n\nit(\"remembers\", async () => {\n  const r = new Redis(process.env.REDIS_URL!);\n  await r.set(\"a\", \"1\");\n  expect(await r.get(\"a\")).toBe(\"1\");\n});\n"
+    - head:
+        compose.yaml: "services:\n  db:\n    image: postgres:17\n"
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n"
+        tests/test_orders.py: "def test_count():\n    assert 1 == 1\n"
+      files:
+        app/orders.py: "def count() -> int:\n    return 0\n"

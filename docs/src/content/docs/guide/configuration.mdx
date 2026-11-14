@@ -24,6 +24,16 @@ A rule you don't want is disabled with a reason.
 
 `accept` answers the config ratchet (`python/config-ratchet`, `typescript/config-ratchet`): when a tool config is loosened (a lint rule lowered, a strict flag removed, a path excluded, a coverage threshold lowered), the check fails at Stop, at pre-commit and in CI with one line per setting. Copying that line into `accept` with a reason records the change as deliberate. The file format is in [Schemas](../../reference/schemas/#forge).
 
+### Compose services that are not test dependencies
+
+`docker/compose/tests-use-testcontainers` advises starting each third-party service of a compose file (a service run from someone else's image, with no `build:`) with Testcontainers in the tests. Reverse proxies, admin UIs and observability images (nginx, Traefik, pgAdmin, Grafana, Jaeger, …) are not counted. A service of your own that no test depends on is named here:
+
+```yaml
+docker:
+  compose:
+    not-dependencies: [mock-api, mailpit]
+```
+
 ## File roles
 
 Rules name the files they are about by role (`@python-tests`, `@alembic-migrations`, `@dockerfile`, …), never by globs of their own. A role starts from Forge's defaults, which the tool's own config replaces when Forge can read it as data: pytest's `testpaths` and `python_files`, `alembic.ini`'s `script_location`, `schema.prisma`'s generator `output`. Code configs (`vitest.config.ts`, …) are never run, so a layout they set goes in `forge.yaml`:

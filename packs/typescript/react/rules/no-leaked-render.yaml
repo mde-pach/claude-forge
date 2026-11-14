@@ -1,0 +1,35 @@
+id: typescript/react/no-leaked-render
+description: "No {items.length && <X />} in JSX: when the length is 0, React renders the 0 (and React Native crashes on it). Compare instead: {items.length > 0 && <X />}, or use a ternary."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: jsx_expression
+      # a prop value ({show={a.length && b}}) is not rendered
+      not: {inside: {kind: jsx_attribute}}
+      has:
+        any:
+          - matches: leaky-and
+          - {kind: parenthesized_expression, has: {matches: leaky-and}}
+    utils:
+      # `.length` is a number: the leftmost operand of an && chain is what renders when falsy
+      length-first:
+        any:
+          - {kind: member_expression, has: {field: property, regex: "^length$"}}
+          - {kind: parenthesized_expression, has: {matches: length-first}}
+          - {kind: binary_expression, pattern: "$A && $B", has: {field: left, matches: length-first}}
+      leaky-and:
+        kind: binary_expression
+        pattern: "$L && $R"
+        has: {field: left, matches: length-first}
+examples:
+  match:
+    - "export function Cart({ items }: { items: { id: string; name: string }[] }) {\n  return <section>{items.length && <ul>{items.map((i) => <li key={i.id}>{i.name}</li>)}</ul>}</section>;\n}\n"
+    - "export function Badge({ unread, show }: { unread: string[]; show: boolean }) {\n  return (\n    <div>\n      {unread.length && show && <span className=\"badge\">{unread.length}</span>}\n    </div>\n  );\n}\n"
+    - "export function Tags({ tags }: { tags: string[] }) {\n  return (\n    <footer>\n      {(tags.length && (\n        <p>{tags.join(\", \")}</p>\n      ))}\n    </footer>\n  );\n}\n"
+  no_match:
+    - "export function Cart({ items }: { items: { id: string; name: string }[] }) {\n  return <section>{items.length > 0 && <ul>{items.map((i) => <li key={i.id}>{i.name}</li>)}</ul>}</section>;\n}\n"
+    - "export function Badge({ unread }: { unread: string[] }) {\n  return <div>{!!unread.length && <span>{unread.length}</span>}{unread.length ? <em>new</em> : null}</div>;\n}\n"
+    - "export function Badge({ unread, show }: { unread: string[]; show: boolean }) {\n  return <div>{show && unread.length > 0 && <span>{unread.length}</span>}</div>;\n}\n"
+    - "import { Panel } from \"./panel\";\n\nexport function Results({ rows }: { rows: string[] }) {\n  const ok = rows.length && rows[0] !== \"\";\n  return <Panel open={rows.length && ok} title=\"Results\" />;\n}\n"

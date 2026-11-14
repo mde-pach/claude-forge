@@ -1,0 +1,12 @@
+id: typescript/vitest/setup-ratchet
+description: "Vitest's config keeps what makes hidden test problems fail: a changed config may not drop the no-network setup file from test.setupFiles or turn off test.sequence.shuffle (random test order). Fix the test that depends on the network or the order; turning either off is the user's decision: ask them."
+scope: {language: any, files: ["**/vitest.config.*", "**/vite.config.*"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "no-network\\.[cm]?[jt]s|shuffle:[[:space:]]*true"
+examples:
+  match:
+    - "import { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n  test: {\n    setupFiles: [\"./test/no-network.ts\"],\n    sequence: { shuffle: true },\n  },\n});\n"
+  no_match:
+    - "import { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n  test: {\n    setupFiles: [\"./test/setup.ts\"],\n    sequence: { shuffle: false },\n  },\n});\n"

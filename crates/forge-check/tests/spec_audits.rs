@@ -133,6 +133,36 @@ fn the_installed_release_decides_first() {
     );
 }
 
+/// Biome's code history names a category by its group: a nursery rule newer than the project's
+/// Biome is `unavailable`, never a snippet its config would reject.
+#[test]
+fn a_biome_rule_newer_than_the_release_is_unavailable() {
+    home();
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("biome.json"), "{}\n").unwrap();
+    exe(
+        d.path(),
+        "node_modules/.bin/biome",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'Version: 2.0.6'; exit 0 ;; esac\nexit 0\n",
+    );
+    let a = audit(
+        d.path(),
+        &rule(
+            "biome",
+            "lint/nursery/noMisusedPromises",
+            "typescript",
+            "if (p()) {}",
+            "x",
+        ),
+    );
+    assert_eq!(a.status, AuditStatus::Unavailable, "{a:?}");
+    assert_eq!(
+        a.detail.as_deref(),
+        Some("lint/nursery/noMisusedPromises needs biome ≥ 2.1.0; this project has 2.0.6")
+    );
+    assert!(a.snippet.is_none());
+}
+
 /// A configured tool that is not installed is skipped, never satisfied.
 #[test]
 fn a_tool_not_installed_is_skipped() {
@@ -169,6 +199,43 @@ fn a_tool_not_installed_is_skipped() {
         "{:?}",
         a.detail
     );
+}
+
+/// A fixture of several files is written together, its paths kept under a directory of its own,
+/// and the tool runs on all of them: an import cycle needs both modules on disk.
+#[test]
+fn a_fixture_of_several_files_runs_together() {
+    home();
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("biome.json"), "{}\n").unwrap();
+    // reports the cycle when it is given both modules and each imports the other
+    exe(
+        d.path(),
+        "node_modules/.bin/biome",
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'Version: 2.6.3'; exit 0 ;; esac\nshift\nn=0; c=0\nfor f; do case \"$f\" in *.ts) n=$((n+1)); grep -q 'from \"./' \"$f\" && c=$((c+1)) ;; esac; done\nif [ $n -eq 2 ] && [ $c -eq 2 ]; then echo '{\"diagnostics\": [{\"category\": \"lint/suspicious/noImportCycles\", \"severity\": \"error\"}]}'; else echo '{\"diagnostics\": []}'; fi\n",
+    );
+    let r: Rule = serde_json::from_value(json!({
+        "id": "acme/r", "description": "A rule.",
+        "scope": {"language": "typescript"},
+        "enforce": [{"target": "tool", "tool": "biome", "expects": "lint/suspicious/noImportCycles", "snippet": "the snippet"}],
+        "examples": {
+            "match": [{"files": {"a.ts": "import { b } from \"./b\";\nexport const a = 1;\n", "b.ts": "import { a } from \"./a\";\nexport const b = a;\n"}}],
+            "no_match": [{"files": {"a.ts": "export const a = 1;\n", "b.ts": "import { a } from \"./a\";\nexport const b = a;\n"}}],
+        },
+    }))
+    .unwrap();
+    let Target::Tool(t) = r.enforce[0].clone() else {
+        unreachable!()
+    };
+    let a = audit(d.path(), &(r, t));
+    assert_eq!(a.status, AuditStatus::Satisfied, "{a:?}");
+    let left: Vec<_> = std::fs::read_dir(d.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name())
+        .filter(|n| n != "node_modules" && n != "biome.json")
+        .collect();
+    assert!(left.is_empty(), "{left:?}");
 }
 
 /// A diagnostic at warning level does not enforce a rule: the checks do not block on warnings.

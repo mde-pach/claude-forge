@@ -153,6 +153,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
         ));
     }
     let pre = (ctx.level == Level::Project).then(|| precommit::state(&ctx));
+    let setup = super::offers::pending(&ctx);
     let pins = pin_differences(&ctx);
     if json_out {
         let enforced = rules.iter().filter(|r| r.enforced).count();
@@ -175,6 +176,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             "tool_pins": pins.iter().map(|(t, l, o)| json!({"tool": t, "locked": l, "forge": o})).collect::<Vec<_>>(),
             "pre_commit": pre,
             "drift": drift,
+            "setup": setup,
             "files": role_files(&ctx),
             "notes": notes,
             "warnings": p.warnings,
@@ -270,6 +272,16 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
         println!("Drift:");
         for d in &drift {
             println!("  {d}");
+        }
+    }
+    if ctx.level == Level::Project {
+        if setup.is_empty() {
+            println!("Setup: complete");
+        } else {
+            println!("Setup (forge apply offers it):");
+            for s in &setup {
+                println!("  {s}");
+            }
         }
     }
     if missing.is_empty() {

@@ -5,9 +5,12 @@
 //!   library, and named facts ([`pm`]: `python.pm`, `js.pm`) for `when:` conditions;
 //! - [`activate`]: the active packs and why;
 //! - [`place`]: where tools are configured, where packs and rules apply, where checks run;
-//! - [`roles`]: file roles' effective patterns (tool configs, forge.yaml).
+//! - [`roles`]: file roles' effective patterns (tool configs, forge.yaml);
+//! - [`compose`]: compose files' third-party services (the one list of images that are not
+//!   dependencies: [`compose::is_non_dependency_image`]) and whether tests use Testcontainers.
 
 pub mod activate;
+pub mod compose;
 pub mod deps;
 pub mod facts;
 pub mod jsonc;

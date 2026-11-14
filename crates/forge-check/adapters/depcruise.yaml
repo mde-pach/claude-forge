@@ -1,0 +1,24 @@
+# dependency-cruiser (`depcruise`), the project's own (§16). What changed between its releases,
+# for what Forge asks of it (forge_depcruise, typescript/dependency-cruiser/rules: `depcruise
+# --output-type json --config <the project's config> <paths>`, read as the JSON
+# result: `summary.violations` (`from`, `to`, `rule.name`, `rule.severity`, `cycle`, `via`,
+# `unresolvedTo`) and `summary.ruleSetUsed.forbidden[].comment`):
+#
+# - The oldest covered release is 16.0.0; 16.0.0, 16.10.4, 17.0.0, 17.3.10 and 18.7.2 print the
+#   same violations for the same project (verified). Releases before 16.10 do not start on
+#   Node.js 24 or later (`node:fs` has no `R_OK` export, a crash: exit 1, not JSON), which
+#   Forge reports as a run that failed; on an older Node.js, and under Bun, they run (16.0.0
+#   verified under Bun).
+# - With `--output-type json` the exit status is 0 whatever the violations (the severities are
+#   in the JSON); 1 is a crash, a configuration it cannot open (`ERROR: Can't open config file`)
+#   or a usage error: commander's `error: unknown option '--x'`.
+
+tool: "depcruise"
+verified: "18.7.2"
+package: "dependency-cruiser"
+usage: {exit: [1], pattern: "^error: (unknown option|too many arguments|option .* argument missing|missing required argument)"}
+ranges:
+  - from: "16.0.0"
+    source: "dependency-cruiser 16.0.0, 16.10.4, 17.0.0, 17.3.10, 18.7.2 (same JSON violations); 16.10 runs on Node.js 24"
+    ops:
+      "cruise-json": "--output-type json --config {args}"

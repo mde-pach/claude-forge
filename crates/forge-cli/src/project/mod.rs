@@ -3,6 +3,7 @@
 
 mod apply;
 mod io;
+mod offers;
 mod precommit;
 mod remove;
 mod status;
@@ -314,7 +315,24 @@ pub fn person_notes(ctx: &Ctx, probe: &dyn ToolProbe) -> Vec<String> {
     }
     out.extend(probe.notes(&ctx.plan).into_iter().map(|n| n.to_string()));
     out.extend(sandbox_note(ctx));
+    out.extend(sandbox_docker_note(ctx));
     out
+}
+
+/// A project whose tests use Testcontainers (§7.2), on Linux: Claude Code's sandbox gives each
+/// command a network namespace of its own, so no sandbox setting lets Claude's sandboxed test
+/// runs reach the containers' published ports.
+fn sandbox_docker_note(ctx: &Ctx) -> Option<String> {
+    (cfg!(target_os = "linux")
+        && ctx.level == Level::Project
+        && ctx
+            .plan
+            .active
+            .iter()
+            .any(|st| st.rule.id == "testcontainers/sandbox-docker"))
+    .then(|| {
+        "Claude Code's sandbox on Linux cannot reach Docker's containers (each sandboxed command has a network namespace of its own): tests that use Testcontainers fail when Claude runs them in the sandbox; Forge's Stop check runs them outside it.".to_string()
+    })
 }
 
 /// The sandbox the settings turn on, when this Linux machine lacks what it runs on: Claude Code
@@ -325,7 +343,7 @@ fn sandbox_note(ctx: &Ctx) -> Option<String> {
             .plan
             .settings
             .iter()
-            .any(|e| e.entry.path.starts_with("sandbox"))
+            .any(|e| e.entry.path == "sandbox.enabled")
     {
         return None;
     }

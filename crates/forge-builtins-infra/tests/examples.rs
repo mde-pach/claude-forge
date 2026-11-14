@@ -61,8 +61,12 @@ fn pack_examples_hold() {
         used.len()
     );
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
-    // every builtin has pack examples
-    let unused: Vec<&str> = names().into_iter().filter(|n| !used.contains(*n)).collect();
+    // every builtin has pack examples, but `tests_docker`: it guards the test checks, whose
+    // outcome is this machine's Docker (tests/testcontainers.rs)
+    let unused: Vec<&str> = names()
+        .into_iter()
+        .filter(|n| !used.contains(*n) && *n != "tests_docker")
+        .collect();
     assert!(
         unused.is_empty(),
         "builtins no pack example runs: {unused:?}"

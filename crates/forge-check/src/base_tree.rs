@@ -127,21 +127,31 @@ pub fn copy_sources(
 
 /// Builds the base tree; `Err` says why the copy cannot be made or isolated (for the person).
 pub fn build(change: &ChangeSet) -> Result<BaseTree, String> {
-    let root = std::fs::canonicalize(&change.root).unwrap_or_else(|_| change.root.clone());
+    build_at(
+        &change.root,
+        &|f| change.is_changed(f),
+        &change.inbase,
+        &|f| change.base_copy(f),
+    )
+}
+
+/// [`build`] from the pieces of a change a builtin has (its root, which files changed, those
+/// in the base and their base copies): for a whole-project tool a builtin runs a second time
+/// at the base (`forge_knip`, `forge_depcruise`).
+pub fn build_at(
+    root: &Path,
+    is_changed: &dyn Fn(&str) -> bool,
+    inbase: &[String],
+    base_copy: &dyn Fn(&str) -> Option<PathBuf>,
+) -> Result<BaseTree, String> {
+    let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     let git = Git::new(&root);
     let dir = tempfile::Builder::new()
         .prefix("forge-base-tree.")
         .tempdir()
         .map_err(|e| format!("the copy of the tree could not be made ({e})"))?;
     let dest = dir.path().to_path_buf();
-    copy_sources(
-        &root,
-        &dest,
-        &|f| change.is_changed(f),
-        &change.inbase,
-        &|f| change.base_copy(f),
-        &|_| true,
-    )?;
+    copy_sources(&root, &dest, is_changed, inbase, base_copy, &|_| true)?;
     let ignored = git
         .run(&[
             "ls-files",

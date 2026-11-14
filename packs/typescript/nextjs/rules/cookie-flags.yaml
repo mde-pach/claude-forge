@@ -1,0 +1,74 @@
+id: typescript/nextjs/cookie-flags
+description: "A session, auth or token cookie set with cookies().set() or a NextResponse's cookies.set() states httpOnly: true, secure and sameSite in its options (neither httpOnly nor secure a literal false): without them scripts can read it, it travels over plain HTTP, or it rides cross-site requests. Pass { httpOnly: true, secure: process.env.NODE_ENV === \"production\", sameSite: \"lax\" } (or a shared options object)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^set$"}}, {has: {field: object, matches: cookie-store}}]}
+        - has:
+            field: arguments
+            any:
+              # set(name, value, options?)
+              - all:
+                  - has: {nthChild: 1, kind: string, has: {kind: string_fragment, matches: session-name}}
+                  - any:
+                      - not: {has: {nthChild: 3}}
+                      - has: {nthChild: 3, matches: weak-options}
+              # set({ name, value, ...options })
+              - has:
+                  nthChild: 1
+                  matches: weak-options
+                  has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?name[\"']?$"}}, {has: {field: value, kind: string, has: {kind: string_fragment, matches: session-name}}}]}
+    utils:
+      session-name:
+        all:
+          - regex: "(?i)(session|auth|token|jwt|refresh|remember|^sid$|[-_.]sid$|^sid[-_.])"
+          - not: {regex: "(?i)(csrf|xsrf)"}
+      weak-options:
+        kind: object
+        not: {has: {kind: spread_element}}
+        any:
+          - not: {has: {any: [{kind: pair, has: {field: key, regex: "^[\"']?httpOnly[\"']?$"}}, {kind: shorthand_property_identifier, regex: "^httpOnly$"}]}}
+          - not: {has: {any: [{kind: pair, has: {field: key, regex: "^[\"']?secure[\"']?$"}}, {kind: shorthand_property_identifier, regex: "^secure$"}]}}
+          - not: {has: {any: [{kind: pair, has: {field: key, regex: "^[\"']?sameSite[\"']?$"}}, {kind: shorthand_property_identifier, regex: "^sameSite$"}]}}
+          - has: {kind: pair, all: [{has: {field: key, regex: "^[\"']?(httpOnly|secure)[\"']?$"}}, {has: {field: value, kind: "false"}}]}
+      cookie-store:
+        any:
+          # next/headers: (await cookies()), cookies(), const jar = await cookies()
+          - all:
+              - any:
+                  - pattern: "(await cookies())"
+                  - pattern: "cookies()"
+                  - all:
+                      - {kind: identifier, pattern: $C}
+                      - inside: {stopBy: end, kind: statement_block, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $C}}, {has: {field: value, pattern: "await cookies()"}}]}}
+              - inside: {kind: program, stopBy: end, has: {kind: import_statement, has: {field: source, regex: "^[\"']next/headers[\"']$"}}}
+          # NextResponse.json(…).cookies, const res = NextResponse.next(); res.cookies
+          - kind: member_expression
+            all:
+              - has: {field: property, regex: "^cookies$"}
+              - has:
+                  field: object
+                  any:
+                    - matches: next-response
+                    - all:
+                        - {kind: identifier, pattern: $R}
+                        - inside: {stopBy: end, kind: statement_block, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $R}}, {has: {field: value, matches: next-response}}]}}
+      next-response:
+        any:
+          - {kind: call_expression, has: {field: function, regex: "^NextResponse\\.[A-Za-z]+$"}}
+          - {kind: new_expression, has: {field: constructor, regex: "^NextResponse$"}}
+examples:
+  match:
+    - "'use server';\n\nimport { cookies } from \"next/headers\";\n\nexport async function login(token: string) {\n  (await cookies()).set(\"session\", token);\n}\n"
+    - "'use server';\n\nimport { cookies } from \"next/headers\";\n\nexport async function createSession(token: string, expiresAt: Date) {\n  const cookieStore = await cookies();\n  cookieStore.set(\"session\", token, { httpOnly: true, expires: expiresAt, path: \"/\" });\n}\n"
+    - "import { NextResponse } from \"next/server\";\n\nexport async function POST() {\n  const res = NextResponse.json({ ok: true });\n  res.cookies.set({ name: \"auth-token\", value: \"t\", httpOnly: false, secure: true, sameSite: \"lax\" });\n  return res;\n}\n"
+  no_match:
+    - "import { NextResponse } from \"next/server\";\n\nexport async function POST() {\n  const res = NextResponse.json({ ok: true });\n  res.cookies.set(\"session\", \"t\", { httpOnly: true, secure: true, sameSite: \"lax\", maxAge: 3600 });\n  res.cookies.delete(\"refresh_token\");\n  return res;\n}\n"
+    - "'use server';\n\nimport { cookies } from \"next/headers\";\n\nexport async function createSession(token: string, expiresAt: Date) {\n  const cookieStore = await cookies();\n  cookieStore.set(\"session\", token, { httpOnly: true, secure: process.env.NODE_ENV === \"production\", sameSite: \"lax\", expires: expiresAt, path: \"/\" });\n}\n"
+    - "'use server';\n\nimport { cookies } from \"next/headers\";\n\nexport async function setTheme(theme: string) {\n  (await cookies()).set(\"theme\", theme);\n  (await cookies()).set(\"sidebar_state\", \"open\");\n  (await cookies()).set(\"csrf_token\", \"x\", { sameSite: \"strict\", secure: true });\n}\n"
+    - "'use server';\n\nimport { cookies } from \"next/headers\";\nimport { sessionCookie } from \"@/lib/session\";\n\nexport async function login(token: string) {\n  (await cookies()).set(\"session\", token, sessionCookie);\n  (await cookies()).set({ ...sessionCookie, name: \"session\", value: token });\n}\n"
+    - "import type { NextRequest } from \"next/server\";\nimport { NextResponse } from \"next/server\";\n\nexport function proxy(request: NextRequest) {\n  request.cookies.set(\"session-seen\", \"1\");\n  const params = new Map<string, string>();\n  params.set(\"token\", \"x\");\n  return NextResponse.next();\n}\n"

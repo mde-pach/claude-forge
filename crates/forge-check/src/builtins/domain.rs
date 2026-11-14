@@ -65,6 +65,21 @@ pub trait BuiltinTools: Send + Sync {
     /// in `cwd`, as the tool's adapter says for the installed version, `args` after.
     fn run(&self, root: &Path, cwd: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun;
 
+    /// [`BuiltinTools::run`] with these environment variables set as well (`COLUMNS` for a
+    /// tool whose report wraps at the terminal's width, `PYTHONPATH` for a run on the base
+    /// tree). A stand-in that does not take them runs without.
+    fn run_env(
+        &self,
+        root: &Path,
+        cwd: &Path,
+        tool: &str,
+        op: &str,
+        args: &[String],
+        _env: &[(String, String)],
+    ) -> ToolRun {
+        self.run(root, cwd, tool, op, args)
+    }
+
     /// Forge's pinned `tool`: the words that run it. `Err` says why it cannot be had, for the
     /// person.
     fn pinned(&self, tool: &str) -> Result<Vec<String>, String>;
@@ -92,6 +107,18 @@ impl AdapterTools {
 
 impl BuiltinTools for AdapterTools {
     fn run(&self, root: &Path, cwd: &Path, tool: &str, op: &str, args: &[String]) -> ToolRun {
+        self.run_env(root, cwd, tool, op, args, &[])
+    }
+
+    fn run_env(
+        &self,
+        root: &Path,
+        cwd: &Path,
+        tool: &str,
+        op: &str,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> ToolRun {
         let ctx = DoCtx {
             root,
             cwd,
@@ -109,6 +136,7 @@ impl BuiltinTools for AdapterTools {
             .args(&r.args)
             .current_dir(cwd)
             .env("NO_COLOR", "1")
+            .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null())
             .output();
         let out = match out {
@@ -159,6 +187,16 @@ impl BuiltinTools for NoTools {
 
     fn pinned(&self, tool: &str) -> Result<Vec<String>, String> {
         Err(format!("{tool} is not installed"))
+    }
+}
+
+/// The note text of a tool a builtin could not run ([`ToolRun::Missing`]): `skipped: <why>`,
+/// as the adapters word theirs (which already say it).
+pub fn skipped(why: &str) -> String {
+    if why.starts_with("skipped") {
+        why.to_owned()
+    } else {
+        format!("skipped: {why}")
     }
 }
 

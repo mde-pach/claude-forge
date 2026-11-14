@@ -92,6 +92,7 @@ pub const ROLES: &[(&str, &[&str])] = &[
             "yarn.lock",
         ],
     ),
+    ("nextjs-public-endpoints", &[]),
     ("prisma-migrations", &["prisma/migrations/**"]),
     ("procfile", &["Procfile", "Procfile.*"]),
     (

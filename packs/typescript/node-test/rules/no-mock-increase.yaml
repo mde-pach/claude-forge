@@ -1,0 +1,17 @@
+id: typescript/node-test/no-mock-increase
+description: "A test file that imports from node:test may not gain mocks (mock.fn, mock.method, mock.getter, mock.setter, mock.property, mock.module, also as t.mock.*); test through the real code or a fake at the boundary. mock.timers (a fake clock) is not counted."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^([A-Za-z_$][A-Za-z0-9_$]*\\.)?mock\\.(fn|method|getter|setter|property|module)$"}
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+examples:
+  match:
+    - "import assert from \"node:assert/strict\";\nimport { mock, test } from \"node:test\";\n\ntest(\"charges\", () => {\n  const pay = mock.fn();\n  charge(pay);\n  assert.equal(pay.mock.callCount(), 1);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"logs\", (t) => {\n  t.mock.method(console, \"log\");\n  run();\n});\n"
+  no_match:
+    - "import assert from \"node:assert/strict\";\nimport { mock, test } from \"node:test\";\n\ntest(\"expires\", () => {\n  mock.timers.enable({ apis: [\"Date\"] });\n  assert.equal(expired(), false);\n});\n"
+    - "import { vi } from \"vitest\";\n\nconst pay = vi.fn();\nconst m = { mock: { fn: () => 1 } };\nm.mock.fn();\n"

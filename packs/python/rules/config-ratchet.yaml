@@ -1,11 +1,11 @@
 id: python/config-ratchet
-description: "Python tool configs are not loosened (ruff rules dropped or ignored, ty rule levels lowered, excludes added, pytest paths or coverage thresholds reduced, mypy strictness turned off or errors ignored, pyright checking mode or report levels lowered); loosening one is the user's decision: ask them."
-scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml", "**/mypy.ini", "**/.mypy.ini", "**/pyrightconfig.json"]}
+description: "Python tool configs are not loosened (ruff rules dropped or ignored, ty rule levels lowered, excludes added, pytest paths or coverage thresholds reduced, pytest strictness, network blocking, test-order shuffling, time limits or warnings-as-errors turned off, mypy strictness turned off or errors ignored, pyright checking mode or report levels lowered); loosening one is the user's decision: ask them."
+scope: {language: any, files: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml", "**/mypy.ini", "**/.mypy.ini", "**/pyrightconfig.json", "**/pytest.ini", "**/.pytest.ini", "**/tox.ini", "**/setup.cfg"]}
 enforce:
   - target: check
     stage: lint
     run: "forge_ratchet python ratchet.py"
-    when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml", "**/mypy.ini", "**/.mypy.ini", "**/pyrightconfig.json"]
+    when_changed: ["**/pyproject.toml", "**/ruff.toml", "**/.ruff.toml", "**/ty.toml", "**/mypy.ini", "**/.mypy.ini", "**/pyrightconfig.json", "**/pytest.ini", "**/.pytest.ini", "**/tox.ini", "**/setup.cfg"]
 examples:
   match:
     - head: {pyproject.toml: "[tool.ruff.lint]\nselect = [\"E\", \"F\"]\n"}
@@ -24,7 +24,23 @@ examples:
       files: {pyrightconfig.json: "{\n  \"typeCheckingMode\": \"basic\"\n}\n"}
     - head: {pyproject.toml: "[tool.basedpyright]\nreportAny = \"error\"\n"}
       files: {pyproject.toml: "[tool.basedpyright]\nreportAny = \"warning\"\n"}
+    - head: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--strict-markers --strict-config --disable-socket --allow-unix-socket\"\n"}
+      files: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--strict-config --disable-socket --allow-unix-socket\"\n"}
+    - head: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket\"\n"}
+      files: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket --allow-hosts=api.stripe.com\"\n"}
+    - head: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"-ra\"\n"}
+      files: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"-ra -p no:randomly\"\n"}
+    - head: {pyproject.toml: "[tool.pytest]\naddopts = [\"-ra\"]\ntimeout = \"120\"\n"}
+      files: {pyproject.toml: "[tool.pytest]\naddopts = [\"-ra\", \"--randomly-seed=1234\"]\ntimeout = \"600\"\n"}
+    - head: {pytest.ini: "[pytest]\nxfail_strict = true\nfilterwarnings =\n    error::pydantic.warnings.PydanticDeprecationWarning\n"}
+      files: {pytest.ini: "[pytest]\nxfail_strict = false\nfilterwarnings =\n    ignore::DeprecationWarning\n"}
+    - head: {setup.cfg: "[metadata]\nname = app\n\n[tool:pytest]\naddopts = -p no:cacheprovider --strict-markers\n"}
+      files: {setup.cfg: "[metadata]\nname = app\n\n[tool:pytest]\naddopts = -p no:cacheprovider -p no:socket\n"}
   no_match:
+    - head: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket\"\ntimeout = 120\n"}
+      files: {pyproject.toml: "[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket --strict-markers -ra\"\ntimeout = 60\nxfail_strict = true\n"}
+    - head: {setup.cfg: "[metadata]\nname = app\n\n[tool:pytest]\naddopts = -p no:cacheprovider\n"}
+      files: {setup.cfg: "[metadata]\nname = app\nversion = 2\n\n[tool:pytest]\naddopts = -p no:cacheprovider\n"}
     - head: {pyproject.toml: "[tool.mypy]\nwarn_unused_ignores = false\n\n[tool.pyright]\ntypeCheckingMode = \"basic\"\n"}
       files: {pyproject.toml: "[tool.mypy]\nwarn_unused_ignores = true\nstrict = true\n\n[tool.pyright]\ntypeCheckingMode = \"strict\"\nreportMissingImports = \"error\"\n"}
     - head: {pyproject.toml: "[project]\nname = \"app\"\ndependencies = [\"fastapi\"]\n\n[tool.ruff.lint]\nselect = [\"E\"]\n"}

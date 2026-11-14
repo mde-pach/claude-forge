@@ -1,0 +1,46 @@
+id: typescript/nextjs/no-search-params-authz
+description: "An access decision is not read from the URL: searchParams / params values such as isAdmin, admin, authorized, loggedIn or skipAuth are set by whoever writes the link. Decide from the server-side session (auth(), getSession(), a DAL check of the user's role)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        # searchParams.isAdmin, (await searchParams).admin, params.authorized
+        - kind: member_expression
+          all:
+            - has: {field: property, matches: authz-key}
+            - has: {field: object, matches: url-params}
+        # searchParams.get("isAdmin"), request.nextUrl.searchParams.has("admin")
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(get|has|getAll)$"}}, {has: {field: object, matches: url-params}}]}
+            - has: {field: arguments, has: {kind: string, nthChild: 1, has: {kind: string_fragment, matches: authz-key}}}
+        # const { isAdmin } = await searchParams
+        - kind: shorthand_property_identifier_pattern
+          matches: authz-key
+          inside:
+            kind: object_pattern
+            stopBy: neighbor
+            inside:
+              kind: variable_declarator
+              stopBy: neighbor
+              has: {field: value, matches: url-params}
+    utils:
+      authz-key:
+        regex: "^(is_?[Aa]dmin|admin|is_?[Ss]uper_?[Uu]ser|super_?[Uu]ser|is_?[Ss]taff|is_?[Aa]uthenticated|authenticated|is_?[Aa]uthorized|authorized|is_?[Ll]ogged_?[Ii]n|logged_?[Ii]n|is_?[Oo]wner|skip_?[Aa]uth|no_?[Aa]uth|bypass_?[Aa]uth)$"
+      url-params:
+        any:
+          - regex: "^(searchParams|params)$"
+          - regex: "^\\(\\s*await\\s+(searchParams|params)\\s*\\)$"
+          - regex: "^await\\s+(searchParams|params)$"
+          - {kind: member_expression, has: {field: property, regex: "^searchParams$"}}
+          - {kind: call_expression, regex: "^useSearchParams\\(\\)$"}
+examples:
+  match:
+    - "export default async function Page({ searchParams }: { searchParams: Promise<{ admin?: string }> }) {\n  if ((await searchParams).admin === \"true\") {\n    return <AdminPanel />;\n  }\n  return <p>Hello</p>;\n}\n"
+    - "import { NextResponse, type NextRequest } from \"next/server\";\n\nexport async function DELETE(request: NextRequest) {\n  if (request.nextUrl.searchParams.get(\"isAdmin\") !== \"1\") {\n    return NextResponse.json({ error: \"forbidden\" }, { status: 403 });\n  }\n  return NextResponse.json({ ok: true });\n}\n"
+    - "export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string>> }) {\n  const { isAdmin } = await searchParams;\n  return isAdmin ? <AdminPanel /> : null;\n}\n"
+  no_match:
+    - "import { auth } from \"@/auth\";\n\nexport default async function Page({ searchParams }: { searchParams: Promise<{ role?: string; q?: string }> }) {\n  const session = await auth();\n  const { q } = await searchParams;\n  if (session?.user.role === \"admin\") return <AdminPanel q={q} />;\n  return null;\n}\n"
+    - "export async function GET(request: Request) {\n  const url = new URL(request.url);\n  const page = Number(url.searchParams.get(\"page\") ?? 1);\n  const admin = { isAdmin: false };\n  return Response.json({ page, admin: admin.isAdmin });\n}\n"

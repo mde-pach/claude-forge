@@ -617,6 +617,32 @@ pub struct SandboxTarget {
     #[schemars(pattern(r"^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$"))]
     pub path: String,
     pub value: Value,
+    /// Only where Claude Code's sandbox runs on this system: its sandbox differs by platform
+    /// (macOS filters Unix sockets and local ports by path and port; Linux isolates the
+    /// command's whole network).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<SandboxOs>,
+}
+
+/// A system Claude Code's sandbox runs on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SandboxOs {
+    Macos,
+    Linux,
+}
+
+impl SandboxOs {
+    /// The system this Forge runs on, when Claude Code's sandbox has one of these.
+    pub fn here() -> Option<SandboxOs> {
+        if cfg!(target_os = "macos") {
+            Some(SandboxOs::Macos)
+        } else if cfg!(target_os = "linux") {
+            Some(SandboxOs::Linux)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -712,7 +738,31 @@ pub struct ProjectConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub python: Option<PythonConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docker: Option<DockerConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accept: Option<Vec<Accept>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DockerConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compose: Option<ComposeConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ComposeConfig {
+    /// Compose services that run from an image but that no test depends on (a mock server
+    /// the developers browse, a log shipper): not third-party services to start with
+    /// Testcontainers.
+    #[serde(
+        rename = "not-dependencies",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(inner(length(min = 1)))]
+    pub not_dependencies: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

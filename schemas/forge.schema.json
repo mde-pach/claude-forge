@@ -27,6 +27,9 @@
     "python": {
       "$ref": "#/$defs/PythonConfig"
     },
+    "docker": {
+      "$ref": "#/$defs/DockerConfig"
+    },
     "accept": {
       "type": "array",
       "items": {
@@ -114,6 +117,29 @@
             "any",
             "source"
           ]
+        }
+      }
+    },
+    "DockerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compose": {
+          "$ref": "#/$defs/ComposeConfig"
+        }
+      }
+    },
+    "ComposeConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "not-dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Compose services that run from an image but that no test depends on (a mock server\nthe developers browse, a log shipper): not third-party services to start with\nTestcontainers."
         }
       }
     },

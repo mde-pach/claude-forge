@@ -1,0 +1,13 @@
+id: typescript/node-test/no-test-env-branch
+description: Application code does not branch on whether it runs under node --test (NODE_TEST_CONTEXT).
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests", "!**/test/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {pattern: "process.env.NODE_TEST_CONTEXT"}
+        - {pattern: "process.env[\"NODE_TEST_CONTEXT\"]"}
+examples:
+  match: ["export const quiet = Boolean(process.env.NODE_TEST_CONTEXT);\n"]
+  no_match: ["export const quiet = Boolean(process.env.QUIET);\n"]

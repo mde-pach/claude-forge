@@ -1,0 +1,85 @@
+id: typescript/bounded-retry
+description: "A retry loop (while (true) or for (;;) around a try that exits on success) gives up after a maximum number of attempts, so a permanently failing call does not loop forever: count the attempts and rethrow after the last one, ideally with a growing delay."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - kind: while_statement
+          has: {field: condition, regex: "^\\(\\s*true\\s*\\)$"}
+        - kind: for_statement
+          regex: "^for\\s*\\(\\s*;\\s*;\\s*\\)"
+      all:
+        # the try exits the loop on success, and its catch neither exits nor rethrows
+        - has:
+            field: body
+            has:
+              kind: try_statement
+              all:
+                - has: {field: body, has: {stopBy: end, any: [{kind: return_statement}, {kind: break_statement}]}}
+                - has: {field: handler, not: {has: {stopBy: end, any: [{kind: return_statement}, {kind: break_statement}, {kind: throw_statement}]}}}
+        # no attempt counter compared anywhere in the loop
+        - not: {has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: "^[<>]=?$"}}}
+examples:
+  match:
+    - |
+      export async function fetchWithRetry(url: string): Promise<Response> {
+        while (true) {
+          try {
+            return await fetch(url);
+          } catch (error) {
+            console.warn("retrying", error);
+            await sleep(1000);
+          }
+        }
+      }
+    - |
+      export async function connect(): Promise<Client> {
+        let client: Client;
+        for (;;) {
+          try {
+            client = await Client.connect(process.env.DATABASE_URL);
+            break;
+          } catch {
+            await sleep(500);
+          }
+        }
+        return client;
+      }
+  no_match:
+    - |
+      export async function fetchWithRetry(url: string, maxAttempts = 5): Promise<Response> {
+        let attempt = 0;
+        while (true) {
+          try {
+            return await fetch(url);
+          } catch (error) {
+            attempt += 1;
+            if (attempt >= maxAttempts) throw error;
+            await sleep(2 ** attempt * 100);
+          }
+        }
+      }
+    - |
+      export async function worker(queue: Queue) {
+        while (true) {
+          const job = await queue.next();
+          try {
+            await handle(job);
+          } catch (error) {
+            logger.error({ error, job: job.id }, "job failed");
+          }
+        }
+      }
+    - |
+      export async function connect(): Promise<Client> {
+        for (let attempt = 1; ; attempt++) {
+          try {
+            return await Client.connect(process.env.DATABASE_URL);
+          } catch (error) {
+            if (attempt === 5) throw error;
+            await sleep(500);
+          }
+        }
+      }

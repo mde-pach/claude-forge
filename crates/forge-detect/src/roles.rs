@@ -605,6 +605,7 @@ pub fn about(name: &str) -> &'static str {
         "generated-clients" => "generated API and database clients",
         "gunicorn-config" => "Gunicorn config files",
         "lockfiles" => "dependency lock files",
+        "nextjs-public-endpoints" => "public Server Actions and route handlers",
         "prisma-migrations" => "Prisma migrations",
         "procfile" => "Procfiles",
         "python-tests" => "pytest test files",

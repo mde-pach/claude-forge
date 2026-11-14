@@ -63,3 +63,15 @@ ranges:
       "format-stdin": "format --stdin-file-path {args}"
       "lint": "lint --colors=off --max-diagnostics=none"
       "lint-json": "lint --reporter=json --max-diagnostics=50"
+codes:
+  # A diagnostic category names the rule's group, so a rule promoted out of nursery is a new
+  # code: `since` is the first release with this category (`biome explain <rule>`, "Diagnostic
+  # category", checked on 1.9.4, 2.0.0, 2.1.0, 2.2.0, 2.3.9, 2.4.0, 2.5.0 and 2.6.3).
+  history:
+    "lint/suspicious/noImportCycles": {since: "2.4.0", codes: ["lint/suspicious/noImportCycles", "lint/nursery/noImportCycles"], names: ["noImportCycles"]}
+    "lint/nursery/noFloatingPromises": {since: "2.0.0", codes: ["lint/nursery/noFloatingPromises"], names: ["noFloatingPromises"]}
+    "lint/nursery/noMisusedPromises": {since: "2.1.0", codes: ["lint/nursery/noMisusedPromises"], names: ["noMisusedPromises"]}
+    "lint/nursery/useAwaitThenable": {since: "2.3.9", codes: ["lint/nursery/useAwaitThenable"], names: ["useAwaitThenable"]}
+    "lint/nursery/useExhaustiveSwitchCases": {since: "2.0.0", codes: ["lint/nursery/useExhaustiveSwitchCases"], names: ["useExhaustiveSwitchCases"]}
+    "lint/performance/noImgElement": {since: "2.0.0", codes: ["lint/performance/noImgElement", "lint/nursery/noImgElement"], names: ["noImgElement"]}
+    "lint/suspicious/noShadow": {since: "2.5.0", codes: ["lint/suspicious/noShadow", "lint/nursery/noShadow"], names: ["noShadow"]}
