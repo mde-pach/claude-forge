@@ -1,4 +1,5 @@
-//! Repository hygiene builtins of the checker: large files, lock files left behind.
+//! Repository hygiene builtins of the checker: large files, lock files left behind, new files
+//! beside the file they copy.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -10,6 +11,7 @@ use crate::change::diff_lines;
 pub(super) fn register(r: &mut Registry) {
     r.register_raw("large_files", large_files);
     r.register_raw("lockfile_updated", lockfile_updated);
+    r.register_raw("new_files", new_files);
 }
 
 /// `git check-attr <attr>` of a path.
@@ -173,4 +175,142 @@ fn lockfile_updated(inv: &Invocation<'_>, out: &mut dyn Write, _err: &mut dyn Wr
         );
     }
     rc
+}
+
+/// The new files among `files` (`in_base` is false), each with the existing file in its
+/// directory that its name names once `beside` (a regular expression and its replacement) is
+/// applied to it; without `beside`, every new file. With `beside`, a file whose name the
+/// expression does not rewrite, or rewrites to no existing file, is left out.
+fn new_files_beside(
+    files: &[String],
+    in_base: impl Fn(&str) -> bool,
+    exists: impl Fn(&str) -> bool,
+    beside: Option<(&regex::Regex, &str)>,
+) -> Vec<(String, Option<String>)> {
+    let mut found = Vec::new();
+    for f in files {
+        if in_base(f) {
+            continue;
+        }
+        let Some((re, rep)) = beside else {
+            found.push((f.clone(), None));
+            continue;
+        };
+        let (dir, name) = match f.rsplit_once('/') {
+            Some((d, n)) => (format!("{d}/"), n),
+            None => (String::new(), f.as_str()),
+        };
+        let other = re.replace(name, rep);
+        if other.is_empty() || other == name {
+            continue;
+        }
+        let other = format!("{dir}{other}");
+        if exists(&other) {
+            found.push((f.clone(), Some(other)));
+        }
+    }
+    found
+}
+
+/// `forge_new_files [--beside <regex> <replacement>] [message]`: each of the check's files that
+/// the change adds (it has no copy at the base), as `path:0 message`; with `--beside`, only one
+/// whose name, rewritten by the expression, names a file that exists in the same directory
+/// (`{beside}` in the message). Without a base (`--all`), nothing: files already in the
+/// repository are not new.
+fn new_files(inv: &Invocation<'_>, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    let mut args = inv.args.as_slice();
+    let mut beside = None;
+    if args.first().map(String::as_str) == Some("--beside") {
+        let (Some(re), Some(rep)) = (args.get(1), args.get(2)) else {
+            let _ = writeln!(
+                err,
+                "forge_new_files: --beside takes a regex and a replacement"
+            );
+            return 2;
+        };
+        match regex::Regex::new(re) {
+            Ok(r) => beside = Some((r, rep.clone())),
+            Err(e) => {
+                let _ = writeln!(err, "forge_new_files: {e}");
+                return 2;
+            }
+        }
+        args = &args[3..];
+    }
+    let message = args.first().map_or("is a new file", String::as_str);
+    if inv.ctx.scope == forge_core::builtin::Scope::All || inv.ctx.base.is_none() {
+        return 0;
+    }
+    let files: Vec<String> = inv
+        .scope_files()
+        .into_iter()
+        .filter(|f| inv.ctx.changed.contains(f))
+        .collect();
+    let root = inv.root();
+    let found = new_files_beside(
+        &files,
+        |f| inv.base_copy(f).is_some(),
+        |f| root.join(f).is_file(),
+        beside.as_ref().map(|(r, s)| (r, s.as_str())),
+    );
+    for (f, other) in &found {
+        let text = message.replace("{beside}", other.as_deref().unwrap_or(""));
+        let _ = writeln!(out, "{f}:0 {text}");
+    }
+    i32::from(!found.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // a versioned copy is reported only when the file it copies exists beside it
+    #[test]
+    fn new_files_beside_their_original() {
+        let re = regex::Regex::new(
+            r"^(.+?)(?:[-_ ](?:v[0-9]+|new|old|copy|final|backup)|[ ]copy[ ][0-9]+)((?:\.[A-Za-z0-9]+)*)$|^(.+)\.(?:bak|orig)$",
+        )
+        .unwrap();
+        let rep = "${1}${2}${3}";
+        let files: Vec<String> = [
+            "src/api-v2.ts",
+            "src/db_backup.py",
+            "src/whats-new.tsx",
+            "src/Button copy 2.tsx",
+            "src/form.test.ts.bak",
+            "src/old.ts",
+            "src/user_v2.py",
+            "src/oauth2.ts",
+        ]
+        .map(String::from)
+        .to_vec();
+        let exists = |p: &str| {
+            [
+                "src/api.ts",
+                "src/Button.tsx",
+                "src/form.test.ts",
+                "src/user.py",
+                "src/oauth.ts",
+            ]
+            .contains(&p)
+        };
+        let in_base = |p: &str| p == "src/user_v2.py";
+        let found = new_files_beside(&files, in_base, exists, Some((&re, rep)));
+        assert_eq!(
+            found,
+            vec![
+                ("src/api-v2.ts".into(), Some("src/api.ts".into())),
+                (
+                    "src/Button copy 2.tsx".into(),
+                    Some("src/Button.tsx".into())
+                ),
+                (
+                    "src/form.test.ts.bak".into(),
+                    Some("src/form.test.ts".into())
+                ),
+            ]
+        );
+        // without --beside, every new file
+        assert_eq!(new_files_beside(&files, in_base, exists, None).len(), 7);
+    }
 }
