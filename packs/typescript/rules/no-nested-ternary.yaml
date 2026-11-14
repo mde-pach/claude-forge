@@ -1,0 +1,48 @@
+id: typescript/no-nested-ternary
+description: "A ternary does not hold another ternary in its branches (JSX included): chained conditions are hard to read and easy to get wrong. Use if/else or early returns, a lookup object, or a small component or helper per case instead."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      ternary:
+        any:
+          - kind: ternary_expression
+          - {kind: parenthesized_expression, has: {kind: ternary_expression}}
+    rule:
+      kind: ternary_expression
+      any:
+        - has: {field: consequence, matches: ternary}
+        - has: {field: alternative, matches: ternary}
+      # report a chain once, at its outermost ternary
+      not:
+        inside:
+          any:
+            - kind: ternary_expression
+            - {kind: parenthesized_expression, inside: {kind: ternary_expression}}
+examples:
+  match:
+    - |
+      export function label(status: Status): string {
+        return status === "active" ? "Active" : status === "paused" ? "Paused" : "Archived";
+      }
+    - |
+      export function Badge({ count, loading }: { count: number; loading: boolean }) {
+        return <span>{loading ? <Spinner /> : count > 0 ? <strong>{count}</strong> : null}</span>;
+      }
+    - |
+      export const fee = (premium: boolean, amount: number) => (premium ? (amount > 100 ? 0 : 2) : 5);
+  no_match:
+    - |
+      const LABELS: Record<Status, string> = { active: "Active", paused: "Paused", archived: "Archived" };
+
+      export function label(status: Status): string {
+        return LABELS[status];
+      }
+    - |
+      export function Badge({ count, loading }: { count: number; loading: boolean }) {
+        if (loading) return <Spinner />;
+        return <span>{count > 0 ? <strong>{count}</strong> : null}</span>;
+      }
+    - |
+      export const size = (compact: boolean) => ({ width: compact ? 120 : 240, height: compact ? 40 : 80 });
