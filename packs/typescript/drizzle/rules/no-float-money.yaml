@@ -1,0 +1,30 @@
+id: typescript/drizzle/no-float-money
+description: "A Drizzle column holding money (named price, amount, total, subtotal, tax, fee, balance or cost) is not a real, doublePrecision, double or float column: a binary float cannot store most cents exactly, so sums drift. Use numeric() / decimal() with a precision and scale, or an integer of minor units (priceCents: integer())."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?([a-z][A-Za-z0-9]*(Price|Amount|Subtotal|Total|Tax|Fee|Balance|Cost)s?|([A-Za-z][A-Za-z0-9]*_)?(price|amount|subtotal|total|tax|fee|balance|cost)s?)[\"']?$"}
+        # the column builder at the start of the chain: real("price").notNull()
+        - has:
+            field: value
+            kind: call_expression
+            any:
+              - has: {field: function, kind: identifier, pattern: $F}
+              - has: {stopBy: end, kind: call_expression, has: {field: function, kind: identifier, pattern: $F}}
+    # drizzle's own float column builders, whatever they are imported as
+    where:
+      F: {declared: {package: drizzle-orm, name: [real, doublePrecision, double, float]}}
+examples:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: "0.45.4"}]
+  match:
+    - "import { pgTable, real, serial, text } from \"drizzle-orm/pg-core\";\n\nexport const products = pgTable(\"products\", {\n  id: serial(\"id\").primaryKey(),\n  name: text(\"name\").notNull(),\n  price: real(\"price\").notNull(),\n});\n"
+    - "import { doublePrecision, pgTable, serial } from \"drizzle-orm/pg-core\";\n\nexport const orders = pgTable(\"orders\", {\n  id: serial(\"id\").primaryKey(),\n  totalAmount: doublePrecision(\"total_amount\"),\n});\n"
+    - "import { real, sqliteTable, integer } from \"drizzle-orm/sqlite-core\";\n\nexport const accounts = sqliteTable(\"accounts\", {\n  id: integer(\"id\").primaryKey(),\n  balance: real(\"balance\").default(0),\n});\n"
+  no_match:
+    - "import { integer, numeric, pgTable, serial } from \"drizzle-orm/pg-core\";\n\nexport const products = pgTable(\"products\", {\n  id: serial(\"id\").primaryKey(),\n  price: numeric(\"price\", { precision: 10, scale: 2 }).notNull(),\n  priceCents: integer(\"price_cents\").notNull(),\n});\n"
+    - "import { pgTable, real, serial } from \"drizzle-orm/pg-core\";\n\nexport const ratings = pgTable(\"ratings\", {\n  id: serial(\"id\").primaryKey(),\n  taxRate: real(\"tax_rate\"),\n  totalScore: real(\"total_score\"),\n});\n"
+    - "const real = (n: string) => ({ n });\n\nexport const shape = { price: real(\"price\") };\n"

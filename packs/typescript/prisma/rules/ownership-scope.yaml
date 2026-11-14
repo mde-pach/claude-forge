@@ -1,0 +1,111 @@
+id: typescript/prisma/ownership-scope
+description: "A Prisma findUnique / findFirst / update / delete selects a record by an id taken from the request (route params, searchParams, form data) without the owner in its where (userId, ownerId, orgId, tenantId…) and without comparing the record's owner afterwards: any signed-in user can then read or change anyone's record by changing the id (IDOR). Add the current user's or tenant's id to the where, or check the record's owner before using it."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      # a read of the request's route or query values, or of submitted form data
+      route-input-read:
+        any:
+          - {kind: identifier, regex: "^(params|searchParams)$"}
+          - kind: member_expression
+            has: {field: property, regex: "^(params|query|searchParams)$"}
+          - kind: call_expression
+            has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^get$"}}, {has: {field: object, pattern: $G}}]}
+      route-input-expr:
+        any:
+          - matches: route-input-read
+          - has: {stopBy: end, matches: route-input-read}
+      # route input, or a variable (or destructured name) declared from it in the same file
+      route-input:
+        any:
+          - matches: route-input-expr
+          - matches: route-input-var
+          - has: {stopBy: end, matches: route-input-var}
+      route-input-var:
+        all:
+          - kind: identifier
+          - pattern: $I
+          - inside:
+              stopBy: end
+              kind: program
+              has:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                  - has: {field: name, any: [{pattern: $I}, {has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $I}}]}
+                  - has: {field: value, matches: route-input-expr}
+      owner-word:
+        regex: "(?i)(user|owner|author|org|tenant|account|team|workspace|creat|member|customer)"
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^(findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|update|delete)$"}}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: object
+              has:
+                kind: pair
+                all:
+                  - has: {field: key, regex: "^[\"']?where[\"']?$"}
+                  - has:
+                      field: value
+                      kind: object
+                      all:
+                        - has:
+                            any:
+                              - kind: pair
+                                all:
+                                  - has: {field: key, regex: "^[\"']?id[\"']?$"}
+                                  - has: {field: value, matches: route-input}
+                              - kind: shorthand_property_identifier
+                                regex: "^id$"
+                                pattern: $I
+                                inside:
+                                  stopBy: end
+                                  kind: program
+                                  has:
+                                    stopBy: end
+                                    kind: variable_declarator
+                                    all:
+                                      - has: {field: name, any: [{pattern: $I}, {has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $I}}]}
+                                      - has: {field: value, matches: route-input-expr}
+                        # no owner, relation or AND / OR condition beside the id
+                        - not:
+                            has:
+                              any:
+                                - kind: pair
+                                  has: {field: key, any: [{matches: owner-word}, {regex: "^[\"']?(AND|OR)[\"']?$"}]}
+                                - {kind: shorthand_property_identifier, matches: owner-word}
+        # no ownership check in the enclosing code: post.authorId !== user.id, assertOwner(post)
+        - not:
+            inside:
+              stopBy: end
+              kind: statement_block
+              has:
+                stopBy: end
+                any:
+                  - kind: binary_expression
+                    all: [{has: {field: operator, regex: "^[!=]==?$"}}, {matches: owner-word}]
+                  - kind: call_expression
+                    has: {field: function, regex: "(?i)(owner|owns|authoriz|permission|policy|ability)"}
+    # a model delegate's call by what it returns (the runtime's PrismaPromise); x.get(…) is
+    # read from a FormData or URLSearchParams, not from any object with get()
+    where:
+      CALL: {type: {package: "@prisma/client", name: PrismaPromise}}
+      G: {type: {package: [typescript, undici-types], name: [FormData, URLSearchParams]}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.0"}, {ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface InvoiceDelegate {\n  findUnique(args: { where: { id: string; userId?: string } }): PrismaPromise<{ id: string; userId: string } | null>;\n}\ndeclare const prisma: { invoice: InvoiceDelegate };\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const invoice = await prisma.invoice.findUnique({ where: { id } });\n  return Response.json(invoice);\n}\n"
+    - "\"use server\";\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  delete(args: { where: { id: string } }): PrismaPromise<{ id: string }>;\n}\ndeclare const prisma: { post: PostDelegate };\n\nexport async function deletePost(formData: FormData) {\n  await prisma.post.delete({ where: { id: String(formData.get(\"id\")) } });\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface DocDelegate {\n  update(args: { where: { id: string }; data: { title: string } }): PrismaPromise<{ id: string }>;\n}\ndeclare const prisma: { doc: DocDelegate };\n\nexport async function PATCH(req: Request) {\n  const url = new URL(req.url);\n  const doc = await prisma.doc.update({ where: { id: url.searchParams.get(\"id\") ?? \"\" }, data: { title: \"x\" } });\n  return Response.json(doc);\n}\n"
+  no_match:
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface InvoiceDelegate {\n  findFirst(args: { where: { id: string; userId?: string } }): PrismaPromise<{ id: string } | null>;\n}\ndeclare const prisma: { invoice: InvoiceDelegate };\ndeclare function currentUserId(): Promise<string>;\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const userId = await currentUserId();\n  return Response.json(await prisma.invoice.findFirst({ where: { id, userId } }));\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  findUnique(args: { where: { id: string } }): PrismaPromise<{ id: string; authorId: string } | null>;\n}\ndeclare const prisma: { post: PostDelegate };\ndeclare function session(): Promise<{ userId: string }>;\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const me = await session();\n  const post = await prisma.post.findUnique({ where: { id } });\n  if (!post || post.authorId !== me.userId) return new Response(null, { status: 404 });\n  return Response.json(post);\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface UserDelegate {\n  findUnique(args: { where: { id: string } }): PrismaPromise<{ id: string } | null>;\n}\ndeclare const prisma: { user: UserDelegate };\ndeclare function session(): Promise<{ userId: string }>;\n\nexport async function GET() {\n  const me = await session();\n  return Response.json(await prisma.user.findUnique({ where: { id: me.userId } }));\n}\n"
+    - "const cache = new Map<string, string>();\nconst repo = { findUnique: (a: { where: { id: string } }) => a.where.id };\n\nexport function GET(id: string) {\n  return repo.findUnique({ where: { id: cache.get(id) ?? \"\" } });\n}\n"

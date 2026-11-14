@@ -1,0 +1,84 @@
+id: typescript/drizzle/ownership-scope
+description: "A Drizzle query selects, updates or deletes by .where(eq(table.id, id)) with an id taken from the request (route params, searchParams, form data), without the owner in the condition and without comparing the record's owner afterwards: any signed-in user can then read or change anyone's row by changing the id (IDOR). Scope it with and(eq(table.id, id), eq(table.userId, currentUserId)) (or the tenant's column), or check the row's owner before using it."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      # a read of the request's route or query values, or of submitted form data
+      route-input-read:
+        any:
+          - {kind: identifier, regex: "^(params|searchParams)$"}
+          - kind: member_expression
+            has: {field: property, regex: "^(params|query|searchParams)$"}
+          - kind: call_expression
+            has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^get$"}}, {has: {field: object, pattern: $G}}]}
+      route-input-expr:
+        any:
+          - matches: route-input-read
+          - has: {stopBy: end, matches: route-input-read}
+      # route input, or a variable (or destructured name) declared from it in the same file
+      route-input:
+        any:
+          - matches: route-input-expr
+          - matches: route-input-var
+          - has: {stopBy: end, matches: route-input-var}
+      route-input-var:
+        all:
+          - kind: identifier
+          - pattern: $I
+          - inside:
+              stopBy: end
+              kind: program
+              has:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                  - has: {field: name, any: [{pattern: $I}, {has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $I}}]}
+                  - has: {field: value, matches: route-input-expr}
+      owner-word:
+        regex: "(?i)(user|owner|author|org|tenant|account|team|workspace|creat|member|customer)"
+    rule:
+      kind: call_expression
+      all:
+        # eq(table.id, <route input>) as the whole condition, not inside and(…)
+        - has: {field: function, kind: identifier, pattern: $EQ}
+        - has:
+            field: arguments
+            all:
+              - has: {nthChild: 1, kind: member_expression, has: {field: property, regex: "^id$"}}
+              - has: {nthChild: 2, matches: route-input}
+        - any:
+            - inside:
+                kind: arguments
+                inside:
+                  kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: property, regex: "^where$"}}
+            - inside:
+                kind: pair
+                has: {field: key, regex: "^[\"']?where[\"']?$"}
+        # no ownership check in the enclosing code: row.userId !== me.id, assertOwner(row)
+        - not:
+            inside:
+              stopBy: end
+              kind: statement_block
+              has:
+                stopBy: end
+                any:
+                  - kind: binary_expression
+                    all: [{has: {field: operator, regex: "^[!=]==?$"}}, {matches: owner-word}]
+                  - kind: call_expression
+                    has: {field: function, regex: "(?i)(owner|owns|authoriz|permission|policy|ability)"}
+    # drizzle's eq, whatever it is imported as; x.get(…) is read from a FormData or URLSearchParams
+    where:
+      EQ: {declared: {package: drizzle-orm, name: eq}}
+      G: {type: {package: [typescript, undici-types], name: [FormData, URLSearchParams]}}
+examples:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: "0.45.4"}, {ecosystem: npm, name: pg, version: "8.23.1"}, {ecosystem: npm, name: "@types/pg", version: "8.23.1"}, {ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst invoices = pgTable(\"invoices\", { id: serial(\"id\").primaryKey(), userId: text(\"user_id\").notNull() });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const rows = await db.select().from(invoices).where(eq(invoices.id, Number(id)));\n  return Response.json(rows[0]);\n}\n"
+    - "\"use server\";\n\nimport { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), authorId: text(\"author_id\").notNull() });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function deletePost(formData: FormData) {\n  await db.delete(posts).where(eq(posts.id, Number(formData.get(\"id\"))));\n}\n"
+  no_match:
+    - "import { and, eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst invoices = pgTable(\"invoices\", { id: serial(\"id\").primaryKey(), userId: text(\"user_id\").notNull() });\nconst db = drizzle(\"postgres://localhost/app\");\ndeclare function currentUserId(): Promise<string>;\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const me = await currentUserId();\n  const rows = await db.select().from(invoices).where(and(eq(invoices.id, Number(id)), eq(invoices.userId, me)));\n  return Response.json(rows[0]);\n}\n"
+    - "import { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), authorId: text(\"author_id\").notNull() });\nconst db = drizzle(\"postgres://localhost/app\");\ndeclare function session(): Promise<{ userId: string }>;\n\nexport async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  const me = await session();\n  const [post] = await db.select().from(posts).where(eq(posts.id, Number(id)));\n  if (!post || post.authorId !== me.userId) return new Response(null, { status: 404 });\n  return Response.json(post);\n}\n"
+    - "const eq = (a: unknown, b: unknown) => a === b;\nconst t = { id: 1 };\n\nexport function GET(searchParams: URLSearchParams) {\n  return [t].filter(() => eq(t.id, searchParams.get(\"id\")));\n}\n"

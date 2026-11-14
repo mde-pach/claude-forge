@@ -1,0 +1,60 @@
+id: typescript/stripe/no-client-price
+description: "The amount or unit_amount given to a Stripe create or update call comes from the request (its JSON or form body, its query): a client can then pay what it chooses. Look the price up on the server (the product in the database, or a Stripe Price id) and send only the item and quantity from the client."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      # a read of the request: await req.json() / req.formData(), req.body, req.query, url.searchParams
+      request-read:
+        any:
+          - kind: await_expression
+            has: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: "^(json|formData)$"}}}
+          - kind: member_expression
+            has: {field: property, regex: "^(body|query|searchParams)$"}
+      # an expression that reads the request, or uses a variable declared from a read of it
+      from-request:
+        any:
+          - matches: request-read
+          - kind: identifier
+            pattern: $I
+            inside:
+              stopBy: end
+              kind: program
+              has:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                  - has: {field: name, any: [{pattern: $I}, {has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $I}}]}
+                  - has: {field: value, any: [{matches: request-read}, {has: {stopBy: end, matches: request-read}}]}
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?(amount|unit_amount|unit_amount_decimal)[\"']?$"}
+        - has: {field: value, any: [{matches: from-request}, {has: {stopBy: end, matches: from-request}}]}
+        - inside:
+            stopBy: end
+            kind: call_expression
+            has:
+              field: function
+              kind: member_expression
+              all:
+                - has: {field: property, regex: "^(create|update)$"}
+                - has:
+                    field: object
+                    kind: member_expression
+                    any:
+                      - has: {field: object, kind: identifier, pattern: $S}
+                      - has: {field: object, kind: member_expression, has: {field: object, kind: identifier, pattern: $S}}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const body = await req.json();\n  const intent = await stripe.paymentIntents.create({ amount: body.amount, currency: \"eur\" });\n  return Response.json({ secret: intent.client_secret });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function checkout(form: FormData) {\n  const data = await new Response(form).formData();\n  return stripe.checkout.sessions.create({\n    mode: \"payment\",\n    line_items: [{ quantity: 1, price_data: { currency: \"eur\", unit_amount: Number(data.get(\"price\")), product_data: { name: \"Plan\" } } }],\n  });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function GET(req: Request) {\n  const url = new URL(req.url);\n  return stripe.paymentIntents.create({ amount: Number(url.searchParams.get(\"amount\")), currency: \"usd\" });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\nconst prices: Record<string, number> = { basic: 900, pro: 2900 };\n\nexport async function POST(req: Request) {\n  const body = await req.json();\n  const amount = prices[String(body.plan)] ?? 0;\n  const intent = await stripe.paymentIntents.create({ amount, currency: \"eur\" });\n  return Response.json({ secret: intent.client_secret });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const body = await req.json();\n  return stripe.checkout.sessions.create({ mode: \"payment\", line_items: [{ price: \"price_123\", quantity: Number(body.quantity) }] });\n}\n"
+    - "export async function POST(req: Request) {\n  const body = await req.json();\n  const orders = { create: (o: { amount: number }) => o.amount };\n  return Response.json({ total: orders.create({ amount: body.amount }) });\n}\n"
