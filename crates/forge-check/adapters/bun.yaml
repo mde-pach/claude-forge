@@ -31,6 +31,15 @@
 #   --frozen-lockfil flag."): exit 1 and that line. Before, `bun install` ignores them (exit 0,
 #   1.0.0–1.4.0 verified); `bun test` still ignores unknown options on 1.4.4, so a mistyped
 #   test option is never reported as a usage error.
+# - `text-lock` (the setup `forge apply` offers where typescript/bun/text-lockfile is active and
+#   the project has a binary bun.lockb, §3.5): `bun install --save-text-lockfile
+#   --frozen-lockfile --lockfile-only`, bun's documented migration. `--save-text-lockfile` is from
+#   1.1.39 (bun.com/blog/bun-v1.1.39), and without 1.1.43's `--lockfile-only` the command
+#   installs, so the operation starts at 1.1.43 like `lock`. Verified on 1.1.43, 1.2.0 and
+#   1.3.10: bun.lock written from bun.lockb with the same packages, nothing installed and no
+#   lifecycle script run; a bun.lockb that no longer matches package.json fails (`error: lockfile
+#   had changes, but lockfile is frozen`, exit 1) and writes nothing. 1.2.0 and 1.3.10 delete
+#   bun.lockb, 1.1.43 keeps it (Forge deletes it after).
 # - Not an invocation change, noted: with no lock file, `bun install --frozen-lockfile` fails on
 #   1.0.0 but creates the lock and installs (exit 0) on 1.1.38 and later.
 
@@ -47,6 +56,7 @@ ranges:
       "lock": null
       "lock-check": null
       "test-files": null
+      "text-lock": null
   - from: "1.0.16"
     to: "1.1.43"
     source: "bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.1.43 (--lockfile-only is new: before, bun install installs)"
@@ -54,9 +64,11 @@ ranges:
       "lock": null
       "lock-check": null
       "test-files": "test"
+      "text-lock": null
   - from: "1.1.43"
     source: "bun.com/blog/bun-v1.1.43 (bun install --lockfile-only, #16143); bun.com/blog/bun-v1.4.4 (unknown flags are errors in package-manager commands)"
     ops:
       "lock": "install --lockfile-only --ignore-scripts"
       "lock-check": "install --frozen-lockfile --lockfile-only"
       "test-files": "test"
+      "text-lock": "install --save-text-lockfile --frozen-lockfile --lockfile-only"

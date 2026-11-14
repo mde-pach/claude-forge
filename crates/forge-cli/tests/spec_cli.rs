@@ -516,6 +516,7 @@ fn status_json_keys_and_tool_versions() {
             "tool_pins",
             "pre_commit",
             "drift",
+            "setup",
             "files",
             "notes",
             "warnings",
@@ -770,14 +771,14 @@ fn apply_adds_the_npm_cooldown() {
     std::fs::set_permissions(&npm, std::fs::Permissions::from_mode(0o755)).unwrap();
     let out = s.ok(&["apply", "--yes"]);
     assert!(
-        out.contains("forge: .npmrc: added min-release-age=7, package.json: added devEngines.packageManager npm >=11.10.0, package-lock.json created; commit them with Forge's files"),
+        out.contains("forge: .npmrc: added min-release-age=7, package.json: added devEngines.packageManager npm >=11.10.0 (onFail: warn), package-lock.json created; commit them with Forge's files"),
         "{out}"
     );
     assert_eq!(s.read(".npmrc").unwrap(), "min-release-age=7\n");
     assert!(
         s.read("package.json")
             .unwrap()
-            .starts_with("{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}},\n  \"name\": \"shop\","),
+            .starts_with("{\n  \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"warn\"}},\n  \"name\": \"shop\","),
         "{:?}",
         s.read("package.json")
     );
@@ -792,6 +793,348 @@ fn apply_adds_the_npm_cooldown() {
         "{out}"
     );
     assert!(s.read(".npmrc").is_none());
+}
+
+/// apply offers pytest's setup where the pytest pack is active: the plugins that make hidden
+/// problems fail, added with the project's package manager (`uv add --dev`), and their settings
+/// with strict markers, settings and xfail in the file pytest reads. Without a terminal and
+/// without `--yes`: a note, nothing written, and `forge status` lists it; once there, nothing more.
+#[test]
+fn apply_offers_the_pytest_setup() {
+    let s = Sandbox::new(&[
+        (
+            "pyproject.toml",
+            "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\ndependencies = [\"psycopg>=3.2\"]\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n",
+        ),
+        ("uv.lock", "version = 1\n"),
+        ("ruff.toml", "line-length = 100\n"),
+        (
+            "tests/test_app.py",
+            "def test_app() -> None:\n    assert True\n",
+        ),
+    ]);
+    exe(
+        &s.bin.join("uv"),
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.13.1' ;; add) echo \"$@\" > uv-add.txt ;; esac\n",
+    );
+    let original = s.read("pyproject.toml").unwrap();
+    let what = "add pytest-socket, pytest-randomly and pytest-timeout with `uv add --dev` and set --disable-socket, --allow-unix-socket, --allow-hosts=127.0.0.1,localhost,::1, --strict-markers, --strict-config, timeout and xfail_strict in pyproject.toml";
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains(&format!(
+            "Setup (forge apply offers it):\n  pytest: {what}\n"
+        )),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: pytest-socket, pytest-randomly and pytest-timeout added, pyproject.toml: added pytest's --disable-socket,"),
+        "{out}"
+    );
+    assert_eq!(
+        s.read("uv-add.txt").unwrap(),
+        "add --dev pytest-socket pytest-randomly pytest-timeout\n"
+    );
+    let py = s.read("pyproject.toml").unwrap();
+    assert!(
+        py.ends_with("\n[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket --allow-hosts=127.0.0.1,localhost,::1 --strict-markers --strict-config\"\ntimeout = 120\nxfail_strict = true\n"),
+        "{py}"
+    );
+    // without a terminal and without --yes: a note, nothing run or written
+    std::fs::remove_file(s.repo.join("uv-add.txt")).unwrap();
+    s.write("pyproject.toml", &original);
+    let out = s.ok(&["apply"]);
+    assert!(
+        out.contains(&format!(
+            "forge: the project's pytest setup is incomplete; re-run with --yes to {what}"
+        )),
+        "{out}"
+    );
+    assert!(!s.exists("uv-add.txt"));
+    assert_eq!(s.read("pyproject.toml").unwrap(), original);
+    // the plugins declared (as uv add does), nothing more is offered
+    s.write(
+        "pyproject.toml",
+        &py.replace("dev = [\"pytest>=8.3\"]", "dev = [\"pytest>=8.3\", \"pytest-socket>=0.7\", \"pytest-randomly>=3.16\", \"pytest-timeout>=2.3\"]"),
+    );
+    assert!(s.ok(&["status"]).contains("Setup: complete"));
+    // a plugin the project switches off is its choice
+    let s = Sandbox::new(&[
+        (
+            "pyproject.toml",
+            "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n\n[dependency-groups]\ndev = [\"pytest>=8.3\"]\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n\n[tool.pytest.ini_options]\naddopts = \"-p no:randomly --strict-markers --strict-config\"\nxfail_strict = false\ntimeout = 30\n",
+        ),
+        ("uv.lock", "version = 1\n"),
+        ("ruff.toml", "line-length = 100\n"),
+    ]);
+    let out = s.ok(&["status"]);
+    assert!(
+        out.contains("  pytest: add pytest-socket with `uv add --dev` and set --disable-socket and --allow-unix-socket in pyproject.toml\n"),
+        "{out}"
+    );
+}
+
+/// apply offers the JavaScript test runner's setup: Vitest's config gets the no-network setup
+/// file (nock, added with the package manager) and a random test order.
+#[test]
+fn apply_offers_the_vitest_setup() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\"typescript\": \"5.9.3\", \"vitest\": \"3.2.4\"}\n}\n",
+        ),
+        ("package-lock.json", "{\"lockfileVersion\": 3}\n"),
+        (".npmrc", "min-release-age=7\n"),
+        ("tsconfig.json", "{}\n"),
+        (
+            "vitest.config.ts",
+            "import { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n  test: {\n    environment: \"node\",\n  },\n});\n",
+        ),
+        (
+            "src/sum.test.ts",
+            "import { expect, it } from \"vitest\";\n\nit(\"adds\", () => {\n  expect(1 + 1).toBe(2);\n});\n",
+        ),
+    ]);
+    exe(
+        &s.bin.join("npm"),
+        "#!/bin/sh\ncase \"$1 $2\" in --version*) echo '11.12.0' ;; 'install --save-dev') echo \"$@\" > npm-add.txt ;; esac\n",
+    );
+    let what = "add nock with `npm install --save-dev`, create test/no-network.ts and add test.setupFiles ./test/no-network.ts and test.sequence.shuffle to vitest.config.ts";
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains(&format!("  test runner: {what}\n")),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: nock added, test/no-network.ts created, vitest.config.ts: added test.setupFiles ./test/no-network.ts and test.sequence.shuffle; commit them with Forge's files"),
+        "{out}"
+    );
+    assert_eq!(
+        s.read("npm-add.txt").unwrap(),
+        "install --save-dev nock@^14\n"
+    );
+    assert!(
+        s.read("test/no-network.ts")
+            .unwrap()
+            .contains("nock.disableNetConnect();")
+    );
+    assert_eq!(
+        s.read("vitest.config.ts").unwrap(),
+        "import { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n  test: {\n    setupFiles: [\"./test/no-network.ts\"],\n    sequence: { shuffle: true },\n    environment: \"node\",\n  },\n});\n"
+    );
+    assert!(
+        !s.ok(&["apply", "--yes"])
+            .contains("vitest.config.ts: added")
+    );
+}
+
+/// apply offers Jest the same test setup (§3.5): the no-network file as CommonJS, loaded with
+/// setupFilesAfterEnv, and randomize, in package.json's "jest" object (JSON, edited in place);
+/// randomize only from Jest 29.5, which reads it.
+#[test]
+fn apply_offers_the_jest_setup() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"30.2.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"jest\": {\n    \"testEnvironment\": \"node\"\n  }\n}\n",
+        ),
+        ("package-lock.json", "{\"lockfileVersion\": 3}\n"),
+        (".npmrc", "min-release-age=7\n"),
+        ("tsconfig.json", "{}\n"),
+        (
+            "src/sum.test.ts",
+            "it(\"adds\", () => {\n  expect(1 + 1).toBe(2);\n});\n",
+        ),
+    ]);
+    exe(
+        &s.bin.join("npm"),
+        "#!/bin/sh\ncase \"$1 $2\" in --version*) echo '11.12.0' ;; 'install --save-dev') echo \"$@\" > npm-add.txt ;; esac\n",
+    );
+    let what = "add nock with `npm install --save-dev`, create test/no-network.cjs and add jest.setupFilesAfterEnv <rootDir>/test/no-network.cjs and jest.randomize to package.json";
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains(&format!("  test runner: {what}\n")),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: nock added, test/no-network.cjs created, package.json: added jest.setupFilesAfterEnv <rootDir>/test/no-network.cjs and jest.randomize; commit them with Forge's files"),
+        "{out}"
+    );
+    assert_eq!(
+        s.read("npm-add.txt").unwrap(),
+        "install --save-dev nock@^14\n"
+    );
+    let setup = s.read("test/no-network.cjs").unwrap();
+    assert!(
+        setup.contains("nock.disableNetConnect();")
+            && setup.contains("afterAll(() => nock.restore());")
+    );
+    assert_eq!(
+        s.read("package.json").unwrap(),
+        "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"30.2.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"jest\": {\n    \"setupFilesAfterEnv\": [\"<rootDir>/test/no-network.cjs\"],\n    \"randomize\": true,\n    \"testEnvironment\": \"node\"\n  }\n}\n"
+    );
+    assert!(!s.ok(&["status"]).contains("test runner:"));
+    // Jest 29.4 does not read randomize: only the no-network file is offered
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\"jest\": \"29.4.3\", \"nock\": \"14.0.0\"}\n}\n",
+        ),
+        ("package-lock.json", "{\"lockfileVersion\": 3}\n"),
+        (".npmrc", "min-release-age=7\n"),
+        ("tsconfig.json", "{}\n"),
+        (
+            "jest.config.js",
+            "module.exports = {\n  testEnvironment: \"node\",\n};\n",
+        ),
+    ]);
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains("  test runner: create test/no-network.cjs and add setupFilesAfterEnv <rootDir>/test/no-network.cjs to jest.config.js\n"),
+        "{status}"
+    );
+}
+
+/// apply offers the secret files' exclusion from the Docker build context (§3.5): the
+/// .dockerignore the Dockerfile reads gets the patterns it lacks; one with its own .env lines
+/// keeps them, and gets no template exception.
+#[test]
+fn apply_offers_the_dockerignore() {
+    let s = Sandbox::new(&[
+        ("Dockerfile", "FROM node:24-slim\nUSER node\nCOPY . .\n"),
+        (".dockerignore", "node_modules\n.git\n.env*\n"),
+    ]);
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains("  Docker: exclude in .dockerignore .env files (not the templates), private keys, keystores and credential files\n"),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: .dockerignore: added the secret files it did not exclude; commit them with Forge's files"),
+        "{out}"
+    );
+    let text = s.read(".dockerignore").unwrap();
+    assert!(
+        text.starts_with(
+            "node_modules\n.git\n.env*\n\n# Secrets stay out of the build context\n**/*.p12\n"
+        ),
+        "{text}"
+    );
+    assert!(!text.contains("!**/.env.example") && text.ends_with("**/.git-credentials\n"));
+    assert!(!s.ok(&["status"]).contains("Docker:"));
+    // none yet: created at the root, the templates kept
+    let s = Sandbox::new(&[("api/Dockerfile", "FROM node:24-slim\nUSER node\n")]);
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(out.contains("forge: .dockerignore created"), "{out}");
+    let text = s.read(".dockerignore").unwrap();
+    assert!(
+        text.contains("**/.env\n**/.env.*\n!**/.env.example\n"),
+        "{text}"
+    );
+}
+
+/// apply offers bun's own migration from the binary bun.lockb to the text bun.lock, where
+/// typescript/bun/text-lockfile is active (§3.5), then deletes bun.lockb.
+#[test]
+fn apply_offers_the_bun_text_lockfile() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"dependencies\": {\"zod\": \"4.1.0\"}\n}\n",
+        ),
+        ("bun.lockb", "#!/usr/bin/env bun\nbun-lockfile-format-v0\n"),
+        ("bunfig.toml", "[install]\nminimumReleaseAge = 604800\n"),
+        ("tsconfig.json", "{}\n"),
+    ]);
+    exe(
+        &s.bin.join("bun"),
+        "#!/bin/sh\ncase \"$*\" in --version) echo '1.1.43' ;; 'install --save-text-lockfile --frozen-lockfile --lockfile-only') echo '{\"lockfileVersion\": 1}' > bun.lock; echo \"$@\" > bun-args.txt ;; esac\n",
+    );
+    let what = "replace bun.lockb with the text bun.lock (`bun install --save-text-lockfile --frozen-lockfile --lockfile-only`, then delete bun.lockb)";
+    let status = s.ok(&["status"]);
+    assert!(status.contains(&format!("  Bun: {what}\n")), "{status}");
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: bun.lock created from bun.lockb, bun.lockb deleted; commit them with Forge's files"),
+        "{out}"
+    );
+    assert!(s.read("bun.lock").is_some() && s.read("bun.lockb").is_none());
+    assert!(!s.ok(&["status"]).contains("  Bun:"));
+}
+
+/// apply offers Testcontainers where the repository has tests and its Compose file runs a
+/// service the code depends on (not a proxy or an admin UI), with the modules of those services.
+#[test]
+fn apply_offers_testcontainers() {
+    let s = Sandbox::new(&[
+        (
+            "pyproject.toml",
+            "[project]\nname = \"x\"\nversion = \"0\"\nrequires-python = \">=3.12\"\n\n[dependency-groups]\ndev = [\"pytest>=8.3\", \"pytest-socket\", \"pytest-randomly\", \"pytest-timeout\"]\n\n[tool.uv]\nexclude-newer = \"7 days\"\nrequired-version = \">=0.9.17\"\n\n[tool.pytest.ini_options]\naddopts = \"--disable-socket --allow-unix-socket --allow-hosts=127.0.0.1,localhost,::1 --strict-markers --strict-config\"\nxfail_strict = true\ntimeout = 120\n",
+        ),
+        ("uv.lock", "version = 1\n"),
+        ("ruff.toml", "line-length = 100\n"),
+        (
+            "tests/test_app.py",
+            "def test_app() -> None:\n    assert True\n",
+        ),
+        (
+            "compose.yaml",
+            "services:\n  app:\n    build: .\n  db:\n    image: postgres:17\n  cache:\n    image: redis:7\n  proxy:\n    image: nginx:1.27\n",
+        ),
+    ]);
+    exe(
+        &s.bin.join("uv"),
+        "#!/bin/sh\ncase \"$1\" in --version) echo 'uv 0.13.1' ;; add) echo \"$@\" > uv-add.txt ;; esac\n",
+    );
+    let out = s.ok(&["status"]);
+    assert!(
+        out.contains("  Testcontainers: add testcontainers[postgres,redis] with `uv add --dev`\n"),
+        "{out}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: testcontainers[postgres,redis] added; commit them with Forge's files"),
+        "{out}"
+    );
+    assert_eq!(
+        s.read("uv-add.txt").unwrap(),
+        "add --dev testcontainers[postgres,redis]\n"
+    );
+}
+
+/// apply offers Dependabot's cooldown where zizmor's audits run: each update without one gets
+/// `cooldown: {default-days: 7}`.
+#[test]
+fn apply_offers_the_dependabot_cooldown() {
+    let s = Sandbox::new(&[
+        (
+            ".github/workflows/ci.yml",
+            "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n",
+        ),
+        (
+            ".github/dependabot.yml",
+            "version: 2\nupdates:\n  - package-ecosystem: \"github-actions\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n",
+        ),
+    ]);
+    assert!(
+        s.ok(&["status"]).contains(
+            "  Dependabot: add a 7-day cooldown to each update in .github/dependabot.yml\n"
+        )
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: .github/dependabot.yml: added cooldown default-days 7; commit them with Forge's files"),
+        "{out}"
+    );
+    assert!(
+        s.read(".github/dependabot.yml")
+            .unwrap()
+            .ends_with("      interval: \"weekly\"\n    cooldown:\n      default-days: 7\n")
+    );
+    assert!(s.ok(&["status"]).contains("Setup: complete"));
 }
 
 /// Inside a Claude Code agent's command (`CLAUDECODE` set), Forge's command line refuses to run:

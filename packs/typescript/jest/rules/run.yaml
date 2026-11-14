@@ -1,0 +1,5 @@
+id: typescript/jest/run
+description: Tests pass.
+scope: {language: typescript}
+enforce:
+  - {target: check, stage: test, run: "forge_do jest test", changed_run: "forge_do jest test-changed", timeout: 300}

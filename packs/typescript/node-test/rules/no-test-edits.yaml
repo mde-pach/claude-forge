@@ -1,0 +1,20 @@
+id: typescript/node-test/no-test-edits
+description: Changing a test that existed at the start of the turn in a file that imports from node:test (anything in it, formatting aside, input data and control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      FORGE_FILES=$(grep -lE "(from[[:space:]]*|require\\([[:space:]]*)['\"]node:test['\"]" $FORGE_FILES /dev/null 2>/dev/null)
+      forge_test_edits
+examples:
+  match:
+    - head: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  assert.equal(total([40, 60]), 100);\n});\n"}
+      files: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  assert.equal(total([40, 60]), 90);\n});\n"}
+    - head: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ndescribe(\"cart\", () => {\n  it(\"is empty\", () => {\n    assert.equal(total([]), 0);\n  });\n});\n"}
+      files: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ndescribe(\"cart\", () => {});\n"}
+  no_match:
+    - head: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  assert.equal(total([40, 60]), 100);\n});\n"}
+      files: {test/cart.test.ts: "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  assert.equal(total([40, 60]), 100);\n});\n\ntest(\"is empty\", () => {\n  assert.equal(total([]), 0);\n});\n"}
+    - head: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(100);\n});\n"}
+      files: {src/cart.test.ts: "import { expect, it } from \"vitest\";\n\nit(\"totals\", () => {\n  expect(total([40, 60])).toBe(90);\n});\n"}

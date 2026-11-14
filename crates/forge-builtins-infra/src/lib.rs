@@ -19,7 +19,9 @@
 //! check; what the change got wrong is a finding for the agent.
 
 pub mod cx;
+pub mod dependabot;
 mod docker;
+pub mod dockerignore;
 mod github_actions;
 mod kubernetes;
 mod openapi;

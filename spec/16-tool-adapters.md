@@ -91,6 +91,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [graphql-codegen](#graphql-codegen) | the project's own | `@graphql-codegen/cli`'s `package.json` | `7.4.6` | none (no signature distinct from findings) |  |
 | [hadolint](#hadolint) | Forge's pin `2.15.1` | the pin | `2.15.1` | exit 1, a line matching `^(Invalid (option\|argument) \|option -.*: cannot parse value )` |  |
 | [helm](#helm) | `PATH` | `helm version --short` | `4.3.1` | exit 1, a line matching `^Error: (unknown (shorthand )?flag\|invalid argument .+ flag\|flag needs an argument)` |  |
+| [jest](#jest) | the project's own | `jest --version` | `30.5.2` | exit 1, a line matching `Unrecognized CLI Parameter` |  |
 | [jscpd](#jscpd) | the project's own | `jscpd`'s `package.json` | `5.4.3` | exit 1 or 2, a line matching `^error: (unknown option\|unexpected argument) ` |  |
 | [knip](#knip) | the project's own | `knip`'s `package.json` | `6.45.1` | exit 1, a line matching `^Unknown option '` |  |
 | [kube-linter](#kube-linter) | Forge's pin `0.8.3` | the pin | `0.8.3` | exit 1, a line matching `^Error: (unknown (shorthand )?flag\|unknown command\|invalid argument\|invalid format)` |  |
@@ -131,7 +132,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | [yarn](#yarn) | `PATH` | `yarn --version` | `4.18.1` | exit 1, a line matching `(Unknown Syntax Error\|Usage Error)` |  |
 | [zizmor](#zizmor) | Forge's pin `1.30.1` | the pin | `1.30.1` | exit 2, a line matching `^For more information, try .--help.` |  |
 
-55 adapters.
+56 adapters.
 
 #### actionlint
 
@@ -201,6 +202,7 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | `lock` | cannot | cannot | `install --lockfile-only --ignore-scripts` |
 | `lock-check` | cannot | cannot | `install --frozen-lockfile --lockfile-only` |
 | `test-files` | cannot | `test` | `test` |
+| `text-lock` | cannot | cannot | `install --save-text-lockfile --frozen-lockfile --lockfile-only` |
 
 - 1.0.0 – 1.0.16: bun 1.0.0–1.0.15 binaries: bun test ./file runs 0 files, exit 0 (release notes silent; fixed in 1.0.16, bun.sh/blog/bun-v1.0.16)
 - 1.0.16 – 1.1.43: bun 1.0.16 binary (bun test ./file runs it); bun.com/blog/bun-v1.1.43 (--lockfile-only is new: before, bun install installs)
@@ -284,6 +286,15 @@ FORGE_BLESS=1 cargo test -p forge-check --test spec_adapters
 | `template` | `template forge` |
 
 - 3.0.0 –: github.com/helm/helm/releases/tag/v3.0.0 (template NAME CHART; -n is --namespace); v4.0.0 release notes (no change to lint/template invocations, verified)
+
+#### jest
+
+| Operation | 20.0.0 – |
+|---|---|
+| `test` | `` |
+| `test-changed` | `--onlyChanged` |
+
+- 20.0.0 –: jestjs.io/docs/cli (--onlyChanged); verified 20.0.4 to 30.5.2
 
 #### jscpd
 

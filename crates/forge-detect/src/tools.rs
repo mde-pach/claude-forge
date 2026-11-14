@@ -15,6 +15,7 @@ pub const PROJECT_TOOLS: &[&str] = &[
     "pytest",
     "prisma",
     "vitest",
+    "jest",
     "playwright",
     "astro",
     "python",

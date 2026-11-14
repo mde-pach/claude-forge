@@ -1,0 +1,20 @@
+id: typescript/node-test/no-tautological-assert
+description: "Assertions in tests that import from node:test test something: no assert(true) or assert.ok(true), and no equality assertion between two literals (assert.equal(1, 1))."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+      any:
+        - all:
+            - has: {field: function, regex: "^(assert|assert\\.ok|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.ok)$"}
+            - has: {field: arguments, has: {nthChild: 1, any: [{kind: "true"}, {kind: string, regex: "^.[^\"'`]"}, {kind: number, not: {regex: "^0(\\.0*)?$"}}]}}
+        - all:
+            - has: {field: function, regex: "^(assert\\.|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.)(equal|strictEqual|deepEqual|deepStrictEqual|notEqual|notStrictEqual)$"}
+            - has: {field: arguments, has: {nthChild: 1, any: [{kind: "true"}, {kind: "false"}, {kind: "null"}, {kind: undefined}, {kind: number}, {kind: string}]}}
+            - has: {field: arguments, has: {nthChild: 2, any: [{kind: "true"}, {kind: "false"}, {kind: "null"}, {kind: undefined}, {kind: number}, {kind: string}]}}
+examples:
+  match: ["import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"a\", () => {\n  assert.ok(true);\n});\n", "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"b\", () => {\n  assert.equal(1, 1);\n});\n", "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"c\", () => {\n  assert(\"done\");\n});\n"]
+  no_match: ["import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"a\", () => {\n  assert.equal(sum(1, 1), 2);\n});\n", "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"b\", () => {\n  assert.strictEqual(3, sum(1, 2));\n});\n", "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"c\", () => {\n  if (unreachable()) assert.ok(false, \"never\");\n});\n"]

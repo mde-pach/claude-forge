@@ -1,0 +1,17 @@
+id: typescript/vitest/no-shuffle-opt-out
+description: "Test suites do not opt out of the random test order ({ shuffle: false } on a describe or test): a test that only passes in one order shares state with another; give each its own. Opting out is the user's decision: ask them."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: pair
+      all:
+        - {has: {field: key, regex: "^shuffle$"}}
+        - {has: {field: value, kind: "false"}}
+examples:
+  match:
+    - "import { describe, expect, it } from \"vitest\";\n\ndescribe(\"cart\", { shuffle: false }, () => {\n  it(\"adds\", () => {\n    expect(1).toBe(1);\n  });\n});\n"
+  no_match:
+    - "import { describe, expect, it } from \"vitest\";\n\ndescribe(\"cart\", { shuffle: true }, () => {\n  it(\"adds\", () => {\n    expect(1).toBe(1);\n  });\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"keeps the flag\", () => {\n  const opts = { reshuffle: false };\n  expect(opts.reshuffle).toBe(false);\n});\n"

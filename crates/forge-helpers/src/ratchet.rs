@@ -2,7 +2,8 @@
 //! with its base copy, and each loosened setting is one line, `path: what changed`.
 //!
 //! Python tools: ruff, ty, pytest, coverage, mypy, pyright and basedpyright (pyproject.toml,
-//! ruff.toml, .ruff.toml, ty.toml, mypy.ini, .mypy.ini, pyrightconfig.json). JavaScript tools:
+//! ruff.toml, .ruff.toml, ty.toml, mypy.ini, .mypy.ini, pyrightconfig.json; pytest also in
+//! pytest.ini, .pytest.ini, tox.ini and setup.cfg). JavaScript tools:
 //! Biome (biome.json, biome.jsonc), tsconfig*.json, and package.json check scripts.
 
 use forge_core::Report;
@@ -12,7 +13,7 @@ use serde_json::{Map, Value};
 use crate::ACCEPT_HINT;
 use crate::util::{
     Change, EMPTY, Lang, first_line, get, js_json, js_str, line, list, obj, parse_jsonc,
-    parse_toml, py_eq, py_in, py_number, py_str, regex_static, strip_script,
+    parse_toml, py_in, py_number, py_str, regex_static, strip_script,
 };
 
 pub const PYTHON_FILES: &[&str] = &[
@@ -23,6 +24,18 @@ pub const PYTHON_FILES: &[&str] = &[
     "mypy.ini",
     ".mypy.ini",
     "pyrightconfig.json",
+    "pytest.ini",
+    ".pytest.ini",
+    "tox.ini",
+    "setup.cfg",
+];
+
+/// The INI files pytest reads its settings from, and their section.
+const PYTEST_INI: &[(&str, &str)] = &[
+    ("pytest.ini", "pytest"),
+    (".pytest.ini", "pytest"),
+    ("tox.ini", "pytest"),
+    ("setup.cfg", "tool:pytest"),
 ];
 
 /// The loosened settings of one changed file, given its text now and in the base; `lang`
@@ -101,6 +114,10 @@ fn py_load(name: &str, text: &str) -> Result<Loaded, String> {
 }
 
 fn python(o: &mut Out, name: &str, before: &str, after: &str) {
+    if let Some((_, section)) = PYTEST_INI.iter().find(|(f, _)| *f == name) {
+        pytest_ini(o, section, before, after);
+        return;
+    }
     let Ok(b) = py_load(name, before) else { return };
     let a = match py_load(name, after) {
         Ok(a) => a,
@@ -121,12 +138,18 @@ fn python(o: &mut Out, name: &str, before: &str, after: &str) {
                     };
                     ruff(o, &t(tb, "ruff"), &t(ta, "ruff"), "tool.ruff.");
                     ty(o, &t(tb, "ty"), &t(ta, "ty"), "tool.ty.");
-                    pytest(
-                        o,
-                        obj(get(obj(get(tb, "pytest")), "ini_options")),
-                        obj(get(obj(get(ta, "pytest")), "ini_options")),
-                        "tool.pytest.ini_options.",
-                    );
+                    // pytest 9 reads [tool.pytest] itself, older versions [tool.pytest.ini_options]
+                    let (pb, pa) = (obj(get(tb, "pytest")), obj(get(ta, "pytest")));
+                    if pb.contains_key("ini_options") || pa.contains_key("ini_options") {
+                        pytest(
+                            o,
+                            obj(get(pb, "ini_options")),
+                            obj(get(pa, "ini_options")),
+                            "tool.pytest.ini_options.",
+                        );
+                    } else {
+                        pytest(o, pb, pa, "tool.pytest.");
+                    }
                     coverage(o, &t(tb, "coverage"), &t(ta, "coverage"), "tool.coverage.");
                     mypy(
                         o,
@@ -275,27 +298,123 @@ fn ty(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>, prefix: &str)
     }
 }
 
-fn pytest(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>, prefix: &str) {
-    let opts = |m: &Map<String, Value>| -> Vec<Value> {
-        match m.get("addopts") {
-            Some(Value::Array(x)) => x.clone(),
-            None => vec![],
-            Some(v) => s(v)
-                .split_whitespace()
-                .map(|t| Value::String(t.to_owned()))
+/// pytest's settings from an INI file's section, as the TOML table has them: `filterwarnings`,
+/// `testpaths` and `norecursedirs` as lists.
+fn pytest_ini(o: &mut Out, section: &str, before: &str, after: &str) {
+    let load = |text: &str| -> Option<Map<String, Value>> {
+        let ini = crate::util::Ini::parse(text).ok()?;
+        let (_, entries) = ini.sections.into_iter().find(|(s, _)| s == section)?;
+        Some(
+            entries
+                .into_iter()
+                .map(|(k, v)| {
+                    let v = match k.as_str() {
+                        "filterwarnings" => Value::Array(
+                            v.lines()
+                                .map(str::trim)
+                                .filter(|l| !l.is_empty())
+                                .map(|l| Value::String(l.to_owned()))
+                                .collect(),
+                        ),
+                        "testpaths" | "norecursedirs" => Value::Array(
+                            v.split_whitespace()
+                                .map(|l| Value::String(l.to_owned()))
+                                .collect(),
+                        ),
+                        _ => Value::String(v),
+                    };
+                    (k, v)
+                })
                 .collect(),
-        }
+        )
     };
-    let (tb, ta) = (opts(b), opts(a));
+    let Some(b) = load(before) else { return };
+    let a = load(after).unwrap_or_default();
+    pytest(o, &b, &a, &format!("[{section}] "));
+}
+
+/// Whether a pytest setting is on (`true`, or an INI file's `true`, `1`, `yes`, `on`).
+fn on(v: Option<&Value>) -> bool {
+    match v {
+        Some(Value::Bool(b)) => *b,
+        Some(Value::String(s)) => matches!(s.to_lowercase().as_str(), "true" | "1" | "yes" | "on"),
+        _ => false,
+    }
+}
+
+/// addopts as single options: `-p no:x` as one (`-pno:x`).
+fn pytest_opts(m: &Map<String, Value>) -> Vec<String> {
+    let words: Vec<String> = match m.get("addopts") {
+        Some(Value::Array(x)) => x
+            .iter()
+            .flat_map(|t| {
+                s(t).split_whitespace()
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
+        None => vec![],
+        Some(v) => s(v).split_whitespace().map(str::to_owned).collect(),
+    };
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < words.len() {
+        if words[i] == "-p" && i + 1 < words.len() {
+            out.push(format!("-p{}", words[i + 1]));
+            i += 2;
+        } else {
+            out.push(words[i].clone());
+            i += 1;
+        }
+    }
+    out
+}
+
+fn pytest(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>, prefix: &str) {
+    let (tb, ta) = (pytest_opts(b), pytest_opts(a));
+    let name = |t: &str| t.split('=').next().unwrap_or(t).to_owned();
+    // options that run fewer tests, switch a plugin off, pin the order or let tests reach the
+    // network
     let loose = regex_static(
-        r"^(--ignore(-glob)?|--deselect|-k|-m|--continue-on-collection-errors|--lf|--last-failed|--sw|--stepwise)(=|$)",
+        r"^(--ignore(-glob)?|--deselect|-k|-m|--continue-on-collection-errors|--lf|--last-failed|--sw|--stepwise|-pno:.*|--randomly-seed|--randomly-dont-reorganize|--force-enable-socket)(=|$)",
     );
     for t in &ta {
-        if let Some(ts) = t.as_str()
-            && loose.is_match(ts)
-            && !tb.iter().any(|x| py_eq(x, t))
+        if loose.is_match(t) && !tb.contains(t) {
+            let shown = t
+                .strip_prefix("-pno:")
+                .map_or(t.clone(), |p| format!("-p no:{p}"));
+            o.out(format!("{prefix}addopts adds {shown}"));
+        }
+    }
+    // options that make hidden problems fail
+    for strict in [
+        "--strict-markers",
+        "--strict-config",
+        "--strict",
+        "--disable-socket",
+    ] {
+        if tb.iter().any(|t| *t == strict) && !ta.iter().any(|t| *t == strict) {
+            o.out(format!("{prefix}addopts no longer has {strict}"));
+        }
+    }
+    let hosts = |v: &[String]| -> Vec<String> {
+        v.iter()
+            .filter(|t| name(t) == "--allow-hosts")
+            .map(|t| t.split_once('=').map_or("", |(_, h)| h).to_owned())
+            .collect()
+    };
+    if tb.iter().any(|t| t == "--disable-socket") {
+        let before: Vec<String> = hosts(&tb)
+            .iter()
+            .flat_map(|h| h.split(',').map(str::to_owned).collect::<Vec<_>>())
+            .collect();
+        for h in hosts(&ta)
+            .iter()
+            .flat_map(|h| h.split(',').map(str::to_owned).collect::<Vec<_>>())
         {
-            o.out(format!("{prefix}addopts adds {ts}"));
+            if !before.contains(&h) {
+                o.out(format!("{prefix}addopts --allow-hosts adds {h}"));
+            }
         }
     }
     for x in list(get(b, "testpaths")) {
@@ -308,13 +427,49 @@ fn pytest(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>, prefix: &
             o.out(format!("{prefix}norecursedirs adds {}", s(x)));
         }
     }
-    if b.get("xfail_strict") == Some(&Value::Bool(true))
-        && a.get("xfail_strict") != Some(&Value::Bool(true))
+    for key in [
+        "xfail_strict",
+        "strict",
+        "strict_markers",
+        "strict_config",
+        "strict_xfail",
+    ] {
+        if on(b.get(key)) && !on(a.get(key)) {
+            o.out(format!("{prefix}{key} true -> {}", show(a.get(key))));
+        }
+    }
+    // a per-test time limit raised, switched off (0) or removed
+    let secs = |m: &Map<String, Value>| -> Option<f64> {
+        match m.get("timeout") {
+            Some(Value::String(t)) => t.trim().parse().ok(),
+            Some(v) => py_number(v),
+            None => None,
+        }
+    };
+    if let Some(nb) = secs(b).filter(|n| *n > 0.0)
+        && secs(a).is_none_or(|na| na <= 0.0 || na > nb)
     {
         o.out(format!(
-            "{prefix}xfail_strict true -> {}",
-            show(a.get("xfail_strict"))
+            "{prefix}timeout {} -> {}",
+            show(b.get("timeout")),
+            show(a.get("timeout"))
         ));
+    }
+    // warnings turned into errors that no longer are
+    let fw = |m: &Map<String, Value>| -> Vec<String> {
+        match m.get("filterwarnings") {
+            Some(Value::String(t)) => t.lines().map(|l| l.trim().replace(' ', "")).collect(),
+            v => list(v)
+                .into_iter()
+                .map(|x| s(x).trim().replace(' ', ""))
+                .collect(),
+        }
+    };
+    let fa = fw(a);
+    for e in fw(b) {
+        if e.starts_with("error") && !fa.contains(&e) {
+            o.out(format!("{prefix}filterwarnings no longer has {e}"));
+        }
     }
 }
 
@@ -785,6 +940,13 @@ const LOOSE: &[&str] = &[
     r"--max-warnings[= ]\d+",
     r"--bail[= ]0\b",
     r"--silent\b",
+    // the random test order and nock's network block, as forge apply sets them up (§3.5)
+    r"--sequence\.shuffle[= ]false\b",
+    r"--no-sequence\.shuffle\b",
+    r"--randomize[= ]false\b",
+    r"--no-randomize\b",
+    r"--(sequence\.)?seed[= ]-?\d+",
+    r"\bNOCK_OFF=\S+",
 ];
 
 fn scripts(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
@@ -824,6 +986,24 @@ fn scripts(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_scripts_keep_the_random_order_and_the_network_block() {
+        let l = loosened(
+            "package.json",
+            "{\"scripts\": {\"test\": \"vitest run\", \"test:jest\": \"jest --randomize\"}}",
+            "{\"scripts\": {\"test\": \"NOCK_OFF=true vitest run --sequence.shuffle=false\", \"test:jest\": \"jest --seed=42\"}}",
+            None,
+        );
+        assert_eq!(
+            l,
+            [
+                "package.json: scripts.test adds --sequence.shuffle=false",
+                "package.json: scripts.test adds NOCK_OFF=true",
+                "package.json: scripts.test:jest adds --seed=42",
+            ]
+        );
+    }
 
     #[test]
     fn ruff_ignore() {

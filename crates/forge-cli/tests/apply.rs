@@ -53,6 +53,33 @@ fn git(repo: &Path, args: &[&str]) {
     );
 }
 
+/// The package managers, refusing to add a dependency (the test setup apply offers would download
+/// it): their other commands run the real one, where it is installed.
+fn no_dev_dependencies(bin: &Path) {
+    for pm in [
+        "uv", "bun", "npm", "pnpm", "yarn", "poetry", "pdm", "pipenv",
+    ] {
+        let real = std::env::var("PATH")
+            .unwrap_or_default()
+            .split(':')
+            .map(|d| Path::new(d).join(pm))
+            .find(|p| p.is_file());
+        let run = real.map_or("exit 127".to_string(), |r| {
+            format!("exec '{}' \"$@\"", r.display())
+        });
+        let body = format!(
+            "#!/bin/sh\ncase \"$1 $2\" in add\\ *|'install --save-dev'|'install --dev') echo 'no downloads in tests' >&2; exit 1 ;; esac\n{run}\n"
+        );
+        let f = bin.join(pm);
+        std::fs::write(&f, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+}
+
 impl Sandbox {
     fn new(sample: &str) -> Sandbox {
         Self::with_claude(sample, "2.1.300")
@@ -76,6 +103,7 @@ impl Sandbox {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
+        no_dev_dependencies(&bin);
         let home = tmp.path().join("home");
         let forge_home = tmp.path().join("forge-home");
         std::fs::create_dir_all(&home).unwrap();
