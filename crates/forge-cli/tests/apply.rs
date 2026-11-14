@@ -438,19 +438,22 @@ fn testcontainers_sandbox_entries_go_to_the_local_settings() {
         "{stdout}\n{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert!(
-        stdout.contains(
-            "forge: .claude/settings.local.json (this machine's settings, not committed):"
-        ),
-        "{stdout}"
-    );
-    let local: serde_json::Value =
-        serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
+    let local_shown =
+        "forge: .claude/settings.local.json (this machine's settings, not committed):";
     let linux_note = "Claude Code's sandbox on Linux cannot reach Docker's containers";
     if cfg!(target_os = "linux") {
+        // no sandbox entry is written there: no local settings file, the limit is stated
+        let local: serde_json::Value = s
+            .read(".claude/settings.local.json")
+            .map(|t| serde_json::from_str(&t).unwrap())
+            .unwrap_or_default();
         assert!(local.get("sandbox").is_none(), "{local}");
+        assert!(!stdout.contains(local_shown), "{stdout}");
         assert!(stdout.contains(linux_note), "{stdout}");
     } else if cfg!(target_os = "macos") {
+        assert!(stdout.contains(local_shown), "{stdout}");
+        let local: serde_json::Value =
+            serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
         assert_eq!(
             local["sandbox"],
             serde_json::json!({"network": {
