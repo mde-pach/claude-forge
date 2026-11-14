@@ -27,7 +27,9 @@ pub const NON_DEPENDENCY_IMAGES: &[&str] = &[
     "envoy",
     // admin UIs
     "adminer",
+    "pgadmin",
     "pgadmin4",
+    "kafka-ui",
     "phpmyadmin",
     "mongo-express",
     "redis-commander",
@@ -464,7 +466,8 @@ mod tests {
             .into_iter()
             .map(|s| s.name)
             .collect();
-        assert_eq!(names, ["db", "cache"]);
+        // a mail catcher (mailpit) is a service the code sends to: a dependency
+        assert_eq!(names, ["db", "cache", "mail"]);
         assert_eq!(
             service_kind("docker.io/library/redis:7-alpine"),
             Some("redis")
