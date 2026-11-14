@@ -1,0 +1,45 @@
+id: typescript/react/use-sync-external-store
+description: "An effect that subscribes to a browser value (window resize, online/offline, storage, visibilitychange, a matchMedia change) and copies it into state renders a stale value first and tears under concurrent rendering. Read it with useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(React\\.)?(useEffect|useLayoutEffect)$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any: [{kind: arrow_function}, {kind: function_expression}]
+              all:
+                - any:
+                    - has: {stopBy: end, matches: global-listener}
+                    - all:
+                        - has: {stopBy: end, kind: call_expression, has: {field: function, regex: "^(window\\.)?matchMedia$"}}
+                        - has: {stopBy: end, matches: change-listener}
+                - has:
+                    stopBy: end
+                    kind: identifier
+                    regex: "^set[A-Z][A-Za-z0-9]*$"
+                    not: {regex: "^set(Timeout|Interval|Immediate)$"}
+    utils:
+      global-listener:
+        kind: call_expression
+        all:
+          - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^addEventListener$"}}, {has: {field: object, regex: "^(window|document|globalThis)$"}}]}
+          - has: {field: arguments, has: {nthChild: 1, regex: "^[\"'](resize|online|offline|storage|visibilitychange)[\"']$"}}
+      change-listener:
+        kind: call_expression
+        all:
+          - has: {field: function, kind: member_expression, has: {field: property, regex: "^(addEventListener|addListener)$"}}
+          - has: {field: arguments, has: {nthChild: 1, regex: "^[\"']change[\"']$"}}
+examples:
+  match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function NetworkBadge() {\n  const [online, setOnline] = useState(true);\n  useEffect(() => {\n    const update = () => setOnline(navigator.onLine);\n    window.addEventListener(\"online\", update);\n    window.addEventListener(\"offline\", update);\n    return () => {\n      window.removeEventListener(\"online\", update);\n      window.removeEventListener(\"offline\", update);\n    };\n  }, []);\n  return <span>{online ? \"online\" : \"offline\"}</span>;\n}\n"
+    - "import { useEffect, useState } from \"react\";\n\nexport function useDarkMode() {\n  const [dark, setDark] = useState(false);\n  useEffect(() => {\n    const mql = window.matchMedia(\"(prefers-color-scheme: dark)\");\n    const onChange = () => setDark(mql.matches);\n    onChange();\n    mql.addEventListener(\"change\", onChange);\n    return () => mql.removeEventListener(\"change\", onChange);\n  }, []);\n  return dark;\n}\n"
+  no_match:
+    - "import { useSyncExternalStore } from \"react\";\n\nfunction subscribe(cb: () => void) {\n  window.addEventListener(\"online\", cb);\n  window.addEventListener(\"offline\", cb);\n  return () => {\n    window.removeEventListener(\"online\", cb);\n    window.removeEventListener(\"offline\", cb);\n  };\n}\n\nexport function NetworkBadge() {\n  const online = useSyncExternalStore(subscribe, () => navigator.onLine, () => true);\n  return <span>{online ? \"online\" : \"offline\"}</span>;\n}\n"
+    - "import { useEffect, useState } from \"react\";\n\nexport function Shortcuts() {\n  const [last, setLast] = useState(\"\");\n  useEffect(() => {\n    const onKey = (e: KeyboardEvent) => setLast(e.key);\n    window.addEventListener(\"keydown\", onKey);\n    return () => window.removeEventListener(\"keydown\", onKey);\n  }, []);\n  return <kbd>{last}</kbd>;\n}\n"
+    - "import { useEffect } from \"react\";\n\nexport function Autosave({ save }: { save: () => void }) {\n  useEffect(() => {\n    document.addEventListener(\"visibilitychange\", save);\n    return () => document.removeEventListener(\"visibilitychange\", save);\n  }, [save]);\n  return null;\n}\n"

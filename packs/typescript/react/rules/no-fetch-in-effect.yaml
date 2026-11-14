@@ -1,0 +1,37 @@
+id: typescript/react/no-fetch-in-effect
+description: "An effect that fetches and then sets state needs a cleanup: without an AbortController or an ignore flag set in the returned cleanup, a slow earlier response overwrites a later one. Abort or ignore in the cleanup, or use the project's data-fetching library."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(React\\.)?(useEffect|useLayoutEffect)$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any: [{kind: arrow_function}, {kind: function_expression}]
+              all:
+                - has:
+                    stopBy: end
+                    kind: call_expression
+                    # a generic call after await parses with the await in its callee
+                    has: {field: function, regex: "^(await[[:space:]]+)?(fetch|axios|axios\\.(get|post|put|patch|delete|request))$"}
+                - has:
+                    stopBy: end
+                    kind: identifier
+                    regex: "^set[A-Z][A-Za-z0-9]*$"
+                    not: {regex: "^set(Timeout|Interval|Immediate)$"}
+                - not: {has: {stopBy: end, kind: identifier, regex: "^AbortController$"}}
+                # a returned cleanup (abort, ignore = true) handles the race
+                - not: {has: {field: body, kind: statement_block, has: {kind: return_statement}}}
+examples:
+  match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function Profile({ id }: { id: string }) {\n  const [user, setUser] = useState<{ name: string } | null>(null);\n  useEffect(() => {\n    fetch(`/api/users/${id}`)\n      .then((r) => r.json())\n      .then(setUser);\n  }, [id]);\n  return <p>{user?.name}</p>;\n}\n"
+    - "import axios from \"axios\";\nimport { useEffect, useState } from \"react\";\n\nexport function Results({ query }: { query: string }) {\n  const [rows, setRows] = useState<string[]>([]);\n  useEffect(() => {\n    async function load() {\n      const res = await axios.get<string[]>(\"/api/search\", { params: { q: query } });\n      setRows(res.data);\n    }\n    load();\n  }, [query]);\n  return <ul>{rows.map((r) => <li key={r}>{r}</li>)}</ul>;\n}\n"
+  no_match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function Profile({ id }: { id: string }) {\n  const [user, setUser] = useState<{ name: string } | null>(null);\n  useEffect(() => {\n    let ignore = false;\n    fetch(`/api/users/${id}`)\n      .then((r) => r.json())\n      .then((u) => {\n        if (!ignore) setUser(u);\n      });\n    return () => {\n      ignore = true;\n    };\n  }, [id]);\n  return <p>{user?.name}</p>;\n}\n"
+    - "import { useEffect, useState } from \"react\";\n\nexport function Profile({ id }: { id: string }) {\n  const [user, setUser] = useState<{ name: string } | null>(null);\n  useEffect(() => {\n    const controller = new AbortController();\n    fetch(`/api/users/${id}`, { signal: controller.signal })\n      .then((r) => r.json())\n      .then(setUser)\n      .catch(() => {});\n    return () => controller.abort();\n  }, [id]);\n  return <p>{user?.name}</p>;\n}\n"
+    - "import { useEffect } from \"react\";\n\nexport function Beacon({ page }: { page: string }) {\n  useEffect(() => {\n    const id = setTimeout(() => fetch(\"/api/views\", { method: \"POST\", body: page }), 500);\n    void id;\n  }, [page]);\n  return null;\n}\n"

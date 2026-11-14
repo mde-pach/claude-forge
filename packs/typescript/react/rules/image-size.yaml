@@ -1,0 +1,23 @@
+id: typescript/react/image-size
+description: "An <img> without width and height attributes shifts the layout when it loads (CLS). Give it its intrinsic width and height; CSS can still scale it."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any: [{kind: jsx_self_closing_element}, {kind: jsx_opening_element}]
+      all:
+        - has: {field: name, regex: "^img$"}
+        - any:
+            - not: {has: {kind: jsx_attribute, has: {kind: property_identifier, regex: "^width$"}}}
+            - not: {has: {kind: jsx_attribute, has: {kind: property_identifier, regex: "^height$"}}}
+        # spread props may carry the size
+        - not: {has: {kind: jsx_expression}}
+examples:
+  match:
+    - "export function Hero() {\n  return <img src=\"/hero.png\" alt=\"Red sneakers\" />;\n}\n"
+    - "export function Avatar({ url }: { url: string }) {\n  return (\n    <img\n      src={url}\n      alt=\"\"\n      width={48}\n      className=\"rounded-full\"\n    />\n  );\n}\n"
+  no_match:
+    - "export function Hero() {\n  return <img src=\"/hero.png\" alt=\"Red sneakers\" width={800} height={600} className=\"w-full h-auto\" />;\n}\n"
+    - "import type { ImgHTMLAttributes } from \"react\";\n\nexport function Picture(props: ImgHTMLAttributes<HTMLImageElement>) {\n  return <img alt=\"\" {...props} />;\n}\n"
+    - "export function Icon() {\n  return <svg width={16} height={16} viewBox=\"0 0 16 16\"><image href=\"/i.png\" /></svg>;\n}\n"
