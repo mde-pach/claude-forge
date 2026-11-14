@@ -1,0 +1,28 @@
+id: python/exhaustive-match
+description: "A match over enum members (case Color.RED) or string literals ends with case _: assert_never(value) (typing 3.11, typing_extensions), or handles the remaining values explicitly: without it, a value added later falls through every case silently, where assert_never makes the type checker report the missing case."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: match_statement
+      has: {field: body, has: {kind: case_clause}}
+      # every case is an enum member or a string literal (or a | of them): no wildcard, no capture,
+      # no class or sequence pattern
+      not:
+        has:
+          field: body
+          has:
+            kind: case_clause
+            not:
+              has:
+                kind: case_pattern
+                regex: "^(([[:alnum:]_]+\\.)+[[:alnum:]_]+|\"[^\"]*\"|'[^']*')([[:space:]]*\\|[[:space:]]*(([[:alnum:]_]+\\.)+[[:alnum:]_]+|\"[^\"]*\"|'[^']*'))*$"
+examples:
+  match:
+    - "from enum import Enum\n\n\nclass Status(Enum):\n    DRAFT = \"draft\"\n    PAID = \"paid\"\n    VOID = \"void\"\n\n\ndef label(status: Status) -> str:\n    match status:\n        case Status.DRAFT:\n            return \"Draft\"\n        case Status.PAID | Status.VOID:\n            return \"Closed\"\n    return \"\"\n"
+    - "from typing import Literal\n\n\ndef rate(plan: Literal[\"free\", \"pro\"]) -> int:\n    limit = 0\n    match plan:\n        case \"free\":\n            limit = 10\n        case \"pro\":\n            limit = 1000\n    return limit\n"
+  no_match:
+    - "from enum import Enum\nfrom typing import assert_never\n\n\nclass Status(Enum):\n    DRAFT = \"draft\"\n    PAID = \"paid\"\n\n\ndef label(status: Status) -> str:\n    match status:\n        case Status.DRAFT:\n            return \"Draft\"\n        case Status.PAID:\n            return \"Paid\"\n        case _:\n            assert_never(status)\n"
+    - "def describe(command: str) -> str:\n    match command:\n        case \"start\":\n            return \"starting\"\n        case other:\n            return f\"unknown {other}\"\n"
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Point:\n    x: int\n    y: int\n\n\ndef where(p: Point | None) -> str:\n    match p:\n        case Point(x=0, y=0):\n            return \"origin\"\n        case Point():\n            return \"elsewhere\"\n        case None:\n            return \"nowhere\"\n"
