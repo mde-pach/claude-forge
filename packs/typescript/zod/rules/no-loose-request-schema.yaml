@@ -1,0 +1,82 @@
+id: typescript/zod/no-loose-request-schema
+description: "A Zod schema that parses request input (a JSON or form body, search params) keeps unknown keys (.passthrough(), z.looseObject() or .catchall(…)): the parsed object then carries any field the client adds, and spreading it into a database write lets the client set role, ownerId or price (mass assignment). Use z.object() (it strips unknown keys) or z.strictObject() / .strict() to reject them."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      # a read of the request: await req.json() / req.formData() (of a Request, not a fetch Response), x.body, x.query, x.searchParams
+      request-read:
+        any:
+          - kind: await_expression
+            has: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: "^(json|formData)$"}}, {has: {field: object, pattern: $R}}]}}
+          - kind: member_expression
+            has: {field: property, regex: "^(body|query|searchParams)$"}
+          - {kind: identifier, regex: "^searchParams$"}
+          # Object.fromEntries(formData): bound only there, since a binding is type-checked after the match
+          - kind: call_expression
+            all:
+              - has: {field: function, regex: "^Object\\.fromEntries$"}
+              - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $FD}}
+      # request input, or a variable declared from it in the same file
+      from-request:
+        any:
+          - matches: request-read
+          - has: {stopBy: end, matches: request-read}
+          - kind: identifier
+            pattern: $I
+            inside:
+              stopBy: end
+              kind: program
+              has:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                  - has: {field: name, kind: identifier, pattern: $I}
+                  - has: {field: value, any: [{matches: request-read}, {has: {stopBy: end, matches: request-read}}]}
+      # schema.parse(<request input>), and the safe / async forms
+      parses-request:
+        kind: call_expression
+        all:
+          - has: {field: function, kind: member_expression, has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync|spa)$"}}
+          - has: {field: arguments, has: {nthChild: 1, matches: from-request}}
+    rule:
+      kind: call_expression
+      all:
+        - pattern: $CALL
+        - has:
+            field: function
+            kind: member_expression
+            has: {field: property, regex: "^(passthrough|catchall|looseObject)$"}
+        - any:
+            # z.object({…}).passthrough().parse(await req.json())
+            - inside: {stopBy: end, matches: parses-request}
+            # const Body = z.looseObject({…}); … Body.parse(await req.json())
+            - inside:
+                stopBy: end
+                kind: variable_declarator
+                all:
+                  - has: {field: name, kind: identifier, pattern: $N}
+                  - inside:
+                      stopBy: end
+                      kind: program
+                      has:
+                        stopBy: end
+                        matches: parses-request
+                        has: {field: function, has: {field: object, pattern: $N}}
+    # the call builds a Zod schema; Request and FormData are the platform's
+    where:
+      CALL: {type: {package: zod}}
+      R: {type: {package: [typescript, undici-types], name: Request}}
+      FD: {type: {package: [typescript, undici-types], name: FormData}}
+examples:
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}, {ecosystem: npm, name: "@types/node", version: "24.10.1"}]
+  match:
+    - "import { z } from \"zod\";\n\nconst Body = z.object({ name: z.string() }).passthrough();\n\nexport async function POST(req: Request) {\n  const body = Body.parse(await req.json());\n  return Response.json(body);\n}\n"
+    - "import { z } from \"zod\";\n\nconst Profile = z.looseObject({ bio: z.string() });\n\nexport async function save(formData: FormData) {\n  const input = Profile.safeParse(Object.fromEntries(formData));\n  return input.success;\n}\n"
+    - "import { z } from \"zod\";\n\nexport async function POST(req: Request) {\n  const raw = await req.json();\n  const input = z.object({ title: z.string() }).catchall(z.unknown()).parse(raw);\n  return Response.json(input);\n}\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nconst Body = z.object({ name: z.string() });\n\nexport async function POST(req: Request) {\n  const body = Body.parse(await req.json());\n  return Response.json(body);\n}\n"
+    - "import { z } from \"zod\";\n\nconst Upstream = z.looseObject({ id: z.string() });\n\nexport async function fetchItem(url: string) {\n  const res = await fetch(url);\n  return Upstream.parse(await res.json());\n}\n"
+    - "import { z } from \"zod\";\n\nconst Config = z.object({ port: z.number() }).passthrough();\n\nexport const config = Config.parse({ port: 3000 });\n"
+    - "const s = { passthrough: () => ({ parse: (v: unknown) => v }) };\n\nexport async function POST(req: Request) {\n  return Response.json(s.passthrough().parse(await req.json()));\n}\n"
