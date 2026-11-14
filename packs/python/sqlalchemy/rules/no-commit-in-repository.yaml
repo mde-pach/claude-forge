@@ -1,0 +1,65 @@
+id: python/sqlalchemy/no-commit-in-repository
+description: "A repository does not commit its session: the unit of work (the service, the request dependency, a with session.begin() block) decides when a transaction ends, so two repository calls can share one transaction and roll back together. Use session.flush() when the repository needs generated ids, and commit in the caller."
+scope: {language: python, files: ["**/repositories/**", "**/repository/**", "**/repository.py", "**/repositories.py", "**/*_repository.py", "**/*_repo.py"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule: {pattern: "$S.commit()"}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, AsyncSession, scoped_session, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - |
+      from sqlalchemy import Integer
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class Order(Base):
+          __tablename__ = "orders"
+          id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
+      class OrderRepository:
+          def __init__(self, session: AsyncSession) -> None:
+              self.session = session
+
+          async def add(self, order: Order) -> Order:
+              self.session.add(order)
+              await self.session.commit()
+              return order
+  no_match:
+    - |
+      from sqlalchemy import Integer
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class Order(Base):
+          __tablename__ = "orders"
+          id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
+      class OrderRepository:
+          def __init__(self, session: AsyncSession) -> None:
+              self.session = session
+
+          async def add(self, order: Order) -> Order:
+              self.session.add(order)
+              await self.session.flush()
+              return order
+    - |
+      import sqlite3
+
+
+      def save(conn: sqlite3.Connection) -> None:
+          conn.commit()

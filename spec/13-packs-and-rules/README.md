@@ -39,7 +39,7 @@ Only the text outside the generated markers of this file is written by hand.
 | [kubernetes](kubernetes.md) | project | 3 | 7 |
 | [openapi](openapi.md) | project | 1 | 3 |
 | [pre-commit](pre-commit.md) | project | 1 | 1 |
-| [python](python.md) | project | 52 | 260 |
+| [python](python.md) | project | 52 | 276 |
 | [release](release.md) | project | 1 | 3 |
 | [safety](safety.md) | user | 1 | 35 |
 | [secrets](secrets.md) | project | 1 | 3 |
@@ -47,9 +47,9 @@ Only the text outside the generated markers of this file is written by hand.
 | [supply-chain](supply-chain.md) | project | 1 | 9 |
 | [terraform](terraform.md) | project | 1 | 8 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
-| [typescript](typescript.md) | project | 75 | 343 |
+| [typescript](typescript.md) | project | 75 | 328 |
 
-147 packs, 719 rules.
+147 packs, 720 rules.
 <!-- /generated:packs -->
 
 ### Tests
