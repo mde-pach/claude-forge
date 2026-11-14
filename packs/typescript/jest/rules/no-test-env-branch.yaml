@@ -1,0 +1,14 @@
+id: typescript/jest/no-test-env-branch
+description: Application code does not branch on whether it runs under Jest (JEST_WORKER_ID, NODE_ENV === "test", which Jest sets).
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests", "!jest.config.*", "!jest.setup.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {pattern: "process.env.JEST_WORKER_ID"}
+        - {pattern: "process.env.NODE_ENV === \"test\""}
+        - {pattern: "process.env.NODE_ENV === 'test'"}
+examples:
+  match: ["if (process.env.JEST_WORKER_ID) { mock(); }", "const t = process.env.NODE_ENV === \"test\";"]
+  no_match: ["if (process.env.DEBUG) { log(); }", "const p = process.env.NODE_ENV === \"production\";"]

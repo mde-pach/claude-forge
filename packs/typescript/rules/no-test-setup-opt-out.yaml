@@ -1,0 +1,14 @@
+id: typescript/no-test-setup-opt-out
+description: "Test commands in CI and scripts do not switch off what makes hidden test problems fail: the random order (vitest --sequence.shuffle=false, jest or bun test --randomize=false / --no-randomize, or a fixed --seed / --sequence.seed) or nock's network block (NOCK_OFF=true). Fix the test that depends on the order or the network; switching one off is the user's decision: ask them."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".gitlab-ci.yml", "**/Makefile", "**/justfile", "**/Taskfile.yml", "**/*.sh", "**/turbo.json"]}
+enforce:
+  - target: grep
+    mode: no-increase
+    pattern: "--sequence\\.shuffle[= ]false|--no-sequence\\.shuffle|--randomize[= ]false|--no-randomize|--(sequence\\.)?seed[= ]-?[0-9]|NOCK_OFF[=:][[:space:]]*[\"']?true"
+examples:
+  match:
+    - "name: test\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - run: npx vitest run --sequence.shuffle=false\n"
+    - "test:\n\tNOCK_OFF=true npx jest\n"
+  no_match:
+    - "name: test\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - run: npx vitest run --sequence.shuffle\n"
+    - "test:\n\tnpx jest --randomize\n"

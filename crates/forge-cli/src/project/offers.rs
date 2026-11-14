@@ -57,6 +57,8 @@ pub fn offers(ctx: &Ctx) -> Vec<Offer> {
         .flatten()
         .chain(testcontainers(ctx))
         .chain(dependabot(ctx))
+        .chain(dockerignore(ctx))
+        .chain(bun_text_lock(ctx))
         .collect()
 }
 
@@ -563,18 +565,76 @@ fn pytest(ctx: &Ctx) -> Option<Offer> {
     })
 }
 
-/// The JavaScript test runners' setup: Vitest's (`typescript/vitest/run`) and `bun test`'s
-/// (`typescript/bun/test`). Tests run in a random order (Vitest's `sequence.shuffle`, bunfig's
-/// `randomize`), and reach no host but this machine: [`NO_NETWORK_FILE`], loaded before each test
-/// file (Vitest's `setupFiles`, bunfig's `preload`), makes nock (a dev dependency added with the
-/// project's package manager) refuse any other. Not where the project has msw, whose
-/// `onUnhandledRequest: "error"` is its own way (`typescript/msw/unhandled-error`). Vitest's
-/// config is code: Forge adds to its one `test: {…}` object, or creates `vitest.config.ts` where
-/// there is no config, and otherwise offers nothing.
+/// Where a runner reads its test setup, for the person: the setting names and the setup file.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Runner {
+    Vitest,
+    Bun,
+    Jest,
+}
+
+impl Runner {
+    /// The setup file it loads, as its config names it, and the file Forge creates.
+    fn setup(self) -> (String, &'static str, &'static str) {
+        use test_setup::{NO_NETWORK_JEST, NO_NETWORK_JEST_FILE};
+        match self {
+            Runner::Jest => (
+                format!("<rootDir>/{NO_NETWORK_JEST_FILE}"),
+                NO_NETWORK_JEST_FILE,
+                NO_NETWORK_JEST,
+            ),
+            _ => (format!("./{NO_NETWORK_FILE}"), NO_NETWORK_FILE, NO_NETWORK),
+        }
+    }
+
+    /// The settings it added, as the person reads them in `file`.
+    fn added(self, file: &str, e: &test_setup::RunnerEdit) -> String {
+        let (setup, _, _) = self.setup();
+        let prefix = if file == "package.json" { "jest." } else { "" };
+        let mut parts = Vec::new();
+        if e.setup {
+            parts.push(match self {
+                Runner::Vitest => format!("test.setupFiles {setup}"),
+                Runner::Bun => format!("[test] preload {setup}"),
+                Runner::Jest => format!("{prefix}setupFilesAfterEnv {setup}"),
+            });
+        }
+        if e.shuffle {
+            parts.push(match self {
+                Runner::Vitest => "test.sequence.shuffle".to_string(),
+                Runner::Bun => "[test] randomize".to_string(),
+                Runner::Jest => format!("{prefix}randomize"),
+            });
+        }
+        and(&parts)
+    }
+}
+
+/// The version of an npm package the project runs: its install's, else the lowest its
+/// package.json admits (`""`: unknown).
+fn npm_version(ctx: &Ctx, deps: &forge_detect::deps::Deps, name: &str) -> String {
+    read(ctx, &format!("node_modules/{name}/package.json"))
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("version").and_then(|v| v.as_str()).map(str::to_owned))
+        .or_else(|| deps.get(name).cloned())
+        .unwrap_or_default()
+}
+
+/// The JavaScript test runners' setup: Vitest's (`typescript/vitest/run`), `bun test`'s
+/// (`typescript/bun/test`) and Jest's (`typescript/jest/run`). Tests run in a random order
+/// (Vitest's `sequence.shuffle`, bunfig's `randomize`, Jest's `randomize` from 29.5), and reach
+/// no host but this machine: [`NO_NETWORK_FILE`] (Jest: [`test_setup::NO_NETWORK_JEST_FILE`],
+/// from Jest 28, whose node environment first has the fetch globals nock needs), loaded before
+/// each test file (Vitest's `setupFiles`, bunfig's `preload`, Jest's `setupFilesAfterEnv`), makes
+/// nock (a dev dependency added with the project's package manager) refuse any other. Not where
+/// the project has msw, whose `onUnhandledRequest: "error"` is its own way
+/// (`typescript/msw/unhandled-error`). A config that is code is edited only in the shapes
+/// [`test_setup`] understands; otherwise nothing is offered for it.
 fn js_tests(ctx: &Ctx) -> Option<Offer> {
     let vitest = active(ctx, "typescript/vitest/run");
     let bun = active(ctx, "typescript/bun/test");
-    if !vitest && !bun {
+    let jest = active(ctx, "typescript/jest/run");
+    if !vitest && !bun && !jest {
         return None;
     }
     let pkg: serde_json::Value = read(ctx, "package.json")
@@ -586,8 +646,7 @@ fn js_tests(ctx: &Ctx) -> Option<Offer> {
         .find(|pm| pack(ctx, &format!("typescript/{pm}")));
     let has_nock = deps.contains_key("nock");
     let network = !deps.contains_key("msw") && (has_nock || pm.is_some());
-    let setup = format!("./{NO_NETWORK_FILE}");
-    let mut edits: Vec<(String, Option<String>, test_setup::RunnerEdit)> = Vec::new();
+    let mut edits: Vec<(Runner, String, Option<String>, test_setup::RunnerEdit)> = Vec::new();
     if vitest {
         let names = |stem: &str| {
             ["ts", "mts", "cts", "js", "mjs", "cjs"].map(|e| format!("{stem}.config.{e}"))
@@ -599,32 +658,59 @@ fn js_tests(ctx: &Ctx) -> Option<Offer> {
         let text = own.as_ref().and_then(|f| read(ctx, f));
         if own.is_none() || text.is_some() {
             let file = own.unwrap_or_else(|| "vitest.config.ts".into());
+            let (setup, _, _) = Runner::Vitest.setup();
             if let Some(e) = test_setup::with_vitest_setup(
                 text.as_deref(),
                 network.then_some(setup.as_str()),
                 true,
             ) {
-                edits.push((file, text, e));
+                edits.push((Runner::Vitest, file, text, e));
             }
         }
     }
     if bun {
         let text = read(ctx, "bunfig.toml");
+        let (setup, _, _) = Runner::Bun.setup();
         if let Some(e) = test_setup::with_bun_test_setup(
             text.as_deref().unwrap_or(""),
             network.then_some(setup.as_str()),
             true,
         ) {
-            edits.push(("bunfig.toml".into(), text, e));
+            edits.push((Runner::Bun, "bunfig.toml".into(), text, e));
+        }
+    }
+    if jest {
+        use forge_detect::versions::satisfies;
+        let v = npm_version(ctx, &deps, "jest");
+        // jest.config.* first: Jest refuses a project with both it and package.json's "jest"
+        let file = ["ts", "js", "mjs", "cjs", "cts", "mts", "json"]
+            .map(|e| format!("jest.config.{e}"))
+            .into_iter()
+            .find(|f| ctx.base.join(f).is_file())
+            .unwrap_or_else(|| "package.json".into());
+        let (setup, _, _) = Runner::Jest.setup();
+        if let Some(text) = read(ctx, &file)
+            && let Some(e) = test_setup::with_jest_setup(
+                &file,
+                &text,
+                (network && satisfies(&v, Some(">=28.0.0"))).then_some(setup.as_str()),
+                satisfies(&v, Some(">=29.5.0")),
+            )
+        {
+            edits.push((Runner::Jest, file, Some(text), e));
         }
     }
     if edits.is_empty() {
         return None;
     }
-    let loads = edits.iter().any(|(_, _, e)| e.setup);
+    let loads: Vec<Runner> = edits
+        .iter()
+        .filter(|(_, _, _, e)| e.setup)
+        .map(|(r, ..)| *r)
+        .collect();
     let mut steps = Vec::new();
     let mut what = Vec::new();
-    if loads
+    if !loads.is_empty()
         && !has_nock
         && let Some(pm) = pm
     {
@@ -647,40 +733,28 @@ fn js_tests(ctx: &Ctx) -> Option<Offer> {
             )),
         })));
     }
-    if loads && !ctx.base.join(NO_NETWORK_FILE).exists() {
-        what.push(format!("create {NO_NETWORK_FILE}"));
-        steps.push(Step::Write {
-            file: NO_NETWORK_FILE.into(),
-            before: None,
-            after: NO_NETWORK.into(),
-            added: String::new(),
-        });
+    let mut created = BTreeSet::new();
+    for r in &loads {
+        let (_, file, text) = r.setup();
+        if !ctx.base.join(file).exists() && created.insert(file) {
+            what.push(format!("create {file}"));
+            steps.push(Step::Write {
+                file: file.into(),
+                before: None,
+                after: text.into(),
+                added: String::new(),
+            });
+        }
     }
     let mut fails = Vec::new();
-    if loads {
+    if !loads.is_empty() {
         fails.push("reaches a host other than this machine".to_string());
     }
-    if edits.iter().any(|(_, _, e)| e.shuffle) {
+    if edits.iter().any(|(_, _, _, e)| e.shuffle) {
         fails.push("depends on the order the tests run in".to_string());
     }
-    for (file, before, e) in edits {
-        let mut parts = Vec::new();
-        let vite = file != "bunfig.toml";
-        if e.setup {
-            parts.push(if vite {
-                format!("test.setupFiles {setup}")
-            } else {
-                format!("[test] preload {setup}")
-            });
-        }
-        if e.shuffle {
-            parts.push(if vite {
-                "test.sequence.shuffle".to_string()
-            } else {
-                "[test] randomize".to_string()
-            });
-        }
-        let added = and(&parts);
+    for (runner, file, before, e) in edits {
+        let added = runner.added(&file, &e);
         what.push(if before.is_none() {
             format!("create {file} with {added}")
         } else {
@@ -701,19 +775,27 @@ fn js_tests(ctx: &Ctx) -> Option<Offer> {
     })
 }
 
-/// Whether the repository has files of a role (`python-tests`), as the active rules see it.
-fn has_role_files(ctx: &Ctx, role: &str) -> bool {
+/// The repository's files of a role (`dockerfile`), as the active rules see it.
+fn role_files(ctx: &Ctx, role: &str) -> Vec<String> {
     use forge_packs::glob::glob_to_regex;
     let Some(globs) = ctx.plan.role_globs.get(role) else {
-        return false;
+        return Vec::new();
     };
     let (exc, inc): (Vec<_>, Vec<_>) = globs.iter().partition(|g| g.starts_with('!'));
     let inc: Vec<_> = inc.iter().map(|g| glob_to_regex(g)).collect();
     let exc: Vec<_> = exc.iter().map(|g| glob_to_regex(&g[1..])).collect();
-    forge_detect::list_repo_files(&ctx.base).iter().any(|f| {
-        inc.iter().any(|re| re.is_match(f).unwrap_or(false))
-            && !exc.iter().any(|re| re.is_match(f).unwrap_or(false))
-    })
+    forge_detect::list_repo_files(&ctx.base)
+        .into_iter()
+        .filter(|f| {
+            inc.iter().any(|re| re.is_match(f).unwrap_or(false))
+                && !exc.iter().any(|re| re.is_match(f).unwrap_or(false))
+        })
+        .collect()
+}
+
+/// Whether the repository has files of a role (`python-tests`), as the active rules see it.
+fn has_role_files(ctx: &Ctx, role: &str) -> bool {
+    !role_files(ctx, role).is_empty()
 }
 
 /// Testcontainers, where the repository has tests and its Compose files run a service the code
@@ -836,5 +918,130 @@ fn dependabot(ctx: &Ctx) -> Option<Offer> {
             after,
             added: format!("cooldown default-days {DAYS}"),
         }],
+    })
+}
+
+/// The secret files out of each Docker build context, where `docker/dockerignore` is active and
+/// the repository has a Dockerfile: the `.dockerignore` it reads (`<Dockerfile>.dockerignore`,
+/// the one in its directory, else the root one, which is created when there is none) gets the
+/// dotenv and credential patterns it lacks ([`forge_builtins_infra::dockerignore`]). A build that
+/// copies the context then never puts them in an image layer. Guard: `docker/dockerignore-ratchet`.
+fn dockerignore(ctx: &Ctx) -> Option<Offer> {
+    use forge_builtins_infra::dockerignore::with_secret_excludes;
+    if !active(ctx, "docker/dockerignore") {
+        return None;
+    }
+    let mut targets = BTreeSet::new();
+    for df in role_files(ctx, "dockerfile") {
+        let dir = df.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+        let local = if dir.is_empty() {
+            ".dockerignore".to_string()
+        } else {
+            format!("{dir}/.dockerignore")
+        };
+        let target = [format!("{df}.dockerignore"), local]
+            .into_iter()
+            .find(|c| ctx.base.join(c).is_file())
+            .unwrap_or_else(|| ".dockerignore".into());
+        targets.insert(target);
+    }
+    let mut steps = Vec::new();
+    let mut files = Vec::new();
+    let mut created = false;
+    for file in targets {
+        let before = read(ctx, &file);
+        if before.is_none() && ctx.base.join(&file).exists() {
+            continue;
+        }
+        let Some((after, _)) = with_secret_excludes(before.as_deref()) else {
+            continue;
+        };
+        created |= before.is_none();
+        steps.push(Step::Write {
+            added: if before.is_some() {
+                "the secret files it did not exclude".into()
+            } else {
+                String::new()
+            },
+            file: file.clone(),
+            before,
+            after,
+        });
+        files.push(file);
+    }
+    if steps.is_empty() {
+        return None;
+    }
+    let verb = if created && files.len() == 1 {
+        format!("create {} excluding", files[0])
+    } else {
+        format!("exclude in {}", and(&files))
+    };
+    Some(Offer {
+        name: "Docker".into(),
+        what: format!(
+            "{verb} .env files (not the templates), private keys, keystores and credential files"
+        ),
+        why: Some("a build that copies the context then never puts them in an image".into()),
+        steps,
+    })
+}
+
+/// The text lock file, where `typescript/bun/text-lockfile` is active and the project has a
+/// binary `bun.lockb` (and no `bun.lock` yet): bun's own migration (the adapter's `text-lock`,
+/// `bun install --save-text-lockfile --frozen-lockfile --lockfile-only`, Bun 1.1.43 and later:
+/// it writes bun.lock from bun.lockb, installs nothing and fails on a bun.lockb that no longer
+/// matches package.json), then bun.lockb is deleted (Bun 1.2 does it itself).
+fn bun_text_lock(ctx: &Ctx) -> Option<Offer> {
+    use forge_check::builtins::{AdapterTools, BuiltinTools, ToolRun};
+    if !active(ctx, "typescript/bun/text-lockfile")
+        || !ctx.base.join("bun.lockb").is_file()
+        || ctx.base.join("bun.lock").exists()
+    {
+        return None;
+    }
+    let shown = "bun install --save-text-lockfile --frozen-lockfile --lockfile-only";
+    Some(Offer {
+        name: "Bun".into(),
+        what: format!(
+            "replace bun.lockb with the text bun.lock (`{shown}`, then delete bun.lockb)"
+        ),
+        why: Some("reviews and merges then read the lock file".into()),
+        steps: vec![Step::Run(Box::new(move |base| {
+            let tools = AdapterTools::new(
+                crate::provisioning::builtin_tools(),
+                forge_tools::lock_pins(),
+            );
+            match tools.run(base, base, "bun", "text-lock", &[]) {
+                ToolRun::Ran(o) if o.status == 0 && base.join("bun.lock").is_file() => {
+                    let lockb = base.join("bun.lockb");
+                    if lockb.exists() && std::fs::remove_file(&lockb).is_err() {
+                        return Ran::Failed(
+                            "bun.lock created, but bun.lockb could not be deleted; delete it yourself"
+                                .into(),
+                        );
+                    }
+                    Ran::Done("bun.lock created from bun.lockb, bun.lockb deleted".into())
+                }
+                ToolRun::Ran(o) => {
+                    let why = o
+                        .stderr
+                        .lines()
+                        .chain(o.stdout.lines())
+                        .rev()
+                        .find(|l| l.trim_start().starts_with("error"))
+                        .or_else(|| o.stderr.lines().rev().find(|l| !l.trim().is_empty()))
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    Ran::Failed(format!(
+                        "`{shown}` failed ({why}); bring bun.lockb in line with package.json (bun install), then run it yourself"
+                    ))
+                }
+                ToolRun::Missing(why) | ToolRun::Unsupported(why) => {
+                    Ran::Failed(format!("`{shown}` could not run ({why}); run it yourself"))
+                }
+            }
+        }))],
     })
 }

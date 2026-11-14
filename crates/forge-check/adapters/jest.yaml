@@ -1,0 +1,31 @@
+# Jest, the project's own (§16). What Forge asks of it (typescript/jest/run: `jest`,
+# `jest --onlyChanged`), with no other option: the project's config (jest.config.*, package.json
+# `jest`) says the rest.
+#
+# - `--onlyChanged` (`-o`) runs the tests related to the files changed since the last commit,
+#   staged, unstaged and untracked (a new test file counts), as Vitest's `run --changed`. It is
+#   older than every covered release (Jest 15 era); verified on 20.0.4, 22.4.4, 24.9.0, 26.6.3,
+#   27.5.1, 28.1.3, 29.4.3, 29.5.0, 29.7.0 and 30.5.2: a changed module runs its dependent test
+#   (a failing one exits 1), nothing changed prints `No tests found related to files changed
+#   since last commit.` and exits 0. 20.0.0 is the oldest covered release: older ones are 2016
+#   releases that do not install on a current Node.
+# - Exit statuses: 0 passed; 1 failed tests; 1 `No tests found, exiting with code 1` when the
+#   whole run finds no test file (Forge never passes --passWithNoTests).
+# - Usage errors: exit 1 (as failed tests) and `● Unrecognized CLI Parameter:` then
+#   `Unrecognized option "x".`, every covered release from 22.4.4 (20.x throws the same
+#   message from validateCLIOptions.js, verified).
+# - Not invocation changes, noted for the setup `forge apply` offers (§3.5): the `randomize`
+#   config key (random test order) is read from 29.5.0 on (verified: 29.4.3 warns `Unknown option
+#   "randomize"` and runs in order, 29.5.0 shuffles and prints `Seed:`); nock 14 loads in a
+#   `setupFiles` file from 28.0.0 on (27.5.1's node environment has no `Request` global, which
+#   @mswjs/interceptors needs: `ReferenceError: Request is not defined`; 28.1.3 verified).
+
+tool: "jest"
+verified: "30.5.2"
+usage: {exit: [1], pattern: "Unrecognized CLI Parameter"}
+ranges:
+  - from: "20.0.0"
+    source: "jestjs.io/docs/cli (--onlyChanged); verified 20.0.4 to 30.5.2"
+    ops:
+      "test": ""
+      "test-changed": "--onlyChanged"

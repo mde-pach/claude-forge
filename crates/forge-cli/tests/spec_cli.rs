@@ -929,6 +929,142 @@ fn apply_offers_the_vitest_setup() {
     );
 }
 
+/// apply offers Jest the same test setup (§3.5): the no-network file as CommonJS, loaded with
+/// setupFilesAfterEnv, and randomize, in package.json's "jest" object (JSON, edited in place);
+/// randomize only from Jest 29.5, which reads it.
+#[test]
+fn apply_offers_the_jest_setup() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"30.2.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"jest\": {\n    \"testEnvironment\": \"node\"\n  }\n}\n",
+        ),
+        ("package-lock.json", "{\"lockfileVersion\": 3}\n"),
+        (".npmrc", "min-release-age=7\n"),
+        ("tsconfig.json", "{}\n"),
+        (
+            "src/sum.test.ts",
+            "it(\"adds\", () => {\n  expect(1 + 1).toBe(2);\n});\n",
+        ),
+    ]);
+    exe(
+        &s.bin.join("npm"),
+        "#!/bin/sh\ncase \"$1 $2\" in --version*) echo '11.12.0' ;; 'install --save-dev') echo \"$@\" > npm-add.txt ;; esac\n",
+    );
+    let what = "add nock with `npm install --save-dev`, create test/no-network.cjs and add jest.setupFilesAfterEnv <rootDir>/test/no-network.cjs and jest.randomize to package.json";
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains(&format!("  test runner: {what}\n")),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: nock added, test/no-network.cjs created, package.json: added jest.setupFilesAfterEnv <rootDir>/test/no-network.cjs and jest.randomize; commit them with Forge's files"),
+        "{out}"
+    );
+    assert_eq!(
+        s.read("npm-add.txt").unwrap(),
+        "install --save-dev nock@^14\n"
+    );
+    let setup = s.read("test/no-network.cjs").unwrap();
+    assert!(
+        setup.contains("nock.disableNetConnect();")
+            && setup.contains("afterAll(() => nock.restore());")
+    );
+    assert_eq!(
+        s.read("package.json").unwrap(),
+        "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"30.2.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"jest\": {\n    \"setupFilesAfterEnv\": [\"<rootDir>/test/no-network.cjs\"],\n    \"randomize\": true,\n    \"testEnvironment\": \"node\"\n  }\n}\n"
+    );
+    assert!(!s.ok(&["status"]).contains("test runner:"));
+    // Jest 29.4 does not read randomize: only the no-network file is offered
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\"jest\": \"29.4.3\", \"nock\": \"14.0.0\"}\n}\n",
+        ),
+        ("package-lock.json", "{\"lockfileVersion\": 3}\n"),
+        (".npmrc", "min-release-age=7\n"),
+        ("tsconfig.json", "{}\n"),
+        (
+            "jest.config.js",
+            "module.exports = {\n  testEnvironment: \"node\",\n};\n",
+        ),
+    ]);
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains("  test runner: create test/no-network.cjs and add setupFilesAfterEnv <rootDir>/test/no-network.cjs to jest.config.js\n"),
+        "{status}"
+    );
+}
+
+/// apply offers the secret files' exclusion from the Docker build context (§3.5): the
+/// .dockerignore the Dockerfile reads gets the patterns it lacks; one with its own .env lines
+/// keeps them, and gets no template exception.
+#[test]
+fn apply_offers_the_dockerignore() {
+    let s = Sandbox::new(&[
+        ("Dockerfile", "FROM node:24-slim\nUSER node\nCOPY . .\n"),
+        (".dockerignore", "node_modules\n.git\n.env*\n"),
+    ]);
+    let status = s.ok(&["status"]);
+    assert!(
+        status.contains("  Docker: exclude in .dockerignore .env files (not the templates), private keys, keystores and credential files\n"),
+        "{status}"
+    );
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: .dockerignore: added the secret files it did not exclude; commit them with Forge's files"),
+        "{out}"
+    );
+    let text = s.read(".dockerignore").unwrap();
+    assert!(
+        text.starts_with(
+            "node_modules\n.git\n.env*\n\n# Secrets stay out of the build context\n**/*.p12\n"
+        ),
+        "{text}"
+    );
+    assert!(!text.contains("!**/.env.example") && text.ends_with("**/.git-credentials\n"));
+    assert!(!s.ok(&["status"]).contains("Docker:"));
+    // none yet: created at the root, the templates kept
+    let s = Sandbox::new(&[("api/Dockerfile", "FROM node:24-slim\nUSER node\n")]);
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(out.contains("forge: .dockerignore created"), "{out}");
+    let text = s.read(".dockerignore").unwrap();
+    assert!(
+        text.contains("**/.env\n**/.env.*\n!**/.env.example\n"),
+        "{text}"
+    );
+}
+
+/// apply offers bun's own migration from the binary bun.lockb to the text bun.lock, where
+/// typescript/bun/text-lockfile is active (§3.5), then deletes bun.lockb.
+#[test]
+fn apply_offers_the_bun_text_lockfile() {
+    let s = Sandbox::new(&[
+        (
+            "package.json",
+            "{\n  \"name\": \"shop\",\n  \"dependencies\": {\"zod\": \"4.1.0\"}\n}\n",
+        ),
+        ("bun.lockb", "#!/usr/bin/env bun\nbun-lockfile-format-v0\n"),
+        ("bunfig.toml", "[install]\nminimumReleaseAge = 604800\n"),
+        ("tsconfig.json", "{}\n"),
+    ]);
+    exe(
+        &s.bin.join("bun"),
+        "#!/bin/sh\ncase \"$*\" in --version) echo '1.1.43' ;; 'install --save-text-lockfile --frozen-lockfile --lockfile-only') echo '{\"lockfileVersion\": 1}' > bun.lock; echo \"$@\" > bun-args.txt ;; esac\n",
+    );
+    let what = "replace bun.lockb with the text bun.lock (`bun install --save-text-lockfile --frozen-lockfile --lockfile-only`, then delete bun.lockb)";
+    let status = s.ok(&["status"]);
+    assert!(status.contains(&format!("  Bun: {what}\n")), "{status}");
+    let out = s.ok(&["apply", "--yes"]);
+    assert!(
+        out.contains("forge: bun.lock created from bun.lockb, bun.lockb deleted; commit them with Forge's files"),
+        "{out}"
+    );
+    assert!(s.read("bun.lock").is_some() && s.read("bun.lockb").is_none());
+    assert!(!s.ok(&["status"]).contains("  Bun:"));
+}
+
 /// apply offers Testcontainers where the repository has tests and its Compose file runs a
 /// service the code depends on (not a proxy or an admin UI), with the modules of those services.
 #[test]

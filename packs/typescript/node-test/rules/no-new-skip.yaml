@@ -1,0 +1,29 @@
+id: typescript/node-test/no-new-skip
+description: "Tests that import from node:test are not skipped, left as todo or focused: no .skip, .todo or .only (it.skip, t.skip(), describe.only), and no skip, todo or only option ({ skip: true })."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+      any:
+        # it.skip(…), t.skip(), describe.only(…), t.todo()
+        - {kind: member_expression, regex: "^[A-Za-z_$][A-Za-z0-9_$]*\\.(skip|todo|only)$"}
+        # test("x", { skip: true }, …)
+        - kind: pair
+          has: {field: key, regex: "^[\"']?(skip|todo|only)[\"']?$"}
+          inside:
+            kind: object
+            inside:
+              kind: arguments
+              inside: {kind: call_expression, has: {field: function, regex: "^(it|test|describe|suite|[A-Za-z_$][A-Za-z0-9_$]*\\.test)$"}}
+examples:
+  match:
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\nit.skip(\"totals\", () => {\n  assert.equal(total([1]), 1);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"refunds\", { todo: true }, () => {});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", (t) => {\n  t.skip(\"flaky on CI\");\n  assert.equal(total([1]), 1);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ndescribe.only(\"cart\", () => {});\n"
+    - "const assert = require(\"node:assert\");\nconst { test } = require(\"node:test\");\n\ntest(\"totals\", { skip: process.platform === \"win32\" }, () => {\n  assert.equal(total([1]), 1);\n});\n"
+  no_match:
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", { timeout: 1000 }, () => {\n  assert.equal(total([1]), 1);\n});\n"
+    - "import { it } from \"vitest\";\n\nit.skip(\"vitest owns this file\", () => {});\n"

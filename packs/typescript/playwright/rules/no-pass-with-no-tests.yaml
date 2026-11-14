@@ -1,0 +1,10 @@
+id: typescript/playwright/no-pass-with-no-tests
+description: Running Playwright with --pass-with-no-tests needs confirmation; it turns a missing or mistyped test file into a pass.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: playwright, sub: [test], flags_any: [--pass-with-no-tests]}
+examples:
+  match: ["npx playwright test e2e/home.spec.ts --pass-with-no-tests", "bunx playwright test --pass-with-no-tests"]
+  no_match: ["npx playwright test", "npx playwright test --project=chromium"]

@@ -22,7 +22,7 @@ pub(super) fn register(r: &mut Registry) {
 
 /// Test blocks: pytest test functions (with their decorators) and classes; Vitest/Playwright
 /// `test` / `it` calls and the `describe` calls around them; test support code (top-level
-/// functions and classes not named test* / Test*, top-level declarations, `vi.mock` calls).
+/// functions and classes not named test* / Test*, top-level declarations, `vi.mock` / `jest.mock` calls).
 const TEST_BLOCKS: &str = r#"id: forge-test-support
 language: Python
 rule:
@@ -43,7 +43,7 @@ rule:
     - all:
         - any: [{kind: function_declaration}, {kind: class_declaration}, {kind: lexical_declaration}, {kind: variable_declaration}]
         - any: [{inside: {kind: program, stopBy: neighbor}}, {inside: {kind: export_statement, stopBy: neighbor, inside: {kind: program, stopBy: neighbor}}}]
-    - {kind: expression_statement, regex: "^vi[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
+    - {kind: expression_statement, regex: "^(vi|jest)[.](do)?[mM]ock[(]", inside: {kind: program, stopBy: neighbor}}
 ---
 id: forge-test
 language: Python
@@ -98,7 +98,7 @@ fn fingerprint(text: &str) -> String {
 static DEF_NAME: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(def|class)[ ]+([A-Za-z_][A-Za-z0-9_]*)").expect("regex"));
 static VI_MOCK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^vi[.](do)?[mM]ock[(][^,)]*").expect("regex"));
+    LazyLock::new(|| Regex::new(r"^(vi|jest)[.](do)?[mM]ock[(][^,)]*").expect("regex"));
 static DECL_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(def|class|function\*?|const|let|var)[ ]+([A-Za-z_$][A-Za-z0-9_$]*)")
         .expect("regex")

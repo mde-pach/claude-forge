@@ -1,0 +1,67 @@
+id: typescript/node-test/no-conditional-assert
+description: "Assertions run on every path of a test that imports from node:test: no assert only in a catch block, a .catch() callback or one branch of an if, where the test passes without asserting anything. Assert the outcome directly (await assert.rejects(p, NotFound), assert.throws(() => f(), NotFound)), assert the condition first (assert.ok(r.success)) and then branch, or plan the assertions (t.plan(1))."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(assert|assert\\.(?:ok|equal|strictEqual|deepEqual|deepStrictEqual|notEqual|notStrictEqual|match|doesNotMatch|partialDeepStrictEqual)|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.[A-Za-z]+)$"}
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+      any:
+        # in a catch block whose try neither fails the test (assert.fail) nor throws
+        - inside:
+            kind: catch_clause
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            inside:
+              kind: try_statement
+              not:
+                has:
+                  field: body
+                  has:
+                    stopBy: end
+                    any: [{pattern: "assert.fail($$$)"}, {kind: throw_statement}]
+        # in the callback of a .catch()
+        - inside:
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            stopBy: end
+            inside:
+              kind: arguments
+              inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: "^catch$"}}
+        # in one branch of an if: the other branch neither asserts nor fails, and no assertion
+        # on the condition comes just before it
+        - inside:
+            kind: if_statement
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            not:
+              any:
+                - all:
+                    - has:
+                        field: consequence
+                        has: {stopBy: end, any: [{kind: call_expression, has: {field: function, regex: "^(assert|assert\\.[A-Za-z]+|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.[A-Za-z]+)$"}}, {pattern: "assert.fail($$$)"}, {kind: throw_statement}]}
+                    - has:
+                        field: alternative
+                        has: {stopBy: end, any: [{kind: call_expression, has: {field: function, regex: "^(assert|assert\\.[A-Za-z]+|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.[A-Za-z]+)$"}}, {pattern: "assert.fail($$$)"}, {kind: throw_statement}]}
+                - follows:
+                    kind: expression_statement
+                    has: {stopBy: end, kind: call_expression, has: {field: function, regex: "^(assert|assert\\.[A-Za-z]+|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.[A-Za-z]+)$"}}
+      not:
+        # the test plans its assertions
+        inside:
+          stopBy: end
+          kind: statement_block
+          has: {kind: expression_statement, has: {pattern: "$T.plan($$$)"}}
+examples:
+  match:
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"rejects\", async () => {\n  try {\n    await load(\"x\");\n  } catch (e) {\n    assert.ok(e instanceof NotFound);\n  }\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"rejects\", async () => {\n  await load(\"x\").catch((e) => {\n    assert.match(e.message, /missing/);\n  });\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"parses\", () => {\n  const r = parse(\"1\");\n  if (r.success) {\n    assert.equal(r.data, 1);\n  }\n});\n"
+  no_match:
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"rejects\", async () => {\n  await assert.rejects(load(\"x\"), NotFound);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"rejects\", async (t) => {\n  t.plan(1);\n  try {\n    await load(\"x\");\n  } catch (e) {\n    t.assert.ok(e instanceof NotFound);\n  }\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"rejects\", async () => {\n  try {\n    await load(\"x\");\n    assert.fail(\"should throw\");\n  } catch (e) {\n    assert.ok(e instanceof NotFound);\n  }\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"parses\", () => {\n  const r = parse(\"1\");\n  assert.ok(r.success);\n  if (r.success) {\n    assert.equal(r.data, 1);\n  }\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"paths\", () => {\n  if (process.platform === \"win32\") {\n    assert.equal(sep, \"\\\\\");\n  } else {\n    assert.equal(sep, \"/\");\n  }\n});\n"
+    - "import { it } from \"vitest\";\nimport assert from \"node:assert\";\n\nit(\"parses\", () => {\n  const r = parse(\"1\");\n  if (r.success) {\n    assert.equal(r.data, 1);\n  }\n});\n"

@@ -1,0 +1,10 @@
+id: typescript/bun/no-pass-with-no-tests
+description: Running bun test with --pass-with-no-tests needs confirmation; it turns a missing or mistyped test file into a pass.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: bun, sub: [test], flags_any: [--pass-with-no-tests]}
+examples:
+  match: ["bun test ./src/cart.test.ts --pass-with-no-tests", "bun test --pass-with-no-tests"]
+  no_match: ["bun test", "bun test ./src/cart.test.ts", "bun run test -- --coverage"]

@@ -546,11 +546,23 @@ pub fn with_vitest_setup(
     if items.is_empty() {
         return None;
     }
-    let at = m.end();
+    Some(RunnerEdit {
+        text: insert_members(t, m.end(), &items, ","),
+        setup: setup.is_some(),
+        shuffle,
+    })
+}
+
+/// `t` with `items` inserted as the first members of the object or array whose opening bracket
+/// ends at `at`: on lines of their own, indented as the next line, when the members are on lines
+/// of their own; inline otherwise. `sep` follows each one but the last of an empty object
+/// (`","`; JSON's last member takes none).
+fn insert_members(t: &str, at: usize, items: &[String], sep: &str) -> String {
     let rest = &t[at..];
     let spaces = rest.len() - rest.trim_start_matches([' ', '\t']).len();
     let next = &rest[spaces..];
-    let (insert, skip) = if next.starts_with('}') {
+    let empty = next.starts_with(['}', ']']);
+    let (insert, skip) = if empty {
         (format!(" {} ", items.join(", ")), spaces)
     } else if next.starts_with('\n') || next.starts_with("\r\n") {
         let line = next.trim_start_matches(['\r', '\n']);
@@ -558,20 +570,23 @@ pub fn with_vitest_setup(
             .chars()
             .take_while(|c| *c == ' ' || *c == '\t')
             .collect();
-        if line.trim_start().starts_with('}') {
+        if line.trim_start().starts_with(['}', ']']) {
             indent.push_str("  ");
+            let last = items.len() - 1;
+            let text: String = items
+                .iter()
+                .enumerate()
+                .map(|(i, x)| format!("\n{indent}{x}{}", if i < last { "," } else { sep }))
+                .collect();
+            (text, 0)
+        } else {
+            let text: String = items.iter().map(|i| format!("\n{indent}{i},")).collect();
+            (text, 0)
         }
-        let text: String = items.iter().map(|i| format!("\n{indent}{i},")).collect();
-        (text, 0)
     } else {
         (format!(" {},", items.join(", ")), 0)
     };
-    let out = format!("{}{insert}{}", &t[..at], &t[at + skip..]);
-    Some(RunnerEdit {
-        text: out,
-        setup: setup.is_some(),
-        shuffle,
-    })
+    format!("{}{insert}{}", &t[..at], &t[at + skip..])
 }
 
 /// bunfig.toml (`""`: none yet) with `[test] preload` loading `setup` and `randomize = true`,
@@ -600,6 +615,179 @@ pub fn with_bun_test_setup(text: &str, setup: Option<&str>, randomize: bool) -> 
         out = out.trim_start().to_string();
     }
     Some(RunnerEdit {
+        text: out,
+        setup: setup.is_some(),
+        shuffle: randomize,
+    })
+}
+
+/// Jest's no-network file, loaded after the test framework of each test file
+/// (`setupFilesAfterEnv`): CommonJS, which Jest loads untransformed in every project (TypeScript
+/// or not, ESM or not). Jest runs several test files in one process, where each loads its own nock
+/// onto the same `http` module: the file restores it after its tests, or `http.get` breaks in the
+/// next file. jsdom has no fetch `Request`, which nock needs to load: there it does nothing.
+pub const NO_NETWORK_JEST_FILE: &str = "test/no-network.cjs";
+
+/// [`NO_NETWORK_JEST_FILE`]'s text.
+pub const NO_NETWORK_JEST: &str = r#"// Tests reach no host but this machine: a request to any other fails, so a test that
+// depends on the network fails here instead of passing or flaking with it.
+// A browser-like environment without fetch's Request (jsdom) cannot load nock: nothing is done there.
+if (typeof Request !== "undefined") {
+  const nock = require("nock");
+
+  nock.disableNetConnect();
+  nock.enableNetConnect((host) => /^(localhost|127\.0\.0\.1|\[?::1\]?)(:\d+)?$/.test(host));
+  // the next test file in this process loads its own nock onto the same http module
+  afterAll(() => nock.restore());
+}
+"#;
+
+/// Jest's config with `setupFilesAfterEnv` loading `setup` and `randomize: true`, where it has
+/// neither. `file` says which config it is: package.json (its `jest` object, added when it has
+/// none), `jest.config.json` (the whole file), else a `jest.config.*` module, which is code:
+/// the keys go at the start of its one exported object (`module.exports = {`, `export default {`,
+/// `defineConfig({`, or one `const config = {`), and an existing `setupFilesAfterEnv` is left
+/// alone. In JSON the file is prepended to an existing `setupFilesAfterEnv` list. A config with
+/// `projects` (each project has its own setup) gets nothing.
+pub fn with_jest_setup(
+    file: &str,
+    text: &str,
+    setup: Option<&str>,
+    randomize: bool,
+) -> Option<RunnerEdit> {
+    if file.ends_with(".json") {
+        return jest_json(text, file == "package.json", setup, randomize);
+    }
+    let word = |w: &str| {
+        Regex::new(&format!(r"\b{w}\b"))
+            .expect("regex")
+            .is_match(text)
+    };
+    if word("projects") {
+        return None;
+    }
+    let re = Regex::new(
+        r"(?m)(?:module\.exports\s*=|export\s+default|defineConfig\(|^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*(?:\s*:\s*[\w.<>]+)?\s*=)\s*\{",
+    )
+    .expect("regex");
+    let found: Vec<_> = re.find_iter(text).collect();
+    let [m] = found.as_slice() else {
+        return None;
+    };
+    let setup = setup.filter(|_| !word("setupFilesAfterEnv"));
+    let randomize = randomize && !word("randomize");
+    let mut items = Vec::new();
+    if let Some(s) = setup {
+        items.push(format!("setupFilesAfterEnv: [\"{s}\"]"));
+    }
+    if randomize {
+        items.push("randomize: true".to_string());
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(RunnerEdit {
+        text: insert_members(text, m.end(), &items, ","),
+        setup: setup.is_some(),
+        shuffle: randomize,
+    })
+}
+
+/// [`with_jest_setup`] on JSON: the edit is made in the text (its formatting kept) and then
+/// checked: the file must parse to what it was, with only these keys added.
+fn jest_json(
+    text: &str,
+    package: bool,
+    setup: Option<&str>,
+    randomize: bool,
+) -> Option<RunnerEdit> {
+    use serde_json::{Value, json};
+    let before: Value = serde_json::from_str(text).ok()?;
+    let root = before.as_object()?;
+    let cfg = if package {
+        match root.get("jest") {
+            Some(Value::Object(o)) => Some(o),
+            Some(_) => return None,
+            None => None,
+        }
+    } else {
+        Some(root)
+    };
+    if cfg.is_some_and(|c| c.contains_key("projects")) {
+        return None;
+    }
+    let list = cfg.and_then(|c| c.get("setupFilesAfterEnv"));
+    let setup = match list {
+        None => setup,
+        Some(Value::Array(a)) => setup.filter(|s| !a.iter().any(|x| x.as_str() == Some(*s))),
+        Some(_) => None,
+    };
+    let randomize = randomize && !cfg.is_some_and(|c| c.contains_key("randomize"));
+    if setup.is_none() && !randomize {
+        return None;
+    }
+    let mut want = before.clone();
+    let target = if package {
+        want.as_object_mut()?
+            .entry("jest")
+            .or_insert_with(|| json!({}))
+    } else {
+        &mut want
+    };
+    let t = target.as_object_mut()?;
+    if let Some(s) = setup {
+        match t.get_mut("setupFilesAfterEnv") {
+            Some(Value::Array(a)) => a.insert(0, json!(s)),
+            _ => {
+                t.insert("setupFilesAfterEnv".into(), json!([s]));
+            }
+        }
+    }
+    if randomize {
+        t.insert("randomize".into(), json!(true));
+    }
+    let quoted = |s: &str| serde_json::to_string(s).unwrap_or_default();
+    let mut new_keys = Vec::new();
+    let mut out = text.to_string();
+    // the file goes first in an existing list
+    if let (Some(s), Some(Value::Array(_))) = (setup, list) {
+        let re = Regex::new(r#""setupFilesAfterEnv"\s*:\s*\["#).expect("regex");
+        let found: Vec<_> = re.find_iter(&out).collect();
+        let [m] = found.as_slice() else {
+            return None;
+        };
+        out = insert_members(&out, m.end(), &[quoted(s)], "");
+    } else if let Some(s) = setup {
+        new_keys.push(format!("\"setupFilesAfterEnv\": [{}]", quoted(s)));
+    }
+    if randomize {
+        new_keys.push("\"randomize\": true".to_string());
+    }
+    if !new_keys.is_empty() {
+        let at = match (package, cfg) {
+            (true, None) => {
+                // a new "jest" object, as the root's first member
+                let open = out.find('{')? + 1;
+                let inner = format!("\"jest\": {{{}}}", new_keys.join(", "));
+                out = insert_members(&out, open, &[inner], "");
+                None
+            }
+            (true, Some(_)) => {
+                let re = Regex::new(r#""jest"\s*:\s*\{"#).expect("regex");
+                let found: Vec<_> = re.find_iter(&out).collect();
+                let [m] = found.as_slice() else {
+                    return None;
+                };
+                Some(m.end())
+            }
+            (false, _) => Some(out.find('{')? + 1),
+        };
+        if let Some(at) = at {
+            out = insert_members(&out, at, &new_keys, "");
+        }
+    }
+    let after: Value = serde_json::from_str(&out).ok()?;
+    (after == want).then_some(RunnerEdit {
         text: out,
         setup: setup.is_some(),
         shuffle: randomize,
@@ -772,6 +960,89 @@ mod tests {
             with_bun_test_setup(
                 "[test]\npreload = \"./a.ts\"\nrandomize = false\n",
                 Some("./n.ts"),
+                true
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn jest_config_gets_setup_and_randomize() {
+        let f = "<rootDir>/test/no-network.cjs";
+        // package.json without a jest key: a new one, first
+        let pkg = "{\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"^30.0.0\"\n  }\n}\n";
+        let e = with_jest_setup("package.json", pkg, Some(f), true).unwrap();
+        assert_eq!(
+            e.text,
+            "{\n  \"jest\": {\"setupFilesAfterEnv\": [\"<rootDir>/test/no-network.cjs\"], \"randomize\": true},\n  \"name\": \"shop\",\n  \"devDependencies\": {\n    \"jest\": \"^30.0.0\"\n  }\n}\n"
+        );
+        assert!(e.setup && e.shuffle);
+        // its jest object: the file goes first in the list it has, randomize is added
+        let pkg = "{\n  \"jest\": {\n    \"setupFilesAfterEnv\": [\n      \"@testing-library/jest-dom\"\n    ],\n    \"testEnvironment\": \"node\"\n  }\n}\n";
+        assert_eq!(
+            with_jest_setup("package.json", pkg, Some(f), true)
+                .unwrap()
+                .text,
+            "{\n  \"jest\": {\n    \"randomize\": true,\n    \"setupFilesAfterEnv\": [\n      \"<rootDir>/test/no-network.cjs\",\n      \"@testing-library/jest-dom\"\n    ],\n    \"testEnvironment\": \"node\"\n  }\n}\n"
+        );
+        // a value the project set is kept; projects, a config path: nothing
+        assert!(
+            with_jest_setup(
+                "package.json",
+                "{\"jest\": {\"randomize\": false}}",
+                None,
+                true
+            )
+            .is_none()
+        );
+        assert!(
+            with_jest_setup(
+                "package.json",
+                "{\"jest\": {\"projects\": [\"a\"]}}",
+                Some(f),
+                true
+            )
+            .is_none()
+        );
+        assert!(
+            with_jest_setup("package.json", "{\"jest\": \"./jest.json\"}", Some(f), true).is_none()
+        );
+        assert_eq!(
+            with_jest_setup("jest.config.json", "{}\n", None, true)
+                .unwrap()
+                .text,
+            "{ \"randomize\": true }\n"
+        );
+        // a module: its one exported object
+        let js = "/** @type {import('jest').Config} */\nmodule.exports = {\n  testEnvironment: \"node\",\n};\n";
+        assert_eq!(
+            with_jest_setup("jest.config.js", js, Some(f), true)
+                .unwrap()
+                .text,
+            "/** @type {import('jest').Config} */\nmodule.exports = {\n  setupFilesAfterEnv: [\"<rootDir>/test/no-network.cjs\"],\n  randomize: true,\n  testEnvironment: \"node\",\n};\n"
+        );
+        let ts = "import type { Config } from \"jest\";\n\nconst config: Config = {\n  setupFilesAfterEnv: [\"./setup.ts\"],\n};\n\nexport default config;\n";
+        let e = with_jest_setup("jest.config.ts", ts, Some(f), true).unwrap();
+        assert!(!e.setup && e.shuffle);
+        assert!(
+            e.text
+                .contains("const config: Config = {\n  randomize: true,\n  setupFilesAfterEnv")
+        );
+        // two objects, or projects: code Forge does not edit
+        assert!(
+            with_jest_setup(
+                "jest.config.js",
+                "const a = {};\nmodule.exports = { ...a };\n",
+                Some(f),
+                true
+            )
+            .is_none()
+        );
+        assert!(
+            with_jest_setup(
+                "jest.config.js",
+                "module.exports = { projects: [\"a\"] };\n",
+                Some(f),
                 true
             )
             .is_none()

@@ -1,6 +1,8 @@
 id: typescript/jest/no-test-path-pattern
 description: Jest 30 filters test files with --testPathPatterns; the old --testPathPattern flag is rejected by it, in package.json scripts and in commands.
 scope: {language: any, files: ["**/package.json"]}
+when:
+  deps: [{ecosystem: npm, name: jest, version: ">=30.0.0"}]
 enforce:
   - target: grep
     mode: forbid

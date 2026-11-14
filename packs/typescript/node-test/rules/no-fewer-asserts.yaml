@@ -1,0 +1,13 @@
+id: typescript/node-test/no-fewer-asserts
+description: Assertions (assert(…), assert.*(…), t.assert.*(…)) are not removed from tests that import from node:test.
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-decrease
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^(assert|assert\\.[A-Za-z]+|assert\\.strict\\.[A-Za-z]+|[A-Za-z_$][A-Za-z0-9_$]*\\.assert\\.[A-Za-z]+)$"}
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+examples:
+  match: ["import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  assert.equal(total([40, 60]), 100);\n});\n", "import { test } from \"node:test\";\n\ntest(\"totals\", (t) => {\n  t.assert.deepStrictEqual(total([40, 60]), 100);\n});\n"]
+  no_match: ["import assert from \"node:assert/strict\";\nimport { describe, it, test } from \"node:test\";\n\ntest(\"totals\", () => {\n  total([40, 60]);\n});\n", "import assert from \"node:assert\";\n\nexport function check(n: number) {\n  assert.ok(n > 0);\n}\n"]

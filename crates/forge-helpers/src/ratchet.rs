@@ -940,6 +940,13 @@ const LOOSE: &[&str] = &[
     r"--max-warnings[= ]\d+",
     r"--bail[= ]0\b",
     r"--silent\b",
+    // the random test order and nock's network block, as forge apply sets them up (§3.5)
+    r"--sequence\.shuffle[= ]false\b",
+    r"--no-sequence\.shuffle\b",
+    r"--randomize[= ]false\b",
+    r"--no-randomize\b",
+    r"--(sequence\.)?seed[= ]-?\d+",
+    r"\bNOCK_OFF=\S+",
 ];
 
 fn scripts(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
@@ -979,6 +986,24 @@ fn scripts(o: &mut Out, b: &Map<String, Value>, a: &Map<String, Value>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_scripts_keep_the_random_order_and_the_network_block() {
+        let l = loosened(
+            "package.json",
+            "{\"scripts\": {\"test\": \"vitest run\", \"test:jest\": \"jest --randomize\"}}",
+            "{\"scripts\": {\"test\": \"NOCK_OFF=true vitest run --sequence.shuffle=false\", \"test:jest\": \"jest --seed=42\"}}",
+            None,
+        );
+        assert_eq!(
+            l,
+            [
+                "package.json: scripts.test adds --sequence.shuffle=false",
+                "package.json: scripts.test adds NOCK_OFF=true",
+                "package.json: scripts.test:jest adds --seed=42",
+            ]
+        );
+    }
 
     #[test]
     fn ruff_ignore() {
