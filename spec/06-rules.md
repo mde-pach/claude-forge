@@ -53,7 +53,7 @@ Each `enforce` entry has a `target` kind and the fields of that kind. Unknown fi
 | `check` | see below | the checker runs the command (§10) |
 | `guard` | `decision: deny \| ask`, `command` and/or `check`, `reason` (optional) | the PreToolUse hook on Bash commands (§9) |
 | `permission` | `decision: deny \| ask`, `rule` (a Claude Code permission rule, `Tool` or `Tool(specifier)`) | an entry in the settings file's `permissions.<decision>` (§7) |
-| `sandbox` | `path` (a dotted key under `sandbox`), `value` | an entry under `sandbox`: in `~/.claude/settings.json` at user level, in `.claude/settings.local.json` at project level (§7.2) |
+| `sandbox` | `path` (a dotted key under `sandbox`), `value`, optional `os` (`macos` or `linux`: only where Claude Code's sandbox runs on that system) | an entry under `sandbox`: in `~/.claude/settings.json` at user level, in `.claude/settings.local.json` at project level (§7.2) |
 
 `ast-grep`, `grep` and `check` targets are project level only. A target used at the wrong level is skipped with a warning. A rule has at most one `ast-grep` target.
 

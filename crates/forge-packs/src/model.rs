@@ -617,6 +617,32 @@ pub struct SandboxTarget {
     #[schemars(pattern(r"^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$"))]
     pub path: String,
     pub value: Value,
+    /// Only where Claude Code's sandbox runs on this system: its sandbox differs by platform
+    /// (macOS filters Unix sockets and local ports by path and port; Linux isolates the
+    /// command's whole network).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<SandboxOs>,
+}
+
+/// A system Claude Code's sandbox runs on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SandboxOs {
+    Macos,
+    Linux,
+}
+
+impl SandboxOs {
+    /// The system this Forge runs on, when Claude Code's sandbox has one of these.
+    pub fn here() -> Option<SandboxOs> {
+        if cfg!(target_os = "macos") {
+            Some(SandboxOs::Macos)
+        } else if cfg!(target_os = "linux") {
+            Some(SandboxOs::Linux)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

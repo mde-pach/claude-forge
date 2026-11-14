@@ -306,7 +306,16 @@ fn target_text(t: &Target) -> String {
         }
         Target::Permission(p) => format!("permission {} {}", p.decision, code(&p.rule)),
         Target::Guard(g) => guard_text(g),
-        Target::Sandbox(s) => format!("sandbox {} = {}", code(&s.path), code(&s.value.to_string())),
+        Target::Sandbox(s) => format!(
+            "sandbox {} = {}{}",
+            code(&s.path),
+            code(&s.value.to_string()),
+            match s.os {
+                Some(forge_packs::model::SandboxOs::Macos) => " (macOS)",
+                Some(forge_packs::model::SandboxOs::Linux) => " (Linux)",
+                None => "",
+            }
+        ),
         Target::Check(c) => check_text(c),
         Target::Grep(g) => {
             let mut s = format!("grep {} {}", g.mode, code(&g.pattern));

@@ -314,23 +314,22 @@ pub fn person_notes(ctx: &Ctx, probe: &dyn ToolProbe) -> Vec<String> {
     }
     out.extend(probe.notes(&ctx.plan).into_iter().map(|n| n.to_string()));
     out.extend(sandbox_note(ctx));
-    out.extend(sandbox_docker_note(ctx));
+    out.extend(sandbox_excluded_note(ctx));
     out
 }
 
-/// A project whose sandbox entries let Claude's commands reach Docker (§7.2), on Linux: Claude
-/// Code ignores `network.allowUnixSockets` there, and a sandboxed command's localhost is its own,
-/// so those entries cannot do it.
-fn sandbox_docker_note(ctx: &Ctx) -> Option<String> {
-    (cfg!(target_os = "linux")
-        && ctx.level == Level::Project
+/// A project whose sandbox entries take commands out of the sandbox (§7.2: on Linux, the test
+/// commands of a project whose tests use Testcontainers): what those commands run is not
+/// sandboxed.
+fn sandbox_excluded_note(ctx: &Ctx) -> Option<String> {
+    (ctx.level == Level::Project
         && ctx
             .plan
             .settings
             .iter()
-            .any(|e| e.entry.path == "sandbox.network.allowUnixSockets"))
+            .any(|e| e.entry.path == "sandbox.excludedCommands"))
     .then(|| {
-        "Claude Code's sandbox on Linux cannot reach Docker (it ignores network.allowUnixSockets, and a sandboxed command's localhost is its own): tests that use Testcontainers fail when Claude runs them in the sandbox; Forge's Stop check runs them outside it.".to_string()
+        "Claude Code runs the commands listed in .claude/settings.local.json's sandbox.excludedCommands outside its sandbox, after its permission check: what they run (the project's tests) is not sandboxed.".to_string()
     })
 }
 

@@ -388,9 +388,10 @@ fn migration_keeps_a_modified_old_file_without_force() {
     assert!(s.read(".forge/check.sh").is_none());
 }
 
-/// A project whose tests use Testcontainers: its sandbox entries (the Docker socket found here,
-/// the containers' ports) go to this machine's settings file, shown and never in the shared one
-/// (§7.2).
+/// A project whose tests use Testcontainers: its sandbox entries go to this machine's settings
+/// file, shown and never in the shared one (§7.2). On macOS, the Docker socket found here and
+/// the containers' ports; on Linux, the test commands Claude Code runs outside its sandbox, with
+/// the note saying so.
 #[test]
 fn testcontainers_sandbox_entries_go_to_the_local_settings() {
     let s = Sandbox::new("fastapi-app");
@@ -417,13 +418,22 @@ fn testcontainers_sandbox_entries_go_to_the_local_settings() {
     );
     let local: serde_json::Value =
         serde_json::from_str(&s.read(".claude/settings.local.json").unwrap()).unwrap();
-    assert_eq!(
-        local["sandbox"]["network"],
-        serde_json::json!({
-            "allowUnixSockets": ["/run/user/1000/docker.sock"],
-            "allowLocalBinding": true
-        })
-    );
+    let excluded = "Claude Code runs the commands listed in .claude/settings.local.json's sandbox.excludedCommands outside its sandbox";
+    if cfg!(target_os = "linux") {
+        assert!(local["sandbox"].get("network").is_none(), "{local}");
+        let commands = local["sandbox"]["excludedCommands"].as_array().unwrap();
+        assert!(commands.contains(&serde_json::json!("pytest *")), "{local}");
+        assert!(stdout.contains(excluded), "{stdout}");
+    } else if cfg!(target_os = "macos") {
+        assert_eq!(
+            local["sandbox"],
+            serde_json::json!({"network": {
+                "allowUnixSockets": ["/run/user/1000/docker.sock"],
+                "allowLocalBinding": true
+            }})
+        );
+        assert!(!stdout.contains(excluded), "{stdout}");
+    }
     assert!(!s.read(".claude/settings.json").unwrap().contains("sandbox"));
     assert!(
         s.read("forge.lock")

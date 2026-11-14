@@ -10,7 +10,7 @@ use forge_detect::roles::{Roles, apply_roles};
 use forge_packs::PackSet;
 use forge_packs::model::{
     AstGrepTarget, CheckTarget, Disable, GrepTarget, GuardTarget, Level, ProjectConfig, Rule,
-    Target, ToolTarget,
+    SandboxOs, Target, ToolTarget,
 };
 use forge_packs::roles::roles_of_rule;
 use serde::Serialize;
@@ -101,6 +101,9 @@ fn in_dirs(dirs: &Option<Vec<String>>) -> String {
 pub struct SettingsTarget<'a> {
     pub file: &'a str,
     pub label: &'a str,
+    /// The system Claude Code's sandbox runs on here: a `sandbox` target for another one adds
+    /// nothing.
+    pub os: Option<SandboxOs>,
 }
 
 /// Selects and plans the rules. `site` knows the repository; `level`, the settings file and
@@ -340,6 +343,7 @@ fn plan_rule(
                         .push(format!("guard {} (PreToolUse Bash)", g.decision));
                 }
             }
+            Target::Sandbox(s) if s.os.is_some_and(|o| Some(o) != settings.os) => {}
             Target::Sandbox(s) => {
                 // the user level turns the sandbox on for every project; a project's rule adds
                 // what its own commands need, in this machine's settings file: its values can

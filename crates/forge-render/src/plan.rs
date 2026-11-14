@@ -223,6 +223,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         SettingsTarget {
             file: settings_file,
             label: &settings_label,
+            os: forge_packs::model::SandboxOs::here(),
         },
         &mut warnings,
     )?;
