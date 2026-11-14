@@ -1,0 +1,79 @@
+id: python/fastapi/bounded-pagination
+description: "A page-size query parameter (limit, page_size, per_page, size, max_results) has an upper bound: Query(le=100) (or lt=). Without one a client asks for every row in one request, which loads the whole table into memory. Clamp it with le= on the Query."
+scope: {language: python}
+enforce:
+  # Query() is already the parameter's validation: a missing le= is an omission (bare int
+  # defaults: python/fastapi/pagination-default-bound)
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $F($$$)
+      not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^(le|lt)[[:space:]]*="}}}
+      inside:
+        stopBy: end
+        any: [{kind: typed_parameter}, {kind: typed_default_parameter}, {kind: default_parameter}]
+        regex: "^(limit|page_size|pagesize|per_page|perpage|size|max_results)[[:space:]]*[:=]"
+    where:
+      F: {declared: {package: fastapi, name: Query}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
+  match:
+    - |
+      from typing import Annotated
+
+      from fastapi import APIRouter, Query
+
+      router = APIRouter()
+      ITEMS = list(range(1000))
+
+
+      @router.get("/items")
+      def list_items(offset: int = 0, limit: Annotated[int, Query(ge=1)] = 50) -> list[int]:
+          return ITEMS[offset : offset + limit]
+    - |
+      import fastapi
+
+      app = fastapi.FastAPI()
+
+
+      @app.get("/users")
+      def users(page_size: int = fastapi.Query(20, ge=1)) -> list[str]:
+          return ["a"] * page_size
+  no_match:
+    - |
+      from typing import Annotated
+
+      from fastapi import APIRouter, Query
+
+      router = APIRouter()
+      ITEMS = list(range(1000))
+
+
+      @router.get("/items")
+      def list_items(offset: Annotated[int, Query(ge=0)] = 0, limit: Annotated[int, Query(ge=1, le=100)] = 50) -> list[int]:
+          return ITEMS[offset : offset + limit]
+    - |
+      from typing import Annotated
+
+      from fastapi import FastAPI, Query
+
+      app = FastAPI()
+
+
+      @app.get("/search")
+      def search(q: Annotated[str, Query(min_length=2)], tags: Annotated[list[str] | None, Query()] = None) -> list[str]:
+          return [q, *(tags or [])]
+    - |
+      def chunk(rows: list[int], size: int = 100) -> list[list[int]]:
+          return [rows[i : i + size] for i in range(0, len(rows), size)]
+    # a bare int default is python/fastapi/pagination-default-bound's
+    - |
+      from fastapi import FastAPI
+
+      app = FastAPI()
+
+
+      @app.get("/orders")
+      def orders(skip: int = 0, limit: int = 100) -> list[int]:
+          return list(range(skip, skip + min(limit, 100)))

@@ -137,12 +137,19 @@ fn render(all: &[Adapter]) -> String {
             let _ = writeln!(s, "- {}: {}", range_label(r), r.source.trim());
         }
         if let Some(c) = &a.codes {
-            let _ = writeln!(
-                s,
-                "- Codes: the history of {} codes Forge's rules expect (§16.3); {} lists the release's rules.",
-                c.history.len(),
-                code(&c.op)
-            );
+            let _ = match &c.op {
+                Some(op) => writeln!(
+                    s,
+                    "- Codes: the history of {} codes Forge's rules expect (§16.3); {} lists the release's rules.",
+                    c.history.len(),
+                    code(op)
+                ),
+                None => writeln!(
+                    s,
+                    "- Codes: the history of {} codes Forge's rules expect (§16.3).",
+                    c.history.len()
+                ),
+            };
         }
         if a.fallback.is_some() && !a.fallback_ops.is_empty() {
             let ops: Vec<String> = a

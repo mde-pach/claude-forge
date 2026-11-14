@@ -63,6 +63,7 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "lockfile_updated",
     "model_ids",
     "models_registered",
+    "new_files",
     "npm_cooldown",
     "oasdiff",
     "once",

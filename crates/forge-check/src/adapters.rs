@@ -75,7 +75,9 @@ pub struct CodeHistory {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Codes {
-    pub op: String,
+    /// The operation that lists the installed release's rules, for a tool that has one.
+    #[serde(default)]
+    pub op: Option<String>,
     pub history: BTreeMap<String, CodeHistory>,
 }
 

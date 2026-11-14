@@ -1,0 +1,83 @@
+id: python/sqlalchemy/alembic/naming-convention
+description: "The declarative base sets metadata = MetaData(naming_convention={...}) (ix, uq, ck, fk, pk): without it autogenerate writes unnamed constraints, which later revisions cannot drop or alter by name, and SQLite batch migrations fail on them. Add the convention when the base is created, before the first revision."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: class_definition
+      all:
+        - has: {field: superclasses, has: {regex: "DeclarativeBase$", pattern: $B}}
+        - not:
+            has:
+              field: body
+              has:
+                kind: expression_statement
+                has:
+                  kind: assignment
+                  all:
+                    - has: {field: left, regex: "^(metadata|registry)$"}
+                    - not:
+                        has:
+                          field: right
+                          kind: call
+                          regex: "^([A-Za-z_][A-Za-z0-9_]*\\.)*MetaData\\("
+                          not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^naming_convention[[:space:]]*="}}}
+    # DeclarativeBase itself, as the direct base: the mapped classes derive from the project's Base
+    where:
+      B: {declared: {package: sqlalchemy, name: DeclarativeBase}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - |
+      from sqlalchemy.ext.asyncio import AsyncAttrs
+      from sqlalchemy.orm import DeclarativeBase
+
+
+      class Base(AsyncAttrs, DeclarativeBase):
+          pass
+    - |
+      from sqlalchemy import MetaData
+      from sqlalchemy.orm import DeclarativeBase
+
+
+      class Base(DeclarativeBase):
+          metadata = MetaData(schema="app")
+  no_match:
+    - |
+      from sqlalchemy import MetaData
+      from sqlalchemy.orm import DeclarativeBase
+
+      NAMING_CONVENTION = {
+          "ix": "ix_%(column_0_label)s",
+          "uq": "uq_%(table_name)s_%(column_0_name)s",
+          "ck": "ck_%(table_name)s_%(constraint_name)s",
+          "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+          "pk": "pk_%(table_name)s",
+      }
+
+
+      class Base(DeclarativeBase):
+          metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    - |
+      from sqlalchemy import MetaData
+      from sqlalchemy.orm import DeclarativeBase
+
+      metadata_obj = MetaData(naming_convention={"pk": "pk_%(table_name)s"})
+
+
+      class Base(DeclarativeBase):
+          metadata = metadata_obj
+    # a mapped class derives from the project's Base, not from DeclarativeBase
+    - |
+      from sqlalchemy import MetaData
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+      class Base(DeclarativeBase):
+          metadata = MetaData(naming_convention={"pk": "pk_%(table_name)s"})
+
+
+      class User(Base):
+          __tablename__ = "users"
+          id: Mapped[int] = mapped_column(primary_key=True)

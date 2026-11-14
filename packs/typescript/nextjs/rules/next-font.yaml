@@ -1,0 +1,16 @@
+id: typescript/nextjs/next-font
+description: "Google Fonts are not loaded with a <link href=\"https://fonts.googleapis.com/css…\"> in JSX: it is a render-blocking request to a third party at every visit. Use next/font/google (const inter = Inter({ subsets: [\"latin\"] }) and inter.className), which self-hosts the font at build time."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: jsx_self_closing_element}, {kind: jsx_opening_element}]
+      all:
+        - has: {field: name, regex: "^link$"}
+        - has: {kind: jsx_attribute, regex: "^href\\s*=\\s*[\"'{`]*https?://fonts\\.googleapis\\.com/css"}
+examples:
+  match:
+    - "export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\">\n      <head>\n        <link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap\" />\n      </head>\n      <body>{children}</body>\n    </html>\n  );\n}\n"
+  no_match:
+    - "import { Inter } from \"next/font/google\";\n\nconst inter = Inter({ subsets: [\"latin\"] });\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\" className={inter.className}>\n      <head>\n        <link rel=\"icon\" href=\"/favicon.ico\" />\n        <link rel=\"stylesheet\" href=\"https://cdn.example.com/fonts.googleapis.com/css\" />\n      </head>\n      <body>{children}</body>\n    </html>\n  );\n}\n"

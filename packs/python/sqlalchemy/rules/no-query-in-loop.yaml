@@ -1,0 +1,84 @@
+id: python/sqlalchemy/no-query-in-loop
+description: "A session query (execute, scalars, scalar, get, get_one, refresh, stream) does not run once per item inside a loop or comprehension: one round trip per row is the N+1 pattern. Load the rows in one statement (where(Model.id.in_(ids)), a join, selectinload()) or batch them."
+scope: {language: python, files: ["!@python-tests", "!@alembic-migrations"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $S.$M($$$)
+      all:
+        - has: {field: function, regex: "\\.(execute|scalars|scalar|get|get_one|refresh|stream|stream_scalars)$"}
+        - any:
+            - inside: {stopBy: end, field: body, any: [{kind: for_statement}, {kind: while_statement}]}
+            - all:
+                - inside: {stopBy: end, any: [{kind: list_comprehension}, {kind: set_comprehension}, {kind: dictionary_comprehension}, {kind: generator_expression}]}
+                - not: {inside: {stopBy: end, kind: for_in_clause}}
+    where:
+      S: {type: {package: sqlalchemy, name: [Session, AsyncSession, scoped_session, async_scoped_session]}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - |
+      from sqlalchemy import Integer, String, select
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class User(Base):
+          __tablename__ = "users"
+          id: Mapped[int] = mapped_column(Integer, primary_key=True)
+          name: Mapped[str] = mapped_column(String)
+
+
+      async def names(session: AsyncSession, ids: list[int]) -> list[str]:
+          out = []
+          for user_id in ids:
+              user = await session.get(User, user_id)
+              if user is not None:
+                  out.append(user.name)
+          return out
+    - |
+      from sqlalchemy import select, text
+      from sqlalchemy.orm import Session
+
+
+      def totals(db: Session, order_ids: list[int]) -> list[int | None]:
+          return [db.scalar(select(text("total")).where(text("id = :id")), {"id": i}) for i in order_ids]
+  no_match:
+    - |
+      from sqlalchemy import Integer, String, select
+      from sqlalchemy.ext.asyncio import AsyncSession
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class User(Base):
+          __tablename__ = "users"
+          id: Mapped[int] = mapped_column(Integer, primary_key=True)
+          name: Mapped[str] = mapped_column(String)
+
+
+      async def names(session: AsyncSession, ids: list[int]) -> list[str]:
+          users = await session.scalars(select(User).where(User.id.in_(ids)))
+          return [u.name for u in users]
+    - |
+      from sqlalchemy import select, text
+      from sqlalchemy.orm import Session
+
+
+      def names(db: Session) -> list[str]:
+          out = []
+          for row in db.execute(select(text("name"))):
+              out.append(str(row[0]))
+          return [str(r) for r in db.scalars(select(text("name")))]
+    - |
+      def fetch_all(cache: dict[int, str], ids: list[int]) -> list[str | None]:
+          return [cache.get(i) for i in ids]

@@ -1,0 +1,50 @@
+id: python/log-pii
+description: "A log or print call does not write a secret or a sensitive personal value (a password, token, API key, Authorization header, card number, CVV, SSN, or a request's whole headers or cookies): logs are kept, shipped and read far more widely than the data. Log an identifier or a masked form instead (the user id, the last 4 digits), or leave the value out."
+scope: {language: python}
+enforce:
+  # advise: the names decide (a parser's `token`, a Kubernetes `secret` object are not secrets)
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      any:
+        - pattern: "$L.$M($$$)"
+        - pattern: "print($$$)"
+      has:
+        field: arguments
+        has:
+          stopBy: {kind: call}
+          any:
+            - kind: identifier
+              regex: "(?i)^(password|passwd|pwd|passphrase|token|access_token|refresh_token|id_token|auth_token|api_token|bearer_token|secret|client_secret|secret_key|api_key|apikey|private_key|authorization|auth_header|card_number|cc_number|cvv|cvc|ssn)$"
+              inside: {stopBy: neighbor, any: [{kind: argument_list}, {kind: keyword_argument}, {kind: interpolation}, {kind: tuple}, {kind: pair}, {kind: binary_operator}]}
+              # a keyword's own name (password=...) is not a value
+              not: {inside: {kind: keyword_argument, field: name, stopBy: neighbor}}
+            - kind: attribute
+              has: {field: attribute, regex: "(?i)^(password|passwd|passphrase|token|access_token|refresh_token|id_token|auth_token|api_token|bearer_token|secret|client_secret|secret_key|api_key|apikey|private_key|authorization|card_number|cc_number|cvv|cvc|ssn)$"}
+              inside: {stopBy: neighbor, any: [{kind: argument_list}, {kind: keyword_argument}, {kind: interpolation}, {kind: tuple}, {kind: pair}, {kind: binary_operator}]}
+            - kind: attribute
+              regex: "^request\\.(headers|cookies|COOKIES|META)$"
+              inside: {stopBy: neighbor, any: [{kind: argument_list}, {kind: keyword_argument}, {kind: interpolation}, {kind: tuple}, {kind: pair}, {kind: binary_operator}]}
+            - kind: subscript
+              regex: "(?i)\\.(headers|cookies)\\[[[:space:]]*[\"'](authorization|proxy-authorization|cookie|x-api-key)[\"'][[:space:]]*\\]$"
+            - kind: call
+              regex: "(?i)\\.(headers|cookies)\\.get\\([[:space:]]*[\"'](authorization|proxy-authorization|cookie|x-api-key)[\"']"
+    constraints:
+      M: {regex: "^(debug|info|warning|warn|error|exception|critical|log)$"}
+    # a logging Logger or LoggerAdapter by its type (§15.1); the root logger's logging.info(…) is
+    # python/no-root-logger's
+    where:
+      L: {type: {module: logging, name: [Logger, LoggerAdapter]}}
+examples:
+  match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef login(username: str, password: str) -> None:\n    logger.info(\"login attempt %s %s\", username, password)\n"
+    - "import logging\n\nlog = logging.getLogger(\"auth\")\n\n\nclass Session:\n    access_token: str\n\n\ndef refresh(session: Session) -> None:\n    log.debug(f\"refreshed token {session.access_token}\")\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef handle(request) -> None:\n    logger.warning(\"bad request headers=%s\", request.headers)\n"
+    - "def debug_auth(request) -> None:\n    print(\"auth:\", request.headers[\"Authorization\"])\n"
+  no_match:
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef login(user_id: int, password: str) -> None:\n    logger.info(\"login attempt for user %s\", user_id)\n    logger.info(\"password length %d\", len(password))\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef refresh(token: str) -> None:\n    logger.debug(\"token ends with %s\", token[-4:])\n    logger.info(\"request id %s\", request_id())\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef handle(request) -> None:\n    logger.info(\"user agent %s\", request.headers.get(\"user-agent\"))\n"
+    - "import logging\n\nlogger = logging.getLogger(__name__)\n\n\ndef check(password: str) -> None:\n    logger.info(\"hash %s\", hash_password(password))\n"
+    - "class Lexer:\n    def error(self, text: str, token: str) -> None:\n        raise SyntaxError(text + token)\n\n\ndef fail(lexer: Lexer, token: str) -> None:\n    lexer.error(\"unexpected\", token)\n"

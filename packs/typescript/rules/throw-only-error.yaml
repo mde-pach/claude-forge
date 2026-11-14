@@ -1,0 +1,17 @@
+id: typescript/throw-only-error
+description: "Only Error objects are thrown (throw new Error(\"\u2026\"), never throw \"failed\"): a string or object carries no stack trace."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/style/useThrowOnlyError
+    snippet: '"linter": {"rules": {"style": {"useThrowOnlyError": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/only-throw-error"
+    snippet: '"rules": {"@typescript-eslint/only-throw-error": "error"}'
+examples:
+  match:
+    - "export function parse(text: string): number {\n  const n = Number(text);\n  if (Number.isNaN(n)) {\n    throw \"not a number\";\n  }\n  return n;\n}\n"
+  no_match:
+    - "export function parse(text: string): number {\n  const n = Number(text);\n  if (Number.isNaN(n)) {\n    throw new Error(`not a number: ${text}`);\n  }\n  return n;\n}\n"

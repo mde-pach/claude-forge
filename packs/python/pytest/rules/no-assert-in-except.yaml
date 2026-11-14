@@ -1,0 +1,13 @@
+id: python/pytest/no-assert-in-except
+description: "No assert inside an except block of a test: when nothing raises, the assert never runs and the test passes. Use pytest.raises(\u2026, match=\u2026)."
+scope: {language: python, files: ["@python-tests", "!**/conftest.py"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PT017
+    snippet: '[tool.ruff.lint] extend-select = ["PT017"]'
+examples:
+  match:
+    - "from shop.orders import Order\n\n\ndef test_refund_twice() -> None:\n    order = Order(total=100)\n    order.refund()\n    try:\n        order.refund()\n    except ValueError as e:\n        assert \"already refunded\" in str(e)\n"
+  no_match:
+    - "import pytest\n\nfrom shop.orders import Order\n\n\ndef test_refund_twice() -> None:\n    order = Order(total=100)\n    order.refund()\n    with pytest.raises(ValueError, match=\"already refunded\"):\n        order.refund()\n"

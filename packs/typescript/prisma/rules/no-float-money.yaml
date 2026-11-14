@@ -1,0 +1,16 @@
+id: typescript/prisma/no-float-money
+description: "A Prisma model field holding money (named price, amount, total, subtotal, tax, fee, balance or cost) is not a Float: a double cannot store most cents exactly, so sums drift. Use Decimal (with @db.Decimal(precision, scale)) or an Int of minor units (priceCents Int)."
+scope: {language: any, files: ["**/*.prisma"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*([a-z][A-Za-z0-9]*(Price|Amount|Subtotal|Total|Tax|Fee|Balance|Cost)s?|([A-Za-z][A-Za-z0-9]*_)?(price|amount|subtotal|total|tax|fee|balance|cost)s?)[[:space:]]+Float([?[]|[[:space:]]|$)"
+examples:
+  match:
+    - "model Product {\n  id    Int    @id @default(autoincrement())\n  name  String\n  price Float\n}\n"
+    - "model Order {\n  id          String  @id @default(cuid())\n  totalAmount Float?\n  shipping_fee Float  @default(0)\n}\n"
+    - "model Account {\n  id      Int   @id\n  balance Float @default(0)\n}\n"
+  no_match:
+    - "model Product {\n  id         Int     @id @default(autoincrement())\n  price      Decimal @db.Decimal(10, 2)\n  priceCents Int\n}\n"
+    - "model Rating {\n  id         Int   @id\n  taxRate    Float\n  totalScore Float\n  weight     Float\n}\n"
+    - "model Product {\n  id    Int   @id\n  // price Float was replaced by priceCents\n  priceCents Int\n}\n"

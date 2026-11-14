@@ -1,0 +1,38 @@
+id: typescript/stripe/api-idempotency-key
+description: "A Stripe call that moves money (paymentIntents, charges, refunds, transfers, payouts or subscriptions .create) passes request options with an idempotencyKey: a retried request (a job retry, a timeout, a double submit) otherwise charges, refunds or pays out twice. Pass { idempotencyKey } as the second argument, derived from the operation it performs (the order or refund id), never a fresh random value."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^create$"}
+              - has: {field: object, kind: member_expression, all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: "^(paymentIntents|charges|refunds|transfers|payouts|subscriptions)$"}}]}
+        - has:
+            field: arguments
+            any:
+              # only the params: no request options
+              - not: {has: {nthChild: 2}}
+              # request options written inline, without idempotencyKey
+              - has:
+                  nthChild: 2
+                  kind: object
+                  not: {has: {any: [{kind: pair, has: {field: key, regex: "^[\"']?idempotencyKey[\"']?$"}}, {kind: shorthand_property_identifier, regex: "^idempotencyKey$"}, {kind: spread_element}]}}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function refund(paymentIntent: string) {\n  return stripe.refunds.create({ payment_intent: paymentIntent });\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function charge(stripe: Stripe, orderId: string, amount: number) {\n  return stripe.paymentIntents.create({ amount, currency: \"eur\", metadata: { orderId } }, { stripeAccount: \"acct_1\" });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function refund(paymentIntent: string, refundId: string) {\n  return stripe.refunds.create({ payment_intent: paymentIntent }, { idempotencyKey: `refund-${refundId}` });\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function charge(stripe: Stripe, orderId: string, amount: number) {\n  const idempotencyKey = `order-${orderId}`;\n  return stripe.paymentIntents.create({ amount, currency: \"eur\" }, { idempotencyKey });\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function charge(stripe: Stripe, amount: number, options: Stripe.RequestOptions) {\n  return stripe.paymentIntents.create({ amount, currency: \"eur\" }, options);\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function customer(stripe: Stripe, email: string) {\n  return stripe.customers.create({ email });\n}\n"
+    - "const api = { refunds: { create: (p: { id: string }) => p.id } };\n\nexport const r = api.refunds.create({ id: \"x\" });\n"

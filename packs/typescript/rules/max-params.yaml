@@ -1,0 +1,71 @@
+id: typescript/max-params
+description: "A function takes at most four parameters: with more, call sites pass positional values that are easy to swap and hard to read. Group the related ones in an options object (function f(a, { b, c, d, e })) instead; constructors with injected parameter properties are exempt."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      parameter:
+        any: [{kind: required_parameter}, {kind: optional_parameter}]
+    rule:
+      kind: formal_parameters
+      has: {matches: parameter, nthChild: {position: 5, ofRule: {matches: parameter}}}
+      # a body, not a signature or a function type
+      inside:
+        any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}]
+      # dependency injection through parameter properties (NestJS, Angular)
+      not:
+        all:
+          - inside: {kind: method_definition, has: {field: name, regex: "^constructor$"}}
+          - has:
+              matches: parameter
+              any:
+                - has: {kind: accessibility_modifier}
+                - has: {kind: decorator}
+                - regex: "^readonly\\s"
+examples:
+  match:
+    - |
+      export function createUser(name: string, email: string, role: Role, teamId: string, invitedBy?: string) {
+        return db.user.create({ data: { name, email, role, teamId, invitedBy } });
+      }
+    - |
+      export class Mailer {
+        send(to: string, from: string, subject: string, html: string, text: string) {
+          return this.transport.sendMail({ to, from, subject, html, text });
+        }
+      }
+    - |
+      export const draw = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => ctx.fillRect(x, y, w, h);
+  no_match:
+    - |
+      interface NewUser {
+        name: string;
+        email: string;
+        role: Role;
+        teamId: string;
+        invitedBy?: string;
+      }
+
+      export function createUser(user: NewUser) {
+        return db.user.create({ data: user });
+      }
+    - |
+      export function move(x: number, y: number, dx: number, dy: number) {
+        return { x: x + dx, y: y + dy };
+      }
+    - |
+      @Injectable()
+      export class OrdersService {
+        constructor(
+          private readonly orders: OrdersRepository,
+          private readonly payments: PaymentsService,
+          private readonly mailer: Mailer,
+          private readonly events: EventEmitter2,
+          @Inject(CONFIG) private readonly config: AppConfig,
+        ) {}
+      }
+    - |
+      export type Reducer = (state: State, action: Action, meta: Meta, prev: State, index: number) => State;
+
+      export declare function legacy(a: string, b: string, c: string, d: string, e: string): void;

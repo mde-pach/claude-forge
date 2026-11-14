@@ -1,0 +1,18 @@
+id: typescript/no-import-cycles
+description: "No import cycle between modules (a.ts imports b.ts, which imports a.ts): one of them sees the other's exports undefined while it initialises, depending on which is loaded first. Move what both need into a third module."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/noImportCycles
+    snippet: '"linter": {"rules": {"suspicious": {"noImportCycles": "error"}}}'
+examples:
+  match:
+    - files:
+        orders.ts: "import { formatPrice } from \"./pricing\";\n\nexport const currency = \"EUR\";\n\nexport function label(total: number): string {\n  return formatPrice(total);\n}\n"
+        pricing.ts: "import { currency } from \"./orders\";\n\nexport function formatPrice(total: number): string {\n  return `${total} ${currency}`;\n}\n"
+  no_match:
+    - files:
+        orders.ts: "import { formatPrice } from \"./pricing\";\n\nexport function label(total: number): string {\n  return formatPrice(total);\n}\n"
+        pricing.ts: "import { currency } from \"./currency\";\n\nexport function formatPrice(total: number): string {\n  return `${total} ${currency}`;\n}\n"
+        currency.ts: "export const currency = \"EUR\";\n"

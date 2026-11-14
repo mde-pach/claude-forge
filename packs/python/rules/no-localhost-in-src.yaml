@@ -1,0 +1,26 @@
+id: python/no-localhost-in-src
+description: "Application code does not hard-code a localhost URL (http://localhost:8000, postgresql://user@localhost/db, redis://127.0.0.1:6379), not even as a default (os.getenv(\"API_URL\", \"http://localhost:8000\")): read it from the environment or the project's settings, so the code works where it is deployed. Tests, settings modules and scripts may use one."
+scope: {language: python, files: ["**/*", "!@python-tests", "!**/tests/**", "!**/test/**", "!@django-settings", "!**/settings.py", "!**/config.py", "!**/settings/**", "!**/config/**", "!scripts/**", "!**/scripts/**", "!manage.py", "!docs/**", "!examples/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: string
+      regex: "(?i)\\b(https?|wss?|postgres(ql)?(\\+[a-z0-9]+)?|mysql(\\+[a-z0-9]+)?|redis|mongodb|amqp)://([^/@\\s\"']*@)?(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)([:/\"']|$)"
+      not:
+        any:
+          # a docstring
+          - inside: {kind: expression_statement}
+          # a part of an f-string
+          - inside: {kind: interpolation, stopBy: end}
+examples:
+  match:
+    - "API_URL = \"http://localhost:8000/api\"\n"
+    - "import os\n\nbase = os.getenv(\"API_URL\", \"http://localhost:8000\")\n"
+    - "engine = create_engine(\"postgresql+psycopg://app:app@localhost:5432/app\")\n"
+    - "url = f\"http://127.0.0.1:{port}/health\"\n"
+  no_match:
+    - "import os\n\nbase = os.environ[\"API_URL\"]\n"
+    - "def ping():\n    \"\"\"Calls http://localhost:8000/health in development.\"\"\"\n    return get(settings.api_url)\n"
+    - "# see http://localhost:8000/docs\nbase = settings.api_url\n"
+    - "uvicorn.run(app, host=\"127.0.0.1\", port=8000)\n"

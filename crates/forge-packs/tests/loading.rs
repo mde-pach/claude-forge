@@ -228,6 +228,17 @@ fn schema_and_layout() {
             ErrorKind::Schema,
             "invalid rule",
         ),
+        (
+            &[
+                ("acme/pack.yaml", PACK),
+                (
+                    "acme/rules/no-todo.yaml",
+                    &format!("{RULE}  - target: grep\n    mode: advise\n    pattern: FIXME\n"),
+                ),
+            ],
+            ErrorKind::Rule,
+            "2 grep targets; a rule has at most one",
+        ),
     ];
     for (files, kind, want) in cases {
         let err = error(files);

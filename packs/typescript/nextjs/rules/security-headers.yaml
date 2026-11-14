@@ -1,0 +1,19 @@
+id: typescript/nextjs/security-headers
+description: "next.config sets a Content-Security-Policy (with X-Content-Type-Options, Referrer-Policy and frame-ancestors) in async headers() for every route (source: \"/(.*)\"), so an injected script cannot run or the app be framed. Add headers() to the config, or ignore this if proxy.ts sets a nonce-based CSP."
+scope: {language: typescript, files: ["next.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: program
+      has: {kind: export_statement, regex: "^export\\s+default\\s"}
+      not:
+        has:
+          stopBy: end
+          any: [{kind: string_fragment}, {kind: template_string}]
+          regex: "(?i)content-security-policy"
+examples:
+  match:
+    - "import type { NextConfig } from \"next\";\n\nconst nextConfig: NextConfig = {\n  images: { remotePatterns: [{ hostname: \"cdn.example.com\" }] },\n};\n\nexport default nextConfig;\n"
+  no_match:
+    - "import type { NextConfig } from \"next\";\n\nconst csp = \"default-src 'self'; frame-ancestors 'none'\";\n\nconst nextConfig: NextConfig = {\n  async headers() {\n    return [{ source: \"/(.*)\", headers: [{ key: \"Content-Security-Policy\", value: csp }, { key: \"X-Content-Type-Options\", value: \"nosniff\" }] }];\n  },\n};\n\nexport default nextConfig;\n"

@@ -1,0 +1,25 @@
+id: typescript/react/no-manual-memo-with-compiler
+description: "The project compiles components with React Compiler, which memoizes them itself: new useMemo, useCallback and memo() only add noise. Leave them out, unless a value must stay the same reference for an effect's dependencies."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      has: {field: function, pattern: $F, regex: "^(React\\.)?(useMemo|useCallback|memo)$"}
+    # React's own hooks and memo, not a project helper of the same name
+    where:
+      F: {declared: {package: react, name: [useMemo, useCallback, memo]}}
+when:
+  deps: [{ecosystem: npm, name: babel-plugin-react-compiler, version: ">=1.0.0"}]
+examples:
+  deps:
+    - {ecosystem: npm, name: typescript, version: "5.9.3"}
+    - {ecosystem: npm, name: react, version: "19.2.0"}
+    - {ecosystem: npm, name: "@types/react", version: "19.2.2"}
+  match:
+    - "import { memo, useCallback, useMemo, useState } from \"react\";\n\nexport const Row = memo(function Row({ label }: { label: string }) {\n  return <li>{label}</li>;\n});\n\nexport function List({ items }: { items: string[] }) {\n  const [q, setQ] = useState(\"\");\n  const shown = useMemo(() => items.filter((i) => i.includes(q)), [items, q]);\n  const onInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value), []);\n  return <div><input value={q} onChange={onInput} /><ul>{shown.map((i) => <Row key={i} label={i} />)}</ul></div>;\n}\n"
+    - "import * as React from \"react\";\n\nexport function Total({ prices }: { prices: number[] }) {\n  const total = React.useMemo(() => prices.reduce((a, b) => a + b, 0), [prices]);\n  return <p>{total}</p>;\n}\n"
+  no_match:
+    - "import { useState } from \"react\";\n\nexport function List({ items }: { items: string[] }) {\n  const [q, setQ] = useState(\"\");\n  const shown = items.filter((i) => i.includes(q));\n  return <div><input value={q} onChange={(e) => setQ(e.target.value)} /><ul>{shown.map((i) => <li key={i}>{i}</li>)}</ul></div>;\n}\n"
+    - "function memo<T>(fn: () => T): () => T {\n  let v: T | undefined;\n  return () => (v ??= fn());\n}\n\nconst config = memo(() => ({ theme: \"dark\" }));\n\nexport function Theme() {\n  return <p>{config().theme}</p>;\n}\n"

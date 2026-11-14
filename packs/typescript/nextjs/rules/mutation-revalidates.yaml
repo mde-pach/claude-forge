@@ -1,0 +1,54 @@
+id: typescript/nextjs/mutation-revalidates
+description: "A Server Action that writes through Prisma or Drizzle also refreshes what the user sees: without updateTag(), revalidateTag(), revalidatePath(), refresh() or a redirect(), cached pages keep showing the old data. Call updateTag(tag) (read-your-writes) or revalidatePath(path) after the write."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - any:
+            # the two shapes are disjoint (a type check does not backtrack to another branch):
+            # a Prisma write takes one object argument, a Drizzle write a table
+            - all:
+                - pattern: $CALL
+                - has: {field: function, kind: member_expression, has: {field: property, regex: "^(create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)$"}}
+                - has: {field: arguments, has: {kind: object, nthChild: 1}}
+            - all:
+                - any: [{pattern: "$DB.insert($$$)"}, {pattern: "$DB.update($$$)"}, {pattern: "$DB.delete($$$)"}]
+                - not: {has: {field: arguments, has: {kind: object}}}
+        - inside:
+            stopBy: end
+            matches: action
+            not:
+              has:
+                stopBy: end
+                kind: call_expression
+                has: {field: function, regex: "^(updateTag|revalidateTag|revalidatePath|refresh|redirect|permanentRedirect)$"}
+    utils:
+      use-server-file:
+        inside: {kind: program, stopBy: end, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      exported-async-function:
+        any:
+          - {kind: function_declaration, regex: "^async\\s", inside: {kind: export_statement, stopBy: neighbor}}
+          - {kind: arrow_function, regex: "^async[\\s(]", inside: {kind: export_statement, stopBy: neighbor}}
+          - any: [{kind: arrow_function, regex: "^async[\\s(]"}, {kind: function_expression, regex: "^async\\s"}]
+            inside: {kind: variable_declarator, stopBy: neighbor, inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}}
+      action:
+        any:
+          - all: [{matches: exported-async-function}, {matches: use-server-file}]
+          - any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+    # a Prisma delegate's write by what it returns (PrismaPromise); a Drizzle write by its database
+    where:
+      CALL: {type: {package: "@prisma/client", name: PrismaPromise}}
+      DB: {type: {package: drizzle-orm, name: [PgDatabase, MySqlDatabase, BaseSQLiteDatabase, SingleStoreDatabase, GelDatabase]}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.0"}, {ecosystem: npm, name: drizzle-orm, version: "0.45.4"}, {ecosystem: npm, name: pg, version: "8.23.1"}, {ecosystem: npm, name: "@types/pg", version: "8.23.1"}]
+  match:
+    - "'use server';\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  create(args: { data: { title: string } }): PrismaPromise<{ id: string }>;\n}\ndeclare const prisma: { post: PostDelegate };\n\nexport async function createPost(title: string) {\n  await prisma.post.create({ data: { title } });\n}\n"
+    - "\"use server\";\n\nimport { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, boolean } from \"drizzle-orm/pg-core\";\n\nconst todos = pgTable(\"todos\", { id: serial(\"id\").primaryKey(), done: boolean(\"done\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function toggle(id: number) {\n  await db.update(todos).set({ done: true }).where(eq(todos.id, id));\n}\n"
+  no_match:
+    - "'use server';\n\nimport { updateTag } from \"next/cache\";\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  create(args: { data: { title: string } }): PrismaPromise<{ id: string }>;\n}\ndeclare const prisma: { post: PostDelegate };\n\nexport async function createPost(title: string) {\n  await prisma.post.create({ data: { title } });\n  updateTag(\"posts\");\n}\n"
+    - "\"use server\";\n\nimport { redirect } from \"next/navigation\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst posts = pgTable(\"posts\", { id: serial(\"id\").primaryKey(), title: text(\"title\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function create(title: string) {\n  const [p] = await db.insert(posts).values({ title }).returning({ id: posts.id });\n  redirect(`/posts/${p.id}`);\n}\n"
+    - "import type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ninterface PostDelegate {\n  create(args: { data: { title: string } }): PrismaPromise<{ id: string }>;\n}\ndeclare const prisma: { post: PostDelegate };\n\nexport async function createPost(title: string) {\n  await prisma.post.create({ data: { title } });\n}\n"
