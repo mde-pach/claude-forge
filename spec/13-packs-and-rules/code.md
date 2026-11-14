@@ -17,3 +17,14 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `code/no-versioned-duplicates` | Code is changed in place, not copied: no new foo-v2.ts, foo_new.py, foo-old.tsx, Button copy.tsx or foo.ts.bak beside the foo it copies, which leaves two versions to maintain and the old one still imported. Edit the original and delete the copy, unless the task asks for both side by side (an API v2). At Stop it blocks once per turn, then accepts. | any: `**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,vue,svelte,astro}`, `**/*.bak`, `**/*.orig`, `!@build-artifacts`, `!**/migrations/**` | check lint: a shell script calling `forge_advise`, `forge_new_files`<br>advice, never blocks |
+
+### code/jscpd
+
+The project's own jscpd (duplicated blocks), as its config sets it up.
+
+Detected by: a file matching `.jscpd.json`; or a line matching `^\s*"jscpd"\s*:\s*\{` in a file matching `package.json`.
+Child of `code`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `code/jscpd/duplicates` | The change does not copy code the project's jscpd finds duplicated (with its own config): put the shared code in one function or module and use it from both places. A duplicate is advice, and fails when the project's jscpd config fails on it (the duplication over its `threshold`, or an `exitCode`). | any | check lint: `forge_jscpd` |

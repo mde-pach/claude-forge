@@ -17,6 +17,10 @@
 //! | `editorconfig` | git/editorconfig (pinned editorconfig-checker) |
 //! | `model_ids` | ai-models/deprecated-model-ids (under `forge_advise`) |
 //! | `snapshot_stale` | typescript/vitest/snapshot-stale (under `forge_advise`) |
+//! | `knip` | typescript/knip/unused (the project's knip) |
+//! | `depcruise` | typescript/dependency-cruiser/rules (the project's dependency-cruiser) |
+//! | `import_linter` | python/import-linter/contracts (the project's import-linter) |
+//! | `jscpd` | code/jscpd/duplicates (the project's jscpd) |
 //!
 //! The data builtins those files also define (`forge_toml_get`, `forge_pkg_deps`,
 //! `forge_related_py_tests`) and `forge_large_files` / `forge_lockfile_updated` are the checker's.
@@ -28,8 +32,13 @@
 
 pub mod cooldown;
 pub mod ctx;
+pub mod depcruise;
+pub mod import_linter;
 pub mod js;
+pub mod jscpd;
+pub mod knip;
 pub mod models;
+pub mod project_tools;
 pub mod repo;
 pub mod scope;
 pub mod snapshots;
@@ -54,7 +63,7 @@ pub struct Options {
     /// The minimum age of a version the package managers' cooldown settings must ask for.
     pub cooldown_seconds: u64,
     /// Where Forge's pinned tools (gitleaks, osv-scanner, editorconfig-checker, lockfile-lint)
-    /// are.
+    /// and the project's own (knip, dependency-cruiser, import-linter, jscpd) are.
     pub tools: Arc<dyn BuiltinTools>,
 }
 
@@ -82,16 +91,52 @@ pub fn builtins(opts: &Options) -> Vec<Box<dyn CheckBuiltin>> {
         Box::new(repo::EnvFiles),
         Box::new(repo::Artifacts),
         Box::new(repo::GeneratedEdits),
-        Box::new(repo::Editorconfig(o)),
+        Box::new(repo::Editorconfig(o.clone())),
         Box::new(models::ModelIds),
         Box::new(snapshots::SnapshotStale),
     ];
+    let project: [(&'static str, ProjectFn); 4] = [
+        ("knip", knip::run),
+        ("depcruise", depcruise::run),
+        ("import_linter", import_linter::run),
+        ("jscpd", jscpd::run),
+    ];
+    out.extend(project.into_iter().map(|(name, run)| {
+        Box::new(ProjectTool {
+            name,
+            run,
+            opts: o.clone(),
+        }) as Box<dyn CheckBuiltin>
+    }));
     out.extend(
         cooldowns
             .into_iter()
             .map(|c| Box::new(c) as Box<dyn CheckBuiltin>),
     );
     out
+}
+
+type ProjectFn = fn(&project_tools::Run<'_>) -> Report;
+
+/// A builtin running one of the project's own whole-project tools ([`project_tools`]).
+struct ProjectTool {
+    name: &'static str,
+    run: ProjectFn,
+    opts: Arc<Options>,
+}
+
+impl CheckBuiltin for ProjectTool {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn run(&self, ctx: &BuiltinCtx, x: &Extra, _args: &[String]) -> Report {
+        (self.run)(&project_tools::Run {
+            ctx,
+            x,
+            opts: &self.opts,
+        })
+    }
 }
 
 /// Runs builtin `name` with `x`, the accepted changes dropped (as [`BuiltinCtx::finish`]); None

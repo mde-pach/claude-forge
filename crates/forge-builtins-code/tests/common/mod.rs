@@ -206,8 +206,9 @@ pub fn words(s: &str) -> Vec<String> {
     out
 }
 
-/// The tools on PATH, then Forge's cache (installing when `FORGE_TEST_INSTALL_TOOLS=1`), through
-/// the checker's adapters.
+/// The project's own tools as the checker finds them (its `node_modules`, `.venv`), the tools
+/// on PATH, then Forge's cache (installing when `FORGE_TEST_INSTALL_TOOLS=1`), through the
+/// checker's adapters.
 pub fn options() -> forge_builtins_code::Options {
     use forge_check::builtins::AdapterTools;
     use forge_check::tools::LocalTools;
@@ -231,6 +232,10 @@ pub fn options() -> forge_builtins_code::Options {
 struct OnPathFirst(forge_check::tools::LocalTools);
 
 impl forge_core::tools::ToolResolver for OnPathFirst {
+    fn project(&self, root: &Path, cwd: &Path, name: &str) -> Option<forge_core::tools::ToolCmd> {
+        self.0.project(root, cwd, name)
+    }
+
     fn on_path(&self, name: &str) -> Option<PathBuf> {
         self.0.on_path(name)
     }

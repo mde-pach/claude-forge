@@ -10,7 +10,22 @@ pub use forge_core::tools::{ToolCmd, ToolResolver};
 pub use forge_detect::tools::{PROJECT_TOOLS, SYSTEM_TOOLS};
 
 /// The tools project checks run from the project's Python environment (`PYTHON_TOOLS`).
-pub const PYTHON_TOOLS: &[&str] = &["ruff", "alembic", "pytest", "python", "sqlfluff"];
+pub const PYTHON_TOOLS: &[&str] = &[
+    "ruff",
+    "alembic",
+    "pytest",
+    "python",
+    "sqlfluff",
+    "lint-imports",
+];
+
+/// The PyPI package of a Python tool whose executable is named otherwise.
+pub fn python_package(tool: &str) -> &str {
+    match tool {
+        "lint-imports" => "import-linter",
+        t => t,
+    }
+}
 
 /// Set (to `1`) for the builtins of a run that may download a missing pinned tool (Stop and
 /// `forge check`); unset after an edit.
@@ -110,7 +125,7 @@ impl LocalTools {
             .any(|t| {
                 pyproject_deps(t)
                     .keys()
-                    .any(|k| norm_py(k) == norm_py(name))
+                    .any(|k| norm_py(k) == norm_py(python_package(name)))
             });
         if !declared {
             return None;

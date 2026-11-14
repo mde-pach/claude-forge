@@ -1,0 +1,69 @@
+id: python/import-linter/contracts
+description: "The change keeps the import-linter contracts the project declares (layers, forbidden and independent packages): an import chain that breaks one through a module the change touched fails, and every broken chain does when the change edits the contracts. Remove the import or move the code where the contract allows it; the contracts are the project's, so change them only if the user asks."
+scope: {language: any, files: ["**/*.py", ".importlinter", "setup.cfg", "pyproject.toml"]}
+enforce:
+  - {target: check, stage: lint, run: "forge_import_linter"}
+examples:
+  match:
+    # the lowest layer now imports the highest
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n"
+        shop/__init__.py: ""
+        shop/web/__init__.py: ""
+        shop/domain/__init__.py: ""
+        shop/db/__init__.py: ""
+        shop/db/models.py: "class User:\n    name = \"\"\n"
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name\n    return user\n"
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
+      files:
+        shop/db/models.py: "from shop.web.views import update\n\n\nclass User:\n    name = \"\"\n\n    def save(self):\n        return update(self, self.name)\n"
+    # a new module of the lowest layer imports a higher one
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n"
+        shop/__init__.py: ""
+        shop/web/__init__.py: ""
+        shop/domain/__init__.py: ""
+        shop/db/__init__.py: ""
+        shop/db/models.py: "class User:\n    name = \"\"\n"
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name\n    return user\n"
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
+      files:
+        shop/db/cache.py: "from shop.domain.accounts import rename\n\nCACHE = {\"rename\": rename}\n"
+    # the change adds a contract the code breaks: every chain breaking it counts
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n"
+        shop/__init__.py: ""
+        shop/web/__init__.py: ""
+        shop/domain/__init__.py: ""
+        shop/db/__init__.py: ""
+        shop/db/models.py: "class User:\n    name = \"\"\n"
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name\n    return user\n"
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
+      files:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n\n[[tool.importlinter.contracts]]\nname = \"Web never touches the database\"\ntype = \"forbidden\"\nsource_modules = [\"shop.web\"]\nforbidden_modules = [\"shop.db\"]\n"
+  no_match:
+    # an import the layers allow
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n"
+        shop/__init__.py: ""
+        shop/web/__init__.py: ""
+        shop/domain/__init__.py: ""
+        shop/db/__init__.py: ""
+        shop/db/models.py: "class User:\n    name = \"\"\n"
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name\n    return user\n"
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
+      files:
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name.strip())\n"
+    # a chain the base already broke, through no module the change touched
+    - head:
+        pyproject.toml: "[project]\nname = \"shop\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\n\n[dependency-groups]\ndev = [\"import-linter==2.16\"]\n\n[tool.importlinter]\nroot_package = \"shop\"\n\n[[tool.importlinter.contracts]]\nname = \"Layers\"\ntype = \"layers\"\nlayers = [\"shop.web\", \"shop.domain\", \"shop.db\"]\n"
+        shop/__init__.py: ""
+        shop/web/__init__.py: ""
+        shop/domain/__init__.py: ""
+        shop/db/__init__.py: ""
+        shop/db/models.py: "class User:\n    name = \"\"\n"
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name\n    return user\n"
+        shop/web/views.py: "from shop.domain.accounts import rename\n\n\ndef update(user, name):\n    return rename(user, name)\n"
+        shop/db/legacy.py: "from shop.web import views\n\nLEGACY = views\n"
+      files:
+        shop/domain/accounts.py: "from shop.db.models import User\n\n\ndef rename(user: User, name: str) -> User:\n    user.name = name.title()\n    return user\n"

@@ -342,6 +342,21 @@ Child of `python`: active only where it is.
 | `python/huggingface/no-pickle-weights` | No use_safetensors=False: it loads the pickled .bin weights even when safetensors exist, and unpickling runs any code the file holds. Leave the default, which prefers safetensors. | python | ast-grep forbid |
 | `python/huggingface/no-trust-remote-code` | trust_remote_code=True (from_pretrained, pipeline, load_dataset, SentenceTransformer, vLLM) runs Python from the model or dataset repository. Prefer a model that does not need it; otherwise pin the revision= that was reviewed. | python | ast-grep advise<br>advice, never blocks |
 
+### python/import-linter
+
+The project's own import-linter contracts (layers, forbidden and independent packages).
+
+Detected by: a file matching `.importlinter`; or a line matching `^\[importlinter[]:]` in a file matching `setup.cfg`; or a line matching `^\[\[?tool\.importlinter[].]` in a file matching `pyproject.toml`.
+Child of `python`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- The project's import-linter contracts (`[importlinter]` / `[tool.importlinter]`) declare which packages may import which: read them before adding an import across packages.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `python/import-linter/contracts` | The change keeps the import-linter contracts the project declares (layers, forbidden and independent packages): an import chain that breaks one through a module the change touched fails, and every broken chain does when the change edits the contracts. Remove the import or move the code where the contract allows it; the contracts are the project's, so change them only if the user asks. | any: `**/*.py`, `.importlinter`, `setup.cfg`, `pyproject.toml` | check lint: `forge_import_linter` |
+
 ### python/jupyter
 
 Jupyter notebooks in the repository.

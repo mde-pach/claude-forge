@@ -339,6 +339,21 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/cloudflare-workers/stripe/constructevent-async` | In a Workers project, Stripe webhooks are verified with await stripe.webhooks.constructEventAsync(…), not constructEvent(…): on Workers Stripe signs with SubtleCrypto, which is async only, so the synchronous call throws. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
 
+### typescript/dependency-cruiser
+
+The project's own dependency-cruiser rules (which modules may import which), as its config declares them.
+
+Detected by: a file matching `.dependency-cruiser.js`, `.dependency-cruiser.cjs`, `.dependency-cruiser.mjs`, `.dependency-cruiser.json`.
+Child of `typescript`: active only where it is.
+
+Context (in `.claude/rules/forge-*.md`, §7):
+
+- The project's dependency-cruiser config (`.dependency-cruiser.*`) declares which modules may import which: read its `forbidden` rules before adding an import across folders.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/dependency-cruiser/rules` | The change keeps the import rules the project's dependency-cruiser config declares: a rule of `error` severity it breaks (an import the rule forbids, a cycle, an orphan it leaves) fails, one of `warn` severity is advice. Change the imports to follow the rule; the rules are the project's, so change them only if the user asks. | any: `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs`, `**/*.vue`, `**/*.svelte`, `**/package.json`, `**/tsconfig*.json`, `.dependency-cruiser.js`, `.dependency-cruiser.cjs`, `.dependency-cruiser.mjs`, `.dependency-cruiser.json` | check lint: `forge_depcruise` |
+
 ### typescript/drizzle
 
 Drizzle ORM schema, drizzle-kit migrations and raw SQL.
@@ -540,6 +555,17 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/jsonwebtoken/no-decode-trust` | jsonwebtoken's decode() does not verify the signature; use verify() whenever the claims decide anything (identity, permissions, expiry). | typescript | ast-grep advise<br>advice, never blocks |
 | `typescript/jsonwebtoken/verify-algorithms` | jsonwebtoken's verify(token, key, options) gets an options object with an algorithms list that does not contain 'none' (or an options variable), and no ignoreExpiration: true; sign() gets no algorithm: 'none'. Without a fixed list the token's own header picks the algorithm (algorithm confusion). | typescript | ast-grep forbid |
+
+### typescript/knip
+
+The project's own knip (unused files, exports and dependencies), as its config sets it up.
+
+Detected by: a file matching `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `knip.config.{ts,js,mjs,cjs,mts,cts}`, `knip.{ts,js}`; or a line matching `^\s*"knip"\s*:\s*\{` in a file matching `package.json`.
+Child of `typescript`: active only where it is.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `typescript/knip/unused` | Nothing the change touches or leaves behind is unused, as the project's knip reports it with its own config (unused files, exports, types and dependencies; unlisted or unresolved imports): use it where the request needs it, otherwise remove it. An issue type the project's knip `rules` set to `warn` is advice. | any: `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs`, `**/*.vue`, `**/*.svelte`, `**/*.astro`, `**/package.json`, `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `knip.config.*`, `knip.ts`, `knip.js` | check lint: `forge_knip` |
 
 ### typescript/kysely
 

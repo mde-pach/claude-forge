@@ -1,0 +1,13 @@
+id: python/import-linter
+description: The project's own import-linter contracts (layers, forbidden and independent packages).
+level: project
+# the project set import-linter up: its contracts (lint-imports is run as the project installs
+# it; not installed, the check is skipped with a note)
+detect:
+  files_any: [.importlinter]
+  content_any:
+    - {files: [setup.cfg], pattern: "^\\[importlinter[]:]"}
+    - {files: [pyproject.toml], pattern: "^\\[\\[?tool\\.importlinter[].]"}
+context:
+  - text: |
+      The project's import-linter contracts (`[importlinter]` / `[tool.importlinter]`) declare which packages may import which: read them before adding an import across packages.

@@ -32,11 +32,11 @@
 //!   it cannot parse (in the tree but not in the base, or the reverse) is a note for the
 //!   person; the check then passes.
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
-use forge_check::builtins::{RunMode, ToolRun, not_reported};
-use forge_core::{Finding, NoteKind, Report};
+use forge_check::builtins::whole::{Located, attributed_report, counted};
+use forge_check::builtins::{ToolRun, skipped};
+use forge_core::{NoteKind, Report};
 use forge_packs::model::Ecosystem;
 
 use crate::Run;
@@ -105,10 +105,6 @@ impl Hit {
             "method" | "variable" | "attribute" => self.private(),
             _ => false,
         }
-    }
-
-    fn key(&self) -> (&str, &str, &str) {
-        (&self.path, &self.kind, &self.name)
     }
 
     /// What the agent reads (without the location).
@@ -247,7 +243,7 @@ pub fn unparsed(stderr: &str, root: &Path) -> Vec<String> {
 fn scan(run: &Run<'_>, root: &Path) -> Result<Scan, (NoteKind, String)> {
     let args = Config::read(root).args(root);
     match run.opts.tools.run(root, root, "condor", "dead-code", &args) {
-        ToolRun::Missing(why) => Err((NoteKind::MissingTool, format!("skipped: {why}"))),
+        ToolRun::Missing(why) => Err((NoteKind::MissingTool, skipped(&why))),
         ToolRun::Unsupported(why) => Err((NoteKind::NotEnforced, why)),
         ToolRun::Ran(o) => {
             let unparsed = unparsed(&o.stderr, root);
@@ -278,59 +274,29 @@ fn scan(run: &Run<'_>, root: &Path) -> Result<Scan, (NoteKind, String)> {
     }
 }
 
+impl Located for Hit {
+    fn path(&self) -> &str {
+        &self.path
+    }
+
+    fn key(&self) -> String {
+        format!("{} {}", self.kind, self.name)
+    }
+
+    fn line(&self) -> u32 {
+        self.line
+    }
+}
+
 /// The findings of `now` that count (module docs): all of those in the changed files, and the
-/// others the base does not have.
+/// others the base does not have ([`forge_check::builtins::whole::counted`]).
 pub fn counted_hits(
     now: &[Hit],
     base: &[Hit],
     changed: &dyn Fn(&str) -> bool,
     gone: &dyn Fn(&str) -> bool,
 ) -> Vec<Hit> {
-    let mut base_n: BTreeMap<(&str, &str, &str), usize> = BTreeMap::new();
-    for b in base.iter().filter(|b| !changed(&b.path)) {
-        *base_n.entry(b.key()).or_default() += 1;
-    }
-    let mut groups: BTreeMap<(&str, &str, &str), Vec<&Hit>> = BTreeMap::new();
-    for h in now.iter().filter(|h| !changed(&h.path)) {
-        groups.entry(h.key()).or_default().push(h);
-    }
-    let mut fresh: Vec<&Hit> = now.iter().filter(|h| changed(&h.path)).collect();
-    let mut elsewhere: Vec<&Hit> = Vec::new();
-    for (key, mut hs) in groups {
-        let had = base_n.get(&key).copied().unwrap_or(0);
-        if hs.len() <= had {
-            if let Some(n) = base_n.get_mut(&key) {
-                *n -= hs.len();
-            }
-            continue;
-        }
-        base_n.remove(&key);
-        hs.sort_by_key(|h| h.line);
-        let n = hs.len() - had;
-        elsewhere.extend(hs.into_iter().take(n));
-    }
-    // moved code: what is left of the base in files the change deleted or renamed
-    let mut moved: BTreeMap<(String, String), usize> = BTreeMap::new();
-    for ((path, kind, name), n) in &base_n {
-        if *n > 0 && gone(path) {
-            *moved
-                .entry(((*kind).to_owned(), (*name).to_owned()))
-                .or_default() += n;
-        }
-    }
-    let mut out: Vec<Hit> = fresh.drain(..).cloned().collect();
-    for h in elsewhere {
-        if let Some(n) = moved
-            .get_mut(&(h.kind.clone(), h.name.clone()))
-            .filter(|n| **n > 0)
-        {
-            *n -= 1;
-            continue;
-        }
-        out.push(h.clone());
-    }
-    out.sort_by(|a, b| (&a.path, a.line).cmp(&(&b.path, b.line)));
-    out
+    counted(now, base, changed, gone)
 }
 
 /// Whether the definition at `line` (1-based) of `source` is in a class's body: the first
@@ -497,35 +463,13 @@ pub fn condor(run: &Run<'_>, _args: &[String]) -> Report {
         .filter(|h| !in_library(h) || h.blocks(true))
         .partition(|h| h.blocks(in_library(h)));
     let finding = |h: &Hit| run.at(&h.path, Some(h.line), h.text());
-    let blocking: Vec<Finding> = blocking.iter().map(finding).collect();
-    if !blocking.is_empty() {
-        run.check.mark_attributed();
-        r.findings = blocking;
-        return r;
-    }
-    // advice: at Stop only, once per turn
-    let Some(snap) = run
-        .check
-        .snapshot
-        .as_ref()
-        .filter(|_| run.check.mode == RunMode::Turn)
-    else {
-        return r;
-    };
-    let advice: Vec<Finding> = advice
-        .iter()
-        .map(|h| {
-            let mut f = finding(h);
-            f.severity = forge_core::Severity::Advice;
-            f
-        })
-        .collect();
-    let texts: Vec<String> = advice.iter().map(Finding::agent_text).collect();
-    let fresh = not_reported(snap, &run.ctx.rule, &texts);
-    r.findings = advice
-        .into_iter()
-        .filter(|f| fresh.contains(&f.agent_text()))
-        .collect();
+    let r2 = attributed_report(
+        run.ctx,
+        run.check,
+        blocking.iter().map(finding).collect(),
+        advice.iter().map(finding).collect(),
+    );
+    r.findings = r2.findings;
     r
 }
 

@@ -28,6 +28,10 @@ pub const PROJECT_TOOLS: &[&str] = &[
     "prettier",
     "eslint",
     "oxlint",
+    "knip",
+    "depcruise",
+    "jscpd",
+    "lint-imports",
 ];
 /// Forge's own pinned tools used in check commands.
 pub const FORGE_TOOLS: &[&str] = &["ty"];
@@ -57,6 +61,10 @@ const HELPER_TOOLS: &[(&str, &str)] = &[
     (r"\bforge_tf_validate\b", "terraform"),
     (r"\bforge_helm\b", "helm"),
     (r"\bforge_sqlfluff\b", "sqlfluff"),
+    (r"\bforge_knip\b", "knip"),
+    (r"\bforge_depcruise\b", "depcruise"),
+    (r"\bforge_jscpd\b", "jscpd"),
+    (r"\bforge_import_linter\b", "lint-imports"),
     (r"\bforge_uv_lock\b", "uv"),
     (r"\bforge_js_lock npm\b", "npm"),
     (r"\bforge_js_lock pnpm\b", "pnpm"),

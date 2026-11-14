@@ -1,0 +1,8 @@
+id: typescript/knip
+description: The project's own knip (unused files, exports and dependencies), as its config sets it up.
+level: project
+# the project set knip up: its config (knip is run as the project installs it; not installed,
+# the check is skipped with a note)
+detect:
+  files_any: [knip.json, knip.jsonc, .knip.json, .knip.jsonc, "knip.config.{ts,js,mjs,cjs,mts,cts}", "knip.{ts,js}"]
+  content_any: [{files: [package.json], pattern: "^\\s*\"knip\"\\s*:\\s*\\{"}]

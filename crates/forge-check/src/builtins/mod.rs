@@ -16,11 +16,12 @@ mod domain;
 mod machinery;
 pub use context::{CheckCtx, CheckRule, RunMode, parse_added, render_added};
 pub use domain::{
-    AdapterTools, BuiltinTools, CheckBuiltin, NoTools, ToolOutput, ToolRun, rule_note,
+    AdapterTools, BuiltinTools, CheckBuiltin, NoTools, ToolOutput, ToolRun, rule_note, skipped,
 };
 pub use machinery::{ACCEPT_HINT, RATCHET_HINT, database_url, is_local_db, not_reported};
 mod repo;
 mod tests;
+pub mod whole;
 pub use tests::{Block, blocks};
 
 use std::collections::BTreeMap;
