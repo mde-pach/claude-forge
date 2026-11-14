@@ -68,6 +68,8 @@ The agent reads a match as `<path>:<line> <description>`; an `advise` match as `
 
 `grep` targets are for text ast-grep does not parse: configuration, comments. Counts are matching lines per file. A grep target never reads documentation or prose files (`*.md`, `*.mdx`, `*.rst`, `*.markdown`, `*.adoc`, `docs/**`, `doc/**`, `README*`, `CHANGELOG*`, at any depth), whatever its scope.
 
+A rule has at most one `ast-grep` target and at most one `grep` target: a pattern needing another mode or another language is another rule. Loading rejects a second one (`invalid rule: 2 grep targets; a rule has at most one`).
+
 **Tool targets and their stand-in.** A `tool` target is audited where its tool is configured (§11). An `ast-grep` target in the same rule stands in for it: it is used only when none of the rule's `tool` targets has its tool configured, and no active pack switched that diagnostic off (§5 `tool_off`). Where the tool is configured, the ast-grep target is not run.
 
 **`check` target fields.**

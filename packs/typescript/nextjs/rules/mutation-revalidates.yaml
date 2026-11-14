@@ -8,10 +8,15 @@ enforce:
       kind: call_expression
       all:
         - any:
+            # the two shapes are disjoint (a type check does not backtrack to another branch):
+            # a Prisma write takes one object argument, a Drizzle write a table
             - all:
                 - pattern: $CALL
                 - has: {field: function, kind: member_expression, has: {field: property, regex: "^(create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)$"}}
-            - any: [{pattern: "$DB.insert($$$)"}, {pattern: "$DB.update($$$)"}, {pattern: "$DB.delete($$$)"}]
+                - has: {field: arguments, has: {kind: object, nthChild: 1}}
+            - all:
+                - any: [{pattern: "$DB.insert($$$)"}, {pattern: "$DB.update($$$)"}, {pattern: "$DB.delete($$$)"}]
+                - not: {has: {field: arguments, has: {kind: object}}}
         - inside:
             stopBy: end
             matches: action

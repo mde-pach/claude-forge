@@ -240,6 +240,29 @@ fn check_fields(rule: &Rule) -> Result<(), String> {
 /// Checks a rule's targets and roles (beyond the schema).
 pub fn validate_rule(rule: &Rule) -> Result<(), String> {
     check_fields(rule)?;
+    // the checker runs a rule's first ast-grep target and first grep target only (§6)
+    for (kind, n) in [
+        (
+            "ast-grep",
+            rule.enforce
+                .iter()
+                .filter(|t| matches!(t, Target::AstGrep(_)))
+                .count(),
+        ),
+        (
+            "grep",
+            rule.enforce
+                .iter()
+                .filter(|t| matches!(t, Target::Grep(_)))
+                .count(),
+        ),
+    ] {
+        if n > 1 {
+            return Err(format!(
+                "invalid rule: {n} {kind} targets; a rule has at most one (split it into several rules, one per pattern or mode)"
+            ));
+        }
+    }
     for t in &rule.enforce {
         match t {
             Target::Check(c) => {
