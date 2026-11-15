@@ -234,47 +234,6 @@ pub fn declares_testcontainers(file_name: &str, text: &str, lang: TestLanguage) 
     }
 }
 
-/// Whether `dir` or one of its parents up to `root` declares Testcontainers for `lang`.
-pub fn testcontainers_declared_in(root: &Path, dir: &Path, lang: TestLanguage) -> bool {
-    let names: &[&str] = match lang {
-        TestLanguage::Python => &["pyproject.toml", "Pipfile", "requirements.txt"],
-        TestLanguage::TypeScript => &["package.json"],
-    };
-    let mut d = Some(dir);
-    while let Some(cur) = d {
-        for n in names {
-            if let Ok(text) = std::fs::read_to_string(cur.join(n))
-                && declares_testcontainers(n, &text, lang)
-            {
-                return true;
-            }
-        }
-        if lang == TestLanguage::Python {
-            let reqs = |d: &Path, all: bool| -> bool {
-                std::fs::read_dir(d)
-                    .into_iter()
-                    .flatten()
-                    .flatten()
-                    .any(|e| {
-                        let n = e.file_name().to_string_lossy().into_owned();
-                        (all || n.starts_with("requirements"))
-                            && n.ends_with(".txt")
-                            && std::fs::read_to_string(e.path())
-                                .is_ok_and(|t| declares_testcontainers(&n, &t, lang))
-                    })
-            };
-            if reqs(cur, false) || reqs(&cur.join("requirements"), true) {
-                return true;
-            }
-        }
-        if cur == root {
-            break;
-        }
-        d = cur.parent().filter(|p| p.starts_with(root));
-    }
-    false
-}
-
 /// Whether a source file's text imports Testcontainers (`import testcontainers`, `from
 /// testcontainers.postgres import …`; `from "testcontainers"`, `"@testcontainers/postgresql"`,
 /// `require("testcontainers")`, `import("…")`).

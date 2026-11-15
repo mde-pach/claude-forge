@@ -3,7 +3,7 @@
 //! `forge_chart_version`), Terraform and OpenTofu (`forge_tf_validate`, `forge_tflint`,
 //! `forge_trivy_config`), GitHub Actions (`forge_zizmor`, `forge_actionlint`, `forge_ci_jobs`) and
 //! OpenAPI (`forge_openapi_lint`, `forge_openapi_ratchet`, `forge_oasdiff`, `forge_openapi_sync`),
-//! and tests beside compose services (`forge_testcontainers_advice`, `forge_tests_docker`).
+//! and tests beside compose services (`forge_testcontainers_advice`).
 //! Ported from the shell engine of the TypeScript Forge (0.5).
 //!
 //! Each is a [`CheckBuiltin`] named after its shell function without `forge_`: it reads
@@ -85,7 +85,6 @@ const TABLE: &[(&str, RunFn)] = &[
     ("oasdiff", openapi::oasdiff),
     ("openapi_sync", openapi::openapi_sync),
     ("testcontainers_advice", testcontainers::advice),
-    ("tests_docker", testcontainers::tests_docker),
 ];
 
 /// The names of the builtins (without `forge_`).

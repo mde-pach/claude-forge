@@ -96,7 +96,6 @@ pub const BUILTIN_NAMES: &[&str] = &[
     "terraform",
     "test_edits",
     "testcontainers_advice",
-    "tests_docker",
     "tf_validate",
     "tflint",
     "toml_get",

@@ -1,14 +1,12 @@
 //! Tests and the third-party services they need: `forge_testcontainers_advice`
-//! (docker/compose/tests-use-testcontainers, under `forge_advise`) and `forge_tests_docker`, the
-//! test checks' Docker check (§10): a test that did not run is not a passing test.
+//! (docker/compose/tests-use-testcontainers, under `forge_advise`).
 
 use std::path::Path;
 
 use forge_core::Report;
-use forge_core::docker::{Env, daemon_answers};
 use forge_detect::compose::{
     ComposeService, TestLanguage, declares_testcontainers, imports_testcontainers,
-    is_ts_test_setup, testcontainers_declared_in, third_party_services,
+    is_ts_test_setup, third_party_services,
 };
 
 use crate::cx::Cx;
@@ -110,30 +108,5 @@ pub fn advice(cx: &Cx<'_>, _args: &[String]) -> Report {
             None => cx.error(msg),
         });
     }
-    r
-}
-
-/// `forge_tests_docker <python|typescript>`: before a test check runs its tests, where they use
-/// Testcontainers (declared for that language in the check's directory or above it), a Docker
-/// daemon answers; else the check fails with what to do, and the tests are not run.
-pub fn tests_docker(cx: &Cx<'_>, args: &[String]) -> Report {
-    let mut r = Report::default();
-    let Some(lang) = args.first().and_then(|a| TestLanguage::parse(a)) else {
-        return r;
-    };
-    let dir = if cx.check.cwd.as_os_str().is_empty() {
-        cx.root().to_path_buf()
-    } else {
-        cx.check.cwd.clone()
-    };
-    if !testcontainers_declared_in(cx.root(), &dir, lang) {
-        return r;
-    }
-    if daemon_answers(&Env::current()) {
-        return r;
-    }
-    r.findings.push(cx.error(
-        "The tests did not run: they use Testcontainers, which needs Docker, and no Docker daemon answers. Start it (`colima start`, `open -a Docker`, `orb start`, `podman machine start`, `systemctl start docker`) or ask the user to, then run the tests again",
-    ));
     r
 }

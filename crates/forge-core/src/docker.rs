@@ -261,18 +261,6 @@ pub fn answers(ep: &Endpoint) -> bool {
     }
 }
 
-/// Whether a Docker daemon answers on this machine: at `DOCKER_HOST` when it is set, else at
-/// one of the [`candidates`] sockets that exist.
-pub fn daemon_answers(env: &Env) -> bool {
-    if let Some(h) = &env.docker_host {
-        return answers(&parse_host(h));
-    }
-    candidates(env)
-        .into_iter()
-        .filter(|(p, _)| is_socket(p))
-        .any(|(p, _)| answers(&Endpoint::Unix(p)))
-}
-
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
@@ -357,7 +345,6 @@ mod tests {
         assert!(started.elapsed() < Duration::from_millis(100));
         e.docker_host = Some("unix:///nowhere.sock".into());
         assert_eq!(socket(&e).unwrap().path, PathBuf::from("/nowhere.sock"));
-        assert!(!daemon_answers(&e));
         let _ = std::fs::remove_dir_all(&t);
     }
 
