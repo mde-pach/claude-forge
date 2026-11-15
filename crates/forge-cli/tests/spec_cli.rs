@@ -222,11 +222,9 @@ fn shared_settings_need_yes_without_a_terminal_and_local_does_not() {
     let local = s.read(".claude/settings.local.json").unwrap();
     assert!(local.contains("Edit(forge.yaml)"), "{local}");
     assert!(local.contains("claude-forge hook pre-tool-use"), "{local}");
+    // this machine's entries: recorded in Forge's state, not in the committed lock (§12)
     let lock = s.read("forge.lock").unwrap();
-    assert!(
-        lock.contains("file = \".claude/settings.local.json\""),
-        "{lock}"
-    );
+    assert!(!lock.contains("settings.local.json"), "{lock}");
 }
 
 #[test]

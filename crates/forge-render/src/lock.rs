@@ -10,12 +10,15 @@
 //! [files]                         # path → sha256 of what apply wrote (the rules files)
 //! [roles]                         # file role → its effective patterns at the last apply
 //! [tools]                         # tool pins (written by provisioning; kept as is)
-//! [[settings]]                    # each settings entry apply added
+//! [[settings]]                    # each settings entry apply added to a committed file
 //! [[blocks]]                      # Forge's block in a hook manager's file
 //! ```
 //!
 //! Every command reading the lock validates it and refuses it as a whole when it names a path
 //! Forge does not write (`remove` deletes what it lists).
+//!
+//! The entries apply adds to `.claude/settings.local.json` are this machine's: they are not in
+//! the committed lock but in the repository's state directory ([`LOCAL_RECORD_FILE`]).
 
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
@@ -24,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::plan::LOCAL_SETTINGS_FILE;
 use crate::precommit::BlockKind;
 use crate::settings::SettingsEntry;
 
@@ -188,6 +192,46 @@ impl Lock {
     }
 }
 
+/// This machine's record of the settings entries apply added to `.claude/settings.local.json`,
+/// in the repository's state directory (`<state>/<repo-id>/local-settings.json`): the lock is
+/// committed and the same for everyone, while these entries (and their values, such as this
+/// machine's Docker socket) are this machine's.
+pub const LOCAL_RECORD_FILE: &str = "local-settings.json";
+
+/// Whether an entry is this machine's (in `.claude/settings.local.json`): recorded in
+/// [`LOCAL_RECORD_FILE`], never in the lock.
+pub fn is_machine_entry(e: &SettingsEntry) -> bool {
+    e.file == LOCAL_SETTINGS_FILE
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LocalRecord {
+    settings: Vec<SettingsEntry>,
+}
+
+/// Reads the local record: `{"settings": [{"file", "path", "value"}, …]}`. An entry of another
+/// file is refused (remove would take it out of a file the record does not cover).
+pub fn parse_local_record(text: &str) -> Result<Vec<SettingsEntry>, String> {
+    let r: LocalRecord = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    if let Some(e) = r.settings.iter().find(|e| !is_machine_entry(e)) {
+        return Err(format!(
+            "settings: {:?} is not {LOCAL_SETTINGS_FILE}",
+            e.file
+        ));
+    }
+    Ok(r.settings)
+}
+
+pub fn render_local_record(settings: &[SettingsEntry]) -> String {
+    let r = LocalRecord {
+        settings: settings.to_vec(),
+    };
+    let mut text = serde_json::to_string_pretty(&r).expect("the record serializes");
+    text.push('\n');
+    text
+}
+
 /// The hash of the active rule set: the rules (id and file hash), the file roles they name
 /// (effective patterns) and the active packs. Whatever caches results per rule set (the
 /// checker) keys on it.
@@ -331,6 +375,26 @@ mod tests {
             forge_launcher::parse_lock(&text).unwrap().forge.as_deref(),
             Some("0.6.0")
         );
+    }
+
+    #[test]
+    fn local_record_round_trip() {
+        let entries = vec![SettingsEntry {
+            file: LOCAL_SETTINGS_FILE.into(),
+            path: "sandbox.network.allowUnixSockets".into(),
+            value: json!("~/.orbstack/run/docker.sock"),
+        }];
+        let text = render_local_record(&entries);
+        assert_eq!(parse_local_record(&text).unwrap(), entries);
+        assert_eq!(parse_local_record(r#"{"settings": []}"#).unwrap(), vec![]);
+        // an entry of a committed file is refused: the record is only this machine's file
+        let shared = r#"{"settings": [{"file": ".claude/settings.json", "path": "permissions.ask", "value": "x"}]}"#;
+        assert!(
+            parse_local_record(shared)
+                .unwrap_err()
+                .contains("settings.json")
+        );
+        assert!(parse_local_record(r#"{"settings": [], "x": 1}"#).is_err());
     }
 
     #[test]

@@ -216,6 +216,9 @@ pub fn context(flags: &Flags) -> Result<Ctx, Error> {
         (None, Some(m)) => m.previous.clone(),
         (None, None) => Previous::default(),
     };
+    if level == Level::Project {
+        prev.add_local_record(read_local_record(&base)?);
+    }
     // the lock pins this Forge's tools (`[tools]`): what apply provisions
     if level == Level::Project {
         prev.tools = forge_tools::lock_pins()
@@ -236,6 +239,51 @@ pub fn context(flags: &Flags) -> Result<Ctx, Error> {
         migration,
         blocks,
     })
+}
+
+/// This machine's record of the entries apply added to `.claude/settings.local.json` (§12):
+/// `<state>/<repo-id>/local-settings.json`.
+pub fn local_record_path(base: &Path) -> Result<PathBuf, Error> {
+    let home = forge_home::Home::from_env().map_err(|e| Error::new(format!("forge: {e}")))?;
+    let id = forge_home::RepoId::for_root(base)
+        .map_err(|e| Error::new(format!("forge: {}: {e}", base.display())))?;
+    Ok(home
+        .repo_state_dir(&id)
+        .join(forge_render::lock::LOCAL_RECORD_FILE))
+}
+
+/// The local record; `None` when this machine has none.
+pub fn read_local_record(
+    base: &Path,
+) -> Result<Option<Vec<forge_render::settings::SettingsEntry>>, Error> {
+    let path = local_record_path(base)?;
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Ok(None);
+    };
+    forge_render::lock::parse_local_record(&text)
+        .map(Some)
+        .map_err(|e| {
+            Error::new(format!(
+                "forge: {}: {e}; fix it or delete it (the entries it records in .claude/settings.local.json are then left to you)",
+                path.display()
+            ))
+        })
+}
+
+pub fn write_local_record(
+    base: &Path,
+    entries: &[forge_render::settings::SettingsEntry],
+) -> Result<(), Error> {
+    let path = local_record_path(base)?;
+    let text = forge_render::lock::render_local_record(entries);
+    if forge_hooks::state::write_atomic(&path, text.as_bytes()) {
+        Ok(())
+    } else {
+        Err(Error::new(format!(
+            "forge: cannot write {}",
+            path.display()
+        )))
+    }
 }
 
 impl Ctx {

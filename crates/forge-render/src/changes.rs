@@ -7,8 +7,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use crate::lock::{
-    CLAUDE_CODE_MIN, Lock, LockBlock, OLD_PROJECT_LOCK, OLD_USER_LOCK, OldLock, old_owned_hash,
-    plain_relative, resolves_inside, sha256, user_relative,
+    CLAUDE_CODE_MIN, Lock, LockBlock, OLD_PROJECT_LOCK, OLD_USER_LOCK, OldLock, is_machine_entry,
+    old_owned_hash, plain_relative, resolves_inside, sha256, user_relative,
 };
 use crate::plan::{Plan, settings_files};
 use crate::precommit::{
@@ -18,11 +18,15 @@ use crate::precommit::{
 use crate::settings::{SettingsEntry, add_entries, conflicting_scalars, has_entry, remove_entries};
 use forge_packs::model::Level;
 
-/// What the last apply left: from `forge.lock`, or from the old layout's lock.
+/// What the last apply left: from `forge.lock`, or from the old layout's lock, plus this
+/// machine's record of the entries in `.claude/settings.local.json`.
 #[derive(Debug, Clone, Default)]
 pub struct Previous {
     pub files: BTreeMap<String, String>,
+    /// The entries apply added: the lock's, and the local record's.
     pub settings: Vec<SettingsEntry>,
+    /// The local record as found (`None`: there is none on this machine).
+    pub local_record: Option<Vec<SettingsEntry>>,
     pub blocks: Vec<LockBlock>,
     pub rules: BTreeMap<String, String>,
     pub roles: BTreeMap<String, Vec<String>>,
@@ -36,12 +40,25 @@ impl From<&Lock> for Previous {
         Previous {
             files: l.files.clone(),
             settings: l.settings.clone(),
+            local_record: None,
             blocks: l.blocks.clone(),
             rules: l.rules.clone(),
             roles: l.roles.clone(),
             tools: l.tools.clone(),
             lock_text: None,
         }
+    }
+}
+
+impl Previous {
+    /// Adds this machine's record of the entries in `.claude/settings.local.json`.
+    pub fn add_local_record(&mut self, record: Option<Vec<SettingsEntry>>) {
+        for e in record.iter().flatten() {
+            if !self.settings.iter().any(|s| s.key() == e.key()) {
+                self.settings.push(e.clone());
+            }
+        }
+        self.local_record = record;
     }
 }
 
@@ -269,6 +286,11 @@ pub struct Changes {
     pub blocks: Vec<BlockWrite>,
     pub block_drift: Vec<String>,
     pub missing_entries: Vec<SettingsEntry>,
+    /// This machine's entries (`.claude/settings.local.json`) after apply: the local record.
+    pub local_settings: Vec<SettingsEntry>,
+    /// The local record on disk differs from `local_settings` (written by apply, not a change to
+    /// the project: no record is created while it would be empty).
+    pub local_record_changed: bool,
     pub rules_changed: Vec<String>,
     pub roles_changed: Vec<String>,
     /// Scalar settings set differently by the person (never overwritten), and blocks Forge cannot add back.
@@ -406,6 +428,13 @@ pub fn compute(
         .map(|(i, e)| (e.entry.key(), i))
         .collect();
     kept.sort_by_key(|e| order.get(&e.key()).copied().unwrap_or(0));
+    // this machine's entries go to the local record, the committed ones to the lock
+    let (local, kept): (Vec<_>, Vec<_>) = kept.into_iter().partition(is_machine_entry);
+    ch.local_record_changed = match &prev.local_record {
+        Some(r) => *r != local,
+        None => !local.is_empty(),
+    };
+    ch.local_settings = local;
 
     // pre-commit blocks: added back when missing, brought up to date when Forge's own
     let mut lock_blocks = Vec::new();

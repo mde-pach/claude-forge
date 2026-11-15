@@ -167,6 +167,32 @@ impl Sandbox {
         std::fs::write(p, text).unwrap();
     }
 
+    /// This machine's record of the entries apply added to `.claude/settings.local.json` (§12).
+    fn local_record_path(&self) -> PathBuf {
+        let id = forge_home::RepoId::for_root(&self.repo).unwrap();
+        self.forge_home
+            .join("state")
+            .join(id.as_str())
+            .join("local-settings.json")
+    }
+
+    /// The local record's entries as (path, value), `None` when there is no record.
+    fn local_record(&self) -> Option<Vec<(String, serde_json::Value)>> {
+        let text = std::fs::read_to_string(self.local_record_path()).ok()?;
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        Some(
+            v["settings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    assert_eq!(e["file"], ".claude/settings.local.json", "{text}");
+                    (e["path"].as_str().unwrap().to_string(), e["value"].clone())
+                })
+                .collect(),
+        )
+    }
+
     /// Everything apply writes, as one text: the rules files, the settings, the lock, the git hook.
     fn snapshot(&self) -> String {
         let mut paths: Vec<String> = Vec::new();
@@ -464,15 +490,146 @@ fn testcontainers_sandbox_entries_go_to_the_local_settings() {
         assert!(!stdout.contains(linux_note), "{stdout}");
     }
     assert!(!s.read(".claude/settings.json").unwrap().contains("sandbox"));
-    assert!(
-        s.read("forge.lock")
-            .unwrap()
-            .contains("testcontainers/sandbox-docker")
-    );
+    let lock = s.read("forge.lock").unwrap();
+    assert!(lock.contains("testcontainers/sandbox-docker"), "{lock}");
+    // this machine's entries are recorded on this machine, never in the committed lock
+    assert!(!lock.contains("settings.local.json"), "{lock}");
+    assert!(!lock.contains("docker.sock"), "{lock}");
+    if cfg!(target_os = "macos") {
+        assert_eq!(
+            s.local_record().unwrap(),
+            vec![
+                (
+                    "sandbox.network.allowUnixSockets".to_string(),
+                    serde_json::json!("/run/user/1000/docker.sock")
+                ),
+                (
+                    "sandbox.network.allowLocalBinding".to_string(),
+                    serde_json::json!(true)
+                ),
+            ]
+        );
+    }
     // the same machine: nothing to change
     let again = s.forge_with(
         &["apply", "--yes"],
         &[("DOCKER_HOST", "unix:///run/user/1000/docker.sock")],
     );
     assert!(String::from_utf8_lossy(&again.stdout).contains("forge: up to date"));
+    // remove takes them out from the record, and deletes it
+    s.ok(&["remove", "--yes"]);
+    let local: serde_json::Value = s
+        .read(".claude/settings.local.json")
+        .map(|t| serde_json::from_str(&t).unwrap())
+        .unwrap_or_default();
+    assert!(local.get("sandbox").is_none(), "{local}");
+    assert!(s.local_record().is_none());
+}
+
+/// `--local` puts every entry in `.claude/settings.local.json`: all are this machine's, so the
+/// lock records none of them and the local record all (§12). Drift, re-adding and remove follow
+/// the record; an entry the person wrote there is never touched.
+#[test]
+fn local_entries_are_recorded_on_this_machine_not_in_the_lock() {
+    let s = Sandbox::new("fastapi-app");
+    s.ok(&["apply", "--local"]);
+    let lock = s.read("forge.lock").unwrap();
+    assert!(!lock.contains("[[settings]]"), "{lock}");
+    let record = s.local_record().unwrap();
+    assert!(
+        record.contains(&(
+            "permissions.ask".to_string(),
+            serde_json::json!("Edit(forge.yaml)")
+        )),
+        "{record:?}"
+    );
+    assert!(s.ok(&["apply", "--local"]).contains("forge: up to date"));
+    assert_eq!(s.forge(&["diff", "--local"]).status.code(), Some(0));
+
+    // an entry removed by hand: drift, from the record; apply re-adds it
+    let local = s.read(".claude/settings.local.json").unwrap();
+    s.write(
+        ".claude/settings.local.json",
+        &local.replace("      \"Edit(forge.yaml)\",\n", ""),
+    );
+    let out = s.forge(&["diff", "--local"]);
+    assert_eq!(out.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains(
+            "forge: .claude/settings.local.json: entry missing, apply re-adds it: permissions.ask \"Edit(forge.yaml)\""
+        ),
+        "{text}"
+    );
+    s.ok(&["apply", "--local"]);
+    let local = s.read(".claude/settings.local.json").unwrap();
+    assert!(local.contains("\"Edit(forge.yaml)\""), "{local}");
+
+    // remove: forge's entries go, the person's stay, and so does the record
+    let mine = local.replacen("{\n", "{\n  \"model\": \"opus\",\n", 1);
+    s.write(".claude/settings.local.json", &mine);
+    let out = s.ok(&["remove", "--yes"]);
+    assert!(out.contains("forge: removed"), "{out}");
+    let after = s.read(".claude/settings.local.json").unwrap();
+    assert!(after.contains("\"model\": \"opus\""), "{after}");
+    assert!(!after.contains("claude-forge"), "{after}");
+    assert!(s.local_record().is_none());
+}
+
+/// The local record lost (Forge's state wiped): remove cannot know which entries of
+/// `.claude/settings.local.json` are Forge's, so it leaves the file and says so.
+#[test]
+fn remove_without_the_local_record_leaves_the_local_entries() {
+    let s = Sandbox::new("fastapi-app");
+    s.ok(&["apply", "--local"]);
+    let local = s.read(".claude/settings.local.json").unwrap();
+    std::fs::remove_file(s.local_record_path()).unwrap();
+    let out = s.forge(&["remove", "--yes"]);
+    assert!(out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains(
+            "forge: note: this machine has no record of the entries forge added to .claude/settings.local.json ("
+        ) && err.contains("check it and remove forge's entries yourself"),
+        "{err}"
+    );
+    assert_eq!(s.read(".claude/settings.local.json").unwrap(), local);
+    assert!(s.read("forge.lock").is_none());
+}
+
+/// A lock written by an earlier Forge records `.claude/settings.local.json`'s entries: they are
+/// taken as this machine's, and the next apply moves them to the local record.
+#[test]
+fn local_entries_in_an_earlier_lock_move_to_the_record() {
+    let s = Sandbox::new("fastapi-app");
+    s.ok(&["apply", "--local"]);
+    let record = std::fs::read_to_string(s.local_record_path()).unwrap();
+    let entries: serde_json::Value = serde_json::from_str(&record).unwrap();
+    let mut lock = s.read("forge.lock").unwrap().replace("settings = []\n", "");
+    for e in entries["settings"].as_array().unwrap() {
+        lock.push_str(&format!(
+            "\n[[settings]]\nfile = \".claude/settings.local.json\"\npath = {:?}\njson = {:?}\n",
+            e["path"].as_str().unwrap(),
+            e["value"].to_string()
+        ));
+    }
+    s.write("forge.lock", &lock);
+    std::fs::remove_file(s.local_record_path()).unwrap();
+    let out = s.ok(&["apply", "--local"]);
+    assert!(out.contains("forge: applied"), "{out}");
+    assert!(
+        !s.read("forge.lock")
+            .unwrap()
+            .contains("settings.local.json")
+    );
+    assert_eq!(
+        std::fs::read_to_string(s.local_record_path()).unwrap(),
+        record
+    );
+    // back to the shared settings: the entries leave the local file, the record empties
+    s.ok(&["apply", "--yes"]);
+    assert_eq!(s.local_record().unwrap(), vec![]);
+    let local = s.read(".claude/settings.local.json").unwrap_or_default();
+    assert!(!local.contains("claude-forge"), "{local}");
+    assert!(s.read("forge.lock").unwrap().contains("[[settings]]"));
 }

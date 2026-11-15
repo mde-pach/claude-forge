@@ -361,6 +361,10 @@ fn install_agents() -> Result<(), Error> {
 
 fn write(ctx: &Ctx, ch: &Changes) -> Result<(), Error> {
     let base = &ctx.base;
+    // the record first: one naming an entry a failed write left out is harmless to remove
+    if ctx.level == Level::Project && ch.local_record_changed {
+        super::write_local_record(base, &ch.local_settings)?;
+    }
     for w in &ch.writes {
         let exec = w.path.ends_with("/pre-commit") && w.after.starts_with("#!");
         write_text(&base.join(&w.path), &w.after, exec)?;

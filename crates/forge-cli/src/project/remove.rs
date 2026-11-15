@@ -1,13 +1,15 @@
-//! `forge remove`: deletes exactly what the lock records.
+//! `forge remove`: deletes exactly what the lock records, and the entries this machine's local
+//! record says apply added to `.claude/settings.local.json`.
 
 use forge_packs::model::Level;
 use forge_render::changes::{owned_hash, read_lock};
-use forge_render::plan::{display_path, lock_path};
+use forge_render::lock::is_machine_entry;
+use forge_render::plan::{LOCAL_SETTINGS_FILE, display_path, lock_path};
 use forge_render::precommit::{block_hash, has_block, only_forge, remove_block};
 use forge_render::settings::remove_entries;
 
 use super::io::{Error, confirm, delete_path, prune_dirs, show_diff, write_settings, write_text};
-use super::{Flags, base_of};
+use super::{Flags, base_of, local_record_path, read_local_record};
 
 pub fn remove(flags: &Flags) -> Result<u8, Error> {
     let level = if flags.user {
@@ -28,9 +30,35 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
     let read = |p: &str| std::fs::read_to_string(base.join(p)).ok();
     let show = |rel: &str| display_path(level, &base, rel);
 
+    // the lock's entries, and this machine's from the local record (§12)
+    let mut entries = lock.settings.clone();
+    let mut record = None;
+    if level == Level::Project {
+        let path = local_record_path(&base)?;
+        match read_local_record(&base)? {
+            Some(r) => {
+                for e in r {
+                    if !entries.iter().any(|x| x.key() == e.key()) {
+                        entries.push(e);
+                    }
+                }
+                record = Some(path);
+            }
+            None if read(LOCAL_SETTINGS_FILE).is_some()
+                && !lock.settings.iter().any(is_machine_entry) =>
+            {
+                eprintln!(
+                    "forge: note: this machine has no record of the entries forge added to {LOCAL_SETTINGS_FILE} ({} is missing), so that file is left as it is; check it and remove forge's entries yourself",
+                    path.display()
+                );
+            }
+            None => {}
+        }
+    }
+
     let mut settings: Vec<(String, String, Option<String>)> = Vec::new();
     let mut files_seen: Vec<&str> = Vec::new();
-    for e in &lock.settings {
+    for e in &entries {
         if files_seen.contains(&e.file.as_str()) {
             continue;
         }
@@ -38,8 +66,7 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
         let Some(before) = read(&e.file) else {
             continue;
         };
-        let mine: Vec<_> = lock
-            .settings
+        let mine: Vec<_> = entries
             .iter()
             .filter(|x| x.file == e.file)
             .cloned()
@@ -122,7 +149,10 @@ pub fn remove(flags: &Flags) -> Result<u8, Error> {
         }
     }
     delete_path(&base, lock_file)?;
-    let n = lock.settings.len();
+    if let Some(path) = &record {
+        let _ = std::fs::remove_file(path);
+    }
+    let n = entries.len();
     let from: Vec<&str> = blocks.iter().map(|(b, _, _)| b.file.as_str()).collect();
     println!(
         "forge: removed {} file(s) and {n} settings entr{}{}",

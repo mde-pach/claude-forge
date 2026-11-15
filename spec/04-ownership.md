@@ -22,7 +22,7 @@ Nothing Forge generates goes in `.forge/`. There are no scripts, helpers, manife
 |---|---|---|
 | **Owned** | `forge.lock`; `.claude/rules/forge-*.md`; git's pre-commit hook when Forge created it (§7.6). User level: `~/.claude/forge-user.lock`. | Regenerates them. Each owned file's sha256 is recorded in the lock's `[files]`, except the lock itself. |
 | **Input** | `forge.yaml`, `.forge/packs/**`, `.forge/rules/**` | Reads them; never writes them. |
-| **Appended** | `.claude/settings.json` (or `.claude/settings.local.json` with `--local`); user level: `~/.claude/settings.json` | Adds entries only, with consent for a shared file; records each entry in the lock's `[[settings]]`; never changes or removes an entry it did not add. A settings file it created and that ends up empty is deleted on `remove`. |
+| **Appended** | `.claude/settings.json` (or `.claude/settings.local.json` with `--local`); user level: `~/.claude/settings.json` | Adds entries only, with consent for a shared file; records each entry in the lock's `[[settings]]`, or, for `.claude/settings.local.json`, in this machine's state (`local-settings.json`, §12); never changes or removes an entry it did not add. A settings file it created and that ends up empty is deleted on `remove`. |
 | **Marked block** | A hook manager's config: `.pre-commit-config.yaml`, `lefthook.yml` (and its variants), `.husky/pre-commit`, `<core.hooksPath>/pre-commit` (§7.6) | Adds one block between `# forge: begin (forge remove deletes this block)` and `# forge: end`, only with `--pre-commit` or a yes at the prompt; records it in the lock's `[[blocks]]`; `remove` takes it out; never changes the rest of the file. |
 | **Audited** | Tool configs (`biome.json`, `pyproject.toml`, `tsconfig.json`, ESLint configs, …), `package.json`, dependencies | Reads them and tests what they enforce (§11); never writes them. |
 | **Created once** | The active packs' `init/` templates | `forge init` creates each one only when it does not exist (§3.2). |
@@ -48,6 +48,7 @@ A relative or empty value of these variables is ignored. With none of them set, 
 <cache>/registry/, <cache>/infra/        cached answers of package registries and infra helpers
 <state>/<repo-id>/                       per repository: hook rule cache, notes, last results, engine log
 <state>/<repo-id>/notes/                 notes for the person, read and cleared by forge status / apply
+<state>/<repo-id>/local-settings.json    the entries apply added to .claude/settings.local.json (§12)
 <state>/<repo-id>/sessions/<session>/    per session: the turn snapshot, Bash snapshots, Stop counter, reviews
 <state>/facts/                           what tools are and have (versions), shared by every repository
 <state>/user/                            the user-level hooks' state
