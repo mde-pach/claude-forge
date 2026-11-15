@@ -247,9 +247,22 @@ impl ToolResolver for LocalTools {
                 bin: uvx,
             });
         }
+        let why = why.unwrap_or_else(|| format!("{name} {version} is not installed"));
+        // a machine's copy stands for Forge's pin only when it is that very release: another one
+        // may not know what Forge's rules ask of it (ruff 0.9.3 rejects the codes 0.17 has), and
+        // whatever it reported would be put down to the pinned release
         match self.on_path(name) {
-            Some(p) => Ok(ToolCmd::exe(p)),
-            None => Err(why.unwrap_or_else(|| format!("{name} {version} is not installed"))),
+            Some(p) => match crate::adapters::exe_version(name, &p) {
+                Some(found) if found == version => Ok(ToolCmd::exe(p)),
+                found => Err(format!(
+                    "{why}; the {name} on PATH ({}) is {}, not Forge's {version}",
+                    p.display(),
+                    found
+                        .as_deref()
+                        .unwrap_or("of a version that could not be read")
+                )),
+            },
+            None => Err(why),
         }
     }
 
@@ -375,6 +388,36 @@ mod tests {
         std::fs::copy(root.join("bin/uv"), root.join(".venv/bin/pytest")).unwrap();
         let cmd = tools.project(&root, &root, "pytest").unwrap();
         assert!(!through_uv(&cmd) && cmd.bin.ends_with(".venv/bin/pytest"));
+    }
+
+    /// A fake `ruff` on a PATH of its own that says `version`.
+    fn path_ruff(version: &str) -> (tempfile::TempDir, LocalTools) {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let f = d.path().join("ruff");
+        std::fs::write(&f, format!("#!/bin/sh\necho 'ruff {version}'\n")).unwrap();
+        std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let tools = LocalTools {
+            path: Some(d.path().display().to_string()),
+            ..Default::default()
+        };
+        (d, tools)
+    }
+
+    #[test]
+    fn a_copy_on_path_stands_for_the_pin_only_when_it_is_that_release() {
+        let (_d, same) = path_ruff("0.17.1");
+        assert!(same.pinned("ruff", "0.17.1").is_ok());
+        let (d, older) = path_ruff("0.9.3");
+        let err = older.pinned("ruff", "0.17.1").unwrap_err();
+        assert!(err.starts_with("ruff 0.17.1 is not installed"), "{err}");
+        assert!(
+            err.contains(&format!(
+                "the ruff on PATH ({}) is 0.9.3",
+                d.path().join("ruff").display()
+            )),
+            "{err}"
+        );
     }
 
     #[test]

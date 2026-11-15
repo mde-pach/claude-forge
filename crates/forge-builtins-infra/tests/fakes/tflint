@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "--version" ] && { echo 'tflint 0.64.0'; exit 0; }
 # Fake tflint 0.64.0 for the pack examples: a few rules of the terraform ruleset's recommended
 # preset and one aws rule (when the config enables the aws plugin and TFLINT_PLUGIN_DIR holds
 # it), in the compact format of the real binary (captured; paths as "<chdir>/<file>"; --force:

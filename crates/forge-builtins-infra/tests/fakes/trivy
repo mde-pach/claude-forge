@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "--version" ] && { echo 'trivy 0.75.0'; exit 0; }
 # Fake trivy 0.75.0 for the pack examples: AWS-0107 (SSH open to the world), printed through
 # Forge's template as the real binary prints it (captured: target relative to the scanned
 # directory, tab-separated); a template without the .tpl extension is a fatal error.

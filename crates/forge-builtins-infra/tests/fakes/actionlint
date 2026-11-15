@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "--version" ] && { echo 'actionlint 1.7.12'; exit 0; }
 # Fake actionlint 1.7.12 for the pack examples: the errors they exercise, in the format Forge
 # asks for ("path:line:column: kind: message", messages captured from the real binary); exit 1
 # with errors, 3 for a config file it cannot read.

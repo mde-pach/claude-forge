@@ -219,7 +219,8 @@ pub fn check(rule: Option<Rule>, files: Vec<String>) -> CheckCtx {
     }
 }
 
-/// The tools on `path` (pinned ones included, any version), through the checker's adapters.
+/// The tools on `path` (pinned ones at their pinned release, as a copy on PATH must be),
+/// through the checker's adapters.
 pub fn path_tools(path: String) -> Options {
     Options::new(Arc::new(AdapterTools::new(
         Arc::new(LocalTools {
@@ -245,11 +246,16 @@ pub fn fake_bin() -> tempfile::TempDir {
         let text = std::fs::read_to_string(e.path()).unwrap();
         install(d.path(), &e.file_name().to_string_lossy(), &text);
     }
+    // tflint's ruleset plugins, at the release Forge pins (a copy on PATH stands for the pin
+    // only then)
+    let cat = forge_tools::Catalog::builtin();
     for p in ["aws", "google", "azurerm"] {
+        let name = format!("tflint-ruleset-{p}");
+        let v = cat.get(&name).unwrap().version;
         install(
             d.path(),
-            &format!("tflint-ruleset-{p}"),
-            "#!/bin/sh\nexit 0\n",
+            &name,
+            &format!("#!/bin/sh\n[ \"$*\" = \"--version\" ] && echo '{name} {v}'\nexit 0\n"),
         );
     }
     d

@@ -358,6 +358,25 @@ pub fn ask_version(cmd: &ToolCmd, args: &str) -> Option<String> {
     first_version(&text)
 }
 
+/// The version an executable of `tool` says, asked as its adapter says (`version_args`, else
+/// `--version`; an npm package's `package.json` when the adapter names one), kept while the
+/// executable is unchanged.
+pub fn exe_version(tool: &str, bin: &Path) -> Option<String> {
+    let adapter = Adapter::load(tool);
+    let args = adapter
+        .as_ref()
+        .map_or("--version", |a| a.version_args())
+        .to_string();
+    let package = adapter.as_ref().and_then(|a| a.package.clone());
+    let cmd = ToolCmd::exe(bin.to_path_buf());
+    cached_version(bin, &args, || {
+        package
+            .as_deref()
+            .and_then(|p| package_version(bin, p))
+            .or_else(|| ask_version(&cmd, &args))
+    })
+}
+
 pub fn first_version(text: &str) -> Option<String> {
     static V: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(r"[0-9]+\.[0-9]+(\.[0-9]+)?").expect("regex")

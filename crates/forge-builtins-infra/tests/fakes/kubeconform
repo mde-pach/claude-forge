@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "-v" ] && { echo 'kubeconform 0.8.0'; exit 0; }
 # Fake kubeconform 0.8.0 for the pack examples: an unknown field and a removed apiVersion, in
 # the real binary's JSON (captured); only documents that are not valid are listed; exit 1 then.
 [ "$1" = -v ] && { echo v0.8.0; exit 0; }

@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "--version" ] && { echo '6.17.0'; exit 0; }
 # Fake Spectral CLI 6.17.0 for the pack examples: operation-tags when the ruleset sets it to
 # error, in the text format of the real CLI (captured: absolute paths, quoted messages);
 # exit 1 with an error result.

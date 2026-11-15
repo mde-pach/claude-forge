@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "$*" = "--version" ] && { echo 'hadolint 2.15.1'; exit 0; }
 # Fake hadolint 2.15.1 for the pack examples: the rules the examples exercise, in hadolint's
 # tty format (captured from the real binary): "path:line CODE level: message"; a Dockerfile it
 # cannot parse is "path:line:column message". --no-fail: exit 0.

@@ -87,7 +87,7 @@ Downloads happen only where a person waits anyway, or in the background:
 
 With `FORGE_NO_DOWNLOAD` set to a non-empty value, Forge downloads no tool: `forge apply` notes `Forge's tools were not installed: downloads are turned off (FORGE_NO_DOWNLOAD)`. The launcher downloads no pinned Forge version either (§18.3): it runs the installed one, and the note for the person says `The download did not happen: downloads are turned off.`
 
-When a pinned tool is not in the cache and may not be downloaded, Forge runs an executable of that name on `PATH`, whatever its version; with none, the check that needs it is skipped with a note. Without a cache at all (no `HOME` and no `FORGE_HOME`), ty, ast-grep, zizmor, condor, hadolint and squawk run through the machine's `uvx` (`uvx -q --from <package>==<version> <binary>`).
+When a pinned tool is not in the cache and may not be downloaded, Forge runs an executable of that name on `PATH` only when it says the pinned release (asked as the tool's adapter says, §16); another release may not know what Forge's rules ask of it (an older ruff rejects codes the pinned one has), and its result would be put down to the pinned release. Otherwise, and with none, the check that needs it is skipped with a note naming both (`ruff 0.17.1 is not installed; the ruff on PATH (<path>) is 0.9.3, not Forge's 0.17.1`). Test: `crates/forge-check/src/tools.rs` (`a_copy_on_path_stands_for_the_pin_only_when_it_is_that_release`). Without a cache at all (no `HOME` and no `FORGE_HOME`), ty, ast-grep, zizmor, condor, hadolint and squawk run through the machine's `uvx` (`uvx -q --from <package>==<version> <binary>`).
 
 ### 17.6 Forge's uv on the agent's PATH
 
