@@ -1,8 +1,8 @@
 id: python/sqlalchemy/alembic/applied-migrations
-description: Alembic revisions already in the base (file role @alembic-migrations, the versions directory of alembic.ini's script_location) are not modified or deleted; they may already be applied, so a change goes in a new revision (alembic revision --autogenerate).
+description: Alembic revisions already on the default branch (file role @alembic-migrations, the versions directory of alembic.ini's script_location) are not modified or deleted; they may already be applied, so a change goes in a new revision (alembic revision --autogenerate). A revision this branch added and that is not merged yet may still be edited.
 scope: {language: any}
 enforce:
-  - {target: check, stage: migration, run: "forge_applied_migrations @alembic-migrations"}
+  - {target: check, stage: migration, run: "forge_applied_migrations @alembic-migrations", base: branch}
 examples:
   match:
     - head: {alembic.ini: "[alembic]\nscript_location = alembic\n", alembic/versions/0001_init.py: "revision = \"0001\"\ndown_revision = None\n\n\ndef upgrade() -> None:\n    op.create_table(\"orders\", sa.Column(\"id\", sa.Integer(), primary_key=True))\n"}

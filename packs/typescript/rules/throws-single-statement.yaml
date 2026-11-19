@@ -1,0 +1,31 @@
+id: typescript/throws-single-statement
+description: "The function an assertion expects to throw holds only the call expected to throw (expect(() => parse(\"\")).toThrow(…), assert.throws(() => parse(\"\"), …)): the setup goes before it, or an earlier statement throwing the same error passes the test."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any: [{kind: arrow_function}, {kind: function_expression}]
+      # a second statement (comments do not count)
+      has: {field: body, kind: statement_block, has: {regex: "^[^/]", nthChild: {position: 2, ofRule: {regex: "^[^/]"}}}}
+      inside:
+        kind: arguments
+        inside:
+          kind: call_expression
+          any:
+            # expect(() => { … }).toThrow(…)
+            - inside:
+                kind: member_expression
+                has: {field: property, regex: "^(toThrow|toThrowError|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)$"}
+                stopBy: {kind: call_expression}
+            # assert.throws(() => { … }, …)
+            - has: {field: function, regex: "^(assert|[A-Za-z_$][A-Za-z0-9_$]*\\.assert)\\.(throws|rejects)$"}
+          has: {field: function, regex: "^(expect|assert|[A-Za-z_$][A-Za-z0-9_$]*\\.assert)(\\.(throws|rejects))?$"}
+examples:
+  match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects an empty cart\", () => {\n  expect(() => {\n    const cart = new Cart([]);\n    cart.checkout();\n  }).toThrow(EmptyCart);\n});\n"
+    - "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\n\ntest(\"rejects an empty cart\", () => {\n  assert.throws(() => {\n    const cart = new Cart([]);\n    cart.checkout();\n  }, EmptyCart);\n});\n"
+  no_match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects an empty cart\", () => {\n  const cart = new Cart([]);\n  expect(() => cart.checkout()).toThrow(EmptyCart);\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"rejects an empty cart\", () => {\n  const cart = new Cart([]);\n  expect(() => {\n    cart.checkout();\n  }).toThrow(EmptyCart);\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"maps\", () => {\n  expect([1, 2].map((n) => {\n    const d = n * 2;\n    return d;\n  })).toEqual([2, 4]);\n});\n"

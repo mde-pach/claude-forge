@@ -4,10 +4,9 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])chmod[[:space:]]([^;&|]*[[:space:]])?(0?777|a\+rwx|ugo\+rwx|=rwx)([[:space:];&|)]|$)'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(sudo[[:space:]]+)?chown[[:space:]]+(-[A-Za-z]*R[A-Za-z]*|--recursive)[[:space:]][^;&|]*[[:space:]](/|~/?|\$HOME/?|\$\{HOME\}/?)([[:space:];&|)]|$)'
+    command:
+      - {name: chmod, args_any: ['777', '0777', 'a+rwx', 'ugo+rwx', '=rwx']}
+      - {name: chown, flags_any: [-R, --recursive], args_any: ['/', '~', '~/', '$HOME', '$HOME/', '${HOME}', '${HOME}/']}
 examples:
   match: ["chmod 777 uploads", "chmod -R 777 .", "chmod 0777 /var/www", "chmod a+rwx file", "chmod =rwx run.sh", "sudo chown -R me /", "chown -R me:staff ~"]
   no_match: ["chmod 755 script.sh", "chmod +x run.sh", "chmod 7770 x", "chown -R me ./dist", "chown me /tmp/file"]

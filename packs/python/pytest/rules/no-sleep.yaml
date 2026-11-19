@@ -1,0 +1,30 @@
+id: python/pytest/no-sleep
+description: "A test does not sleep a fixed time (time.sleep, asyncio.sleep): the wait is either too short on a slow CI machine (a flaky test) or wasted everywhere else. Wait for the condition itself (poll it with a timeout, await an Event or the task), or control time (freezegun / time-machine, a fake clock injected into the code)."
+scope: {language: python, files: ["@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      has: {field: function, regex: "(^|\\.)sleep$"}
+      # asyncio.sleep(0) only yields to the event loop
+      not:
+        any:
+          - {has: {field: arguments, regex: "^\\([[:space:]]*0(\\.0*)?[[:space:]]*\\)$"}}
+          # a sleep inside a loop is the poll of a wait for a condition
+          - inside:
+              stopBy: {any: [{kind: function_definition}, {kind: lambda}]}
+              any: [{kind: while_statement}, {kind: for_statement}]
+    # the standard library's and the async libraries' sleep (§15.6), not a fake clock's
+    where:
+      F: {declared: [{module: [time, asyncio], name: sleep}, {package: [trio, anyio], name: sleep}]}
+examples:
+  match:
+    - "import time\n\nfrom app.cache import Cache\n\n\ndef test_entry_expires() -> None:\n    cache = Cache(ttl=1)\n    cache.set(\"k\", \"v\")\n    time.sleep(1.5)\n    assert cache.get(\"k\") is None\n"
+    - "import asyncio\n\nfrom app.worker import Worker\n\n\nasync def test_worker_processes_job() -> None:\n    worker = Worker()\n    worker.submit(\"job\")\n    await asyncio.sleep(2)\n    assert worker.done == [\"job\"]\n"
+    - "from time import sleep\n\nimport pytest\n\n\n@pytest.fixture\ndef server():\n    proc = start_server()\n    sleep(3)\n    yield proc\n    proc.kill()\n"
+  no_match:
+    - "from datetime import timedelta\n\nfrom freezegun import freeze_time\n\nfrom app.cache import Cache\n\n\ndef test_entry_expires() -> None:\n    with freeze_time(\"2024-01-01\") as clock:\n        cache = Cache(ttl=1)\n        cache.set(\"k\", \"v\")\n        clock.tick(timedelta(seconds=2))\n        assert cache.get(\"k\") is None\n"
+    - "import asyncio\nimport time\n\n\nasync def test_queue_yields() -> None:\n    await asyncio.sleep(0)\n\n\ndef wait_until(cond, timeout: float = 5.0) -> None:\n    deadline = time.monotonic() + timeout\n    while not cond():\n        assert time.monotonic() < deadline\n        time.sleep(0.05)\n"
+    - "class FakeClock:\n    def __init__(self) -> None:\n        self.now = 0.0\n\n    def sleep(self, seconds: float) -> None:\n        self.now += seconds\n\n\ndef test_backoff() -> None:\n    clock = FakeClock()\n    clock.sleep(30)\n    assert clock.now == 30\n"

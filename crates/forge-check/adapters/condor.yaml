@@ -1,0 +1,20 @@
+# condor, Forge's own pinned dead-code finder for Python (§16.2 pinned tools; PyPI `cndr`): one
+# range, the pin, proven on 0.3.0 (as 0.2.0 before it) (`condor --help`, `--format json`: same JSON
+# fields, kinds, confidences and exit codes; 0.3.0 keeps log lines off stdout with --format). Forge's invocation
+# (forge_condor): `--format json [--exclude <patterns>] [.]` from the tree's root, so the
+# project's [tool.condor] / [tool.vulture] (paths, exclude, ignore_names, min_confidence,
+# no_report) is read from its pyproject.toml. JSON: an array of {code, confidence, end_line,
+# kind, line, message, name, path, size}. Exit: 0 nothing found, 3 findings, 1 a path that does
+# not exist or nothing but files that do not parse (a parse error is a `path:line: message`
+# line on stderr, also next to findings with exit 3), 2 bad options (argparse: `condor: error:`).
+
+tool: "condor"
+pinned: "0.3.0"
+verified: "0.3.0"
+runner: pinned
+usage: {exit: [2], pattern: "^condor: error: "}
+ranges:
+  - from: "0.3.0"
+    source: "condor 0.3.0 (same JSON, kinds and exit codes as 0.2.0): condor --help; https://mde-pach.github.io/condor/ (exit codes); CHANGELOG.md"
+    ops:
+      "dead-code": "--format json"

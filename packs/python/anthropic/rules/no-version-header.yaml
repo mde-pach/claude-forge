@@ -1,5 +1,5 @@
 id: python/anthropic/no-version-header
-description: "Advice: no hand-set anthropic-version header in default_headers or extra_headers of an Anthropic client or call: it pins the app to older API behaviour than the SDK was built for. The SDK sends the right version."
+description: "No hand-set anthropic-version header in default_headers or extra_headers of an Anthropic client or call: it pins the app to older API behaviour than the SDK was built for. The SDK sends the right version."
 scope: {language: python}
 enforce:
   - target: ast-grep

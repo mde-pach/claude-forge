@@ -1,5 +1,5 @@
 id: release/no-hand-version
-description: "Advice, once per turn at Stop: a changed package.json version or pyproject.toml [project] version, which the release tooling sets; revert it unless the change is the release itself."
+description: "A changed package.json version or pyproject.toml [project] version, which the release tooling sets; revert it unless the change is the release itself."
 scope: {language: any, files: ["**/package.json", "**/pyproject.toml"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_version_changed", when_changed: ["**/package.json", "**/pyproject.toml"]}

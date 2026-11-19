@@ -1,0 +1,24 @@
+id: typescript/jest/no-new-skip
+description: Jest tests are not skipped (.skip, xit, xtest, xdescribe), left as todo, marked failing, or focused (.only, fit, fdescribe).
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {kind: member_expression, regex: "^(it|test|describe)(\\.(concurrent|each))?\\.(skip|only|todo|failing)$"}
+        - {kind: call_expression, has: {field: function, kind: identifier, regex: "^(xit|xtest|xdescribe|fit|fdescribe)$"}}
+      not: {inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](vitest|bun:test|node:test)[\"']$"}}}}
+examples:
+  match:
+    - "it.skip(\"totals\", () => {\n  expect(total([1])).toBe(1);\n});\n"
+    - "test.todo(\"refunds\");\n"
+    - "describe.only(\"cart\", () => {});\n"
+    - "xit(\"totals\", () => {\n  expect(total([1])).toBe(1);\n});\n"
+    - "test.failing(\"rounds\", () => {\n  expect(round(1.5)).toBe(2);\n});\n"
+    - "test.concurrent.skip(\"loads\", async () => {\n  expect(await load()).toBe(1);\n});\n"
+    - "fdescribe(\"cart\", () => {});\n"
+  no_match:
+    - "it(\"totals\", () => {\n  expect(total([1])).toBe(1);\n});\n"
+    - "test.each([[1, 1]])(\"total %i\", (a, b) => {\n  expect(total([a])).toBe(b);\n});\n"
+    - "import { it } from \"vitest\";\n\nit.skip(\"vitest owns this file\", () => {});\n"

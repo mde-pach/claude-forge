@@ -1,0 +1,78 @@
+id: python/sqlalchemy/asyncio/relationship-lazy
+description: "With async sessions, a relationship() names its loading strategy (lazy=\"raise\", \"selectin\", \"joined\", …) instead of the default lazy=\"select\": reading an unloaded relationship then fails with MissingGreenlet at run time, wherever the attribute is first touched. Declare lazy=\"raise\" (or \"selectin\") and load related rows with selectinload() in the query."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $F($$$)
+      all:
+        - any:
+            - not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^lazy[[:space:]]*="}}}
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^lazy[[:space:]]*=[[:space:]]*([\"']select[\"']|True)$"}}
+        # WriteOnlyMapped / DynamicMapped set the strategy from the annotation
+        - not: {inside: {kind: assignment, has: {field: type, regex: "^([A-Za-z_][A-Za-z0-9_]*\\.)*(WriteOnlyMapped|DynamicMapped)\\b"}}}
+    where:
+      F: {declared: {package: sqlalchemy, name: relationship}}
+examples:
+  deps: [{ecosystem: pypi, name: sqlalchemy, version: "2.0.44"}]
+  match:
+    - |
+      from sqlalchemy import ForeignKey
+      from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class User(Base):
+          __tablename__ = "users"
+          id: Mapped[int] = mapped_column(primary_key=True)
+          posts: Mapped[list["Post"]] = relationship(back_populates="author")
+
+
+      class Post(Base):
+          __tablename__ = "posts"
+          id: Mapped[int] = mapped_column(primary_key=True)
+          author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+          author: Mapped[User] = relationship(back_populates="posts", lazy="raise")
+    - |
+      from sqlalchemy import orm
+
+      orders = orm.relationship("Order", lazy="select")
+  no_match:
+    - |
+      from sqlalchemy import ForeignKey
+      from sqlalchemy.orm import DeclarativeBase, Mapped, WriteOnlyMapped, mapped_column, relationship
+
+
+      class Base(DeclarativeBase):
+          pass
+
+
+      class User(Base):
+          __tablename__ = "users"
+          id: Mapped[int] = mapped_column(primary_key=True)
+          posts: Mapped[list["Post"]] = relationship(back_populates="author", lazy="selectin")
+          events: WriteOnlyMapped["Event"] = relationship()
+
+
+      class Post(Base):
+          __tablename__ = "posts"
+          id: Mapped[int] = mapped_column(primary_key=True)
+          author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+          author: Mapped[User] = relationship(back_populates="posts", lazy="raise")
+
+
+      class Event(Base):
+          __tablename__ = "events"
+          id: Mapped[int] = mapped_column(primary_key=True)
+          user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    - |
+      def relationship(kind: str) -> str:
+          return kind
+
+
+      friend = relationship("friend")

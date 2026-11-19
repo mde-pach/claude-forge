@@ -1,5 +1,5 @@
 id: python/django/no-template-unescape
-description: "Advice: no |safe or |safeseq filter and no {% autoescape off %} in a Django template: the value is printed unescaped, so user input in it is cross-site scripting. Build the HTML in Python with format_html(), or keep autoescaping."
+description: "No |safe or |safeseq filter and no {% autoescape off %} in a Django template: the value is printed unescaped, so user input in it is cross-site scripting. Build the HTML in Python with format_html(), or keep autoescaping."
 scope: {language: any, files: ["@django-templates"]}
 enforce:
   - target: grep

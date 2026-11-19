@@ -1,0 +1,14 @@
+id: typescript/astro/use-astro-image
+description: "A local image in an .astro file (a relative src, or an imported image's .src) goes through <Image /> or <Picture /> from astro:assets, which sizes, optimises and lazy-loads it; a plain <img> ships the original file and shifts the layout."
+scope: {language: any, files: ["**/*.astro"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "<img[[:space:]][^>]*src=(\"\\.\\.?/|'\\.\\.?/|\"/src/|'/src/|\\{[A-Za-z_$][A-Za-z0-9_$]*\\.src\\})"
+examples:
+  match:
+    - "---\n---\n<img src=\"../assets/hero.png\" alt=\"Hero\" />\n"
+    - "---\nimport hero from \"../assets/hero.png\";\n---\n<img src={hero.src} alt=\"Hero\" width={hero.width} height={hero.height} />\n"
+  no_match:
+    - "---\nimport { Image } from \"astro:assets\";\nimport hero from \"../assets/hero.png\";\n---\n<Image src={hero} alt=\"Hero\" />\n"
+    - "---\nconst { avatar } = Astro.props;\n---\n<img src=\"/favicon.svg\" alt=\"\" width=\"32\" height=\"32\" />\n<img src={avatar} alt=\"\" />\n<img src=\"https://cdn.example.com/a.png\" alt=\"\" />\n"

@@ -1,0 +1,23 @@
+id: python/pytest/no-socket-opt-out
+description: "Tests are not let back onto the network (pytest-socket's enable_socket marker, socket_enabled fixture, enable_socket() call, or a wider allow_hosts marker): a test that needs a remote service fakes it or starts it locally. Letting a test reach the network is the user's decision: ask them."
+scope: {language: python, files: ["@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      any:
+        - {pattern: "pytest.mark.enable_socket"}
+        - {pattern: "pytest.mark.allow_hosts($$$)"}
+        - {pattern: "enable_socket()"}
+        - {pattern: "$M.enable_socket()"}
+        - {kind: identifier, regex: "^socket_enabled$", inside: {kind: parameters, stopBy: end}}
+examples:
+  match:
+    - "import pytest\nimport httpx\n\n\n@pytest.mark.enable_socket\ndef test_rates_live() -> None:\n    assert httpx.get(\"https://api.example.com/rates\").status_code == 200\n"
+    - "import httpx\n\n\ndef test_rates_live(socket_enabled: None) -> None:\n    assert httpx.get(\"https://api.example.com/rates\").status_code == 200\n"
+    - "import pytest\nfrom pytest_socket import enable_socket\n\n\n@pytest.fixture(autouse=True)\ndef _network() -> None:\n    enable_socket()\n"
+    - "import pytest\n\npytestmark = pytest.mark.allow_hosts([\"10.0.0.5\"])\n"
+  no_match:
+    - "import pytest\n\n\n@pytest.mark.disable_socket\ndef test_offline() -> None:\n    assert True\n"
+    - "def test_socket_name() -> None:\n    socket_enabled = False\n    assert not socket_enabled\n"
+    - "import pytest\n\n\ndef test_rates(socket_disabled: None, httpx_mock) -> None:\n    assert httpx_mock is not None\n"

@@ -1,0 +1,12 @@
+id: typescript/bun/test-setup-ratchet
+description: "bunfig.toml keeps what makes hidden test problems fail: a changed bunfig.toml may not drop the no-network file from [test] preload or turn off [test] randomize (random test order). Fix the test that depends on the network or the order; turning either off is the user's decision: ask them."
+scope: {language: any, files: ["**/bunfig.toml"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "no-network\\.[cm]?[jt]s|^[[:space:]]*randomize[[:space:]]*=[[:space:]]*true"
+examples:
+  match:
+    - "[test]\npreload = [\"./test/no-network.ts\"]\nrandomize = true\n"
+  no_match:
+    - "[install]\nminimumReleaseAge = 604800\n\n[test]\npreload = [\"./test/setup.ts\"]\nrandomize = false\n"

@@ -1,0 +1,41 @@
+id: typescript/stripe/webhook-idempotent
+description: "A Stripe webhook handler that verifies the event with webhooks.constructEvent / constructEventAsync never reads the event's id: Stripe delivers an event more than once, so a handler that is not idempotent fulfils an order or credits an account twice. Record event.id as processed (a unique row written in the same transaction as the effect) and skip an id already seen."
+scope: {language: typescript, files: ["**/*", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      all:
+        - any:
+            - kind: variable_declarator
+              all:
+                - has: {field: name, kind: identifier, pattern: $E}
+                - has: {field: value, any: [{pattern: "$S.webhooks.constructEvent($$$)"}, {pattern: "$S.webhooks.constructEventAsync($$$)"}, {pattern: "await $S.webhooks.constructEventAsync($$$)"}]}
+            - kind: assignment_expression
+              all:
+                - has: {field: left, kind: identifier, pattern: $E}
+                - has: {field: right, any: [{pattern: "$S.webhooks.constructEvent($$$)"}, {pattern: "$S.webhooks.constructEventAsync($$$)"}, {pattern: "await $S.webhooks.constructEventAsync($$$)"}]}
+        # the file reads the event's id somewhere: event.id, or const { id } = event
+        - not:
+            inside:
+              stopBy: end
+              kind: program
+              has:
+                stopBy: end
+                any:
+                  - pattern: $E.id
+                  - kind: variable_declarator
+                    all:
+                      - has: {field: name, kind: object_pattern, has: {kind: shorthand_property_identifier_pattern, regex: "^id$"}}
+                      - has: {field: value, pattern: $E}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const body = await req.text();\n  const event = await stripe.webhooks.constructEventAsync(body, req.headers.get(\"stripe-signature\") ?? \"\", \"whsec\");\n  if (event.type === \"checkout.session.completed\") {\n    await fulfil(event.data.object.id);\n  }\n  return new Response(null, { status: 200 });\n}\n\nasync function fulfil(sessionId: string) {\n  console.log(sessionId);\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport function handle(body: string, sig: string): string {\n  let event: Stripe.Event;\n  try {\n    event = stripe.webhooks.constructEvent(body, sig, \"whsec\");\n  } catch {\n    return \"bad signature\";\n  }\n  return event.type;\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\nconst seen = new Set<string>();\n\nexport async function POST(req: Request) {\n  const body = await req.text();\n  const event = await stripe.webhooks.constructEventAsync(body, req.headers.get(\"stripe-signature\") ?? \"\", \"whsec\");\n  if (seen.has(event.id)) return new Response(null, { status: 200 });\n  seen.add(event.id);\n  return new Response(null, { status: 200 });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport function handle(body: string, sig: string): string {\n  const event = stripe.webhooks.constructEvent(body, sig, \"whsec\");\n  const { id, type } = event;\n  return `${id}:${type}`;\n}\n"
+    - "const hooks = { webhooks: { constructEvent: (p: string) => ({ type: p }) } };\n\nexport const event = hooks.webhooks.constructEvent(\"x\");\n"

@@ -1,0 +1,26 @@
+id: typescript/no-barrel-files
+description: "A folder inside src/ has no index file that re-exports everything (export * from): barrels load every module for one import, slow tests and bundlers and hide import cycles. Import from the module that defines the name instead; a package's own entry point (src/index.ts) is fine."
+scope: {language: typescript, files: ["**/src/*/index.{ts,tsx,mts}"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: export_statement
+      regex: "^export\\s+\\*"
+examples:
+  match:
+    - |
+      export * from "./button";
+      export * from "./dialog";
+      export * from "./table";
+    - |
+      export * as icons from "./icons";
+      export { Button } from "./button";
+  no_match:
+    - |
+      export { Button } from "./button";
+      export type { ButtonProps } from "./button";
+    - |
+      import { Dialog } from "./dialog";
+
+      export const ui = { Dialog };

@@ -1,5 +1,5 @@
 id: github-actions/zizmor-advice
-description: "Advice, once per turn at Stop: zizmor's adhoc-packages (packages installed in run: steps outside a lock file), unpinned-tools and superfluous-actions (actions that duplicate what the runner image provides) audits."
+description: "zizmor's adhoc-packages (packages installed in run: steps outside a lock file), unpinned-tools and superfluous-actions (actions that duplicate what the runner image provides) audits."
 scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml", "action.yml", "action.yaml"]}
 enforce:
   - target: check

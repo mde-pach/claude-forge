@@ -1,8 +1,8 @@
 id: python/django/applied-migrations
-description: Django migrations already in the base (file role @django-migrations) are not modified or deleted; they may already be applied, so a change goes in a new migration (makemigrations).
+description: Django migrations already on the default branch (file role @django-migrations) are not modified or deleted; they may already be applied, so a change goes in a new migration (makemigrations). A migration this branch added and that is not merged yet may still be edited.
 scope: {language: any}
 enforce:
-  - {target: check, stage: migration, run: "forge_applied_migrations @django-migrations"}
+  - {target: check, stage: migration, run: "forge_applied_migrations @django-migrations", base: branch}
 examples:
   match:
     - head: {shop/migrations/__init__.py: "", shop/migrations/0001_initial.py: "from django.db import migrations, models\n\n\nclass Migration(migrations.Migration):\n    initial = True\n    operations = [migrations.CreateModel(\"Order\", [(\"id\", models.BigAutoField(primary_key=True))])]\n"}

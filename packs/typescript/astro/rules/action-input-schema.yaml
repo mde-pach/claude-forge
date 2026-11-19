@@ -1,0 +1,60 @@
+id: typescript/astro/action-input-schema
+description: "An Astro action whose handler reads its input declares an input schema: without input, the handler gets unvalidated JSON or raw FormData typed as unknown. Add input: z.object({...}) (also for a form action)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^defineAction$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: object
+              all:
+                - not: {has: {kind: pair, has: {field: key, regex: "^[\"']?input[\"']?$"}}}
+                - not: {has: {kind: shorthand_property_identifier, regex: "^input$"}}
+                - not: {has: {kind: spread_element}}
+                - has:
+                    any:
+                      - kind: pair
+                        all:
+                          - has: {field: key, regex: "^[\"']?handler[\"']?$"}
+                          - has: {field: value, matches: reads-input}
+                      - kind: method_definition
+                        all:
+                          - has: {field: name, regex: "^handler$"}
+                          - has: {field: parameters, matches: first-param-used}
+      inside:
+        kind: program
+        stopBy: end
+        has: {kind: import_statement, has: {field: source, regex: "^[\"']astro:actions[\"']$"}}
+    utils:
+      # the first parameter is named (not _-prefixed) or destructured
+      first-param-used:
+        kind: formal_parameters
+        has:
+          nthChild: 1
+          any: [{kind: required_parameter}, {kind: optional_parameter}]
+          has:
+            field: pattern
+            any:
+              - {kind: identifier, not: {regex: "^_"}}
+              - {kind: object_pattern}
+              - {kind: array_pattern}
+      reads-input:
+        all:
+          - any: [{kind: arrow_function}, {kind: function_expression}]
+          - any:
+              - has: {field: parameters, matches: first-param-used}
+              - has: {field: parameter, kind: identifier, not: {regex: "^_"}}
+examples:
+  match:
+    - "import { defineAction } from \"astro:actions\";\nimport { db, Comment } from \"astro:db\";\n\nexport const server = {\n  comment: defineAction({\n    accept: \"form\",\n    handler: async (form) => {\n      await db.insert(Comment).values({ body: String(form.get(\"body\")) });\n    },\n  }),\n};\n"
+    - "import { defineAction } from \"astro:actions\";\n\nexport const server = {\n  like: defineAction({\n    async handler({ postId }: { postId: string }) {\n      return { postId };\n    },\n  }),\n};\n"
+  no_match:
+    - "import { defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\nimport { db, Comment } from \"astro:db\";\n\nexport const server = {\n  comment: defineAction({\n    accept: \"form\",\n    input: z.object({ body: z.string().min(1) }),\n    handler: async ({ body }) => {\n      await db.insert(Comment).values({ body });\n    },\n  }),\n};\n"
+    - "import { defineAction } from \"astro:actions\";\n\nexport const server = {\n  logout: defineAction({\n    handler: async (_input, context) => {\n      context.cookies.delete(\"session\");\n    },\n  }),\n  ping: defineAction({ handler: () => \"pong\" }),\n};\n"
+    - "import { defineAction } from \"./my-actions\";\n\nexport const save = defineAction({ handler: (data: unknown) => data });\n"

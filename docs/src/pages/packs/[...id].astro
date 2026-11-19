@@ -4,10 +4,8 @@ import { join, relative } from "node:path";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 import LifecycleSchema from "../../components/LifecycleSchema.astro";
 import RuleCard from "../../components/RuleCard.astro";
-import StatusBadge from "../../components/StatusBadge";
-import TestList from "../../components/TestList.astro";
-import { leaf, lineage, markdown, packs, packTests, packUrl, REPO_URL, results, ruleAnchor, placedStatus, ruleTests, spec, type PlacedTest } from "../../lib/data";
-import { ruleLifecycle } from "../../lib/lifecycle";
+import { detectChips, leaf, lineage, markdown, packs, packUrl, REPO_URL, ROOT, ruleAnchor, whenChips } from "../../lib/data";
+import { contextEvents, ruleLifecycle } from "../../lib/lifecycle";
 
 export function getStaticPaths() {
   return [...packs().keys()].map((id) => ({ params: { id } }));
@@ -15,44 +13,26 @@ export function getStaticPaths() {
 
 const all = packs();
 const pack = all.get(Astro.params.id!)!;
-const r = results();
-const sections = spec();
 const chain = lineage(all, pack.id);
-// each test once per page: a test covering several of this pack's rules (or the pack
-// itself) is listed in the pack's section, the others under their rule
-const key = (t: PlacedTest) => `${t.file}:${t.node.line}:${t.instance ?? ""}`;
-const perRule = new Map(pack.rules.map((rule) => [rule.id, ruleTests(sections, rule)]));
-const seen = new Map<string, number>();
-for (const ts of perRule.values()) for (const t of ts) seen.set(key(t), (seen.get(key(t)) ?? 0) + 1);
-const own = packTests(sections, pack);
-const ownKeys = new Set(own.map(key));
-const shared = new Map<string, PlacedTest>();
-for (const t of [...perRule.values()].flat()) if (seen.get(key(t))! > 1 && !ownKeys.has(key(t))) shared.set(key(t), t);
-const tests = [...own, ...shared.values()];
-const sharedKeys = new Set(tests.map(key));
-const ruleOnly = (id: string) => perRule.get(id)!.filter((t) => !sharedKeys.has(key(t)));
-const ruleShared = (id: string) => perRule.get(id)!.length - ruleOnly(id).length;
+const context = pack.context ?? [];
 // the pack's context and every rule's events, for the schema
 const schemaEvents = [
-  ...(pack.context !== undefined ? [{ event: { step: "session" as const, effect: "informs" as const, text: "the pack's context file is loaded" }, who: "context" }] : []),
+  ...contextEvents(pack).map((event) => ({ event, who: "context" })),
   ...pack.rules.flatMap((rule) => ruleLifecycle(rule).map((event) => ({ event, who: leaf(rule.id) }))),
 ];
-const detect =
-  pack.level === "user"
-    ? []
-    : [...(pack.detect?.files_any ?? []).map((f) => `file ${f}`), ...(pack.detect?.deps_any ?? []).map((d) => `${d.ecosystem} ${d.name}${d.version ? ` ${d.version}` : ""}`), ...(pack.detect?.library_any ?? []).map((e) => `${e} library`)];
+const detect = pack.level === "user" ? [] : detectChips(pack.detect);
+const initDir = pack.initDir ? join(ROOT, "packs", pack.initDir) : undefined;
 const initFiles = (dir: string): string[] =>
-  readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? initFiles(join(dir, f)) : [relative(pack.initDir!, join(dir, f))]));
+  readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? initFiles(join(dir, f)) : [relative(initDir!, join(dir, f))]));
 const contextFile = `.claude/rules/forge-${pack.id.replaceAll("/", "-")}.md`;
 const headings = [
   { depth: 2, slug: "what-it-does", text: "What it does" },
-  ...(pack.context !== undefined ? [{ depth: 2, slug: "context", text: "Context" }] : []),
-  ...(tests.length ? [{ depth: 2, slug: "specification", text: "Specification" }] : []),
+  ...(context.length ? [{ depth: 2, slug: "context", text: "Context" }] : []),
   ...pack.rules.map((x) => ({ depth: 2, slug: ruleAnchor(x.id), text: leaf(x.id) })),
 ];
 ---
 
-<StarlightPage frontmatter={{ title: pack.id, description: pack.description, editUrl: `${REPO_URL}/edit/main/packs/${pack.id}/pack.yaml` }} headings={headings}>
+<StarlightPage frontmatter={{ title: pack.id, description: pack.description, editUrl: `${REPO_URL}/edit/main/packs/${pack.dir}/pack.yaml` }} headings={headings}>
   <nav class="forge-crumbs" aria-label="Pack tree">
     {chain.map((p, i) => <>{i > 0 && <span aria-hidden="true">›</span>}<a href={packUrl(p.id)} aria-current={p.id === pack.id ? "page" : undefined}>{leaf(p.id)}</a></>)}
   </nav>
@@ -69,6 +49,7 @@ const headings = [
         {pack.level === "user" && <span class="forge-chip">forge apply --user</span>}
         {pack.parent && <a class="forge-chip forge-chip--link" href={packUrl(pack.parent)}>{pack.parent} active</a>}
         {pack.parent && detect.length > 0 && <span class="forge-and">and any of</span>}
+        {!pack.parent && detect.length > 1 && <span class="forge-and">any of</span>}
         {detect.map((d) => <span class="forge-chip forge-chip--in">{d}</span>)}
         {pack.level === "project" && !detect.length && <span class="forge-chip">added in forge.yaml</span>}
       </dd>
@@ -91,7 +72,7 @@ const headings = [
     }
     <div>
       <dt>Source</dt>
-      <dd><a href={`${REPO_URL}/tree/main/packs/${pack.id}`}><code>packs/{pack.id}/</code></a></dd>
+      <dd><a href={`${REPO_URL}/tree/main/packs/${pack.dir}`}><code>packs/{pack.dir}/</code></a></dd>
     </div>
   </dl>
 
@@ -104,33 +85,26 @@ const headings = [
     )
   }
   <p class="forge-meta">Claude Code's lifecycle, with the Forge pieces this pack uses lit up; each badge counts the rules acting there (hover a piece for the list). Each rule's section below shows the same schema for that rule alone.</p>
-  {pack.initDir && <p><code>forge init</code> also creates these files when missing: {initFiles(pack.initDir).map((f, i) => <>{i > 0 && ", "}<code>{f}</code></>)}.</p>}
+  {initDir && <p><code>forge init</code> also creates these files when missing: {initFiles(initDir).map((f, i) => <>{i > 0 && ", "}<code>{f}</code></>)}.</p>}
 
   {
-    pack.context !== undefined && (
+    context.length > 0 && (
       <>
         <h2 id="context">Context</h2>
-        <p>Written verbatim to <code>{contextFile}</code>. Context informs Claude; it never enforces anything.</p>
-        <div class="forge-context" set:html={markdown(pack.context)} />
+        <p>Written to <code>{contextFile}</code>, which Claude reads; an item with a condition is written only where it holds. Context informs Claude; it never enforces anything.</p>
+        {context.map((c) => (
+          <div class="forge-context">
+            {c.when && (
+              <p class="forge-meta">
+                Only {whenChips(c.when).map((w) => <span class="forge-chip forge-chip--in">{w}</span>)}
+              </p>
+            )}
+            <Fragment set:html={markdown(c.text)} />
+          </div>
+        ))}
       </>
     )
   }
 
-  {
-    tests.length > 0 && (
-      <>
-        <h2 id="specification">Specification</h2>
-        <p>Tests of the pack as a whole, and tests that cover several of its rules.</p>
-        <details class="forge-spec">
-          <summary>
-            <span>Tests · {tests.length}</span>
-            <StatusBadge status={placedStatus(r, tests)} />
-          </summary>
-          <TestList tests={tests} results={r} />
-        </details>
-      </>
-    )
-  }
-
-  {pack.rules.map((rule) => <RuleCard rule={rule} results={r} tests={ruleOnly(rule.id)} shared={ruleShared(rule.id)} />)}
+  {pack.rules.map((rule) => <RuleCard rule={rule} />)}
 </StarlightPage>

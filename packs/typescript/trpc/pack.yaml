@@ -3,3 +3,8 @@ description: tRPC procedures (input validation, authorization, errors).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@trpc/server"}]
+context:
+  - text: |
+      tRPC: a procedure that takes input declares `.input(<schema>)` (Zod or another validator) and reads it from `input`; the schema is not `z.any()`, `z.unknown()`, a check-less `z.custom()`, a `z.record()` of `z.any()` or a cast-only function.
+  - text: |
+      Errors thrown in a procedure are `TRPCError` with a `code` (`NOT_FOUND`, `FORBIDDEN`, `BAD_REQUEST`, …); a plain `Error` is sent as INTERNAL_SERVER_ERROR, so a resolver does not `throw new Error()` / `throw Error()` (outside a `try` block).

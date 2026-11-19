@@ -3,3 +3,10 @@ description: React Router framework mode (route module actions).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@react-router/dev", version: ">=7.0.0"}]
+context:
+  - text: |
+      React Router framework mode: route modules export `loader` (GET data) and `action` (mutations), typed with `Route.LoaderArgs` / `Route.ActionArgs` from `./+types/<route>`.
+  - text: |
+      An `action` is a public POST endpoint: validate what it reads from `request.formData()` or `request.json()` with a schema and check who is calling.
+  - text: |
+      Responses use `data()` and `redirect()`; `json()` and `defer()` are gone.

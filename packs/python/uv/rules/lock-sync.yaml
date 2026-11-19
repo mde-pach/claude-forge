@@ -1,5 +1,7 @@
 id: python/uv/lock-sync
-description: uv.lock matches pyproject.toml.
+description: uv.lock matches pyproject.toml; a stale lock is updated with uv lock.
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_do uv lock-check", when_changed: [pyproject.toml]}
+  # Forge keeps the lock in sync (forge_uv_lock relocks a stale one; §10.5), after the lint
+  # stage's new-dependency checks
+  - {target: check, stage: codegen, run: "forge_uv_lock", when_changed: [pyproject.toml, uv.lock]}

@@ -1,0 +1,130 @@
+id: typescript/node/path-traversal
+description: "A file path built with path.join or path.resolve from request input (query, body, params) is confined before it is read, written, sent or deleted: ../ segments or an absolute path escape the base folder. Resolve it and check that path.relative(base, resolved) does not start with .. (or startsWith(base + path.sep)), or keep only path.basename() of the input."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      request-input:
+        any:
+          - {kind: member_expression, regex: "^(req|request)\\.(query|body|params)\\b"}
+          - {kind: call_expression, has: {field: function, regex: "\\b(searchParams|formData|form)\\.get$"}}
+          - {kind: call_expression, regex: "^c\\.req\\.(query|param)\\("}
+      # request input as a path segment, not wrapped in basename() or another call
+      user-segment:
+        any:
+          - matches: request-input
+          - {kind: as_expression, has: {matches: request-input}}
+          - {kind: non_null_expression, has: {matches: request-input}}
+          - {kind: template_string, has: {kind: template_substitution, has: {matches: request-input}}}
+      join:
+        kind: call_expression
+        has: {field: function, regex: "^(path\\.)?(join|resolve)$"}
+      function:
+        any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}]
+      # path.join(base, <request input or a variable of this function holding it>)
+      joined-input:
+        matches: join
+        has:
+          field: arguments
+          has:
+            any:
+              - matches: user-segment
+              - all:
+                  - any:
+                      - {kind: identifier, pattern: $SEG}
+                      - {kind: template_string, has: {kind: template_substitution, has: {kind: identifier, pattern: $SEG}}}
+                  - inside:
+                      stopBy: end
+                      matches: function
+                      has:
+                        stopBy: end
+                        kind: variable_declarator
+                        all:
+                          - has: {field: name, any: [{pattern: $SEG}, {has: {stopBy: end, pattern: $SEG}}]}
+                          - has: {field: value, matches: user-segment}
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "(^|\\.)(readFile|readFileSync|createReadStream|sendFile|download|writeFile|writeFileSync|createWriteStream|unlink|unlinkSync|rm|rmSync)$"}
+      all:
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any:
+                - matches: joined-input
+                - all:
+                    - {kind: identifier, pattern: $PATH}
+                    - inside:
+                        stopBy: end
+                        matches: function
+                        has:
+                          stopBy: end
+                          kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $PATH}
+                            - has: {field: value, matches: joined-input}
+        # no containment check in the function
+        - not:
+            inside:
+              stopBy: end
+              matches: function
+              has:
+                stopBy: end
+                kind: call_expression
+                has: {field: function, regex: "(^|\\.)(startsWith|relative)$"}
+examples:
+  match:
+    - |
+      import path from "node:path";
+      import type { Request, Response } from "express";
+
+      export function download(req: Request, res: Response) {
+        res.sendFile(path.join(__dirname, "uploads", req.params.name));
+      }
+    - |
+      import { readFile } from "node:fs/promises";
+      import path from "node:path";
+
+      export async function GET(request: Request) {
+        const name = new URL(request.url).searchParams.get("file")!;
+        const file = path.resolve("/srv/reports", name);
+        return new Response(await readFile(file));
+      }
+    - |
+      import fs from "node:fs";
+      import { join } from "node:path";
+      import type { Request, Response } from "express";
+
+      export function remove(req: Request, res: Response) {
+        const { id } = req.body;
+        fs.unlinkSync(join("/var/data", `${id}.json`));
+        res.status(204).end();
+      }
+  no_match:
+    - |
+      import { readFile } from "node:fs/promises";
+      import path from "node:path";
+      import type { Request, Response } from "express";
+
+      const BASE = path.resolve("uploads");
+
+      export async function download(req: Request, res: Response) {
+        const file = path.resolve(BASE, req.params.name);
+        if (path.relative(BASE, file).startsWith("..")) return res.status(400).end();
+        res.send(await readFile(file));
+      }
+    - |
+      import path from "node:path";
+      import type { Request, Response } from "express";
+
+      export function download(req: Request, res: Response) {
+        res.sendFile(path.join(__dirname, "uploads", path.basename(req.params.name)));
+      }
+    - |
+      import { readFile } from "node:fs/promises";
+      import path from "node:path";
+
+      export async function loadTemplate(name: string) {
+        return readFile(path.join(process.cwd(), "templates", `${name}.html`), "utf8");
+      }

@@ -1,0 +1,41 @@
+id: code/jscpd/duplicates
+description: "The change does not copy code the project's jscpd finds duplicated (with its own config): put the shared code in one function or module and use it from both places. A duplicate is advice, and fails when the project's jscpd config fails on it (the duplication over its `threshold`, or an `exitCode`)."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_jscpd"}
+examples:
+  match:
+    # a copy that takes the duplication over the project's threshold
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"devDependencies\": {\n    \"jscpd\": \"5.4.3\"\n  }\n}\n"
+        .jscpd.json: "{\"threshold\": 10, \"ignore\": [\"**/*.json\"]}\n"
+        src/orders.ts: "export function orderScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+        src/total.ts: "export function total(prices: number[]): number {\n  return prices.reduce((sum, p) => sum + p, 0);\n}\n"
+      files:
+        src/invoices.ts: "export function invoiceScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+    # a copy, with no threshold: advice at Stop
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"devDependencies\": {\n    \"jscpd\": \"5.4.3\"\n  }\n}\n"
+        .jscpd.json: "{\"ignore\": [\"**/*.json\"]}\n"
+        src/orders.ts: "export function orderScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+        src/total.ts: "export function total(prices: number[]): number {\n  return prices.reduce((sum, p) => sum + p, 0);\n}\n"
+      files:
+        src/invoices.ts: "export function invoiceScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+  no_match:
+    # no copy
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"devDependencies\": {\n    \"jscpd\": \"5.4.3\"\n  }\n}\n"
+        .jscpd.json: "{\"threshold\": 10, \"ignore\": [\"**/*.json\"]}\n"
+        src/orders.ts: "export function orderScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+        src/total.ts: "export function total(prices: number[]): number {\n  return prices.reduce((sum, p) => sum + p, 0);\n}\n"
+      files:
+        src/total.ts: "export function total(prices: number[]): number {\n  return prices.reduce((sum, p) => sum + p, 0) / 100;\n}\n"
+    # a duplicate the base already had, between files the change did not touch
+    - head:
+        package.json: "{\n  \"name\": \"app\",\n  \"private\": true,\n  \"devDependencies\": {\n    \"jscpd\": \"5.4.3\"\n  }\n}\n"
+        .jscpd.json: "{\"ignore\": [\"**/*.json\"]}\n"
+        src/orders.ts: "export function orderScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+        src/total.ts: "export function total(prices: number[]): number {\n  return prices.reduce((sum, p) => sum + p, 0);\n}\n"
+        src/invoices.ts: "export function invoiceScore(items: { price: number }[]): number {\n  if (items.length > 0) {\n    const step0 = items.map((item) => item.price * 1).filter((price) => price > 0);\n    const step1 = items.map((item) => item.price * 2).filter((price) => price > 1);\n    const step2 = items.map((item) => item.price * 3).filter((price) => price > 2);\n    const step3 = items.map((item) => item.price * 4).filter((price) => price > 3);\n    const step4 = items.map((item) => item.price * 5).filter((price) => price > 4);\n    const step5 = items.map((item) => item.price * 6).filter((price) => price > 5);\n    const step6 = items.map((item) => item.price * 7).filter((price) => price > 6);\n    const step7 = items.map((item) => item.price * 8).filter((price) => price > 7);\n    return step7.length;\n  }\n  return 0;\n}\n"
+      files:
+        src/total.ts: "export function total(prices: number[]): number {\n  return Math.round(prices.reduce((sum, p) => sum + p, 0));\n}\n"

@@ -1,0 +1,13 @@
+id: docker/dockerignore-ratchet
+description: "A .dockerignore keeps excluding the secret files it excludes (.env, .env.*, *.key, *.p12, *.pfx, *.jks, *.keystore, id_rsa, id_ecdsa, id_ed25519, .pypirc, .netrc, .git-credentials): without the line, a build that copies the context puts them in an image layer. A file the image needs is copied by name instead; removing an exclusion is the user's decision: ask them."
+scope: {language: any, files: ["**/.dockerignore", "**/*.dockerignore"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "^[[:space:]]*/?(\\*\\*/)?(\\.env(\\.\\*|\\*)?|\\*\\.(p12|pfx|jks|keystore|key)|id_(rsa|ecdsa|ed25519)|\\.pypirc|\\.netrc|\\.git-credentials)[[:space:]]*$"
+examples:
+  match:
+    - "node_modules\n.git\n\n# Secrets stay out of the build context\n**/.env\n**/.env.*\n!**/.env.example\n**/*.key\n**/id_rsa\n**/.netrc\n"
+  no_match:
+    - "node_modules\n.git\ndist\n# keys live in vault, see docs/secrets.md\n"
+    - "node_modules\n!**/.env.example\n**/*.keyring\n"

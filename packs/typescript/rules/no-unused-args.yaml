@@ -1,0 +1,13 @@
+id: typescript/no-unused-args
+description: "No unused function parameter: it is usually left from a refactor that stopped half-way. Remove it, or prefix an intentionally unused one with an underscore."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/correctness/noUnusedFunctionParameters
+    snippet: '"linter": {"rules": {"correctness": {"noUnusedFunctionParameters": "error"}}}'
+examples:
+  match:
+    - "export function greet(name: string, locale: string): string {\n  return `Hello ${name}`;\n}\n"
+  no_match:
+    - "export function greet(name: string, _locale: string): string {\n  return `Hello ${name}`;\n}\n"

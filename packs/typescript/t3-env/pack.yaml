@@ -6,3 +6,6 @@ detect:
     - {ecosystem: npm, name: "@t3-oss/env-core"}
     - {ecosystem: npm, name: "@t3-oss/env-nextjs"}
     - {ecosystem: npm, name: "@t3-oss/env-nuxt"}
+context:
+  - text: |
+      Environment variables are read through the validated `env` object of the env module (`createEnv`), never `process.env` elsewhere; tool config files (`*.config.*`) are exempt.

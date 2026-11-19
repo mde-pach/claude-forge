@@ -1,8 +1,8 @@
 id: release/changeset-present
-description: "Advice, once per turn at Stop: with Changesets, a change to a package whose package.json is not \"private\": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there."
+description: "With Changesets, a change to a package whose package.json is not \"private\": true adds a .changeset/*.md; with towncrier ([tool.towncrier] directory), a change to Python code outside the tests (file role @python-tests) adds a news fragment there; one per branch is enough."
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_advise forge_release_notes @python-tests"}
+  - {target: check, stage: lint, run: "forge_advise forge_release_notes @python-tests", base: branch}
 examples:
   match:
     - head: {.changeset/config.json: "{\"baseBranch\": \"main\"}\n", package.json: "{\"name\": \"root\", \"private\": true, \"workspaces\": [\"packages/*\"]}\n", packages/sdk/package.json: "{\"name\": \"@acme/sdk\", \"version\": \"1.4.0\"}\n", packages/sdk/src/index.ts: "export const a = 1;\n"}

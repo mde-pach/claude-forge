@@ -1,0 +1,28 @@
+id: code/no-versioned-duplicates
+description: "Code is changed in place, not copied: no new foo-v2.ts, foo_new.py, foo-old.tsx, Button copy.tsx or foo.ts.bak beside the foo it copies, which leaves two versions to maintain and the old one still imported. Edit the original and delete the copy, unless the task asks for both side by side (an API v2). At Stop it blocks once per turn, then accepts."
+scope: {language: any, files: ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,vue,svelte,astro}", "**/*.bak", "**/*.orig", "!@build-artifacts", "!**/migrations/**"]}
+enforce:
+  - target: check
+    stage: lint
+    run: >-
+      forge_advise forge_new_files --beside
+      '^(.+?)(?:[-_ ](?:v[0-9]+|new|old|copy|final|backup)|[ ]copy[ ][0-9]+)((?:\.[A-Za-z0-9]+)*)$|^(.+)\.(?:bak|orig)$'
+      '${1}${2}${3}'
+      'is a copy of {beside}: change {beside} in place and delete this file, unless the task asks for both versions side by side'
+examples:
+  match:
+    - head: {src/api.ts: "export const get = () => fetch(\"/a\");\n"}
+      files: {src/api-v2.ts: "export const get = () => fetch(\"/b\");\n"}
+    - head: {app/users.py: "def list_users():\n    return []\n"}
+      files: {app/users_new.py: "def list_users():\n    return [1]\n"}
+    - head: {src/form.ts: "export const a = 1;\n"}
+      files: {src/form.ts.bak: "export const a = 0;\n"}
+  no_match:
+    - head: {src/api.ts: "export const get = () => fetch(\"/a\");\n"}
+      files: {src/api.ts: "export const get = () => fetch(\"/b\");\n"}
+    - head: {src/index.ts: "export {};\n"}
+      files: {src/api-v2.ts: "export const get = () => fetch(\"/b\");\n"}
+    - head: {src/index.tsx: "export {};\n"}
+      files: {src/whats-new.tsx: "export const New = () => null;\n"}
+    - head: {src/oauth.ts: "export const a = 1;\n"}
+      files: {src/oauth2.ts: "export const b = 2;\n"}

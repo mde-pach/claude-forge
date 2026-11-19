@@ -1,0 +1,41 @@
+id: typescript/nextjs/route-handler-auth
+description: "A POST, PUT, PATCH or DELETE route handler is a public endpoint; the proxy or a page's check does not stand in for it. Check the session and the caller's right to act inside the handler (auth(), getSession(), currentUser(), a requireUser() helper), verify a webhook's signature (constructEvent, Webhook(…).verify, timingSafeEqual), or list the public route under the nextjs-public-endpoints file role."
+scope: {language: typescript, files: ["app/**/route.*", "src/app/**/route.*", "!@nextjs-public-endpoints"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - {kind: function_declaration, has: {field: name, regex: "^(POST|PUT|PATCH|DELETE)$"}, inside: {kind: export_statement, stopBy: neighbor}}
+        - any: [{kind: arrow_function}, {kind: function_expression}]
+          inside:
+            kind: variable_declarator
+            stopBy: neighbor
+            has: {field: name, regex: "^(POST|PUT|PATCH|DELETE)$"}
+            inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}
+      not:
+        has:
+          stopBy: end
+          any:
+            - {kind: call_expression, has: {field: function, matches: auth-call}}
+            - {kind: new_expression, has: {field: constructor, regex: "^(Webhook|[A-Za-z.]*Webhook)$"}}
+    utils:
+      auth-call:
+        any:
+          - regex: "(^|[.\\s])auth([.\\s]|$)"
+          - regex: "(^|[.\\s])(protect|currentUser|authorize|withAuth|getIronSession|getToken|getKindeServerSession|can|cannot)$"
+          - regex: "(^|[.\\s])(signIn|signUp|signOut|authenticate|authorize)[A-Za-z0-9]*$"
+          - regex: "(^|[.\\s])(require|ensure|assert|check|verify|validate|get|fetch|load|read|current|is|has|can|must|with)[A-Za-z0-9]*(User|Auth|Session|Admin|Role|Permission|Viewer|Claims|Identity|Access|Owner|Member|SignedIn|LoggedIn|Token|Signature|Webhook|Hmac|Secret|ApiKey|Key)[A-Za-z0-9]*$"
+          # webhook signatures: stripe.webhooks.constructEvent, svix's wh.verify, crypto
+          - regex: "(^|[.\\s])(constructEvent|constructEventAsync|verify|verifySignature|verifyWebhook|unwrap|timingSafeEqual|createHmac|receive)$"
+examples:
+  match:
+    - "import { NextResponse } from \"next/server\";\nimport { prisma } from \"@/lib/prisma\";\n\nexport async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {\n  const { id } = await params;\n  await prisma.post.delete({ where: { id } });\n  return NextResponse.json({ ok: true });\n}\n"
+    - "import { db } from \"@/db\";\nimport { posts } from \"@/db/schema\";\n\nexport const POST = async (req: Request) => {\n  const body = Post.parse(await req.json());\n  await db.insert(posts).values(body);\n  return Response.json({ ok: true }, { status: 201 });\n};\n"
+  no_match:
+    - "import { verifySignature } from \"@upstash/qstash/nextjs\";\nimport { getUser } from \"@/lib/dal\";\n\nexport async function PATCH(req: Request) {\n  const user = await getUser();\n  if (!user) return new Response(null, { status: 401 });\n  return Response.json({ ok: true });\n}\n"
+    - "import { auth } from \"@/auth\";\n\nexport async function POST(req: Request) {\n  const session = await auth();\n  if (!session) return new Response(null, { status: 401 });\n  return Response.json({ ok: true });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\n\nexport async function POST(req: Request) {\n  const sig = req.headers.get(\"stripe-signature\")!;\n  const event = stripe.webhooks.constructEvent(await req.text(), sig, process.env.STRIPE_WEBHOOK_SECRET!);\n  return Response.json({ received: event.id });\n}\n"
+    - "import { Webhook } from \"svix\";\n\nexport async function POST(req: Request) {\n  const wh = new Webhook(process.env.WEBHOOK_SECRET!);\n  const evt = wh.verify(await req.text(), Object.fromEntries(req.headers));\n  return Response.json({ evt });\n}\n"
+    - "import { handlers } from \"@/auth\";\n\nexport const { GET, POST } = handlers;\n"
+    - "export async function GET() {\n  return Response.json({ status: \"ok\" });\n}\n"

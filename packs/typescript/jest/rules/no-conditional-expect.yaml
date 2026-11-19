@@ -1,0 +1,75 @@
+id: typescript/jest/no-conditional-expect
+description: "Assertions run on every path of a test: no expect() only in a catch block, a .catch() callback or one branch of an if, where the test passes without asserting anything. Assert the outcome directly (await expect(p).rejects.toThrow(NotFound), expect(() => f()).toThrow(NotFound)), assert the condition first (expect(r.success).toBe(true)) and then branch, or count the assertions (expect.assertions(1))."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: identifier, regex: "^expect$"}
+      any:
+        # in a catch block whose try neither fails the test (fail(), expect.fail, expect.unreachable) nor throws
+        - inside:
+            kind: catch_clause
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            inside:
+              kind: try_statement
+              not:
+                has:
+                  field: body
+                  has:
+                    stopBy: end
+                    any: [{pattern: "fail($$$)"}, {pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]
+        # in the callback of a .catch()
+        - inside:
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            stopBy: end
+            inside:
+              kind: arguments
+              inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: "^catch$"}}
+        # in one branch of an if: the other branch neither asserts nor fails, and no assertion
+        # on the condition comes just before it
+        - inside:
+            kind: if_statement
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            not:
+              any:
+                - all:
+                    - has:
+                        field: consequence
+                        has: {stopBy: end, any: [{pattern: "expect($$$)"}, {pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]}
+                    - has:
+                        field: alternative
+                        has: {stopBy: end, any: [{pattern: "expect($$$)"}, {pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]}
+                - follows:
+                    kind: expression_statement
+                    has: {stopBy: end, pattern: "expect($$$)"}
+      not:
+        any:
+          # another runner's test file (its own pack checks it)
+          - inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](vitest|bun:test|node:test)[\"']$"}}}
+          # the test counts its assertions
+          - inside:
+              stopBy: end
+              kind: statement_block
+              has: {kind: expression_statement, has: {any: [{pattern: "expect.assertions($$$)"}, {pattern: "expect.hasAssertions()"}]}}
+          - inside:
+              stopBy: end
+              kind: program
+              has: {stopBy: end, pattern: "expect.hasAssertions()"}
+examples:
+  match:
+    - "it(\"rejects\", async () => {\n  try {\n    await load(\"x\");\n  } catch (e) {\n    expect(e).toBeInstanceOf(NotFound);\n  }\n});\n"
+    - "it(\"rejects\", async () => {\n  await load(\"x\").catch((e) => {\n    expect(e.message).toMatch(/missing/);\n  });\n});\n"
+    - "it(\"parses\", () => {\n  const r = parse(\"1\");\n  if (r.success) {\n    expect(r.data).toBe(1);\n  }\n});\n"
+  no_match:
+    - "it(\"rejects\", async () => {\n  await expect(load(\"x\")).rejects.toBeInstanceOf(NotFound);\n});\n"
+    - "it(\"rejects\", async () => {\n  expect.assertions(1);\n  try {\n    await load(\"x\");\n  } catch (e) {\n    expect(e).toBeInstanceOf(NotFound);\n  }\n});\n"
+    - "it(\"rejects\", async () => {\n  try {\n    await load(\"x\");\n    throw new Error(\"should throw\");\n  } catch (e) {\n    expect(e).toBeInstanceOf(NotFound);\n  }\n});\n"
+    - "it(\"parses\", () => {\n  const r = parse(\"1\");\n  expect(r.success).toBe(true);\n  if (r.success) {\n    expect(r.data).toBe(1);\n  }\n});\n"
+    - "it(\"paths\", () => {\n  if (process.platform === \"win32\") {\n    expect(sep).toBe(\"\\\\\");\n  } else {\n    expect(sep).toBe(\"/\");\n  }\n});\n"
+    - "it(\"loads\", async () => {\n  try {\n    expect(await load(\"x\")).toBe(1);\n  } finally {\n    await reset();\n  }\n});\n"
+    - "if (process.env.CI) {\n  it(\"slow\", () => {\n    expect(run()).toBe(0);\n  });\n}\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"parses\", () => {\n  const r = parse(\"1\");\n  if (r.success) {\n    expect(r.data).toBe(1);\n  }\n});\n"

@@ -1,5 +1,5 @@
 id: typescript/vue/no-setup-props-destructure
-description: "setup() does not destructure its props parameter: the destructured values are read once and lose reactivity (use props.x, toRefs(props) or toRef(props, \"x\")). Destructuring props inside the body is not detected."
+description: "setup() does not destructure its props parameter: the destructured values are read once and lose reactivity (use props.x, toRefs(props) or toRef(props, \"x\"))."
 scope: {language: any, files: ["**/*.vue", "**/*.ts", "**/*.mts", "**/*.cts"]}
 enforce:
   - target: tool

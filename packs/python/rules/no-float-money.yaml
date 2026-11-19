@@ -1,0 +1,31 @@
+id: python/no-float-money
+description: "A price, fee or subtotal field of a model is a Decimal (price: Decimal; Numeric(10, 2) / mapped_column(Numeric(10, 2)) / DecimalField in the database), not a float: binary floats cannot hold 0.10 exactly, so sums and roundings drift by cents."
+scope: {language: python}
+enforce:
+  # the names that are always money (python/no-float-amount advises on amount, total, balance, cost, tax)
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      has: {field: left, kind: identifier, regex: "^(price|[[:alnum:]_]+_price|subtotal|fee|[[:alnum:]_]+_fee|amount_due|grand_total)$"}
+      any:
+        - has: {field: type, regex: "^(float|float[[:space:]]*\\|[[:space:]]*None|None[[:space:]]*\\|[[:space:]]*float|Optional\\[float\\]|Annotated\\[float,.*|Mapped\\[(float|Optional\\[float\\]|float[[:space:]]*\\|[[:space:]]*None)\\])$"}
+        - has: {field: right, kind: call, regex: "^([[:alnum:]_]+\\.)?(Column|mapped_column)\\(([[:alnum:]_]+\\.)?(Float|Double|DOUBLE|REAL|DOUBLE_PRECISION)\\b"}
+        - has: {field: right, kind: call, regex: "^([[:alnum:]_]+\\.)?FloatField\\("}
+      # a field of a class: a Pydantic model, dataclass, attrs class, TypedDict or ORM model
+      inside:
+        kind: expression_statement
+        stopBy: neighbor
+        inside: {kind: block, stopBy: neighbor, inside: {kind: class_definition, stopBy: neighbor}}
+examples:
+  match:
+    - "from pydantic import BaseModel\n\n\nclass LineItem(BaseModel):\n    sku: str\n    quantity: int\n    unit_price: float\n"
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Invoice:\n    number: str\n    subtotal: float\n    fee: float | None = None\n"
+    - "from sqlalchemy import Float\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass Product(Base):\n    __tablename__ = \"products\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    price: Mapped[float] = mapped_column(Float)\n"
+    - "import sqlalchemy as sa\nfrom sqlalchemy.orm import declarative_base\n\nBase = declarative_base()\n\n\nclass Order(Base):\n    __tablename__ = \"orders\"\n    id = sa.Column(sa.Integer, primary_key=True)\n    shipping_fee = sa.Column(sa.Float, nullable=False)\n"
+    - "from django.db import models\n\n\nclass Plan(models.Model):\n    name = models.CharField(max_length=50)\n    monthly_price = models.FloatField()\n"
+  no_match:
+    - "from decimal import Decimal\n\nfrom pydantic import BaseModel\n\n\nclass LineItem(BaseModel):\n    sku: str\n    quantity: int\n    unit_price: Decimal\n    total: Decimal\n"
+    - "from decimal import Decimal\n\nfrom sqlalchemy import Float, Numeric\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass Product(Base):\n    __tablename__ = \"products\"\n    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))\n    weight: Mapped[float] = mapped_column(Float)\n"
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Run:\n    total_time: float\n    loss: float\n    tokens_total: int\n    price_ratio: float\n"
+    - "def charge(price: float) -> float:\n    total: float = price * 1.2\n    return total\n"

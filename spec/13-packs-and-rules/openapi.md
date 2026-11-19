@@ -1,9 +1,15 @@
+<!-- Generated from the built-in packs by crates/forge-packs/tests/spec_tables.rs; do not edit. Regenerate: FORGE_BLESS=1 cargo test -p forge-packs --test spec_tables -->
+
+## 13. Packs and rules: `openapi`
+
 ### openapi
 
-Detected by `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yaml`, `.spectral.yaml`, `.spectral.yml`, `.spectral.json`.
+OpenAPI documents, whatever the language that serves them.
 
-| Rule | Targets |
-|---|---|
-| `openapi/no-breaking` | `check` lint, once per turn (§10.7, `forge_once`; pre-commit and CI fail): `forge_oasdiff`, when a YAML or JSON file changed: each OpenAPI document of the repository (an `openapi` / `swagger` version near its top) that existed at the base is compared by the pinned oasdiff (§13.5), `breaking <base> <now> --fail-on ERR --format singleline`; the base side is a copy of the repository's YAML and JSON files with the change undone, so `$ref`s to other files resolve. Each `error at …` line is a finding unless `forge.yaml` accepts it (`accept: [{rule, change: <the line>, reason}]`). Not with `--all` |
-| `openapi/lint` | `check` lint: `forge_openapi_lint`, when a YAML or JSON file changed: every OpenAPI document of the repository linted by the project's declared linter, through `bunx`: pinned `@redocly/cli` 2.62.1 with `redocly.yaml`, pinned `@stoplight/spectral-cli` 6.17.0 with `.spectral.yaml` / `.yml` / `.json` (both when both are configured), else Redocly's `recommended` rules; errors as `path:line:column: error <rule>: message`, attributed to added lines |
-| `openapi/config-ratchet` | `check` lint: `forge_openapi_ratchet`: in a changed `redocly.yaml` / `.spectral.y*ml`, a rule lowered (`error` > `warn` > `info` / `hint` > `off`) or removed, an `extends` entry removed, an `overrides` entry added; entries added to `.redocly.lint-ignore.yaml`; unless `forge.yaml` accepts the line |
+Detected by: a file matching `**/openapi.yaml`, `**/openapi.yml`, `**/openapi.json`, `redocly.yaml`, `.spectral.yaml`, `.spectral.yml`, `.spectral.json`.
+
+| Rule | Description | Scope | Enforced by |
+|---|---|---|---|
+| `openapi/config-ratchet` | The OpenAPI linter config is not loosened: in redocly.yaml or .spectral.yaml a rule lowered (error > warn > info / hint > off) or removed, an extends entry removed or an overrides entry added, and new entries in .redocly.lint-ignore.yaml, are reported; loosening the linter is the user's decision: ask them. | any: `redocly.yaml`, `.redocly.yaml`, `.spectral.yaml`, `.spectral.yml`, `.redocly.lint-ignore.yaml` | check lint: `forge_openapi_ratchet` (when `redocly.yaml`, `.redocly.yaml`, `.spectral.yaml`, `.spectral.yml` or `.redocly.lint-ignore.yaml` changes) |
+| `openapi/lint` | OpenAPI documents pass the project's linter on the lines the change adds: the pinned Redocly CLI with redocly.yaml, the pinned Spectral CLI with .spectral.yaml (.yml, .json), both when both are configured, else Redocly's recommended rules; errors count. | any: `**/*.yaml`, `**/*.yml`, `**/*.json` | check lint: `forge_openapi_lint` (when `**/*.yaml`, `**/*.yml` or `**/*.json` changes) |
+| `openapi/no-breaking` | A changed OpenAPI document has no breaking change against its base version (oasdiff breaking, level ERR: removed paths and fields, new required parameters, narrowed types), $refs to other files included; a breaking change is the user's decision: ask them. | any: `**/*.yaml`, `**/*.yml`, `**/*.json` | check lint: `forge_once forge_oasdiff` (when `**/*.yaml`, `**/*.yml` or `**/*.json` changes) |

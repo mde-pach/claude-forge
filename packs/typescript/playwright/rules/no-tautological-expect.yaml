@@ -1,0 +1,22 @@
+id: typescript/playwright/no-tautological-expect
+description: Assertions in end-to-end tests test something. No expect() on a literal, such as expect(true).toBe(true).
+scope: {language: typescript, files: ["@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: object
+          kind: call_expression
+          all:
+            - has: {field: function, regex: "^expect(\\.soft)?$"}
+            - has:
+                field: arguments
+                has: {nthChild: 1, any: [{kind: "true"}, {kind: "false"}, {kind: "null"}, {kind: undefined}, {kind: number}, {kind: string}]}
+examples:
+  match: ["import { expect, test } from \"@playwright/test\";\n\ntest(\"home\", async ({ page }) => {\n  await page.goto(\"/\");\n  expect(true).toBe(true);\n});\n"]
+  no_match: ["import { expect, test } from \"@playwright/test\";\n\ntest(\"home\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page.getByRole(\"heading\")).toHaveText(\"Shop\");\n});\n"]

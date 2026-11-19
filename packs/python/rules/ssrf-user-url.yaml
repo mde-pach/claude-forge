@@ -1,0 +1,73 @@
+id: python/ssrf-user-url
+description: "A server-side HTTP request (requests, httpx, aiohttp, urlopen) does not go to a URL taken from the request (a query or form value, a route's url / callback / webhook parameter) unless the function checks it against an allowlist first: otherwise a caller makes the server fetch internal addresses (cloud metadata, admin services). Parse the URL and check its scheme and host against the allowed ones (urlparse(url).hostname in ALLOWED_HOSTS) before the call."
+scope: {language: python, files: ["!@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: "$F($$$)"
+      all:
+        - has: {field: function, regex: "(^|\\.)(get|post|put|patch|delete|head|options|request|stream|urlopen)$"}
+        - has:
+            field: arguments
+            has:
+              all:
+                - any:
+                    - {nthChild: 1}
+                    - {kind: keyword_argument, has: {field: name, regex: "^url$"}}
+                - any:
+                    # the request's input itself
+                    - regex: "^(url[[:space:]]*=[[:space:]]*)?(await[[:space:]]+)?request\\.(args|form|values|GET|POST|query_params|path_params|json|data)\\b"
+                    # a name assigned from it in the same function
+                    - all:
+                        - any: [{kind: identifier, pattern: $V}, {kind: keyword_argument, has: {field: value, kind: identifier, pattern: $V}}]
+                        - inside:
+                            kind: function_definition
+                            stopBy: {kind: function_definition}
+                            has:
+                              stopBy: end
+                              kind: assignment
+                              all:
+                                - has: {field: left, pattern: $V}
+                                - has: {field: right, regex: "^(await[[:space:]]+)?request\\.(args|form|values|GET|POST|query_params|path_params|json|data|get_json)\\b"}
+                    # a URL-like parameter (or a URL-like field of a parameter) of a route function
+                    - all:
+                        - any:
+                            - {kind: identifier, pattern: $U}
+                            - {kind: keyword_argument, has: {field: value, kind: identifier, pattern: $U}}
+                            - {kind: attribute, all: [{has: {field: object, kind: identifier}}, {has: {field: attribute, pattern: $U}}]}
+                            - {kind: keyword_argument, has: {field: value, kind: attribute, all: [{has: {field: object, kind: identifier}}, {has: {field: attribute, pattern: $U}}]}}
+                        - inside:
+                            kind: function_definition
+                            stopBy: {kind: function_definition}
+                            inside: {kind: decorated_definition, stopBy: neighbor, has: {kind: decorator, regex: "^@[[:alnum:]_.]+\\.(get|post|put|patch|delete|route|api_route|websocket)\\("}}
+      # an allowlist check in the function makes the call deliberate
+      not:
+        inside:
+          kind: function_definition
+          stopBy: {kind: function_definition}
+          has:
+            stopBy: end
+            any:
+              - {kind: comparison_operator, regex: "(?i)(host|netloc|domain|origin|url|scheme)[\\s\\S]*\\b(in|not in)\\b"}
+              - {kind: call, has: {field: function, regex: "(?i)(allow|valid|safe|trust|verify|check|startswith)[[:alnum:]_]*$"}}
+    constraints:
+      U: {regex: "(?i)(^|_)(url|uri|callback|webhook|endpoint|redirect|redirect_to|link|target|feed)$"}
+    # the call is an HTTP client's (§15.6): requests, httpx and aiohttp, module functions and client
+    # methods alike, or urllib's urlopen; not a dict's or a cache's get()
+    where:
+      F: {declared: [{package: [requests, httpx, aiohttp], name: [get, post, put, patch, delete, head, options, request, stream]}, {module: urllib.request, name: urlopen}]}
+examples:
+  deps:
+    - {ecosystem: pypi, name: requests, version: "2.32.3"}
+    - {ecosystem: pypi, name: httpx, version: "0.28.1"}
+  match:
+    - "import requests\nfrom flask import Flask, request\n\napp = Flask(__name__)\n\n\n@app.route(\"/preview\")\ndef preview() -> str:\n    target = request.args.get(\"url\", \"\")\n    return requests.get(target, timeout=5).text\n"
+    - "import httpx\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.post(\"/webhooks/test\")\nasync def test_webhook(callback_url: str) -> int:\n    async with httpx.AsyncClient() as client:\n        resp = await client.post(callback_url, json={\"ping\": True})\n    return resp.status_code\n"
+    - "import requests\nfrom flask import request\n\n\ndef proxy() -> bytes:\n    return requests.get(request.args[\"url\"], timeout=5).content\n"
+  no_match:
+    - "from urllib.parse import urlparse\n\nimport requests\nfrom flask import Flask, request\n\napp = Flask(__name__)\nALLOWED_HOSTS = {\"images.example.com\"}\n\n\n@app.route(\"/preview\")\ndef preview() -> str:\n    target = request.args.get(\"url\", \"\")\n    if urlparse(target).hostname not in ALLOWED_HOSTS:\n        return \"forbidden\"\n    return requests.get(target, timeout=5).text\n"
+    - "import requests\nfrom fastapi import FastAPI\n\napp = FastAPI()\nSERVICE = \"https://inventory.internal\"\n\n\n@app.get(\"/items/{item_id}\")\ndef item(item_id: int) -> dict:\n    return requests.get(f\"{SERVICE}/items/{item_id}\", timeout=5).json()\n"
+    - "import requests\n\n\ndef fetch(url: str) -> str:\n    return requests.get(url, timeout=5).text\n"
+    - "from flask import Flask, request\n\napp = Flask(__name__)\ncache: dict[str, str] = {}\n\n\n@app.route(\"/cached\")\ndef cached() -> str:\n    url = request.args[\"url\"]\n    return cache.get(url, \"\")\n"

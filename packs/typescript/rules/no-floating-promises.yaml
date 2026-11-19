@@ -1,0 +1,17 @@
+id: typescript/no-floating-promises
+description: "A promise is awaited, returned, or handled with .catch(); a call left floating loses its rejection and lets the caller continue before the write it started has finished."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/noFloatingPromises
+    snippet: '"linter": {"rules": {"nursery": {"noFloatingPromises": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/no-floating-promises"
+    snippet: '"rules": {"@typescript-eslint/no-floating-promises": "error"}'
+examples:
+  match:
+    - "async function save(id: string): Promise<void> {\n  await fetch(`/orders/${id}`, { method: \"POST\" });\n}\n\nexport function submit(id: string): void {\n  save(id);\n}\n"
+  no_match:
+    - "async function save(id: string): Promise<void> {\n  await fetch(`/orders/${id}`, { method: \"POST\" });\n}\n\nexport async function submit(id: string): Promise<void> {\n  await save(id);\n}\n"

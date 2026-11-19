@@ -3,3 +3,7 @@ description: Vitest runs and test integrity.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: vitest}]
+context:
+  - text: |
+      Vitest 4. Several test setups are `test.projects` in `vitest.config.*`; a `vitest.workspace.*` file is ignored. Parallelism is set with `maxWorkers`.
+    when: {deps: [{ecosystem: npm, name: vitest, version: ">=4.0.0"}]}

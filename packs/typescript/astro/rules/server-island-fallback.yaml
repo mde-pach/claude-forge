@@ -1,0 +1,14 @@
+id: typescript/astro/server-island-fallback
+description: "A server island (server:defer) with no children renders nothing until it loads, so the page jumps. Give it placeholder content: <Component server:defer><div slot=\"fallback\">…</div></Component>."
+scope: {language: any, files: ["**/*.astro"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "server:defer([^>]*/>|[^>]*>[[:space:]]*</)"
+examples:
+  match:
+    - "---\nimport Avatar from \"../components/Avatar.astro\";\n---\n<header><Avatar server:defer /></header>\n"
+    - "---\nimport Cart from \"../components/Cart.astro\";\n---\n<Cart server:defer count={3}></Cart>\n"
+  no_match:
+    - "---\nimport Avatar from \"../components/Avatar.astro\";\nimport Generic from \"../components/GenericAvatar.astro\";\n---\n<Avatar server:defer>\n  <Generic slot=\"fallback\" />\n</Avatar>\n"
+    - "---\nimport Avatar from \"../components/Avatar.astro\";\n---\n<Avatar server:defer><span slot=\"fallback\">…</span></Avatar>\n"

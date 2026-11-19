@@ -1,5 +1,17 @@
 id: typescript/bun/lock-sync
-description: bun.lock matches package.json.
+description: "bun.lock matches the package.json files; a stale lock is updated with bun install --lockfile-only --ignore-scripts (checked with bun install --frozen-lockfile --lockfile-only, which installs nothing; Bun 1.1.43 and later)."
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_do bun lock-check", when_changed: [package.json]}
+  # Forge keeps the lock in sync (forge_js_lock relocks a stale one; §10.5), after the lint
+  # stage's new-dependency checks
+  - target: check
+    stage: codegen
+    run: forge_js_lock bun
+    when_changed: ["**/package.json", "bun.lock", "bun.lockb", "bunfig.toml"]
+examples:
+  no_match:
+    # a lock the project never had is setup (forge apply), not the change's
+    - head:
+        package.json: "{\"name\": \"shop\", \"private\": true}\n"
+      files:
+        package.json: "{\"name\": \"shop\", \"private\": true, \"dependencies\": {\"zod\": \"4.1.12\"}}\n"

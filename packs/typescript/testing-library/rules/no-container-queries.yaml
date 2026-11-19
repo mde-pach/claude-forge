@@ -1,5 +1,5 @@
 id: typescript/testing-library/no-container-queries
-description: "Advice: a test queries what the user sees through screen (getByRole, getByLabelText, getByText), not render()'s container with querySelector / querySelectorAll: a CSS selector ties the test to the markup and passes for elements no user can reach."
+description: "A test queries what the user sees through screen (getByRole, getByLabelText, getByText), not render()'s container with querySelector / querySelectorAll: a CSS selector ties the test to the markup and passes for elements no user can reach."
 scope: {language: typescript, files: ["@ts-tests"]}
 enforce:
   - target: ast-grep

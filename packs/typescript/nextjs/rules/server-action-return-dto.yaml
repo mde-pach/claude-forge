@@ -1,0 +1,69 @@
+id: typescript/nextjs/server-action-return-dto
+description: "A Server Action does not return a database row straight from Prisma (create, update, upsert, delete, find…) or Drizzle (.returning(), select(), query.….findFirst/findMany): the return value is serialized to the browser, every column included (password hashes, tokens, internal fields). Return only what the UI needs: a select / columns / returning({…}) of those fields, or a plain object built from the row."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - any:
+            # Prisma: a model delegate's row-returning call, without select
+            - all:
+                - pattern: $CALL
+                - has: {field: function, kind: member_expression, has: {field: property, regex: "^(create|update|upsert|delete|findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|findMany|createManyAndReturn|updateManyAndReturn)$"}}
+                - not: {has: {field: arguments, has: {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?select[\"']?$"}}}}}
+            # Drizzle: insert/update/delete(…).returning() of every column
+            - all:
+                - has: {field: function, kind: member_expression, has: {field: property, regex: "^returning$"}}
+                - has: {field: arguments, not: {has: {kind: object}}}
+                - has: {stopBy: end, kind: call_expression, any: [{pattern: "$DB.insert($$$)"}, {pattern: "$DB.update($$$)"}, {pattern: "$DB.delete($$$)"}]}
+            # Drizzle: select() of every column
+            - all:
+                - not: {inside: {kind: member_expression, stopBy: neighbor}}
+                - any: [{pattern: "$DB.select()"}, {has: {stopBy: end, kind: call_expression, pattern: "$DB.select()"}}]
+            # Drizzle: the query API without columns
+            - all:
+                - any: [{pattern: "$DB.query.$T.findFirst($$$)"}, {pattern: "$DB.query.$T.findMany($$$)"}]
+                - not: {has: {field: arguments, has: {kind: object, has: {kind: pair, has: {field: key, regex: "^[\"']?columns[\"']?$"}}}}}
+        # returned as it is, by the action itself (not by a callback inside it)
+        - any:
+            - inside: {kind: return_statement, stopBy: neighbor}
+            - inside: {kind: await_expression, stopBy: neighbor, inside: {kind: return_statement, stopBy: neighbor}}
+            - inside: {kind: arrow_function, stopBy: neighbor, field: body}
+            - inside: {kind: await_expression, stopBy: neighbor, inside: {kind: arrow_function, stopBy: neighbor, field: body}}
+        - inside:
+            stopBy: {any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}, {kind: method_definition}]}
+            any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            matches: action
+    utils:
+      use-server-file:
+        inside: {kind: program, stopBy: end, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      exported-async-function:
+        any:
+          - {kind: function_declaration, regex: "^async\\s", inside: {kind: export_statement, stopBy: neighbor}}
+          - {kind: arrow_function, regex: "^async[\\s(]", inside: {kind: export_statement, stopBy: neighbor}}
+          - any: [{kind: arrow_function, regex: "^async[\\s(]"}, {kind: function_expression, regex: "^async\\s"}]
+            inside: {kind: variable_declarator, stopBy: neighbor, inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}}
+      action:
+        any:
+          - all: [{matches: exported-async-function}, {matches: use-server-file}]
+          - has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+    # Prisma by what its delegates return (the runtime's PrismaPromise: generated clients are
+    # project code); Drizzle by the database (a transaction extends it)
+    where:
+      CALL: {type: {package: "@prisma/client", name: PrismaPromise}}
+      DB: {type: {package: drizzle-orm, name: [PgDatabase, MySqlDatabase, BaseSQLiteDatabase, SingleStoreDatabase, GelDatabase]}}
+examples:
+  deps: [{ecosystem: npm, name: "@prisma/client", version: "7.10.0"}, {ecosystem: npm, name: drizzle-orm, version: "0.45.4"}, {ecosystem: npm, name: pg, version: "8.23.1"}, {ecosystem: npm, name: "@types/pg", version: "8.23.1"}]
+  match:
+    - "'use server';\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ntype User = { id: string; email: string; passwordHash: string };\ninterface UserDelegate {\n  update(args: { where: { id: string }; data: { name: string } }): PrismaPromise<User>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function rename(id: string, name: string) {\n  return prisma.user.update({ where: { id }, data: { name } });\n}\n"
+    - "'use server';\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ntype User = { id: string; email: string; passwordHash: string };\ninterface UserDelegate {\n  findUnique(args: { where: { id: string } }): PrismaPromise<User | null>;\n}\ndeclare const db: { user: UserDelegate };\n\nexport const getUser = async (id: string) => await db.user.findUnique({ where: { id } });\n"
+    - "\"use server\";\n\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), email: text(\"email\"), passwordHash: text(\"password_hash\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function register(email: string) {\n  return await db.insert(users).values({ email }).returning();\n}\n"
+    - "\"use server\";\n\nimport { eq } from \"drizzle-orm\";\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), email: text(\"email\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function find(id: number) {\n  return db.select().from(users).where(eq(users.id, id));\n}\n"
+  no_match:
+    - "'use server';\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ntype User = { id: string; name: string };\ninterface UserDelegate {\n  update(args: { where: { id: string }; data: { name: string }; select: { id: true; name: true } }): PrismaPromise<User>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function rename(id: string, name: string) {\n  return prisma.user.update({ where: { id }, data: { name }, select: { id: true, name: true } });\n}\n"
+    - "'use server';\n\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ntype User = { id: string; name: string; passwordHash: string };\ninterface UserDelegate {\n  update(args: { where: { id: string }; data: { name: string } }): PrismaPromise<User>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function rename(id: string, name: string) {\n  const user = await prisma.user.update({ where: { id }, data: { name } });\n  return { id: user.id, name: user.name };\n}\n"
+    - "import \"server-only\";\nimport type { PrismaPromise } from \"@prisma/client/runtime/client\";\n\ntype User = { id: string; name: string };\ninterface UserDelegate {\n  findUnique(args: { where: { id: string } }): PrismaPromise<User | null>;\n}\ndeclare const prisma: { user: UserDelegate };\n\nexport async function getUser(id: string) {\n  return prisma.user.findUnique({ where: { id } });\n}\n"
+    - "\"use server\";\n\nimport { drizzle } from \"drizzle-orm/node-postgres\";\nimport { pgTable, serial, text } from \"drizzle-orm/pg-core\";\n\nconst users = pgTable(\"users\", { id: serial(\"id\").primaryKey(), email: text(\"email\") });\nconst db = drizzle(\"postgres://localhost/app\");\n\nexport async function register(email: string) {\n  return db.insert(users).values({ email }).returning({ id: users.id });\n}\nexport async function list() {\n  return db.select({ id: users.id }).from(users);\n}\n"
+    - "'use server';\n\nconst cache = new Map<string, string>();\n\nexport async function forget(key: string) {\n  return cache.delete(key);\n}\n"

@@ -1,0 +1,18 @@
+id: typescript/nextjs/internal-link
+description: "An <a href=\"/…\"> to a page of the app reloads the whole document. Use next/link's <Link href=\"/…\">, which navigates on the client and prefetches the route. API routes, files (/report.pdf) and download links stay <a>."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any: [{kind: jsx_self_closing_element}, {kind: jsx_opening_element}]
+      all:
+        - has: {field: name, regex: "^a$"}
+        - has: {kind: jsx_attribute, regex: "^href\\s*=\\s*[\"'{`]*/([^/\"'`.?#][^\"'`.]*)?[\"'`}]*$"}
+        - not: {has: {kind: jsx_attribute, regex: "^href\\s*=\\s*[\"'{`]*/api(/|[\"'`])"}}
+        - not: {has: {kind: jsx_attribute, regex: "^(download|target)\\b"}}
+examples:
+  match:
+    - "export function Nav() {\n  return (\n    <nav>\n      <a href=\"/\">Home</a>\n      <a href=\"/dashboard/settings\">Settings</a>\n    </nav>\n  );\n}\n"
+  no_match:
+    - "import Link from \"next/link\";\n\nexport function Nav() {\n  return (\n    <nav>\n      <Link href=\"/dashboard\">Dashboard</Link>\n      <a href=\"https://github.com/acme\">GitHub</a>\n      <a href=\"//cdn.example.com/x\">CDN</a>\n      <a href=\"/api/export\">Export</a>\n      <a href=\"/report.pdf\">Report</a>\n      <a href=\"/files/a\" download>File</a>\n      <a href=\"#top\">Top</a>\n      <a href=\"mailto:hi@example.com\">Mail</a>\n    </nav>\n  );\n}\n"

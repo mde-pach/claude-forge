@@ -3,3 +3,6 @@ description: GraphQL Yoga servers (error masking).
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: graphql-yoga}]
+context:
+  - text: |
+      GraphQL Yoga: error masking stays on (no `maskedErrors: false`); errors meant for clients are thrown as `GraphQLError`.

@@ -1,0 +1,78 @@
+id: python/fastapi/set-cookie-flags
+description: "A session or token cookie (a name containing session, sid, token, auth, jwt or remember) is set with httponly=True and secure= (True, or a setting): Starlette's set_cookie defaults both to False, so scripts can read the cookie and it travels over plain HTTP. Pass httponly=True, secure=settings.cookie_secure (True in production) and keep samesite=\"lax\" or \"strict\"."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      pattern: $R.set_cookie($$$)
+      all:
+        - has:
+            field: arguments
+            any:
+              - has: {nthChild: 1, kind: string, regex: "(?i)(session|sess|sid|token|auth|jwt|remember)", not: {regex: "(?i)(csrf|xsrf)"}}
+              - has: {kind: keyword_argument, regex: "(?i)^key[[:space:]]*=[[:space:]]*[rbuf]*[\"'][^\"']*(session|sess|sid|token|auth|jwt|remember)", not: {regex: "(?i)(csrf|xsrf)"}}
+        - any:
+            - not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^httponly[[:space:]]*="}}}
+            - not: {has: {field: arguments, has: {kind: keyword_argument, regex: "^secure[[:space:]]*="}}}
+            - has: {field: arguments, has: {kind: keyword_argument, regex: "^(httponly|secure)[[:space:]]*=[[:space:]]*False$"}}
+    # Starlette's Response and its subclasses (JSONResponse, RedirectResponse, …)
+    where:
+      R: {type: {package: starlette, name: Response}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
+  match:
+    - |
+      from fastapi import FastAPI, Response
+
+      app = FastAPI()
+
+
+      @app.post("/login")
+      def login(response: Response) -> dict[str, bool]:
+          response.set_cookie("session_id", "abc123", max_age=3600)
+          return {"ok": True}
+    - |
+      from fastapi import FastAPI
+      from fastapi.responses import JSONResponse
+
+      app = FastAPI()
+
+
+      @app.post("/token")
+      def token() -> JSONResponse:
+          response = JSONResponse({"ok": True})
+          response.set_cookie(key="refresh_token", value="r", httponly=True, secure=False, samesite="strict")
+          return response
+  no_match:
+    - |
+      from fastapi import FastAPI, Response
+
+      app = FastAPI()
+      COOKIE_SECURE = True
+
+
+      @app.post("/login")
+      def login(response: Response) -> dict[str, bool]:
+          response.set_cookie("session_id", "abc123", httponly=True, secure=COOKIE_SECURE, samesite="lax")
+          return {"ok": True}
+    # a double-submit CSRF cookie and a UI preference are read by scripts
+    - |
+      from fastapi import FastAPI, Response
+
+      app = FastAPI()
+
+
+      @app.get("/")
+      def home(response: Response) -> dict[str, bool]:
+          response.set_cookie("csrftoken", "t", secure=True, samesite="strict")
+          response.set_cookie("theme", "dark")
+          return {"ok": True}
+    - |
+      class Jar:
+          def set_cookie(self, key: str, value: str) -> None:
+              pass
+
+
+      Jar().set_cookie("session_id", "x")

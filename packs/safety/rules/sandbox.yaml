@@ -1,8 +1,8 @@
 id: safety/sandbox
-description: Bash runs in the sandbox with network limited to package registries and GitHub.
+description: Bash runs in the sandbox with network limited to package registries (npm, PyPI, crates.io, the Go module proxy) and GitHub (its release and raw downloads included).
 scope: {language: any}
 enforce:
   - {target: sandbox, path: enabled, value: true}
   - target: sandbox
     path: network.allowedDomains
-    value: [registry.npmjs.org, pypi.org, files.pythonhosted.org, github.com]
+    value: [registry.npmjs.org, pypi.org, files.pythonhosted.org, github.com, objects.githubusercontent.com, release-assets.githubusercontent.com, index.crates.io, static.crates.io, proxy.golang.org, sum.golang.org]

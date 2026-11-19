@@ -1,0 +1,46 @@
+id: typescript/nextjs/rate-limit-sensitive-actions
+description: "A login, sign-up, password-reset, verification or email-sending Server Action is rate limited (by IP or account), or it can be brute-forced or used to spam. Check a limiter before the work (const { success } = await ratelimit.limit(ip); limiter.consume(key)), unless the auth library it calls limits these endpoints itself."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      all:
+        - any:
+            - {kind: function_declaration, has: {field: name, matches: sensitive-name}}
+            - {any: [{kind: arrow_function}, {kind: function_expression}], inside: {kind: variable_declarator, stopBy: neighbor, has: {field: name, matches: sensitive-name}}}
+        - matches: action
+        - not:
+            has:
+              stopBy: end
+              kind: call_expression
+              has:
+                field: function
+                any:
+                  - regex: "(?i)(rate_?limit|limiter|throttle)"
+                  - regex: "(^|[.\\s])(limit|consume|protect)$"
+                  # better-auth limits its own endpoints
+                  - regex: "(^|[.\\s])auth\\s*\\.\\s*api\\s*\\."
+    utils:
+      sensitive-name:
+        regex: "^(?i:log_?in|sign_?in|sign_?up|register|reset_?password|forgot_?password|request_?password_?reset|send_?password_?reset|send_?magic_?link|verify_?(email|otp|code|token)|send_?(verification|email|otp|code|invite|magic)[A-Za-z_]*|resend_?[A-Za-z_]*)(_?action)?$"
+      use-server-file:
+        inside: {kind: program, stopBy: end, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      exported-async-function:
+        any:
+          - {kind: function_declaration, regex: "^async\\s", inside: {kind: export_statement, stopBy: neighbor}}
+          - any: [{kind: arrow_function, regex: "^async[\\s(]"}, {kind: function_expression, regex: "^async\\s"}]
+            inside: {kind: variable_declarator, stopBy: neighbor, inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}}
+      action:
+        any:
+          - all: [{matches: exported-async-function}, {matches: use-server-file}]
+          - any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+examples:
+  match:
+    - "'use server';\n\nimport { signIn } from \"@/auth\";\n\nexport async function login(_prev: unknown, formData: FormData) {\n  await signIn(\"credentials\", formData);\n}\n"
+    - "'use server';\n\nimport { resend } from \"@/lib/resend\";\n\nexport const sendPasswordReset = async (email: string) => {\n  await resend.emails.send({ to: email, from: \"no-reply@example.com\", subject: \"Reset\", html: \"…\" });\n};\n"
+  no_match:
+    - "'use server';\n\nimport { headers } from \"next/headers\";\nimport { ratelimit } from \"@/lib/ratelimit\";\nimport { signIn } from \"@/auth\";\n\nexport async function login(formData: FormData) {\n  const ip = (await headers()).get(\"x-forwarded-for\") ?? \"anon\";\n  const { success } = await ratelimit.limit(ip);\n  if (!success) return { error: \"Too many attempts\" };\n  await signIn(\"credentials\", formData);\n}\n"
+    - "'use server';\n\nimport { headers } from \"next/headers\";\nimport { auth } from \"@/lib/auth\";\n\nexport async function signUp(email: string, password: string, name: string) {\n  await auth.api.signUpEmail({ body: { email, password, name }, headers: await headers() });\n}\n"
+    - "'use server';\n\nexport async function loginHistory() {\n  return [];\n}\nexport async function updateProfile(name: string) {\n  return name;\n}\n"

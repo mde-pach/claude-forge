@@ -1,0 +1,18 @@
+id: python/no-parent-relative-imports
+description: "Imports from a parent package are absolute (from shop.billing import invoice), not relative with two or more dots (from ..billing import invoice): those break when a module moves and hide which package a name comes from. A single-dot import of a sibling module is fine."
+scope: {language: python}
+enforce:
+  # not ruff's TID252 as a tool rule: a project that has not chosen it would be blocked on every
+  # existing relative import of a touched file
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: import_from_statement
+      has: {field: module_name, kind: relative_import, regex: "^\\.\\."}
+examples:
+  match:
+    - "from ..billing import invoice\n\n\ndef total(order_id: int) -> int:\n    return invoice.total(order_id)\n"
+    - "from .. import settings\nfrom ...core.models import Order\n\n\ndef currency(order: Order) -> str:\n    return settings.CURRENCY\n"
+  no_match:
+    - "from shop.billing import invoice\nfrom shop.core.models import Order\n\n\ndef total(order: Order) -> int:\n    return invoice.total(order.id)\n"
+    - "from . import views\nfrom .models import Order\n\n\ndef first() -> Order:\n    return views.first_order()\n"

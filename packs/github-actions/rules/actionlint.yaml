@@ -1,5 +1,5 @@
 id: github-actions/actionlint
-description: "Workflows pass actionlint (pinned, with a config of Forge's own: the project's paths ignore entries do not apply): expression type errors, unknown with: inputs of known actions, deprecated set-output / save-state / set-env commands, invalid cron, needs cycles, unknown runner labels (self-hosted labels come from .github/actionlint.yaml)."
+description: "Workflows pass actionlint: expression type errors, unknown with: inputs of known actions, deprecated set-output / save-state / set-env commands, invalid cron, needs cycles, unknown runner labels (self-hosted labels come from .github/actionlint.yaml)."
 scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
 enforce:
   - target: check

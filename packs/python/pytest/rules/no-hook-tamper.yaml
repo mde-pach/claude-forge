@@ -1,5 +1,5 @@
 id: python/pytest/no-hook-tamper
-description: "Advice after the edit: a new pytest hook that can rewrite results (pytest_runtest_makereport, pytest_report_teststatus, pytest_runtest_call, pytest_pyfunc_call, pytest_runtest_protocol, pytest_terminal_summary, pytest_collection_modifyitems) in a conftest or test file; say what it is for. Rewriting reports or deselecting tests makes a failing suite pass."
+description: "A new pytest hook that can rewrite results (pytest_runtest_makereport, pytest_report_teststatus, pytest_runtest_call, pytest_pyfunc_call, pytest_runtest_protocol, pytest_terminal_summary, pytest_collection_modifyitems) in a conftest or test file; say what it is for. Rewriting reports or deselecting tests makes a failing suite pass."
 scope: {language: python, files: ["**/test_*.py", "**/*_test.py", "**/conftest.py"]}
 enforce:
   - target: ast-grep

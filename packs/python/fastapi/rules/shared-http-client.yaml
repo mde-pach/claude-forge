@@ -1,0 +1,88 @@
+id: python/fastapi/shared-http-client
+description: "A path operation does not create an httpx.Client or httpx.AsyncClient per request: each one opens its own connection pool (and TLS handshakes) and throws it away. Create one client in the app's lifespan (stored on app.state, or a dependency that returns it) and reuse it."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      pattern: $C
+      inside:
+        kind: decorated_definition
+        stopBy: end
+        has:
+          kind: decorator
+          has:
+            kind: call
+            has:
+              field: function
+              kind: attribute
+              regex: "\\.(get|post|put|patch|delete|head|options|api_route|websocket)$"
+              has: {field: object, pattern: $R}
+    where:
+      C: {type: {package: httpx, name: [Client, AsyncClient]}}
+      R: {type: {package: fastapi, name: [FastAPI, APIRouter]}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
+  match:
+    - |
+      import httpx
+      from fastapi import APIRouter
+
+      router = APIRouter()
+
+
+      @router.get("/weather/{city}")
+      async def weather(city: str) -> dict[str, object]:
+          async with httpx.AsyncClient(timeout=10) as client:
+              response = await client.get(f"https://api.example.com/weather/{city}")
+          return response.json()
+    - |
+      from fastapi import FastAPI
+      from httpx import Client
+
+      app = FastAPI()
+
+
+      @app.post("/hooks/forward")
+      def forward(payload: dict[str, str]) -> int:
+          client = Client(timeout=5)
+          return client.post("https://hooks.example.com", json=payload).status_code
+  no_match:
+    - |
+      from collections.abc import AsyncIterator
+      from contextlib import asynccontextmanager
+
+      import httpx
+      from fastapi import FastAPI, Request
+
+
+      @asynccontextmanager
+      async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+          async with httpx.AsyncClient(timeout=10) as client:
+              app.state.http = client
+              yield
+
+
+      app = FastAPI(lifespan=lifespan)
+
+
+      @app.get("/weather/{city}")
+      async def weather(city: str, request: Request) -> dict[str, object]:
+          client: httpx.AsyncClient = request.app.state.http
+          response = await client.get(f"https://api.example.com/weather/{city}")
+          return response.json()
+    # a test client, not a route
+    - |
+      import httpx
+      import pytest
+      from fastapi import FastAPI
+
+      app = FastAPI()
+
+
+      @pytest.mark.anyio
+      async def test_root() -> None:
+          transport = httpx.ASGITransport(app=app)
+          async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+              assert (await client.get("/")).status_code == 404

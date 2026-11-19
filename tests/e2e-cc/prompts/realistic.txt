@@ -1,0 +1,1 @@
+Add fuel planning to dispatch.py: for each leg, fuel in kg is the leg hours times the route's fuel_burn_kg_per_h (data/route.json); print it on the leg line, then print the total fuel including a 30-minute final reserve at the same burn. Keep the change small, then run `python3 dispatch.py` to check the output and commit your change.

@@ -1,0 +1,25 @@
+id: typescript/stripe/no-created-ordering
+description: "A Stripe event's created timestamp is not compared to order or deduplicate events: Stripe does not deliver events in order, and created has a one-second resolution, so several events share it. Deduplicate on event.id, and for the current state of an object read it back from the API (or compare the object's own fields) instead of trusting event order."
+scope: {language: typescript, files: ["**/*", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: binary_expression
+      has:
+        field: operator
+        regex: "^(<|<=|>|>=|-)$"
+      any:
+        - has: {field: left, pattern: $E.created}
+        - has: {field: right, pattern: $E.created}
+    # every Stripe event interface extends EventBase; Stripe.Event is their union
+    where:
+      E: {type: {package: stripe, name: EventBase}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import type Stripe from \"stripe\";\n\nconst lastSeen = new Map<string, number>();\n\nexport function isStale(event: Stripe.Event, subscriptionId: string): boolean {\n  const last = lastSeen.get(subscriptionId) ?? 0;\n  if (event.created < last) return true;\n  lastSeen.set(subscriptionId, event.created);\n  return false;\n}\n"
+    - "import type Stripe from \"stripe\";\n\nexport function inOrder(events: Stripe.Event[]): Stripe.Event[] {\n  return [...events].sort((a, b) => a.created - b.created);\n}\n"
+  no_match:
+    - "import type Stripe from \"stripe\";\n\nexport function record(event: Stripe.Event): { id: string; at: Date } {\n  return { id: event.id, at: new Date(event.created * 1000) };\n}\n"
+    - "type Row = { created: number };\n\nexport function newer(a: Row, b: Row): boolean {\n  return a.created > b.created;\n}\n"

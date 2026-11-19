@@ -1,0 +1,43 @@
+id: typescript/no-test-sleep
+description: "A test does not wait a fixed time (await new Promise((r) => setTimeout(r, 500)), await setTimeout(500) from node:timers/promises, Bun.sleep(500)): the wait is either too short on a slow CI machine (a flaky test) or wasted everywhere else. Wait for the condition itself (vi.waitFor, a polled assertion, the promise or event), or control time with fake timers (vi.useFakeTimers, jest.useFakeTimers, mock.timers)."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        # new Promise((resolve) => setTimeout(resolve, 500))
+        - kind: new_expression
+          all:
+            - has: {field: constructor, regex: "^Promise$"}
+            - has:
+                field: arguments
+                has:
+                  any: [{kind: arrow_function}, {kind: function_expression}]
+                  has:
+                    stopBy: end
+                    kind: call_expression
+                    all:
+                      - has: {field: function, regex: "^setTimeout$"}
+                      - has: {field: arguments, has: {nthChild: 2, not: {regex: "^0$"}}}
+        # await setTimeout(500) (node:timers/promises), await Bun.sleep(500)
+        - kind: await_expression
+          has:
+            kind: call_expression
+            all:
+              - has: {field: function, regex: "^(setTimeout|Bun\\.sleep)$"}
+              - has: {field: arguments, has: {nthChild: 1, not: {regex: "^0$"}}}
+              - not: {has: {field: arguments, has: {nthChild: 2}}}
+      # a wait inside a loop is the poll of a wait for a condition
+      not:
+        inside:
+          stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+          any: [{kind: while_statement}, {kind: for_statement}, {kind: do_statement}, {kind: for_in_statement}]
+examples:
+  match:
+    - "import { expect, it } from \"vitest\";\n\nit(\"flushes\", async () => {\n  queue.push(1);\n  await new Promise((resolve) => setTimeout(resolve, 500));\n  expect(queue.flushed).toBe(1);\n});\n"
+    - "import { setTimeout } from \"node:timers/promises\";\nimport { expect, it } from \"vitest\";\n\nit(\"flushes\", async () => {\n  queue.push(1);\n  await setTimeout(200);\n  expect(queue.flushed).toBe(1);\n});\n"
+  no_match:
+    - "import { expect, it, vi } from \"vitest\";\n\nit(\"flushes\", async () => {\n  queue.push(1);\n  await vi.waitFor(() => expect(queue.flushed).toBe(1));\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"yields\", async () => {\n  queue.push(1);\n  await new Promise((resolve) => setTimeout(resolve, 0));\n  expect(queue.size).toBe(0);\n});\n"
+    - "import { expect, it } from \"vitest\";\n\nit(\"flushes\", async () => {\n  queue.push(1);\n  while (!queue.flushed) {\n    await new Promise((resolve) => setTimeout(resolve, 10));\n  }\n  expect(queue.flushed).toBe(1);\n});\n"

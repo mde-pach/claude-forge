@@ -1,0 +1,13 @@
+id: typescript/jest/setup-ratchet
+description: "Jest's config keeps what makes hidden test problems fail: a changed jest.config.* or package.json \"jest\" key may not drop the no-network setup file from setupFiles or turn off randomize (random test order). Fix the test that depends on the network or the order; turning either off is the user's decision: ask them."
+scope: {language: any, files: ["**/jest.config.*", "**/package.json"]}
+enforce:
+  - target: grep
+    mode: no-decrease
+    pattern: "no-network\\.[cm]?[jt]s|[\"']?randomize[\"']?[[:space:]]*:[[:space:]]*true"
+examples:
+  match:
+    - "{\n  \"name\": \"shop\",\n  \"jest\": {\n    \"setupFiles\": [\"<rootDir>/test/no-network.cjs\"],\n    \"randomize\": true\n  }\n}\n"
+    - "module.exports = {\n  setupFiles: [\"<rootDir>/test/no-network.cjs\"],\n  randomize: true,\n  testEnvironment: \"node\",\n};\n"
+  no_match:
+    - "{\n  \"name\": \"shop\",\n  \"jest\": {\n    \"setupFiles\": [\"<rootDir>/test/setup.js\"],\n    \"randomize\": false\n  }\n}\n"

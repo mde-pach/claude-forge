@@ -1,0 +1,13 @@
+id: python/pytest/raises-single-statement
+description: "A pytest.raises block holds only the statement expected to raise: the setup goes before it, or an earlier statement raising the same exception passes the test."
+scope: {language: python, files: ["@python-tests", "!**/conftest.py"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: PT012
+    snippet: '[tool.ruff.lint] extend-select = ["PT012"]'
+examples:
+  match:
+    - "import pytest\n\nfrom shop.orders import Order\n\n\ndef test_refund_twice() -> None:\n    with pytest.raises(ValueError, match=\"already refunded\"):\n        order = Order(total=100)\n        order.refund()\n        order.refund()\n"
+  no_match:
+    - "import pytest\n\nfrom shop.orders import Order\n\n\ndef test_refund_twice() -> None:\n    order = Order(total=100)\n    order.refund()\n    with pytest.raises(ValueError, match=\"already refunded\"):\n        order.refund()\n"

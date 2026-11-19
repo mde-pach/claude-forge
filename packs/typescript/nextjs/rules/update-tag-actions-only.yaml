@@ -1,0 +1,47 @@
+id: typescript/nextjs/update-tag-actions-only
+description: "updateTag() and refresh() from next/cache work only in a Server Action; called while rendering a page or layout, in a route handler or in the proxy, they throw. Call them in a 'use server' function; a route handler uses revalidateTag(tag, \"max\") instead."
+scope:
+  language: typescript
+  files:
+    - "app/**/{page,layout,template,default,loading,not-found,route}.*"
+    - "src/app/**/{page,layout,template,default,loading,not-found,route}.*"
+    - "{proxy,middleware}.*"
+    - "src/{proxy,middleware}.*"
+when: {deps: [{ecosystem: npm, name: next, version: ">=16"}]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: identifier, pattern: $F}
+        - inside:
+            kind: program
+            stopBy: end
+            all:
+              - not: {has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+              - has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"']next/cache[\"']$"}
+                    - has:
+                        stopBy: end
+                        kind: import_specifier
+                        has: {field: name, regex: "^(updateTag|refresh)$"}
+                        any:
+                          - all: [{not: {has: {field: alias, regex: "."}}}, {has: {field: name, pattern: $F}}]
+                          - has: {field: alias, pattern: $F}
+        # an inline Server Action in a page is fine
+        - not:
+            inside:
+              stopBy: end
+              any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+              has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+examples:
+  match:
+    - "import { updateTag } from \"next/cache\";\n\nexport async function POST(request: Request) {\n  const { tag } = Body.parse(await request.json());\n  updateTag(tag);\n  return Response.json({ ok: true });\n}\n"
+    - "import { refresh as reload } from \"next/cache\";\n\nexport default async function Page() {\n  reload();\n  return <p>hi</p>;\n}\n"
+  no_match:
+    - "import { updateTag } from \"next/cache\";\nimport { prisma } from \"@/lib/prisma\";\n\nexport default async function Page() {\n  async function rename(formData: FormData) {\n    \"use server\";\n    await prisma.post.update({ where: { id: \"1\" }, data: { title: String(formData.get(\"t\")) } });\n    updateTag(\"posts\");\n  }\n  return <form action={rename} />;\n}\n"
+    - "import { revalidateTag } from \"next/cache\";\n\nexport async function POST() {\n  revalidateTag(\"posts\", \"max\");\n  return Response.json({ ok: true });\n}\n"
+    - "import { useRouter } from \"next/navigation\";\n\nexport function useReload() {\n  const router = useRouter();\n  const refresh = () => router.refresh();\n  refresh();\n}\n"

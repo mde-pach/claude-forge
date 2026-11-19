@@ -1,0 +1,48 @@
+id: typescript/nextjs/server-action-auth
+description: "A Server Action (an exported async function of a 'use server' file, or an inline 'use server' function) is a public endpoint anyone can POST to directly; a page's or proxy's auth check does not cover it. Check the session and the caller's right to act inside the action (auth(), getSession(), currentUser(), a requireUser() helper, a DAL function that does it), or list public action files under the nextjs-public-endpoints file role."
+scope: {language: typescript, files: ["!@nextjs-public-endpoints", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      matches: action
+      not:
+        has:
+          stopBy: end
+          kind: call_expression
+          has: {field: function, matches: auth-call}
+    utils:
+      use-server-file:
+        inside: {kind: program, stopBy: end, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      exported-async-function:
+        any:
+          - {kind: function_declaration, regex: "^async\\s", inside: {kind: export_statement, stopBy: neighbor}}
+          - {kind: arrow_function, regex: "^async[\\s(]", inside: {kind: export_statement, stopBy: neighbor}}
+          - any: [{kind: arrow_function, regex: "^async[\\s(]"}, {kind: function_expression, regex: "^async\\s"}]
+            inside: {kind: variable_declarator, stopBy: neighbor, inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}}
+      action:
+        any:
+          - all: [{matches: exported-async-function}, {matches: use-server-file}]
+          - any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      # auth libraries' and the usual project helpers' names: auth(), auth.api.getSession(),
+      # supabase.auth.getUser(), getServerSession(), currentUser(), validateRequest(), requireUser(), isAdmin(), signIn()
+      auth-call:
+        any:
+          - regex: "(^|[.\\s])auth([.\\s]|$)"
+          - regex: "(^|[.\\s])(protect|currentUser|authorize|withAuth|getIronSession|getToken|getKindeServerSession|login|logout|can|cannot)$"
+          - regex: "(^|[.\\s])(signIn|signUp|signOut|authenticate|authorize)[A-Za-z0-9]*$"
+          - regex: "(^|[.\\s])(require|ensure|assert|check|verify|validate|get|fetch|load|read|current|is|has|can|must|with)[A-Za-z0-9]*(User|Auth|Session|Admin|Role|Permission|Viewer|Claims|Identity|Access|Owner|Member|SignedIn|LoggedIn|Token)[A-Za-z0-9]*$"
+examples:
+  match:
+    - "\"use server\";\n\nexport default async function subscribe(email: string) {\n  await fetch(\"https://api.example.com/subscribe\", { method: \"POST\", body: email });\n}\n"
+    - "'use server';\n\nimport { revalidatePath } from \"next/cache\";\nimport { prisma } from \"@/lib/prisma\";\n\nexport async function deletePost(id: string) {\n  await prisma.post.delete({ where: { id } });\n  revalidatePath(\"/posts\");\n}\n"
+    - "\"use server\";\n\nimport { db } from \"@/db\";\nimport { posts } from \"@/db/schema\";\n\nexport const createPost = async (formData: FormData) => {\n  await db.insert(posts).values({ title: String(formData.get(\"title\")) });\n};\n"
+    - "import { prisma } from \"@/lib/prisma\";\n\nexport default async function Page() {\n  async function archive(formData: FormData) {\n    \"use server\";\n    await prisma.post.update({ where: { id: String(formData.get(\"id\")) }, data: { archived: true } });\n  }\n  return <form action={archive}><button>Archive</button></form>;\n}\n"
+  no_match:
+    - "'use server';\n\nimport { auth } from \"@/auth\";\nimport { prisma } from \"@/lib/prisma\";\n\nexport async function deletePost(id: string) {\n  const session = await auth();\n  if (!session?.user) throw new Error(\"Unauthorized\");\n  await prisma.post.delete({ where: { id, authorId: session.user.id } });\n}\n"
+    - "'use server';\n\nimport { headers } from \"next/headers\";\nimport { auth } from \"@/lib/auth\";\n\nexport async function rename(name: string) {\n  const session = await auth.api.getSession({ headers: await headers() });\n  if (!session) return { error: \"Unauthorized\" };\n  return { ok: true, name };\n}\n"
+    - "'use server';\n\nimport { createClient } from \"@/lib/supabase/server\";\n\nexport async function updateProfile(formData: FormData) {\n  const supabase = await createClient();\n  const { data } = await supabase.auth.getUser();\n  if (!data.user) return;\n  await supabase.from(\"profiles\").update({ bio: formData.get(\"bio\") }).eq(\"id\", data.user.id);\n}\n"
+    - "'use server';\n\nimport { requireUser } from \"@/lib/dal\";\nimport { getServerSession } from \"next-auth\";\n\nexport async function a() {\n  const user = await requireUser();\n  return user.id;\n}\nexport async function b() {\n  return getServerSession();\n}\nasync function helper() {\n  return 1;\n}\n"
+    - "'use server';\n\nimport { signIn } from \"@/auth\";\n\nexport async function login(formData: FormData) {\n  await signIn(\"credentials\", formData);\n}\n"
+    - "export async function deletePost(id: string) {\n  await fetch(`/api/posts/${id}`, { method: \"DELETE\" });\n}\n"

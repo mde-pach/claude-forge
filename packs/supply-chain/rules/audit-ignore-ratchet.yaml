@@ -1,5 +1,5 @@
 id: supply-chain/audit-ignore-ratchet
-description: "No new advisory ids (GHSA-…, CVE-…, PYSEC-…, RUSTSEC-…) in vulnerability-audit ignore lists (osv-scanner.toml, pnpm auditConfig, .nsprc, audit-ci, .trivyignore, .grype.yaml, --ignore-vuln in CI); a changed file may not have more than it had. Upgrade the dependency instead; an accepted ignore goes through forge.yaml."
+description: "No new advisory ids (GHSA-…, CVE-…, PYSEC-…, RUSTSEC-…) in vulnerability-audit ignore lists (osv-scanner.toml, pnpm auditConfig, .nsprc, audit-ci, .trivyignore, .grype.yaml, --ignore-vuln in CI); a changed file may not have more than it had. Upgrade the dependency instead; ignoring an advisory is the user's decision: ask them."
 scope: {language: any, files: ["**/osv-scanner.toml", "pnpm-workspace.yaml", "**/package.json", ".nsprc", "audit-ci.json", "audit-ci.jsonc", ".trivyignore", ".grype.yaml", ".github/workflows/**", ".gitlab-ci.yml", "Makefile"]}
 enforce:
   - target: grep

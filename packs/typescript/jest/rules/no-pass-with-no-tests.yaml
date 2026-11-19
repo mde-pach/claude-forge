@@ -1,0 +1,10 @@
+id: typescript/jest/no-pass-with-no-tests
+description: Running Jest with --passWithNoTests needs confirmation; it turns a missing or mistyped test file into a pass.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: jest, flags_any: [--passWithNoTests]}
+examples:
+  match: ["npx jest src/cart.test.ts --passWithNoTests", "jest --passWithNoTests=true"]
+  no_match: ["npx jest", "npx jest src/cart.test.ts"]

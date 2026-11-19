@@ -1,5 +1,5 @@
 id: typescript/mongoose/update-pipeline
-description: "Advice: Mongoose 9 rejects an update pipeline (an array) in updateOne, updateMany, findOneAndUpdate or findByIdAndUpdate unless the call passes { updatePipeline: true } or the app sets mongoose.set(\"updatePipeline\", true); pass the option, or check the global setting."
+description: "Mongoose 9 rejects an update pipeline (an array) in updateOne, updateMany, findOneAndUpdate or findByIdAndUpdate unless the call passes { updatePipeline: true } or the app sets mongoose.set(\"updatePipeline\", true); pass the option, or check the global setting."
 scope: {language: typescript}
 enforce:
   - target: ast-grep

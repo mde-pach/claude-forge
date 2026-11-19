@@ -1,0 +1,17 @@
+id: typescript/pnpm/release-age
+description: "pnpm installs only versions published at least 3 days ago (pnpm-workspace.yaml minimumReleaseAge, in minutes, 4320 or more; read by pnpm 10.16 and later, so a packageManager pin below it is reported too); a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExclude. A change is held only to the settings it made missing or weak."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_pnpm_cooldown", when_changed: [pnpm-workspace.yaml, package.json]}
+examples:
+  match:
+    - files: {pnpm-workspace.yaml: "packages:\n  - apps/*\n"}
+    - files: {pnpm-workspace.yaml: "minimumReleaseAge: 1440\n"}
+    - files: {pnpm-workspace.yaml: "minimumReleaseAge: 10080\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"pnpm@9.15.0\"}\n"}
+    - head: {pnpm-workspace.yaml: "minimumReleaseAge: 4320\n"}
+      files: {pnpm-workspace.yaml: "minimumReleaseAge: 60\n"}
+  no_match:
+    - files: {pnpm-workspace.yaml: "minimumReleaseAge: 4320\nminimumReleaseAgeExclude:\n  - '@acme/*'\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"pnpm@10.16.0\"}\n"}
+    # already missing before the change: the project's setup, not the change's
+    - head: {pnpm-workspace.yaml: "packages:\n  - apps/*\n"}
+      files: {pnpm-workspace.yaml: "packages:\n  - apps/*\n  - libs/*\n"}

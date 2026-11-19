@@ -1,0 +1,13 @@
+id: typescript/no-accumulating-spread
+description: "No spread of the accumulator inside reduce ((acc, x) => ({ ...acc, \u2026 })): it copies the accumulator on every step, O(n\u00b2). Mutate the accumulator, or use Object.fromEntries / push."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/performance/noAccumulatingSpread
+    snippet: '"linter": {"rules": {"performance": {"noAccumulatingSpread": "error"}}}'
+examples:
+  match:
+    - "export function byId(users: { id: string }[]): Record<string, { id: string }> {\n  return users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {});\n}\n"
+  no_match:
+    - "export function byId(users: { id: string }[]): Record<string, { id: string }> {\n  return Object.fromEntries(users.map((u) => [u.id, u]));\n}\n"

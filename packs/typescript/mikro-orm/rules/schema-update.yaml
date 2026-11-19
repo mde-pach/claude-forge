@@ -4,7 +4,9 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])mikro-orm(-esm)?[[:space:]]+(schema:update[^;&|]*([[:space:]]--run|[[:space:]]-r)|migration:fresh)([[:space:];&|)]|$)'
+    command:
+      - {name: [mikro-orm, mikro-orm-esm], sub: ['schema:update'], flags_any: [--run, -r]}
+      - {name: [mikro-orm, mikro-orm-esm], sub: ['migration:fresh']}
 examples:
   match: ["npx mikro-orm schema:update --run", "npx mikro-orm-esm schema:update -r --safe", "npx mikro-orm migration:fresh --seed"]
   no_match: ["npx mikro-orm schema:update --dump", "npx mikro-orm migration:up", "npx mikro-orm migration:create"]

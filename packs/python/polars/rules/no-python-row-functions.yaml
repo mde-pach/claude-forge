@@ -1,5 +1,5 @@
 id: python/polars/no-python-row-functions
-description: "Advice: no Python per row in Polars (Expr.map_elements, Series.map_elements, DataFrame.map_rows, DataFrame.iter_rows): it runs one Python call per value, without parallelism or the query optimizer. Write Polars expressions (pl.col(\"a\") + 1, pl.when()); map_batches is not concerned."
+description: "No Python per row in Polars (Expr.map_elements, Series.map_elements, DataFrame.map_rows, DataFrame.iter_rows): it runs one Python call per value, without parallelism or the query optimizer. Write Polars expressions (pl.col(\"a\") + 1, pl.when()); map_batches is not concerned."
 scope: {language: python}
 enforce:
   - target: ast-grep

@@ -1,0 +1,50 @@
+id: python/boolean-trap
+description: "A bool parameter is keyword-only (def sync(path: str, *, force: bool = False)): a positional flag reads as sync(path, True) at the call site, where nobody can tell what True means. Put it after * so callers write force=True."
+# tests and fixtures are called by pytest, not by people
+scope: {language: python, files: ["!@python-tests"]}
+enforce:
+  # not ruff's FBT001/FBT002 as a tool rule: a project that has not chosen them would be blocked
+  # on every existing flag of a touched file
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - {kind: typed_parameter, not: {has: {kind: list_splat_pattern}}}
+        - kind: typed_default_parameter
+      has: {field: type, regex: "^(bool|bool[[:space:]]*\\|[[:space:]]*None|None[[:space:]]*\\|[[:space:]]*bool|Optional\\[bool\\])$"}
+      # before any * or *args: positional
+      not:
+        follows:
+          stopBy: end
+          any:
+            - {kind: keyword_separator}
+            - {kind: list_splat_pattern}
+            - {kind: typed_parameter, has: {kind: list_splat_pattern}}
+      inside:
+        kind: parameters
+        stopBy: neighbor
+        inside:
+          kind: function_definition
+          stopBy: neighbor
+          # dunders and setters take what their protocol passes
+          not:
+            any:
+              - has: {field: name, regex: "^(__[[:alnum:]_]+__|_?set_[[:alnum:]_]*)$"}
+              # overrides keep their base's signature; setters, validators, CLI commands and
+              # route handlers are called by their framework with the names it maps
+              - inside:
+                  kind: decorated_definition
+                  stopBy: neighbor
+                  has: {kind: decorator, regex: "^@([[:alnum:]_]+\\.)*(override|setter|property|cached_property|overload|abstractmethod|validator|field_validator|model_validator|root_validator|command|callback|fixture|get|post|put|patch|delete|route|api_route|task|hookimpl)\\b"}
+examples:
+  match:
+    - "def sync(path: str, force: bool) -> None:\n    print(path, force)\n"
+    - "class Exporter:\n    def export(self, rows: list[str], include_header: bool = True) -> str:\n        return \"\\n\".join(rows if include_header else rows[1:])\n"
+    - "def fetch(url: str, verify: bool | None = None, *, timeout: float = 5.0) -> str:\n    return url\n"
+  no_match:
+    - "def sync(path: str, *, force: bool = False) -> None:\n    print(path, force)\n"
+    - "def log(*parts: str, flush: bool = False) -> None:\n    print(*parts, flush=flush)\n"
+    - "from abc import ABC, abstractmethod\nfrom typing import override\n\n\nclass Base(ABC):\n    @abstractmethod\n    def run(self, dry: bool) -> None: ...\n\n\nclass Job(Base):\n    @override\n    def run(self, dry: bool) -> None:\n        print(dry)\n"
+    - "class Toggle:\n    def __init__(self) -> None:\n        self._on = False\n\n    @property\n    def on(self) -> bool:\n        return self._on\n\n    @on.setter\n    def on(self, value: bool) -> None:\n        self._on = value\n\n    def set_enabled(self, enabled: bool) -> None:\n        self._on = enabled\n\n    def __exit__(self, *exc: object) -> bool:\n        return False\n"
+    - "import typer\n\napp = typer.Typer()\n\n\n@app.command()\ndef main(name: str, verbose: bool = False) -> None:\n    print(name, verbose)\n"
+    - "def count(items: list[str], limit: int = 10) -> int:\n    return min(len(items), limit)\n"

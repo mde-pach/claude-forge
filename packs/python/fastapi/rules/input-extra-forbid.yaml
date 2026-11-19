@@ -1,0 +1,70 @@
+id: python/fastapi/input-extra-forbid
+description: "A request-body model (a BaseModel subclass named *Create, *Update, *Patch, *In or *Request) sets model_config = ConfigDict(extra=\"forbid\"): by default Pydantic drops unknown fields in silence, so a misspelled field is accepted and ignored instead of returning 422."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: class_definition
+      all:
+        - has: {field: name, regex: "(Create|Update|Patch|In|Request)$"}
+        - has: {field: superclasses, has: {pattern: $B}}
+        - not:
+            has:
+              field: body
+              has:
+                kind: expression_statement
+                has:
+                  kind: assignment
+                  all:
+                    - has: {field: left, regex: "^model_config$"}
+                    - has: {field: right, regex: "extra[\"']?[[:space:]]*[=:][[:space:]]*([\"']forbid[\"']|(\\w+\\.)*Extra\\.forbid)"}
+    # BaseModel itself as the base: a subclass of the project's own strict base inherits its config
+    where:
+      B: {declared: {package: pydantic, name: BaseModel}}
+examples:
+  deps: [{ecosystem: pypi, name: pydantic, version: "2.14.1"}]
+  match:
+    - |
+      from pydantic import BaseModel, Field
+
+
+      class ItemCreate(BaseModel):
+          name: str = Field(min_length=1)
+          price: int
+    - |
+      import pydantic
+
+
+      class LoginRequest(pydantic.BaseModel):
+          model_config = pydantic.ConfigDict(str_strip_whitespace=True)
+
+          email: str
+          password: str
+  no_match:
+    - |
+      from pydantic import BaseModel, ConfigDict
+
+
+      class ItemCreate(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+
+          name: str
+          price: int
+    - |
+      from pydantic import BaseModel, ConfigDict
+
+
+      class StrictModel(BaseModel):
+          model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+      class ItemUpdate(StrictModel):
+          name: str | None = None
+    - |
+      from pydantic import BaseModel
+
+
+      class ItemOut(BaseModel):
+          id: int
+          name: str

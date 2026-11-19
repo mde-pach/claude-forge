@@ -3,60 +3,36 @@ title: During a session
 description: Session start, tool calls and edits.
 ---
 
-import Spec from "../../../components/Spec.astro";
-
 ## Session start
 
-At startup, resume, `/clear` and `/compact`, `session-start.sh` prints a short summary for Claude. Claude Code also loads each active pack's context from `.claude/rules/forge-<pack>.md`.
-
-<Spec file="08-project-hooks" describe="SessionStart" />
+At startup, resume, `/clear` and `/compact`, `claude-forge hook session-start` puts Forge's uv on Claude's PATH (through `CLAUDE_ENV_FILE`), downloads the locked Forge version and tools when they are missing, and starts the types engine in the background. Claude Code loads each active pack's context from `.claude/rules/forge-<pack>.md`.
 
 ## Tool call
 
-Before a tool runs, Claude Code applies the permissions Forge appended (`deny` refuses, `ask` asks you) and runs Bash in the sandbox at user level. For Bash commands that a permission prefix cannot express, the PreToolUse guard matches `guard.rules` patterns. Permissions and the sandbox are the protection boundary; the guard is a tripwire.
+Before a tool runs, Claude Code applies the permissions Forge appended (`deny` refuses, `ask` asks you) and, at user level, runs Bash in the sandbox. For Bash commands, `claude-forge hook pre-tool-use` parses the command line into simple commands (following `sh -c`, `eval`, `env -S`, `find -exec`, `xargs`, `cd`) and matches the guard rules structurally: quoted arguments and heredoc bodies are data, so `git commit -m "remove chmod 777"` is not a `chmod`. A refusal reaches Claude with a neutral reason.
 
-<Spec file="09-scripts" describe="guard.sh" />
-
-All guard rules together, against the commands that must and must not trigger:
-
-<Spec file="14-3-guard-corpus" />
+The same hook refuses reads and edits of Forge's cache and state, which nothing points Claude to.
 
 ### When nobody can answer an ask
 
-In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it without anyone looking at it. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action (the tool, its input, the Forge rule that asked, the repository path), may read the repository, and runs without hooks, MCP servers, settings or the agent's conversation. It allows or denies as a careful developer seeing only that action would, so the decision is not made in the agent's rush. Every review is logged in `reviews.log` in the hooks' state directory (or `~/.claude/forge-reviews.log`).
-
-The hooks keep their state (verdicts, your request for the turn, approvals, turn snapshots and Stop results) in `~/.claude/forge-state/<id>/`, one directory per repository, readable by you only (`FORGE_STATE_HOME` moves it). It is outside the repository on purpose: Claude's Bash commands, which the sandbox confines to the repository, cannot plant a verdict that would let an action through, or rewrite the request a reviewer reads. `safety/forge-state` denies Bash commands that name it and `safety/forge-state-edit` denies edits there, for runs without the sandbox.
-
-It covers both kinds of ask: a guard rule's `ask` (in `guard.sh`) and any permission prompt (a `PermissionRequest` hook, `review.sh`; the project-level one defers to the user-level one). It only acts when nobody can answer: in an interactive session, the usual prompt appears.
+In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it unseen. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action and the turn's request, may read the repository, and runs without hooks, MCP servers or the agent's conversation. A rule that asks can carry the one question the reviewer answers (`review:`). Every verdict is logged in the repository's state directory.
 
 | `FORGE_ASK_REVIEW` | Reviews asks |
 |---|---|
-| `auto` (default) | when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli`, `sdk-ts`, `sdk-py` or `claude-code-github-action` |
-| `always` | in every session, e.g. a cloud or remote session you leave running |
+| `auto` (default) | when nobody can answer (an SDK or GitHub Action entrypoint) |
+| `always` | in every session, e.g. a remote session you leave running |
 | `never` | never: asks are denied, as in plain Claude Code |
 
-In `dontAsk` mode asks stay denied (you chose that). `FORGE_REVIEW_MODEL` picks the reviewer's model. In a headless run, Claude Code loads the project's Forge plugin only when the workspace is trusted (accept the trust dialog once, interactively).
-
-<Spec file="08-project-hooks" describe="asks nobody can answer" />
+In `dontAsk` mode asks stay denied. `FORGE_REVIEW_MODEL` picks the reviewer's model.
 
 ### Edits to existing tests
 
-An Edit or Write that changes a test (anything in it, formatting aside: its assertions, but also its input data, `.each` table or an early `return`), or removes it, when the test existed at the start of the turn, asks first: the change is right when the task changes the behaviour the test asserts, and wrong when it only makes failing code pass. In an autonomous run an independent reviewer answers, given your request for the turn. New tests do not ask. An edit that ran was approved; a change nobody approved (made through Bash, say) is blocked at Stop. A changed fake, fixture or helper in a test file (or `conftest.py`) is reported once at Stop: test doubles encode the interface callers rely on, so production usually keeps it (a property alias for a moved attribute).
-
-<Spec file="08-project-hooks" describe="test edits" />
+An Edit or Write that changes what a test asserts, or removes it, when the test existed at the start of the turn, asks first: the change is right when the task changes the behaviour the test asserts, and wrong when it only makes failing code pass. In an autonomous run the reviewer answers, given the turn's request. New tests do not ask. A change nobody approved (made through Bash, say) blocks Stop.
 
 ## After an edit
 
-After an `Edit` or `Write` (or a Bash command that changes files, below), `post-edit.sh` formats the file silently, lints it and runs the ast-grep `forbid` rules on it; findings go back to Claude as context. `typecheck.sh` runs the project type check in the background and wakes Claude when it fails. Claude Code runs it in the background only in an interactive session or with streaming input (the Agent SDK, `--input-format stream-json`); under `claude -p "<prompt>"` it would wait for it after every edit (32 to 64 s per edit in a large TypeScript repository), so there `typecheck.sh` steps aside and the Stop check runs the type check once per turn. `FORGE_EDIT_TYPECHECK=always` runs it after every edit anyway; `never` never does. tsc runs incrementally, with its build info in `.forge/state/`.
-
-<Spec file="08-project-hooks" describe="PostToolUse" />
-
-Before the lint report, a lint check's safe fixes run (`fix_run`): sorted imports and pyupgrade with ruff, when your config selects them, and Biome's safe fixes. Unused imports are never removed, since an import added now is often used in the next edit. When a fix changes the file, Claude is told in one line, so it re-reads the file before editing it again. Biome applies its safe fixes in the lint run itself (`biome check --write`), so it runs once per edit; Claude is told when that run changed more than the formatting. Each tool runs once with all the files a command changed, and the checks after an edit get 45 s (`FORGE_EDIT_BUDGET`, under the hook's 60 s timeout): past that, Claude gets what was found so far, and the Stop check covers the rest.
-
-<Spec file="08-project-hooks" describe="safe fixes after an edit" />
+After an `Edit` or `Write` (or a Bash command that changes files), `claude-forge hook post-tool-use` formats the file with the formatter your project chose, applies safe fixes, lints it and runs the `forbid` rules on its changed lines; findings go back to Claude as `path:line description`. Forge never formats or lints style with a tool the project has not chosen. The type check runs in the background (`asyncRewake`), answered by the types engine (ty for Python, the project's TypeScript), and wakes Claude when a changed file has errors. `FORGE_EDIT_TYPECHECK=always` or `never` overrides when it runs after edits.
 
 ### Files changed by Bash
 
-Agents often edit through Bash (a heredoc, `sed -i`, `git apply`) instead of `Edit` or `Write`. Before each Bash command, `bash-snapshot.sh` records the working tree as a git tree, through a copy of the index and a private object directory, so your index and object store are never touched. After the command, `post-edit.sh` compares and runs the same checks on every file the command added or modified (up to 20), and `typecheck.sh` runs when one of them is in a type check's scope. A command that fails or is interrupted partway may already have written some files (a script that writes three files and fails on the fourth): Claude Code then fires PostToolUseFailure instead of PostToolUse, and the same two hooks run there. Formatting comes after the comparison and is not counted. A tree too large to snapshot in 5 s (`FORGE_SNAPSHOT_TIMEOUT`) is left to the Stop check, which also catches writes from background commands.
-
-<Spec file="08-project-hooks" describe="files changed by Bash" />
+Agents often edit through Bash (a heredoc, `sed -i`, `git apply`). Before each Bash command the PreToolUse hook snapshots the working tree as a git tree (your index and object store are never touched); afterwards the same checks run on every file the command added or modified, up to 20, also when the command failed partway (PostToolUseFailure). A tree too large to snapshot within `FORGE_SNAPSHOT_TIMEOUT` seconds (default 3) is left to the Stop check. Worktrees under `.claude/worktrees/` and gitignored trees are not snapshotted.

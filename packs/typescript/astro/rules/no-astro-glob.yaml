@@ -1,0 +1,14 @@
+id: typescript/astro/no-astro-glob
+description: "No Astro.glob(): it is deprecated in Astro 5 and removed in 6. Use getCollection() for content, or import.meta.glob() with { eager: true } for other files."
+scope: {language: any, files: ["**/*.astro"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "Astro\\.glob[[:space:]]*(<[^>]*>)?[[:space:]]*\\("}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - "---\nconst posts = await Astro.glob(\"../posts/*.md\");\n---\n<ul>{posts.map((p) => <li>{p.frontmatter.title}</li>)}</ul>\n"
+    - "---\nconst posts = await Astro.glob<{ title: string }>(\"../posts/*.md\");\n---\n<p>{posts.length}</p>\n"
+  no_match:
+    - "---\nimport { getCollection } from \"astro:content\";\nconst posts = await getCollection(\"blog\");\n---\n<ul>{posts.map((p) => <li>{p.data.title}</li>)}</ul>\n"
+    - "---\nconst pages = Object.values(import.meta.glob(\"../posts/*.md\", { eager: true }));\n---\n<p>{pages.length}</p>\n"

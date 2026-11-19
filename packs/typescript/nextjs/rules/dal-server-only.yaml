@@ -1,0 +1,50 @@
+id: typescript/nextjs/dal-server-only
+description: "A module that imports a database client (Prisma, a Drizzle driver, Kysely, pg, postgres, mysql2, Neon, libsql, better-sqlite3, mongodb, mongoose) starts with import \"server-only\", so a Client Component that imports it, directly or through another module, fails the build instead of shipping database code and secrets to the browser. Add import \"server-only\" at the top."
+scope:
+  language: typescript
+  files:
+    - "!@ts-tests"
+    - "!@e2e-tests"
+    - "!@generated-clients"
+    - "!@prisma-migrations"
+    - "!@drizzle-migrations"
+    - "!**/*.config.*"
+    - "!**/*.d.ts"
+    - "!scripts/**"
+    - "!prisma/**"
+    - "!drizzle/**"
+    - "!**/seed.*"
+    - "!**/seeds/**"
+    - "!**/seed/**"
+    # the App Router's own entry files: never imported by a Client Component
+    - "!**/app/**/{page,layout,template,default,loading,not-found,forbidden,unauthorized,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.*"
+    - "!**/{proxy,middleware,instrumentation}.*"
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_statement
+      all:
+        - not: {regex: "^import\\s+type\\s"}
+        - has:
+            field: source
+            regex: "^[\"'](@prisma/client|@prisma/adapter-[^\"']+|([^\"']*/)?generated/prisma(/client)?|drizzle-orm/(node-postgres|postgres-js|neon-http|neon-serverless|vercel-postgres|mysql2|planetscale-serverless|tidb-serverless|libsql|better-sqlite3|bun-sqlite|d1|pglite|xata-http|singlestore|gel|op-sqlite|expo-sqlite|durable-sqlite|sql-js|aws-data-api/[^\"']+)|kysely|pg|postgres|mysql2|mysql2/promise|@neondatabase/serverless|@vercel/postgres|@planetscale/database|@libsql/client|better-sqlite3|mongodb|mongoose)[\"']$"
+        - inside:
+            kind: program
+            stopBy: end
+            all:
+              - not: {has: {kind: import_statement, has: {field: source, regex: "^[\"']server-only[\"']$"}}}
+              - not: {has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use (server|client)[\"'];?$"}}
+examples:
+  match:
+    - "import postgres from \"postgres\";\n\nexport const sql = postgres(process.env.DATABASE_URL!);\n"
+    - "import { PrismaClient } from \"@/generated/prisma/client\";\nimport { PrismaPg } from \"@prisma/adapter-pg\";\n\nconst adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });\nexport const prisma = new PrismaClient({ adapter });\n"
+    - "import { drizzle } from \"drizzle-orm/node-postgres\";\nimport * as schema from \"./schema\";\n\nexport const db = drizzle(process.env.DATABASE_URL!, { schema });\n"
+    - "import { Pool } from \"pg\";\n\nconst pool = new Pool({ connectionString: process.env.DATABASE_URL });\n\nexport async function getUser(id: string) {\n  const { rows } = await pool.query(\"select id, name from users where id = $1\", [id]);\n  return rows[0];\n}\n"
+    - "import { cache } from \"react\";\nimport { PrismaClient } from \"@prisma/client\";\n\nconst prisma = new PrismaClient();\nexport const getPost = cache((id: string) => prisma.post.findUnique({ where: { id } }));\n"
+  no_match:
+    - "\"use client\";\n\nimport { Role } from \"@/generated/prisma/browser\";\n\nexport function RolePicker() {\n  return <select>{Object.values(Role).map((r) => <option key={r}>{r}</option>)}</select>;\n}\n"
+    - "import \"server-only\";\nimport { PrismaClient } from \"@/generated/prisma/client\";\n\nexport const prisma = new PrismaClient();\n"
+    - "import 'server-only';\n\nimport { drizzle } from \"drizzle-orm/node-postgres\";\n\nexport const db = drizzle(process.env.DATABASE_URL!);\n"
+    - "'use server';\n\nimport { prisma } from \"@/lib/prisma\";\nimport { Prisma } from \"@prisma/client\";\n\nexport async function remove(id: string) {\n  await prisma.post.delete({ where: { id } });\n}\n"
+    - "import type { PrismaClient } from \"@prisma/client\";\nimport { Role } from \"@/generated/prisma/enums\";\nimport { pgTable, text } from \"drizzle-orm/pg-core\";\nimport { eq } from \"drizzle-orm\";\n\nexport const users = pgTable(\"users\", { id: text(\"id\") });\nexport type Db = PrismaClient;\nexport const roles = [Role.ADMIN];\n"

@@ -4,7 +4,9 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-C[[:space:]]+[^[:space:];&|]+[[:space:]]+)*push([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(--force|-[A-Za-z]*f[A-Za-z]*|\+[^[:space:];&|]+)([[:space:];&|)]|$)'
+    command:
+      - {name: git, sub: [push], flags_any: [--force, -f]}
+      - {name: git, sub: [push], args_any: ['+*']}
 examples:
   match: ["git push --force origin main", "git push -f", "git push origin +main", "git push -uf origin feat", "git push --force --force-with-lease"]
   no_match: ["git push", "git push -u origin feat", "git push --force-with-lease", "git push --follow-tags"]

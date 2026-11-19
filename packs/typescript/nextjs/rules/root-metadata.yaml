@@ -1,0 +1,26 @@
+id: typescript/nextjs/root-metadata
+description: "The root layout exports metadata (or generateMetadata) with at least a title and description: without it every page ships with no <title> and no description. Add export const metadata: Metadata = { title: …, description: … }."
+scope: {language: typescript, files: ["app/layout.*", "src/app/layout.*"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: export_statement
+      regex: "^export\\s+default\\s"
+      inside:
+        kind: program
+        stopBy: end
+        not:
+          has:
+            kind: export_statement
+            any:
+              - has: {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, regex: "^(metadata|generateMetadata)$"}}}
+              - has: {kind: function_declaration, has: {field: name, regex: "^generateMetadata$"}}
+              - has: {stopBy: end, kind: export_specifier, regex: "(^|\\s)(metadata|generateMetadata)$"}
+examples:
+  match:
+    - "import \"./globals.css\";\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\">\n      <body>{children}</body>\n    </html>\n  );\n}\n"
+  no_match:
+    - "import type { Metadata } from \"next\";\nimport \"./globals.css\";\n\nexport const metadata: Metadata = { title: \"Acme\", description: \"Acme dashboard\" };\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\">\n      <body>{children}</body>\n    </html>\n  );\n}\n"
+    - "import type { Metadata } from \"next\";\n\nexport async function generateMetadata(): Promise<Metadata> {\n  return { title: await siteName() };\n}\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return <html lang=\"en\"><body>{children}</body></html>;\n}\n"
+    - "import { siteMetadata } from \"@/config\";\n\nexport { siteMetadata as metadata };\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return <html lang=\"en\"><body>{children}</body></html>;\n}\n"

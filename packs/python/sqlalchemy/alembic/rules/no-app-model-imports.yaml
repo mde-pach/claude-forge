@@ -1,0 +1,103 @@
+id: python/sqlalchemy/alembic/no-app-model-imports
+description: "Alembic revisions do not import the application's models (from app.models import User, from ..models import ...): a revision runs against the schema at its point in history, and today's models change after it is written, so old revisions break or migrate the wrong columns. Describe the tables a data migration needs with sa.table() / sa.column() inside the revision."
+scope: {language: python, files: ["@alembic-migrations"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        # from app.models import User, from app.models.user import User, from ..models import User
+        - kind: import_from_statement
+          has:
+            field: module_name
+            regex: "(^|\\.)models(\\.[A-Za-z_][A-Za-z0-9_]*)?$"
+            not: {regex: "^(sqlalchemy|alembic|sqlmodel)(\\.|$)|\\.models\\.(types|enums|custom_types|fields|columns)$"}
+        # from app import models, from . import models as m
+        - kind: import_from_statement
+          has: {field: name, regex: "^models([[:space:]]+as[[:space:]]+\\w+)?$"}
+          not: {has: {field: module_name, regex: "^(sqlalchemy|alembic|sqlmodel)(\\.|$)"}}
+        # import app.models
+        - kind: import_statement
+          has:
+            field: name
+            regex: "(^|\\.)models(\\.[A-Za-z_][A-Za-z0-9_]*)?([[:space:]]+as[[:space:]]+\\w+)?$"
+            not: {regex: "^(sqlalchemy|alembic|sqlmodel)(\\.|$)|\\.models\\.(types|enums|custom_types|fields|columns)\\b"}
+examples:
+  match:
+    - |
+      """add paid flag
+
+      Revision ID: 0002
+      Revises: 0001
+      """
+      import sqlalchemy as sa
+      from alembic import op
+
+      from app.models import Order
+
+      revision = "0002"
+      down_revision = "0001"
+
+
+      def upgrade() -> None:
+          op.add_column("orders", sa.Column("paid", sa.Boolean(), nullable=True))
+          op.execute(sa.update(Order).values(paid=False))
+
+
+      def downgrade() -> None:
+          op.drop_column("orders", "paid")
+    - |
+      from alembic import op
+
+      from ..models.user import User
+
+      revision = "0003"
+      down_revision = "0002"
+
+
+      def upgrade() -> None:
+          op.execute(User.__table__.delete())
+    - |
+      from alembic import op
+
+      from shop import models
+
+      revision = "0004"
+      down_revision = "0003"
+
+
+      def upgrade() -> None:
+          op.drop_table(models.Session.__tablename__)
+  no_match:
+    - |
+      import sqlalchemy as sa
+      from alembic import op
+
+      revision = "0002"
+      down_revision = "0001"
+
+
+      def upgrade() -> None:
+          op.add_column("orders", sa.Column("paid", sa.Boolean(), nullable=True))
+          orders = sa.table("orders", sa.column("paid", sa.Boolean()))
+          op.execute(orders.update().values(paid=False))
+
+
+      def downgrade() -> None:
+          op.drop_column("orders", "paid")
+    # a custom column type autogenerate renders by its module path
+    - |
+      import sqlalchemy as sa
+      import sqlmodel
+      from alembic import op
+
+      import app.models.types
+      from app.models.types import GUID
+
+      revision = "0005"
+      down_revision = "0004"
+
+
+      def upgrade() -> None:
+          op.add_column("users", sa.Column("ref", GUID(), nullable=True))
+          op.add_column("users", sa.Column("nick", sqlmodel.sql.sqltypes.AutoString(), nullable=True))

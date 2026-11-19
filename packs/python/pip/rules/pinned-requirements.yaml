@@ -1,0 +1,25 @@
+id: python/pip/pinned-requirements
+description: "A requirements file that pins each package to an exact version (name==1.2.3) keeps doing so, so every install gets the same packages; a range or a bare name lets each machine resolve its own. A file that writes ranges keeps its own convention."
+scope: {language: any, files: ["**/requirements*.txt", "**/requirements/*.txt"]}
+enforce:
+  # the file's own convention: its base copy pins every entry, or the change creates it
+  - {target: check, stage: lint, run: "forge_pinned_requirements"}
+examples:
+  match:
+    - files: {requirements.txt: "requests\n"}
+    - files: {requirements.txt: "django>=5.0\n"}
+    - files: {requirements.txt: "uvicorn[standard]>=0.30\n"}
+    - files: {requirements.txt: "rich ; python_version >= \"3.10\"\n"}
+    - head: {requirements.txt: "requests==2.32.5\n"}
+      files: {requirements.txt: "requests==2.32.5\nhttpx~=0.27\n"}
+    - head: {requirements/base.txt: "# pinned by pip-compile\nflask==3.1.0\n"}
+      files: {requirements/base.txt: "# pinned by pip-compile\nflask==3.1.0\nnumpy!=2.0.0\n"}
+  no_match:
+    - files: {requirements.txt: "requests==2.32.5\nuvicorn[standard]==0.30.6\nrich==13.9.4 ; python_version >= \"3.10\"\n"}
+    - files: {requirements.txt: "-r base.txt\n-e .\n--index-url https://pypi.org/simple\n"}
+    - files: {requirements.txt: "mypkg @ https://example.com/mypkg-1.0.tar.gz\ngit+https://github.com/acme/lib.git@v1.2.0#egg=lib\n"}
+    - files: {requirements.txt: "pydantic==2.10.0 \\\n    --hash=sha256:0123abcd\n"}
+    - head: {requirements.txt: "django>=5.0\nrequests\n"}
+      files: {requirements.txt: "django>=5.0\nrequests\nhttpx>=0.27\n"}
+    - head: {requirements.txt: "requests\n"}
+      files: {requirements.txt: "requests==2.32.5\n"}

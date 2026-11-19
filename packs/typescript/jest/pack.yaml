@@ -1,5 +1,8 @@
 id: typescript/jest
-description: Jest 30 and later.
+description: Jest runs and test integrity.
 level: project
 detect:
-  deps_any: [{ecosystem: npm, name: jest, version: ">=30.0.0"}]
+  deps_any: [{ecosystem: npm, name: jest}]
+context:
+  - text: |
+      Jest. A change to its tests adds no `.skip`, `.only`, `.todo`, `.failing`, `xit`/`xtest`/`xdescribe`, `fit`/`fdescribe` and no mocks (`jest.mock`, `jest.doMock`, `jest.spyOn`, `jest.fn`), and does not reduce their `expect` calls.

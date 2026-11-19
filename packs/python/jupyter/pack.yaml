@@ -3,3 +3,6 @@ description: Jupyter notebooks in the repository.
 level: project
 detect:
   files_any: ["**/*.ipynb"]
+context:
+  - text: |
+      Notebooks are committed with their outputs cleared and execution counts null.

@@ -4,3 +4,6 @@ level: project
 detect:
   files_any: [.oxlintrc.json, oxlint.config.ts]
   deps_any: [{ecosystem: npm, name: oxlint}]
+context:
+  - text: |
+      oxlint warnings on added lines are fixed like errors. Its type-aware rules (such as `typescript/no-floating-promises`) need the `oxlint-tsgolint` package.

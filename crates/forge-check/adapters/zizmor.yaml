@@ -1,0 +1,16 @@
+# zizmor, Forge's own pinned GitHub Actions auditor (§16.2 pinned tools): one range, the pin
+# (ZIZMOR_VERSION), proven on 1.30.1 through uvx. Forge's invocation (github-actions.sh
+# forge_zizmor): `--offline --no-progress --no-ignores --format github <files>`. Exit: 0 clean,
+# 11-14 findings (the highest severity: 11 informational … 14 high), 1 an error (unreadable input, bad config),
+# 2 a usage error (clap), 3 no inputs collected (an unparsable workflow alone).
+
+tool: "zizmor"
+pinned: "1.30.1"
+verified: "1.30.1"
+runner: pinned
+usage: {exit: [2], pattern: "^For more information, try .--help."}
+ranges:
+  - from: "1.30.1"
+    source: "zizmor 1.30.1: https://github.com/zizmorcore/zizmor/releases/tag/v1.30.1; https://docs.zizmor.sh/usage/#exit-codes"
+    ops:
+      "lint": "--offline --no-progress --no-ignores --format github"

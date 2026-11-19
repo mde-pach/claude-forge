@@ -1,0 +1,30 @@
+# knip, the project's own (§16). What changed between its releases, for what Forge asks of it
+# (forge_knip, typescript/knip/unused: `knip --reporter codeclimate --no-progress`, read as one
+# JSON array of issues on stdout: `check_name`, `description`, `location.path`, the line in
+# `location.positions.begin.line` or `location.lines.begin` (0: none), and `severity`, `major`
+# for an issue type the project's `rules` set to error and `minor` for warn):
+#
+# - 5.46.0 added the codeclimate reporter (dist/reporters/codeclimate.js is new in 5.46.0;
+#   verified: 5.45.0 exits 2, `ERROR: Error loading codeclimate`). Before it the run cannot
+#   report severities in a form Forge reads (the json reporter has none), so the range before
+#   5.46.0 cannot. 5.0.0 is the oldest release this adapter names.
+# - 6.0.0 prefixes each description with the issue (`Unused export: sub`, 5.x: `sub`) and adds
+#   `positions.end`; `check_name`, `location`, `severity` are unchanged (verified 5.46.0, 6.0.0,
+#   6.45.1). Forge compares the descriptions of two runs of one release only.
+# - Exit 0 clean, 1 issues of error severity, 2 a configuration it cannot load (`ERROR: Error
+#   loading ...`). A usage error exits 1 too, with `Unknown option '--x'` before the help.
+
+tool: "knip"
+verified: "6.45.1"
+package: "knip"
+usage: {exit: [1], pattern: "^Unknown option '"}
+ranges:
+  - from: "5.0.0"
+    to: "5.46.0"
+    source: "knip 5.46.0 dist/reporters/codeclimate.js (the codeclimate reporter is new; 5.45.0 cannot load it)"
+    ops:
+      "unused": null
+  - from: "5.46.0"
+    source: "knip 5.46.0 dist/reporters/codeclimate.js (severity major/minor from the issue type's rule); 6.0.0 prefixes descriptions"
+    ops:
+      "unused": "--reporter codeclimate --no-progress"

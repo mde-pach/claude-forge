@@ -1,0 +1,92 @@
+id: python/path-traversal
+description: "A file path is not built from request input (a route's string parameter, a query or form value, an upload's filename) by os.path.join(base, name), base / name or Path(base, name) without a check: a name like ../../etc/passwd or an absolute path escapes base. Resolve the result and check it stays inside base (path = (base / name).resolve(); path.is_relative_to(base.resolve())), take secure_filename(name) or Path(name).name, or serve with send_from_directory."
+scope: {language: python, files: ["!@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      all:
+        # the path built from $X: os.path.join(base, …, $X, …) or Path(base, $X), base / $X, either
+        # also with $X inside an f-string
+        - any:
+            - kind: call
+              pattern: "$J($$$)"
+              has:
+                field: arguments
+                has:
+                  not: {nthChild: 1}
+                  any:
+                    - {kind: identifier, pattern: $X}
+                    - {kind: attribute, regex: "\\.filename$", pattern: $X}
+                    - {kind: string, has: {stopBy: end, kind: interpolation, has: {any: [{kind: identifier, pattern: $X}, {kind: attribute, regex: "\\.filename$", pattern: $X}]}}}
+            - kind: binary_operator
+              pattern: "$B / $R"
+              has:
+                field: right
+                any:
+                  - {kind: identifier, pattern: $X}
+                  - {kind: attribute, regex: "\\.filename$", pattern: $X}
+                  - {kind: string, has: {stopBy: end, kind: interpolation, has: {any: [{kind: identifier, pattern: $X}, {kind: attribute, regex: "\\.filename$", pattern: $X}]}}}
+        # $X comes from the request
+        - any:
+            - has: {stopBy: end, kind: attribute, regex: "^request\\.files\\b", pattern: $X}
+            # a string parameter of a route function (unannotated: Flask), not constrained by a pattern
+            - inside:
+                kind: function_definition
+                stopBy: {kind: function_definition}
+                all:
+                  - inside: {kind: decorated_definition, stopBy: neighbor, has: {kind: decorator, regex: "^@[[:alnum:]_.]+\\.(get|post|put|patch|delete|route|api_route)\\("}}
+                  - has:
+                      field: parameters
+                      has:
+                        not: {regex: "(pattern|regex)[[:space:]]*="}
+                        any:
+                          - {kind: identifier, pattern: $X}
+                          - {kind: default_parameter, has: {field: name, pattern: $X}}
+                          - {kind: typed_parameter, all: [{has: {kind: identifier, pattern: $X}}, {has: {field: type, regex: "^(str|(pathlib\\.)?Path|Annotated\\[str,.*)$"}}]}
+                          - {kind: typed_default_parameter, all: [{has: {field: name, pattern: $X}}, {has: {field: type, regex: "^(str|(pathlib\\.)?Path|Annotated\\[str,.*)$"}}]}
+            # an upload's filename in a route function
+            - all:
+                - has: {stopBy: end, kind: attribute, regex: "\\.filename$", pattern: $X}
+                - inside:
+                    kind: function_definition
+                    stopBy: {kind: function_definition}
+                    inside: {kind: decorated_definition, stopBy: neighbor, has: {kind: decorator, regex: "^@[[:alnum:]_.]+\\.(get|post|put|patch|delete|route|api_route)\\("}}
+            # a name assigned from the request's input or an upload's filename in the same function
+            - inside:
+                kind: function_definition
+                stopBy: {kind: function_definition}
+                has:
+                  stopBy: end
+                  kind: assignment
+                  all:
+                    - has: {field: left, kind: identifier, pattern: $X}
+                    - has: {field: right, regex: "^(await[[:space:]]+)?(request\\.(args|form|values|GET|POST|query_params|path_params|files)\\b|[[:alnum:]_.]+\\.filename$)"}
+      # the function checks or strips the name
+      not:
+        inside:
+          kind: function_definition
+          stopBy: {kind: function_definition}
+          has:
+            stopBy: end
+            any:
+              - {kind: call, has: {field: function, regex: "(^|\\.)(is_relative_to|relative_to|commonpath|secure_filename|safe_join|basename|realpath|startswith)$"}}
+              - {kind: attribute, regex: "\\)\\.name$"}
+              - {kind: comparison_operator, regex: "\\b(in|not in)\\b"}
+    # os.path.join or a pathlib Path (§15.6), and a / whose left side is a path (§15.1), not a division
+    where:
+      J: {declared: [{module: [os.path, posixpath, ntpath, genericpath], name: join}, {module: pathlib, name: [Path, PurePath, PosixPath, WindowsPath]}]}
+      B: {type: {module: pathlib, name: PurePath}}
+examples:
+  match:
+    - "from pathlib import Path\n\nfrom fastapi import FastAPI\nfrom fastapi.responses import FileResponse\n\napp = FastAPI()\nREPORTS = Path(\"/srv/reports\")\n\n\n@app.get(\"/reports/{name}\")\ndef report(name: str) -> FileResponse:\n    return FileResponse(REPORTS / name)\n"
+    - "import os\n\nfrom flask import Flask, send_file\n\napp = Flask(__name__)\nUPLOADS = \"/srv/uploads\"\n\n\n@app.route(\"/files/<path:filename>\")\ndef download(filename):\n    return send_file(os.path.join(UPLOADS, filename))\n"
+    - "from pathlib import Path\n\nfrom fastapi import FastAPI, UploadFile\n\napp = FastAPI()\nUPLOADS = Path(\"/srv/uploads\")\n\n\n@app.post(\"/upload\")\nasync def upload(file: UploadFile) -> str:\n    dest = UPLOADS / file.filename\n    dest.write_bytes(await file.read())\n    return str(dest)\n"
+    - "import os\n\nfrom flask import request\n\nBASE = \"/srv/exports\"\n\n\ndef export() -> bytes:\n    name = request.args[\"name\"]\n    with open(os.path.join(BASE, f\"{name}.csv\"), \"rb\") as f:\n        return f.read()\n"
+  no_match:
+    - "from pathlib import Path\n\nfrom fastapi import FastAPI, HTTPException\nfrom fastapi.responses import FileResponse\n\napp = FastAPI()\nREPORTS = Path(\"/srv/reports\")\n\n\n@app.get(\"/reports/{name}\")\ndef report(name: str) -> FileResponse:\n    path = (REPORTS / name).resolve()\n    if not path.is_relative_to(REPORTS.resolve()):\n        raise HTTPException(404)\n    return FileResponse(path)\n"
+    - "from flask import Flask, send_from_directory\n\napp = Flask(__name__)\n\n\n@app.route(\"/files/<path:filename>\")\ndef download(filename):\n    return send_from_directory(\"/srv/uploads\", filename)\n"
+    - "import os\n\nfrom flask import Flask, request\nfrom werkzeug.utils import secure_filename\n\napp = Flask(__name__)\n\n\n@app.post(\"/upload\")\ndef upload() -> str:\n    f = request.files[\"file\"]\n    dest = os.path.join(\"/srv/uploads\", secure_filename(f.filename))\n    f.save(dest)\n    return dest\n"
+    - "from pathlib import Path\n\nfrom fastapi import FastAPI\n\napp = FastAPI()\nDATA = Path(\"/srv/data\")\n\n\n@app.get(\"/items/{item_id}\")\ndef item(item_id: int) -> str:\n    return (DATA / f\"{item_id}.json\").read_text()\n"
+    - "import os\n\n\ndef config_path(base: str, name: str) -> str:\n    return os.path.join(base, name)\n"
+    - "from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/ratio\")\ndef ratio(total: float, count: float) -> float:\n    return total / count\n"

@@ -3,27 +3,34 @@ title: Introduction
 description: What Forge is, the principles it follows, and how this documentation is built.
 ---
 
-import Results from "../../../components/Results.astro";
-
-Forge is a command-line generator. It reads **rules**, grouped in a tree of **packs** — language, then package, then sub-package — and writes a Claude Code setup for your user account (`~/.claude/`) or for one git repository. Once written, the setup runs with plain Claude Code: no generated file calls Forge.
+Forge is a single binary, `claude-forge` (also installed as `forge`). It reads **rules**, grouped in a tree of **packs** (language, then package, then sub-package), and sets up Claude Code for your user account (`~/.claude/`) or for one git repository.
 
 ## What you get
 
-- **User level**, once per machine: permissions that keep Claude away from secrets and history-destroying git commands, the Bash sandbox, a tripwire on dangerous commands, and terminal notifications. See [User level](../user-level/).
-- **Project level**, for the stack Forge detects: feedback after every edit, a background type check, a check when Claude stops that sends it back to work if something is wrong, and the same check in your pre-commit hook and CI. The [lifecycle](../../lifecycle/) walks through each step.
+- **User level**, once per machine: permissions that keep Claude away from secrets and history-destroying git commands, and the Bash sandbox. See [User level](../user-level/).
+- **Project level**, for the stack Forge detects: context Claude reads, a guard on Bash commands, feedback after every edit, a background type check, a check when Claude stops that sends it back to work if something is wrong, and the same check in your pre-commit hook and CI. The [lifecycle](../../lifecycle/) walks through each step.
+
+## What lives where
+
+The repository holds only inputs and the hook entries, all committed:
+
+| Path | What it is |
+|---|---|
+| `forge.yaml` | your configuration (optional) |
+| `forge.lock` | the Forge version, the active rule set, the tool pins, the settings entries written |
+| `.forge/packs/<id>/`, `.forge/rules/*.yaml` | local packs and rules (optional) |
+| `.claude/settings.json` | hook entries that call `claude-forge hook <event>`, and permission entries |
+| `.claude/rules/forge-*.md` | the context Claude reads; it depends only on the repository's content |
+
+Everything else is in a per-user cache (`$FORGE_HOME`, else `$XDG_CACHE_HOME/forge`, else `~/.cache/forge`): the versioned binaries, the pinned tools, the parsed packs, and per-repository state. Claude is refused access to it.
 
 ## Principles
 
-1. **Standalone output.** Generated files never call Forge.
-2. **Nothing to install.** Hooks are POSIX `sh`; project tools are the project's own binaries; ast-grep runs through a pinned `bunx` / `uvx`.
-3. **Forge writes only what it owns.** Tool configs, manifests, git config and `CLAUDE.md` are audited, never written.
-4. **Rules are data.** One YAML file per rule, with examples that are also its tests.
-5. **Enforce in the closest native place:** your own tools, then ast-grep, then Claude Code permissions and the sandbox, then hooks.
-6. **Claude cannot change the setup unnoticed.**
-7. **Success is silent.** Every message starts with `forge:<rule-id>`.
+1. **The repository holds no machinery.** Checks, guards and helpers live in the binary.
+2. **Forge writes only what it owns.** Tool configs, manifests, git config and `CLAUDE.md` are audited, never written.
+3. **Rules are data.** One YAML file per rule, with examples that are also its tests.
+4. **Enforce in the closest native place:** your own tools, then ast-grep, then Claude Code permissions and the sandbox, then hooks.
+5. **What Claude sees is true and actionable.** Notes for you (missing tools, what is not enforced, Forge's own failures) go to `forge status`, never to Claude, and never block.
+6. **Success is silent.**
 
-## How to read this site
-
-Every behaviour described here is a test from `tests/spec/`, shown where it matters: each lifecycle page carries the tests for its step, and each pack page carries the tests of the pack and of each rule. A test's title is the requirement, its code is how the requirement is checked, and the badge next to it is its result in the latest CI run.
-
-<Results />
+The pack and rule pages are generated from the packs as Forge's own loader reads them; the [CLI](../../reference/cli/) and [schema](../../reference/schemas/) pages come from the binary and from `schemas/`. The behaviour is specified in [`spec/`](https://github.com/mde-pach/claude-forge/tree/main/spec).

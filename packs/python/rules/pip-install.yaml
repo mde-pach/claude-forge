@@ -1,0 +1,25 @@
+id: python/pip-install
+description: Packages go into the project's environment as the project declares them (its package manager, its pyproject.toml or its requirements files), not with pip on their own.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    check: python-pm
+examples:
+  match:
+    - {command: "pip install requests", files: {pyproject.toml: "[project]\nname = \"x\"\n", uv.lock: ""}}
+    - {command: "python3 -m pip install -r requirements.txt", files: {uv.lock: ""}}
+    - {command: "uv pip install httpx", files: {pyproject.toml: "[project]\nname = \"x\"\n"}}
+    - {command: "pip install requests", files: {main.py: "print(1)\n"}}
+    - {command: "pip install requests", files: {pyproject.toml: "[project]\nname = \"x\"\n"}}
+    - {command: "pip install httpx", files: {pyproject.toml: "[project]\nname = \"x\"\n\n[tool.uv]\npackage = false\n"}}
+    - {command: "pip install -e .", files: {pyproject.toml: "[project]\nname = \"x\"\n", uv.toml: ""}}
+  no_match:
+    - {command: "pip install --dry-run requests", files: {uv.lock: ""}}
+    - {command: "pip show requests", files: {uv.lock: ""}}
+    - {command: "pip install requests", files: {poetry.lock: ""}}
+    - {command: "pip install -r requirements.txt", files: {requirements.txt: "requests==2.32.5\n"}}
+    - {command: "pip install --target /tmp/vendor requests", files: {uv.lock: ""}}
+    - {command: "pip install -r requirements.txt", files: {main.py: "print(1)\n"}}
+    - {command: "pip install -e .", files: {pyproject.toml: "[project]\nname = \"x\"\n"}}
+    - {command: "pip install -r requirements-dev.txt", files: {pyproject.toml: "[project]\nname = \"x\"\n", requirements-dev.txt: "pytest==8.3.5\n"}}

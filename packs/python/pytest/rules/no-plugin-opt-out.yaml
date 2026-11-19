@@ -1,0 +1,17 @@
+id: python/pytest/no-plugin-opt-out
+description: "Test commands do not switch off the plugins that make hidden problems fail (-p no:randomly, -p no:random_order, -p no:socket, -p no:timeout, --force-enable-socket, --randomly-dont-reorganize) or pin the test order (--randomly-seed=<n>, -p randomly with a fixed seed). Fix the test that depends on the order, the network or more time; switching one off is the user's decision: ask them."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".gitlab-ci.yml", "**/Makefile", "**/justfile", "**/noxfile.py", "**/tox.ini", "**/package.json", "**/Taskfile.yml", "**/*.sh"]}
+enforce:
+  - target: grep
+    mode: no-increase
+    pattern: "-p[[:space:]]*no:(randomly|random_order|socket|timeout)([^A-Za-z0-9_-]|$)|--force-enable-socket|--randomly-dont-reorganize|--randomly-seed[= ]+[0-9]"
+examples:
+  match:
+    - "      - run: uv run pytest -p no:randomly\n"
+    - "test:\n\tpytest -q -pno:socket tests/\n"
+    - "commands = pytest --randomly-seed=1234 {posargs}\n"
+    - "  script:\n    - pytest --force-enable-socket\n"
+  no_match:
+    - "      - run: uv run pytest -p no:cacheprovider -q\n"
+    - "test:\n\tpytest --randomly-seed=last\n"
+    - "commands = pytest -p randomly_extra {posargs}\n"

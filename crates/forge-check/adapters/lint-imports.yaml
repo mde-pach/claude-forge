@@ -1,0 +1,28 @@
+# import-linter (`lint-imports`), the project's own (§16). What changed between its releases,
+# for what Forge asks of it (forge_import_linter, python/import-linter/contracts: `lint-imports
+# --no-cache`, read as its report: under `Broken contracts`, each contract's name over a line of
+# dashes, then `<a> is not allowed to import <b>:` and the import chains, one `- <importer> ->
+# <imported> (l.<line>[, l.<line>])` per link):
+#
+# - `--version` is new in 2.11 (docs/release_notes.md 2.11: "Add `--version` flag"); before,
+#   the release cannot be told, so 2.11 is the oldest covered. `--no-cache` exists since caching
+#   (1.8.0): without it a run writes `.import_linter_cache` into the project.
+# - 2.7 prints through rich (release notes 2.7), which wraps lines at the terminal's width, 80
+#   columns when the output is not a terminal: Forge sets `COLUMNS` so a chain stays on its
+#   line. 2.7 also prints a logo (`--no-logo`, 2.14, hides it; Forge reads from `Broken
+#   contracts` on, so it does not pass it).
+# - 2.5 adds `protected` contracts and 2.6 `acyclic_siblings` (release notes): protected ones
+#   print chains like the others; acyclic_siblings ones print package dependencies (`- .a -> .b
+#   (1 import)`), not chains (verified 2.11, 2.16).
+# - Exit 0 when every contract is kept, 1 when one is broken or the run fails (no package, no
+#   configuration: no `Broken contracts`); a usage error is click's: exit 2, `Error: No such
+#   option` after `Try 'lint-imports --help' for help.`
+
+tool: "lint-imports"
+verified: "2.16"
+usage: {exit: [2], pattern: "^Try .[^ ]+ (-h|--help). for help"}
+ranges:
+  - from: "2.11"
+    source: "import-linter docs/release_notes.md 2.11 (--version); verified 2.11 and 2.16"
+    ops:
+      "lint": "--no-cache"

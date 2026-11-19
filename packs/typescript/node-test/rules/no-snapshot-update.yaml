@@ -1,0 +1,10 @@
+id: typescript/node-test/no-snapshot-update
+description: Updating node:test snapshots (node --test-update-snapshots) needs confirmation; the snapshots are part of the reviewed expectations.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: node, flags_any: [--test-update-snapshots]}
+examples:
+  match: ["node --test --test-update-snapshots", "node --test --test-update-snapshots test/render.test.mjs"]
+  no_match: ["node --test", "node --test test/render.test.mjs"]

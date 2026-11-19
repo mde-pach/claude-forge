@@ -1,0 +1,12 @@
+id: typescript/node-test/no-exit-zero
+description: "A file that imports from node:test never calls process.exit(0): the run reports success whatever the tests did."
+scope: {language: typescript, files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**", "**/__tests__/**", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "process.exit(0)"
+      inside: {stopBy: end, kind: program, has: {stopBy: end, any: [{kind: import_statement, has: {field: source, regex: "^[\"']node:test[\"']$"}}, {kind: call_expression, all: [{has: {field: function, regex: "^require$"}}, {has: {field: arguments, regex: "^\\([[:space:]]*[\"']node:test[\"'][[:space:]]*\\)$"}}]}]}}
+examples:
+  match: ["import { after } from \"node:test\";\n\nafter(() => {\n  process.exit(0);\n});\n"]
+  no_match: ["import { after } from \"node:test\";\n\nafter(() => {\n  process.exit(1);\n});\n", "export function quit() {\n  process.exit(0);\n}\n"]

@@ -1,5 +1,5 @@
 id: python/sqlalchemy/alembic/fk-index
-description: "Advice, once per turn at Stop: a revision that adds a foreign key also creates an index that leads with its column (the first column of op.create_index, sa.Index, a primary key or unique constraint, or CREATE INDEX; index=True, unique=True or primary_key=True on the column). PostgreSQL and SQLite do not index referencing columns, so joins and deletes of the referenced rows scan the table; PostgreSQL's documentation calls the index often a good idea, not a requirement. Skipped for a MySQL or MariaDB database URL (InnoDB indexes foreign keys)."
+description: "A revision that adds a foreign key also creates an index that leads with its column (the first column of op.create_index, sa.Index, a primary key or unique constraint, or CREATE INDEX; index=True, unique=True or primary_key=True on the column). PostgreSQL and SQLite do not index referencing columns, so joins and deletes of the referenced rows scan the table; PostgreSQL's documentation calls the index often a good idea, not a requirement. Skipped for a MySQL or MariaDB database URL (InnoDB indexes foreign keys)."
 scope: {language: python, files: ["@alembic-migrations"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_alembic_fk_index"}

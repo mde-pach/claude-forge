@@ -5,7 +5,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '--min-release-age([[:space:]]*=[[:space:]]*|[[:space:]]+)0*([^0-9.]|$)'
+    command: {option_values: {'--min-release-age': '^0*$'}}
 examples:
   match: ["npm install zod@4.1.0 --min-release-age=0", "npm ci --min-release-age 0", "npm i --min-release-age=00 react"]
   no_match: ["npm install zod@4.1.0", "npm ci --min-release-age=3", "npm i --min-release-age 10 react", "npm config get min-release-age"]

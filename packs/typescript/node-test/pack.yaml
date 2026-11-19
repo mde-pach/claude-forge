@@ -1,0 +1,11 @@
+id: typescript/node-test
+description: Node's built-in test runner (node:test) and test integrity.
+level: project
+detect:
+  # a test file that imports the runner (node:test has no package to declare)
+  content_any:
+    - files: ["**/*.test.*", "**/*.spec.*", "**/*-test.*", "**/*_test.*", "**/test-*.*", "**/test/**/*.*", "**/__tests__/**"]
+      pattern: "(from[ \\t]*|require\\([ \\t]*)[\"']node:test[\"']"
+context:
+  - text: |
+      Tests that import from `node:test` run with `node --test`. A change to them adds no `.skip`, `.todo`, `.only`, no `{ skip }`, `{ todo }` or `{ only }` options and no mocks (`mock.fn`, `mock.method`, `mock.module`), and does not reduce their `assert` calls.

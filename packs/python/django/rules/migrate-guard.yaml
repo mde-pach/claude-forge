@@ -4,7 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])(manage\.py|django-admin)[[:space:]]+(migrate[[:space:]].*(--fake([[:space:]]|$)|[[:space:]]zero([[:space:]]|$))|flush([[:space:];&|)]|$)|reset_db([[:space:];&|)]|$)|sqlflush.*\|)'
+    command:
+      - {name: [manage.py, django-admin], sub: [migrate], flags_any: [--fake]}
+      - {name: [manage.py, django-admin], sub: [migrate], args_any: [zero]}
+      - {name: [manage.py, django-admin], sub: ['flush|reset_db']}
+      - {name: [manage.py, django-admin], sub: [sqlflush], pipe_to: ['*']}
 review: Is the user aware that this resets data or the migration state of the target database, and does the request ask for it?
 examples:
   match: ["python manage.py migrate --fake", "python manage.py migrate shop zero", "uv run python manage.py flush --no-input", "django-admin sqlflush | python manage.py dbshell", "./manage.py reset_db"]

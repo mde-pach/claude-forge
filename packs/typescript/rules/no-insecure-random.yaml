@@ -1,0 +1,85 @@
+id: typescript/no-insecure-random
+description: "Math.random() is predictable, so it never produces a token, secret, nonce, salt, password, API key, session id or verification code: use crypto.randomUUID(), crypto.getRandomValues() or node:crypto's randomBytes/randomInt instead."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    utils:
+      # a name that holds a secret: csrfToken, sessionId, resetCode, salt, but not maxTokens or statusCode
+      secret-name:
+        regex: "(?i)(token|secret|nonce|salt|otp|passw(or)?d|api_?key|session_?id|reset_?id|(verification|reset|otp|auth|invite|confirm|access|login|pin|recovery|backup|one_?time)_?code|^code)[\"']?$"
+      secret-function:
+        any:
+          - {kind: function_declaration, has: {field: name, matches: secret-name}}
+          - {kind: method_definition, has: {field: name, matches: secret-name}}
+          - any: [{kind: arrow_function}, {kind: function_expression}]
+            inside: {kind: variable_declarator, has: {field: name, matches: secret-name}}
+    rule:
+      pattern: Math.random()
+      # within the same statement (a jitter delay inside refreshToken() is not a token)
+      inside:
+        stopBy: {kind: statement_block}
+        any:
+          - {kind: variable_declarator, has: {field: name, matches: secret-name}}
+          - {kind: assignment_expression, has: {field: left, matches: secret-name}}
+          - {kind: augmented_assignment_expression, has: {field: left, matches: secret-name}}
+          - {kind: pair, has: {field: key, matches: secret-name}}
+          - {kind: public_field_definition, has: {field: name, matches: secret-name}}
+          - kind: return_statement
+            inside:
+              stopBy: {any: [{kind: function_declaration}, {kind: method_definition}, {kind: arrow_function}, {kind: function_expression}]}
+              matches: secret-function
+examples:
+  match:
+    - |
+      export function createSession(userId: string) {
+        const sessionId = Math.random().toString(36).slice(2);
+        return { userId, sessionId };
+      }
+    - |
+      export function sendLoginCode(email: string) {
+        const otp = Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join("");
+        return mailer.send(email, `Your code is ${otp}`);
+      }
+    - |
+      export function generateResetToken(): string {
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+      }
+    - |
+      export function invite(email: string) {
+        return db.invite.create({ data: { email, inviteCode: Math.random().toString(36).slice(2, 8) } });
+      }
+    - |
+      export class CsrfGuard {
+        private csrfToken = Math.random().toString(16).slice(2);
+
+        rotate() {
+          this.csrfToken = Math.random().toString(16).slice(2);
+        }
+      }
+  no_match:
+    - |
+      import { randomBytes } from "node:crypto";
+
+      export function createSession(userId: string) {
+        const sessionId = randomBytes(32).toString("hex");
+        return { userId, sessionId };
+      }
+    - |
+      export async function refreshToken(client: Client) {
+        const delay = 500 + Math.random() * 1000;
+        await sleep(delay);
+        return client.refresh();
+      }
+    - |
+      export function pickColor(colors: string[]): string {
+        return colors[Math.floor(Math.random() * colors.length)];
+      }
+    - |
+      export const maxTokens = Math.floor(Math.random() * 100) + 200;
+      export const statusCode = Math.random() > 0.5 ? 200 : 503;
+    - |
+      export function sampleRequest(token: string) {
+        const shouldSample = Math.random() < 0.1;
+        return shouldSample ? trace(token) : undefined;
+      }

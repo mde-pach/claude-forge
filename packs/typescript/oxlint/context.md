@@ -1,1 +1,0 @@
-oxlint runs with `--type-aware` (the type-aware rules, such as `typescript/no-floating-promises`, need the `oxlint-tsgolint` package installed) and `--deny-warnings`: an oxlint warning on an added line blocks like an error.

@@ -1,0 +1,6 @@
+id: testcontainers/sandbox-docker
+description: "On macOS, Claude's sandboxed test runs reach Docker through the project's .claude/settings.local.json: the sandbox allows this machine's Docker socket (rootless Docker or Podman first) and the containers' published ports on localhost, the socket giving the tests control of the Docker daemon. On Linux no sandbox setting reaches those ports, so nothing is written there."
+scope: {language: any}
+enforce:
+  - {target: sandbox, os: macos, path: network.allowUnixSockets, value: ["{docker-socket}"]}
+  - {target: sandbox, os: macos, path: network.allowLocalBinding, value: true}

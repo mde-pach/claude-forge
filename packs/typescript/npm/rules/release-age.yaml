@@ -1,14 +1,21 @@
 id: typescript/npm/release-age
-description: npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude.
+description: npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. A change is held only to the settings it made missing or weak.
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_helper bun pm_policy.mjs npm-cooldown $FORGE_COOLDOWN_SECONDS", when_changed: [.npmrc, package.json, package-lock.json]}
+  - {target: check, stage: lint, run: "forge_npm_cooldown", when_changed: [.npmrc, package.json]}
 examples:
   match:
-    - files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}}\n"}
+    - files: {package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\"}}}\n", .npmrc: "registry=https://registry.npmjs.org/\n"}
     - files: {.npmrc: "min-release-age=1\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@11.12.0\"}\n"}
     - files: {.npmrc: "min-release-age=7\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@11.9.0\"}\n"}
-    - files: {.npmrc: "min-release-age=7\n", package.json: "{\"name\": \"shop\"}\n"}
+    # the change weakened a setting the project had
+    - head: {.npmrc: "min-release-age=7\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@11.12.0\"}\n"}
+      files: {.npmrc: "min-release-age=1\n"}
   no_match:
     - files: {.npmrc: "registry=https://registry.npmjs.org/\nmin-release-age=3\n", package.json: "{\"name\": \"shop\", \"devEngines\": {\"packageManager\": {\"name\": \"npm\", \"version\": \">=11.10.0\", \"onFail\": \"error\"}}}\n"}
     - files: {.npmrc: "min-release-age = 7\nmin-release-age-exclude=@acme/ui\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"npm@12.2.1+sha512.abc\"}\n"}
+    # already missing before the change: the project's setup, not the change's
+    - head: {package.json: "{\"name\": \"shop\"}\n"}
+      files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+    - head: {.npmrc: "min-release-age=1\n", package.json: "{\"name\": \"shop\"}\n"}
+      files: {.npmrc: "min-release-age=1\nfund=false\n"}

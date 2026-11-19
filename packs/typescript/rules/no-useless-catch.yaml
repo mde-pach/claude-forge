@@ -1,0 +1,17 @@
+id: typescript/no-useless-catch
+description: "No catch that only rethrows the error it caught: remove the try, or handle the error."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/complexity/noUselessCatch
+    snippet: '"linter": {"rules": {"complexity": {"noUselessCatch": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "no-useless-catch"
+    snippet: '"rules": {"no-useless-catch": "error"}'
+examples:
+  match:
+    - "export async function load(url: string): Promise<unknown> {\n  try {\n    const r = await fetch(url);\n    return await r.json();\n  } catch (e) {\n    throw e;\n  }\n}\n"
+  no_match:
+    - "export async function load(url: string): Promise<unknown> {\n  const r = await fetch(url);\n  return await r.json();\n}\n"

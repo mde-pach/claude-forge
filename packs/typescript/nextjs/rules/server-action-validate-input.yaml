@@ -1,0 +1,54 @@
+id: typescript/nextjs/server-action-validate-input
+description: "A Server Action's FormData or object argument comes straight from the client (anyone can POST any value; TypeScript types do not exist at runtime), and this action parses nothing. Validate it with a schema before use (Schema.safeParse(Object.fromEntries(formData)), parse, parseAsync, valibot's parse(Schema, …)), then use the parsed value."
+scope: {language: typescript, files: ["!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: required_parameter
+      all:
+        - has: {field: pattern, kind: identifier, pattern: $P, not: {regex: "^_"}}
+        # a primitive annotation (id: string) is left to the auth rule; FormData, objects and untyped are not
+        - not: {has: {field: type, has: {kind: predefined_type, regex: "^(string|number|boolean|bigint)$"}}}
+        - inside:
+            kind: formal_parameters
+            stopBy: neighbor
+            inside:
+              stopBy: neighbor
+              matches: action
+              all:
+                - has: {field: body, has: {stopBy: end, kind: identifier, pattern: $P}}
+                - not: {has: {field: body, has: {stopBy: end, kind: call_expression, has: {field: function, matches: schema-parse}}}}
+    utils:
+      use-server-file:
+        inside: {kind: program, stopBy: end, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      exported-async-function:
+        any:
+          - {kind: function_declaration, regex: "^async\\s", inside: {kind: export_statement, stopBy: neighbor}}
+          - {kind: arrow_function, regex: "^async[\\s(]", inside: {kind: export_statement, stopBy: neighbor}}
+          - any: [{kind: arrow_function, regex: "^async[\\s(]"}, {kind: function_expression, regex: "^async\\s"}]
+            inside: {kind: variable_declarator, stopBy: neighbor, inside: {kind: lexical_declaration, stopBy: neighbor, inside: {kind: export_statement, stopBy: neighbor}}}
+      action:
+        any:
+          - all: [{matches: exported-async-function}, {matches: use-server-file}]
+          - any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            has: {field: body, kind: statement_block, has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use server[\"'];?$"}}
+      # zod, valibot, yup, arktype, effect Schema, conform's parseWithZod; not JSON.parse, Date.parse, parseInt
+      schema-parse:
+        any:
+          - kind: member_expression
+            has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync|spa|validate|validateSync|isValid|assert|decode|decodeUnknown[A-Za-z]*)$"}
+            not: {has: {field: object, regex: "^(JSON|Date|Number|URL|path|qs|querystring)$"}}
+          - {kind: identifier, regex: "^(parse|safeParse|parseAsync|safeParseAsync|parseWith[A-Za-z]+|validate[A-Z][A-Za-z]*)$"}
+examples:
+  match:
+    - "'use server';\n\nimport { prisma } from \"@/lib/prisma\";\n\nexport async function createPost(formData: FormData) {\n  await prisma.post.create({ data: { title: formData.get(\"title\") as string } });\n}\n"
+    - "\"use server\";\n\nimport { db } from \"@/db\";\nimport { users } from \"@/db/schema\";\n\ntype Profile = { name: string; role: string };\n\nexport const saveProfile = async (input: Profile) => {\n  await db.insert(users).values(input);\n};\n"
+    - "export default async function Page() {\n  async function send(formData: FormData) {\n    \"use server\";\n    await fetch(\"https://api.example.com/msg\", { method: \"POST\", body: JSON.stringify(Object.fromEntries(formData)) });\n  }\n  return <form action={send} />;\n}\n"
+  no_match:
+    - "'use server';\n\nimport { z } from \"zod\";\nimport { prisma } from \"@/lib/prisma\";\n\nconst Post = z.object({ title: z.string().min(1) });\n\nexport async function createPost(formData: FormData) {\n  const raw = Object.fromEntries(formData);\n  const parsed = Post.safeParse(raw);\n  if (!parsed.success) return { errors: parsed.error.flatten() };\n  await prisma.post.create({ data: parsed.data });\n}\n"
+    - "'use server';\n\nimport * as v from \"valibot\";\n\nexport async function rename(input: { name: string }) {\n  const { name } = v.parse(Rename, input);\n  return name;\n}\n"
+    - "'use server';\n\nexport async function remove(id: string, count: number) {\n  return { id, count };\n}\n"
+    - "'use server';\n\nexport async function signup(_prev: unknown, formData: FormData) {\n  const data = Signup.parse(Object.fromEntries(formData));\n  return data.email;\n}\n"
+    - "'use server';\n\nexport async function ping(formData: FormData) {\n  return \"pong\";\n}\n"
+    - "async function update(formData: FormData) {\n  return JSON.parse(String(formData.get(\"json\")));\n}\n"

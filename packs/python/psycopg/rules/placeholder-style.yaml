@@ -1,5 +1,5 @@
 id: python/psycopg/placeholder-style
-description: "Advice: SQL passed to a psycopg execute() or executemany() takes %s or %(name)s placeholders, not $1 (asyncpg's style, which psycopg sends to the server unchanged and PostgreSQL rejects). Text with a dollar-quoted body ($$ ... $$) is left alone."
+description: "SQL passed to a psycopg execute() or executemany() takes %s or %(name)s placeholders, not $1 (asyncpg's style, which psycopg sends to the server unchanged and PostgreSQL rejects). Text with a dollar-quoted body ($$ ... $$) is left alone."
 scope: {language: python}
 enforce:
   - target: ast-grep

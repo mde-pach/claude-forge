@@ -3,3 +3,6 @@ description: TanStack Router's generated route tree.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: "@tanstack/react-router"}, {ecosystem: npm, name: "@tanstack/solid-router"}]
+context:
+  - text: |
+      TanStack Router: `routeTree.gen.ts` is generated from the routes directory (by the bundler plugin or `tsr generate`) and is never edited by hand; change the route files instead.

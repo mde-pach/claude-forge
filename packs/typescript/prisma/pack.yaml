@@ -1,6 +1,29 @@
 id: typescript/prisma
-description: Prisma 7 schema, migrations and client.
+description: Prisma schema, migrations and client (Prisma 7 norms where it is 7 or later).
 level: project
 detect:
   files_any: [prisma/schema.prisma]
   deps_any: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]
+context:
+  - text: |
+      Prisma 7. Generator `prisma-client` with an explicit `output`; the client is imported from that path.
+    when: {deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]}
+  - text: |
+      SQL databases connect through a driver adapter (e.g. `@prisma/adapter-pg`) passed to `new PrismaClient({ adapter })`.
+    when: {deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]}
+  - text: |
+      CLI configuration and the connection URL live in `prisma.config.ts`; `.env` is not loaded automatically.
+    when: {deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]}
+  - text: |
+      `prisma migrate dev` does not seed: run `prisma db seed`.
+    when: {deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]}
+  - text: |
+      Query hooks use Client Extensions (`$extends`), not `$use` middleware.
+  - text: |
+      Raw SQL uses the tagged `$queryRaw` / `$executeRaw` forms; not the `Unsafe` variants, nor `Prisma.raw()` built from a template or concatenation.
+  - text: |
+      `$transaction(async (tx) => …)` callbacks make no network calls (SDKs included): call them before or after the transaction; no `fetch` and no call through an imported axios, got, ky, ofetch, node-fetch or undici there.
+  - text: |
+      A schema change comes with a migration (`prisma migrate dev`), except in a db push workflow (no `prisma/migrations`, a `prisma db push` script), where none is required.
+  - text: |
+      Dropping a column or table in a new migration is the user's decision: ask them first, and drop only after a deploy in which no code reads it (expand and contract).

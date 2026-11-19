@@ -1,0 +1,10 @@
+id: typescript/jest/no-snapshot-update
+description: Updating Jest snapshots (-u, --updateSnapshot) needs confirmation; the snapshots are part of the reviewed expectations.
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: jest, flags_any: [-u, --updateSnapshot]}
+examples:
+  match: ["npx jest -u", "jest src/cart.test.ts --updateSnapshot", "bunx jest --ci -u"]
+  no_match: ["npx jest", "npx jest --ci", "jest --onlyChanged"]

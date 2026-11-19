@@ -1,0 +1,35 @@
+id: typescript/jest/no-mock-increase
+description: "A Jest test file may not gain mocks: jest.mock, jest.doMock, jest.spyOn, jest.fn, also through an import alias (import { jest as j } from \"@jest/globals\"); test through the real code or a fake at the boundary. jest.replaceProperty and process.env changes are not counted: they set configuration for a test."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: no-increase
+    rule:
+      kind: call_expression
+      not: {inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](vitest|bun:test|node:test)[\"']$"}}}}
+      any:
+        - has: {field: function, regex: "^jest\\.(mock|doMock|unstable_mockModule|spyOn|fn)$"}
+        - all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                  - has: {field: object, kind: identifier, pattern: $J}
+                  - has: {field: property, regex: "^(mock|doMock|unstable_mockModule|spyOn|fn)$"}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                  kind: import_statement
+                  all:
+                    - has: {field: source, regex: "^[\"']@jest/globals[\"']$"}
+                    - has: {stopBy: end, kind: import_specifier, all: [{has: {field: name, regex: "^jest$"}}, {has: {field: alias, pattern: $J}}]}
+examples:
+  match:
+    - "jest.mock(\"./billing\");\n"
+    - "it(\"charges\", () => {\n  const pay = jest.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
+    - "import { expect, it, jest as j } from \"@jest/globals\";\n\nit(\"charges\", () => {\n  const pay = j.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"
+  no_match:
+    - "it(\"charges\", () => {\n  const gateway = new FakeGateway();\n  charge(gateway);\n  expect(gateway.charged).toBe(1);\n});\n"
+    - "it(\"reads the zone\", () => {\n  jest.replaceProperty(process, \"env\", { TZ: \"UTC\" });\n  expect(zone()).toBe(\"UTC\");\n});\n"
+    - "import { expect, it, vi } from \"vitest\";\n\nit(\"charges\", () => {\n  const pay = vi.fn();\n  charge(pay);\n  expect(pay).toHaveBeenCalled();\n});\n"

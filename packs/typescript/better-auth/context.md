@@ -1,1 +1,0 @@
-Better Auth: CSRF / origin checks and Secure cookies stay on (no `disableCSRFCheck: true`, no `useSecureCookies: false`); `trustedOrigins` lists real origins, never `"*"` or the request's own `Origin` header.

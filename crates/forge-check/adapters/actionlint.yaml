@@ -1,0 +1,19 @@
+# actionlint, Forge's own pinned GitHub Actions workflow checker (§13.5 release binary, §16.2
+# pinned tools): one range, the pin (RELEASE_BINARIES.actionlint), proven on 1.7.12. Forge's
+# invocation (github-actions.sh forge_actionlint): `-config-file <yaml> -shellcheck= -pyflakes=
+# -no-color -format '<template>' <files>`. forge_do splits the adapter's words on spaces, so the
+# template is written without spaces: `{{range.}}{{.Filepath}}:…{{"\x20"}}…` prints exactly what
+# Forge's `{{range $err := .}}{{$err.Filepath}}:{{$err.Line}}:{{$err.Column}}: …` does (checked
+# on 1.7.12; `{{range$err:=.}}` does not parse). Exit: 0 clean, 1 findings, 2 a usage error (Go
+# flag), 3 a fatal error (config, template, unreadable file): docs/usage.md, "Exit status".
+
+tool: "actionlint"
+pinned: "1.7.12"
+verified: "1.7.12"
+runner: pinned
+usage: {exit: [2], pattern: "^(flag provided but not defined: |invalid (boolean )?value )"}
+ranges:
+  - from: "1.7.12"
+    source: "actionlint 1.7.12: https://github.com/rhysd/actionlint/releases/tag/v1.7.12; https://github.com/rhysd/actionlint/blob/v1.7.12/docs/usage.md (Exit status)"
+    ops:
+      "lint": "-shellcheck= -pyflakes= -no-color -format {{range.}}{{.Filepath}}:{{.Line}}:{{.Column}}:{{\"\\x20\"}}{{.Kind}}:{{\"\\x20\"}}{{.Message}}\\n{{end}} -config-file"

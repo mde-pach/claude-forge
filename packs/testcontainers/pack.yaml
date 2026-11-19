@@ -1,0 +1,11 @@
+id: testcontainers
+description: Tests that start the services they need with Testcontainers, so they need a Docker daemon.
+level: project
+detect:
+  deps_any:
+    - {ecosystem: pypi, name: testcontainers}
+    - {ecosystem: npm, name: testcontainers}
+    - {ecosystem: npm, name: "@testcontainers/*"}
+context:
+  - text: |
+      Integration tests start each third-party service they need (database, broker, cache) with Testcontainers, from a fixture or a setup file; they do not rely on a running compose stack.

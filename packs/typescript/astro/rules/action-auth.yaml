@@ -1,0 +1,38 @@
+id: typescript/astro/action-auth
+description: "An Astro action that writes data is a public endpoint: anyone can call it. Read the user or session from context.locals in the handler and reject a caller who may not write, unless the middleware already gates this action."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^defineAction$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: object
+              all:
+                - has: {stopBy: end, matches: write}
+                - not: {has: {stopBy: end, regex: "^locals$"}}
+      inside:
+        kind: program
+        stopBy: end
+        has: {kind: import_statement, has: {field: source, regex: "^[\"']astro:actions[\"']$"}}
+    utils:
+      write:
+        kind: call_expression
+        any:
+          - has: {field: function, kind: member_expression, has: {field: property, regex: "^(insert|update|upsert|delete|create|createMany|updateMany|upsertMany|deleteMany|destroy|save)$"}}
+          - all:
+              - has: {field: function, regex: "^fetch$"}
+              - has: {field: arguments, has: {stopBy: end, kind: pair, all: [{has: {field: key, regex: "^[\"']?method[\"']?$"}}, {has: {field: value, regex: "^[\"'](POST|PUT|PATCH|DELETE)[\"']$"}}]}}
+examples:
+  match:
+    - "import { defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\nimport { db, Post, eq } from \"astro:db\";\n\nexport const server = {\n  deletePost: defineAction({\n    input: z.object({ id: z.number() }),\n    handler: async ({ id }) => {\n      await db.delete(Post).where(eq(Post.id, id));\n    },\n  }),\n};\n"
+    - "import { defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\n\nexport const server = {\n  subscribe: defineAction({\n    input: z.object({ email: z.string().email() }),\n    handler: async ({ email }) => {\n      await fetch(\"https://api.example.com/lists/1/members\", { method: \"POST\", body: JSON.stringify({ email }) });\n    },\n  }),\n};\n"
+  no_match:
+    - "import { ActionError, defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\nimport { db, Post, eq } from \"astro:db\";\n\nexport const server = {\n  deletePost: defineAction({\n    input: z.object({ id: z.number() }),\n    handler: async ({ id }, context) => {\n      if (!context.locals.user) throw new ActionError({ code: \"UNAUTHORIZED\" });\n      await db.delete(Post).where(eq(Post.id, id));\n    },\n  }),\n};\n"
+    - "import { defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\nimport { db, Post, like } from \"astro:db\";\n\nexport const server = {\n  search: defineAction({\n    input: z.object({ q: z.string() }),\n    handler: async ({ q }) => db.select().from(Post).where(like(Post.title, `%${q}%`)),\n  }),\n};\n"
+    - "import { defineAction } from \"astro:actions\";\nimport { z } from \"astro/zod\";\n\nexport const server = {\n  update: defineAction({\n    input: z.object({ id: z.string() }),\n    handler: async ({ id }, { locals }) => {\n      if (!locals.session) return null;\n      return locals.db.posts.update({ where: { id }, data: { seen: true } });\n    },\n  }),\n};\n"

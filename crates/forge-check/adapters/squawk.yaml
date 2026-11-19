@@ -1,0 +1,16 @@
+# Squawk, Forge's own pinned Postgres migration linter (§16.2 pinned tools): one range, the
+# pin (SQUAWK_VERSION), proven on squawk-cli 2.70.0 through bunx and uvx. Forge's invocation
+# (sql.sh forge_squawk): `--reporter gcc -c <toml> <files>` or `... --stdin-filepath <path>` with
+# the SQL on stdin. Exit: 0 clean, 1 any diagnostic (warnings included) and also a run that
+# could not lint (no such file, bad config: no gcc line then), 2 a usage error (clap).
+
+tool: "squawk"
+pinned: "2.70.0"
+verified: "2.70.0"
+runner: pinned
+usage: {exit: [2], pattern: "^For more information, try .--help."}
+ranges:
+  - from: "2.70.0"
+    source: "squawk 2.70.0: https://github.com/sbdchd/squawk/releases/tag/v2.70.0; squawk --help"
+    ops:
+      "lint": "--reporter gcc -c"

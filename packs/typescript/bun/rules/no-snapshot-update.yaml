@@ -4,7 +4,7 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])bun[[:space:]]+test[^|;&]*[[:space:]](-u|--update-snapshots)([[:space:]=;&|)]|$)'
+    command: {name: bun, sub: [test], flags_any: [-u, --update-snapshots]}
 examples:
   match: ["bun test -u", "bun test src/cart.test.ts --update-snapshots"]
   no_match: ["bun test", "bun test --bail", "bun run test -- --coverage"]

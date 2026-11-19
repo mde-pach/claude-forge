@@ -1,0 +1,13 @@
+id: typescript/error-message
+description: "new Error() and its subclasses get a message that says what failed: an empty error cannot be diagnosed from a log."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/suspicious/useErrorMessage
+    snippet: '"linter": {"rules": {"suspicious": {"useErrorMessage": "error"}}}'
+examples:
+  match:
+    - "export function parse(text: string): number {\n  const n = Number(text);\n  if (Number.isNaN(n)) {\n    throw new Error();\n  }\n  return n;\n}\n"
+  no_match:
+    - "export function parse(text: string): number {\n  const n = Number(text);\n  if (Number.isNaN(n)) {\n    throw new Error(`not a number: ${text}`);\n  }\n  return n;\n}\n"

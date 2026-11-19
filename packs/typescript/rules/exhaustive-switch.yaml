@@ -1,0 +1,17 @@
+id: typescript/exhaustive-switch
+description: "A switch over a union or enum handles every member, so a member added later is a type error instead of a silent fall-through."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/useExhaustiveSwitchCases
+    snippet: '"linter": {"rules": {"nursery": {"useExhaustiveSwitchCases": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/switch-exhaustiveness-check"
+    snippet: '"rules": {"@typescript-eslint/switch-exhaustiveness-check": "error"}'
+examples:
+  match:
+    - "type Status = \"pending\" | \"paid\" | \"refunded\";\n\nexport function label(s: Status): string {\n  switch (s) {\n    case \"pending\":\n      return \"Pending\";\n    case \"paid\":\n      return \"Paid\";\n  }\n  return \"\";\n}\n"
+  no_match:
+    - "type Status = \"pending\" | \"paid\" | \"refunded\";\n\nexport function label(s: Status): string {\n  switch (s) {\n    case \"pending\":\n      return \"Pending\";\n    case \"paid\":\n      return \"Paid\";\n    case \"refunded\":\n      return \"Refunded\";\n  }\n}\n"

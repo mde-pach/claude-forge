@@ -1,0 +1,25 @@
+id: python/pytest/no-conditional-assert
+description: "A test's asserts do not sit under an if / elif / else: when the branch is not taken the assert never runs and the test passes without checking anything. Make the expected path explicit (assert the condition itself, split the test, or parametrize each case with its expected value)."
+scope: {language: python, files: ["@python-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: assert_statement
+      inside:
+        kind: if_statement
+        stopBy: {any: [{kind: function_definition}, {kind: lambda}, {kind: class_definition}]}
+        # in a test function itself, not in a helper defined in the test file
+        inside:
+          kind: function_definition
+          stopBy: {kind: function_definition}
+          has: {field: name, regex: "^test"}
+examples:
+  match:
+    - "from app.users import find_user\n\n\ndef test_find_user() -> None:\n    user = find_user(\"ada\")\n    if user:\n        assert user.name == \"ada\"\n"
+    - "from app.orders import place\n\n\ndef test_place_order() -> None:\n    result = place(sku=\"A1\", qty=2)\n    if result.ok:\n        assert result.total == 20\n    else:\n        assert result.error == \"out of stock\"\n"
+  no_match:
+    - "from app.users import find_user\n\n\ndef test_find_user() -> None:\n    user = find_user(\"ada\")\n    assert user is not None\n    assert user.name == \"ada\"\n"
+    - "import pytest\n\nfrom app.orders import place\n\n\n@pytest.mark.parametrize((\"qty\", \"total\"), [(1, 10), (2, 20)])\ndef test_place_order(qty: int, total: int) -> None:\n    assert place(sku=\"A1\", qty=qty).total == total\n"
+    - "from app.users import User\n\n\ndef check_user(user: User | None) -> None:\n    if user is not None:\n        assert user.name\n\n\ndef test_user() -> None:\n    check_user(User(name=\"ada\"))\n"
+    - "import pytest\n\n\ndef test_zero_division() -> None:\n    with pytest.raises(ZeroDivisionError):\n        1 / 0\n"

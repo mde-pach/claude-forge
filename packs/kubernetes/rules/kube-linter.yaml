@@ -1,5 +1,5 @@
 id: kubernetes/kube-linter
-description: "Changed workloads pass kube-linter's run-as-non-root, privilege-escalation-container, privileged-container, no-read-only-root-fs, unset-memory-requirements, latest-tag, host-network, host-pid, host-ipc, docker-sock, sensitive-host-mounts, drop-net-raw-capability, mismatching-selector, dangling-service, deprecated-service-account-field, invalid-target-ports, liveness-port, readiness-port, startup-port, unsafe-sysctls and duplicate-env-var checks (Forge's config: a project .kube-linter.yaml does not apply), and gain no ignore-check.kube-linter.io annotations."
+description: "Changed workloads pass kube-linter's run-as-non-root, privilege-escalation-container, privileged-container, no-read-only-root-fs, unset-memory-requirements, latest-tag, host-network, host-pid, host-ipc, docker-sock, sensitive-host-mounts, drop-net-raw-capability, mismatching-selector, dangling-service, deprecated-service-account-field, invalid-target-ports, liveness-port, readiness-port, startup-port, unsafe-sysctls and duplicate-env-var checks, and gain no ignore-check.kube-linter.io annotations."
 scope: {language: any, files: ["**/*.yaml", "**/*.yml"]}
 enforce:
   - target: check

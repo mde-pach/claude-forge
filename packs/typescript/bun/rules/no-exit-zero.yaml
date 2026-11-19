@@ -1,0 +1,12 @@
+id: typescript/bun/no-exit-zero
+description: "A file that imports from bun:test never calls process.exit(0): the run reports success whatever the tests did."
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "**/__mocks__/**", "**/test-utils.*", "**/test-helpers.*", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      pattern: "process.exit(0)"
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"']bun:test[\"']$"}}}
+examples:
+  match: ["import { afterAll } from \"bun:test\";\n\nafterAll(() => {\n  process.exit(0);\n});\n"]
+  no_match: ["import { afterAll } from \"bun:test\";\n\nafterAll(() => {\n  process.exitCode = process.exitCode ?? 0;\n});\n", "import { afterAll } from \"bun:test\";\n\nafterAll(() => {\n  process.exit(1);\n});\n", "import { afterAll } from \"vitest\";\n\nafterAll(() => {\n  process.exit(0);\n});\n"]

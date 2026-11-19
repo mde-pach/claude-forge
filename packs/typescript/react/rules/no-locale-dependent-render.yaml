@@ -1,0 +1,30 @@
+id: typescript/react/no-locale-dependent-render
+description: "toLocaleString(), toLocaleDateString() and toLocaleTimeString() without a locale, or a date without a timeZone option, format differently on the server and in the browser: a server-rendered component then fails hydration. Pass an explicit locale and timeZone, or format in an effect."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^toLocale(Date|Time)?String$"}}
+        - any:
+            - has: {field: arguments, regex: "^\\([[:space:]]*\\)$"}
+            - all:
+                - has: {field: function, has: {field: property, regex: "^toLocale(Date|Time)String$"}}
+                - not: {has: {field: arguments, has: {stopBy: end, regex: "^timeZone$"}}}
+        # effects and event handlers run only in the browser
+        - not:
+            inside:
+              stopBy: end
+              any:
+                - {kind: call_expression, has: {field: function, regex: "^(React\\.)?(useEffect|useLayoutEffect)$"}}
+                - {kind: jsx_attribute, has: {kind: property_identifier, regex: "^on[A-Z]"}}
+examples:
+  match:
+    - "export function Order({ total, at }: { total: number; at: Date }) {\n  return <p>{total.toLocaleString()} on {at.toLocaleDateString()}</p>;\n}\n"
+    - "export function Stamp({ at }: { at: Date }) {\n  const time = at.toLocaleTimeString(\"en-GB\", { hour: \"2-digit\", minute: \"2-digit\" });\n  return <time dateTime={at.toISOString()}>{time}</time>;\n}\n"
+  no_match:
+    - "export function Order({ total, at }: { total: number; at: Date }) {\n  return (\n    <p>\n      {total.toLocaleString(\"en-US\")} on {at.toLocaleDateString(\"en-US\", { timeZone: \"UTC\" })}\n    </p>\n  );\n}\n"
+    - "import { useEffect, useState } from \"react\";\n\nexport function LocalTime({ at }: { at: Date }) {\n  const [label, setLabel] = useState(at.toISOString());\n  useEffect(() => {\n    setLabel(at.toLocaleTimeString());\n  }, [at]);\n  return <button type=\"button\" onClick={() => alert(at.toLocaleString())}>{label}</button>;\n}\n"
+    - "export function Stamp({ at, timeZone }: { at: Date; timeZone: string }) {\n  return <time>{at.toLocaleDateString(\"fr-FR\", { timeZone })}</time>;\n}\n"

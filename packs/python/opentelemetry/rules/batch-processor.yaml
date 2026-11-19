@@ -1,5 +1,5 @@
 id: python/opentelemetry/batch-processor
-description: "Advice: spans and log records go to an OTLP exporter through BatchSpanProcessor / BatchLogRecordProcessor, not SimpleSpanProcessor / SimpleLogRecordProcessor, which export synchronously on every span and block the request. The console exporter is not concerned."
+description: "Spans and log records go to an OTLP exporter through BatchSpanProcessor / BatchLogRecordProcessor, not SimpleSpanProcessor / SimpleLogRecordProcessor, which export synchronously on every span and block the request. The console exporter is not concerned."
 scope: {language: python}
 enforce:
   - target: ast-grep

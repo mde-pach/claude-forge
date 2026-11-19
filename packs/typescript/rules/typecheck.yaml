@@ -2,7 +2,7 @@ id: typescript/typecheck
 description: The project passes tsc.
 scope: {language: typescript}
 enforce:
-  # plain diagnostics (--pretty false); incremental, with the build info kept in the root's .forge/state/ (ignored; one file per workspace package), never next to the project's tsconfig or its composite build info
+  # a change goes to the repository's running types engine when the tsc adapter's `engine` covers it (§16); otherwise tsc: plain diagnostics (--pretty false); incremental, with the build info kept in the root's .forge/state/ (ignored; one file per workspace package), never next to the project's tsconfig or its composite build info
   - {target: check, stage: typecheck, run: "forge_do tsc typecheck-incremental \"$(forge_state_file tsc.tsbuildinfo)\""}
 examples:
   match:

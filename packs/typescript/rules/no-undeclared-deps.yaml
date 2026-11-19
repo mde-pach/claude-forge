@@ -1,0 +1,13 @@
+id: typescript/no-undeclared-deps
+description: "Every imported package is declared in the package.json of the importing package: a transitive dependency works locally and breaks on the next install. Add it with the package manager."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/correctness/noUndeclaredDependencies
+    snippet: '"linter": {"rules": {"correctness": {"noUndeclaredDependencies": "error"}}}'
+examples:
+  match:
+    - "import { chunk } from \"forge-example-undeclared\";\n\nexport const pages = chunk([1, 2, 3], 2);\n"
+  no_match:
+    - "import { readFile } from \"node:fs/promises\";\n\nexport const text = () => readFile(\"x\", \"utf8\");\n"

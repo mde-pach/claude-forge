@@ -15,7 +15,7 @@ export type Piece =
   | "post-edit"
   | "typecheck"
   | "stop"
-  | "notify"
+  | "session-end"
   | "commit"
   | "ci"
   | "review"
@@ -23,20 +23,20 @@ export type Piece =
 
 export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> = {
   apply: { label: "forge apply", at: "Forge CLI" },
-  "session-start": { label: "session-start.sh", at: "SessionStart", infra: true },
-  context: { label: "forge-<pack>.md", at: "InstructionsLoaded" },
-  "turn-start": { label: "turn-start.sh (snapshot)", at: "UserPromptSubmit", infra: true },
-  guard: { label: "guard.sh", at: "PreToolUse" },
-  "bash-snapshot": { label: "bash-snapshot.sh", at: "PreToolUse", infra: true },
+  "session-start": { label: "hook session-start", at: "SessionStart", infra: true },
+  context: { label: ".claude/rules/forge-*.md", at: "InstructionsLoaded" },
+  "turn-start": { label: "hook user-prompt-submit (snapshot)", at: "UserPromptSubmit", infra: true },
+  guard: { label: "hook pre-tool-use (guard)", at: "PreToolUse" },
+  "bash-snapshot": { label: "hook pre-tool-use (snapshot)", at: "PreToolUse", infra: true },
   permission: { label: "permission rules", at: "PermissionRequest" },
-  review: { label: "review.sh (nobody to answer)", at: "PermissionRequest", infra: true },
+  review: { label: "hook permission-request (nobody to answer)", at: "PermissionRequest", infra: true },
   sandbox: { label: "sandbox", at: "tool executes" },
-  "post-edit": { label: "post-edit.sh", at: "PostToolUse · PostToolUseFailure (Bash)" },
-  typecheck: { label: "typecheck.sh (async)", at: "PostToolUse · PostToolUseFailure (Bash)" },
-  stop: { label: "stop.sh → check.sh", at: "Stop" },
-  notify: { label: "notify.sh", at: "Notification", infra: true },
-  commit: { label: "pre-commit → check.sh", at: "git commit" },
-  ci: { label: "check.sh --since / --all", at: "CI" },
+  "post-edit": { label: "hook post-tool-use", at: "PostToolUse · PostToolUseFailure (Bash)" },
+  typecheck: { label: "hook post-tool-use-typecheck (async)", at: "PostToolUse · PostToolUseFailure (Bash)" },
+  stop: { label: "hook stop → forge check", at: "Stop" },
+  "session-end": { label: "hook session-end", at: "SessionEnd", infra: true },
+  commit: { label: "pre-commit → forge check --changed", at: "git commit" },
+  ci: { label: "forge check --since / --all", at: "CI" },
 };
 
 /** The Forge piece an event of the docs lifecycle model happens in. */
@@ -73,7 +73,7 @@ export const LANES: Record<Lane, { key: string; text: string }> = {
 /** Claude Code's lifecycle in documented order. `core` rows are always shown. */
 export const FLOW: Row[] = [
   { zone: "Forge CLI · run once, writes everything below" },
-  { ev: "forge apply", sub: "writes hooks, rules, check.sh; audits configs", kind: "forge", pieces: ["apply"] },
+  { ev: "forge apply", sub: "writes hook entries, rules files, the lock; audits configs", kind: "forge", pieces: ["apply"] },
   { zone: "Claude Code · per session", core: true },
   { ev: "Setup", sub: "optional · --init / --maintenance" },
   { ev: "SessionStart", sub: "startup · resume · clear · compact · fork", pieces: ["session-start"], core: true },
@@ -120,9 +120,9 @@ export const FLOW: Row[] = [
       ["PostCompact", "then SessionStart"],
     ],
   },
-  { ev: "SessionEnd", sub: "clear · resume · logout · exit", core: true },
+  { ev: "SessionEnd", sub: "clear · resume · logout · exit", pieces: ["session-end"], core: true },
   { zone: "Any time · outside the flow" },
-  { ev: "Notification", sub: "Claude needs your attention", pieces: ["notify"] },
+  { ev: "Notification", sub: "Claude needs your attention" },
   {
     pair: [
       ["MessageDisplay", "assistant text streams"],

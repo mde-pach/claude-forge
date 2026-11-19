@@ -1,0 +1,13 @@
+id: python/hardcoded-tmp
+description: "No hard-coded path under /tmp or /var/tmp: another user or process can create or read it first. Use tempfile."
+scope: {language: python, files: ["**/*.py", "!@python-tests"]}
+enforce:
+  - target: tool
+    tool: ruff
+    expects: S108
+    snippet: "[tool.ruff.lint] extend-select = [\"S108\"]\n[tool.ruff.lint.per-file-ignores] \"tests/**\" = [\"S108\"]"
+examples:
+  match:
+    - "from pathlib import Path\n\n\ndef export(rows: list[str]) -> Path:\n    path = Path(\"/tmp/export.csv\")\n    path.write_text(\"\\n\".join(rows))\n    return path\n"
+  no_match:
+    - "import tempfile\nfrom pathlib import Path\n\n\ndef export(rows: list[str]) -> Path:\n    with tempfile.NamedTemporaryFile(\"w\", suffix=\".csv\", delete=False) as f:\n        f.write(\"\\n\".join(rows))\n    return Path(f.name)\n"

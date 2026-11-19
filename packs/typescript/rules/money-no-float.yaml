@@ -1,0 +1,42 @@
+id: typescript/money-no-float
+description: "A money value (a price, amount, total, tax, fee or cost) is parsed with parseFloat / Number() or multiplied by a decimal factor: binary floating point cannot hold most cents exactly, so sums and taxes drift by a cent. Keep money in integer minor units (cents) or a decimal library, and round explicitly where a rate applies."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      # names a money quantity: price, unitPrice, unit_price, total_amount, "amount", taxes
+      money-named:
+        regex: "(^|[^A-Za-z])(price|amount|subtotal|total|tax|fee|cost)s?([^A-Za-z]|$)|[a-z0-9](Price|Amount|Subtotal|Total|Tax|Fee|Cost)s?([^A-Za-z]|$)"
+    rule:
+      all:
+        - any:
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: "^(parseFloat|Number|Number\\.parseFloat)$"}
+                - has: {field: arguments, has: {nthChild: 1, matches: money-named}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: "^\\*$"}
+                - any:
+                    - all: [{has: {field: left, matches: money-named}}, {has: {field: right, kind: number, regex: "\\."}}]
+                    - all: [{has: {field: right, matches: money-named}}, {has: {field: left, kind: number, regex: "\\."}}]
+        # rounded on the spot (Math.round(parseFloat(price) * 100)): the conversion to cents
+        - not:
+            inside:
+              stopBy: end
+              kind: call_expression
+              has: {field: function, regex: "^Math\\.(round|floor|ceil|trunc)$"}
+examples:
+  match:
+    - "export function total(form: FormData): number {\n  const price = parseFloat(String(form.get(\"price\")));\n  return price;\n}\n"
+    - "type Item = { unitPrice: string; quantity: number };\n\nexport const lineTotal = (item: Item): number => Number(item.unitPrice) * item.quantity;\n"
+    - "export function withVat(subtotal: number): number {\n  return subtotal * 1.2;\n}\n"
+    - "type Order = { total_amount: number };\n\nexport const tax = (o: Order): number => o.total_amount * 0.21;\n"
+  no_match:
+    - "export function toCents(price: string): number {\n  return Math.round(parseFloat(price) * 100);\n}\n"
+    - "export function withVat(subtotalCents: number): number {\n  return Math.round(subtotalCents * 1.2);\n}\n"
+    - "export const pages = (totalCount: string): number => Number(totalCount);\n"
+    - "export const rate = (taxRate: string): number => parseFloat(taxRate);\n"
+    - "export const feed = (feedId: string): number => Number(feedId);\n"
+    - "export const width = (w: string): number => parseFloat(w) * 1.5;\n"

@@ -3,3 +3,10 @@ description: React Server and Client Components in the App Router.
 level: project
 detect:
   deps_any: [{ecosystem: npm, name: react, version: ">=19.0.0"}]
+context:
+  - text: |
+      State, effects, context, refs and event handlers need a Client Component; keep `'use client'` at the leaves.
+  - text: |
+      Server Actions are async functions in a file or function marked `'use server'`.
+  - text: |
+      A `'use client'` file reads only `NEXT_PUBLIC_*` and `NODE_ENV` from `process.env` and exports no async component; a `'use server'` file exports only async functions.

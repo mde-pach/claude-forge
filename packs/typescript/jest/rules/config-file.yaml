@@ -1,0 +1,8 @@
+id: typescript/jest/config-file
+description: Claude asks you before editing the Jest config (test paths, coverage thresholds, setup files).
+scope: {language: any}
+enforce:
+  - {target: permission, decision: ask, rule: "Edit(**/jest.config.*)"}
+examples:
+  match: ["Edit(jest.config.ts)", "Edit(packages/api/jest.config.js)"]
+  no_match: ["Edit(src/config.ts)", "Edit(jest.setup.ts)"]

@@ -1,11 +1,16 @@
 id: typescript/bun/release-age
-description: Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes; see Bun issues #25305 and #45831 for its known gaps.
+description: "Bun installs only versions published at least 3 days ago (bunfig.toml [install] minimumReleaseAge >= 259200), so a compromised release is caught before it lands. Packages that must update sooner go in minimumReleaseAgeExcludes. A change is held only to a setting it made missing or weak."
 scope: {language: any}
 enforce:
-  - {target: check, stage: lint, run: "forge_bun_cooldown", when_changed: [bunfig.toml, package.json, bun.lock]}
+  - {target: check, stage: lint, run: "forge_bun_cooldown", when_changed: [bunfig.toml]}
 examples:
   match:
-    - files: {package.json: "{\"name\": \"shop\", \"dependencies\": {\"zod\": \"4.1.0\"}}\n"}
+    - files: {bunfig.toml: "[install]\nexact = true\n"}
     - files: {bunfig.toml: "[install]\nminimumReleaseAge = 3600\n"}
+    - head: {bunfig.toml: "[install]\nminimumReleaseAge = 259200\n"}
+      files: {bunfig.toml: "[install]\nminimumReleaseAge = 3600\n"}
   no_match:
     - files: {bunfig.toml: "[install]\nminimumReleaseAge = 259200 # 3 days\nminimumReleaseAgeExcludes = [\"@acme/ui\"]\n"}
+    # already weak before the change: the project's setup, not the change's
+    - head: {bunfig.toml: "[install]\nminimumReleaseAge = 3600\n"}
+      files: {bunfig.toml: "[install]\nminimumReleaseAge = 3600\nexact = true\n"}

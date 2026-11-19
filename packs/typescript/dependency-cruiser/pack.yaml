@@ -1,0 +1,10 @@
+id: typescript/dependency-cruiser
+description: The project's own dependency-cruiser rules (which modules may import which), as its config declares them.
+level: project
+# the project set dependency-cruiser up: its config (the tool is run as the project installs
+# it; not installed, the check is skipped with a note)
+detect:
+  files_any: [.dependency-cruiser.js, .dependency-cruiser.cjs, .dependency-cruiser.mjs, .dependency-cruiser.json]
+context:
+  - text: |
+      The project's dependency-cruiser config (`.dependency-cruiser.*`) declares which modules may import which: read its `forbidden` rules before adding an import across folders.

@@ -1,0 +1,18 @@
+id: typescript/yarn/release-age
+description: "Yarn installs only versions published at least 3 days ago (.yarnrc.yml npmMinimalAgeGate, in minutes, 4320 or more, or a duration such as 3d from Yarn 4.11; read by Yarn 4.10 and later, so a packageManager pin below it is reported too); a compromised release is caught before it lands. Packages that must update sooner go in npmPreapprovedPackages. A change is held only to the settings it made missing or weak."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "forge_yarn_cooldown", when_changed: [.yarnrc.yml, package.json]}
+examples:
+  match:
+    - files: {.yarnrc.yml: "nodeLinker: node-modules\n"}
+    - files: {.yarnrc.yml: "npmMinimalAgeGate: 1d\n"}
+    - files: {.yarnrc.yml: "npmMinimalAgeGate: 7d\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"yarn@4.9.4\"}\n"}
+    - head: {.yarnrc.yml: "npmMinimalAgeGate: 4320\n"}
+      files: {.yarnrc.yml: "nodeLinker: node-modules\n"}
+  no_match:
+    - files: {.yarnrc.yml: "nodeLinker: node-modules\nnpmMinimalAgeGate: 3d\n", package.json: "{\"name\": \"shop\", \"packageManager\": \"yarn@4.12.0\"}\n"}
+    - files: {.yarnrc.yml: "npmMinimalAgeGate: 4320\nnpmPreapprovedPackages:\n  - '@acme/*'\n"}
+    # already missing before the change: the project's setup, not the change's
+    - head: {.yarnrc.yml: "nodeLinker: node-modules\n"}
+      files: {.yarnrc.yml: "nodeLinker: node-modules\nenableTelemetry: false\n"}

@@ -1,0 +1,66 @@
+id: typescript/playwright/no-conditional-expect
+description: "Assertions in an end-to-end test run on every path: no expect() only in a catch block, a .catch() callback or one branch of an if (if (await banner.isVisible()) { await expect(…) }), where the test passes without asserting anything. Assert the state the page must be in, or skip by condition with test.skip(condition, reason) where the user agreed to it."
+scope: {language: typescript, files: ["@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      has: {field: function, kind: identifier, regex: "^expect$"}
+      any:
+        # in a catch block whose try neither fails the test (expect.fail, expect.unreachable) nor throws
+        - inside:
+            kind: catch_clause
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            inside:
+              kind: try_statement
+              not:
+                has:
+                  field: body
+                  has:
+                    stopBy: end
+                    any: [{pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]
+        # in the callback of a .catch()
+        - inside:
+            any: [{kind: arrow_function}, {kind: function_expression}]
+            stopBy: end
+            inside:
+              kind: arguments
+              inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: "^catch$"}}
+        # in one branch of an if: the other branch neither asserts nor fails, and no assertion
+        # on the condition comes just before it
+        - inside:
+            kind: if_statement
+            stopBy: {any: [{kind: arrow_function}, {kind: function_expression}, {kind: function_declaration}, {kind: method_definition}]}
+            not:
+              any:
+                - all:
+                    - has:
+                        field: consequence
+                        has: {stopBy: end, any: [{pattern: "expect($$$)"}, {pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]}
+                    - has:
+                        field: alternative
+                        has: {stopBy: end, any: [{pattern: "expect($$$)"}, {pattern: "expect.fail($$$)"}, {pattern: "expect.unreachable($$$)"}, {kind: throw_statement}]}
+                - follows:
+                    kind: expression_statement
+                    has: {stopBy: end, pattern: "expect($$$)"}
+      not:
+        any:
+          # the test counts its assertions
+          - inside:
+              stopBy: end
+              kind: statement_block
+              has: {kind: expression_statement, has: {any: [{pattern: "expect.assertions($$$)"}, {pattern: "expect.hasAssertions()"}]}}
+          - inside:
+              stopBy: end
+              kind: program
+              has: {stopBy: end, pattern: "expect.hasAssertions()"}
+examples:
+  match:
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"closes the banner\", async ({ page }) => {\n  await page.goto(\"/\");\n  if (await page.getByRole(\"dialog\").isVisible()) {\n    await expect(page.getByRole(\"dialog\")).toContainText(\"cookies\");\n  }\n});\n"
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"saves\", async ({ page }) => {\n  try {\n    await page.getByRole(\"button\", { name: \"Save\" }).click();\n  } catch (e) {\n    expect(String(e)).toContain(\"Timeout\");\n  }\n});\n"
+  no_match:
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"shows the title\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page).toHaveTitle(/Shop/);\n});\n"
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"menu\", async ({ page, isMobile }) => {\n  await page.goto(\"/\");\n  if (isMobile) {\n    await expect(page.getByRole(\"button\", { name: \"Menu\" })).toBeVisible();\n  } else {\n    await expect(page.getByRole(\"navigation\")).toBeVisible();\n  }\n});\n"

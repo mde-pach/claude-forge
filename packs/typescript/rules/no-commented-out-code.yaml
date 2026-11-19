@@ -1,0 +1,64 @@
+id: typescript/no-commented-out-code
+description: "No commented-out code: version control keeps old code, and a commented line rots unseen. Delete it, or restore it as live code; explain a choice in words instead."
+scope: {language: typescript}
+enforce:
+  - target: grep
+    mode: advise
+    # a // line whose text is a statement: a declaration, return, await, import/export, a call or assignment ending the line, an if opening a block, or a lone closing brace
+    pattern: '^[[:space:]]*//[[:space:]]*((const|let|var)[[:space:]]+[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*(:[^=]*)?=[^=>]|return([[:space:]].*)?;[[:space:]]*$|await[[:space:]]+[A-Za-z_$][A-Za-z0-9_$.]*\(|import[[:space:]].*[[:space:]]from[[:space:]]+["'']|import[[:space:]]+["'']|export[[:space:]]+(const|function|class|default|\{)|[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*\(.*\);?[[:space:]]*$|[A-Za-z_$][A-Za-z0-9_$.]*[[:space:]]*[-+]?=[^=].*;[[:space:]]*$|if[[:space:]]*\(.*\)[[:space:]]*\{[[:space:]]*$|\}[[:space:]]*(else[[:space:]]*\{)?[[:space:]]*$)'
+examples:
+  match:
+    - |
+      export async function sync(user: User) {
+        // const old = await legacy.fetch(user.id);
+        await api.push(user);
+      }
+    - |
+      export function total(items: Item[]): number {
+        // return items.reduce((sum, i) => sum + i.price, 0);
+        return items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      }
+    - |
+      // import { legacyClient } from "./legacy";
+      import { client } from "./client";
+
+      export const ping = () => client.ping();
+    - |
+      export function start(app: App) {
+        app.listen(3000);
+        // app.use(cors());
+      }
+    - |
+      export function render(state: State) {
+        // if (state.debug) {
+        //   console.log(state);
+        // }
+        return view(state);
+      }
+  no_match:
+    - |
+      /**
+       * Returns the total, including tax.
+       * @example total([{ price: 2, quantity: 3 }]);
+       */
+      export function total(items: Item[]): number {
+        // return early if the cart is empty
+        if (items.length === 0) return 0;
+        return items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      }
+    - |
+      /// <reference types="vite/client" />
+      // eslint-disable-next-line no-console
+      console.info("ready");
+    - |
+      // TODO(maxime): move this to the worker once the queue is ready
+      // See https://example.com/docs/retry(policy) for the backoff policy.
+      // Note: the server rejects requests above 1 MB.
+      export const LIMIT = 1_000_000;
+    - |
+      export const routes = {
+        // biome-ignore lint/style/useNamingConvention: external API
+        user_profile: "/profile",
+        // keep in sync with the server: GET /api/items
+        items: "/items",
+      };

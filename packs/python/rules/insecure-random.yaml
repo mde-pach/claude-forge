@@ -1,0 +1,37 @@
+id: python/insecure-random
+description: "A token, secret, password, nonce, salt or verification code is never made with the random module (random.choice, randint, getrandbits, ...): its generator is predictable from a few outputs. Use secrets (secrets.token_urlsafe(32), secrets.choice(alphabet), secrets.randbelow(10**6))."
+# test data may use random freely
+scope: {language: python, files: ["!@python-tests"]}
+enforce:
+  # not ruff's S311, which flags every random call (shuffles, jitter, sampling)
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      has: {field: function, regex: "(^|\\.)(random|randint|randrange|choice|choices|sample|getrandbits|randbytes)$"}
+      any:
+        - pattern: "$M.$N($$$)"
+        - {pattern: "$F($$$)", has: {field: function, kind: identifier}}
+      # the value assigned to, or passed as, a secret-looking name: directly, or what it builds
+      # (a join, an f-string, a str() of it)
+      inside:
+        stopBy: end
+        any:
+          - {kind: assignment, has: {field: left, regex: "(?i)(^|[._])(token|secret|otp|nonce|salt|password|passwd|passphrase|session_id|session_key|api_key|secret_key|signing_key|private_key|(verification|verify|confirm|confirmation|reset|otp|auth|login|invite|invitation|activation|access|one_time|mfa|2fa)_?code)$"}}
+          - {kind: keyword_argument, has: {field: name, regex: "(?i)(^|_)(token|secret|otp|nonce|salt|password|passwd|passphrase|session_id|session_key|api_key|secret_key|signing_key|private_key|(verification|verify|confirm|confirmation|reset|otp|auth|login|invite|invitation|activation|access|one_time|mfa|2fa)_?code)$"}}
+    # the random module's functions (§15.6), not secrets.choice, a SystemRandom or numpy's Generator
+    where:
+      M: {declared: {module: random, name: random}}
+      F: {declared: {module: random, name: [random, randint, randrange, choice, choices, sample, getrandbits, randbytes]}}
+examples:
+  match:
+    - "import random\nimport string\n\n\ndef new_reset_token() -> str:\n    reset_token = \"\".join(random.choices(string.ascii_letters + string.digits, k=32))\n    return reset_token\n"
+    - "import random\n\n\nclass Invite:\n    def __init__(self, email: str) -> None:\n        self.email = email\n        self.invite_code = f\"{random.randint(0, 999999):06d}\"\n"
+    - "from random import getrandbits\n\n\ndef nonce() -> str:\n    nonce = hex(getrandbits(64))\n    return nonce\n"
+    - "import random as rnd\n\n\ndef send_otp(phone: str, sms) -> None:\n    sms.send(phone, otp=str(rnd.randrange(100000, 1000000)))\n"
+  no_match:
+    - "import secrets\nimport string\n\n\ndef new_reset_token() -> str:\n    reset_token = secrets.token_urlsafe(32)\n    code = \"\".join(secrets.choice(string.digits) for _ in range(6))\n    return reset_token + code\n"
+    - "import random\n\n\ndef pick_server(servers: list[str]) -> str:\n    server = random.choice(servers)\n    delay = random.random() * 0.5\n    return f\"{server}?delay={delay}\"\n"
+    - "import random\n\n\ndef batch(items: list[str]) -> list[str]:\n    token_count = random.randint(1, 10)\n    return items[:token_count]\n"
+    - "import random\nimport string\n\n\ndef new_password() -> str:\n    rng = random.SystemRandom()\n    password = \"\".join(rng.choice(string.ascii_letters) for _ in range(16))\n    return password\n"
+    - "import numpy as np\n\n\ndef salt_noise(n: int) -> list[float]:\n    salt = np.random.default_rng(0).random(n)\n    return list(salt)\n"

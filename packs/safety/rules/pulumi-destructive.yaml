@@ -4,7 +4,11 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: ask
-    pattern: '(^|[^A-Za-z0-9_-])pulumi[[:space:]]+(destroy|stack[[:space:]]+rm|state[[:space:]]+(delete|unprotect)|cancel|(up|refresh)[^;&|]*[[:space:]](--yes|-y|--skip-preview))([[:space:];&|)=]|$)'
+    command:
+      - {name: pulumi, sub: ['destroy|cancel']}
+      - {name: pulumi, sub: [stack, rm]}
+      - {name: pulumi, sub: [state, 'delete|unprotect']}
+      - {name: pulumi, sub: ['up|refresh'], flags_any: [--yes, -y, --skip-preview]}
 examples:
   match: ["pulumi up --yes", "pulumi up -s prod -y", "pulumi up --skip-preview", "pulumi refresh --yes", "pulumi destroy", "pulumi stack rm dev", "pulumi state delete 'urn:pulumi:dev::app::aws:s3/bucket:Bucket::b'", "pulumi state unprotect urn", "pulumi cancel"]
   no_match: ["pulumi preview", "pulumi up", "pulumi refresh", "pulumi stack ls", "pulumi state export", "pulumi up --diff"]

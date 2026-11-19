@@ -1,0 +1,35 @@
+id: typescript/react/no-effect-notify-parent
+description: "An effect whose only job is to call a parent's callback (onChange(value)) runs a render late and can loop. Call the callback in the event handler that changed the value."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(React\\.)?(useEffect|useLayoutEffect)$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any: [{kind: arrow_function}, {kind: function_expression}]
+              has:
+                field: body
+                any:
+                  - matches: notify
+                  - kind: statement_block
+                    all:
+                      - has: {nthChild: 1, kind: expression_statement, has: {matches: notify}}
+                      - not: {has: {nthChild: 2}}
+    utils:
+      notify:
+        kind: call_expression
+        has: {field: function, regex: "^(props\\.)?on[A-Z][A-Za-z0-9]*$"}
+examples:
+  match:
+    - "import { useEffect, useState } from \"react\";\n\nexport function Toggle({ onChange }: { onChange: (on: boolean) => void }) {\n  const [on, setOn] = useState(false);\n  useEffect(() => {\n    onChange(on);\n  }, [on, onChange]);\n  return <button type=\"button\" onClick={() => setOn(!on)}>{on ? \"on\" : \"off\"}</button>;\n}\n"
+    - "import { useEffect, useState } from \"react\";\n\nexport function Search(props: { onQueryChange?: (q: string) => void }) {\n  const [q, setQ] = useState(\"\");\n  useEffect(() => props.onQueryChange?.(q), [q, props.onQueryChange]);\n  return <input value={q} onChange={(e) => setQ(e.target.value)} />;\n}\n"
+  no_match:
+    - "import { useState } from \"react\";\n\nexport function Toggle({ onChange }: { onChange: (on: boolean) => void }) {\n  const [on, setOn] = useState(false);\n  function toggle() {\n    setOn(!on);\n    onChange(!on);\n  }\n  return <button type=\"button\" onClick={toggle}>{on ? \"on\" : \"off\"}</button>;\n}\n"
+    - "import { useEffect } from \"react\";\n\nexport function Modal({ onClose }: { onClose: () => void }) {\n  useEffect(() => {\n    const onKey = (e: KeyboardEvent) => {\n      if (e.key === \"Escape\") onClose();\n    };\n    window.addEventListener(\"keydown\", onKey);\n    return () => window.removeEventListener(\"keydown\", onKey);\n  }, [onClose]);\n  return <dialog open />;\n}\n"
+    - "import { useEffect } from \"react\";\n\nexport function Tracker({ page }: { page: string }) {\n  useEffect(() => {\n    trackView(page);\n  }, [page]);\n  return null;\n}\n\ndeclare function trackView(page: string): void;\n"

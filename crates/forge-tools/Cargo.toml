@@ -1,0 +1,22 @@
+[package]
+name = "forge-tools"
+description = "Provisioning: uv, the Forge-pinned tools and Forge's own releases, downloaded into the cache and checked against their sha256."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+flate2.workspace = true
+forge-core.workspace = true
+forge-home.workspace = true
+forge-launcher.workspace = true
+libc.workspace = true
+sha2.workspace = true
+tar.workspace = true
+ureq.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,42 @@
+id: typescript/stripe/webhook-verify-signature
+description: "A Stripe event is not taken from the parsed request body (await req.json(), req.body or JSON.parse(…) typed as Stripe.Event): anyone can post a forged event to the endpoint. Read the raw body and verify it with stripe.webhooks.constructEvent / constructEventAsync and the endpoint's signing secret."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    utils:
+      # what a request handler gets unverified: the parsed body
+      parsed-body:
+        any:
+          - kind: await_expression
+            has: {kind: call_expression, all: [{has: {field: function, kind: member_expression, has: {field: property, regex: "^json$"}}}, {has: {field: arguments, regex: "^\\(\\s*\\)$"}}]}
+          - kind: member_expression
+            has: {field: property, regex: "^body$"}
+          - kind: call_expression
+            has: {field: function, regex: "^JSON\\.parse$"}
+      unwrapped-body:
+        any:
+          - matches: parsed-body
+          - {kind: parenthesized_expression, has: {matches: parsed-body}}
+      # Stripe.Event, or one of its event interfaces (Stripe.CheckoutSessionCompletedEvent)
+      stripe-event-type:
+        regex: "^Stripe\\.([A-Za-z]+)?Event$"
+    rule:
+      any:
+        - kind: as_expression
+          all:
+            - has: {nthChild: 1, matches: unwrapped-body}
+            - has: {nthChild: 2, matches: stripe-event-type}
+        - kind: variable_declarator
+          all:
+            - has: {field: type, kind: type_annotation, has: {matches: stripe-event-type}}
+            - has: {field: value, matches: unwrapped-body}
+examples:
+  match:
+    - "import type Stripe from \"stripe\";\n\nexport async function POST(req: Request) {\n  const event = (await req.json()) as Stripe.Event;\n  if (event.type === \"checkout.session.completed\") {\n    console.log(event.data.object.id);\n  }\n  return new Response(null, { status: 200 });\n}\n"
+    - "import type Stripe from \"stripe\";\nimport type { Request, Response } from \"express\";\n\nexport function webhook(req: Request, res: Response) {\n  const event: Stripe.Event = req.body;\n  res.json({ received: event.type });\n}\n"
+    - "import type Stripe from \"stripe\";\n\nexport async function POST(req: Request) {\n  const event = JSON.parse(await req.text()) as Stripe.CheckoutSessionCompletedEvent;\n  return Response.json({ id: event.data.object.id });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const body = await req.text();\n  const event: Stripe.Event = await stripe.webhooks.constructEventAsync(body, req.headers.get(\"stripe-signature\") ?? \"\", \"whsec\");\n  return Response.json({ type: event.type });\n}\n"
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function POST(req: Request) {\n  const { id } = (await req.json()) as { id: string };\n  const event = await stripe.events.retrieve(id);\n  return Response.json({ type: event.type });\n}\n"
+    - "type AppEvent = { type: string };\n\nexport async function POST(req: Request) {\n  const event = (await req.json()) as AppEvent;\n  return Response.json({ type: event.type });\n}\n"

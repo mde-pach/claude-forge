@@ -1,0 +1,48 @@
+id: python/fastapi/no-httpexception-in-services
+description: "Service, repository and domain modules do not raise FastAPI's HTTPException: they then depend on HTTP and cannot be reused from a worker, a CLI or a test without it. Raise a domain exception (OrderNotFound) and map it to a status code in the route or an app.exception_handler."
+scope: {language: python, files: ["**/services/**", "**/service/**", "**/repositories/**", "**/repository/**", "**/domain/**", "**/*_service.py", "**/services.py", "**/repository.py", "**/*_repository.py", "**/repositories.py"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: raise_statement
+      has: {kind: call, has: {field: function, pattern: $F}}
+    # FastAPI's HTTPException derives from Starlette's; the name is asked, not guessed
+    where:
+      F: {declared: {package: [fastapi, starlette], name: HTTPException}}
+examples:
+  deps: [{ecosystem: pypi, name: fastapi, version: "0.162.0"}, {ecosystem: pypi, name: httpx, version: "0.28.1"}]
+  match:
+    - |
+      from fastapi import HTTPException
+
+
+      def find_order(orders: dict[int, str], order_id: int) -> str:
+          if order_id not in orders:
+              raise HTTPException(status_code=404, detail="Order not found")
+          return orders[order_id]
+    - |
+      import fastapi
+
+
+      def check_stock(stock: int, wanted: int) -> None:
+          if wanted > stock:
+              raise fastapi.HTTPException(409, "Out of stock")
+  no_match:
+    - |
+      class OrderNotFoundError(Exception):
+          pass
+
+
+      def find_order(orders: dict[int, str], order_id: int) -> str:
+          if order_id not in orders:
+              raise OrderNotFoundError(order_id)
+          return orders[order_id]
+    - |
+      class HTTPException(Exception):
+          def __init__(self, status_code: int) -> None:
+              self.status_code = status_code
+
+
+      def fail() -> None:
+          raise HTTPException(500)

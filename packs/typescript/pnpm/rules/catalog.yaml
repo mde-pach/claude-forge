@@ -1,5 +1,5 @@
 id: typescript/pnpm/catalog
-description: "Advice: a dependency added or changed in a package.json whose name is in the pnpm catalog (catalog or catalogs in pnpm-workspace.yaml) uses catalog: (or catalog:<name>), so every package gets the same version; not reported when catalogMode is strict (pnpm enforces it)."
+description: "A dependency added or changed in a package.json whose name is in the pnpm catalog (catalog or catalogs in pnpm-workspace.yaml) uses catalog: (or catalog:<name>), so every package gets the same version; not reported when catalogMode is strict (pnpm enforces it)."
 scope: {language: any, files: ["**/package.json"]}
 enforce:
   - {target: check, stage: lint, run: "forge_advise forge_helper bun pm_policy.mjs pnpm-catalog", when_changed: ["**/package.json"]}

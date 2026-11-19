@@ -1,5 +1,5 @@
 id: python/sqlalchemy/fk-index
-description: "Advice, once per turn at Stop: a foreign key column the turn adds to a model or Table() gets an index that leads with it (index=True, unique=True, the first primary key column, or an Index / UniqueConstraint / PrimaryKeyConstraint whose first column it is). PostgreSQL and SQLite do not index referencing columns, and PostgreSQL's documentation calls such an index often a good idea (joins, deletes of the referenced rows), not a requirement. Skipped when the database URL is MySQL or MariaDB, which index foreign keys themselves."
+description: "A foreign key column the turn adds to a model or Table() gets an index that leads with it (index=True, unique=True, the first primary key column, or an Index / UniqueConstraint / PrimaryKeyConstraint whose first column it is). PostgreSQL and SQLite do not index referencing columns, and PostgreSQL's documentation calls such an index often a good idea (joins, deletes of the referenced rows), not a requirement. Skipped when the database URL is MySQL or MariaDB, which index foreign keys themselves."
 scope: {language: python}
 enforce:
   - target: check

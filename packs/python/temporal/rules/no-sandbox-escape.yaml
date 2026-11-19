@@ -1,5 +1,5 @@
 id: python/temporal/no-sandbox-escape
-description: The workflow sandbox stays on. No @workflow.defn(sandboxed=False), UnsandboxedWorkflowRunner() or workflow.unsafe.sandbox_unrestricted(); escaping it is the user's decision (ask, and a local rule turns this off for that file).
+description: "The workflow sandbox stays on. No @workflow.defn(sandboxed=False), UnsandboxedWorkflowRunner() or workflow.unsafe.sandbox_unrestricted(); escaping it is the user's decision: ask them first."
 scope: {language: python}
 enforce:
   - target: ast-grep

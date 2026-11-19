@@ -1,0 +1,17 @@
+id: typescript/await-thenable
+description: "await is only applied to a promise (or another thenable): awaiting a plain value usually means the called API is not what the code assumes."
+scope: {language: typescript}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/nursery/useAwaitThenable
+    snippet: '"linter": {"rules": {"nursery": {"useAwaitThenable": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@typescript-eslint/await-thenable"
+    snippet: '"rules": {"@typescript-eslint/await-thenable": "error"}'
+examples:
+  match:
+    - "function total(items: number[]): number {\n  return items.reduce((a, b) => a + b, 0);\n}\n\nexport async function report(items: number[]): Promise<string> {\n  const sum = await total(items);\n  return `${sum}`;\n}\n"
+  no_match:
+    - "async function total(items: number[]): Promise<number> {\n  return items.reduce((a, b) => a + b, 0);\n}\n\nexport async function report(items: number[]): Promise<string> {\n  const sum = await total(items);\n  return `${sum}`;\n}\n"

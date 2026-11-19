@@ -1,0 +1,37 @@
+id: typescript/nextjs/route-handler-validate
+description: "A route handler's request.json() or request.formData() is client input of any shape, and this handler parses nothing. Validate it with a schema before use (Schema.safeParse(await request.json()), parse, parseAsync, valibot's parse(Schema, …)), then use the parsed value."
+scope: {language: typescript, files: ["app/**/route.*", "src/app/**/route.*"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^(json|formData)$"}
+              - has: {field: object, kind: identifier, pattern: $R}
+        # the handler's request parameter, in a handler that parses nothing
+        - inside:
+            stopBy: end
+            any: [{kind: function_declaration}, {kind: arrow_function}, {kind: function_expression}]
+            all:
+              - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, pattern: $R}}}
+              - not: {has: {field: body, has: {stopBy: end, kind: call_expression, has: {field: function, matches: schema-parse}}}}
+    utils:
+      schema-parse:
+        any:
+          - kind: member_expression
+            has: {field: property, regex: "^(parse|safeParse|parseAsync|safeParseAsync|spa|validate|validateSync|assert|decode|decodeUnknown[A-Za-z]*)$"}
+            not: {has: {field: object, regex: "^(JSON|Date|Number|URL|path|qs|querystring)$"}}
+          - {kind: identifier, regex: "^(parse|safeParse|parseAsync|safeParseAsync|parseWith[A-Za-z]+|validate[A-Z][A-Za-z]*)$"}
+examples:
+  match:
+    - "import { prisma } from \"@/lib/prisma\";\n\nexport async function POST(request: Request) {\n  const body = await request.json();\n  const post = await prisma.post.create({ data: { title: body.title } });\n  return Response.json({ id: post.id });\n}\n"
+    - "import type { NextRequest } from \"next/server\";\n\nexport const PUT = async (req: NextRequest) => {\n  const form = await req.formData();\n  await save(form.get(\"name\"));\n  return new Response(null, { status: 204 });\n};\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nconst Post = z.object({ title: z.string().min(1) });\n\nexport async function POST(request: Request) {\n  const parsed = Post.safeParse(await request.json());\n  if (!parsed.success) return Response.json(parsed.error.flatten(), { status: 400 });\n  return Response.json(parsed.data);\n}\n"
+    - "export async function POST(request: Request) {\n  const res = await fetch(\"https://api.example.com\", { method: \"POST\" });\n  const data = await res.json();\n  return Response.json({ url: request.url, data });\n}\n"
+    - "export async function POST(request: Request) {\n  const raw = await request.json();\n  const input = CreateTodo.parse(raw);\n  return Response.json(input);\n}\n"

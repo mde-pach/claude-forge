@@ -1,0 +1,30 @@
+id: python/no-float-amount
+description: "A model field holding an amount, total, balance, cost or tax is a Decimal when it is money (total: Decimal; Numeric(10, 2) / DecimalField in the database), not a float: binary floats cannot hold 0.10 exactly, so sums and roundings drift by cents. A float is right only when the value is not money (a total duration, a cost function's value)."
+scope: {language: python}
+enforce:
+  # advise: a total or cost may count something else (python/no-float-money forbids the names
+  # that are always money)
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: assignment
+      has: {field: left, kind: identifier, regex: "^(amount|total|balance|cost|tax|[[:alnum:]_]+_(amount|total|balance|cost|tax))$"}
+      not: {has: {field: left, regex: "(count|weight|time|duration|seconds|ms|distance|size|bytes|tokens|items|pages|score|percent|pct|rate|ratio)_"}}
+      any:
+        - has: {field: type, regex: "^(float|float[[:space:]]*\\|[[:space:]]*None|None[[:space:]]*\\|[[:space:]]*float|Optional\\[float\\]|Annotated\\[float,.*|Mapped\\[(float|Optional\\[float\\]|float[[:space:]]*\\|[[:space:]]*None)\\])$"}
+        - has: {field: right, kind: call, regex: "^([[:alnum:]_]+\\.)?(Column|mapped_column)\\(([[:alnum:]_]+\\.)?(Float|Double|DOUBLE|REAL|DOUBLE_PRECISION)\\b"}
+        - has: {field: right, kind: call, regex: "^([[:alnum:]_]+\\.)?FloatField\\("}
+      inside:
+        kind: expression_statement
+        stopBy: neighbor
+        inside: {kind: block, stopBy: neighbor, inside: {kind: class_definition, stopBy: neighbor}}
+examples:
+  match:
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Invoice:\n    number: str\n    total: float\n    tax: float | None = None\n"
+    - "from pydantic import BaseModel\n\n\nclass Account(BaseModel):\n    id: int\n    balance: float = 0.0\n"
+    - "import sqlalchemy as sa\nfrom sqlalchemy.orm import declarative_base\n\nBase = declarative_base()\n\n\nclass Refund(Base):\n    __tablename__ = \"refunds\"\n    id = sa.Column(sa.Integer, primary_key=True)\n    refund_amount = sa.Column(sa.Float)\n"
+  no_match:
+    - "from decimal import Decimal\n\nfrom pydantic import BaseModel\n\n\nclass LineItem(BaseModel):\n    sku: str\n    quantity: int\n    unit_price: Decimal\n    total: Decimal\n"
+    - "from decimal import Decimal\n\nfrom sqlalchemy import Float, Numeric\nfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nclass Product(Base):\n    __tablename__ = \"products\"\n    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))\n    weight: Mapped[float] = mapped_column(Float)\n"
+    - "from dataclasses import dataclass\n\n\n@dataclass\nclass Run:\n    total_time: float\n    loss: float\n    tokens_total: int\n    price_ratio: float\n"
+    - "def charge(price: float) -> float:\n    total: float = price * 1.2\n    return total\n"

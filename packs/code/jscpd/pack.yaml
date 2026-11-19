@@ -1,0 +1,8 @@
+id: code/jscpd
+description: The project's own jscpd (duplicated blocks), as its config sets it up.
+level: project
+# the project set jscpd up: its config (jscpd is run as the project installs it; not
+# installed, the check is skipped with a note)
+detect:
+  files_any: [.jscpd.json]
+  content_any: [{files: [package.json], pattern: "^\\s*\"jscpd\"\\s*:\\s*\\{"}]

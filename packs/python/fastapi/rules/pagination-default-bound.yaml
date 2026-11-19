@@ -1,0 +1,55 @@
+id: python/fastapi/pagination-default-bound
+description: "A route's page-size parameter declared as a bare int (limit: int = 100, page_size: int | None = None) has no upper bound, so a client can ask for every row at once. Declare it Annotated[int, Query(ge=1, le=100)] = 100, which also documents the bound in the OpenAPI schema; a handler that clamps the value itself may keep it."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: typed_default_parameter
+      regex: "^(limit|page_size|pagesize|per_page|perpage|size|max_results)[[:space:]]*:[[:space:]]*(int|int[[:space:]]*\\|[[:space:]]*None|Optional\\[int\\])[[:space:]]*=[[:space:]]*([0-9_]+|None)$"
+      inside:
+        kind: parameters
+        inside:
+          kind: function_definition
+          inside:
+            kind: decorated_definition
+            has: {kind: decorator, regex: "^@[A-Za-z_][A-Za-z0-9_.]*\\.(get|post|put|patch|delete|api_route)\\("}
+examples:
+  match:
+    - |
+      from fastapi import FastAPI
+
+      app = FastAPI()
+
+
+      @app.get("/orders")
+      def orders(skip: int = 0, limit: int = 100) -> list[int]:
+          return list(range(skip, skip + limit))
+    - |
+      from fastapi import APIRouter
+
+      router = APIRouter()
+
+
+      @router.get("/users")
+      async def users(page: int = 1, per_page: int | None = None) -> list[int]:
+          return [page] * (per_page or 10)
+  no_match:
+    - |
+      from typing import Annotated
+
+      from fastapi import FastAPI, Query
+
+      app = FastAPI()
+
+
+      @app.get("/orders")
+      def orders(skip: int = 0, limit: Annotated[int, Query(ge=1, le=100)] = 100) -> list[int]:
+          return list(range(skip, skip + limit))
+    - |
+      from functools import lru_cache
+
+
+      @lru_cache
+      def chunk_count(total: int, size: int = 100) -> int:
+          return -(-total // size)

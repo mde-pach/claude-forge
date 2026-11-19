@@ -1,5 +1,5 @@
 id: typescript/vue/no-v-html
-description: No v-html or :innerHTML in .vue files; they render unescaped HTML (XSS). Render text with {{ }}, or sanitise in one component the user owns.
+description: "No v-html or :innerHTML in .vue files; they render unescaped HTML (XSS). Render text with {{ }}, or sanitise in one dedicated component."
 scope: {language: any, files: ["**/*.vue"]}
 enforce:
   - {target: grep, mode: forbid, pattern: "(^|[[:space:]])(v-html|:innerHTML|v-bind:innerHTML)[[:space:]]*="}

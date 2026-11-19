@@ -4,13 +4,14 @@ scope: {language: any}
 enforce:
   - target: guard
     decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])(npm|pnpm|yarn)[[:space:]]+config[[:space:]]+set[[:space:]]+strict-ssl[[:space:]=]+false'
-  - target: guard
-    decision: deny
-    pattern: '--strict-ssl[= ]false|NODE_TLS_REJECT_UNAUTHORIZED=\\?["'']?0|PYTHONHTTPSVERIFY=\\?["'']?0|GIT_SSL_NO_VERIFY=|PIP_TRUSTED_HOST=|UV_INSECURE_HOST=|--allow-insecure-host|--trusted-host'
-  - target: guard
-    decision: deny
-    pattern: '(^|[^A-Za-z0-9_-])git[[:space:]]+(-c[[:space:]]+http\.sslVerify=false|config[[:space:]]+([^;&|]*[[:space:]])?http\.sslVerify[[:space:]]+false)'
+    command:
+      - {name: [npm, pnpm, yarn], sub: [config, set, strict-ssl, 'false']}
+      - {name: [npm, pnpm, yarn], sub: [config, set, 'strict-ssl=false']}
+      - {flags_any: ['--strict-ssl=false', --allow-insecure-host, --trusted-host], value_flags: [--strict-ssl]}
+      - {env_any: [GIT_SSL_NO_VERIFY, PIP_TRUSTED_HOST, UV_INSECURE_HOST, 'NODE_TLS_REJECT_UNAUTHORIZED=0', 'PYTHONHTTPSVERIFY=0']}
+      - {name: git, option_values: {'-c': '(?i)^http\.sslverify=(false|0|no|off)$'}}
+      - {name: git, sub: [config, '/(?i)^http\.sslverify$/', '/(?i)^(false|0|no|off)$/']}
+      - {name: git, sub: [config, set, '/(?i)^http\.sslverify$/', '/(?i)^(false|0|no|off)$/']}
 examples:
   match:
     - "npm config set strict-ssl false"

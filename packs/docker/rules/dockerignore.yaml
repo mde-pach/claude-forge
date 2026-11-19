@@ -7,6 +7,8 @@ examples:
   match:
     - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n"}
     - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n", .dockerignore: ".git\nnode_modules\n"}
+    - head: {Dockerfile: "FROM python:3.13-slim\nUSER app\n", .dockerignore: ".git\n.env*\n"}
+      files: {.dockerignore: ".git\n"}
   no_match:
     - files: {Dockerfile: "FROM python:3.13-slim\nUSER app\n", .dockerignore: ".git\n**/.env*\n"}
     - files: {api/Dockerfile: "FROM python:3.13-slim\nUSER app\n", api/Dockerfile.dockerignore: "*\n!app\n"}

@@ -1,0 +1,24 @@
+[package]
+name = "forge-builtins-code"
+description = "The builtins of the code packs: JavaScript packages, supply chain, repository hygiene and secrets, AI model ids, stale snapshots."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-check.workspace = true
+forge-home.workspace = true
+forge-packs.workspace = true
+forge-tools.workspace = true
+ast-grep-core.workspace = true
+ast-grep-language = { workspace = true, features = ["tree-sitter-typescript"] }
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+toml.workspace = true
+
+[dev-dependencies]

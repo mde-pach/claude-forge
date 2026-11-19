@@ -1,0 +1,19 @@
+id: typescript/nextjs/error-boundary-client
+description: "error.tsx and global-error.tsx are Client Components: the file starts with 'use client' (error boundaries need client state; without it the build fails). Add 'use client' as the first line."
+scope: {language: typescript, files: ["app/**/error.*", "src/app/**/error.*", "app/global-error.*", "src/app/global-error.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: export_statement
+      regex: "^export\\s+default\\s"
+      inside:
+        kind: program
+        stopBy: end
+        not: {has: {kind: expression_statement, nthChild: 1, regex: "^[\"']use client[\"'];?$"}}
+examples:
+  match:
+    - "export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {\n  return (\n    <div>\n      <p>{error.message}</p>\n      <button onClick={() => reset()}>Try again</button>\n    </div>\n  );\n}\n"
+  no_match:
+    - "'use client';\n\nexport default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {\n  return <button onClick={() => reset()}>{error.message}</button>;\n}\n"
+    - "\"use client\"\n\nexport default function GlobalError({ reset }: { reset: () => void }) {\n  return (\n    <html>\n      <body>\n        <button onClick={() => reset()}>Try again</button>\n      </body>\n    </html>\n  );\n}\n"

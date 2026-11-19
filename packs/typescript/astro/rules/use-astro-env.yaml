@@ -1,0 +1,20 @@
+id: typescript/astro/use-astro-env
+description: "Astro 5 reads environment variables through astro:env: declare each one in env.schema in astro.config with envField, then import it from astro:env/server (or astro:env/client), so it is typed and validated at startup, instead of reading import.meta.env."
+scope: {language: typescript, files: ["src/**", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: member_expression
+      has: {field: object, pattern: "import.meta.env"}
+      # Astro's built-in values stay on import.meta.env
+      not: {regex: "^import\\.meta\\.env\\.(MODE|DEV|PROD|SSR|SITE|BASE_URL|ASSETS_PREFIX)$"}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - "import Stripe from \"stripe\";\n\nexport const stripe = new Stripe(import.meta.env.STRIPE_SECRET_KEY);\n"
+    - "import type { APIRoute } from \"astro\";\n\nexport const GET: APIRoute = () => new Response(import.meta.env.PUBLIC_API_URL);\n"
+  no_match:
+    - "import Stripe from \"stripe\";\nimport { STRIPE_SECRET_KEY } from \"astro:env/server\";\n\nexport const stripe = new Stripe(STRIPE_SECRET_KEY);\n"
+    - "export const debug = import.meta.env.DEV && !import.meta.env.SSR;\nexport const base = import.meta.env.BASE_URL;\n"

@@ -1,0 +1,27 @@
+id: typescript/bun/no-matcher-override
+description: "expect.extend in a file that imports from bun:test does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name."
+scope: {language: typescript, files: ["**/*.test.*", "**/*_test.*", "**/*.spec.*", "**/*_spec.*", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, regex: "^[\"'](bun:test)[\"']$"}}}
+      all:
+        # bun:test's expect
+        - has: {field: function, kind: member_expression, regex: "^expect\\.extend$"}
+        - has:
+            field: arguments
+            has:
+              kind: object
+              has:
+                any:
+                  - {kind: pair, has: {field: key, regex: "^[\"']?(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)[\"']?$"}}
+                  - {kind: method_definition, has: {field: name, regex: "^[\"']?(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)[\"']?$"}}
+                  - {kind: shorthand_property_identifier, regex: "^(toBe|toBeCalled|toBeCalledTimes|toBeCalledWith|toBeCloseTo|toBeDefined|toBeFalsy|toBeGreaterThan|toBeGreaterThanOrEqual|toBeInstanceOf|toBeLessThan|toBeLessThanOrEqual|toBeNaN|toBeNull|toBeNullable|toBeOneOf|toBeTruthy|toBeTypeOf|toBeUndefined|toContain|toContainEqual|toEqual|toHaveBeenCalled|toHaveBeenCalledAfter|toHaveBeenCalledBefore|toHaveBeenCalledExactlyOnceWith|toHaveBeenCalledOnce|toHaveBeenCalledTimes|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveLastResolvedWith|toHaveLastReturnedWith|toHaveLength|toHaveNthResolvedWith|toHaveNthReturnedWith|toHaveProperty|toHaveResolved|toHaveResolvedTimes|toHaveResolvedWith|toHaveReturned|toHaveReturnedTimes|toHaveReturnedWith|toMatch|toMatchObject|toReturn|toReturnTimes|toReturnWith|toSatisfy|toStrictEqual|toThrow|toThrowError|toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toThrowErrorMatchingSnapshot|toThrowErrorMatchingInlineSnapshot)$"}
+examples:
+  match:
+    - "import { expect } from \"bun:test\";\n\nexpect.extend({\n  toEqual() {\n    return { pass: true, message: () => \"\" };\n  },\n});\n"
+  no_match:
+    - "import { expect } from \"bun:test\";\n\nexpect.extend({\n  toBeWithinRange(received: number, floor: number, ceiling: number) {\n    const pass = received >= floor && received <= ceiling;\n    return { pass, message: () => \"out of range\" };\n  },\n});\n"
+    - "import { expect } from \"vitest\";\n\nexpect.extend({ toEqual: () => ({ pass: true, message: () => \"\" }) });\n"

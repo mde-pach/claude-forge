@@ -1,0 +1,116 @@
+id: typescript/node/ssrf-user-url
+description: "A server-side request (fetch, axios, got, ky, http.request) does not go to a URL taken from the request (query, body, params, form data) unless the host is checked first: otherwise a caller can reach internal services and cloud metadata. Parse it with new URL() and compare its hostname or origin to an allowlist before the call."
+scope: {language: typescript, files: ["**/*", "!@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    utils:
+      request-input:
+        any:
+          - {kind: member_expression, regex: "^(req|request)\\.(query|body|params)\\b"}
+          - {kind: call_expression, has: {field: function, regex: "\\b(searchParams|formData|form)\\.get$"}}
+          - {kind: call_expression, regex: "^c\\.req\\.(query|param)\\("}
+          - {kind: await_expression, regex: "^await\\s+(req|request)\\.(json|formData)\\(\\)"}
+      # an expression whose value is the caller's URL, not a fixed host with a caller's path segment
+      raw-user-url:
+        any:
+          - matches: request-input
+          - {kind: as_expression, has: {matches: request-input}}
+          - {kind: non_null_expression, has: {matches: request-input}}
+          - {kind: template_string, regex: "^`\\$\\{", has: {kind: template_substitution, nthChild: 1, has: {matches: request-input}}}
+          - kind: binary_expression
+            all:
+              - has: {field: operator, regex: "^(\\?\\?|\\|\\|)$"}
+              - has: {field: left, matches: request-input}
+      user-url:
+        any:
+          - matches: raw-user-url
+          - {kind: new_expression, regex: "^new\\s+URL\\(", has: {field: arguments, has: {nthChild: 1, matches: raw-user-url}}}
+      sink:
+        kind: call_expression
+        has: {field: function, regex: "^(fetch|axios|axios\\.(get|post|put|patch|delete|head|request)|got|got\\.(get|post|put|patch|delete)|ky|ky\\.(get|post|put|patch|delete)|https?\\.(request|get))$"}
+      function:
+        any: [{kind: function_declaration}, {kind: function_expression}, {kind: arrow_function}, {kind: method_definition}]
+    rule:
+      matches: sink
+      has:
+        field: arguments
+        has:
+          nthChild: 1
+          any:
+            - matches: user-url
+            # a variable of this function holding the caller's URL (const target = req.query.url, const { url } = req.body)
+            - all:
+                - any: [{kind: identifier, pattern: $ID}, {kind: new_expression, regex: "^new\\s+URL\\(", has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ID}}}]
+                - inside:
+                    stopBy: end
+                    matches: function
+                    has:
+                      stopBy: end
+                      kind: variable_declarator
+                      all:
+                        - has: {field: name, any: [{pattern: $ID}, {has: {stopBy: end, pattern: $ID}}]}
+                        - has: {field: value, matches: user-url}
+      # the function checks the host (url.hostname, an allowlist) somewhere
+      not:
+        inside:
+          stopBy: end
+          matches: function
+          has:
+            stopBy: end
+            any:
+              - {kind: property_identifier, regex: "^(hostname|host|origin)$"}
+              - {kind: identifier, regex: "(?i)allow"}
+examples:
+  match:
+    - |
+      import type { Request, Response } from "express";
+
+      export async function preview(req: Request, res: Response) {
+        const target = req.query.url as string;
+        const page = await fetch(target);
+        res.send(await page.text());
+      }
+    - |
+      import axios from "axios";
+
+      export async function POST(request: Request) {
+        const { webhookUrl } = await request.json();
+        await axios.post(webhookUrl, { ok: true });
+        return Response.json({ sent: true });
+      }
+    - |
+      import type { NextRequest } from "next/server";
+
+      export async function GET(request: NextRequest) {
+        const image = await fetch(request.nextUrl.searchParams.get("src")!);
+        return new Response(image.body);
+      }
+    - |
+      import type { Context } from "hono";
+
+      export const proxy = async (c: Context) => fetch(new URL(c.req.query("url") ?? ""));
+  no_match:
+    - |
+      import type { Request, Response } from "express";
+
+      const ALLOWED_HOSTS = new Set(["images.example.com"]);
+
+      export async function preview(req: Request, res: Response) {
+        const target = new URL(req.query.url as string);
+        if (!ALLOWED_HOSTS.has(target.hostname)) return res.status(400).end();
+        const page = await fetch(target);
+        res.send(await page.text());
+      }
+    - |
+      import type { Request, Response } from "express";
+
+      export async function user(req: Request, res: Response) {
+        const upstream = await fetch(`https://api.example.com/users/${req.params.id}`);
+        res.json(await upstream.json());
+      }
+    - |
+      export async function GET(request: Request) {
+        const res = await fetch(process.env.UPSTREAM_URL!, { headers: { cookie: request.headers.get("cookie") ?? "" } });
+        return new Response(res.body);
+      }

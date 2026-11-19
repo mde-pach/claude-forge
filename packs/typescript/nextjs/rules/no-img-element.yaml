@@ -1,0 +1,17 @@
+id: typescript/nextjs/no-img-element
+description: "No <img> in a Next.js app: use next/image, which sizes, lazy-loads and optimises the image (LCP and layout shift)."
+scope: {language: tsx}
+enforce:
+  - target: tool
+    tool: biome
+    expects: lint/performance/noImgElement
+    snippet: '"linter": {"rules": {"performance": {"noImgElement": "error"}}}'
+  - target: tool
+    tool: eslint
+    expects: "@next/next/no-img-element"
+    snippet: '"rules": {"@next/next/no-img-element": "error"}'
+examples:
+  match:
+    - "export function Hero() {\n  return <img src=\"/hero.png\" alt=\"Red sneakers\" width={800} height={600} />;\n}\n"
+  no_match:
+    - "import Image from \"next/image\";\n\nexport function Hero() {\n  return <Image src=\"/hero.png\" alt=\"Red sneakers\" width={800} height={600} />;\n}\n"
