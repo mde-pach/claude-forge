@@ -1,97 +1,227 @@
 id: spec-answer
-description: The spec step. A solver covers the request and the project, works conflicts through on the data, and derives each requested result (running code to measure, in a read-only sandbox); an independent verifier rebuilds the data inventory, quotes the request, and settles each result, conflict and unclear item only when the request's words decide; everything else stays open for the coding agent.
-on: first-prompt
-inputs: [request]
+description: The spec step. A solve step reads the request and the project, takes stock of every input, and decides each point the request leaves to reading, computing on the project's own data (in a read-only sandbox); a checking step recomputes each computed item by two independent methods, changes an interpretation only on concrete contradicting evidence, and leaves open only what solve left open and the evidence cannot separate.
+'on': first-prompt
+inputs:
+- request
 steps:
   solve:
+    tools:
+    - Read
+    - Grep
+    - Glob
+    - Bash
     max_turns: 120
-    output_schema: {"type": "object", "additionalProperties": false, "required": ["coverage", "conflicts", "results", "must_hold", "must_stay_unchanged"], "properties": {"coverage": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "role", "used_by_code", "status"], "properties": {"item": {"type": "string"}, "role": {"type": "string"}, "used_by_code": {"type": "boolean"}, "status": {"type": "string", "enum": ["clear", "unclear"]}}}}, "conflicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["case", "requirements", "resolutions"], "properties": {"case": {"type": "string"}, "requirements": {"type": "string"}, "resolutions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["resolution", "gives"], "properties": {"resolution": {"type": "string"}, "gives": {"type": "string"}}}}}}}, "results": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "derivation", "value", "alternatives"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "derivation": {"type": "string"}, "value": {"type": "string"}, "alternatives": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["derivation", "value"], "properties": {"derivation": {"type": "string"}, "value": {"type": "string"}}}}}}}, "must_hold": {"type": "array", "items": {"type": "string"}}, "must_stay_unchanged": {"type": "array", "items": {"type": "string"}}}}
-    prompt: |
-      You prepare the work of a coding agent that will change this project to satisfy the request below. First solve the request yourself, as an expert in its field would. You can read the project, search and navigate its code, and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - evidence
+      - decisions
+      - must_hold
+      properties:
+        evidence:
+          type: array
+          items:
+            type: string
+        decisions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - item
+            - readings
+            - chosen
+            properties:
+              item:
+                type: string
+              readings:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - reading
+                  - value
+                  - uses
+                  - contradicts
+                  properties:
+                    reading:
+                      type: string
+                    value:
+                      type: string
+                    uses:
+                      type: string
+                    contradicts:
+                      type: string
+              chosen:
+                type: string
+        must_hold:
+          type: array
+          items:
+            type: string
+    prompt: |-
+      You are preparing a change before anyone writes code. You will read a software project and a person's request, and decide what the change must do. Your answer goes first to a second agent, who checks it by re-running your evidence, and then to a coding agent, who implements what must hold exactly as written and settles any point you leave open by its own judgement. You do not write the fix yourself.
+
+      You can read the project with Read, Grep and Glob, and run commands with Bash: the project's own program, or short scripts of your own. The project's files are read-only to you; put any script you write in $TMPDIR.
+
+      The output format is simple. The hard part is reaching conclusions that hold, and that depends on how you work. Work this way:
+
+      Let reality decide. When a question can be settled by running something on the project's material, run it instead of arguing about it, because the checking agent will run it too. When the project or its environment offers a way to measure a value (its program, a tool the request names, a service the project calls), measure it now, one factor at a time: a value left "to be found while coding" is a value the coding agent will guess. Test each reading against something real (the program, its tests); argue from the code only when nothing can be run. What a named definition implies (a sign, a direction) is found by changing the quantity it depends on and watching the result, not by analogy with a similar-sounding term. Reproduce a reported problem in each form the request's words describe, with the inputs the code ignores exercised too: a fix chosen on the narrowest case covers only that case. Write "unknown" only once every available way to find out has been used.
+
+      Treat what you are given as there for a reason, because whatever you leave out the coding agent will never see. Start by taking stock of all of it: each sentence and example of the request, and each input the project gives its code (each field of each data file, each setting, each parameter, each documented behaviour). Each ends in a decision, in must_hold, or shown to change nothing; the request's silence about it is not permission to drop it. Each result the request asks for is its own decision, and so is each input the code ignores and each observable effect of what the change touches, never grouped with others, because in a group the strongest reason to drop one item decides for all.
+
+      Each input the code does not use is its own decision item, never grouped with other inputs. An input the code does not use is checked against the request's sentences about what the code misses or ignores: when one covers it, that sentence is the request's words on how the result is obtained. A sentence that says the code ignores or misses what the data supports covers each input the code does not use, unless the request excludes that input by name; under it, the input enters the outputs of its own kind (a duration into the durations, an amount into the amounts, a limit into the checks it limits). That no output is named after the input, or that the request does not spell out its use, is not a reason to leave it unused. A use of an input that changes nothing on the project's data is not a use: find the reading an expert in the field gives it under which it has an effect (a minimum is a floor the result keeps, a limit bounds the checks it limits), and compute it; adding it to another value of its kind only so that it has an effect is not such a reading; when a request sentence about what the code misses or ignores covers the input, that reading is confirmed; only otherwise, when the request's words do not choose between that reading and leaving the input unused, the verdict is undecided, with both.
+
+      Judge meaning by effect. Something matters only through what it changes, and an input matters when it changes any value the program outputs, not only the point at hand, because the coding agent builds what a reading produces, not what it is called. A label such as "workaround" or "unsafe" does not rule a reading out, and naming the expected thing does not make a reading right. When an input seems to change nothing, look for the reading an expert in the field gives it under which it does; a combination made only so that it appears to matter is not such a reading.
+
+      Keep rival readings alive until the evidence picks, because a reading you never wrote down is one nobody after you can choose. Wherever the outcome depends on interpretation, work out the readings a competent practitioner would take seriously, not only the first or the narrowest, and test them. Among the readings that contradict no evidence, choose the one that explains the most of what is given; that is a judgement of fit, not a count of how many items a reading touches. Leave a point open only when the evidence does not separate its readings, and say what you tried, because an open point is one the coding agent settles by guessing.
+
+      Spend your effort in proportion to what is at stake. The stock-taking is complete, the depth is not: go deep where readings lead to materially different behaviour, and keep a clear point short, because filler buries what matters. Your investigation of a point ends once the evidence separates its readings, and never before you have run or measured what could separate them. Stopping at the first or the narrowest reading is a more common mistake than looking too far.
+
+      Treat an obstacle as a problem, not a verdict. When the requested result looks impossible, list what is free to vary within the request's bounds and compute each adjustment rather than swapping in an easier goal the coding agent would implement as if it were the request. When a hard limit stands against a need, meeting the limit is one of these computations: set the limited quantity to the limit where the need exceeds it, then compute what follows and check it against each threshold the data gives; report it beside reducing the need. A value an adjustment needs that the data does not give (a timeout, a threshold) is a parameter with a default, not a reason against the adjustment. Conclude "impossible", or change method, only when every adjustment has failed, and say what each gave. Among adjustments that remove the obstacle in every case the request describes, prefer the one that acts where the obstacle bites and disturbs the least; fixing one spot by breaking the rest is not a fix.
+
+      Check your own derivation before you build on it. When a conclusion disagrees with a case whose answer you already know, the reasoning is wrong, not the data, so run each script of yours on such a case before the next step rests on it. A value you computed is a result to check, not evidence: it does not become a given because you wrote it down or because a second run agrees with it.
+
+      Let the request's words set the scope, in both directions, because the coding agent implements what you hand it literally. Do what the request asks, the way it asks. Add nothing the request does not support: no invented requirements and no constraints of your own. Drop nothing it does not exclude. What the project already promises keeps working. When sources disagree, the request's words decide; where they are silent, the project's documentation and tests decide; the current code shows how the project behaves today, which is evidence but not intent, since it may be exactly what the request asks to fix.
 
       When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
 
-      When the same entity appears in several files, find it in each file by what it is (its connections, its name, its type), never by its position or index, and check the identification in every file.
+      Read each quantity and each thing by its role, as an expert in the field would, because the coding agent will treat it the way you describe it. A minimum the data states is what the checks test; an amount the code plans above it (a reserve, a margin) is what gives way when a limit binds, as long as every stated minimum holds. A thing is known by what it is, not by where it sits, so when it appears in several places, match the occurrences by identity (name, type, relations), not by position or order, and confirm the match in each place.
 
-      Before any fit or derivation, read the data files themselves and list, per case, each field's value as written in the file, marking unknown only the fields that are missing or unknown there (a case with one unknown field still has its other fields). Every case with a value for the quantity being fitted enters the fit. Choosing a model form is decided, not left undecided. When the request names a kind of form (physically appropriate, standard, conventional), use the form the field uses for that kind of dependence, saying which and why; among forms of that kind, the lowest leave-one-out error on the data decides, and a near tie is not broken by the number of terms. The request's own examples set the conventions for a result (range, sign, units): for a quantity with symmetric equivalents (plus and minus, mirror images), report the one in the range the request's examples use.
+      When you are done, answer with one JSON object with exactly three fields: evidence, decisions and must_hold.
 
-      First, in coverage: one row for each sentence of the request and for each item the project gives the code (each field of each data file, each configuration value, each parameter). For each: the item; what it changes in the result on the project's own data, measured by running the current program where you can; whether the current code uses it; status: clear when the request and the project settle that role, unclear otherwise. An item whose role changes nothing on the project's own data is unclear. A sentence that names a category (for example things the code should do but does not) requires finding every instance of it in the code and the data: name them. Each instance, and each item a role is found for, becomes a result below or a must_hold statement. Each unclear row also becomes a result below: its readings (using the item, or not, and how), each with what it gives on the project's data. An input the code does not use is checked against the request's sentences about what the code misses or ignores: when one covers it, that sentence is the request's words on how the result is obtained. A use of an input that changes nothing on the project's data is not a use: find the reading under which it has an effect, and compute it; when a request sentence about what the code misses or ignores covers the input, that reading is confirmed; only otherwise, when the request's words do not choose between that reading and leaving the input unused, the verdict is undecided, with both.
+      evidence is a list of strings, numbered E1, E2, and so on. It starts with the stock-taking (each sentence and example of the request, each input the project gives its code), then each fact you established and how: the command you ran and what it printed, or the file and lines you read.
 
-      Then, in conflicts: work the requested result through on the project's own data, far enough to find the cases where two requirements cannot both hold (a requirement can come from the request, the data or the code). For each: case, where it happens, with the values; requirements, each requirement involved and what in the request or the data shows how strict it is, quoted; resolutions, every way to resolve it, including relaxing each requirement as far as the request and the data allow, each with what it gives on the data, computed by running code: the value of every output field it changes. State the values only: never mark a resolution as allowed, not allowed, safe or unsafe, and make no choice between them here. For a limit against a need, compute meeting the limit and reducing the need, and give what follows from it (for example what remains at the end).
+      decisions is a list with one entry for each point where the outcome depends on interpretation, including each result the request asks for and each input the code ignores, each its own entry, never grouped with others. Each entry has item (the question being decided), readings and chosen. Each reading gives reading (the interpretation, stated plainly), value (what it produces, as run or measured), uses (which of the given material it puts to use, and what that changes in the result) and contradicts (the evidence it conflicts with, by E number, or "nothing"). chosen names the reading that contradicts no evidence and explains the most; when two still tie, or the request's words leave the question open, chosen is "none". When the requested result is impossible after every adjustment has failed, or a value cannot be found by any available means, chosen says so and gives the reason, and the readings show what each attempt gave.
 
-      For each result the request asks for, and each instance found above, in results: the item; request_words: the request's own words that govern it, quoted, including the sentence that introduces the list or paragraph it belongs to; derivation: how you obtain it from what those words name, step by step, with the computations you ran; value: the value you obtain; alternatives: every other derivation someone could reasonably take, each with the value it gives, computed.
+      must_hold is a list of statements the finished change must satisfy. Include only what the request and the project support, and make each one checkable: an observable input with its expected output, or a command whose result decides it. Every entry point the request or the project's documentation names keeps working unless the request asks otherwise. Invent nothing; in particular, do not preserve the behaviour the request asks to fix.
 
-      Then must_hold: what the result must do besides those results (format, files, behaviour), each a concrete check; must_stay_unchanged: only what the request explicitly asks to keep, quoted.
+      Repository: {{ repo }}
 
-      Every field you write is about the request, the project and the results, for the agent that will make the change: never an account of your own work (what you read, ran or did not run).
-
-            Repository: {{ repo }}
-
-            REQUEST:
-            <request>
-            {{ request }}
-            </request>
+      REQUEST:
+      <request>
+      {{ request }}
+      </request>
   verify:
-    max_turns: 60
-    output_schema: {"type": "object", "additionalProperties": false, "required": ["verdicts"], "properties": {"verdicts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["item", "request_words", "check", "verdict", "value"], "properties": {"item": {"type": "string"}, "request_words": {"type": "string"}, "check": {"type": "string"}, "verdict": {"type": "string", "enum": ["confirmed", "corrected", "undecided"]}, "value": {"type": "string"}}}}}}
+    tools:
+    - Read
+    - Grep
+    - Glob
+    - Bash
+    max_turns: 80
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - verdicts
+      - must_hold
+      properties:
+        verdicts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - item
+            - request_words
+            - check
+            - verdict
+            - value
+            properties:
+              item:
+                type: string
+              request_words:
+                type: string
+              check:
+                type: string
+              verdict:
+                type: string
+                enum:
+                - confirmed
+                - corrected
+                - undecided
+              value:
+                type: string
+        must_hold:
+          type: array
+          items:
+            type: string
     prompt: |
-      Below is an independent solution of the request: for each result it asks for, the request's words that govern it, a derivation and a value, and other derivations. Check each result. You can read the project, search and navigate its code, and run commands (Bash) to measure: the project's program, or short scripts of your own on the project's data. The project's files are read-only to you: put any script you write in $TMPDIR. You never write the fix.
+      You are the checking step of a workflow that runs before any code is written. An earlier step, solve, read the request below and settled what the change must do: it gathered evidence, decided each point where the request could be taken more than one way, and listed what must hold afterwards. A coding agent will implement whatever leaves your hands, so every verdict you give becomes an instruction to it.
 
-      When the request asks for results "using" a model it asks you to derive, each such result is computed from that model's output. A result that is a category (a label) is obtained by mapping the model's output for the case to the categories, using the labelled examples' values of that same output. A derivation that maps the model's input straight to the category, without its output, does not use the model. A model is fitted to every observation the project provides for the quantity it models, including cases whose other fields are unknown; leaving an observation out is a choice only the request can make.
+      Your tools are Read, Grep, Glob and Bash. The project is read-only: you may read it and run its program, but you never modify it, because the coding agent starts from the project as it is. Write any script you need in $TMPDIR. Never write the fix itself; your job is to check what the change must do, not to make it.
 
-      When the same entity appears in several files, find it in each file by what it is (its connections, its name, its type), never by its position or index, and check the identification in every file. Redo that identification yourself, in every file, before checking anything else: never reuse the solution's positions or indices.
+      REQUEST:
+      <request>
+      {{ request }}
+      </request>
 
-      Before any fit or derivation, read the data files themselves and list, per case, each field's value as written in the file, marking unknown only the fields that are missing or unknown there (a case with one unknown field still has its other fields). Every case with a value for the quantity being fitted enters the fit. Choosing a model form is decided, not left undecided. When the request names a kind of form (physically appropriate, standard, conventional), use the form the field uses for that kind of dependence, saying which and why; among forms of that kind, the lowest leave-one-out error on the data decides, and a near tie is not broken by the number of terms. The request's own examples set the conventions for a result (range, sign, units): for a quantity with symmetric equivalents (plus and minus, mirror images), report the one in the range the request's examples use. Rebuild that list from the files yourself, never from the solution's account of the data.
+      Repository: {{ repo }}
 
-      Confirm or correct a result only when the request's words name how it is obtained, or when a single derivation is consistent with the request and the data. When two derivations both remain consistent with the request's words (for example two requirements the request does not rank, where it does not say which gives way), the verdict is undecided, with what each gives.
+      WHAT SOLVE PRODUCED
 
-      For each result and each item below, in verdicts, request_words first: the request's own words that bear on it, quoted, including any sentence about what the code misses or ignores; then the verdict follows from them.
-
-      Every field you write is about the request, the project and the results, for the agent that will make the change: never an account of your own work (what you read, ran or did not run).
-
-      For each result, in verdicts: item (as given); check: whether the derivation goes through what the request's words name and respects what the quantities are (units, range, symmetry, periodicity), and which derivation does, rerunning what you need; verdict: confirmed when the given derivation does, corrected when another one does (give its value), undecided when the request's words and the project leave two derivations equally valid (say which and what each gives); value: the value of the derivation that holds, empty when undecided.
-
-            Repository: {{ repo }}
-
-            REQUEST:
-            <request>
-            {{ request }}
-            </request>
-
-            THE SOLUTION:
-            {% for r in steps.solve.output.results %}
-            - {{ r.item }}
-              Request's words: {{ r.request_words }}
-              Derivation: {{ r.derivation }} -> {{ r.value }}
-              {% for a in r.alternatives %}
-              Other derivation: {{ a.derivation }} -> {{ a.value }}
-              {% endfor %}
-            {% endfor %}
-      ITEMS THE SOLUTION LEFT UNCLEAR (from its coverage of the request and the project): give a verdict for each too, with the same rules. Go through every field of every data file yourself as well: a field the code does not use that is missing from the list below gets a verdict the same way. First quote the request's sentences, if any, about features, data or inputs the code misses or ignores. An input the project's data provides that the code does not use falls under such a sentence: its verdict is confirmed, using it as its name and the data say, with value saying how and what it changes in the result. A use of an input that changes nothing on the project's data is not a use: find the reading under which it has an effect, and compute it; when a request sentence about what the code misses or ignores covers the input, that reading is confirmed; only otherwise, when the request's words do not choose between that reading and leaving the input unused, the verdict is undecided, with both. Its item is the text below; confirmed or corrected means the request's words (for example a sentence about what the code misses or ignores) settle how the item is used, with value saying how and what it gives; undecided means they do not.
-      {% for row in steps.solve.output.coverage if row.status == "unclear" %}
-      - {{ row.item }}: {{ row.role }}
+      Evidence:
+      {% for e in steps.solve.output.evidence %}
+      - {{ e }}
       {% endfor %}
 
-      CONFLICTS THE SOLUTION FOUND: give a verdict for each too. Its item is "Conflict: " followed by the case's first words. Confirmed or corrected only when the request's words decide which resolution holds (value: that resolution and what it gives); otherwise undecided.
-      {% for c in steps.solve.output.conflicts %}
-      - Conflict: {{ c.case }} Requirements: {{ c.requirements }} Resolutions: {% for o in c.resolutions %}({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }} {% endfor %}
-
+      Decisions (each with the readings solve weighed and the one it chose; "none" means solve left it open):
+      {% for d in steps.solve.output.decisions %}
+      - {{ d.item }} (chosen: {{ d.chosen }})
+      {% for r in d.readings %}
+        Reading: {{ r.reading }} -> {{ r.value }}; uses {{ r.uses }}; contradicts {{ r.contradicts }}
       {% endfor %}
+      {% endfor %}
+
+      Must hold:
+      {% for m in steps.solve.output.must_hold %}
+      - {{ m }}
+      {% endfor %}
+
+      WHY THIS STEP WORKS THE WAY IT DOES
+
+      Solve is usually right. A second pass only helps if it fixes more than it breaks, and when the first answer is usually right, a few needless changes cancel all the real fixes. Past runs of this workflow showed exactly that: the checks that helped were numbers recomputed by running something, and the checks that hurt were interpretation choices reopened because another reading seemed possible. So your authority depends on the kind of item. Where a result can be reproduced by running it, your own run decides. Where the question is which reading of the request holds, solve's choice stands unless concrete evidence contradicts it. Seeing solve's answers also pulls you toward agreeing with them, which is why computed items must be redone from scratch rather than read and nodded at.
+
+      HOW TO CHECK EACH DECISION
+
+      1. Name its kind. Computed: a number, a count, or what the code or data does when run; the answer exists in the project and running something reveals it. Interpretation: which reading of the request is meant; running things can inform it but the answer depends on what the request asks. If a decision mixes both, split it into the reading it depends on and the result that follows from that reading, and check each part by its own rule. If a decision bundles several inputs or several results, split it too and judge each on its own, because in a bundle the strongest reason to drop one decides for all. Start the check text with the kind, so the coding agent knows which rule decided the verdict.
+
+      2. Computed items. Recompute the result yourself with a script you write in $TMPDIR, working from the project's own code and data rather than from solve's evidence or solve's script, because a check that reuses solve's steps repeats solve's mistakes. Run it on the actual material, not on a summary of it. Where a value can be obtained by two independent methods (two formulas, a library and a hand computation, two routes through the data), use both: agreeing with solve through a single method is not independence, since a shared slip gives the same wrong value twice. If your reproducible result matches solve's value, the verdict is confirmed. If it differs, first look for the fault in your own script, since a disagreement is as likely to be your error as solve's; check your derivation against cases whose answer is already known. Only when your result still differs after that do you mark it corrected, give your value, and put in the check text what you ran and what it printed, so that anyone can rerun it.
+
+      3. Interpretation items. Solve's choice stands unless you can point to concrete evidence that the chosen reading contradicts: the request's own words, the project's code, its data, its documentation or its tests. Quote or cite that evidence in the check text and show what the chosen reading would get wrong against it; then mark it corrected and give the reading that contradicts nothing. That another reading is also plausible is not a reason to change or reopen the choice, because a plausible alternative is not evidence that the choice is wrong, and reopening it hands the coding agent doubt instead of a decision. If you have such a doubt, write it in the check text as a note and keep the verdict confirmed. Do not reject a reading merely because solve's evidence for it is thin; "not proven" is not "wrong". The request's general sentences are concrete evidence too: a sentence saying the code ignores or misses what the data supports contradicts leaving an input the code ignores out on the ground that the request is silent about it. Judge a reading by what it produces when applied to the project, not by how it sounds.
+
+      4. Conclusions that rest on an uncomputed adjustment. When solve concludes that a result is impossible, infeasible or open while an adjustment within the request's bounds was not computed (in particular meeting a hard limit: the limited quantity set to the limit where the need exceeds it, and what follows checked against each threshold the data gives), that adjustment is a computed item: compute it and decide by what it gives.
+
+      5. Items solve left as "none". These are the only items you may mark undecided. First try to separate the readings with the material available: run each reading on the project's inputs, read the code, the documentation and the tests, and see which one contradicts something. If one reading survives, give it with the evidence that settled it. Keep the item undecided only when the evidence still does not separate them, and do not settle it by a default such as leaving things as they are, because a default is not evidence; then say in the check text what you tried and put in the value the readings still standing and what each would make the coder do.
+
+      6. Give every decision of solve a verdict, in solve's order, using solve's item text as the item, so nothing solve settled disappears on the way to the coding agent.
+
+      LOOK FOR WHAT SOLVE DID NOT DECIDE
+
+      Every sentence and example of the request, and every input the project provides, is there for a reason until it is shown to change nothing. Go through them and find any point that changes what the coding agent must do and that none of solve's decisions covers. For each one, add a verdict: settle it by the same rules (run it if it can be run, cite evidence if it is a reading), mark it corrected when your answer adds or changes something the coder must do, or undecided only if the evidence does not separate the readings. Do not add points the request does not support; inventing requirements is as harmful as dropping them.
+
+      MUST HOLD
+
+      Check each of solve's must_hold entries with the same burden of proof: keep it unless a reproducible result or concrete evidence shows it is wrong, and then replace it with the corrected statement. Add whatever the request supports and solve missed, including what the project already promises that the change must not break. Drop an entry only when evidence shows the request does not support it or excludes it. Your must_hold list is the complete list the coding agent will receive.
+
+      OUTPUT
+
+      verdicts: one entry per decision of solve, followed by one per point you added. For each:
+      - item: solve's item text, or a short name for a point you added.
+      - request_words: the exact words of the request this point comes from; if it comes from an input of the project rather than from the request's words, name that input.
+      - check: the kind first (computed or interpretation), then what you did and what it showed. For a correction, this is the evidence: the script and its output, or the cited words, code, data, documentation or tests and what the chosen reading contradicts. Notes of doubt that did not meet the burden of proof go here too.
+      - verdict: confirmed, corrected or undecided.
+      - value: what the coding agent must use or do for this point, stated so it can act on it without reading anything else. For undecided, the readings still standing and what each would require.
+      must_hold: the full checked list.
 result: |
   Details that complete the request above, so its result can be checked; the request comes first where they differ.
 
   Must hold:
-  {% for s in steps.solve.output.must_hold %}
+  {% for s in steps.verify.output.must_hold %}
   S{{ loop.index }}. {{ s }}
   {% endfor %}
-  {% if steps.solve.output.must_stay_unchanged %}
-
-  Kept, as the request asks:
-  {% for s in steps.solve.output.must_stay_unchanged %}
-  U{{ loop.index }}. {{ s }}
-  {% endfor %}
-  {% endif %}
-  {% set v = steps.verify.output.verdicts if steps.verify.output else [] %}
+  {% set v = steps.verify.output.verdicts %}
   {% set settled = v | rejectattr("verdict", "equalto", "undecided") | list %}
   {% set open = v | selectattr("verdict", "equalto", "undecided") | list %}
   {% if settled %}
@@ -101,35 +231,10 @@ result: |
   - {{ x.item }} -> {{ x.value }} ({{ x.check }})
   {% endfor %}
   {% endif %}
-  {% set covered = namespace(items=[]) %}
-  {% for x in v %}{% set covered.items = covered.items + [x.item] %}{% endfor %}
-  {% set loose = namespace(rows=[]) %}
-  {% for row in steps.solve.output.coverage if row.status == "unclear" %}
-  {% set hit = namespace(v=false) %}
-  {% for t in covered.items %}{% if row.item[:40] in t or t[:40] in row.item %}{% set hit.v = true %}{% endif %}{% endfor %}
-  {% if not hit.v %}{% set loose.rows = loose.rows + [row] %}{% endif %}
-  {% endfor %}
-  {% set open_items = open | rejectattr("item", "startingwith", "Conflict:") | list %}
-  {% set open_conflicts = namespace(rows=[]) %}
-  {% for c in steps.solve.output.conflicts %}
-  {% set hit = namespace(v=false) %}
-  {% for x in settled %}{% if x.item is startingwith("Conflict:") and c.case[:30] in x.item ~ " " ~ x.check %}{% set hit.v = true %}{% endif %}{% endfor %}
-  {% if not hit.v %}{% set open_conflicts.rows = open_conflicts.rows + [c] %}{% endif %}
-  {% endfor %}
-  {% if open_items or open_conflicts.rows or loose.rows %}
+  {% if open %}
 
   Open, to settle while coding (each option with what it gives on the project's data):
-  {% for x in open_items %}
+  {% for x in open %}
   - {{ x.item }}: {{ x.check }}
-  {% endfor %}
-  {% for c in open_conflicts.rows %}
-  - Conflict: {{ c.case }}
-    Options:
-  {% for o in c.resolutions %}
-    ({{ loop.index }}) {{ o.resolution }} -> {{ o.gives }}
-  {% endfor %}
-  {% endfor %}
-  {% for row in loose.rows %}
-  - {{ row.item }}: {{ row.role }}
   {% endfor %}
   {% endif %}
