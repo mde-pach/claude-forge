@@ -658,11 +658,15 @@ fn step_call(input: &HookInput, p: &Project) -> Output {
     Output::silent()
 }
 
-/// A Bash call that runs with `TMPDIR` set to `tmp` and ends before the time left.
+/// A Bash call that runs with `TMPDIR` set to `tmp`, ends before the time left, and stays in
+/// the session's sandbox: a step's command may not ask to run outside it
+/// (`dangerouslyDisableSandbox` is dropped), as the steps' own sessions required before they
+/// became subagents. Where the session has no sandbox, the command runs as the session's do.
 fn bash_within(input: &HookInput, tmp: &Path, left: f64) -> Output {
     let Value::Object(mut call) = input.tool_input.clone() else {
         return Output::silent();
     };
+    call.remove("dangerouslyDisableSandbox");
     let Some(cmd) = call.get("command").and_then(Value::as_str) else {
         return Output::silent();
     };

@@ -1315,6 +1315,11 @@ fn the_first_prompt_runs_its_workflows_and_hands_over_their_results() {
         "{command}"
     );
     assert!(input["timeout"].as_u64().unwrap() <= 1_740_000);
+    // a step's command stays in the sandbox: asking to leave it is dropped
+    let out = s.step_event(&env, "PreToolUse", json!({"tool_name": "Bash", "tool_input": {"command": "python3 -c 1", "dangerouslyDisableSandbox": true}}));
+    let input = &json_out(&out)["hookSpecificOutput"]["updatedInput"];
+    assert!(input.get("dangerouslyDisableSandbox").is_none(), "{input}");
+    assert!(input["command"].as_str().unwrap().ends_with("\npython3 -c 1"));
     // what the step writes in the repository is put back when it ends
     std::fs::write(s.root.join("scratch.csv"), "1,2\n").unwrap();
     let (stop, back) = s.step_ends(&env, ANSWER);
