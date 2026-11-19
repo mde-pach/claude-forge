@@ -712,19 +712,27 @@ fn step_started(input: &HookInput, p: &Project) {
     save_wf(p, &w);
 }
 
-/// A step's own temp directory: short, under `/tmp`, private to the user.
+/// Where the steps' own temp directories go. A step is a subagent: its Bash runs in the
+/// session's sandbox, which lets a command write only where the session's settings allow, so
+/// the `safety/sandbox` rule lists this directory in `sandbox.filesystem.allowWrite` (a
+/// `TMPDIR` the command exports cannot widen what the sandbox lets it write).
+pub(crate) const STEP_TMP_BASE: &str = "/tmp/forge-steps";
+
+/// A step's own temp directory: short, under [`STEP_TMP_BASE`], private to the user.
 fn step_tmp(agent: &str) -> PathBuf {
     use std::os::unix::fs::DirBuilderExt;
     let short: String = agent.chars().rev().take(12).collect();
     let base = if Path::new("/tmp").is_dir() {
-        PathBuf::from("/tmp")
+        PathBuf::from(STEP_TMP_BASE)
     } else {
-        std::env::temp_dir()
+        std::env::temp_dir().join("forge-steps")
     };
+    let _ = std::fs::DirBuilder::new().recursive(true).mode(0o700).create(&base);
     let dir = base.join(format!("fw-{short}"));
     let _ = std::fs::DirBuilder::new().mode(0o700).create(&dir);
     dir
 }
+
 
 /// SubagentStop of the step agent: its answer checked (a refused one goes back to it, with
 /// time left and fewer than [`ANSWERS_MAX`] answers), the repository put back, the run moved
@@ -1004,4 +1012,27 @@ pub fn cached_verdict(cache: &Path, key: &str) -> Option<(bool, String)> {
             })
         })
     })
+}
+
+#[cfg(test)]
+mod step_tmp_tests {
+    use super::*;
+
+    #[test]
+    fn the_sandbox_rule_lets_commands_write_where_steps_keep_their_temp_directories() {
+        let rule = include_str!("../../../packs/safety/rules/sandbox.yaml");
+        let line = rule
+            .lines()
+            .find(|l| l.contains("filesystem.allowWrite"))
+            .expect("safety/sandbox sets sandbox.filesystem.allowWrite");
+        assert!(line.contains(STEP_TMP_BASE), "{line}");
+    }
+
+    #[test]
+    fn a_step_temp_directory_is_under_the_base_the_sandbox_allows() {
+        let dir = step_tmp("agent-0123456789abcdef");
+        assert!(dir.starts_with(STEP_TMP_BASE), "{}", dir.display());
+        assert!(dir.is_dir());
+        let _ = std::fs::remove_dir(&dir);
+    }
 }
