@@ -208,6 +208,8 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
             }
         }
         let _ = std::fs::remove_file(p.session_dir.join("blocks"));
+        let _ = std::fs::remove_file(p.session_dir.join(OUTSIDE_SEEN));
+        crate::outside::new_turn(&p);
         if let Some(prompt) = &input.prompt {
             let cut: String = prompt.chars().take(PROMPT_MAX).collect();
             state::write_atomic(&p.session_dir.join("prompt"), cut.as_bytes());
@@ -303,6 +305,32 @@ fn changed_files(rt: &Runtime, input: &HookInput, p: &Project) -> Vec<String> {
     }
 }
 
+/// The absolute paths a call wrote: an Edit's, Write's or NotebookEdit's file, a Bash command's
+/// redirection targets.
+fn written_paths(rt: &Runtime, input: &HookInput) -> Vec<PathBuf> {
+    let cwd = rt.cwd(input);
+    match input.tool() {
+        "Edit" | "Write" | "MultiEdit" | "NotebookEdit" => input
+            .input_str("file_path")
+            .or_else(|| input.input_str("notebook_path"))
+            .map(|f| {
+                let p = Path::new(f);
+                if p.is_absolute() {
+                    p.to_path_buf()
+                } else {
+                    cwd.join(p)
+                }
+            })
+            .into_iter()
+            .collect(),
+        "Bash" => input
+            .command()
+            .map(|c| crate::outside::bash_targets(rt, c, &cwd))
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 /// A Serena tool that edits (§17.8): checked like a Bash command, from the snapshot taken before
 /// it; with the one file it names, if any.
 fn serena_edit(input: &HookInput) -> Option<Option<&str>> {
@@ -358,15 +386,32 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
             "hookSpecificOutput": {"hookEventName": event, "additionalContext": text}
         }))
     };
-    if files.is_empty() {
+    // files the agent wrote outside the repository: the project's rules apply to them too
+    let mut outside: Vec<PathBuf> = written_paths(rt, input)
+        .into_iter()
+        .filter(|a| crate::outside::applies(rt, &p, a))
+        .collect();
+    if files.is_empty() && outside.is_empty() {
         return answer(String::new());
     }
-    files.truncate(EDIT_FILES_MAX);
-    let snap = p.snapshot();
-    let report = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        rt.checker.post_edit(&p.root, &files, snap.as_deref())
-    }))
-    .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+    let mut report = Report::default();
+    if !files.is_empty() {
+        files.truncate(EDIT_FILES_MAX);
+        let snap = p.snapshot();
+        report = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            rt.checker.post_edit(&p.root, &files, snap.as_deref())
+        }))
+        .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+    }
+    if !outside.is_empty() {
+        outside.truncate(EDIT_FILES_MAX);
+        let mut more = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            crate::outside::post_edit(rt, &p, &outside)
+        }))
+        .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+        report.findings.append(&mut more.findings);
+        report.notes.append(&mut more.notes);
+    }
     p.note(&report.notes);
     answer(report.agent_text(20))
 }
@@ -762,8 +807,17 @@ const MAX_BLOCKS: u32 = 3;
 /// In the turn snapshot: Claude stopped, so the next prompt starts a new turn.
 const TURN_ENDED: &str = "ended";
 
+/// In the session: the outside files' findings the agent was last shown at Stop.
+const OUTSIDE_SEEN: &str = "outside-shown";
+
 pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
-    let out = stop_check(rt, input);
+    let mut out = stop_check(rt, input);
+    if out.stdout.is_empty()
+        && out.code == 0
+        && let Some(p) = rt.project(input)
+    {
+        out = stop_outside(rt, &p, input).unwrap_or(out);
+    }
     // a stop that is let through ends the turn
     if out.stdout.is_empty()
         && out.code == 0
@@ -772,6 +826,44 @@ pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
         state::write_atomic(&t.join(TURN_ENDED), b"");
     }
     out
+}
+
+/// The Stop check of the files the turn wrote outside the repository, once the repository's
+/// passed: blocks with their findings, at most once for the same findings, and within the turn's
+/// block count.
+fn stop_outside(rt: &Runtime, p: &Project, input: &HookInput) -> Option<Output> {
+    let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| crate::outside::stop(rt, p)))
+        .ok()
+        .flatten()?;
+    p.note(&outcome.report.notes);
+    let blocks = match outcome.status {
+        StopStatus::Fail => outcome.report.fails(),
+        StopStatus::AdviceOnly => !outcome.report.findings.is_empty(),
+        StopStatus::Pass => false,
+    };
+    if !blocks {
+        return None;
+    }
+    let text = cap(&outcome.report.agent_text(40));
+    let seen = p.session_dir.join(OUTSIDE_SEEN);
+    if state::read_trim(&seen).as_deref() == Some(text.trim()) {
+        // shown once and left: Claude chose to keep them
+        return None;
+    }
+    let counter = p.session_dir.join("blocks");
+    let count: u32 = if input.stop_hook_active {
+        state::read_trim(&counter)
+            .and_then(|c| c.parse().ok())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    if count >= MAX_BLOCKS {
+        return None;
+    }
+    state::write_atomic(&counter, (count + 1).to_string().as_bytes());
+    state::write_atomic(&seen, text.as_bytes());
+    Some(crate::stop_continue(&text))
 }
 
 fn stop_check(rt: &Runtime, input: &HookInput) -> Output {

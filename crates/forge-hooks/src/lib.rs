@@ -28,6 +28,7 @@ pub mod engine;
 mod events;
 mod guard;
 pub mod input;
+mod outside;
 pub mod proc;
 mod review;
 pub mod rules;

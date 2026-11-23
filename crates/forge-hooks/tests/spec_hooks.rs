@@ -1968,3 +1968,129 @@ fn forges_agents_take_and_send_no_messages_and_other_agents_are_left_alone() {
     from_reviewer["agent_type"] = json!("quality-reviewer");
     assert_eq!(decision(&s.run(&f, "agents", from_reviewer)).0, "deny");
 }
+
+fn write_call(path: &Path) -> Value {
+    json!({
+        "tool_name": "Write",
+        "tool_input": {"file_path": path, "content": "print(1)\n"},
+        "tool_response": {}
+    })
+}
+
+// The rules follow the agent, not the repository: a script it writes outside the repository
+// (a scratch test in /tmp) is checked with the project's rules, and the findings name its real
+// path.
+#[test]
+fn a_file_written_outside_the_repository_is_checked_with_the_projects_rules() {
+    let s = Sandbox::new(&[]);
+    let script = s.base.join("scratch/stress.py");
+    std::fs::create_dir_all(script.parent().unwrap()).unwrap();
+    std::fs::write(&script, "print(1)\n").unwrap();
+    let copy = format!("_outside{}", script.display());
+    let f = Fake {
+        post: Report {
+            findings: vec![Finding::error("python/no-print", "`print` found.").at(&copy, Some(1))],
+            notes: vec![],
+        },
+        ..Fake::default()
+    };
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    let out = json_out(&s.run(&f, "post-tool-use", write_call(&script)));
+    assert_eq!(f.asked_post.borrow().as_slice(), [vec![copy.clone()]]);
+    let text = out["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        text.starts_with(&format!("{}:1 `print` found.", script.display())),
+        "{text}"
+    );
+    // the mirror holds a copy, never the file itself
+    let mirror = s.session().join("outside");
+    assert_eq!(
+        std::fs::read_to_string(mirror.join(&copy)).unwrap(),
+        "print(1)\n"
+    );
+    assert!(mirror.join("app").is_symlink());
+}
+
+// At Stop, the turn's outside files are checked once the repository's change passed; the same
+// findings block once, and a new turn starts without the last turn's files.
+#[test]
+fn stop_checks_the_turns_outside_files_once() {
+    let s = Sandbox::new(&[]);
+    let script = s.base.join("scratch/stress.py");
+    std::fs::create_dir_all(script.parent().unwrap()).unwrap();
+    std::fs::write(&script, "print(1)\n").unwrap();
+    let copy = format!("_outside{}", script.display());
+    let f = Fake {
+        stop: Some(StopOutcome {
+            report: Report {
+                findings: vec![
+                    Finding::error("python/no-print", "`print` found.").at(&copy, Some(1)),
+                ],
+                notes: vec![],
+            },
+            status: StopStatus::Fail,
+        }),
+        ..Fake::default()
+    };
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    s.run(&f, "post-tool-use", write_call(&script));
+    // nothing changed in the repository: only the outside file is checked
+    let v = json_out(&s.run(&f, "stop", json!({})));
+    let reason = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        reason.starts_with(&format!("{}:1", script.display())),
+        "{reason}"
+    );
+    assert_eq!(f.asked_stop.borrow().as_slice(), [None]);
+    // shown once and left: the stop goes through, and the turn ends
+    assert_eq!(
+        s.run(&f, "stop", json!({"stop_hook_active": true})),
+        Output::silent()
+    );
+    assert!(s.session().join("turn/ended").is_file());
+    s.run(&f, "user-prompt-submit", json!({"prompt": "next"}));
+    assert!(!s.session().join("outside/_outside").exists());
+    assert_eq!(s.run(&f, "stop", json!({})), Output::silent());
+}
+
+// Claude Code's own files (its config directory: memory, plans) are not the agent's work.
+#[test]
+fn claude_codes_own_files_outside_the_repository_are_not_checked() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    let memory = s.user_home.join(".claude/projects/x/memory/notes.md");
+    std::fs::create_dir_all(memory.parent().unwrap()).unwrap();
+    std::fs::write(&memory, "notes\n").unwrap();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    assert_eq!(
+        s.run(&f, "post-tool-use", write_call(&memory)),
+        Output::silent()
+    );
+    assert!(f.asked_post.borrow().is_empty());
+}
+
+// A script written by a shell redirection (`cat > /tmp/x.py <<EOF`) is the agent's work as much
+// as one written with Write; a target known only when the command runs is left out.
+#[test]
+fn a_file_a_command_writes_outside_the_repository_is_checked() {
+    let s = Sandbox::new(&[]);
+    let script = s.base.join("scratch/probe.py");
+    std::fs::create_dir_all(script.parent().unwrap()).unwrap();
+    std::fs::write(&script, "print(1)\n").unwrap();
+    let f = Fake::default();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "go"}));
+    let cmd = format!(
+        "cat > {} <<'EOF'\nprint(1)\nEOF\necho x > \"$TMPDIR/y.py\"",
+        script.display()
+    );
+    s.run(&f, "pre-tool-use", bash(&cmd, "b1"));
+    s.run(&f, "post-tool-use", post_bash(&cmd, "b1"));
+    assert_eq!(
+        f.asked_post.borrow().as_slice(),
+        [vec![format!("_outside{}", script.display())]]
+    );
+}
