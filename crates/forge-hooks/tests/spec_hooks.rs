@@ -722,6 +722,62 @@ fn the_block_reason_is_capped_and_a_new_prompt_resets_the_count() {
     assert!(!s.session().join("blocks").exists());
 }
 
+// A background task's end reaches the agent as a prompt while it works. Taking it for a new turn
+// would move the snapshot past the work done so far, which the Stop check would then never see,
+// and would replace the person's request the reviewer is given.
+#[test]
+fn a_task_notification_neither_starts_a_turn_nor_replaces_the_request() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "fix the total"}));
+    std::fs::write(s.root.join("app/main.py"), "x = 2\n").unwrap();
+    let note = "<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n</task-notification>";
+    assert_eq!(
+        s.run(&f, "user-prompt-submit", json!({"prompt": note})),
+        Output::silent()
+    );
+    assert_eq!(
+        std::fs::read_to_string(s.session().join("prompt")).unwrap(),
+        "fix the total"
+    );
+    // the Stop check still sees the edit made before the notification
+    s.run(&f, "stop", json!({}));
+    assert_eq!(f.asked_stop.borrow().len(), 1);
+}
+
+// A message the person sends before Claude stopped (queued while it works, or after an interrupt,
+// which runs no Stop) continues the turn: the work since the turn began stays unchecked until
+// Stop, and the message joins the request. Once Claude has stopped, the next prompt starts a
+// new turn.
+#[test]
+fn a_prompt_before_claude_stopped_continues_the_turn() {
+    let s = Sandbox::new(&[]);
+    let f = Fake::default();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "fix the total"}));
+    let tree = || std::fs::read_to_string(s.session().join("turn/tree")).unwrap();
+    let first = tree();
+    std::fs::write(s.root.join("app/main.py"), "x = 2\n").unwrap();
+    s.run(
+        &f,
+        "user-prompt-submit",
+        json!({"prompt": "and keep the API"}),
+    );
+    assert_eq!(tree(), first, "the snapshot is the turn's start");
+    assert_eq!(
+        std::fs::read_to_string(s.session().join("prompt")).unwrap(),
+        "fix the total\n\nand keep the API"
+    );
+    assert_eq!(s.run(&f, "stop", json!({})), Output::silent());
+    assert_eq!(f.asked_stop.borrow().len(), 1, "the edit is checked");
+    // Claude stopped: a new turn
+    s.run(&f, "user-prompt-submit", json!({"prompt": "now the tax"}));
+    assert_ne!(tree(), first);
+    assert_eq!(
+        std::fs::read_to_string(s.session().join("prompt")).unwrap(),
+        "now the tax"
+    );
+}
+
 /// A pack that became active during the session (packaging files created by a command): its
 /// context, which the rules files written at apply time do not hold, reaches the agent once,
 /// after the findings; the packs the rules files hold are never repeated, and the repository's
@@ -1319,7 +1375,12 @@ fn the_first_prompt_runs_its_workflows_and_hands_over_their_results() {
     let out = s.step_event(&env, "PreToolUse", json!({"tool_name": "Bash", "tool_input": {"command": "python3 -c 1", "dangerouslyDisableSandbox": true}}));
     let input = &json_out(&out)["hookSpecificOutput"]["updatedInput"];
     assert!(input.get("dangerouslyDisableSandbox").is_none(), "{input}");
-    assert!(input["command"].as_str().unwrap().ends_with("\npython3 -c 1"));
+    assert!(
+        input["command"]
+            .as_str()
+            .unwrap()
+            .ends_with("\npython3 -c 1")
+    );
     // what the step writes in the repository is put back when it ends
     std::fs::write(s.root.join("scratch.csv"), "1,2\n").unwrap();
     let (stop, back) = s.step_ends(&env, ANSWER);

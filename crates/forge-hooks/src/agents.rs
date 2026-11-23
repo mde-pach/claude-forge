@@ -731,12 +731,14 @@ fn step_tmp(agent: &str) -> PathBuf {
     } else {
         std::env::temp_dir().join("forge-steps")
     };
-    let _ = std::fs::DirBuilder::new().recursive(true).mode(0o700).create(&base);
+    let _ = std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&base);
     let dir = base.join(format!("fw-{short}"));
     let _ = std::fs::DirBuilder::new().mode(0o700).create(&dir);
     dir
 }
-
 
 /// SubagentStop of the step agent: its answer checked (a refused one goes back to it, with
 /// time left and fewer than [`ANSWERS_MAX`] answers), the repository put back, the run moved

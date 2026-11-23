@@ -162,14 +162,19 @@ fn sweep(p: &Project) {
 
 // ---- UserPromptSubmit
 
+/// Claude Code's own messages, delivered to the agent as prompts: a subagent's report
+/// (`<agent-message`) and a background task's end (`<task-notification>`). Neither is the
+/// person's request, nor a new turn.
+const DELIVERED_TAGS: [&str; 2] = ["<agent-message", "<task-notification>"];
+
+/// The saved prompt's length cap, in characters.
+const PROMPT_MAX: usize = 8000;
+
 pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
-    // a subagent's report delivered to the main agent (newer Claude Code queues it as a prompt):
-    // not the person's request, and not a new turn
-    if input
-        .prompt
-        .as_deref()
-        .is_some_and(|t| t.trim_start().starts_with("<agent-message"))
-    {
+    if input.prompt.as_deref().is_some_and(|t| {
+        let t = t.trim_start();
+        DELIVERED_TAGS.iter().any(|tag| t.starts_with(tag))
+    }) {
         return Output::silent();
     }
     let Some(p) = rt.project(input) else {
@@ -179,18 +184,34 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
         return Output::silent();
     }
     let st = snapshot::status(&p.root);
-    match &st {
-        Some(st) => {
-            snapshot::write_turn(&p.root, &p.turn_dir(), st);
+    // A message that reaches Claude before it stopped (one the person queued while it worked, or
+    // one sent after an interrupt, which runs no Stop) continues the turn: its work since the
+    // turn began is still unchecked, so the snapshot and the Stop count stay, and the message is
+    // added to the request.
+    let open = p.snapshot().is_some_and(|t| !t.join(TURN_ENDED).is_file());
+    if open {
+        if let Some(prompt) = &input.prompt {
+            let file = p.session_dir.join("prompt");
+            let mut all = std::fs::read_to_string(&file).unwrap_or_default();
+            all.push_str("\n\n");
+            all.push_str(prompt);
+            let cut: String = all.chars().take(PROMPT_MAX).collect();
+            state::write_atomic(&file, cut.as_bytes());
         }
-        None => {
-            let _ = std::fs::remove_dir_all(p.turn_dir());
+    } else {
+        match &st {
+            Some(st) => {
+                snapshot::write_turn(&p.root, &p.turn_dir(), st);
+            }
+            None => {
+                let _ = std::fs::remove_dir_all(p.turn_dir());
+            }
         }
-    }
-    let _ = std::fs::remove_file(p.session_dir.join("blocks"));
-    if let Some(prompt) = &input.prompt {
-        let cut: String = prompt.chars().take(8000).collect();
-        state::write_atomic(&p.session_dir.join("prompt"), cut.as_bytes());
+        let _ = std::fs::remove_file(p.session_dir.join("blocks"));
+        if let Some(prompt) = &input.prompt {
+            let cut: String = prompt.chars().take(PROMPT_MAX).collect();
+            state::write_atomic(&p.session_dir.join("prompt"), cut.as_bytes());
+        }
     }
     // the engine resyncs what changed outside Claude's edits since the last prompt
     if let (Some(st), Some(client)) = (
@@ -738,7 +759,22 @@ fn base_copy(p: &Project, file: &str, tmp: &Path) -> Option<PathBuf> {
 /// Blocks in one turn after which the stop is let through.
 const MAX_BLOCKS: u32 = 3;
 
+/// In the turn snapshot: Claude stopped, so the next prompt starts a new turn.
+const TURN_ENDED: &str = "ended";
+
 pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
+    let out = stop_check(rt, input);
+    // a stop that is let through ends the turn
+    if out.stdout.is_empty()
+        && out.code == 0
+        && let Some(t) = rt.project(input).and_then(|p| p.snapshot())
+    {
+        state::write_atomic(&t.join(TURN_ENDED), b"");
+    }
+    out
+}
+
+fn stop_check(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
