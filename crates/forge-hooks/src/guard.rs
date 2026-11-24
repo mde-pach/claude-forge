@@ -234,7 +234,8 @@ fn git_root(cwd: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// Forge's locks: what Forge recorded, nothing the agent's work needs.
+/// Forge's locks: committed files the agent may read, but never change (the version of Forge
+/// that runs is the lock's).
 const LOCKS: &[&str] = &["forge.lock", "forge-user.lock"];
 
 /// Whether a Bash command runs Forge's command line: `claude-forge`, or a `forge` that is
@@ -272,43 +273,90 @@ fn is_forge(rt: &Runtime, word: &str) -> bool {
         || rt.exe.canonicalize().is_ok_and(|e| e == target)
 }
 
-/// Whether the tool call names a file in Forge's cache or state, or one of its locks.
-fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&Parsed>) -> bool {
-    let check = |s: &str, base: &Path| -> bool {
-        match expand(s, base, rt.env.home_dir.as_deref()) {
-            Some(p) => {
-                rt.home.is_internal_path(&p)
-                    || p.file_name()
-                        .and_then(|n| n.to_str())
-                        .is_some_and(|n| LOCKS.contains(&n))
-            }
-            None => false,
-        }
+/// Commands that only read the files they are given (`sed` without `-i`, `git` with
+/// [`GIT_READS`]).
+const READERS: &[&str] = &[
+    "cat", "head", "tail", "less", "more", "bat", "nl", "grep", "egrep", "fgrep", "rg", "wc",
+    "diff", "cmp", "ls", "stat", "file", "sort", "uniq", "cut", "sed", "git",
+];
+const GIT_READS: &[&str] = &["diff", "show", "log", "blame", "status", "grep", "ls-files"];
+
+/// A word naming a path: its value after any `NAME=`, when it has a `/`, starts with `~` or is a
+/// lock's name.
+fn named(w: &str) -> Option<&str> {
+    let w = w.rsplit_once('=').map_or(w, |(_, v)| v);
+    (w.contains('/') || w.starts_with('~') || LOCKS.contains(&w)).then_some(w)
+}
+
+/// Whether word `wi` of `c` is an argument of a command that only reads it.
+fn only_read(c: &parse::SimpleCommand, wi: usize) -> bool {
+    let Some(&s) = c.starts.iter().filter(|&&i| i < wi).max() else {
+        return false;
     };
-    if serena::tool_of(input.tool()).is_some() {
+    let args = &c.words[s + 1..];
+    match c.name_at(s) {
+        "sed" => !args.iter().any(|w| {
+            w.text.starts_with("-i") || w.text == "--in-place" || w.text.starts_with("--in-place=")
+        }),
+        "git" => args
+            .first()
+            .is_some_and(|w| GIT_READS.contains(&w.text.as_str())),
+        name => READERS.contains(&name),
+    }
+}
+
+/// Whether the tool call names a file in Forge's cache or state, or changes one of its locks.
+fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&Parsed>) -> bool {
+    let home = rt.env.home_dir.as_deref();
+    let internal = |s: &str, base: &Path| -> bool {
+        expand(s, base, home).is_some_and(|p| rt.home.is_internal_path(&p))
+    };
+    let lock = |s: &str, base: &Path| -> bool {
+        expand(s, base, home).is_some_and(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| LOCKS.contains(&n))
+        })
+    };
+    // a call that changes the file it names
+    let changes = |s: &str, base: &Path| internal(s, base) || lock(s, base);
+    if let Some(tool) = serena::tool_of(input.tool()) {
         // Serena's paths are relative to the project root
         let root = git_root(cwd).unwrap_or_else(|| cwd.to_path_buf());
+        let reads = serena::kind(tool) == serena::Kind::Read;
         return ["relative_path", "file_path"]
             .iter()
             .filter_map(|k| input.input_str(k))
-            .any(|p| check(p, &root));
+            .any(|p| {
+                if reads {
+                    internal(p, &root)
+                } else {
+                    changes(p, &root)
+                }
+            });
     }
     match input.tool() {
-        "Read" | "Edit" | "Write" | "MultiEdit" => {
-            input.input_str("file_path").is_some_and(|p| check(p, cwd))
-        }
-        "NotebookEdit" | "NotebookRead" => input
+        "Read" => input
+            .input_str("file_path")
+            .is_some_and(|p| internal(p, cwd)),
+        "Edit" | "Write" | "MultiEdit" => input
+            .input_str("file_path")
+            .is_some_and(|p| changes(p, cwd)),
+        "NotebookRead" => input
             .input_str("notebook_path")
-            .is_some_and(|p| check(p, cwd)),
+            .is_some_and(|p| internal(p, cwd)),
+        "NotebookEdit" => input
+            .input_str("notebook_path")
+            .is_some_and(|p| changes(p, cwd)),
         "Grep" | "Glob" => {
             let base = input
                 .input_str("path")
-                .and_then(|p| expand(p, cwd, rt.env.home_dir.as_deref()))
+                .and_then(|p| expand(p, cwd, home))
                 .unwrap_or_else(|| cwd.to_path_buf());
             rt.home.is_internal_path(&base)
-                || input
-                    .input_str("pattern")
-                    .is_some_and(|p| (p.starts_with('/') || p.starts_with('~')) && check(p, &base))
+                || input.input_str("pattern").is_some_and(|p| {
+                    (p.starts_with('/') || p.starts_with('~')) && internal(p, &base)
+                })
         }
         "Bash" => {
             let Some(cmd) = input.command() else {
@@ -325,15 +373,15 @@ fn names_internal(rt: &Runtime, input: &HookInput, cwd: &Path, parsed: Option<&P
             let Some(parsed) = parsed else { return false };
             parsed.commands.iter().any(|c| {
                 let base = c.dir.known().unwrap_or(cwd);
-                c.words
-                    .iter()
-                    .map(|w| w.text.as_str())
-                    .chain(c.redirects.iter().map(|r| r.target.text.as_str()))
-                    .any(|w| {
-                        let w = w.rsplit_once('=').map_or(w, |(_, v)| v);
-                        (w.contains('/') || w.starts_with('~') || LOCKS.contains(&w))
-                            && check(w, base)
-                    })
+                let words = c.words.iter().enumerate().any(|(i, w)| {
+                    named(&w.text)
+                        .is_some_and(|w| internal(w, base) || (lock(w, base) && !only_read(c, i)))
+                });
+                let redirects = c.redirects.iter().any(|r| {
+                    named(&r.target.text)
+                        .is_some_and(|w| internal(w, base) || (lock(w, base) && r.writes_file()))
+                });
+                words || redirects
             })
         }
         _ => false,

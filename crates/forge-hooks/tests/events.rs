@@ -309,10 +309,28 @@ fn running_forge_and_reading_its_locks_are_refused() {
             out.stdout
         );
     }
+    // the lock is read like any committed file
     for c in [
         json!({"tool_name": "Read", "tool_input": {"file_path": s.root.join("forge.lock")}}),
-        bash("cat forge.lock", "f3"),
+        bash("cat forge.lock ruff.toml", "f3"),
         bash("head -c 500 ./forge.lock", "f4"),
+        bash("grep ruff forge.lock < forge.lock", "f5"),
+        bash("git diff -- forge.lock", "f6"),
+        bash("sed -n 1,20p forge.lock", "f7"),
+    ] {
+        let out = s.run(&f, "pre-tool-use", c.clone());
+        assert!(!out.stdout.contains(INTERNAL_REASON), "{c}: {}", out.stdout);
+    }
+    // but never changed: the version of Forge that runs is the lock's
+    for c in [
+        json!({"tool_name": "Edit", "tool_input": {"file_path": s.root.join("forge.lock"), "old_string": "a", "new_string": "b"}}),
+        json!({"tool_name": "Write", "tool_input": {"file_path": s.root.join("forge.lock"), "content": ""}}),
+        bash("echo x > forge.lock", "g1"),
+        bash("cat x >> ./forge.lock", "g2"),
+        bash("sed -i s/a/b/ forge.lock", "g3"),
+        bash("cp /tmp/x forge.lock", "g4"),
+        bash("rm forge.lock", "g5"),
+        bash("git checkout -- forge.lock", "g6"),
     ] {
         let v = json_out(&s.run(&f, "pre-tool-use", c.clone()));
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny", "{c}");
