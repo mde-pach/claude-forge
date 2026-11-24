@@ -7,11 +7,12 @@ const schemas = [
   { id: "pack", title: "pack.yaml", file: "pack.schema.json" },
   { id: "rule", title: "Rule file", file: "rule.schema.json" },
   { id: "forge", title: "forge.yaml", file: "forge.schema.json" },
+  { id: "capability", title: "Capability file", file: "capability.schema.json" },
 ] as const;
 ---
 
 <StarlightPage
-  frontmatter={{ title: "Schemas", description: "The JSON Schemas (2020-12) Forge validates packs, rules and forge.yaml against." }}
+  frontmatter={{ title: "Schemas", description: "The JSON Schemas (2020-12) Forge validates packs, rules, capabilities and forge.yaml against." }}
   headings={schemas.map((s) => ({ depth: 2, slug: s.id, text: s.title }))}
 >
   <p>

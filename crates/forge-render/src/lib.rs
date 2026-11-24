@@ -12,6 +12,7 @@
 //! The rules files are the only text here the agent reads: they depend on the repository's
 //! content alone, and name no Forge internals.
 
+pub mod capabilities;
 pub mod changes;
 pub mod context;
 pub mod hooks;

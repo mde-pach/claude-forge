@@ -10,7 +10,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use forge_detect::{Activation, DepFacts, ProjectFacts};
-use forge_packs::glob::glob_to_regex;
 use forge_packs::model::Pack;
 pub use forge_packs::model::{ContextItem, ContextWhen};
 
@@ -18,31 +17,7 @@ pub use forge_packs::model::{ContextItem, ContextWhen};
 /// once, at the top of the first rules file Claude Code always loads.
 pub const CONTEXT_INTRO: &str = "These are this project's defaults. When the task or the user explicitly asks for something different, do what they ask and point out the conflict; never override an explicit instruction with these defaults.\n\n";
 
-/// Whether an item's `when` holds in one of `places`, with `active` the active packs: one of
-/// its packs is active, and in one place every other condition holds.
-pub fn when_holds(w: &ContextWhen, places: &[&DepFacts], active: &Activation) -> bool {
-    if !w.packs.is_empty() && !w.packs.iter().any(|p| active.is_active(p)) {
-        return false;
-    }
-    if places.is_empty() {
-        // no project facts (user level): only a condition on packs can hold
-        return w.deps.is_empty() && w.files.is_empty() && w.facts.is_empty();
-    }
-    places.iter().any(|f| holds_in(w, f))
-}
-
-fn holds_in(w: &ContextWhen, f: &DepFacts) -> bool {
-    w.deps.iter().all(|d| f.dep_matches(d))
-        && (w.files.is_empty()
-            || w.files.iter().any(|g| {
-                let re = glob_to_regex(g);
-                f.files.iter().any(|x| re.is_match(x).unwrap_or(false))
-            }))
-        && w.facts.iter().all(|(name, want)| {
-            f.fact(name)
-                .is_some_and(|v| want.as_slice().iter().any(|w| w == v))
-        })
-}
+pub use forge_detect::when_holds;
 
 /// A rendered rules file's items, as the agent reads them: without its `paths:` frontmatter
 /// and the introduction every file starts with.

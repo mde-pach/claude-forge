@@ -6,8 +6,8 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use crate::model::{
-    CheckTarget, Decision, GuardCheck, Language, Level, Mode, OneOrMany, Pack, Rule, Stage, Target,
-    WhereCondition,
+    Capability, CheckTarget, Decision, GuardCheck, Language, Level, Mode, OneOrMany, Pack, Rule,
+    Stage, Target, WhereCondition,
 };
 use crate::roles;
 
@@ -154,6 +154,14 @@ pub fn validate_pack(pack: &Pack) -> Result<(), String> {
                 "invalid pack: /context/{i}: id {id:?} names another text already"
             ));
         }
+    }
+    Ok(())
+}
+
+/// A capability's checks beyond its schema: its `when.facts` name known facts and values.
+pub fn validate_capability(cap: &Capability) -> Result<(), String> {
+    if let Some(w) = &cap.when {
+        check_facts(&w.facts).map_err(|e| format!("invalid capability: /when: {e}"))?;
     }
     Ok(())
 }

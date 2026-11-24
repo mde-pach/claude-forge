@@ -43,7 +43,7 @@ pub use crate::cache::CacheOutcome;
 pub use crate::error::{ErrorKind, LoadError};
 pub use crate::lint::{Finding, LintKind};
 pub use crate::loader::Loaded;
-pub use crate::model::{Level, Origin, Pack, PackSource, ProjectConfig, Rule};
+pub use crate::model::{Capability, Level, Origin, Pack, PackSource, ProjectConfig, Rule};
 
 use crate::loader::Place;
 use crate::tree::{Disk, Embedded, Tree};
@@ -57,6 +57,7 @@ pub const BUILD_ID: &str = env!("FORGE_PACKS_BUILD_ID");
 /// Local packs and rules, relative to the repository.
 pub const LOCAL_PACKS_DIR: &str = ".forge/packs";
 pub const LOCAL_RULES_DIR: &str = ".forge/rules";
+pub const LOCAL_CAPABILITIES_DIR: &str = ".forge/capabilities";
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Options<'a> {
@@ -78,6 +79,8 @@ pub struct PackSet {
     pub packs: IndexMap<String, Pack>,
     /// `.forge/rules/*.yaml`, by file name.
     pub local_rules: Vec<Rule>,
+    /// `.forge/capabilities/*.yaml`, by file name.
+    pub local_capabilities: Vec<Capability>,
     pub findings: Vec<Finding>,
     pub cache: CacheReport,
 }
@@ -106,8 +109,10 @@ fn load_builtin_tree(opts: Options) -> Result<(Loaded, CacheOutcome), LoadError>
 fn load_local_tree(repo: &Path, opts: Options) -> Result<(Loaded, CacheOutcome), LoadError> {
     let packs = Disk(repo.join(LOCAL_PACKS_DIR));
     let rules = Disk(repo.join(LOCAL_RULES_DIR));
+    let caps = Disk(repo.join(LOCAL_CAPABILITIES_DIR));
     let packs_prefix = format!("{LOCAL_PACKS_DIR}/");
     let rules_prefix = format!("{LOCAL_RULES_DIR}/");
+    let caps_prefix = format!("{LOCAL_CAPABILITIES_DIR}/");
     let packs_place = Place {
         tree: &packs,
         prefix: &packs_prefix,
@@ -120,10 +125,17 @@ fn load_local_tree(repo: &Path, opts: Options) -> Result<(Loaded, CacheOutcome),
         shown: &rules_prefix,
         source: PackSource::Local,
     };
+    let caps_place = Place {
+        tree: &caps,
+        prefix: &caps_prefix,
+        shown: &caps_prefix,
+        source: PackSource::Local,
+    };
     let mut inputs = Vec::new();
     for (place, tree) in [
         (&packs_place, &packs as &dyn Tree),
         (&rules_place, &rules as &dyn Tree),
+        (&caps_place, &caps as &dyn Tree),
     ] {
         for f in tree.all_files() {
             let bytes = tree.read(&f).map_err(|e| LoadError {
@@ -143,6 +155,9 @@ fn load_local_tree(repo: &Path, opts: Options) -> Result<(Loaded, CacheOutcome),
         let rules = loader::load_rules_dir(&rules_place)?;
         loaded.rules = rules.rules;
         loaded.findings.extend(rules.findings);
+        let caps = loader::load_capabilities_dir(&caps_place)?;
+        loaded.capabilities = caps.capabilities;
+        loaded.findings.extend(caps.findings);
         Ok(loaded)
     })
 }
@@ -164,13 +179,14 @@ fn check_requires(
             .context
             .iter()
             .filter_map(|c| c.when.as_ref())
+            .chain(p.capabilities.iter().filter_map(|c| c.when.as_ref()))
             .flat_map(|w| &w.packs);
         if let Some(unknown) = named.into_iter().find(|n| !packs.contains_key(*n)) {
             return Err(LoadError {
                 file: shown(p),
                 kind: ErrorKind::Layout,
                 message: format!(
-                    "pack {}: a context item's when names unknown pack {unknown}",
+                    "pack {}: a context item's or capability's when names unknown pack {unknown}",
                     p.id
                 ),
             });
@@ -198,6 +214,7 @@ pub fn load(repo: Option<&Path>, opts: Options) -> Result<PackSet, LoadError> {
     let mut set = PackSet {
         packs: builtin.packs,
         local_rules: Vec::new(),
+        local_capabilities: Vec::new(),
         findings: builtin.findings,
         cache: CacheReport {
             builtin: builtin_outcome,
@@ -219,7 +236,21 @@ pub fn load(repo: Option<&Path>, opts: Options) -> Result<PackSet, LoadError> {
         set.packs.insert(id, pack);
     }
     check_requires(&set.packs, pack_file_shown)?;
+    if let Some((c, unknown)) = local.capabilities.iter().find_map(|c| {
+        c.when
+            .iter()
+            .flat_map(|w| &w.packs)
+            .find(|n| !set.packs.contains_key(*n))
+            .map(|n| (c, n))
+    }) {
+        return Err(LoadError {
+            file: c.file.clone(),
+            kind: ErrorKind::Layout,
+            message: format!("capability {}: its when names unknown pack {unknown}", c.id),
+        });
+    }
     set.local_rules = local.rules;
+    set.local_capabilities = local.capabilities;
     set.findings.extend(local.findings);
     set.cache.local = Some(local_outcome);
     Ok(set)
@@ -317,6 +348,61 @@ impl PackSet {
         let mut rules: Vec<&Rule> = by_id.into_values().collect();
         rules.sort_by(|a, b| a.id.cmp(&b.id));
         (rules, warnings)
+    }
+
+    /// The capabilities of the active packs (§20.2, gate 1 before `when`), with the local ones
+    /// applied as local rules are: one replaces the pack capability with its id, and is kept
+    /// when its pack is active or is no pack at all; one for a known pack that is not active is
+    /// ignored, with a warning. Project level only. Sorted by id.
+    pub fn select_capabilities<'a>(
+        &'a self,
+        active: &[&str],
+        level: Level,
+    ) -> (Vec<&'a Capability>, Vec<String>) {
+        let mut warnings = Vec::new();
+        if level != Level::Project {
+            return (Vec::new(), warnings);
+        }
+        let mut by_id: IndexMap<&str, &Capability> = IndexMap::new();
+        for id in active {
+            for c in self
+                .packs
+                .get(*id)
+                .into_iter()
+                .flat_map(|p| &p.capabilities)
+            {
+                by_id.insert(&c.id, c);
+            }
+        }
+        for c in &self.local_capabilities {
+            if by_id.contains_key(c.id.as_str())
+                || !self.packs.contains_key(&c.pack)
+                || active.contains(&c.pack.as_str())
+            {
+                by_id.insert(&c.id, c);
+            } else {
+                warnings.push(format!(
+                    "{}: pack \"{}\" is not active here; capability {} is ignored",
+                    c.file, c.pack, c.id
+                ));
+            }
+        }
+        let mut caps: Vec<&Capability> = by_id.into_values().collect();
+        caps.sort_by(|a, b| a.id.cmp(&b.id));
+        (caps, warnings)
+    }
+
+    /// Every capability by id, the local ones replacing pack ones (whatever is active).
+    pub fn capability(&self, id: &str) -> Option<&Capability> {
+        self.local_capabilities
+            .iter()
+            .find(|c| c.id == id)
+            .or_else(|| {
+                self.packs
+                    .values()
+                    .flat_map(|p| &p.capabilities)
+                    .find(|c| c.id == id)
+            })
     }
 
     /// Findings per lint.

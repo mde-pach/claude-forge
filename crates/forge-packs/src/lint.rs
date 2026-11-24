@@ -10,7 +10,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::glob::glob_to_regex;
-use crate::model::{Language, Pack, Rule, Target};
+use crate::model::{Capability, Deliver, Language, Pack, Rule, Target};
 use crate::roles;
 use crate::yaml::Scalar;
 
@@ -30,16 +30,27 @@ pub enum LintKind {
     EnforcementLimit,
     /// A description written with an "Advice" prefix: the prefix comes from the mode.
     AdvicePrefix,
+    /// An injected capability's text over 1,500 characters: it goes in every prompt that
+    /// selects it, so a long one belongs `on-demand`.
+    InjectSize,
+    /// A capability's `relevant` statement that spans lines or is negated: the engine reads
+    /// one positive statement about the task.
+    RelevantStatement,
+    /// A capability's `threshold` set without examples on both sides to justify it.
+    ThresholdExamples,
 }
 
 impl LintKind {
-    pub const ALL: [LintKind; 6] = [
+    pub const ALL: [LintKind; 9] = [
         LintKind::CutByComment,
         LintKind::GrepScope,
         LintKind::ForgeInternals,
         LintKind::EnforcementClaim,
         LintKind::EnforcementLimit,
         LintKind::AdvicePrefix,
+        LintKind::InjectSize,
+        LintKind::RelevantStatement,
+        LintKind::ThresholdExamples,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -50,6 +61,9 @@ impl LintKind {
             LintKind::EnforcementClaim => "enforcement-claim",
             LintKind::EnforcementLimit => "enforcement-limit",
             LintKind::AdvicePrefix => "advice-prefix",
+            LintKind::InjectSize => "inject-size",
+            LintKind::RelevantStatement => "relevant-statement",
+            LintKind::ThresholdExamples => "threshold-examples",
         }
     }
 }
@@ -105,6 +119,11 @@ fn pack_text_field(pointer: &str) -> bool {
         .strip_prefix("/context/")
         .and_then(|r| r.split_once('/'))
         .is_some_and(|(i, f)| i.parse::<usize>().is_ok() && f == "text")
+}
+
+/// Whether a scalar's pointer is an agent-facing field of a capability file.
+fn capability_text_field(pointer: &str) -> bool {
+    pointer == "/description" || pointer == "/text"
 }
 
 /// (a) agent-facing plain scalars followed by a comment on their last line.
@@ -438,6 +457,94 @@ pub fn lint_pack(pack: &Pack, pack_file: &str, source: &str, scalars: &[Scalar])
         forge_internals(&t, &mut out);
         enforcement_claim(&t, &mut out);
         enforcement_limit(&t, &mut out);
+    }
+    out
+}
+
+/// The longest injected text a capability may have (§20.5): a prompt's capabilities share
+/// 8,000 characters.
+pub const INJECT_MAX: usize = 1500;
+
+/// A negation in a statement: the engine reads statements that say what the task is.
+static NEGATED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(?:not|no|never|none|nothing|neither|nor|without|cannot)\b|n't\b")
+        .expect("regex")
+});
+
+/// The findings of a capability file.
+pub fn lint_capability(
+    cap: &Capability,
+    file: &str,
+    source: &str,
+    scalars: &[Scalar],
+) -> Vec<Finding> {
+    let mut out = Vec::new();
+    cut_by_comment(
+        file,
+        &cap.id,
+        source,
+        scalars,
+        capability_text_field,
+        &mut out,
+    );
+    for (what, text) in [("description", &cap.description), ("text", &cap.text)] {
+        let t = Text {
+            file,
+            subject: &cap.id,
+            what,
+            text,
+            source,
+            lines: field_lines(scalars, &format!("/{what}")),
+        };
+        forge_internals(&t, &mut out);
+        enforcement_claim(&t, &mut out);
+        enforcement_limit(&t, &mut out);
+    }
+    let n = cap.text.chars().count();
+    if cap.deliver == Deliver::Inject && n > INJECT_MAX {
+        out.push(Finding {
+            lint: LintKind::InjectSize,
+            file: file.to_string(),
+            line: Some(field_lines(scalars, "/text").0),
+            subject: cap.id.clone(),
+            message: format!(
+                "injected text of {n} characters (at most {INJECT_MAX}): shorten it, or deliver it on-demand"
+            ),
+        });
+    }
+    for (i, st) in cap.relevant.iter().enumerate() {
+        let why = if st.trim_end().contains('\n') {
+            Some("spans several lines".to_string())
+        } else {
+            NEGATED
+                .find(st)
+                .map(|m| format!("is negated ({:?})", m.as_str()))
+        };
+        if let Some(why) = why {
+            out.push(Finding {
+                lint: LintKind::RelevantStatement,
+                file: file.to_string(),
+                line: Some(field_lines(scalars, &format!("/relevant/{i}")).0),
+                subject: cap.id.clone(),
+                message: format!(
+                    "relevant/{i} {why}: write one positive statement about the task per entry"
+                ),
+            });
+        }
+    }
+    let both = cap
+        .examples
+        .as_ref()
+        .is_some_and(|e| !e.selected.is_empty() && !e.not_selected.is_empty());
+    if cap.threshold.is_some() && !both {
+        out.push(Finding {
+            lint: LintKind::ThresholdExamples,
+            file: file.to_string(),
+            line: Some(field_lines(scalars, "/threshold").0),
+            subject: cap.id.clone(),
+            message: "threshold set without examples.selected and examples.not_selected to show it"
+                .into(),
+        });
     }
     out
 }

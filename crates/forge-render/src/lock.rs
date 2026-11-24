@@ -128,6 +128,8 @@ struct Stored {
     rule_set: String,
     #[serde(default)]
     rules: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    capabilities: BTreeMap<String, String>,
     #[serde(default)]
     files: BTreeMap<String, String>,
     #[serde(default)]
@@ -147,6 +149,8 @@ pub struct Lock {
     pub claude_code_min: String,
     pub rule_set: String,
     pub rules: BTreeMap<String, String>,
+    /// Each active capability id → sha256 of its file (§20).
+    pub capabilities: BTreeMap<String, String>,
     pub files: BTreeMap<String, String>,
     pub roles: BTreeMap<String, Vec<String>>,
     /// Tool pins, as provisioning writes them; apply keeps them unchanged.
@@ -163,6 +167,7 @@ impl Lock {
             claude_code_min: s.claude_code_min,
             rule_set: s.rule_set,
             rules: s.rules,
+            capabilities: s.capabilities,
             files: s.files,
             roles: s.roles,
             tools: s.tools,
@@ -181,6 +186,7 @@ impl Lock {
             claude_code_min: self.claude_code_min.clone(),
             rule_set: self.rule_set.clone(),
             rules: self.rules.clone(),
+            capabilities: self.capabilities.clone(),
             files: self.files.clone(),
             roles: self.roles.clone(),
             tools: self.tools.clone(),
@@ -343,6 +349,7 @@ mod tests {
             claude_code_min: CLAUDE_CODE_MIN.into(),
             rule_set: "abc".into(),
             rules: BTreeMap::from([("python/no-eval".into(), "h".into())]),
+            capabilities: BTreeMap::from([("acme/web-browser".into(), "h3".into())]),
             files: BTreeMap::from([(".claude/rules/forge-python.md".into(), "h2".into())]),
             roles: BTreeMap::from([("docs".into(), vec!["docs/**".into(), "!x".into()])]),
             tools,

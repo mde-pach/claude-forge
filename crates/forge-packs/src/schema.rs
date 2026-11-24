@@ -9,23 +9,25 @@ use schemars::generate::SchemaSettings;
 use schemars::{JsonSchema, Schema};
 use serde_json::Value;
 
-use crate::model::{Pack, ProjectConfig, Rule};
+use crate::model::{Capability, Pack, ProjectConfig, Rule};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Pack,
     Rule,
     Project,
+    Capability,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 3] = [Kind::Pack, Kind::Rule, Kind::Project];
+    pub const ALL: [Kind; 4] = [Kind::Pack, Kind::Rule, Kind::Project, Kind::Capability];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Kind::Pack => "pack",
             Kind::Rule => "rule",
             Kind::Project => "project",
+            Kind::Capability => "capability",
         }
     }
 
@@ -35,6 +37,7 @@ impl Kind {
             Kind::Pack => "schemas/pack.schema.json",
             Kind::Rule => "schemas/rule.schema.json",
             Kind::Project => "schemas/forge.schema.json",
+            Kind::Capability => "schemas/capability.schema.json",
         }
     }
 }
@@ -83,6 +86,7 @@ pub fn schema(kind: Kind) -> Value {
         Kind::Pack => generate::<Pack>(),
         Kind::Rule => generate::<Rule>(),
         Kind::Project => generate::<ProjectConfig>(),
+        Kind::Capability => generate::<Capability>(),
     };
     s.to_value()
 }
@@ -104,6 +108,7 @@ fn compile(kind: Kind) -> Validator {
 static PACK: LazyLock<Validator> = LazyLock::new(|| compile(Kind::Pack));
 static RULE: LazyLock<Validator> = LazyLock::new(|| compile(Kind::Rule));
 static PROJECT: LazyLock<Validator> = LazyLock::new(|| compile(Kind::Project));
+static CAPABILITY: LazyLock<Validator> = LazyLock::new(|| compile(Kind::Capability));
 
 /// Validates `data`; the error lists every problem ("/path message").
 pub fn validate(kind: Kind, data: &Value) -> Result<(), String> {
@@ -111,6 +116,7 @@ pub fn validate(kind: Kind, data: &Value) -> Result<(), String> {
         Kind::Pack => &*PACK,
         Kind::Rule => &*RULE,
         Kind::Project => &*PROJECT,
+        Kind::Capability => &*CAPABILITY,
     };
     if v.is_valid(data) {
         return Ok(());

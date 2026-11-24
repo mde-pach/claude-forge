@@ -447,7 +447,7 @@ fn status_reports_packs_disabled_local_and_changed_rules() {
     assert!(out.starts_with("# .forge/rules/no-print.yaml\n"), "{out}");
     let out = s.forge(&["explain", "nope/nothing"]);
     assert_eq!(out.status.code(), Some(1));
-    assert!(stderr(&out).contains("forge: unknown rule nope/nothing"));
+    assert!(stderr(&out).contains("forge: unknown rule or capability nope/nothing"));
     let out = s.ok(&["explain", "docker/copy-not-add"]);
     assert!(
         out.contains("Not active here: pack docker is not active at project level."),
@@ -508,6 +508,8 @@ fn status_json_keys_and_tool_versions() {
             "gated",
             "switched_off",
             "deprecated",
+            "capabilities",
+            "inactive_capabilities",
             "audits",
             "missing_tools",
             "tool_versions",
@@ -1326,5 +1328,117 @@ fn local_packs_render_their_context_where_it_holds() {
         stderr(&out).contains("is a built-in pack's"),
         "{}",
         stderr(&out)
+    );
+}
+
+/// A capability file of `id` (§20.1) delivered `deliver`, with `extra` lines appended.
+fn capability(id: &str, deliver: &str, extra: &str) -> String {
+    format!(
+        "id: {id}\ndescription: A persistent web browser, to act as a user would.\nrelevant:\n  - The task may involve something a person sees or does in a web page.\ndeliver: {deliver}\ntext: |\n  Open pages with the browser.\n{extra}"
+    )
+}
+
+// §20: status lists each active capability with its delivery, whether it is available here and
+// how often it was selected and loaded; the ones whose `when` does not hold; a disabled one with
+// its reason. The lock records each active one's file hash; diff and status say when one
+// changed; explain takes a capability id; the dump holds them.
+#[test]
+fn capabilities_in_status_explain_diff_and_dump() {
+    let s = Sandbox::new(PY);
+    s.write(
+        "forge.yaml",
+        "forge: \"0.6\"\ndisable:\n  - id: acme/off\n    reason: we have our own\n",
+    );
+    s.write(
+        ".forge/packs/acme/pack.yaml",
+        "id: acme\ndescription: Acme's conventions.\nlevel: project\ndetect: {always: true}\n",
+    );
+    let web = capability("acme/web", "on-demand", "");
+    s.write(".forge/packs/acme/capabilities/web.yaml", &web);
+    s.write(
+        ".forge/packs/acme/capabilities/linted.yaml",
+        &capability("acme/linted", "inject", "needs: {tools: [ruff]}\n"),
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/gated.yaml",
+        &capability("acme/gated", "inject", "when: {files: [\"web/**\"]}\n"),
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/off.yaml",
+        &capability("acme/off", "on-demand", ""),
+    );
+    let apply = s.forge(&["apply", "--yes"]);
+    assert!(apply.status.success(), "{}", stderr(&apply));
+    assert!(!stderr(&apply).contains("acme/off"), "{}", stderr(&apply));
+    let lock = s.read("forge.lock").unwrap();
+    assert!(
+        lock.contains("\n[capabilities]\n\"acme/linted\" = \""),
+        "{lock}"
+    );
+    assert!(lock.contains("\n\"acme/web\" = \""), "{lock}");
+    assert!(
+        !lock.contains("acme/gated") && !lock.contains("acme/off"),
+        "{lock}"
+    );
+
+    let st = s.ok(&["status"]);
+    assert!(
+        st.contains("\nCapabilities:\n  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times\n  acme/web: on-demand, available here; selected for 0 of 0 prompts, loaded 0 times\n  acme/gated: not active (its when does not hold in this repository)\n"),
+        "{st}"
+    );
+    assert!(st.contains("\n  acme/off: we have our own"), "{st}");
+    let js: serde_json::Value = serde_json::from_str(&s.ok(&["status", "--json"])).unwrap();
+    assert_eq!(js["capabilities"][1]["id"], "acme/web");
+    assert_eq!(js["capabilities"][1]["deliver"], "on-demand");
+    assert_eq!(js["capabilities"][1]["available"], true);
+    assert_eq!(js["capabilities"][1]["selected"], 0);
+    assert_eq!(
+        js["capabilities"][0]["unavailable"][0],
+        "ruff is not installed on this machine"
+    );
+    assert_eq!(js["inactive_capabilities"][0]["id"], "acme/gated");
+
+    let out = s.ok(&["explain", "acme/web"]);
+    assert!(
+        out.starts_with("# .forge/packs/acme/capabilities/web.yaml\nid: acme/web\n"),
+        "{out}"
+    );
+    assert!(
+        out.contains("\nActive here: acme/web: on-demand, available here;"),
+        "{out}"
+    );
+    let out = s.ok(&["explain", "acme/gated"]);
+    assert!(
+        out.contains("\nNot active here: its when does not hold in this repository."),
+        "{out}"
+    );
+    let out = s.ok(&["explain", "acme/off"]);
+    assert!(out.contains("\nDisabled here: we have our own"), "{out}");
+
+    let dump: serde_json::Value =
+        serde_json::from_str(&s.ok(&["packs", "dump", "--json", "--repo", "."])).unwrap();
+    let acme = dump
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "acme")
+        .expect("the local pack is dumped");
+    assert_eq!(acme["capabilities"].as_array().unwrap().len(), 4);
+
+    s.write(
+        ".forge/packs/acme/capabilities/web.yaml",
+        &web.replace("Open pages", "Open the pages"),
+    );
+    let out = s.forge(&["diff"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        stdout(&out).contains("forge: capability acme/web changed since the last apply"),
+        "{}",
+        stdout(&out)
+    );
+    let st = s.ok(&["status"]);
+    assert!(
+        st.contains("  capability acme/web changed since the last apply"),
+        "{st}"
     );
 }

@@ -11,6 +11,9 @@ rule_set = "<sha256>"              # the active rule set (below)
 [rules]                            # each active rule id → sha256 of its rule file
 "python/no-eval" = "<sha256>"
 
+[capabilities]                     # each active capability id → sha256 of its file (§20); absent when none
+"acme/web-browser" = "<sha256>"
+
 [files]                            # each owned file apply wrote → sha256 of its content
 ".claude/rules/forge-python.md" = "<sha256>"
 
@@ -36,7 +39,7 @@ hash = "<sha256>"                  # of the block's lines, indentation removed
 
 - `forge` is the first key, a top-level string holding an exact version (`MAJOR.MINOR.PATCH[-pre][+build]`). The launcher reads only this key, with a scanner that stops at the first table header; a differential test checks it agrees with a full TOML parser.
 - `rule_set` is the sha256 of the active rules (id and file hash), the file roles they use (effective patterns) and the active packs. The hooks and the checker key their caches on it.
-- `[rules]` lets `apply` and `status` report `rule <id> changed since the last apply`.
+- `[rules]` lets `apply` and `status` report `rule <id> changed since the last apply`; `[capabilities]`, `capability <id> changed since the last apply`.
 - `[files]` is what drift is measured against: an owned file whose content no longer has its recorded hash is drift (§3.3). It lists the rules files and, when Forge created it, git's pre-commit hook.
 - `[roles]` lets `status` report a file role whose patterns changed since the last apply.
 - `[tools]` holds this Forge version's tool pins, written by every `apply`. `forge status` lists each pin that differs between the lock and the running Forge (`<tool>: <locked> -> <ours>`; `not pinned` for a missing side).

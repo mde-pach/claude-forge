@@ -133,6 +133,8 @@ pub fn select(
         {
             if by_id.shift_remove(&d.id).is_some() {
                 out.disabled.push(d.clone());
+            } else if crate::capabilities::is_capability(set, &d.id) {
+                // a capability's disable: decided with the capabilities (§20.2)
             } else {
                 warnings.push(format!(
                     "forge.yaml: disable: rule \"{}\" is not active here",

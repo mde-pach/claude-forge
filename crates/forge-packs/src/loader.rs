@@ -7,14 +7,14 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{ErrorKind, LoadError};
 use crate::lint::{self, Finding};
-use crate::model::{Origin, Pack, PackSource, Rule};
+use crate::model::{Capability, Origin, Pack, PackSource, Rule};
 use crate::schema::{self, Kind};
 use crate::tree::{Tree, join};
 use crate::validate;
 use crate::yaml::{self, Parsed};
 
 /// Directory names inside a pack that are not child packs.
-pub const RESERVED: &[&str] = &["rules", "init"];
+pub const RESERVED: &[&str] = &["rules", "init", "capabilities"];
 
 /// What loading one tree gives: packs in load order (each parent before its children,
 /// siblings by name), standalone rules, and the lints' findings.
@@ -22,6 +22,9 @@ pub const RESERVED: &[&str] = &["rules", "init"];
 pub struct Loaded {
     pub packs: IndexMap<String, Pack>,
     pub rules: Vec<Rule>,
+    /// Standalone capabilities (`.forge/capabilities/*.yaml`).
+    #[serde(default)]
+    pub capabilities: Vec<Capability>,
     pub findings: Vec<Finding>,
 }
 
@@ -117,6 +120,35 @@ pub fn load_rule_file(
     Ok(rule)
 }
 
+/// A capability file, validated (§20.1).
+pub fn load_capability_file(
+    place: &Place,
+    rel: &str,
+    origin: Origin,
+    findings: &mut Vec<Finding>,
+) -> Result<Capability, LoadError> {
+    let text = place
+        .text(rel)?
+        .ok_or_else(|| place.err(rel, ErrorKind::Io, "no such file"))?;
+    let (mut cap, parsed): (Capability, Parsed) = parse_file(place, rel, &text, Kind::Capability)?;
+    validate::validate_capability(&cap).map_err(|e| place.err(rel, ErrorKind::Schema, e))?;
+    cap.file = place.path(rel);
+    cap.hash = hex(&Sha256::digest(text.as_bytes()));
+    cap.origin = origin;
+    cap.pack = cap
+        .id
+        .rsplit_once('/')
+        .map(|(p, _)| p.to_string())
+        .unwrap_or_default();
+    findings.extend(lint::lint_capability(
+        &cap,
+        &place.shown(rel),
+        &text,
+        &parsed.scalars,
+    ));
+    Ok(cap)
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -204,6 +236,26 @@ fn walk(
         }
         rules.push(rule);
     }
+    let caps_dir = join(dir, "capabilities");
+    let mut capabilities = Vec::new();
+    for (f, is_dir) in place.tree.list(&caps_dir).unwrap_or_default() {
+        let Some(name) = f.strip_suffix(".yaml") else {
+            continue;
+        };
+        if is_dir {
+            continue;
+        }
+        let rel = join(&caps_dir, &f);
+        let cap = load_capability_file(place, &rel, Origin::Pack, &mut out.findings)?;
+        if cap.id != format!("{id}/{name}") {
+            return Err(place.err(
+                &rel,
+                ErrorKind::Layout,
+                format!("id must be \"{id}/{name}\""),
+            ));
+        }
+        capabilities.push(cap);
+    }
     let context_rel = join(dir, "context.md");
     if place
         .tree
@@ -224,6 +276,7 @@ fn walk(
     pack.children = Vec::new();
     pack.init_dir = place.tree.is_dir(&init_rel).then(|| place.path(&init_rel));
     pack.rules = rules;
+    pack.capabilities = capabilities;
     pack.source = place.source;
     out.findings.extend(lint::lint_pack(
         &pack,
@@ -263,6 +316,23 @@ pub fn load_rules_dir(place: &Place) -> Result<Loaded, LoadError> {
         }
         out.rules
             .push(load_rule_file(place, &f, Origin::Local, &mut out.findings)?);
+    }
+    Ok(out)
+}
+
+/// The `*.yaml` files of a directory, as standalone capabilities (`.forge/capabilities/`).
+pub fn load_capabilities_dir(place: &Place) -> Result<Loaded, LoadError> {
+    let mut out = Loaded::default();
+    for (f, is_dir) in place.tree.list("").unwrap_or_default() {
+        if is_dir || !f.ends_with(".yaml") {
+            continue;
+        }
+        out.capabilities.push(load_capability_file(
+            place,
+            &f,
+            Origin::Local,
+            &mut out.findings,
+        )?);
     }
     Ok(out)
 }

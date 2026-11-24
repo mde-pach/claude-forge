@@ -27,6 +27,7 @@ Each chapter ends with a **Tests** list. The table gathers them: the test files 
 | §17 | [Tool provisioning](spec/17-tool-provisioning.md) | `forge-tools/tests/{provision,env_file,spec_pins}.rs`; `forge-tools/tests/network.rs` (opt-in); `forge-tools/src/*.rs` (unit) |
 | §18 | [Distribution](spec/18-distribution.md) | `forge-tools/tests/{install_sh,npm_package,forge_fetch}.rs` |
 | §19 | [Migration from the TypeScript Forge](spec/19-migration-from-typescript.md) | `forge-cli/tests/apply.rs` (`migration_*`, on `forge-cli/tests/fixtures/old-layout`) |
+| §20 | [Capabilities](spec/20-capabilities.md) | `forge-packs/tests/capabilities.rs`; `forge-capabilities/src/*.rs` (unit); `forge-cli/tests/spec_cli.rs::capabilities_in_status_explain_diff_and_dump` |
 
 ### Tables generated from the code
 

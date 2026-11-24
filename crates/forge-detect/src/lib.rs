@@ -20,6 +20,7 @@ pub mod pm;
 pub mod roles;
 pub mod tools;
 pub mod versions;
+pub mod when;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -30,6 +31,7 @@ pub use facts::{
     ProjectFacts, read_project_facts,
 };
 pub use place::{CheckPlace, Site};
+pub use when::when_holds;
 
 /// The repository's files: tracked and untracked, not ignored (`git ls-files`), that exist.
 pub fn list_repo_files(repo: &Path) -> Vec<String> {

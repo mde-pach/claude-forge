@@ -175,7 +175,7 @@ Built-in packs prove their rules by their examples in Forge's test suite: every 
 
 ### 6.6 Content lints
 
-Loading never fails on these; `forge packs lint` prints them and exits 1 when there are any, and the built-in packs' tests require none. The agent-facing text of a rule is its `description`, `review` and guard `reason`s; of a pack, its `context` items' `text`.
+Loading never fails on these; `forge packs lint` prints them and exits 1 when there are any, and the built-in packs' tests require none. The agent-facing text of a rule is its `description`, `review` and guard `reason`s; of a pack, its `context` items' `text`; of a capability, its `description` and `text` (§20.1).
 
 | Lint | Finds |
 |---|---|
@@ -185,6 +185,9 @@ Loading never fails on these; `forge packs lint` prints them and exits 1 when th
 | `enforcement-claim` | context text claiming a tool enforces the norm ("is rejected by", "rejects", "is linted by", …), or describing enforcement instead of the norm ("is rejected", "are rejected"): false wherever the tool is not installed; the text states the norm ("Queries use `select()`, not `session.query()`") |
 | `enforcement-limit` | agent-facing text about what is not checked ("is not checked", "not recognised", "not checked by") |
 | `advice-prefix` | a description starting with `Advice`: the prefix comes from the mode |
+| `inject-size` | a capability delivered `inject` whose `text` is over 1,500 characters: it goes in every prompt that selects it (§20.5) |
+| `relevant-statement` | a capability's `relevant` statement that spans lines or is negated (`not`, `no`, `never`, `without`, `n't`, …): the capability engine reads one positive statement about the task |
+| `threshold-examples` | a capability `threshold` set without both `examples.selected` and `examples.not_selected` to show it |
 
 ### 6.7 Example
 

@@ -1,0 +1,189 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "One line, for the agent: what it is and what it is for.",
+      "pattern": "^[^\\n\\t]+$"
+    },
+    "relevant": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Statements about the task, read by the capability engine, never by the agent: any one\nthat holds selects the capability.",
+      "minItems": 1
+    },
+    "threshold": {
+      "type": "number",
+      "format": "double",
+      "description": "The engine's value at or above which a statement holds; 0.3 when absent.",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "deliver": {
+      "$ref": "#/$defs/Deliver"
+    },
+    "text": {
+      "type": "string",
+      "description": "What the agent gets.",
+      "minLength": 1
+    },
+    "when": {
+      "description": "Exactly a context item's `when` (§5.4): repository facts only.",
+      "$ref": "#/$defs/ContextWhen"
+    },
+    "needs": {
+      "$ref": "#/$defs/CapabilityNeeds"
+    },
+    "examples": {
+      "$ref": "#/$defs/CapabilityExamples"
+    }
+  },
+  "required": [
+    "id",
+    "description",
+    "relevant",
+    "deliver",
+    "text"
+  ],
+  "title": "capability",
+  "description": "A capability (§20): something the agent is able to use or should use, given to it only when\nthe task at hand needs it. It enforces nothing and grants nothing. Its file as written plus\nwhat loading adds (file, hash, origin, pack).",
+  "$id": "forge:capability",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Deliver": {
+      "type": "string",
+      "enum": [
+        "inject",
+        "on-demand"
+      ],
+      "description": "How a selected capability reaches the agent (§20.5): its text in the prompt's context\n(`inject`), or one line naming the command that prints it (`on-demand`). The file\ndecides, never the engine; later kinds are added here."
+    },
+    "ContextWhen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DepSpec"
+          },
+          "description": "Every dependency is declared, in its version range."
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "A file matches one of the globs."
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/OneOrMany"
+          },
+          "description": "Every named fact has the value (or one of the values): `python.pm: uv`."
+        },
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)*$"
+          },
+          "description": "One of these packs is active."
+        }
+      },
+      "description": "When a context item holds. Every condition given must hold, in one place the pack applies\nto (the root or a workspace package); `packs` is about the whole repository.",
+      "minProperties": 1
+    },
+    "DepSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "$ref": "#/$defs/Ecosystem"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ecosystem",
+        "name"
+      ],
+      "description": "A dependency: by ecosystem and name, in a version range (npm semver, or PEP 440 for PyPI)."
+    },
+    "Ecosystem": {
+      "type": "string",
+      "enum": [
+        "pypi",
+        "npm"
+      ]
+    },
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      ],
+      "description": "A value or a non-empty list of them, kept in the shape it was written."
+    },
+    "CapabilityNeeds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Tools Forge pins (§17.2), each provisioned on this machine.",
+          "uniqueItems": true
+        }
+      },
+      "description": "What a capability needs on this machine to be offered here (§20.2, gate 2)."
+    },
+    "CapabilityExamples": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "not_selected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "description": "Prompts the capability engine is expected to select it for, and not to: its tests, run\nagainst the real engine only when opted in (§20.8)."
+    }
+  }
+}

@@ -53,6 +53,9 @@ pub fn print_diff(ctx: &Ctx, ch: &Changes) -> bool {
     for id in &ch.rules_changed {
         println!("forge: rule {id} changed since the last apply");
     }
+    for id in &ch.capabilities_changed {
+        println!("forge: capability {id} changed since the last apply");
+    }
     for r in &ch.roles_changed {
         println!("forge: {r}");
     }
@@ -67,6 +70,7 @@ pub fn print_diff(ctx: &Ctx, ch: &Changes) -> bool {
     }
     any || !ch.missing_entries.is_empty()
         || !ch.rules_changed.is_empty()
+        || !ch.capabilities_changed.is_empty()
         || !ch.roles_changed.is_empty()
 }
 

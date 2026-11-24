@@ -17,6 +17,7 @@ Forge is one installed binary. It reads rules grouped in packs, writes a small C
 11. **Forge writes only what it owns.** Files the project owns (tool configs, `package.json`, `pyproject.toml`, `CLAUDE.md`, git config) are audited, never written; `forge init` creates missing tool configs once (§3.2).
 12. **Rules are data.** One YAML file per rule, with examples that double as tests. Adding a rule means adding a file.
 13. **Enforce in the closest native place:** the project's own tools, then ast-grep, then Claude Code permissions and sandbox, then hooks.
+14. **A capability enforces nothing and grants nothing.** A capability (§20) tells the agent what it is able to use when its task needs it; whatever must hold is a rule, and whatever is allowed is Claude Code's permissions and sandbox.
 
 ### Tests
 

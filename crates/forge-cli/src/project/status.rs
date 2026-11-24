@@ -125,6 +125,11 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             .iter()
             .map(|id| format!("rule {id} changed since the last apply")),
     );
+    drift.extend(
+        ch.capabilities_changed
+            .iter()
+            .map(|id| format!("capability {id} changed since the last apply")),
+    );
     drift.extend(ch.roles_changed.iter().cloned());
     for e in &ch.missing_entries {
         drift.push(format!("{}: missing {} {}", e.file, e.path, e.value));
@@ -155,6 +160,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
     let pre = (ctx.level == Level::Project).then(|| precommit::state(&ctx));
     let setup = super::offers::pending(&ctx);
     let pins = pin_differences(&ctx);
+    let caps = super::capabilities::statuses(&ctx);
     if json_out {
         let enforced = rules.iter().filter(|r| r.enforced).count();
         let v = json!({
@@ -170,6 +176,8 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             "gated": p.gated,
             "switched_off": p.switched_off,
             "deprecated": p.deprecated,
+            "capabilities": caps,
+            "inactive_capabilities": p.inactive_capabilities,
             "audits": audits,
             "missing_tools": missing,
             "tool_versions": versions,
@@ -245,6 +253,15 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
     }
     for d in &p.deprecated {
         println!("  {}: deprecated, replaced by {}", d.id, d.replaced_by);
+    }
+    if !caps.is_empty() || !p.inactive_capabilities.is_empty() {
+        println!("\nCapabilities:");
+        for c in &caps {
+            println!("  {}", super::capabilities::line(c));
+        }
+        for c in &p.inactive_capabilities {
+            println!("  {}: not active ({})", c.id, c.why);
+        }
     }
     let roles = role_files(&ctx);
     if !roles.is_empty() {
@@ -352,6 +369,9 @@ pub fn explain(id: &str, flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Err
         Some(b) => load_packs(level, b)?,
         None => load_packs(Level::User, std::path::Path::new("."))?,
     };
+    if let Some(cap) = set.capability(id) {
+        return explain_capability(cap.clone(), &set, base.as_deref(), flags);
+    }
     let rule = set
         .local_rules
         .iter()
@@ -362,7 +382,7 @@ pub fn explain(id: &str, flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Err
                 .flat_map(|p| &p.rules)
                 .find(|r| r.id == id)
         })
-        .ok_or_else(|| Error::new(format!("forge: unknown rule {id}")))?
+        .ok_or_else(|| Error::new(format!("forge: unknown rule or capability {id}")))?
         .clone();
     let pack_source = set.packs.get(&rule.pack).map(|p| p.source);
     let text = match (rule.origin, pack_source) {
@@ -410,6 +430,47 @@ pub fn explain(id: &str, flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Err
             "Not active here: pack {} is not active at {} level.",
             rule.pack, ctx.level
         );
+    }
+    Ok(0)
+}
+
+/// `forge explain <capability id>`: the file, then whether it is active here, available on this
+/// machine, and how it is delivered (§20).
+fn explain_capability(
+    cap: forge_packs::model::Capability,
+    set: &forge_packs::PackSet,
+    base: Option<&std::path::Path>,
+    flags: &Flags,
+) -> Result<u8, Error> {
+    let pack_source = set.packs.get(&cap.pack).map(|p| p.source);
+    let text = match (cap.origin, pack_source) {
+        (Origin::Pack, Some(PackSource::Builtin)) => {
+            forge_packs::builtin_file(&cap.file).map(|b| String::from_utf8_lossy(b).into_owned())
+        }
+        _ => base.and_then(|b| std::fs::read_to_string(b.join(&cap.file)).ok()),
+    }
+    .unwrap_or_default();
+    println!("# {}", cap.file);
+    print!("{text}");
+    println!();
+    if base.is_none() || flags.user {
+        println!("Not in a git repository: capabilities are given at project level only.");
+        return Ok(0);
+    }
+    let ctx = context(flags)?;
+    let p = &ctx.plan;
+    if let Some(d) = p.disabled.iter().find(|d| d.id == cap.id) {
+        println!("Disabled here: {}", d.reason);
+    } else if let Some(off) = p.inactive_capabilities.iter().find(|c| c.id == cap.id) {
+        println!("Not active here: {}.", off.why);
+    } else if p.capabilities.iter().any(|c| c.id == cap.id) {
+        let st = super::capabilities::statuses(&ctx)
+            .into_iter()
+            .find(|s| s.id == cap.id)
+            .expect("an active capability has a status");
+        println!("Active here: {}", super::capabilities::line(&st));
+    } else {
+        println!("Not active here: pack {} is not active.", cap.pack);
     }
     Ok(0)
 }

@@ -27,6 +27,7 @@ The docs site (`docs/`, Astro) is built with Bun: `cd docs && bun install && bun
 |---|---|
 | A rule, or a new one | `packs/<pack>/rules/<name>.yaml` (YAML only) |
 | A pack, or a new one | `packs/<path>/pack.yaml` (`detect`, `context`), `rules/`, `init/` |
+| A capability (§20), or the capability file format | `packs/<pack>/capabilities/<name>.yaml`; the format and lints in `crates/forge-packs`, the gates and the capability engine in `crates/forge-capabilities` |
 | The pack format, its schema, the content lints | `crates/forge-packs` (`model.rs`, `lint.rs`) |
 | A file role (`@python-tests`) | `ROLES` in `crates/forge-packs/src/roles.rs` (and §15.4) |
 | Project facts, activation, placement | `crates/forge-detect` |

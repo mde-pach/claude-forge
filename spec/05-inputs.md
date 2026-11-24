@@ -5,9 +5,9 @@
 Packs form a tree: **language first, then package, then sub-package** (`typescript` → `typescript/nextjs` → `typescript/nextjs/react`). The same package can appear under several parents with different rules (`typescript/nextjs/react`, `typescript/astro/react`). Packs not tied to a language are roots of their own (`safety`, `code`, `docs`, `secrets`, `git`, …). §13 lists every built-in pack.
 
 - The built-in packs are the repository's `packs/` directory, embedded in the binary at build time (`include_dir!`) and parsed at run time. The binary's version therefore pins the built-in set.
-- Local packs (`.forge/packs/`) and local rules (`.forge/rules/`) go through the same loader (§5.6).
+- Local packs (`.forge/packs/`), local rules (`.forge/rules/`) and local capabilities (`.forge/capabilities/`, §20.1) go through the same loader (§5.6).
 - The YAML reader is strict: anchors, aliases, custom tags and duplicate keys are rejected. Scalars follow YAML's core schema.
-- Each file is validated against its JSON Schema (`schemas/pack.schema.json`, `rule.schema.json`, `project.schema.json`, generated from the Rust model), then by checks a schema cannot express (§6.3). A file that fails is an error that stops the command, naming the file.
+- Each file is validated against its JSON Schema (`schemas/pack.schema.json`, `rule.schema.json`, `capability.schema.json`, `forge.schema.json`, generated from the Rust model), then by checks a schema cannot express (§6.3). A file that fails is an error that stops the command, naming the file.
 - The content lints (§6.6) do not stop loading. `forge packs lint` reports them; the built-in packs must have none.
 - A parsed tree is cached under `<cache>/packs/` (MessagePack), keyed by a hash of its inputs and of the build. Built-in and local trees are cached separately. A missing, stale or corrupt entry is reparsed and rewritten; the cache never changes what is loaded.
 
@@ -18,10 +18,11 @@ packs/<path>/                   (or .forge/packs/<path>/)
 ├── pack.yaml
 ├── rules/<name>.yaml           rule id: <path>/<name>
 ├── init/                       optional: templates forge init creates (§3.2)
+├── capabilities/<name>.yaml    optional: capability id <path>/<name> (§20)
 └── <child>/                    optional child packs (a directory with a pack.yaml)
 ```
 
-`rules` and `init` are reserved names; any other sub-directory must be a child pack. A pack's `id` equals its path in the tree, and each rule's `id` equals `<pack id>/<file name>`. A `context.md` file is refused: a pack's context is its `pack.yaml` `context:` list.
+`rules`, `init` and `capabilities` are reserved names; any other sub-directory must be a child pack. A pack's `id` equals its path in the tree, and each rule's `id` equals `<pack id>/<file name>`. A `context.md` file is refused: a pack's context is its `pack.yaml` `context:` list.
 
 ```yaml
 id: string                  # the pack's path in the tree: ^seg(/seg)*$, seg = ^[a-z][a-z0-9-]*$
@@ -118,7 +119,7 @@ packs:
   add: [pack-id]
   remove: [pack-id]
 disable:
-  - id: <rule-id>
+  - id: <rule-id>           # or a capability id (§20.1)
     reason: string          # required
 accept:                     # findings accepted on purpose, any rule's (§10.5)
   - rule: <rule-id>
@@ -134,14 +135,15 @@ docker:
     not-dependencies: [service]    # compose services run from an image that no test depends on (docker/compose/tests-use-testcontainers)
 ```
 
-- A `disable` naming a rule that is not active is a warning.
+- A `disable` naming a rule that is not active is a warning; one naming a capability is decided with the capabilities (§20.2).
 - `forge.yaml` is an input: `apply` never writes it. It is behind a permission `ask` (§7.2).
 
 ### 5.6 Local packs and rules
 
 - `.forge/packs/<id>/` holds local packs, laid out as built-in packs are (§5.2). A local pack's id may not be a built-in pack's id: `pack id "<id>" is a built-in pack's; a local pack needs an id of its own`.
 - `.forge/rules/<name>.yaml` holds standalone rules. A local rule whose `id` equals an active pack rule's `id` replaces it entirely. A local rule is kept when its pack is active or is not a known pack at all; one for a known pack that is not active is ignored, with the warning `<file>: pack "<pack>" is not active here; rule <id> is ignored`.
-- Local packs and rules are inputs, behind the permission `ask` on `Edit(.forge/**)` (§7.2). They are validated and linted as built-in ones are, by every command that loads packs.
+- `.forge/capabilities/<name>.yaml` holds standalone capabilities, which replace and add to the packs' as local rules do (§20.1).
+- Local packs, rules and capabilities are inputs, behind the permission `ask` on `Edit(.forge/**)` (§7.2). They are validated and linted as built-in ones are, by every command that loads packs.
 
 ### Tests
 

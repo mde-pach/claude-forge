@@ -29,6 +29,7 @@ pub struct Previous {
     pub local_record: Option<Vec<SettingsEntry>>,
     pub blocks: Vec<LockBlock>,
     pub rules: BTreeMap<String, String>,
+    pub capabilities: BTreeMap<String, String>,
     pub roles: BTreeMap<String, Vec<String>>,
     pub tools: toml::Table,
     /// The lock's own text (for the diff), when there is a lock.
@@ -43,6 +44,7 @@ impl From<&Lock> for Previous {
             local_record: None,
             blocks: l.blocks.clone(),
             rules: l.rules.clone(),
+            capabilities: l.capabilities.clone(),
             roles: l.roles.clone(),
             tools: l.tools.clone(),
             lock_text: None,
@@ -292,6 +294,8 @@ pub struct Changes {
     /// the project: no record is created while it would be empty).
     pub local_record_changed: bool,
     pub rules_changed: Vec<String>,
+    /// Active capabilities whose file changed since the last apply.
+    pub capabilities_changed: Vec<String>,
     pub roles_changed: Vec<String>,
     /// Scalar settings set differently by the person (never overwritten), and blocks Forge cannot add back.
     pub overridden: Vec<String>,
@@ -490,6 +494,11 @@ pub fn compute(
             ch.rules_changed.push(id.clone());
         }
     }
+    for c in &plan.capabilities {
+        if prev.capabilities.get(&c.id).is_some_and(|h| *h != c.hash) {
+            ch.capabilities_changed.push(c.id.clone());
+        }
+    }
     for r in &plan.roles {
         let now = &plan.role_globs[&r.name];
         if let Some(was) = prev.roles.get(&r.name)
@@ -508,6 +517,11 @@ pub fn compute(
         claude_code_min: CLAUDE_CODE_MIN.into(),
         rule_set: plan.rule_set.clone(),
         rules: plan.rules.clone(),
+        capabilities: plan
+            .capabilities
+            .iter()
+            .map(|c| (c.id.clone(), c.hash.clone()))
+            .collect(),
         files: plan
             .files
             .iter()

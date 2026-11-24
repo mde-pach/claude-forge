@@ -1,0 +1,19 @@
+[package]
+name = "forge-capabilities"
+description = "Capabilities (§20): whether one is available on this machine, the capability engine and its client, the digest of the task, and the text the agent reads."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+forge-core.workspace = true
+forge-home.workspace = true
+forge-packs.workspace = true
+forge-tools.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

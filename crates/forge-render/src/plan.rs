@@ -8,9 +8,10 @@ use std::path::{Path, PathBuf};
 use forge_detect::roles::{RolePattern, Roles};
 use forge_detect::{Activation, PackStatus, ProjectFacts, Site, active_packs};
 use forge_packs::PackSet;
-use forge_packs::model::{AuditedTool, Disable, Level, ProjectConfig};
+use forge_packs::model::{AuditedTool, Capability, Disable, Level, ProjectConfig};
 use serde::Serialize;
 
+use crate::capabilities::{CapabilityOff, select_capabilities};
 use crate::context::{PackContext, pack_context, render_rules_files};
 use crate::hooks::hook_entries;
 use crate::lock::{LOCK_FILE, USER_LOCK_FILE, rule_set_hash};
@@ -123,6 +124,10 @@ pub struct Plan {
     /// Where each audited tool's audits run ("" is the root).
     pub tool_dirs: BTreeMap<AuditedTool, Vec<String>>,
     pub rule_set: String,
+    /// The active capabilities (§20.2, gate 1), by id.
+    pub capabilities: Vec<Capability>,
+    /// The packs' capabilities whose `when` does not hold here.
+    pub inactive_capabilities: Vec<CapabilityOff>,
 }
 
 /// Serena, every session's (§17.8): its project files in `.serena/`, its server in `.mcp.json`,
@@ -228,6 +233,8 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         &mut warnings,
     )?;
 
+    let caps = select_capabilities(input.set, &site, level, input.config, &mut warnings);
+
     let mut settings: Vec<DesiredEntry> = owned_asks(level, input.base)
         .into_iter()
         .map(|v| DesiredEntry {
@@ -332,7 +339,11 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         packs: activation.packs.clone(),
         removed_packs: activation.removed.clone(),
         active: selected.active,
-        disabled: selected.disabled,
+        disabled: {
+            let mut d = selected.disabled;
+            d.extend(caps.disabled);
+            d
+        },
         gated: selected.gated,
         switched_off: selected.switched_off,
         deprecated: selected.deprecated,
@@ -340,5 +351,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         roles,
         role_globs,
         tool_dirs,
+        capabilities: caps.active,
+        inactive_capabilities: caps.inactive,
     })
 }

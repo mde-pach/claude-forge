@@ -232,6 +232,104 @@ pub struct ContextWhen {
     pub packs: Vec<String>,
 }
 
+vocabulary!(
+    /// How a selected capability reaches the agent (§20.5): its text in the prompt's context
+    /// (`inject`), or one line naming the command that prints it (`on-demand`). The file
+    /// decides, never the engine; later kinds are added here.
+    Deliver { Inject = "inject", OnDemand = "on-demand" }
+);
+
+/// What a capability needs on this machine to be offered here (§20.2, gate 2).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityNeeds {
+    /// Tools Forge pins (§17.2), each provisioned on this machine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(extend("uniqueItems" = true), inner(length(min = 1)))]
+    pub tools: Vec<String>,
+}
+
+/// Prompts the capability engine is expected to select it for, and not to: its tests, run
+/// against the real engine only when opted in (§20.8).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityExamples {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(inner(length(min = 1)))]
+    pub selected: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(inner(length(min = 1)))]
+    pub not_selected: Vec<String>,
+}
+
+/// The selection threshold when a capability sets none (§20.3).
+pub const DEFAULT_THRESHOLD: f64 = 0.3;
+
+/// A capability (§20): something the agent is able to use or should use, given to it only when
+/// the task at hand needs it. It enforces nothing and grants nothing. Its file as written plus
+/// what loading adds (file, hash, origin, pack).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(title = "capability", extend("$id" = "forge:capability"))]
+pub struct Capability {
+    #[schemars(pattern(r"^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)+$"))]
+    pub id: String,
+    /// One line, for the agent: what it is and what it is for.
+    #[schemars(pattern(r"^[^\n\t]+$"))]
+    pub description: String,
+    /// Statements about the task, read by the capability engine, never by the agent: any one
+    /// that holds selects the capability.
+    #[schemars(length(min = 1), inner(length(min = 1)))]
+    pub relevant: Vec<String>,
+    /// The engine's value at or above which a statement holds; 0.3 when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub threshold: Option<f64>,
+    pub deliver: Deliver,
+    /// What the agent gets.
+    #[schemars(length(min = 1))]
+    pub text: String,
+    /// Exactly a context item's `when` (§5.4): repository facts only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<ContextWhen>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub needs: Option<CapabilityNeeds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub examples: Option<CapabilityExamples>,
+    // ---- added by the loader
+    /// The capability file: below the built-in packs root, or relative to the repository.
+    #[serde(default)]
+    #[schemars(skip)]
+    pub file: String,
+    /// sha256 (hex) of the file's bytes.
+    #[serde(default)]
+    #[schemars(skip)]
+    pub hash: String,
+    #[serde(default)]
+    #[schemars(skip)]
+    pub origin: Origin,
+    /// Pack id: the id without its last segment.
+    #[serde(default)]
+    #[schemars(skip)]
+    pub pack: String,
+}
+
+impl Capability {
+    /// The id's last segment: the name the agent uses.
+    pub fn name(&self) -> &str {
+        self.id.rsplit_once('/').map_or(&self.id, |(_, n)| n)
+    }
+
+    pub fn threshold(&self) -> f64 {
+        self.threshold.unwrap_or(DEFAULT_THRESHOLD)
+    }
+
+    /// The pinned tools it needs.
+    pub fn tools(&self) -> &[String] {
+        self.needs.as_ref().map_or(&[], |n| &n.tools)
+    }
+}
+
 /// A pack: `pack.yaml` plus what loading adds (its place in the tree, its rules).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -272,6 +370,10 @@ pub struct Pack {
     #[serde(default)]
     #[schemars(skip)]
     pub rules: Vec<Rule>,
+    /// Its `capabilities/*.yaml` (§20.1).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(skip)]
+    pub capabilities: Vec<Capability>,
     /// Built-in packs leave it out of the dump.
     #[serde(default, skip_serializing_if = "PackSource::is_builtin")]
     #[schemars(skip)]

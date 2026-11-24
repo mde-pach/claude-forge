@@ -2,6 +2,7 @@
 //! level (the repository) or user level (`--user`: `~/.claude`).
 
 mod apply;
+mod capabilities;
 mod io;
 mod offers;
 mod precommit;

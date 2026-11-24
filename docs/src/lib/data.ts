@@ -32,7 +32,7 @@ export function packs(): Map<string, Pack> {
 export const cliHelp = (): CliHelp[] => readData<CliHelp[]>("cli.json");
 
 /** A schema of schemas/, parsed. */
-export const schema = (name: "pack" | "rule" | "forge"): unknown => JSON.parse(readFileSync(join(ROOT, "schemas", `${name}.schema.json`), "utf8"));
+export const schema = (name: "pack" | "rule" | "forge" | "capability"): unknown => JSON.parse(readFileSync(join(ROOT, "schemas", `${name}.schema.json`), "utf8"));
 
 /** A site URL under the configured base. */
 export function url(path: string): string {
