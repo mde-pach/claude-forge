@@ -340,6 +340,7 @@ fn hook_entries_wire_every_event() {
             "PostToolUse Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__serena__.* post-tool-use-typecheck 300 rewake",
             "PostToolUseFailure Bash post-tool-use-failure 60",
             "PostToolUseFailure Bash post-tool-use-typecheck 300 rewake",
+            "PostToolBatch - post-tool-batch 30",
             "Stop - stop 600",
             "PermissionRequest - permission-request 180",
             "SessionEnd - session-end 10",

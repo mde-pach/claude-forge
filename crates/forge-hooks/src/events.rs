@@ -413,7 +413,38 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
         report.notes.append(&mut more.notes);
     }
     p.note(&report.notes);
+    // given when the batch of calls ends, as the files are then (batch.rs)
+    let checked: Vec<String> = files
+        .iter()
+        .cloned()
+        .chain(outside.iter().map(|a| a.display().to_string()))
+        .collect();
+    if let Some(id) = input.tool_use_id.as_deref()
+        && crate::batch::hold(&p, id, checked, report.findings.clone())
+    {
+        return answer(String::new());
+    }
     answer(report.agent_text(20))
+}
+
+/// The end of a batch of tool calls: the findings held for its calls (batch.rs).
+pub fn post_tool_batch(rt: &Runtime, input: &HookInput) -> Output {
+    let Some(p) = rt.project(input) else {
+        return Output::silent();
+    };
+    let ids: Vec<String> = input
+        .tool_calls
+        .iter()
+        .filter_map(|c| c.get("tool_use_id").and_then(serde_json::Value::as_str))
+        .map(str::to_string)
+        .collect();
+    let text = crate::batch::release(&p, &ids).agent_text(20);
+    if text.is_empty() {
+        return Output::silent();
+    }
+    Output::json(json!({
+        "hookSpecificOutput": {"hookEventName": "PostToolBatch", "additionalContext": text}
+    }))
 }
 
 // ---- Context of packs that became active

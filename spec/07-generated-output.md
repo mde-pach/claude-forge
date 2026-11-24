@@ -43,6 +43,7 @@ Project level:
 | | | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
 | PostToolUseFailure | `Bash` | `post-tool-use-failure` | 60 s | |
 | | | `post-tool-use-typecheck` | 300 s | `asyncRewake: true` |
+| PostToolBatch | | `post-tool-batch` | 30 s | |
 | Stop | | `stop` | 600 s | |
 | PermissionRequest | | `permission-request` | 180 s | |
 | SessionEnd | | `session-end` | 10 s | |

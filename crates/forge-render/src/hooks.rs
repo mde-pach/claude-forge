@@ -14,6 +14,7 @@
 //! |                    |                                              | `post-tool-use-typecheck` | 300 s   | `asyncRewake`    |
 //! | PostToolUseFailure | `Bash`                                       | `post-tool-use-failure`   | 60 s    |                  |
 //! |                    |                                              | `post-tool-use-typecheck` | 300 s   | `asyncRewake`    |
+//! | PostToolBatch      |                                              | `post-tool-batch`         | 30 s    |                  |
 //! | Stop               |                                              | `stop`                    | 600 s   |                  |
 //! | PermissionRequest  |                                              | `permission-request`      | 180 s   |                  |
 //! | SessionEnd         |                                              | `session-end`             | 10 s    |                  |
@@ -131,6 +132,12 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
         event: "PostToolUseFailure",
         matcher: Some("Bash"),
         commands: &[cmd("post-tool-use-failure", 60), TYPECHECK],
+    },
+    HookGroup {
+        // the findings of the checks after the batch's edits, as the files are once it ends
+        event: "PostToolBatch",
+        matcher: None,
+        commands: &[cmd("post-tool-batch", 30)],
     },
     HookGroup {
         event: "Stop",

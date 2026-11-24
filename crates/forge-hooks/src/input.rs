@@ -32,6 +32,9 @@ pub struct HookInput {
     pub last_assistant_message: Option<String>,
     /// SubagentStop: the subagent's own transcript.
     pub agent_transcript_path: Option<String>,
+    /// PostToolBatch: the batch's calls, in the order they ran (`tool_name`, `tool_input`,
+    /// `tool_use_id`, `tool_response`).
+    pub tool_calls: Vec<Value>,
 }
 
 impl HookInput {
