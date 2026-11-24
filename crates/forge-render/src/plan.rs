@@ -197,6 +197,9 @@ fn forge_tools_pin(tool: &str) -> String {
         .unwrap_or_default()
 }
 
+/// The permission rule that lets the agent run `claude-forge use <name>` (§20.6).
+pub const USE_ALLOW: &str = "Bash(claude-forge use *)";
+
 pub struct PlanInput<'a> {
     pub level: Level,
     pub base: &'a Path,
@@ -248,6 +251,18 @@ pub fn plan(input: &PlanInput) -> Result<Plan, String> {
         .collect();
     settings.extend(selected.settings.iter().cloned());
     settings.extend(hook_entries(level, settings_file));
+    // the agent loads an on-demand capability with `claude-forge use` (§20.6), without a
+    // permission prompt; written where the project has capabilities
+    if !caps.active.is_empty() {
+        settings.push(DesiredEntry {
+            entry: SettingsEntry {
+                file: settings_file.into(),
+                path: "permissions.allow".into(),
+                value: serde_json::Value::String(USE_ALLOW.into()),
+            },
+            append: true,
+        });
+    }
     let mut seen = BTreeSet::new();
     settings.retain(|e| seen.insert(e.entry.key()));
 

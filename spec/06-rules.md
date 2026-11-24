@@ -181,7 +181,7 @@ Loading never fails on these; `forge packs lint` prints them and exits 1 when th
 |---|---|
 | `cut-by-comment` | an unquoted agent-facing scalar followed by ` #` on its last line: YAML read the rest as a comment |
 | `grep-scope` | a grep target (whose pattern spells letters) with no `scope.files` and language `any`, or whose `scope.files` reach Markdown or docs |
-| `forge-internals` | agent-facing text naming Forge or its internals: `.forge`, `check.sh`, `forge.yaml`, `forge.lock`, `forge apply\|diff\|check\|status\|hook`, `claude-forge`, `FORGE_*` variables, `forge-state`, `models.tsv`, `accept:`, the word `Forge` |
+| `forge-internals` | agent-facing text naming Forge or its internals: `.forge`, `check.sh`, `forge.yaml`, `forge.lock`, `forge apply\|diff\|check\|status\|hook`, `claude-forge` (but the phrase `claude-forge use`, §1.6), `FORGE_*` variables, `forge-state`, `models.tsv`, `accept:`, the word `Forge` |
 | `enforcement-claim` | context text claiming a tool enforces the norm ("is rejected by", "rejects", "is linted by", …), or describing enforcement instead of the norm ("is rejected", "are rejected"): false wherever the tool is not installed; the text states the norm ("Queries use `select()`, not `session.query()`") |
 | `enforcement-limit` | agent-facing text about what is not checked ("is not checked", "not recognised", "not checked by") |
 | `advice-prefix` | a description starting with `Advice`: the prefix comes from the mode |

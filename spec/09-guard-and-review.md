@@ -42,7 +42,7 @@ Every PreToolUse call is checked first. A tool call that names a path inside For
 
 The locks are committed files the agent may read like any other (Read, Grep, Serena's reading tools, a redirection from them, or naming them to a command that only reads: `cat`, `head`, `tail`, `less`, `more`, `bat`, `nl`, `grep`, `rg`, `wc`, `diff`, `cmp`, `ls`, `stat`, `file`, `sort`, `uniq`, `cut`, `sed` without `-i`, `git diff|show|log|blame|status|grep|ls-files`). What changes one is refused: Edit, Write, MultiEdit, NotebookEdit, Serena's edits, a redirection into it, any other command naming it (`cp`, `mv`, `tee`, `rm`, `git checkout`…). The Forge version that runs is the lock's (§3), so the agent never writes it. Reads were refused before; in the benchmark's runs that refused 14 calls, most of them a first survey such as `cat ruff.toml forge.lock`, which lost the project's own settings with it.
 
-A Bash command that runs Forge's command line (`claude-forge`, or a `forge` that resolves to it, not Foundry's), except `forge test`, is denied with:
+A Bash command that runs Forge's command line (`claude-forge`, or a `forge` that resolves to it, not Foundry's), except `forge test` and `claude-forge use` (§20.6), is denied with:
 
 > This project's checks run by themselves after each edit and when you stop; they are not run by hand.
 

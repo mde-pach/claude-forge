@@ -1873,7 +1873,7 @@ const DB: &str = "The task changes the database.";
 // The active, available capabilities not given yet are put to the engine in one request, one
 // question per statement; the selected ones' texts are the prompt's context; each is given once
 // per session. A capability whose `when` does not hold, or that needs a tool not installed here,
-// is never asked about; on-demand ones are not given in this step.
+// is never asked about.
 #[test]
 fn a_prompt_gets_the_selected_capabilities_once_per_session() {
     let s = Sandbox::new(&[]);
@@ -2024,5 +2024,135 @@ fn the_digest_comes_from_the_transcript() {
         serde_json::to_value(&engine.digests.lock().unwrap()[0]).unwrap(),
         json!({"request": "Now the page", "previous_answer": "Fixed.", "recent_actions": [
             {"tool": "Edit", "target": "app/main.py"}, {"tool": "Bash", "target": "pytest"}]})
+    );
+}
+
+// An on-demand capability is one line under the heading, naming the command that prints it; an
+// injected one comes first, as its text.
+#[test]
+fn on_demand_capabilities_are_one_line_each() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[
+        (
+            "web-browser",
+            capability("web-browser", "on-demand", WEB, ""),
+        ),
+        ("db", capability("db", "inject", DB, "")),
+    ]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9), (DB, 0.9)]);
+    let out = s.prompt_with(&engine, s.caps_env(), "s1", "Fix the login page", None);
+    assert_eq!(
+        context(&out),
+        "Use the db when the task needs it.\n\nAvailable if the task turns out to need them:\n- web-browser: The web-browser capability. To use it, run: claude-forge use web-browser"
+    );
+}
+
+// Injected texts that do not fit under 8,000 characters are given as on-demand lines for that
+// prompt, in pack-id order, and the person gets a note naming them.
+#[test]
+fn injected_texts_that_do_not_fit_become_lines() {
+    let s = Sandbox::new(&[]);
+    let big = |name: &str| {
+        format!(
+            "id: acme/{name}\ndescription: The {name} capability.\nrelevant:\n  - {WEB}\ndeliver: inject\ntext: |\n  {}\n",
+            "x".repeat(5000)
+        )
+    };
+    s.with_capabilities(&[("a-one", big("a-one")), ("b-two", big("b-two"))]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    let out = s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    let text = context(&out);
+    assert!(text.starts_with(&"x".repeat(5000)), "{}", &text[..60]);
+    assert!(
+        text.ends_with("\n\nAvailable if the task turns out to need them:\n- b-two: The b-two capability. To use it, run: claude-forge use b-two"),
+        "{}",
+        &text[5000..]
+    );
+    assert!(text.chars().count() <= 8000);
+    let n = s.notes();
+    assert!(
+        n.iter().any(|n| n
+            .text
+            .contains("given as a line to load rather than their text")
+            && n.text.contains("acme/b-two")),
+        "{n:?}"
+    );
+}
+
+// After a compaction, SessionStart gives the current turn's capabilities again, after the
+// repository's context; a new turn's prompt starts a new selection.
+#[test]
+fn a_compaction_gives_the_turns_capabilities_again() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[("web", capability("web", "inject", WEB, ""))]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    s.prompt_with(&engine, s.caps_env(), "s1", "Fix the login page", None);
+    let compact = |env: Env| {
+        s.run_with(
+            &Fake::default(),
+            &engine,
+            env,
+            Vec::new(),
+            "session-start",
+            json!({"hook_event_name": "SessionStart", "source": "compact", "session_id": "s1"}),
+        )
+    };
+    let text = context(&compact(s.caps_env()));
+    assert!(text.starts_with("Git branch "), "{text}");
+    assert!(
+        text.ends_with("\n\nUse the web when the task needs it."),
+        "{text}"
+    );
+    // a start that is not a compaction gives nothing of it
+    let start = s.run_with(
+        &Fake::default(),
+        &engine,
+        s.caps_env(),
+        Vec::new(),
+        "session-start",
+        json!({"hook_event_name": "SessionStart", "source": "resume", "session_id": "s1"}),
+    );
+    assert!(!context(&start).contains("Use the web"));
+    // the turn ends; the next turn's prompt selects nothing new: nothing to give again
+    s.run(
+        &Fake::default(),
+        "stop",
+        json!({"hook_event_name": "Stop", "session_id": "s1"}),
+    );
+    s.prompt_with(&engine, s.caps_env(), "s1", "Now the cart", None);
+    assert!(!context(&compact(s.caps_env())).contains("Use the web"));
+}
+
+// `claude-forge use <name>` is the one command of Forge's the agent runs: the guard lets it
+// through (and still refuses the rest of Forge's command line), and the PreToolUse hook logs the
+// load under the id the name resolves to.
+#[test]
+fn the_use_command_is_let_through_and_its_load_logged() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[(
+        "web-browser",
+        capability("web-browser", "on-demand", WEB, ""),
+    )]);
+    let f = Fake::default();
+    let out = s.run(
+        &f,
+        "pre-tool-use",
+        bash("claude-forge use web-browser", "u1"),
+    );
+    assert!(!out.stdout.contains("\"deny\""), "{}", out.stdout);
+    let log = std::fs::read_to_string(s.state().join("capabilities.log")).unwrap();
+    assert!(log.contains("\ts1\tload\tacme/web-browser\n"), "{log}");
+    assert_eq!(
+        decision(&s.run(&f, "pre-tool-use", bash("claude-forge apply", "u2"))).0,
+        "deny"
+    );
+    assert_eq!(
+        decision(&s.run(
+            &f,
+            "pre-tool-use",
+            bash("claude-forge status && claude-forge use web-browser", "u3")
+        ))
+        .0,
+        "deny"
     );
 }

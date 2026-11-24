@@ -13,6 +13,7 @@ pub mod mcp;
 pub mod project;
 pub mod provisioning;
 pub mod test_cmd;
+mod use_cmd;
 
 #[derive(Parser)]
 #[command(
@@ -38,6 +39,11 @@ enum Command {
     Check(check::CheckArgs),
     /// Runs the examples of this repository's local rules (with --builtin, the built-in packs').
     Test(test_cmd::TestArgs),
+    /// Prints a capability's text (what the agent runs to load an on-demand capability).
+    Use {
+        /// The capability: its name, or its whole id.
+        name: String,
+    },
     /// Runs a builtin of a check command (`forge_<name>`).
     #[command(hide = true)]
     Internal(check::InternalArgs),
@@ -127,12 +133,13 @@ pub const AGENT_REFUSAL: &str = "This project's checks run by themselves after e
 /// Whether this run comes from a Claude Code agent's command (`CLAUDECODE` is set) and is not one
 /// of the hook entries or what they start (`hook`, `internal`, `engine`, `mcp`, `lsp`): Forge is the agent's
 /// harness, never a tool it operates. `forge test` stays open: it runs a project's local rules'
-/// examples, which the agent writes when asked to, and checks nothing of its work.
+/// examples, which the agent writes when asked to, and checks nothing of its work. So does `use`,
+/// which prints a capability's text (§20.6).
 fn run_by_the_agent() -> bool {
     std::env::var_os("CLAUDECODE").is_some_and(|v| !v.is_empty())
         && !matches!(
             std::env::args().nth(1).as_deref(),
-            Some("hook" | "internal" | "engine" | "test" | "mcp" | "lsp")
+            Some("hook" | "internal" | "engine" | "test" | "use" | "mcp" | "lsp")
         )
 }
 
@@ -160,6 +167,7 @@ pub fn main() -> ExitCode {
     let cli = match cli.command {
         Command::Check(args) => return check::run(args),
         Command::Test(args) => return test_cmd::run(args),
+        Command::Use { name } => return use_cmd::run(&name),
         Command::Internal(args) => return check::internal(args),
         Command::Mcp { server } => return mcp::run(&server),
         Command::Lsp { language, hub, .. } => return mcp::lsp(&language, hub),
@@ -198,6 +206,7 @@ pub fn main() -> ExitCode {
         Command::Project(c) => Ok(project::run(c)),
         Command::Check(_)
         | Command::Test(_)
+        | Command::Use { .. }
         | Command::Internal(_)
         | Command::Mcp { .. }
         | Command::Lsp { .. } => {

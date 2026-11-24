@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use forge_capabilities::engine::{Candidate, EngineError};
-use forge_capabilities::render::{Give, render};
+use forge_capabilities::render::{Give, display_name, render, resolve};
 use forge_capabilities::{Places, digest, log};
 use forge_core::{Note, NoteKind};
 use forge_packs::model::{Capability, Deliver};
@@ -30,20 +30,29 @@ fn given(p: &Project) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// The capabilities a prompt may still get: active (the hooks' cache), available here, not given
-/// yet this session; in pack-id order.
-fn candidates(rt: &Runtime, p: &Project) -> Vec<Capability> {
-    let Some(cache) = p.rules(&rt.home) else {
-        return Vec::new();
-    };
+/// `<session>/capabilities/turn`: what the current turn was given, as the agent read it (given
+/// again after a compaction).
+fn turn_file(p: &Project) -> PathBuf {
+    dir(p).join("turn")
+}
+
+/// The active capabilities (the hooks' cache).
+fn active(rt: &Runtime, p: &Project) -> Vec<Capability> {
+    p.rules(&rt.home)
+        .map(|c| c.capabilities)
+        .unwrap_or_default()
+}
+
+/// The capabilities a prompt may still get: active, available here, not given yet this session;
+/// in pack-id order.
+fn candidates(rt: &Runtime, p: &Project, active: &[Capability]) -> Vec<Capability> {
     let given = given(p);
     let provisioner = forge_tools::Provisioner::new(rt.home.clone());
-    let mut out: Vec<Capability> = cache
-        .capabilities
-        .into_iter()
-        .filter(|c| c.deliver == Deliver::Inject)
+    let mut out: Vec<Capability> = active
+        .iter()
         .filter(|c| !given.contains(&c.id))
         .filter(|c| forge_capabilities::available(c, Some(&provisioner)).is_available())
+        .cloned()
         .collect();
     out.sort_by(|a, b| (a.pack.as_str(), a.id.as_str()).cmp(&(b.pack.as_str(), b.id.as_str())));
     out
@@ -70,12 +79,31 @@ fn failure_note(e: &EngineError) -> Option<Note> {
     }
 }
 
-/// The prompt's capabilities, as the agent reads them; `None` when none is given.
-pub(crate) fn on_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<String> {
+fn give<'a>(c: &'a Capability, active: &[Capability]) -> Give<'a> {
+    Give {
+        id: &c.id,
+        name: display_name(c, active),
+        description: &c.description,
+        text: &c.text,
+    }
+}
+
+/// The prompt's capabilities, as the agent reads them; `None` when none is given. `new_turn`: the
+/// prompt starts a turn (one that continues the turn adds to its selection).
+pub(crate) fn on_prompt(
+    rt: &Runtime,
+    input: &HookInput,
+    p: &Project,
+    new_turn: bool,
+) -> Option<String> {
+    if new_turn {
+        let _ = std::fs::remove_file(turn_file(p));
+    }
     if !rt.env.capabilities {
         return None;
     }
-    let caps = candidates(rt, p);
+    let active = active(rt, p);
+    let caps = candidates(rt, p, &active);
     if caps.is_empty() {
         return None;
     }
@@ -114,19 +142,31 @@ pub(crate) fn on_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<
         .iter()
         .filter(|c| decisions.iter().any(|d| d.id == c.id && d.selected))
         .collect();
-    let gives: Vec<Give> = selected
+    let inject: Vec<Give> = selected
         .iter()
-        .map(|c| Give {
-            id: &c.id,
-            text: &c.text,
-        })
+        .filter(|c| c.deliver == Deliver::Inject)
+        .map(|c| give(c, &active))
         .collect();
-    let r = render(&gives);
+    let on_demand: Vec<Give> = selected
+        .iter()
+        .filter(|c| c.deliver == Deliver::OnDemand)
+        .map(|c| give(c, &active))
+        .collect();
+    let r = render(&inject, &on_demand);
+    if !r.as_lines.is_empty() {
+        p.note(&[Note::new(
+            NoteKind::Environment,
+            format!(
+                "Capabilities given as a line to load rather than their text, the prompt's capabilities being over 8,000 characters together: {}.",
+                r.as_lines.join(", ")
+            ),
+        )]);
+    }
     if !r.left_out.is_empty() {
         p.note(&[Note::new(
             NoteKind::Environment,
             format!(
-                "Capabilities left out of a prompt, their texts being over 8,000 characters together: {}.",
+                "Capabilities left out of a prompt, its capabilities being over 8,000 characters together: {}.",
                 r.left_out.join(", ")
             ),
         )]);
@@ -138,6 +178,38 @@ pub(crate) fn on_prompt(rt: &Runtime, input: &HookInput, p: &Project) -> Option<
         for id in &r.given {
             state::append_line(&given_file(p), id);
         }
+        let mut turn = std::fs::read_to_string(turn_file(p)).unwrap_or_default();
+        if !turn.is_empty() {
+            turn.push_str("\n\n");
+        }
+        turn.push_str(&r.text);
+        state::write_atomic(&turn_file(p), turn.as_bytes());
     }
     Some(r.text)
+}
+
+/// After a compaction (SessionStart `compact`): the current turn's capabilities again, as the
+/// agent read them. Text a hook injected does not survive a compaction (§20.9).
+pub(crate) fn after_compaction(rt: &Runtime, p: &Project) -> Option<String> {
+    if !rt.env.capabilities {
+        return None;
+    }
+    std::fs::read_to_string(turn_file(p))
+        .ok()
+        .filter(|t| !t.trim().is_empty())
+}
+
+/// PreToolUse of a Bash command that loads capabilities (`claude-forge use <name>`): each load
+/// is logged (§20.7), by the id its name resolves to among the active capabilities.
+pub(crate) fn record_loads(rt: &Runtime, p: &Project, names: &[String]) {
+    if names.is_empty() {
+        return;
+    }
+    let active = active(rt, p);
+    let log_file = log::log_path(&p.state);
+    for n in names {
+        if let Some(c) = resolve(n, &active) {
+            log::load(&log_file, &p.session, &c.id);
+        }
+    }
 }

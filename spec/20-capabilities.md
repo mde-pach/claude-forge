@@ -109,9 +109,36 @@ On a first prompt the transcript does not exist, and the digest is the request a
 
 Everything goes in the UserPromptSubmit hook's `additionalContext`:
 
-- `inject`: the capability's `text`, the selected ones in pack-id order, separated by a blank line.
+- `inject`: the capability's `text`, the selected ones in pack-id order, separated by a blank line;
+- `on-demand`: one line with its name, its description and the command, under a heading after the injected texts.
 
-Each capability is given once per session (`<session>/capabilities/given`). A prompt's total stays under 8,000 characters (Claude Code cuts hook context at 10,000): an injected capability that would pass it is left out of that prompt, not marked given, and the person gets an `environment` note naming it. The text is the capabilities' own; Forge writes none of its own words there.
+The exact shape of what the agent reads:
+
+```text
+<text of each injected capability>
+
+Available if the task turns out to need them:
+- web-browser: A persistent web browser, helpful to simulate a real user or do testing. To use it, run: claude-forge use web-browser
+```
+
+The heading and the "To use it, run:" suffix are the only words Forge writes itself. The name is the id's last segment when no other active capability has it, else the whole id (§20.6).
+
+- **Once per session.** Each capability is given once per session (`<session>/capabilities/given`), as its text or as its line.
+- **After a compaction.** Text a hook injected does not survive a compaction (§20.9), so SessionStart `compact` gives the current turn's capabilities again, as the agent read them (`<session>/capabilities/turn`, replaced when a new turn starts, added to by a prompt that continues the turn; §8.4).
+- **Size.** A prompt's total stays within 8,000 characters (Claude Code cuts hook context at 10,000). Forge handles overflow itself: injected capabilities that do not fit, in pack-id order, are given as on-demand lines for that prompt, and the person gets an `environment` note naming them ("Capabilities given as a line to load rather than their text, …"). A line that does not fit either is left out, not marked given, with a note.
+
+### 20.6 `claude-forge use <name>`
+
+The one Forge command the agent reads and runs (§1.6).
+
+- It prints the capability's `text` on stdout and nothing else (a newline added when the text has none).
+- It is read-only and stateless: it finds the project from the working directory (the nearest `forge.lock`, else `forge.yaml`, up to the git root), loads the packs without the parsed cache, plans the repository as it is now, writes nothing and never downloads, so it runs inside Claude Code's sandbox.
+- `<name>` is the id's last segment when it is unique among the project's active capabilities, else the whole id; both are accepted.
+- It answers for any active, available capability, selected or not, injected or on-demand.
+- Any other name (not active here, not available here, ambiguous, unknown, or no project): one neutral line on stderr, `No capability named "<name>" is available here.`, and exit 1.
+- `forge apply` writes one `permissions.allow` entry for it, `Bash(claude-forge use *)`, at project level where the project has an active capability, recorded in the lock as its other settings entries are (§7.2, §12).
+- The guard lets it through as it does `forge test` (§9.3), and the command line runs it for the agent as it does `mcp` and `lsp` (§3.1).
+- The load is recorded by the PreToolUse hook on Bash, not by the command: a command line the guard lets through that runs `claude-forge use <name>` logs a `load` of the capability the name resolves to (§20.7).
 
 ### 20.7 State
 
@@ -132,6 +159,8 @@ A capability's `examples` are its tests: each `selected` prompt must select it, 
 
 Verified on Claude Code 2.1.331 with `claude -p` (not on 2.1.323, the benchmark's version):
 
+- The allow entry `Bash(claude-forge use *)` (and the older `Bash(claude-forge use:*)`) lets `claude-forge use <name>` run without a permission prompt in the `default`, `acceptEdits`, `dontAsk` and `bypassPermissions` modes, and with Claude Code's sandbox on (`default` and `dontAsk`; the real command, on macOS); without it the command is refused in `default`, `acceptEdits` and `dontAsk`. In `plan` mode nothing refused it, but the agent did not run it: plan mode tells it not to act. Project settings, this entry among them, load only in a trusted workspace (§8.12).
+
 - When UserPromptSubmit runs, the transcript at `transcript_path` holds the previous prompts and the agent's messages and tool calls, with their inputs, as `user` and `assistant` records (`message.content` blocks of type `text`, `tool_use`, `tool_result`); it does not hold the new prompt yet. On a session's first prompt the file does not exist yet. Other record types (`attachment`, `api-request-blob`, `last-prompt`, …) share the file.
 - Text a UserPromptSubmit hook injected does not survive a compaction (`/compact`): the summary dropped it, and nothing after the compaction boundary held it (the agent found it again only by searching the old transcript file with a tool).
 
@@ -141,7 +170,8 @@ Verified on Claude Code 2.1.331 with `claude -p` (not on 2.1.323, the benchmark'
 - §20.2 availability: `crates/forge-capabilities/src/available.rs` (unit); the active gate, `disable`, status, explain, diff, the lock and the dump: `crates/forge-cli/tests/spec_cli.rs::capabilities_in_status_explain_diff_and_dump`.
 - §20.3 the engine: thresholds and one request, `crates/forge-capabilities/src/engine.rs` (unit); the Jev client's request and each failure kind against a local server, `crates/forge-capabilities/src/jev.rs` (unit); consent and key, `crates/forge-capabilities/src/setup.rs` (unit), `crates/forge-cli/tests/spec_cli.rs::the_capability_engine_is_set_up_at_apply_user`; selection in the hook, once per session, no request without candidates, `FORGE_CAPABILITIES=off`, each failure's silence and note: `crates/forge-hooks/tests/spec_hooks.rs` (`a_prompt_gets_the_selected_capabilities_once_per_session`, `no_request_without_candidates`, `each_failure_is_silence_and_a_note`); the hook through the real client and the stored key: `crates/forge-cli/tests/hook.rs::capabilities_through_the_real_client`.
 - §20.4 the digest from a transcript fixture: `crates/forge-capabilities/src/digest.rs` (unit, `tests/fixtures/transcript.jsonl`); from the hook input: `spec_hooks.rs::the_digest_comes_from_the_transcript`.
-- §20.5 `inject` and the size limit: `crates/forge-capabilities/src/render.rs` (unit), `spec_hooks.rs::a_prompt_gets_the_selected_capabilities_once_per_session`.
+- §20.5 the shape, names, overflow: `crates/forge-capabilities/src/render.rs` (unit); in the hook: `spec_hooks.rs` (`a_prompt_gets_the_selected_capabilities_once_per_session`, `on_demand_capabilities_are_one_line_each`, `injected_texts_that_do_not_fit_become_lines`, `a_compaction_gives_the_turns_capabilities_again`).
+- §20.6 the command, its names, its refusal, writing nothing, the allow entry in the lock: `crates/forge-cli/tests/spec_cli.rs::the_use_command_prints_a_capabilitys_text`; the guard's exception and the load: `spec_hooks.rs::the_use_command_is_let_through_and_its_load_logged`; the internals check's one exception: `crates/forge-core/src/internals.rs` (unit).
 - §20.7 the log and its counts: `crates/forge-capabilities/src/log.rs` (unit).
 - §20.8 examples: `crates/forge-capabilities/src/examples.rs` (unit), `crates/forge-cli/tests/forge_test.rs::capability_examples_run_on_this_machines_engine` (a fake engine on localhost), `::capability_examples_against_the_real_engine` (opt-in).
 - §20.9: verified by hand with `claude -p` (no test: needs Claude Code and an account).

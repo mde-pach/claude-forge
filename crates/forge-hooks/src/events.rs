@@ -29,7 +29,16 @@ pub fn session_start(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return with_system(Output::silent(), &system);
     };
-    let context = session_context(&p.root);
+    let mut context = session_context(&p.root);
+    // after a compaction, the current turn's capabilities again (§20.5)
+    if input.source.as_deref() == Some("compact")
+        && let Some(caps) = crate::capabilities::after_compaction(rt, &p)
+    {
+        if !context.is_empty() {
+            context.push_str("\n\n");
+        }
+        context.push_str(&caps);
+    }
     let cache = p.rules(&rt.home);
     let mut notes = Vec::new();
     // Forge's uv on the agent's PATH where the project uses uv, declares itself in a
@@ -231,7 +240,7 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
         }
         state::write_atomic(&head_file, new.as_bytes());
     }
-    match crate::capabilities::on_prompt(rt, input, &p) {
+    match crate::capabilities::on_prompt(rt, input, &p, !open) {
         Some(context) => Output::json(json!({
             "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": context}
         })),

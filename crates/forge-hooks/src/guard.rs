@@ -178,6 +178,13 @@ fn bash(
         }
         Outcome::None => Output::silent(),
     };
+    // a command that loads capabilities: each load is logged (§20.6)
+    if !user
+        && matches!(outcome, Outcome::None)
+        && let Some(p) = &project
+    {
+        crate::capabilities::record_loads(rt, p, &forge_uses(rt, parsed));
+    }
     if !user && snapshot {
         if let Some(p) = &project {
             bash_snapshot(rt, input, p);
@@ -223,7 +230,7 @@ const LOCKS: &[&str] = &["forge.lock", "forge-user.lock"];
 
 /// Whether a Bash command runs Forge's command line: `claude-forge`, or a `forge` that is
 /// Forge (not Foundry's). The agent never operates its harness; `forge test` (a project's local
-/// rules' examples) stays open, as in the CLI.
+/// rules' examples) and `claude-forge use` (a capability's text) stay open, as in the CLI.
 fn runs_forge(rt: &Runtime, parsed: &Parsed) -> bool {
     parsed.commands.iter().any(|c| {
         c.starts.iter().any(|&i| {
@@ -232,9 +239,37 @@ fn runs_forge(rt: &Runtime, parsed: &Parsed) -> bool {
                 "forge" => is_forge(rt, &c.words[i].text),
                 _ => false,
             };
-            forge && c.words.get(i + 1).is_none_or(|w| w.text != "test")
+            forge
+                && c.words
+                    .get(i + 1)
+                    .is_none_or(|w| !OPEN_COMMANDS.contains(&w.text.as_str()))
         })
     })
+}
+
+/// Forge's commands the agent may run: `test` (a project's local rules' examples) and `use` (an
+/// on-demand capability's text, §20.6).
+const OPEN_COMMANDS: &[&str] = &["test", "use"];
+
+/// The capability names a command line loads (`claude-forge use <name>`).
+fn forge_uses(rt: &Runtime, parsed: &Parsed) -> Vec<String> {
+    let mut out = Vec::new();
+    for c in &parsed.commands {
+        for &i in &c.starts {
+            let forge = match c.name_at(i) {
+                "claude-forge" => true,
+                "forge" => is_forge(rt, &c.words[i].text),
+                _ => false,
+            };
+            if forge
+                && c.words.get(i + 1).is_some_and(|w| w.text == "use")
+                && let Some(name) = c.words.get(i + 2)
+            {
+                out.push(name.text.clone());
+            }
+        }
+    }
+    out
 }
 
 /// Whether `forge` (a name or a path) is this binary: it resolves to a `claude-forge`, or to the

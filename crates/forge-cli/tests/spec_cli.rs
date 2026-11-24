@@ -1522,3 +1522,100 @@ fn the_capability_engine_is_set_up_at_apply_user() {
     run(&[], Some("sk-test-2"));
     assert_eq!(std::fs::read_to_string(&key).unwrap(), "sk-test-2\n");
 }
+
+// §20.6: `claude-forge use <name>` prints an active, available capability's text on stdout and
+// nothing else, for the agent too (CLAUDECODE set), by its name when unique or its whole id; any
+// other name gets one neutral line and exit 1. It writes nothing. Where the project has
+// capabilities, apply writes one permissions.allow entry for it, recorded in the lock.
+#[test]
+fn the_use_command_prints_a_capabilitys_text() {
+    let s = Sandbox::new(PY);
+    s.write(
+        ".forge/packs/acme/pack.yaml",
+        "id: acme\ndescription: Acme's conventions.\nlevel: project\ndetect: {always: true}\n",
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/web-browser.yaml",
+        &capability("acme/web-browser", "on-demand", ""),
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/db.yaml",
+        &capability("acme/db", "inject", ""),
+    );
+    s.write(
+        ".forge/capabilities/db.yaml",
+        &capability("team/db", "on-demand", ""),
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/gated.yaml",
+        &capability("acme/gated", "on-demand", "when: {files: [\"web/**\"]}\n"),
+    );
+    s.write(
+        ".forge/packs/acme/capabilities/linted.yaml",
+        &capability("acme/linted", "on-demand", "needs: {tools: [ruff]}\n"),
+    );
+    s.ok(&["apply", "--yes"]);
+    let settings = s.read(".claude/settings.json").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    assert!(
+        v["permissions"]["allow"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("Bash(claude-forge use *)")),
+        "{settings}"
+    );
+    let lock = s.read("forge.lock").unwrap();
+    assert!(
+        lock.contains("value = \"Bash(claude-forge use *)\""),
+        "{lock}"
+    );
+    let state = |root: &Path| -> Vec<String> {
+        let mut out = Vec::new();
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(d) = stack.pop() {
+            for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p.clone());
+                }
+                out.push(p.display().to_string());
+            }
+        }
+        out.sort();
+        out
+    };
+    let before = state(&s.forge_home);
+    let run = |name: &str| {
+        Command::new(env!("CARGO_BIN_EXE_claude-forge"))
+            .args(["use", name])
+            .current_dir(s.repo.join("app"))
+            .env("PATH", s.path())
+            .env("HOME", &s.home)
+            .env("FORGE_HOME", &s.forge_home)
+            .env("FORGE_NO_DOWNLOAD", "1")
+            .env("CLAUDECODE", "1")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env_remove("CLAUDE_PROJECT_DIR")
+            .env_remove("FORGE_LAUNCHED_VERSION")
+            .stdin(Stdio::null())
+            .output()
+            .unwrap()
+    };
+    for name in ["web-browser", "acme/web-browser", "acme/db", "team/db"] {
+        let out = run(name);
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", stderr(&out));
+        assert_eq!(stdout(&out), "Open pages with the browser.\n", "{name}");
+        assert_eq!(stderr(&out), "", "{name}");
+    }
+    for name in ["db", "gated", "linted", "nothing"] {
+        let out = run(name);
+        assert_eq!(out.status.code(), Some(1), "{name}");
+        assert_eq!(stdout(&out), "", "{name}");
+        assert_eq!(
+            stderr(&out),
+            format!("No capability named \"{name}\" is available here.\n")
+        );
+        assert!(forge_core::internals::find(&stderr(&out)).is_empty());
+    }
+    assert_eq!(state(&s.forge_home), before, "use writes nothing");
+}

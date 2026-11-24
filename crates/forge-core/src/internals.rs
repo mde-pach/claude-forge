@@ -14,11 +14,23 @@ static INTERNALS: LazyLock<Regex> = LazyLock::new(|| {
     .expect("regex")
 });
 
-/// Each internal term `text` names, with its byte offset, in order.
+/// The one command of Forge's the agent reads and runs (§1.6, §20.6): `claude-forge use`.
+pub const AGENT_COMMAND: &str = "claude-forge use";
+
+/// Each internal term `text` names, with its byte offset, in order. `claude-forge use` (followed
+/// by a space, a line's end or the text's end) is the agent's command, not an internal; nothing
+/// else of Forge's is.
 pub fn find(text: &str) -> Vec<(usize, &str)> {
     INTERNALS
         .captures_iter(text)
         .filter_map(|c| c.get(1).or_else(|| c.get(2)))
+        .filter(|m| {
+            let rest = &text[m.start()..];
+            !(m.as_str() == "claude-forge"
+                && rest.strip_prefix(AGENT_COMMAND).is_some_and(|after| {
+                    after.is_empty() || after.starts_with([' ', '\n', '`', '.', ','])
+                }))
+        })
         .map(|m| (m.start(), m.as_str()))
         .collect()
 }
@@ -38,5 +50,11 @@ mod tests {
         );
         assert!(find("a .forgejo dir, x.forge, forged").is_empty());
         assert_eq!(find("set FORGE_STOP_BUDGET")[0].1, "FORGE_STOP_BUDGET");
+        // the agent's one command, and nothing else of Forge's command line
+        assert!(find("To use it, run: claude-forge use web-browser").is_empty());
+        assert!(find("run `claude-forge use`.").is_empty());
+        assert_eq!(find("claude-forge user")[0].1, "claude-forge");
+        assert_eq!(find("claude-forge apply")[0].1, "claude-forge");
+        assert_eq!(find("claude-forge use x; claude-forge check")[0].0, 20);
     }
 }
