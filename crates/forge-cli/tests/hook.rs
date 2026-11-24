@@ -576,6 +576,14 @@ fn a_script_outside_the_repository_is_checked_with_the_projects_tools() {
     let out = s.hook("post-tool-use", &write(&script, "w1"));
     assert!(out.status.success() && out.stdout.is_empty());
     let end = s.hook("post-tool-batch", &batch("w1"));
+    if end.stdout.is_empty() {
+        let status = s.cmd(&["status"]).output().unwrap();
+        panic!(
+            "no findings for the script; forge status:\n{}{}",
+            String::from_utf8_lossy(&status.stdout),
+            String::from_utf8_lossy(&status.stderr)
+        );
+    }
     let v: Value = serde_json::from_slice(&end.stdout).unwrap();
     let text = v["hookSpecificOutput"]["additionalContext"]
         .as_str()
