@@ -216,7 +216,7 @@ Every hook runs on Claude's path, so Forge's own time is budgeted. The budgets a
 | PreToolUse Edit of a test (test-edit lookup) | p99 ≤ 10 ms | 7.5 / 9.9 ms | `hook.rs::budgets` |
 | PreToolUse Read (internals refusal) | p99 ≤ 10 ms | 4.6 / 5.2 ms | `hook.rs::budgets` |
 | UserPromptSubmit | p99 ≤ 50 ms | 20.5 / 36.6 ms | `hook.rs::budgets` |
-| UserPromptSubmit with capability selection (the digest, one request to a fake engine on localhost, the rendering), whole hook | p99 ≤ 80 ms | not measured yet | `hook.rs::budgets` |
+| UserPromptSubmit with capability selection (the digest, one request to a fake engine on localhost, the rendering), whole hook | p99 ≤ 80 ms | 28.9 / 31.3 ms (2026-11-24, Apple M2, not a quiet machine) | `hook.rs::budgets` |
 | SessionStart | p99 ≤ 200 ms | 21.6 / 31.5 ms | `hook.rs::budgets` |
 | PostToolUse Edit (Python), Forge overhead | median ≤ 30 ms, p99 ≤ 45 ms; total median ≤ 1 s | 24.9 / 46.1 ms; total 550 / 1505 ms | `hook.rs::budgets` |
 | Stop, Forge overhead | median ≤ 300 ms, p99 ≤ 450 ms | 180.9 / 288.6 ms (tools 2.6 s median) | `hook.rs::budgets` |
