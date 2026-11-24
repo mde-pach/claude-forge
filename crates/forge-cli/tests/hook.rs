@@ -552,13 +552,25 @@ fn check_budgets(s: &Sandbox) -> Vec<String> {
 }
 
 /// A file the agent writes outside the repository (a script in a scratch directory) is checked
-/// with the project's own rules and tools (§8.6): the project's ruff configuration (it selects
-/// `ANN401`, which ruff's defaults leave out), the real formatter's fix written back to the file,
+/// with the project's own rules and tools (§8.6): the project's ruff configuration (its
+/// `ruff.toml` selects `ANN401`, which ruff's defaults leave out), the real formatter's fix written back to the file,
 /// the findings under its real path, given when the batch of calls ends. A file over 1 MiB is
 /// not checked.
 #[test]
 fn a_script_outside_the_repository_is_checked_with_the_projects_tools() {
-    let s = Sandbox::new("fastapi-app");
+    // plain scripts with their own ruff.toml (no packaging, as in a repository of scripts): the
+    // checks run Forge's pinned ruff, which `forge apply` installs, not a project environment
+    let s = Sandbox::with("fastapi-app", |repo| {
+        for f in ["pyproject.toml", "uv.lock", "alembic.ini"] {
+            std::fs::remove_file(repo.join(f)).unwrap();
+        }
+        std::fs::remove_dir_all(repo.join("alembic")).unwrap();
+        std::fs::write(
+            repo.join("ruff.toml"),
+            "[lint]\nselect = [\"E\", \"F\", \"ANN401\"]\n",
+        )
+        .unwrap();
+    });
     let scratch = s.repo.parent().unwrap().join("scratch");
     std::fs::create_dir_all(&scratch).unwrap();
     let script = scratch.join("stress.py");
