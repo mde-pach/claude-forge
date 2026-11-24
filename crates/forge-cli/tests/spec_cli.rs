@@ -595,6 +595,23 @@ fn user_level_setup() {
         settings.contains("claude-forge hook user-pre-tool-use"),
         "{settings}"
     );
+    // safety/secret-files: the sandbox closes ~/.ssh to commands; the Read rule names the keys,
+    // not every file under it (a rule matching any name refused reads after an unresolved `cd`)
+    let v: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    let deny_read = v["sandbox"]["filesystem"]["denyRead"].as_array().unwrap();
+    assert!(
+        deny_read.contains(&serde_json::json!("~/.ssh")),
+        "{settings}"
+    );
+    let deny = v["permissions"]["deny"].as_array().unwrap();
+    assert!(
+        deny.contains(&serde_json::json!("Read(~/.ssh/id_*)")),
+        "{settings}"
+    );
+    assert!(
+        !deny.contains(&serde_json::json!("Read(~/.ssh/**)")),
+        "{settings}"
+    );
     let lock = std::fs::read_to_string(s.home.join(".claude/forge-user.lock")).unwrap();
     assert!(lock.starts_with("# Generated file: do not edit."), "{lock}");
     assert!(!s.exists("forge.lock"), "the repository is untouched");

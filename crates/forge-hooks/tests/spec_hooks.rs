@@ -779,6 +779,79 @@ fn a_prompt_before_claude_stopped_continues_the_turn() {
     );
 }
 
+// A Stop the check blocks does not end the turn: a prompt sent while Claude works on the
+// findings joins the same turn. A stop let through ends it: past the last block, or when Claude
+// stops again unchanged after being shown the findings.
+#[test]
+fn a_blocked_stop_keeps_the_turn_and_a_stop_let_through_ends_it() {
+    let s = Sandbox::new(&[]);
+    let f = Fake {
+        stop: Some(StopOutcome {
+            report: Report {
+                findings: vec![
+                    Finding::error("python/no-eval", "No eval().").at("app/main.py", Some(1)),
+                ],
+                notes: vec![],
+            },
+            status: StopStatus::Fail,
+        }),
+        ..Fake::default()
+    };
+    let tree = || std::fs::read_to_string(s.session().join("turn/tree")).unwrap();
+    let ended = || s.session().join("turn/ended").is_file();
+    let blocked = |out: &Output| {
+        !out.stdout.is_empty()
+            && json_out(out)["hookSpecificOutput"]["additionalContext"].is_string()
+    };
+    let edit = |n: u32| std::fs::write(s.root.join("app/main.py"), format!("x = {n}\n")).unwrap();
+    s.run(&f, "user-prompt-submit", json!({"prompt": "fix the total"}));
+    let first = tree();
+    edit(2);
+    assert!(blocked(&s.run(&f, "stop", json!({}))));
+    assert!(!ended());
+    // a prompt while Claude works on the findings: the same turn
+    s.run(
+        &f,
+        "user-prompt-submit",
+        json!({"prompt": "and keep the API"}),
+    );
+    assert_eq!(tree(), first, "the snapshot is the turn's start");
+    edit(3);
+    assert!(blocked(&s.run(
+        &f,
+        "stop",
+        json!({"stop_hook_active": true})
+    )));
+    edit(4);
+    assert!(blocked(&s.run(
+        &f,
+        "stop",
+        json!({"stop_hook_active": true})
+    )));
+    assert!(!ended());
+    // past the last block, Claude is let stop with the failures left: the turn ends
+    edit(5);
+    assert!(!blocked(&s.run(
+        &f,
+        "stop",
+        json!({"stop_hook_active": true})
+    )));
+    assert!(ended());
+    s.run(&f, "user-prompt-submit", json!({"prompt": "now the tax"}));
+    assert_ne!(tree(), first);
+    assert!(!ended());
+    // shown the findings, Claude stops again without changing anything: let through, the turn ends
+    edit(6);
+    assert!(blocked(&s.run(&f, "stop", json!({}))));
+    assert!(!ended());
+    assert!(!blocked(&s.run(
+        &f,
+        "stop",
+        json!({"stop_hook_active": true})
+    )));
+    assert!(ended());
+}
+
 /// A pack that became active during the session (packaging files created by a command): its
 /// context, which the rules files written at apply time do not hold, reaches the agent once,
 /// after the findings; the packs the rules files hold are never repeated, and the repository's

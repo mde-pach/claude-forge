@@ -550,3 +550,55 @@ fn check_budgets(s: &Sandbox) -> Vec<String> {
     std::fs::write(&file, clean).unwrap();
     over
 }
+
+/// A file the agent writes outside the repository (a script in a scratch directory) is checked
+/// with the project's own rules and tools (§8.6): the project's ruff configuration (it selects
+/// `ANN401`, which ruff's defaults leave out), the real formatter's fix written back to the file,
+/// the findings under its real path, given when the batch of calls ends. A file over 1 MiB is
+/// not checked.
+#[test]
+fn a_script_outside_the_repository_is_checked_with_the_projects_tools() {
+    let s = Sandbox::new("fastapi-app");
+    let scratch = s.repo.parent().unwrap().join("scratch");
+    std::fs::create_dir_all(&scratch).unwrap();
+    let script = scratch.join("stress.py");
+    std::fs::write(
+        &script,
+        "from typing import Any\nx=1\n\n\ndef ident(a: Any) -> int:\n    return a\n",
+    )
+    .unwrap();
+    let write = |path: &Path, id: &str| {
+        json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_use_id": id,
+            "tool_input": {"file_path": path, "content": ""}})
+    };
+    let batch = |id: &str| json!({"hook_event_name": "PostToolBatch", "tool_calls": [{"tool_name": "Write", "tool_use_id": id}]});
+    s.hook("user-prompt-submit", &json!({"prompt": "go"}));
+    let out = s.hook("post-tool-use", &write(&script, "w1"));
+    assert!(out.status.success() && out.stdout.is_empty());
+    let end = s.hook("post-tool-batch", &batch("w1"));
+    let v: Value = serde_json::from_slice(&end.stdout).unwrap();
+    let text = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        text.starts_with(&format!("{}:6 ANN401", script.display())),
+        "{text}"
+    );
+    assert!(!text.contains("_outside"), "{text}");
+    // the formatter's fix reached the real file
+    assert_eq!(
+        std::fs::read_to_string(&script).unwrap(),
+        "from typing import Any\n\nx = 1\n\n\ndef ident(a: Any) -> int:\n    return a\n"
+    );
+    // a file over 1 MiB (a log) is not checked, nor changed
+    let big = scratch.join("big.py");
+    let body = format!("x=1\n{}", "# padding\n".repeat(120_000));
+    std::fs::write(&big, &body).unwrap();
+    assert!(
+        s.hook("post-tool-use", &write(&big, "w2"))
+            .stdout
+            .is_empty()
+    );
+    assert!(s.hook("post-tool-batch", &batch("w2")).stdout.is_empty());
+    assert_eq!(std::fs::read_to_string(&big).unwrap(), body);
+}
