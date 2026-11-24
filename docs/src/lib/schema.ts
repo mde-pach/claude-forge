@@ -14,6 +14,7 @@ export type Piece =
   | "sandbox"
   | "post-edit"
   | "typecheck"
+  | "batch"
   | "stop"
   | "session-end"
   | "commit"
@@ -33,6 +34,7 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
   sandbox: { label: "sandbox", at: "tool executes" },
   "post-edit": { label: "hook post-tool-use", at: "PostToolUse · PostToolUseFailure (Bash)" },
   typecheck: { label: "hook post-tool-use-typecheck (async)", at: "PostToolUse · PostToolUseFailure (Bash)" },
+  batch: { label: "hook post-tool-batch (the edits' findings)", at: "PostToolBatch" },
   stop: { label: "hook stop → forge check", at: "Stop" },
   "session-end": { label: "hook session-end", at: "SessionEnd", infra: true },
   commit: { label: "pre-commit → forge check --changed", at: "git commit" },
@@ -107,7 +109,7 @@ export const FLOW: Row[] = [
   },
   { ev: "PostToolUse", sub: "after the tool succeeds", pieces: ["post-edit", "typecheck"], core: true },
   { ev: "PostToolUseFailure", sub: "after the tool fails · Bash may have changed files", pieces: ["post-edit", "typecheck"] },
-  { ev: "PostToolBatch", sub: "parallel calls resolved" },
+  { ev: "PostToolBatch", sub: "parallel calls resolved", pieces: ["batch"] },
   { close: "loop" },
   { ev: "Stop", sub: "Claude finishes responding", pieces: ["stop"], core: true },
   { close: "retry" },

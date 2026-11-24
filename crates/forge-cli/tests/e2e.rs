@@ -152,12 +152,12 @@ impl Sample {
         (!out.stdout.is_empty()).then(|| serde_json::from_slice(&out.stdout).unwrap())
     }
 
-    /// The agent writes `rel` (Claude Code's Write, then its PostToolUse hook): the context the
-    /// hook adds, if any.
+    /// The agent writes `rel` in a batch of one call (Claude Code's Write, its PostToolUse hook,
+    /// then the PostToolBatch hook): the context the hooks add, if any.
     fn agent_writes(&self, rel: &str, content: &str, id: &str) -> Option<String> {
         self.write(rel, content);
         let path = self.repo.join(rel).to_string_lossy().into_owned();
-        let v = self.hook(
+        let after = self.hook(
             "post-tool-use",
             serde_json::json!({
                 "hook_event_name": "PostToolUse",
@@ -165,6 +165,14 @@ impl Sample {
                 "tool_input": {"file_path": path, "content": content},
                 "tool_response": {"filePath": path, "success": true},
                 "tool_use_id": id,
+            }),
+        );
+        assert_eq!(after, None, "the findings wait for the batch's end");
+        let v = self.hook(
+            "post-tool-batch",
+            serde_json::json!({
+                "hook_event_name": "PostToolBatch",
+                "tool_calls": [{"tool_name": "Write", "tool_use_id": id}],
             }),
         )?;
         Some(

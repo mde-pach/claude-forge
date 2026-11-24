@@ -309,10 +309,28 @@ fn running_forge_and_reading_its_locks_are_refused() {
             out.stdout
         );
     }
+    // the lock is read like any committed file
     for c in [
         json!({"tool_name": "Read", "tool_input": {"file_path": s.root.join("forge.lock")}}),
-        bash("cat forge.lock", "f3"),
+        bash("cat forge.lock ruff.toml", "f3"),
         bash("head -c 500 ./forge.lock", "f4"),
+        bash("grep ruff forge.lock < forge.lock", "f5"),
+        bash("git diff -- forge.lock", "f6"),
+        bash("sed -n 1,20p forge.lock", "f7"),
+    ] {
+        let out = s.run(&f, "pre-tool-use", c.clone());
+        assert!(!out.stdout.contains(INTERNAL_REASON), "{c}: {}", out.stdout);
+    }
+    // but never changed: the version of Forge that runs is the lock's
+    for c in [
+        json!({"tool_name": "Edit", "tool_input": {"file_path": s.root.join("forge.lock"), "old_string": "a", "new_string": "b"}}),
+        json!({"tool_name": "Write", "tool_input": {"file_path": s.root.join("forge.lock"), "content": ""}}),
+        bash("echo x > forge.lock", "g1"),
+        bash("cat x >> ./forge.lock", "g2"),
+        bash("sed -i s/a/b/ forge.lock", "g3"),
+        bash("cp /tmp/x forge.lock", "g4"),
+        bash("rm forge.lock", "g5"),
+        bash("git checkout -- forge.lock", "g6"),
     ] {
         let v = json_out(&s.run(&f, "pre-tool-use", c.clone()));
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny", "{c}");
@@ -505,15 +523,83 @@ fn post_tool_use_reports_findings_on_the_changed_files() {
     std::fs::write(s.root.join("app/main.py"), "x = 3\n").unwrap();
     let mut post = bash("echo hi > app/made.py", "bash1");
     post["hook_event_name"] = json!("PostToolUseFailure");
-    let out = s.run(&f, "post-tool-use-failure", post);
-    assert_eq!(
-        json_out(&out)["hookSpecificOutput"]["hookEventName"],
-        "PostToolUseFailure"
-    );
+    // a call with an id: its findings come when its batch of calls ends
+    assert_eq!(s.run(&f, "post-tool-use-failure", post).stdout, "");
     assert_eq!(
         f.asked_post.borrow().last().unwrap(),
         &["app/made.py", "app/main.py"]
     );
+    let end = json!({"hook_event_name": "PostToolBatch", "tool_calls": [{"tool_name": "Bash", "tool_use_id": "bash1"}]});
+    let v = json_out(&s.run(&f, "post-tool-batch", end.clone()));
+    assert_eq!(v["hookSpecificOutput"]["hookEventName"], "PostToolBatch");
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "app/main.py:1 No eval()."
+    );
+    // given once
+    assert_eq!(s.run(&f, "post-tool-batch", end).stdout, "");
+}
+
+/// Several edits in one answer run one after the other; a check after the first sees the file
+/// before the later ones (the import comes in a later edit). The agent reads the results when the
+/// batch ends, so it is given, for each file, the findings of the last check that looked at it.
+#[test]
+fn a_batchs_findings_are_those_of_each_files_last_check() {
+    let s = Sandbox::new(&[]);
+    let edit = |id: &str, file: &str| {
+        json!({"hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_use_id": id,
+            "tool_input": {"file_path": s.root.join(file)}})
+    };
+    let undefined = Fake {
+        post: failing("python/lint", "F821 Undefined name `time`"),
+        ..Fake::default()
+    };
+    let clean = Fake::default();
+    let other = Fake {
+        post: Report {
+            findings: vec![
+                Finding::error("python/no-eval", "No eval().").at("tests/test_cart.py", Some(3)),
+            ],
+            notes: vec![],
+        },
+        ..Fake::default()
+    };
+    // edit 1 uses `time`, edit 2 changes another file, edit 3 adds the import
+    assert_eq!(
+        s.run(&undefined, "post-tool-use", edit("e1", "app/main.py"))
+            .stdout,
+        ""
+    );
+    assert_eq!(
+        s.run(&other, "post-tool-use", edit("e2", "tests/test_cart.py"))
+            .stdout,
+        ""
+    );
+    assert_eq!(
+        s.run(&clean, "post-tool-use", edit("e3", "app/main.py"))
+            .stdout,
+        ""
+    );
+    let calls = |ids: &[&str]| {
+        json!({"hook_event_name": "PostToolBatch",
+            "tool_calls": ids.iter().map(|i| json!({"tool_name": "Edit", "tool_use_id": i})).collect::<Vec<_>>()})
+    };
+    let v = json_out(&s.run(&clean, "post-tool-batch", calls(&["e1", "e2", "e3"])));
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "tests/test_cart.py:3 No eval()."
+    );
+    // a finding the last check still sees is given
+    s.run(&clean, "post-tool-use", edit("e4", "app/main.py"));
+    s.run(&undefined, "post-tool-use", edit("e5", "app/main.py"));
+    let v = json_out(&s.run(&clean, "post-tool-batch", calls(&["e4", "e5"])));
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "app/main.py:1 F821 Undefined name `time`"
+    );
+    // a batch whose checks found nothing says nothing
+    s.run(&clean, "post-tool-use", edit("e6", "app/main.py"));
+    assert_eq!(s.run(&clean, "post-tool-batch", calls(&["e6"])).stdout, "");
 }
 
 /// Discarding changes is judged against the turn: the person's uncommitted work from before the

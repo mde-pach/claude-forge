@@ -23,11 +23,13 @@
 //! blocks or denies anything: the hook then says nothing.
 
 pub mod agents;
+mod batch;
 pub mod checker;
 pub mod engine;
 mod events;
 mod guard;
 pub mod input;
+mod outside;
 pub mod proc;
 mod review;
 pub mod rules;
@@ -63,6 +65,7 @@ pub const EVENTS: &[&str] = &[
     "post-tool-use",
     "post-tool-use-failure",
     "post-tool-use-typecheck",
+    "post-tool-batch",
     "stop",
     "permission-request",
     "session-end",
@@ -275,6 +278,7 @@ fn dispatch(rt: &Runtime, event: &str, input: &HookInput) -> Output {
         "user-pre-tool-use" => guard::pre_tool_use(rt, input, true),
         "post-tool-use" | "post-tool-use-failure" => events::post_tool_use(rt, input),
         "post-tool-use-typecheck" => events::typecheck(rt, input),
+        "post-tool-batch" => events::post_tool_batch(rt, input),
         "stop" => events::stop(rt, input),
         "permission-request" => review::permission_request(rt, input, false),
         "user-permission-request" => review::permission_request(rt, input, true),

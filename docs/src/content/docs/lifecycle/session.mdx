@@ -31,7 +31,7 @@ An Edit or Write that changes what a test asserts, or removes it, when the test 
 
 ## After an edit
 
-After an `Edit` or `Write` (or a Bash command that changes files), `claude-forge hook post-tool-use` formats the file with the formatter your project chose, applies safe fixes, lints it and runs the `forbid` rules on its changed lines; findings go back to Claude as `path:line description`. Forge never formats or lints style with a tool the project has not chosen. The type check runs in the background (`asyncRewake`), answered by the types engine (ty for Python, the project's TypeScript), and wakes Claude when a changed file has errors. `FORGE_EDIT_TYPECHECK=always` or `never` overrides when it runs after edits.
+After an `Edit` or `Write` (or a Bash command that changes files), `claude-forge hook post-tool-use` formats the file with the formatter your project chose, applies safe fixes, lints it and runs the `forbid` rules on its changed lines; findings go back to Claude as `path:line description` when the batch of tool calls ends (PostToolBatch): Claude can make several edits in one answer, and a check after the first sees the file before the others, so each file's findings are those of the last check that looked at it. Forge never formats or lints style with a tool the project has not chosen. The type check runs in the background (`asyncRewake`), answered by the types engine (ty for Python, the project's TypeScript), and wakes Claude when a changed file has errors. `FORGE_EDIT_TYPECHECK=always` or `never` overrides when it runs after edits.
 
 ### Files changed by Bash
 

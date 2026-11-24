@@ -159,6 +159,17 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
         ]
       }
     ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-batch'",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -529,6 +540,11 @@ json = """{"matcher":"Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__serena__.*","h
 file = ".claude/settings.json"
 path = "hooks.PostToolUseFailure"
 json = """{"matcher":"Bash","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-failure'","timeout":60},{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-use-typecheck'","timeout":300,"asyncRewake":true}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "hooks.PostToolBatch"
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook post-tool-batch'","timeout":30}]}"""
 
 [[settings]]
 file = ".claude/settings.json"

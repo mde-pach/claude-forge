@@ -162,14 +162,19 @@ fn sweep(p: &Project) {
 
 // ---- UserPromptSubmit
 
+/// Claude Code's own messages, delivered to the agent as prompts: a subagent's report
+/// (`<agent-message`) and a background task's end (`<task-notification>`). Neither is the
+/// person's request, nor a new turn.
+const DELIVERED_TAGS: [&str; 2] = ["<agent-message", "<task-notification>"];
+
+/// The saved prompt's length cap, in characters.
+const PROMPT_MAX: usize = 8000;
+
 pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
-    // a subagent's report delivered to the main agent (newer Claude Code queues it as a prompt):
-    // not the person's request, and not a new turn
-    if input
-        .prompt
-        .as_deref()
-        .is_some_and(|t| t.trim_start().starts_with("<agent-message"))
-    {
+    if input.prompt.as_deref().is_some_and(|t| {
+        let t = t.trim_start();
+        DELIVERED_TAGS.iter().any(|tag| t.starts_with(tag))
+    }) {
         return Output::silent();
     }
     let Some(p) = rt.project(input) else {
@@ -179,18 +184,36 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
         return Output::silent();
     }
     let st = snapshot::status(&p.root);
-    match &st {
-        Some(st) => {
-            snapshot::write_turn(&p.root, &p.turn_dir(), st);
+    // A message that reaches Claude before it stopped (one the person queued while it worked, or
+    // one sent after an interrupt, which runs no Stop) continues the turn: its work since the
+    // turn began is still unchecked, so the snapshot and the Stop count stay, and the message is
+    // added to the request.
+    let open = p.snapshot().is_some_and(|t| !t.join(TURN_ENDED).is_file());
+    if open {
+        if let Some(prompt) = &input.prompt {
+            let file = p.session_dir.join("prompt");
+            let mut all = std::fs::read_to_string(&file).unwrap_or_default();
+            all.push_str("\n\n");
+            all.push_str(prompt);
+            let cut: String = all.chars().take(PROMPT_MAX).collect();
+            state::write_atomic(&file, cut.as_bytes());
         }
-        None => {
-            let _ = std::fs::remove_dir_all(p.turn_dir());
+    } else {
+        match &st {
+            Some(st) => {
+                snapshot::write_turn(&p.root, &p.turn_dir(), st);
+            }
+            None => {
+                let _ = std::fs::remove_dir_all(p.turn_dir());
+            }
         }
-    }
-    let _ = std::fs::remove_file(p.session_dir.join("blocks"));
-    if let Some(prompt) = &input.prompt {
-        let cut: String = prompt.chars().take(8000).collect();
-        state::write_atomic(&p.session_dir.join("prompt"), cut.as_bytes());
+        let _ = std::fs::remove_file(p.session_dir.join("blocks"));
+        let _ = std::fs::remove_file(p.session_dir.join(OUTSIDE_SEEN));
+        crate::outside::new_turn(&p);
+        if let Some(prompt) = &input.prompt {
+            let cut: String = prompt.chars().take(PROMPT_MAX).collect();
+            state::write_atomic(&p.session_dir.join("prompt"), cut.as_bytes());
+        }
     }
     // the engine resyncs what changed outside Claude's edits since the last prompt
     if let (Some(st), Some(client)) = (
@@ -282,6 +305,32 @@ fn changed_files(rt: &Runtime, input: &HookInput, p: &Project) -> Vec<String> {
     }
 }
 
+/// The absolute paths a call wrote: an Edit's, Write's or NotebookEdit's file, a Bash command's
+/// redirection targets.
+fn written_paths(rt: &Runtime, input: &HookInput) -> Vec<PathBuf> {
+    let cwd = rt.cwd(input);
+    match input.tool() {
+        "Edit" | "Write" | "MultiEdit" | "NotebookEdit" => input
+            .input_str("file_path")
+            .or_else(|| input.input_str("notebook_path"))
+            .map(|f| {
+                let p = Path::new(f);
+                if p.is_absolute() {
+                    p.to_path_buf()
+                } else {
+                    cwd.join(p)
+                }
+            })
+            .into_iter()
+            .collect(),
+        "Bash" => input
+            .command()
+            .map(|c| crate::outside::bash_targets(rt, c, &cwd))
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 /// A Serena tool that edits (§17.8): checked like a Bash command, from the snapshot taken before
 /// it; with the one file it names, if any.
 fn serena_edit(input: &HookInput) -> Option<Option<&str>> {
@@ -337,17 +386,65 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
             "hookSpecificOutput": {"hookEventName": event, "additionalContext": text}
         }))
     };
-    if files.is_empty() {
+    // files the agent wrote outside the repository: the project's rules apply to them too
+    let mut outside: Vec<PathBuf> = written_paths(rt, input)
+        .into_iter()
+        .filter(|a| crate::outside::applies(rt, &p, a))
+        .collect();
+    if files.is_empty() && outside.is_empty() {
         return answer(String::new());
     }
-    files.truncate(EDIT_FILES_MAX);
-    let snap = p.snapshot();
-    let report = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        rt.checker.post_edit(&p.root, &files, snap.as_deref())
-    }))
-    .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+    let mut report = Report::default();
+    if !files.is_empty() {
+        files.truncate(EDIT_FILES_MAX);
+        let snap = p.snapshot();
+        report = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            rt.checker.post_edit(&p.root, &files, snap.as_deref())
+        }))
+        .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+    }
+    if !outside.is_empty() {
+        outside.truncate(EDIT_FILES_MAX);
+        let mut more = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            crate::outside::post_edit(rt, &p, &outside)
+        }))
+        .unwrap_or_else(|_| failure("the checks after an edit stopped unexpectedly"));
+        report.findings.append(&mut more.findings);
+        report.notes.append(&mut more.notes);
+    }
     p.note(&report.notes);
+    // given when the batch of calls ends, as the files are then (batch.rs)
+    let checked: Vec<String> = files
+        .iter()
+        .cloned()
+        .chain(outside.iter().map(|a| a.display().to_string()))
+        .collect();
+    if let Some(id) = input.tool_use_id.as_deref()
+        && crate::batch::hold(&p, id, checked, report.findings.clone())
+    {
+        return answer(String::new());
+    }
     answer(report.agent_text(20))
+}
+
+/// The end of a batch of tool calls: the findings held for its calls (batch.rs).
+pub fn post_tool_batch(rt: &Runtime, input: &HookInput) -> Output {
+    let Some(p) = rt.project(input) else {
+        return Output::silent();
+    };
+    let ids: Vec<String> = input
+        .tool_calls
+        .iter()
+        .filter_map(|c| c.get("tool_use_id").and_then(serde_json::Value::as_str))
+        .map(str::to_string)
+        .collect();
+    let text = crate::batch::release(&p, &ids).agent_text(20);
+    if text.is_empty() {
+        return Output::silent();
+    }
+    Output::json(json!({
+        "hookSpecificOutput": {"hookEventName": "PostToolBatch", "additionalContext": text}
+    }))
 }
 
 // ---- Context of packs that became active
@@ -738,7 +835,69 @@ fn base_copy(p: &Project, file: &str, tmp: &Path) -> Option<PathBuf> {
 /// Blocks in one turn after which the stop is let through.
 const MAX_BLOCKS: u32 = 3;
 
+/// In the turn snapshot: Claude stopped, so the next prompt starts a new turn.
+const TURN_ENDED: &str = "ended";
+
+/// In the session: the outside files' findings the agent was last shown at Stop.
+const OUTSIDE_SEEN: &str = "outside-shown";
+
 pub fn stop(rt: &Runtime, input: &HookInput) -> Output {
+    let mut out = stop_check(rt, input);
+    if out.stdout.is_empty()
+        && out.code == 0
+        && let Some(p) = rt.project(input)
+    {
+        out = stop_outside(rt, &p, input).unwrap_or(out);
+    }
+    // a stop that is let through ends the turn
+    if out.stdout.is_empty()
+        && out.code == 0
+        && let Some(t) = rt.project(input).and_then(|p| p.snapshot())
+    {
+        state::write_atomic(&t.join(TURN_ENDED), b"");
+    }
+    out
+}
+
+/// The Stop check of the files the turn wrote outside the repository, once the repository's
+/// passed: blocks with their findings, at most once for the same findings, and within the turn's
+/// block count.
+fn stop_outside(rt: &Runtime, p: &Project, input: &HookInput) -> Option<Output> {
+    let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| crate::outside::stop(rt, p)))
+        .ok()
+        .flatten()?;
+    p.note(&outcome.report.notes);
+    let blocks = match outcome.status {
+        StopStatus::Fail => outcome.report.fails(),
+        StopStatus::AdviceOnly => !outcome.report.findings.is_empty(),
+        StopStatus::Pass => false,
+    };
+    if !blocks {
+        return None;
+    }
+    let text = cap(&outcome.report.agent_text(40));
+    let seen = p.session_dir.join(OUTSIDE_SEEN);
+    if state::read_trim(&seen).as_deref() == Some(text.trim()) {
+        // shown once and left: Claude chose to keep them
+        return None;
+    }
+    let counter = p.session_dir.join("blocks");
+    let count: u32 = if input.stop_hook_active {
+        state::read_trim(&counter)
+            .and_then(|c| c.parse().ok())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    if count >= MAX_BLOCKS {
+        return None;
+    }
+    state::write_atomic(&counter, (count + 1).to_string().as_bytes());
+    state::write_atomic(&seen, text.as_bytes());
+    Some(crate::stop_continue(&text))
+}
+
+fn stop_check(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
