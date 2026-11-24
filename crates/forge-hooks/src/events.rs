@@ -14,7 +14,7 @@ use crate::checker::{StopOutcome, StopStatus};
 use crate::input::HookInput;
 use crate::proc::{GIT_CAP, git};
 use crate::snapshot::{self, BashSnapshots};
-use crate::{Output, Project, Runtime, engine, session_workflows, state, testedit};
+use crate::{Output, Project, Runtime, engine, state, testedit};
 
 // ---- SessionStart
 
@@ -29,13 +29,7 @@ pub fn session_start(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return with_system(Output::silent(), &system);
     };
-    let mut context = session_context(&p.root);
-    if let Some(statements) = session_workflows::after_compaction(input, &p) {
-        if !context.is_empty() {
-            context.push_str("\n\n");
-        }
-        context.push_str(&statements);
-    }
+    let context = session_context(&p.root);
     let cache = p.rules(&rt.home);
     let mut notes = Vec::new();
     // Forge's uv on the agent's PATH where the project uses uv, declares itself in a
@@ -237,7 +231,7 @@ pub fn prompt(rt: &Runtime, input: &HookInput) -> Output {
         }
         state::write_atomic(&head_file, new.as_bytes());
     }
-    match session_workflows::first_prompt(rt, input, &p) {
+    match crate::capabilities::on_prompt(rt, input, &p) {
         Some(context) => Output::json(json!({
             "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": context}
         })),
@@ -350,17 +344,9 @@ pub fn post_tool_use(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
-    // Forge's own agents: a step is told when its time runs short, and is checked only when its
-    // workflow asks for it; the reviewer never
-    match crate::agents::who(input) {
-        crate::agents::Who::Reviewer => return Output::silent(),
-        crate::agents::Who::Step => {
-            let checks = crate::agents::step_hooks(rt, &p).is_some_and(|h| h.checks);
-            if !checks {
-                return crate::agents::step_after_call(&p).unwrap_or_else(Output::silent);
-            }
-        }
-        _ => {}
+    // Forge's reviewer changes nothing to check
+    if crate::agents::who(input) == crate::agents::Who::Reviewer {
+        return Output::silent();
     }
     let event = match input.hook_event_name.as_deref() {
         Some("PostToolUseFailure") => "PostToolUseFailure",
@@ -626,14 +612,8 @@ pub fn typecheck(rt: &Runtime, input: &HookInput) -> Output {
     let Some(p) = rt.project(input) else {
         return Output::silent();
     };
-    match crate::agents::who(input) {
-        crate::agents::Who::Reviewer => return Output::silent(),
-        crate::agents::Who::Step
-            if !crate::agents::step_hooks(rt, &p).is_some_and(|h| h.checks) =>
-        {
-            return Output::silent();
-        }
-        _ => {}
+    if crate::agents::who(input) == crate::agents::Who::Reviewer {
+        return Output::silent();
     }
     if rewake_blocks(rt, &p) {
         return Output::silent();
@@ -903,10 +883,6 @@ fn stop_check(rt: &Runtime, input: &HookInput) -> Output {
     };
     if !state::ensure_dir(&p.session_dir) {
         return Output::silent();
-    }
-    // a workflow step still to run (the gate)
-    if let Some(out) = crate::agents::stop(rt, &p) {
-        return out;
     }
     let counter = p.session_dir.join("blocks");
     if !input.stop_hook_active {

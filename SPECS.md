@@ -22,12 +22,12 @@ Each chapter ends with a **Tests** list. The table gathers them: the test files 
 | §12 | [Lock](spec/12-lock.md) | `forge-render/src/lock.rs` (unit); `forge-launcher/src/lock.rs` (unit); `forge-launcher/tests/lock_differential.rs`; `forge-cli/tests/{apply,spec_cli}.rs` |
 | §13 | [Packs and rules](spec/13-packs-and-rules/README.md) | `forge-packs/tests/spec_tables.rs` (the tables, kept in sync); the pack-example tests of §14.1 (the rules) |
 | §14 | [Acceptance tests](spec/14-acceptance-tests.md) | the suite itself |
-| §15 | [Engine capabilities](spec/15-engine-capabilities.md) | `forge-engine/tests/{engine,daemon,spec_engine}.rs`; `forge-detect/tests/spec_roles.rs` |
+| §15 | [Code questions](spec/15-code-questions.md) | `forge-engine/tests/{engine,daemon,spec_engine}.rs`; `forge-detect/tests/spec_roles.rs` |
 | §16 | [Tool adapters](spec/16-tool-adapters.md) | `forge-check/tests/spec_adapters.rs` (the tables, kept in sync, and adapter behaviour); `forge-check/src/adapters.rs` (unit); `forge-cli/tests/check.rs` |
 | §17 | [Tool provisioning](spec/17-tool-provisioning.md) | `forge-tools/tests/{provision,env_file,spec_pins}.rs`; `forge-tools/tests/network.rs` (opt-in); `forge-tools/src/*.rs` (unit) |
 | §18 | [Distribution](spec/18-distribution.md) | `forge-tools/tests/{install_sh,npm_package,forge_fetch}.rs` |
 | §19 | [Migration from the TypeScript Forge](spec/19-migration-from-typescript.md) | `forge-cli/tests/apply.rs` (`migration_*`, on `forge-cli/tests/fixtures/old-layout`) |
-| §20 | [Capabilities](spec/20-capabilities.md) | `forge-packs/tests/capabilities.rs`; `forge-capabilities/src/*.rs` (unit); `forge-cli/tests/spec_cli.rs::capabilities_in_status_explain_diff_and_dump` |
+| §20 | [Capabilities](spec/20-capabilities.md) | `forge-packs/tests/capabilities.rs`; `forge-capabilities/src/*.rs` (unit); `forge-hooks/tests/spec_hooks.rs` (§20); `forge-cli/tests/{spec_cli,hook,forge_test}.rs` |
 
 ### Tables generated from the code
 

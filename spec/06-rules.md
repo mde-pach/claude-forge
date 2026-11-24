@@ -48,7 +48,7 @@ Each `enforce` entry has a `target` kind and the fields of that kind. Unknown fi
 | Target | Fields | What enforces it |
 |---|---|---|
 | `tool` | `tool: biome \| ruff \| ty \| tsc \| eslint`, `expects` (the diagnostic: a ruff code, a Biome rule `lint/<group>/<name>`, a ty rule, a tsc option, an ESLint rule), `snippet` (the config to add when the audit is unsatisfied) | the project's own tool and config, audited (§11) |
-| `ast-grep` | `mode`, `rule` (ast-grep's rule object), `constraints`, `utils` (passed to ast-grep as written), `where` (optional: engine capabilities on metavariables, §15), `needs` (optional, with `where`: packages the types engine needs installed) | the checker, with ast-grep linked in (§10) |
+| `ast-grep` | `mode`, `rule` (ast-grep's rule object), `constraints`, `utils` (passed to ast-grep as written), `where` (optional: code questions on metavariables, answered by the types engine, §15), `needs` (optional, with `where`: packages the types engine needs installed) | the checker, with ast-grep linked in (§10) |
 | `grep` | `mode`, `pattern` (a POSIX extended regular expression, one line), `ignore_case` (optional) | the checker, line by line (§10) |
 | `check` | see below | the checker runs the command (§10) |
 | `guard` | `decision: deny \| ask`, `command` and/or `check`, `reason` (optional) | the PreToolUse hook on Bash commands (§9) |

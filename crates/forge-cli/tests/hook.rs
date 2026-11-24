@@ -115,8 +115,10 @@ impl Sandbox {
             .env_remove("CLAUDE_CODE_ENTRYPOINT")
             .env_remove("CLAUDE_ENV_FILE")
             .env_remove("FORGE_LAUNCHED_VERSION")
+            .env_remove("TYPESAFE_API_KEY")
+            .env_remove("FORGE_CAPABILITIES")
+            .env_remove("FORGE_CAPABILITIES_URL")
             .env("FORGE_ENGINE", "off")
-            .env("FORGE_SPEC", "off")
             .env("GIT_CONFIG_NOSYSTEM", "1");
         // the person's commands (apply, status) run outside Claude Code; hooks run either way
         if args.first() != Some(&"hook") {
@@ -126,11 +128,21 @@ impl Sandbox {
     }
 
     fn hook(&self, event: &str, input: &Value) -> Output {
+        self.hook_env(event, input, &[])
+    }
+
+    /// A hook run with `env` added to its environment.
+    fn hook_env(&self, event: &str, input: &Value, env: &[(&str, &str)]) -> Output {
         let mut input = input.clone();
-        input["session_id"] = json!("sess-1");
+        if input.get("session_id").is_none() {
+            input["session_id"] = json!("sess-1");
+        }
         input["cwd"] = json!(self.repo);
-        let mut child = self
-            .cmd(&["hook", event])
+        let mut cmd = self.cmd(&["hook", event]);
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
+        let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -442,7 +454,32 @@ fn budgets() {
             200,
         ),
     ];
+    // capability selection: one capability never selected, so every prompt asks the fake
+    // engine on localhost; the budget is Forge's own time around the request
+    let c = with_a_capability();
+    let (url, _requests) = fake_engine(0.0);
+    let env = [("FORGE_CAPABILITIES_URL", url.as_str())];
+    c.hook_env("user-prompt-submit", &json!({"prompt": "go"}), &env);
+    let mut times: Vec<Duration> = (0..n)
+        .map(|_| {
+            let t = Instant::now();
+            assert!(
+                c.hook_env("user-prompt-submit", &json!({"prompt": "go"}), &env)
+                    .status
+                    .success()
+            );
+            t.elapsed()
+        })
+        .collect();
+    times.sort();
+    let (median, p99) = (times[n / 2], times[(n * 99 / 100).min(n - 1)]);
+    println!(
+        "user-prompt-submit with capability selection: median {median:?}, p99 {p99:?} (budget p99 80 ms)"
+    );
     let mut over = Vec::new();
+    if p99 > Duration::from_millis(80) {
+        over.push("capability selection".to_string());
+    }
     for (name, event, input, budget) in cases {
         let (median, p99) = measure(&s, event, input, n);
         println!("{name}: median {median:?}, p99 {p99:?} (budget p99 {budget} ms)");
@@ -621,4 +658,149 @@ fn a_script_outside_the_repository_is_checked_with_the_projects_tools() {
     );
     assert!(s.hook("post-tool-batch", &batch("w2")).stdout.is_empty());
     assert_eq!(std::fs::read_to_string(&big).unwrap(), body);
+}
+
+/// A fake capability engine on localhost: answers every request with `noul` for each of its
+/// questions; hands back each request it read (head and body).
+fn fake_engine(noul: f64) -> (String, std::sync::mpsc::Receiver<String>) {
+    use std::io::Read;
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", l.local_addr().unwrap());
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for s in l.incoming() {
+            let Ok(mut s) = s else { break };
+            let mut req = Vec::new();
+            let mut buf = [0u8; 16384];
+            let body = loop {
+                let Ok(n) = s.read(&mut buf) else { break None };
+                if n == 0 {
+                    break None;
+                }
+                req.extend_from_slice(&buf[..n]);
+                let t = String::from_utf8_lossy(&req).into_owned();
+                if let Some(i) = t.find("\r\n\r\n") {
+                    let len = t[..i]
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length: ")
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if req.len() >= i + 4 + len {
+                        break Some(t);
+                    }
+                }
+            };
+            let Some(t) = body else { continue };
+            let v: Value = serde_json::from_str(t.split("\r\n\r\n").nth(1).unwrap_or("{}"))
+                .unwrap_or_default();
+            let answers: serde_json::Map<String, Value> = v["questions"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .map(|(k, _)| (k.clone(), json!({"type": "noul", "noul": noul})))
+                .collect();
+            let out = json!({"model": "jev-1.14.0", "answers": answers, "usage": {"input_tokens": 1, "output_tokens": 0}}).to_string();
+            let _ = write!(
+                s,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{out}",
+                out.len()
+            );
+            let _ = tx.send(t);
+        }
+    });
+    (url, rx)
+}
+
+/// The sample with a local pack `acme` holding one injected capability, and this machine's
+/// consent and key (through `forge apply --user --capability-engine`).
+fn with_a_capability() -> Sandbox {
+    let s = Sandbox::with("fastapi-app", |repo| {
+        let d = repo.join(".forge/packs/acme");
+        std::fs::create_dir_all(d.join("capabilities")).unwrap();
+        std::fs::write(
+            d.join("pack.yaml"),
+            "id: acme\ndescription: Acme's.\nlevel: project\ndetect: {always: true}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            d.join("capabilities/web.yaml"),
+            "id: acme/web\ndescription: A browser.\nrelevant:\n  - The task involves a web page.\ndeliver: inject\ntext: |\n  Check pages in the browser.\n",
+        )
+        .unwrap();
+    });
+    let out = s
+        .cmd(&["apply", "--user", "--yes", "--capability-engine"])
+        .env("TYPESAFE_API_KEY", "sk-e2e")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    s
+}
+
+// §20: the hook as Claude Code runs it, through the real client: one request to the engine with
+// the stored key in its Authorization header and the pinned model; the selected capability's text
+// is the prompt's context, once per session. An engine that cannot be reached gives silence and a
+// note for the person.
+#[test]
+fn capabilities_through_the_real_client() {
+    let s = with_a_capability();
+    let (url, requests) = fake_engine(0.9);
+    let env = [("FORGE_CAPABILITIES_URL", url.as_str())];
+    let out = s.hook_env(
+        "user-prompt-submit",
+        &json!({"prompt": "Fix the login page"}),
+        &env,
+    );
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        v["hookSpecificOutput"]["additionalContext"],
+        "Check pages in the browser."
+    );
+    let req = requests.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(req.starts_with("POST /v1/systemone "), "{req}");
+    assert!(
+        req.to_ascii_lowercase()
+            .contains("authorization: bearer sk-e2e\r\n"),
+        "{req}"
+    );
+    assert!(req.contains("\"model\":\"jev-1.14.0\""), "{req}");
+    assert!(req.contains("\"acme/web#0\""), "{req}");
+    // given once: the next prompt makes no request
+    let out = s.hook_env(
+        "user-prompt-submit",
+        &json!({"prompt": "And the cart page"}),
+        &env,
+    );
+    assert!(out.stdout.is_empty());
+    assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
+    // another session, the engine gone: silence, and a note for the person
+    let gone = {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        format!("http://{}", l.local_addr().unwrap())
+    };
+    let out = s.hook_env(
+        "user-prompt-submit",
+        &json!({"prompt": "Fix the login page", "session_id": "sess-2"}),
+        &[("FORGE_CAPABILITIES_URL", gone.as_str())],
+    );
+    assert!(out.status.success() && out.stdout.is_empty());
+    let st = s.cmd(&["status"]).output().unwrap();
+    let st = String::from_utf8_lossy(&st.stdout);
+    assert!(
+        st.contains("the capability engine could not be reached"),
+        "{st}"
+    );
+    assert!(
+        st.contains("acme/web: inject, available here; selected for 1 of 1 prompts"),
+        "{st}"
+    );
 }

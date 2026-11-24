@@ -12,34 +12,17 @@ use crate::input::HookInput;
 use crate::review::{self, Ask};
 use crate::rules::{self, HookCache};
 use crate::snapshot::BashSnapshots;
-use crate::workflow::StepHooks;
 use crate::{INTERNAL_REASON, Output, RUN_REASON, Runtime, pre_decision, testedit};
 use forge_core::serena;
 
 pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
     let cwd = rt.cwd(input);
     let tool = input.tool();
-    // Forge's own agents: a step gets the hooks its workflow declares; the reviewer, the internals
-    // refusal; neither edits, so the test-edit ask never applies
-    let me = agents::who(input);
-    let hooks = match me {
-        Who::Step => rt
-            .project(input)
-            .and_then(|p| agents::step_hooks(rt, &p))
-            .unwrap_or_default(),
-        // the reviewer has every tool of the session: its commands go through the guard
-        Who::Reviewer => StepHooks {
-            guard: true,
-            internals: true,
-            checks: false,
-        },
-        _ => StepHooks {
-            guard: true,
-            internals: true,
-            checks: true,
-        },
-    };
-    let mine = matches!(me, Who::Step | Who::Reviewer);
+    // Forge's reviewer has every tool of the session: its commands go through the guard and the
+    // internals refusal; it never edits, so the test-edit ask never applies, and its commands are
+    // not snapshotted for the checks
+    let mine = agents::who(input) == Who::Reviewer;
+    let checks = !mine;
     let parsed = match (tool, input.command()) {
         ("Bash", Some(cmd)) => Some(parse::parse(
             cmd,
@@ -50,10 +33,10 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
         )),
         _ => None,
     };
-    if hooks.internals && names_internal(rt, input, &cwd, parsed.as_ref()) {
+    if names_internal(rt, input, &cwd, parsed.as_ref()) {
         return pre_decision("deny", INTERNAL_REASON);
     }
-    if hooks.internals && parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
+    if parsed.as_ref().is_some_and(|p| runs_forge(rt, p)) {
         return pre_decision("deny", RUN_REASON);
     }
     // a run of searches and reads of code without Serena: reminded once (§17.8)
@@ -66,10 +49,10 @@ pub fn pre_tool_use(rt: &Runtime, input: &HookInput, user: bool) -> Output {
         }
     }
     if let Some(st) = serena::tool_of(tool) {
-        return serena_call(rt, input, &cwd, st, user, mine, hooks.checks);
+        return serena_call(rt, input, &cwd, st, user, mine, checks);
     }
     match (tool, parsed) {
-        ("Bash", Some(parsed)) if hooks.guard => bash(rt, input, &cwd, &parsed, user, hooks.checks),
+        ("Bash", Some(parsed)) => bash(rt, input, &cwd, &parsed, user, checks),
         ("Edit" | "Write" | "MultiEdit", _) if !user && !mine => testedit::pre(rt, input, &cwd),
         _ => Output::silent(),
     }

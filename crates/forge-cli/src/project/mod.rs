@@ -3,6 +3,7 @@
 
 mod apply;
 mod capabilities;
+mod engine_setup;
 mod io;
 mod offers;
 mod precommit;
@@ -48,6 +49,9 @@ pub struct Flags {
     /// Consent to adding the commit-time check to a hook manager's config.
     #[arg(long)]
     pub pre_commit: bool,
+    /// With --user: consent to the capability engine on this machine (what it is sent is shown).
+    #[arg(long)]
+    pub capability_engine: bool,
 }
 
 #[derive(Subcommand, Debug)]

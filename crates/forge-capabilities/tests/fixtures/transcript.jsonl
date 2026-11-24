@@ -1,0 +1,20 @@
+{"type": "session-owner"}
+{"type": "user", "message": {"role": "user", "content": "first turn: look around"}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "Read", "input": {"file_path": "/work/repo/README.md"}}, {"type": "text", "text": "first turn answer"}]}}
+{"type": "user", "message": {"role": "user", "content": "Fix the total in the cart."}}
+{"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["SECRET context"]}}
+{"type": "api-request-blob", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "x1", "name": "Read", "input": {"file_path": "/work/repo/SECRET.py"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "text", "text": "Looking."}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/work/repo/app/cart.py"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/work/repo/app/cart.py"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "SECRET file content"}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "git status && uv run pytest -k SECRET", "description": "SECRET run"}}]}}
+{"type": "assistant", "isSidechain": true, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "s1", "name": "Read", "input": {"file_path": "/work/repo/SECRET2.py"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t3", "name": "Edit", "input": {"file_path": "/work/repo/app/cart.py", "old_string": "total == 1", "new_string": "SECRET"}}]}}
+{"type": "user", "isMeta": true, "message": {"role": "user", "content": "<system-reminder>SECRET meta</system-reminder>"}}
+{"type": "user", "message": {"role": "user", "content": "<task-notification>SECRET background task done</task-notification>"}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t4", "name": "Write", "input": {"file_path": "/home/me/notes/todo.md", "content": "SECRET"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t5", "name": "Bash", "input": {"command": "grep -rn \"total ==\" app"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t6", "name": "WebFetch", "input": {"url": "https://example.com/SECRET", "prompt": "SECRET"}}]}}
+{"type": "assistant", "isSidechain": false, "message": {"role": "assistant", "content": [{"type": "text", "text": "The total is fixed."}]}}
+{"type": "last-prompt"}

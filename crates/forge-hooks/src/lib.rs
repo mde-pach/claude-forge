@@ -24,6 +24,7 @@
 
 pub mod agents;
 mod batch;
+mod capabilities;
 pub mod checker;
 pub mod engine;
 mod events;
@@ -34,11 +35,9 @@ pub mod proc;
 mod review;
 pub mod rules;
 mod serena_remind;
-mod session_workflows;
 pub mod snapshot;
 pub mod state;
 mod testedit;
-pub mod workflow;
 
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
@@ -98,12 +97,8 @@ pub struct Env {
     pub snapshot_cap: Duration,
     /// Start the types engine at SessionStart (`FORGE_ENGINE=off`: never).
     pub engine: bool,
-    /// The workflows triggered by the session's first prompt, the spec step among them
-    /// (`FORGE_SPEC=off`: never).
-    pub spec: bool,
-    /// `FORGE_WORKFLOWS_DIR`: workflow files read at run time, replacing or adding to the
-    /// built-in ones.
-    pub workflows_dir: Option<PathBuf>,
+    /// Capabilities are given (`FORGE_CAPABILITIES=off`: never, §20).
+    pub capabilities: bool,
 }
 
 impl Env {
@@ -124,8 +119,7 @@ impl Env {
                     .unwrap_or(3),
             ),
             engine: var("FORGE_ENGINE").as_deref() != Some("off"),
-            spec: var("FORGE_SPEC").as_deref() != Some("off"),
-            workflows_dir: var(workflow::DIR_VAR).map(PathBuf::from),
+            capabilities: var(forge_capabilities::setup::OFF_VAR).as_deref() != Some("off"),
         }
     }
 }
@@ -139,6 +133,8 @@ pub struct Runtime<'a> {
     pub exe: PathBuf,
     /// What the launcher noted before the hook ran (a pinned version not downloaded yet).
     pub launcher_notes: Vec<forge_launcher::Note>,
+    /// The capability engine (§20.3).
+    pub capabilities: &'a dyn forge_capabilities::Engine,
 }
 
 /// A hook's answer.

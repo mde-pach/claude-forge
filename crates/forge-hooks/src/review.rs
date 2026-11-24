@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 
 use crate::agents::{self, REVIEW_CALL, Review, Who};
 use crate::input::HookInput;
-use crate::{Output, Runtime, pre_decision, proc, session_workflows, snapshot, state};
+use crate::{Output, Runtime, pre_decision, proc, snapshot, state};
 
 /// A rule's ask, for the reviewer: the rule's concern and the question to answer.
 pub struct Ask<'a> {
@@ -49,9 +49,7 @@ fn identity(v: &Value) -> String {
 /// Whether an ask goes to a reviewer: `FORGE_ASK_REVIEW=always`, or (auto) a run nobody
 /// answers. Never for Forge's own agents, never with `never`, never in dontAsk mode.
 pub fn wanted(rt: &Runtime, input: &HookInput) -> bool {
-    if matches!(agents::who(input), Who::Step | Who::Reviewer)
-        || input.permission_mode.as_deref() == Some("dontAsk")
-    {
+    if agents::who(input) == Who::Reviewer || input.permission_mode.as_deref() == Some("dontAsk") {
         return false;
     }
     match rt.env.ask_review.as_deref() {
@@ -341,18 +339,9 @@ fn session_request(rt: &Runtime, input: &HookInput) -> Option<String> {
 }
 
 /// What the reviewer knows besides the action: what the turn did to the repository
-/// ([`turn_facts`]) and what the session's first-prompt workflows handed over (§8.5).
+/// ([`turn_facts`]).
 fn review_context(rt: &Runtime, input: &HookInput) -> String {
-    let mut out = turn_facts(rt, input);
-    if let Some(statements) = rt
-        .project(input)
-        .and_then(|p| session_workflows::results(&p))
-    {
-        out.push_str(&format!(
-            "\n\nWhat an independent reading of the request established:\n<statements>\n{statements}\n</statements>"
-        ));
-    }
-    out
+    turn_facts(rt, input)
 }
 
 /// The reviewer's task: the action, what it knows besides it ([`review_context`]), the question,

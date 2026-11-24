@@ -46,7 +46,7 @@ A relative or empty value of these variables is ignored. With none of them set, 
 <cache>/packs/                           the parsed-packs cache, built-in and local separately (§5.1)
 <cache>/engine/<repo-id>.sock            the types engine's socket (§15.3)
 <cache>/registry/, <cache>/infra/        cached answers of package registries and infra helpers
-<state>/<repo-id>/                       per repository: hook rule cache, notes, last results, engine log
+<state>/<repo-id>/                       per repository: hook rule cache, notes, last results, types engine log, capability log
 <state>/<repo-id>/notes/                 notes for the person, read and cleared by forge status / apply
 <state>/<repo-id>/local-settings.json    the entries apply added to .claude/settings.local.json (§12)
 <state>/<repo-id>/sessions/<session>/    per session: the turn snapshot, Bash snapshots, Stop counter, reviews

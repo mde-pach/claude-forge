@@ -4,9 +4,9 @@ Claude Code runs Forge through the hook entries `forge apply` writes (§7). Each
 
 ### 8.1 Who reads what
 
-- **The agent** reads only findings (§10) and refusal or ask reasons: `additionalContext`, `permissionDecisionReason`, a Stop `reason`, the typecheck's stderr. This text names no rule id and none of Forge's internals: its files, commands, variables or state (`forge_core::internals`). A finding reads `path:line message`, with `Advice: ` before the message of an advice finding.
+- **The agent** reads findings (§10), refusal or ask reasons, and the capabilities selected for its task (§20): `additionalContext`, `permissionDecisionReason`, a Stop `reason`, the typecheck's stderr. This text names no rule id and none of Forge's internals: its files, commands, variables or state (`forge_core::internals`). A finding reads `path:line message`, with `Advice: ` before the message of an advice finding. A capability's text is its file's own (§20.5).
 - **The person** reads `systemMessage`, which only the synchronous SessionStart hook prints (an asynchronous hook's `systemMessage` goes to Claude), and the notes: everything else meant for the person (a missing tool, a rule not enforced, a failure of Forge itself, the environment) is a Note. Hooks never print notes. They record them in the repository's state directory, and `forge status` prints them and clears them (§3).
-- **Forge's own failures never block.** A hook that cannot find its project, its lock, its rules, the engine or git says nothing and exits 0. A panic in a hook is caught and answered with silence. A checker that fails or crashes is recorded as a `ForgeFailure` note ("Forge: the checks after an edit stopped unexpectedly.", "Forge: the Stop check stopped unexpectedly."). A Stop check with notes and no error finding passes.
+- **Forge's own failures never block.** A hook that cannot find its project, its lock, its rules, the types engine or git says nothing and exits 0. A panic in a hook is caught and answered with silence. A checker that fails or crashes is recorded as a `ForgeFailure` note ("Forge: the checks after an edit stopped unexpectedly.", "Forge: the Stop check stopped unexpectedly."). A Stop check with notes and no error finding passes.
 - Input Claude Code leaves out, adds or garbles never fails a hook: every input field is optional, and input that is not JSON is read as an empty input. An event `forge hook` does not know is answered with silence.
 - Every hook exits 0, except the typecheck, which exits 2 to wake Claude (§8.7).
 
@@ -19,7 +19,7 @@ Project level (`.claude/settings.json`, or `.claude/settings.local.json` with `-
 | Claude Code event | Matcher | `forge hook` event | Timeout | Options |
 |---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start` | 10 s | |
-| UserPromptSubmit | | `user-prompt-submit` | 1800 s | |
+| UserPromptSubmit | | `user-prompt-submit` | 10 s | |
 | PreToolUse | `Bash` | `pre-tool-use` | 180 s | `onFailure: "block"` |
 | PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob` | `pre-tool-use` | 180 s | |
 | PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash` | `post-tool-use` | 60 s | |
@@ -32,8 +32,8 @@ Project level (`.claude/settings.json`, or `.claude/settings.local.json` with `-
 | SessionEnd | | `session-end` | 10 s | |
 | PreToolUse | `*` | `agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `agents` | 30 s | |
-| SubagentStart | `quality-workflow-step\|quality-reviewer` | `agents` | 30 s | |
-| SubagentStop | `quality-workflow-step\|quality-reviewer` | `agents` | 600 s | |
+| SubagentStart | `quality-reviewer` | `agents` | 30 s | |
+| SubagentStop | `quality-reviewer` | `agents` | 30 s | |
 
 User level (`~/.claude/settings.json`):
 
@@ -48,7 +48,8 @@ User level (`~/.claude/settings.json`):
 | SubagentStart | `quality-reviewer` | `user-agents` | 30 s | |
 | SubagentStop | `quality-reviewer` | `user-agents` | 30 s | |
 
-- The `agents` and `user-agents` entries run Forge's own agents (§8.13). The PreToolUse entry matches every tool, because the gate holds every tool of the main agent; outside a pending workflow and outside Forge's agents it answers nothing after one state lookup. `user-agents` handles the reviewer only, and the project's `agents` defers its reviews to it when the user-level setup exists.
+- The `agents` and `user-agents` entries run Forge's reviewer (§8.13). The PreToolUse entry matches every tool: the reviewer's own calls make no edits, and none past its time; any other call gets nothing after one state lookup. `user-agents` handles the reviewer when the user-level setup exists, and the project's `agents` then defers to it.
+- UserPromptSubmit has 10 s: it may make one request to the capability engine, which it waits for 1.5 s at most (§20.3).
 - The `user-` events run the user-level setup's rules, not the project's, so a project that also has a user-level setup runs each set once.
 - `onFailure: "block"` makes the guard fail closed: a guard process that crashes blocks the command. This needs Claude Code ≥ 2.1.295 (§2).
 - The PreToolUse entry for Bash runs the guard and the Bash snapshot in one process. The other PreToolUse entry runs the internals refusal and the test-edit ask (§9.3, §9.4).
@@ -64,6 +65,7 @@ User level (`~/.claude/settings.json`):
 <state>/<repo-id>/notes/hooks.jsonl           notes for the person (the 50 newest, each text once)
 <state>/<repo-id>/notes/launcher-<kind>.txt   the launcher's notes (one per kind)
 <state>/<repo-id>/reviews.log                 reviewer verdicts
+<state>/<repo-id>/capabilities.log            the capability engine's decisions and the agent's loads (§20.7)
 <state>/<repo-id>/timings.<phase>.json        Forge's and the tools' time in the last post-edit / stop check
 <state>/<repo-id>/sessions/<session>/turn/    the turn snapshot
 <state>/<repo-id>/sessions/<session>/bash/    Bash snapshots
@@ -71,7 +73,9 @@ User level (`~/.claude/settings.json`):
 <state>/<repo-id>/sessions/<session>/prompt   the user's prompt for the turn
 <state>/<repo-id>/sessions/<session>/review-cache, rewake
 <state>/<repo-id>/sessions/<session>/context.json the packs' context already given this session (§8.6)
+<state>/<repo-id>/sessions/<session>/capabilities/given the capabilities given this session (§20.5)
 <state>/user/                                 the user-level hooks' state outside a project
+<state>/user/capabilities/                    this machine's consent to the capability engine and its key (§20.3)
 ```
 
 `<repo-id>` is the first 16 hex digits of the sha256 of the repository root's physical path. `<session>` is the input's `session_id` with characters outside `[A-Za-z0-9_-]` replaced by `_` (`default` when absent).
@@ -98,9 +102,9 @@ User level (`~/.claude/settings.json`):
 
 ### 8.5 UserPromptSubmit (`user-prompt-submit`)
 
-Prints nothing but what the first-prompt workflows hand over (below).
+Gives the capabilities the capability engine selects for the prompt (§20.3, §20.5), and prints nothing else.
 
-Claude Code also delivers its own messages as prompts: a subagent's report (starting `<agent-message`) and the end of a background task (starting `<task-notification>`). Neither is the person's request nor a new turn: the hook does nothing for them.
+Claude Code also delivers its own messages as prompts: a subagent's report (starting `<agent-message`) and the end of a background task (starting `<task-notification>`). Neither is the person's request nor a new turn: the hook does nothing for them, and asks the capability engine nothing.
 
 A turn begins with a prompt and ends when Claude stops (a Stop that is let through marks the turn snapshot `ended`). A prompt that arrives before Claude stopped (one the person queued while it worked, or one sent after an interrupt, which runs no Stop) continues the turn: the work since the turn began is still unchecked, so the snapshot and the Stop count stay, and the prompt is added to the saved request. A prompt after Claude stopped starts a new turn. It:
 
@@ -109,17 +113,8 @@ A turn begins with a prompt and ends when Claude stops (a Stop that is let throu
 - saves the prompt (its first 8000 characters) for the test-edit reviewer (§9.5);
 - tells a running types engine which files changed since the last prompt (the dirty paths, and the files changed between the commit it last saw and HEAD).
 
-**First-prompt workflows.** On the session's first prompt (once a session; `FORGE_SPEC=off`: never), the hook starts each workflow whose trigger is `first-prompt`, with the prompt as its input `request`, one after the other. Their steps run as Forge's step agent (§8.13); the main agent is held until they are done, as the first prompt held it before: the hook's `additionalContext` tells it to run the step agent, every other tool call is refused with the same instruction, and Stop blocks with it (3 times; then the workflow is given up). When the last step returns, the workflows' results are the agent's context (PostToolUse of its Agent call). The workflows have 1740 s together. Each run (every step's prompt, answer, attempts, duration, transcript, and what the step agent did: model, turns, tool calls, tokens, read from its transcript) lives in the session's state (`workflows/<name>.json`), never in the repository; each step and the outcome go to `workflows.log`. SessionStart after a compaction gives the results again, and the reviewer gets them (§9.5). A workflow that fails (an answer its schema refuses three times or past the deadline, a repository that could not be put back, an agent that never ran the step) leaves a `ForgeFailure` note, and the session goes on without its result. Nothing is held beyond that: what a workflow does is in its file, and Forge only runs it and hands over its result.
+Then, on every prompt (one that continues the turn too), it gives the capabilities of §20: the active, available ones not given yet this session go to the capability engine in one bounded request, and the selected ones are the hook's `additionalContext` (§20.5). With none to offer, no request is made.
 
-**Workflows.** A workflow is a chain of steps, each one run of Forge's step agent (§8.13), that leaves the repository as it found it, described in a YAML file (strict YAML, as packs are) and run by `crates/forge-hooks/src/workflow.rs` and `agents.rs`. Forge reads them at run time: the built-in files (`crates/forge-hooks/workflows/`, compiled in as the fallback), then each `<name>.yaml` in `FORGE_WORKFLOWS_DIR`, a file replacing the built-in of the same name. Changing or adding a workflow is editing a file, with no rebuild.
-
-- `on` (optional): when a session runs it (`first-prompt`); `inputs`: the names the caller gives; `steps`: run in the file's order; `result`: a template, the text the workflow ends with.
-- A step has a `prompt` template, an `output_schema` (JSON Schema its answer must match), an optional `if` (a Jinja expression; false skips the step, whose output is then `none`) and `forge`: which of Forge's hooks apply to its own tool calls (§8.13). `max_turns` and `tools` are accepted from older files and not used: the clock bounds a step, and a step has every tool of the session (§8.13).
-- Templates are Jinja (minijinja), strict about undefined names. They see each input by its name, `repo` (the directory the steps read) and `steps.<name>.output`. A template naming anything else, or a later step, is refused when the file is loaded, as is a file its JSON Schema refuses.
-- A step is asked its rendered prompt, ending with the answer it must give: "one JSON object, alone in a ```json block, that matches this JSON Schema: …". Its answer is that block of its final message (else the whole message), checked against the schema; a refused answer goes back to the step with the errors, three answers at most and while time is left.
-- The repository is put back after each step: when the step agent starts, Forge takes the working tree as a git tree in a private object store in the session's state (the user's index and objects untouched) and lists its directories; the step may then write in the repository with Bash, so the project's own programs work as they would for the agent (one that logs what it does, a database that keeps a journal); when it ends, the files it added (ignored ones too) are removed, the ones it changed or deleted restored, the directories it made removed, and a step whose changes could not be undone fails (tests: `crates/forge-hooks/src/workflow.rs` units `a_step_writes_in_the_repository_and_leaves_it_as_it_was`, `a_step_writing_in_what_was_ignored_cannot_be_put_back`). What it writes in `.git`, Claude's worktrees and the ignored paths already there is not Forge's to undo.
-
-**The spec step** is the built-in workflow `spec-answer` (`on: first-prompt`), two steps, both with Read, Grep, Glob and Bash in a read-only sandbox. The solve step works as an expert in the request's field would: it lets the project decide by running it, takes stock of every input the project gives (each one on its own, with what it changes and whether the request covers it), keeps rival readings alive until the evidence separates them, treats an obstacle as a problem to compute (meeting a limit, a missing value as a parameter), checks its own scripts on a known case, and lets the request set the scope both ways; it hands over its evidence, each decision with the readings weighed and the one chosen (or "none"), and what must hold. The checking step's authority depends on the kind of item: a computed item is recomputed from the project's own code and data, by two independent methods where there are two, and corrected only on a reproducible difference; an interpretation stands unless concrete evidence (the request's words, including its general sentences, the code, data, documentation or tests) contradicts it; a conclusion resting on an uncomputed adjustment is computed; only items solve left as "none" may stay undecided, when the evidence cannot separate them. The agent gets what must hold, the settled items with their check, and an "Open, to settle while coding" part with the undecided ones.
 
 ### 8.6 PreToolUse and PostToolUse (`pre-tool-use`, `post-tool-use`, `post-tool-use-failure`, `post-tool-batch`)
 
@@ -162,7 +157,7 @@ The entry is `asyncRewake`: Claude Code runs it in the background, and exit 2 wa
 - It runs for the edited file (Bash: the files in `<tool_use_id>.files`, waiting up to 60 s for PostToolUse to write the list), for the languages whose type check is active: `.py`, `.pyi` (Python) and `.ts`, `.tsx`, `.mts`, `.cts` (TypeScript).
 - It asks the running types engine (§15) for the errors of the edited files, old or new (§10.4). It never starts the engine and never runs a type checker itself: with no engine running, or an engine still loading, it says nothing, and Stop runs the type check.
 - An unresolved import of a declared dependency is the environment's, as at Stop (§10.4): a note, never in the text.
-- New errors: exit 2 with `The edited files have type errors:` and at most 20 diagnostic lines (`(<n> more)` after them) on stderr. An engine error is a `ForgeFailure` note.
+- New errors: exit 2 with `The edited files have type errors:` and at most 20 diagnostic lines (`(<n> more)` after them) on stderr. A types engine error is a `ForgeFailure` note.
 - **The uv lock.** When `python/uv/lock-sync` is active, the edit (or the Bash command) changed `pyproject.toml` or `uv.toml`, and the project has a `uv.lock`, it runs `uv lock --check` and, on a stale lock, `uv lock`: the lock is derived, so Forge keeps it in sync rather than report it (§10.5). A relock adds `uv.lock was updated to match pyproject.toml.` to the stderr (exit 2). A lock the project does not have is never created here (setup, `forge apply`), and a `pyproject.toml` that does not resolve is left to Stop, which reports uv's error. Nor does it relock when `pyproject.toml` declares a dependency name its copy at the start of the turn (the turn snapshot's, else HEAD's) does not: at Stop the lock is updated only after the new-dependency checks (§10.5). The JavaScript locks are not relocked here (§10.5).
 - Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input. Under `claude -p "<prompt>"` every edit would wait for it, so when `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli` and no ancestor process (up to 12) runs with `--input-format stream-json` or `--sdk-url`, the hook exits 0 at once and Stop runs the type check. The answer is kept per session (`<session>/rewake`). `FORGE_EDIT_TYPECHECK=always` runs it anyway; `never` never runs it.
 
@@ -198,12 +193,12 @@ A commit made during the turn is part of the turn: the snapshot's `head` is the 
 | `CLAUDE_PROJECT_DIR` | The project when the input has no `cwd` | |
 | `TERM_PROGRAM` | The notification's sequence | |
 | `FORGE_ASK_REVIEW` | `always`: review every ask; `never`: never review; else auto (§9.5) | auto |
-| `FORGE_REVIEW_MODEL` | Read by `forge apply`: the `model` of Forge's agents, the workflow steps and the reviewer (§8.13) | the session's |
-| `FORGE_REVIEW_EFFORT` | Read by `forge apply`: the `effort` of Forge's agents (`low`, `medium`, `high`, `xhigh`, `max`) | `medium` |
+| `FORGE_REVIEW_MODEL` | Read by `forge apply`: the `model` of Forge's reviewer (§8.13) | the session's |
+| `FORGE_REVIEW_EFFORT` | Read by `forge apply`: the `effort` of Forge's reviewer (`low`, `medium`, `high`, `xhigh`, `max`) | `medium` |
 | `FORGE_EDIT_TYPECHECK` | `always` / `never` run the edit-time typecheck (§8.7) | auto |
 | `FORGE_ENGINE` | `off`: SessionStart never starts the types engine | on |
-| `FORGE_SPEC` | `off`: no first-prompt workflows, the spec step among them (§8.5) | on |
-| `FORGE_WORKFLOWS_DIR` | a directory of workflow files (`<name>.yaml`) read at run time, replacing or adding to the built-in ones (§8.5) | unset |
+| `FORGE_CAPABILITIES` | `off`: no capability is given and the capability engine is never asked (§20) | on |
+| `FORGE_CAPABILITIES_URL` | Another base URL for the capability engine's API, for Forge's own tests (§20.3) | `https://api.typesafe.ai` |
 | `FORGE_SNAPSHOT_TIMEOUT` | Seconds a Bash snapshot may take | 3 |
 | `FORGE_GIT` | The git executable | the one on PATH |
 | `FORGE_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME` | The cache and state roots (§4) | |
@@ -221,6 +216,7 @@ Every hook runs on Claude's path, so Forge's own time is budgeted. The budgets a
 | PreToolUse Edit of a test (test-edit lookup) | p99 ≤ 10 ms | 7.5 / 9.9 ms | `hook.rs::budgets` |
 | PreToolUse Read (internals refusal) | p99 ≤ 10 ms | 4.6 / 5.2 ms | `hook.rs::budgets` |
 | UserPromptSubmit | p99 ≤ 50 ms | 20.5 / 36.6 ms | `hook.rs::budgets` |
+| UserPromptSubmit with capability selection (the digest, one request to a fake engine on localhost, the rendering), whole hook | p99 ≤ 80 ms | not measured yet | `hook.rs::budgets` |
 | SessionStart | p99 ≤ 200 ms | 21.6 / 31.5 ms | `hook.rs::budgets` |
 | PostToolUse Edit (Python), Forge overhead | median ≤ 30 ms, p99 ≤ 45 ms; total median ≤ 1 s | 24.9 / 46.1 ms; total 550 / 1505 ms | `hook.rs::budgets` |
 | Stop, Forge overhead | median ≤ 300 ms, p99 ≤ 450 ms | 180.9 / 288.6 ms (tools 2.6 s median) | `hook.rs::budgets` |
@@ -242,27 +238,19 @@ Verified against the Claude Code hooks documentation and, where noted, on real s
 - Claude Code runs an `asyncRewake` hook in the background only in an interactive session or with streaming input (`--input-format stream-json`, `--sdk-url`).
 - Headless runs need a trusted workspace for project settings and their hooks to load.
 
-### 8.13 Forge's own agents (`agents`, `user-agents`)
+### 8.13 Forge's own agent (`agents`, `user-agents`)
 
-Forge never starts a `claude -p` process. What it asks a model, it asks one of its two agents, native Claude Code subagents of the session, so they appear in the session with their own transcripts and get its environment:
+Forge never starts a `claude -p` process. What it asks a model, it asks its reviewer, `quality-reviewer`, a native Claude Code subagent of the session, so it appears in the session with its own transcript and gets its environment. It runs one review of an ask (§9.5). It has every tool of the session, Serena's included (§17.8): its definition names no `tools`. What it may not do, the hooks refuse (below). Its name is neutral, like everything the agent sees.
 
-| Agent | Runs |
-|---|---|
-| `quality-workflow-step` | one step of a workflow (§8.5) |
-| `quality-reviewer` | one review of an ask (§9.5) |
+`forge apply` (either level) writes its definition into Claude Code's user config directory (`agents/quality-reviewer.md`; §7.7), removes the files of former agents (`forge-reviewer.md`, `forge-workflow-step.md`, `quality-workflow-step.md`) when they are its own, and never overwrites a person's agent of the same name (apply stops and says so): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `effort` is `FORGE_REVIEW_EFFORT` (else `medium`, Claude Code's default for the current models: without it the agent would take the session's level, a harness's `--effort max` included), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
 
-Both have every tool of the session, Serena's included (§17.8): their definitions name no `tools`. What they may not do, the hooks refuse (below). Their names are neutral, like everything the agent sees.
-
-`forge apply` (either level) writes their definitions into Claude Code's user config directory (`agents/quality-workflow-step.md`, `agents/quality-reviewer.md`; §7.7), removes the files of their former names (`forge-workflow-step.md`, `forge-reviewer.md`) when they are its own, and never overwrites a person's agent of the same name (apply stops and says so): `model` is `FORGE_REVIEW_MODEL` as it is when `forge apply` runs (else `inherit`, the session's), `effort` is `FORGE_REVIEW_EFFORT` (else `medium`, Claude Code's default for the current models: without it the agents would take the session's level, a harness's `--effort max` included), `background: false` (a foreground agent holds the main agent until it returns), and a fixed short system prompt: the task is the message the agent receives.
-
-- **Forge writes the prompt.** PreToolUse of the main agent's Agent call for one of them answers with `updatedInput`: the `prompt` replaced by the pending step's or review's, `model` removed, `run_in_background` false. The main agent starts Forge's agents but never shapes what they are told; they start with a fresh context and see no conversation.
-- **The gate** (§8.5): while a step is pending, every other tool call of the main agent (one with no `agent_id`) is refused with "Before anything else, call the Agent tool with subagent_type "quality-workflow-step" (any prompt: the tooling sets it). …", and so is a second call while the step agent runs.
-- **Their own calls** (PreToolUse with their `agent_id`): Edit, Write, MultiEdit and NotebookEdit, and every Serena tool but its navigation, are refused ("You never change the project's files."). A step's Bash gets `updatedInput`: `TMPDIR` set to the step's own directory (`/tmp/forge-steps/fw-<id>`, private to the user, removed when it ends; the step's commands run in the session's sandbox, which the `safety/sandbox` rule lets write under `/tmp/forge-steps` through `sandbox.filesystem.allowWrite`, since an exported `TMPDIR` cannot widen what the sandbox lets a command write), and a `timeout` within the time left; a step's command stays in the session's sandbox (`dangerouslyDisableSandbox` is dropped from its input, as the steps' own sessions required before they became subagents; where the session has no sandbox, its commands run as the session's do). Past the deadline (the workflows' 1740 s; 170 s for a review) every call is refused ("Time is up: end now with your answer as it stands."), so the agent ends with its answer; with less than 120 s left a step is told so after its Bash calls. A step whose answer comes past the deadline still moves the run on: the next step starts, its calls all refused, and answers from what it is given, so the workflow always ends with its result, however long its steps took.
-- **Forge's other hooks** fire on their calls too, since they run in the session. A step's calls get what its workflow declares under `forge`: `guard` (the Bash guard, §9.2; default on), `internals` (the refusal of §9.3; on), `checks` (the edit-time checks and the Bash snapshot, §8.6, and the typecheck; off). The reviewer's calls get the Bash guard and the internals refusal. Neither ever gets the test-edit ask or a review of its own asks.
-- **SubagentStart** links the agent to its step or review, starts its clock and, for a step, takes the repository's snapshot (§8.5). **SubagentStop** checks its answer (§8.5), sending a refused one back with `decision: "block"`; then puts the repository back, records the step and moves the run on.
-- **The answer stays Forge's.** The agent's last message is what the main agent's Agent call returns, and a step's answer is not the main agent's to read. Once its answer is recorded, the agent is sent back once with "Your answer is recorded. End now with only the word: done.", every tool call refused meanwhile; its next stop ends it, and the main agent reads "done". PostToolUse of the main agent's Agent call hands over what comes next: the next step's instruction ("That step of the tooling is done, and another one must run before anything else: call the Agent tool with subagent_type "quality-workflow-step" again now …", since the call itself returned only "done"), the workflows' results, or, after a review, "The review is recorded: retry the same call unchanged."
-- **No messages.** Claude Code's `SendMessage` reaches a finished subagent, which would let the main agent ask a step or the reviewer for its answer. Forge records its agents' ids as they start (`agents/ids`) and refuses a `SendMessage` to one of them ("That agent worked for this project's tooling and has finished: it takes no messages."), and any `SendMessage` of theirs ("This agent sends no messages: end with your answer."). Messages between the session's other agents (concurrent work) are left alone.
-- State lives in the session's directory (`agents/workflows.json`, `agents/ids`, `agents/reviews/`, `agents/<agent>/snap`), never in the repository.
+- **Forge writes the prompt.** PreToolUse of the main agent's Agent call for the reviewer answers with `updatedInput`: the `prompt` replaced by the waiting review's, `model` removed, `run_in_background` false. The main agent starts the reviewer but never shapes what it is told; it starts with a fresh context and sees no conversation.
+- **Its own calls** (PreToolUse with its `agent_id`): Edit, Write, MultiEdit and NotebookEdit, and every Serena tool but its navigation, are refused ("You never change the project's files."). Past its 170 s every call is refused ("Time is up: end now with your answer as it stands."), so it ends with its answer.
+- **Forge's other hooks** fire on its calls too, since it runs in the session: the Bash guard (§9.2) and the internals refusal (§9.3). It never gets the test-edit ask, the edit-time checks or a review of its own asks.
+- **SubagentStart** links the reviewer to the oldest waiting review and starts its clock. **SubagentStop** checks its answer against the verdict schema, sending a refused one back with `decision: "block"` (three answers at most).
+- **The answer stays Forge's.** The reviewer's last message is what the main agent's Agent call returns, and its verdict is not the main agent's to read. Once its answer is recorded, it is sent back once with "Your answer is recorded. End now with only the word: done.", every tool call refused meanwhile; its next stop ends it, and the main agent reads "done". A newer Claude Code's hand-back (`SubagentHandback`) is its answer the same way, and goes through as "done". PostToolUse of the main agent's Agent call says "The review is recorded: retry the same call unchanged."
+- **No messages.** Claude Code's `SendMessage` reaches a finished subagent, which would let the main agent ask the reviewer for its answer. Forge records its reviewers' ids as they start (`agents/ids`) and refuses a `SendMessage` to one of them ("That agent worked for this project's tooling and has finished: it takes no messages."), and any `SendMessage` of theirs ("This agent sends no messages: end with your answer."). Messages between the session's other agents (concurrent work) are left alone.
+- State lives in the session's directory (`agents/ids`, `agents/reviews/`, `agents/closing/`), never in the repository.
 
 ### Tests
 
@@ -270,7 +258,7 @@ Both have every tool of the session, Serena's included (§17.8): their definitio
 - 8.2 Entries: `crates/forge-hooks/tests/spec_hooks.rs::hook_entries_wire_every_event`, `crates/forge-render/src/hooks.rs (unit)`, `crates/forge-launcher/src/hook.rs (unit)`, `crates/forge-launcher/tests/hook_shells.rs`.
 - 8.3 Project and state: `spec_hooks.rs::state_lives_outside_the_repository_readable_by_the_user_only`, `crates/forge-cli/tests/hook.rs::the_guard_follows_a_package_manager_switched_mid_session`, `spec_hooks.rs::notes_keep_the_fifty_newest`, `crates/forge-hooks/src/state.rs (unit)`, `crates/forge-hooks/src/rules.rs (unit)`, `crates/forge-hooks/src/proc.rs (unit)`, `crates/forge-home/src/lib.rs (unit)`.
 - 8.4 SessionStart: `events.rs::session_start_gives_repository_context_only`, `events.rs::session_start_starts_the_engine_for_typed_rules`, `spec_hooks.rs::session_start_shows_a_missing_pinned_version_to_the_person_only`, `spec_hooks.rs::session_start_puts_uv_on_path_only_for_uv_or_unpackaged_projects`, `crates/forge-tools/tests/env_file.rs`.
-- 8.5 UserPromptSubmit: `events.rs::prompt_snapshots_the_turn_silently`, `spec_hooks.rs::a_task_notification_neither_starts_a_turn_nor_replaces_the_request`, `spec_hooks.rs::a_prompt_before_claude_stopped_continues_the_turn`, `spec_hooks.rs::a_blocked_stop_keeps_the_turn_and_a_stop_let_through_ends_it`, `crates/forge-hooks/src/snapshot.rs (unit)`. First-prompt workflows (with a fixture workflow, so no test depends on the shipped ones' wording): `spec_hooks.rs::the_first_prompt_runs_its_workflows_and_hands_over_their_results`, `spec_hooks.rs::a_workflow_that_fails_leaves_a_note_and_nothing_waits`, `spec_hooks.rs::a_permission_review_knows_the_request_and_the_workflows_result`. Workflows: `crates/forge-hooks/src/workflow.rs (unit)`, among them `every_shipped_workflow_loads_and_runs_to_a_result`, `a_step_killed_at_its_cap_still_says_what_it_had_done` (each shipped file, on outputs its own schemas accept) and `a_file_replaces_the_builtin_of_its_name_and_adds_new_ones`. The engine resync: (no test: needs a running engine; covered only by reading).
+- 8.5 UserPromptSubmit: `events.rs::prompt_snapshots_the_turn_silently`, `spec_hooks.rs::a_task_notification_neither_starts_a_turn_nor_replaces_the_request`, `spec_hooks.rs::a_prompt_before_claude_stopped_continues_the_turn`, `spec_hooks.rs::a_blocked_stop_keeps_the_turn_and_a_stop_let_through_ends_it`, `crates/forge-hooks/src/snapshot.rs (unit)`; the capabilities it gives: §20's tests. The engine resync: (no test: needs a running engine; covered only by reading).
 - 8.6 Files outside the repository: `spec_hooks.rs::a_file_written_outside_the_repository_is_checked_with_the_projects_rules`, `spec_hooks.rs::a_file_a_command_writes_outside_the_repository_is_checked`, `spec_hooks.rs::claude_codes_own_files_outside_the_repository_are_not_checked`, `outside.rs (unit)`; with the real tools after `forge apply` (the project's ruff configuration, the formatter's fix written back, the 1 MiB limit): `crates/forge-cli/tests/hook.rs::a_script_outside_the_repository_is_checked_with_the_projects_tools`.
 - 8.6 PreToolUse / PostToolUse: `events.rs::post_tool_use_reports_findings_on_the_changed_files`, `events.rs::a_batchs_findings_are_those_of_each_files_last_check`, `spec_hooks.rs::a_snapshot_past_its_time_is_skipped_and_left_to_stop`, `spec_hooks.rs::bash_changes_leave_the_users_index_alone_and_skip_tool_directories`, `spec_hooks.rs::bash_snapshots_beyond_the_fifty_newest_are_dropped`, `spec_hooks.rs::a_pack_that_became_active_gives_its_context_once`, `crates/forge-cli/tests/hook.rs::context_of_packs_activated_mid_session`, `hook.rs::context_that_no_longer_holds_is_retracted_once`.
 - 8.7 Typecheck: `events.rs::typecheck_reports_new_errors_through_the_engine`, `crates/forge-cli/tests/engine_typecheck.rs` (a typecheck rule alone: SessionStart starts the engine, an added error is reported; skipped without uvx), `spec_hooks.rs::edit_typecheck_never_is_silent`, `crates/forge-cli/tests/hook.rs::a_pyproject_edit_relocks_a_stale_uv_lock` (a fake uv). The stream-json ancestor lookup: (no test: needs a real ancestor process with those arguments).

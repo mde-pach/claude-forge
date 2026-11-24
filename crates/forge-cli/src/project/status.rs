@@ -177,6 +177,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
             "switched_off": p.switched_off,
             "deprecated": p.deprecated,
             "capabilities": caps,
+            "capability_engine": super::capabilities::engine_off().unwrap_or_else(|| "on".into()),
             "inactive_capabilities": p.inactive_capabilities,
             "audits": audits,
             "missing_tools": missing,
@@ -255,7 +256,7 @@ pub fn status(flags: &Flags, json_out: bool, probe: &dyn ToolProbe) -> Result<u8
         println!("  {}: deprecated, replaced by {}", d.id, d.replaced_by);
     }
     if !caps.is_empty() || !p.inactive_capabilities.is_empty() {
-        println!("\nCapabilities:");
+        println!("\nCapabilities ({}):", super::capabilities::engine_line());
         for c in &caps {
             println!("  {}", super::capabilities::line(c));
         }

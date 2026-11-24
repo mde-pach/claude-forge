@@ -65,6 +65,54 @@ The counts are read from the capability log (§20.7): the prompts the engine dec
 
 **`forge packs dump`** holds each pack's `capabilities`.
 
+### 20.3 The capability engine
+
+The capability engine decides gate 3, per prompt. It is behind a small trait (`forge_capabilities::Engine`): its input is the digest (§20.4) and the candidates' statements, its output the decision on each candidate. The one real implementation is TypeSafe's Jev (`forge_capabilities::jev`, https://docs.typesafe.ai).
+
+On every UserPromptSubmit (§8.5), except Claude Code's own messages (a subagent's report, a background task's end):
+
+1. The candidates are the active, available capabilities (§20.2), from the hooks' cache of the active rules (§8.3), less those already given in this session; in pack-id order.
+2. With none left, no request is made.
+3. The digest is built from the hook input's prompt and `transcript_path` (§20.4).
+4. One `POST https://api.typesafe.ai/v1/systemone`, `Authorization: Bearer <key>`, with the pinned model (`jev-1.14.0`, recorded with the tool pins: `forge.lock`'s `[tools]` `jev`, §17.2), the digest as the `state`, and one `noul` question per statement, keyed `<capability id>#<n>` (`n` from 0). Each question's `instructions` is an object: `about`, the fixed sentence "The task: the request, read in the light of the previous answer and the recent actions.", and `statement`.
+5. A Noul answer is the probability that the statement is true, from 0 to 1. A capability is selected when any of its statements gets a value of at least its threshold. A statement the answer leaves out (or answers with something that is not a noul between 0 and 1) counts as not holding, so an answer missing every question of a capability does not select it.
+
+Each decision is logged (§20.7).
+
+**Failures never reach the agent and never hold the prompt.** No retry:
+
+| What happened | Selected | For the person |
+|---|---|---|
+| No consent or no key on this machine | nothing | no note per prompt; `forge status` says capabilities are off here and why |
+| No answer within 1.5 s, no network, 429, 529, a cut answer | nothing, for this prompt | one `environment` note ("… so no capability was selected for this prompt.") |
+| 401 | nothing | one `setup` note: give the engine another key with `forge apply --user` |
+| Any other status, an answer that is not JSON | nothing | one `ForgeFailure` note |
+
+**Consent and the key.** The digest leaves the machine, so `forge apply --user` asks for consent once per machine, after showing what is sent: "On each prompt that has capabilities to offer, Forge asks TypeSafe's capability engine (api.typesafe.ai) which ones the task needs. Each request sends the prompt's first 8,000 characters, Claude's last answer's first 2,000, the newest 30 tool calls of the last turn (each as the tool and its file, or a command's program and subcommand) and the capabilities' relevance statements; never a file's content, a command's arguments or a tool's output." A `y` at the terminal, or `--capability-engine`, consents; otherwise capabilities stay off here and apply goes on. A new text of the disclosure asks again. Then the key: from `TYPESAFE_API_KEY` in apply's own environment (the variable TypeSafe's documentation suggests), else typed at the terminal with its echo off; a later `forge apply --user` with another `TYPESAFE_API_KEY` replaces it. Both are stored in the user-level state, `<state>/user/capabilities/` (`consent`, `key`; the directory mode 0700, the files 0600), never in a repository or `~/.claude`. The hooks never read the key from the session's environment, and the agent cannot read the file (the state root is refused, §9.3). The key goes in the `Authorization` header only: never on a command line, in a log, a note or an error.
+
+`forge status` says whether the engine is asked here, in the `Capabilities` heading: `capability engine: on, on this machine (jev-1.14.0)`, or why not (`capabilities are off on this machine: nobody consented to the capability engine (forge apply --user asks)`, `… has no key …`, `capabilities are off: FORGE_CAPABILITIES=off`); `--json`: `capability_engine`.
+
+`FORGE_CAPABILITIES=off` turns the whole thing off: no candidate, no request. `FORGE_CAPABILITIES_URL` points the client at another base URL, for Forge's own tests. Selection has its own budget (§8.11).
+
+### 20.4 The digest
+
+What the capability engine reads about the task (`forge_capabilities::digest`), from the hook input's `prompt` and the session's transcript (Claude Code's JSON lines at `transcript_path`):
+
+- `request`: the new prompt, its first 8,000 characters;
+- `previous_answer`: the agent's last message, its first 2,000 characters;
+- `recent_actions`: the previous turn's tool calls, the newest 30, each as `tool` and `target`. A target is a file path (`file_path`, `notebook_path`, Serena's `relative_path`, a `path`), relative to the repository inside it and `~/…` under the home directory; or, for Bash, each command the guard parses (§9.1), by its program and subcommand, `; `-separated, at most 5 (`git status && uv run pytest -q` reads `git status; pytest`). A subcommand is the word after the program when it is an unquoted lowercase word known before the command runs (letters, digits, `-`); a flag, a path, a file name or quoted text never is. Shell setup (`cd`, `export`, …) is left out. A call with neither has no target.
+- Never an argument beyond that word, a file's content or a tool's output.
+
+On a first prompt the transcript does not exist, and the digest is the request alone. The transcript is read thus: only its `user` and `assistant` records count (its other records, `api-request-blob` among them, repeat the calls and carry the session's context, and are never read); a `user` record whose content is text is a prompt, unless it is Claude Code's own (`<local-command…`, `<command-name>`, `<task-notification>`, `<agent-message`, `<system-reminder>`), and starts a turn; an `assistant` record's `text` blocks are the agent's message and its `tool_use` blocks its calls, each counted once by its `id` (the file repeats rows); records of subagents (`isSidechain`), meta records and the compaction summary are left out. When UserPromptSubmit runs, the transcript does not hold the new prompt yet, so the last turn in it is the previous one.
+
+### 20.5 Delivery
+
+Everything goes in the UserPromptSubmit hook's `additionalContext`:
+
+- `inject`: the capability's `text`, the selected ones in pack-id order, separated by a blank line.
+
+Each capability is given once per session (`<session>/capabilities/given`). A prompt's total stays under 8,000 characters (Claude Code cuts hook context at 10,000): an injected capability that would pass it is left out of that prompt, not marked given, and the person gets an `environment` note naming it. The text is the capabilities' own; Forge writes none of its own words there.
+
 ### 20.7 State
 
 The capability log, `<state>/<repo-id>/capabilities.log`, holds one tab-separated line per decision and per load (`forge_capabilities::log`):
@@ -74,10 +122,26 @@ The capability log, `<state>/<repo-id>/capabilities.log`, holds one tab-separate
 <unix time>	<session>	load	<capability id>
 ```
 
-A decision's values are the engine's, one per `relevant` statement in its order (`-` for one the answer left out). The file is created with mode 0600 in the state directory (§8.3). A line that cannot be written is lost, never the prompt.
+Every decision of the capability engine is a line, and so is every load of an on-demand capability (§20.6). A decision's values are the engine's, one per `relevant` statement in its order (`-` for one the answer left out). The file is created with mode 0600 in the state directory (§8.3). A line that cannot be written is lost, never the prompt.
+
+### 20.8 Examples
+
+A capability's `examples` are its tests: each `selected` prompt must select it, each `not_selected` one must not, each asked of the capability engine as a first prompt (the request alone) with the capability as the only candidate. They need the real engine. `forge test` runs the repository's local capabilities' examples (`--builtin`: the built-in packs') on this machine's engine (§3.2): `PASS`, `FAIL <label>: selected|not selected for "<prompt>" (values <v>, threshold <t>)`, or `SKIP <label>: <why>` when the engine cannot answer here (off, refused, unreachable). Forge's own suite runs them against the real engine only when opted in (`FORGE_TEST_JEV=1`, with `TYPESAFE_API_KEY`), and in the weekly upstream job.
+
+### 20.9 Claude Code behaviour this chapter relies on
+
+Verified on Claude Code 2.1.331 with `claude -p` (not on 2.1.323, the benchmark's version):
+
+- When UserPromptSubmit runs, the transcript at `transcript_path` holds the previous prompts and the agent's messages and tool calls, with their inputs, as `user` and `assistant` records (`message.content` blocks of type `text`, `tool_use`, `tool_result`); it does not hold the new prompt yet. On a session's first prompt the file does not exist yet. Other record types (`attachment`, `api-request-blob`, `last-prompt`, …) share the file.
+- Text a UserPromptSubmit hook injected does not survive a compaction (`/compact`): the summary dropped it, and nothing after the compaction boundary held it (the agent found it again only by searching the old transcript file with a tool).
 
 ### Tests
 
 - §20.1 the file, the schema, local capabilities, the lints: `crates/forge-packs/tests/capabilities.rs`; `crates/forge-packs/tests/schemas.rs` (the committed schema).
 - §20.2 availability: `crates/forge-capabilities/src/available.rs` (unit); the active gate, `disable`, status, explain, diff, the lock and the dump: `crates/forge-cli/tests/spec_cli.rs::capabilities_in_status_explain_diff_and_dump`.
+- §20.3 the engine: thresholds and one request, `crates/forge-capabilities/src/engine.rs` (unit); the Jev client's request and each failure kind against a local server, `crates/forge-capabilities/src/jev.rs` (unit); consent and key, `crates/forge-capabilities/src/setup.rs` (unit), `crates/forge-cli/tests/spec_cli.rs::the_capability_engine_is_set_up_at_apply_user`; selection in the hook, once per session, no request without candidates, `FORGE_CAPABILITIES=off`, each failure's silence and note: `crates/forge-hooks/tests/spec_hooks.rs` (`a_prompt_gets_the_selected_capabilities_once_per_session`, `no_request_without_candidates`, `each_failure_is_silence_and_a_note`); the hook through the real client and the stored key: `crates/forge-cli/tests/hook.rs::capabilities_through_the_real_client`.
+- §20.4 the digest from a transcript fixture: `crates/forge-capabilities/src/digest.rs` (unit, `tests/fixtures/transcript.jsonl`); from the hook input: `spec_hooks.rs::the_digest_comes_from_the_transcript`.
+- §20.5 `inject` and the size limit: `crates/forge-capabilities/src/render.rs` (unit), `spec_hooks.rs::a_prompt_gets_the_selected_capabilities_once_per_session`.
 - §20.7 the log and its counts: `crates/forge-capabilities/src/log.rs` (unit).
+- §20.8 examples: `crates/forge-capabilities/src/examples.rs` (unit), `crates/forge-cli/tests/forge_test.rs::capability_examples_run_on_this_machines_engine` (a fake engine on localhost), `::capability_examples_against_the_real_engine` (opt-in).
+- §20.9: verified by hand with `claude -p` (no test: needs Claude Code and an account).

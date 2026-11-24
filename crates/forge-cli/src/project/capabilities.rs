@@ -75,6 +75,31 @@ pub fn statuses(ctx: &Ctx) -> Vec<CapabilityStatus> {
         .collect()
 }
 
+/// Whether the capability engine is asked on this machine: `None` when it is, else why not.
+pub fn engine_off() -> Option<String> {
+    if std::env::var(forge_capabilities::setup::OFF_VAR).as_deref() == Ok("off") {
+        return Some(format!(
+            "capabilities are off: {}=off",
+            forge_capabilities::setup::OFF_VAR
+        ));
+    }
+    let home = forge_home::Home::from_env().ok()?;
+    forge_capabilities::setup::state(&home)
+        .why_off()
+        .map(str::to_string)
+}
+
+/// The engine's line in `forge status`.
+pub fn engine_line() -> String {
+    match engine_off() {
+        None => format!(
+            "capability engine: on, on this machine ({})",
+            forge_tools::catalog::CAPABILITY_MODEL
+        ),
+        Some(why) => why,
+    }
+}
+
 /// One status line, after the id.
 pub fn line(s: &CapabilityStatus) -> String {
     let here = if s.available {

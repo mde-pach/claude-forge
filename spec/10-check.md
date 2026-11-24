@@ -148,7 +148,7 @@ Every output of a run is one of two types:
 - A **finding** is for the agent: a problem in its change that it can fix. Its text is `<path>:<line> <message>` (`<path> <message>` without a line; the message alone without a path), with `Advice: ` before an advice message. It never holds the rule id. Hook output and Stop reasons are made of findings only (§8).
 - A **note** is for the person: a missing tool, what an installed release cannot do, a failure of Forge itself, the environment. Kinds: `missing-tool`, `not-enforced`, `forge-failure`, `environment`, `setup`. Notes go to `forge check`'s output, and from the hooks to the state directory, which `forge status` prints (§3). They never reach the agent.
 
-A failure of Forge itself (a rule that does not compile, a builtin that broke, a budget that ran out, an engine that did not start) is a note and never fails a check.
+A failure of Forge itself (a rule that does not compile, a builtin that broke, a budget that ran out, a types engine that did not start) is a note and never fails a check.
 
 ### Tests
 

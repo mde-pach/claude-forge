@@ -13,6 +13,9 @@ use forge_hooks::{
 };
 use serde_json::{Value, json};
 
+/// The capability engine of the tests that do not use it: off, as on a machine without consent.
+static OFF: forge_capabilities::machine::Off = forge_capabilities::machine::Off;
+
 /// What the fake checker answers, and what it was asked.
 #[derive(Default)]
 struct Fake {
@@ -147,6 +150,7 @@ impl Sandbox {
             env,
             checker,
             exe: PathBuf::from("/nonexistent/forge"),
+            capabilities: &OFF,
             launcher_notes: Vec::new(),
         };
         let mut input = input;
@@ -963,6 +967,7 @@ fn session_start_starts_the_engine_for_typed_rules() {
         checker: &fake,
         exe,
         launcher_notes: Vec::new(),
+        capabilities: &OFF,
     };
     let input = json!({"session_id": "s1", "cwd": s.root, "source": "startup"});
     let out = forge_hooks::run(&rt, "session-start", input.to_string().as_bytes());

@@ -7,6 +7,10 @@
 //! set of dependencies into Forge's cache with Forge's Bun or uv (network the first time);
 //! without it, only its `match` examples are proven, by the pattern alone.
 //!
+//! A capability's examples (§20.8) run on this machine's capability engine: each `selected`
+//! prompt must select it, each `not_selected` one must not; with the engine off here they are
+//! skipped.
+//!
 //! One line per example, then a count; exit 1 when an example fails. A skipped example is told
 //! apart by its result's structure (it carries the note that says why), never by its text. Run
 //! by Claude Code (`CLAUDECODE`), a skip's reason, a note for the person, is recorded for
@@ -119,6 +123,25 @@ fn load(builtin: bool) -> Result<(PackSet, Option<PathBuf>), String> {
     Ok((set, Some(root)))
 }
 
+/// The capabilities whose examples run: the built-in packs', or the repository's local ones.
+fn tested_capabilities(set: &PackSet, builtin: bool) -> Vec<&forge_packs::Capability> {
+    let want = if builtin {
+        PackSource::Builtin
+    } else {
+        PackSource::Local
+    };
+    let mut caps: Vec<&forge_packs::Capability> = set
+        .packs
+        .values()
+        .filter(|p| p.source == want)
+        .flat_map(|p| p.capabilities.iter())
+        .collect();
+    if !builtin {
+        caps.extend(set.local_capabilities.iter());
+    }
+    caps
+}
+
 fn tested(set: &PackSet, builtin: bool) -> Vec<&Rule> {
     let want = if builtin {
         PackSource::Builtin
@@ -155,7 +178,21 @@ pub fn run(args: TestArgs) -> ExitCode {
     let tools = provisioning::tools(!provisioning::downloads_off());
     let rules = tested(&set, args.builtin);
     let projects = args.engine.then(|| install_projects(&rules));
-    let results = run_rules(&rules, &set, &exe, &tools, projects.as_ref());
+    let mut results = run_rules(&rules, &set, &exe, &tools, projects.as_ref());
+    let caps = tested_capabilities(&set, args.builtin);
+    if !caps.is_empty()
+        && let Ok(home) = forge_home::Home::from_env()
+    {
+        let engine = forge_capabilities::machine::Machine::new(
+            home,
+            std::env::var(forge_capabilities::machine::URL_VAR)
+                .ok()
+                .filter(|u| !u.is_empty()),
+        );
+        for c in &caps {
+            results.extend(forge_capabilities::examples::run(c, &engine));
+        }
+    }
     let (mut pass, mut fail, mut skip) = (0, 0, 0);
     for r in &results {
         match r.verdict {
@@ -170,13 +207,16 @@ pub fn run(args: TestArgs) -> ExitCode {
         for r in &results {
             let _ = writeln!(out, "{}", serde_json::to_string(r).unwrap_or_default());
         }
-        let summary = serde_json::json!({
+        let mut summary = serde_json::json!({
             "rules": rules.len(), "examples": results.len(),
             "passed": pass, "failed": fail, "skipped": skip,
         });
+        if !caps.is_empty() {
+            summary["capabilities"] = serde_json::json!(caps.len());
+        }
         let _ = writeln!(out, "{summary}");
     } else {
-        if rules.is_empty() {
+        if rules.is_empty() && caps.is_empty() {
             let _ = writeln!(
                 out,
                 "{}",
@@ -201,11 +241,15 @@ pub fn run(args: TestArgs) -> ExitCode {
             };
             let _ = writeln!(out, "{line}");
         }
+        let of = if caps.is_empty() {
+            format!("{} rules", rules.len())
+        } else {
+            format!("{} rules and {} capabilities", rules.len(), caps.len())
+        };
         let _ = writeln!(
             out,
-            "{} examples of {} rules: {pass} passed, {fail} failed, {skip} skipped",
-            results.len(),
-            rules.len()
+            "{} examples of {of}: {pass} passed, {fail} failed, {skip} skipped",
+            results.len()
         );
         if agent
             && !notes.is_empty()

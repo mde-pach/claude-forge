@@ -209,3 +209,168 @@ fn a_repository_without_local_rules_has_nothing_to_test() {
         "{text}"
     );
 }
+
+/// A repository with one local capability and its examples.
+fn capability_repo() -> tempfile::TempDir {
+    let d = tempfile::tempdir().unwrap();
+    assert!(
+        Command::new("git")
+            .args(["init", "-q", "-b", "main"])
+            .current_dir(d.path())
+            .status()
+            .unwrap()
+            .success()
+    );
+    put(
+        d.path(),
+        ".forge/capabilities/web-browser.yaml",
+        r#"id: acme/web-browser
+description: A persistent web browser, helpful to simulate a real user or do testing.
+relevant:
+  - The task may involve something a person sees or does in a web page.
+deliver: inject
+text: Check pages in the browser.
+examples:
+  selected: ["The login page shows a blank screen after I submit the form; fix it."]
+  not_selected: ["Bump the version in pyproject.toml to 1.2.0."]
+"#,
+    );
+    d
+}
+
+/// This machine's consent and key, as `forge apply --user` records them.
+fn consent(home: &Path, key: &str) {
+    let dir = home.join("state/user/capabilities");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("consent"), "1\n").unwrap();
+    std::fs::write(dir.join("key"), format!("{key}\n")).unwrap();
+}
+
+/// A fake capability engine: a statement holds (0.9) when the request names a page, else 0.1.
+fn fake_engine() -> String {
+    use std::io::{Read, Write};
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", l.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for s in l.incoming() {
+            let Ok(mut s) = s else { break };
+            let mut req = Vec::new();
+            let mut buf = [0u8; 16384];
+            let text = loop {
+                let Ok(n) = s.read(&mut buf) else {
+                    break String::new();
+                };
+                if n == 0 {
+                    break String::new();
+                }
+                req.extend_from_slice(&buf[..n]);
+                let t = String::from_utf8_lossy(&req).into_owned();
+                if let Some(i) = t.find("\r\n\r\n") {
+                    let len = t[..i]
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length: ")
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if req.len() >= i + 4 + len {
+                        break t[i + 4..].to_string();
+                    }
+                }
+            };
+            let v: Value = serde_json::from_str(&text).unwrap_or_default();
+            let page = v["state"]["request"]
+                .as_str()
+                .unwrap_or("")
+                .contains("page");
+            let answers: serde_json::Map<String, Value> = v["questions"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .map(|(k, _)| {
+                    (
+                        k.clone(),
+                        serde_json::json!({"type": "noul", "noul": if page { 0.9 } else { 0.1 }}),
+                    )
+                })
+                .collect();
+            let body = serde_json::json!({"model": "jev-1.14.0", "answers": answers, "usage": {}})
+                .to_string();
+            let _ = write!(
+                s,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+        }
+    });
+    url
+}
+
+// §20.8: a capability's examples run on this machine's capability engine: skipped while it is off
+// here, passing when the engine agrees with each list.
+#[test]
+fn capability_examples_run_on_this_machines_engine() {
+    let d = capability_repo();
+    let home = tempfile::tempdir().unwrap();
+    let out = forge_test(d.path(), home.path(), &[], false);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert!(text.contains("SKIP acme/web-browser capability match example 1: the capability engine is off on this machine"), "{text}");
+    assert!(
+        text.contains("2 examples of 0 rules and 1 capabilities: 0 passed, 0 failed, 2 skipped"),
+        "{text}"
+    );
+    consent(home.path(), "sk-test");
+    let url = fake_engine();
+    let mut c = Command::new(env!("CARGO_BIN_EXE_forge"));
+    let out = c
+        .args(["test", "--json"])
+        .current_dir(d.path())
+        .env("PATH", PATH)
+        .env("FORGE_HOME", home.path())
+        .env("FORGE_NO_DOWNLOAD", "1")
+        .env("FORGE_CAPABILITIES_URL", &url)
+        .env_remove("CLAUDECODE")
+        .env_remove("FORGE_LAUNCHED_VERSION")
+        .output()
+        .unwrap();
+    let lines: Vec<Value> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let (summary, results) = lines.split_last().unwrap();
+    assert_eq!(summary["passed"], 2, "{lines:?}");
+    assert_eq!(summary["capabilities"], 1, "{summary}");
+    assert!(
+        results.iter().all(|r| r["target"] == "capability"),
+        "{results:?}"
+    );
+}
+
+// The same examples against TypeSafe's real engine: opt-in (FORGE_TEST_JEV=1, with
+// TYPESAFE_API_KEY), and in the weekly upstream job.
+#[test]
+fn capability_examples_against_the_real_engine() {
+    if std::env::var_os("FORGE_TEST_JEV").is_none() {
+        eprintln!(
+            "skipped: set FORGE_TEST_JEV=1 and TYPESAFE_API_KEY to run against the real engine"
+        );
+        return;
+    }
+    let Some(key) = std::env::var("TYPESAFE_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+    else {
+        eprintln!(
+            "skipped: FORGE_TEST_JEV is set but TYPESAFE_API_KEY is not (the repository's secret)"
+        );
+        return;
+    };
+    let d = capability_repo();
+    let home = tempfile::tempdir().unwrap();
+    consent(home.path(), &key);
+    let out = forge_test(d.path(), home.path(), &[], false);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("2 passed, 0 failed, 0 skipped"), "{text}");
+}

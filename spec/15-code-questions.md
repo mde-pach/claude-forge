@@ -1,11 +1,11 @@
-## 15. Engine capabilities
+## 15. Code questions
 
-A rule says **what** it needs to know about the code; Forge decides **how** to find it out. A capability is a question a rule asks in its YAML, answered by one implementation per language. Rules never name the tool that answers: replacing ty or TypeScript's server changes the engine, never a rule.
+A rule says **what** it needs to know about the code; Forge decides **how** to find it out. A code question is a question a rule asks in its YAML, answered by one implementation per language. Rules never name the tool that answers: replacing ty or TypeScript's server changes the engine, never a rule.
 
-- A capability never decides on names the project chose (variables, receivers, helpers, parameters). A library's own API names and a tool's literal conventions (`Dockerfile`, `*_TOKEN` keys in `.env`) are allowed, and each file convention can be changed in `forge.yaml` (15.4).
-- There is no fallback. A question the engine cannot answer leaves its matches unconfirmed and gives a note for the person naming the rules it leaves unchecked. It is never taken as a pass, never replaced by a weaker heuristic, and never a finding for the agent.
+- A code question never decides on names the project chose (variables, receivers, helpers, parameters). A library's own API names and a tool's literal conventions (`Dockerfile`, `*_TOKEN` keys in `.env`) are allowed, and each file convention can be changed in `forge.yaml` (15.4).
+- There is no fallback. A question the types engine cannot answer leaves its matches unconfirmed and gives a note for the person naming the rules it leaves unchecked. It is never taken as a pass, never replaced by a weaker heuristic, and never a finding for the agent.
 
-| Capability | Asked from | Answers |
+| Code question | Asked from | Answers |
 |---|---|---|
 | types | `where: {<VAR>: {type: …}}` on an `ast-grep` target | what the static type of the expression bound to a metavariable is declared as (15.1) |
 | declared | `where: {<VAR>: {declared: …}}` | what a name refers to: an imported function, class or module, through aliases and re-exports (15.6) |
@@ -30,7 +30,7 @@ When a rule loads, Forge rejects: `where` on a mode other than `forbid` or `advi
 
 **Semantics.** For each match, each condition is evaluated on the code its metavariable is bound to; the match stands only when all of them hold.
 
-1. **The expression's type** is what the language's checker infers for exactly that expression, in the file as it is on disk. The engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `((__forge_tN = (<expr>)) => __forge_tN)()`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works: a name, an attribute, a call such as `sessionmaker(e)()`, a subscript. Nothing is written to the project.
+1. **The expression's type** is what the language's checker infers for exactly that expression, in the file as it is on disk. The types engine shows the server, in memory only, the file with the expression bound to a fresh name (Python `(__forge_tN := (<expr>))`, TypeScript `((__forge_tN = (<expr>)) => __forge_tN)()`), asks `textDocument/typeDefinition` at that name, then shows it the file as it is. Any expression works: a name, an attribute, a call such as `sessionmaker(e)()`, a subscript. Nothing is written to the project.
 2. **Declarations.** Each location returned is the declaration of the type or of one member of a union or intersection. Import aliases, re-exports and type aliases are resolved by the checker: a declaration has the name it is declared with (`Session`, never the alias `Db`). An object type literal is named by the type alias that declares it. When TypeScript's servers give no type definition (an intersection, an alias of one), the engine reads the inlay hint of the bound name's type, the type as the checker prints it with each name linked to its declaration, and takes the names at its top level: the type it names, or each member of a union or intersection; never a type argument, an object or function type, or an array.
 3. **Supertypes.** Each declaration counts with its supertypes, transitively, at most 64: Python through the server's type hierarchy; TypeScript through the `extends` and `implements` clauses of classes and interfaces, and the types a type alias's body is made of. A project class deriving from `Session` is a `Session`. Assignability is nominal: a compatible type that does not derive from the declaration does not count.
 4. **Generics.** Type arguments are ignored: `list[Session]` is `list`.
@@ -42,7 +42,7 @@ When a rule loads, Forge rejects: `where` on a mode other than `forbid` or `advi
 
 **Stubs.** A library whose types the checker sees only through a stub package (`django-stubs`, `celery-types`) is named in the target's `needs: [{ecosystem, name}]`. Where the rule applies and the project does not declare that package, `forge status` reports the target `not enforced here: the types engine needs <package> installed to see the types this rule checks (add it as a development dependency)`.
 
-**Where it runs.** The checker (§10) runs a rule's ast-grep target, keeps the matches it would report, and asks the engine about those whose rule has `where` (one `types` request per language, all matches at once). It keeps the matches the engine confirms (`holds`) and drops the others (`fails`, `unchecked`). After an edit it asks only an engine already running (100 ms to answer a ping, 300 ms for the question); `forge check` and Stop start it when none runs and wait up to 60 s for the answer.
+**Where it runs.** The checker (§10) runs a rule's ast-grep target, keeps the matches it would report, and asks the types engine about those whose rule has `where` (one `types` request per language, all matches at once). It keeps the matches the types engine confirms (`holds`) and drops the others (`fails`, `unchecked`). After an edit it asks only an engine already running (100 ms to answer a ping, 300 ms for the question); `forge check` and Stop start it when none runs and wait up to 60 s for the answer.
 
 ### 15.2 Engines
 
@@ -56,7 +56,7 @@ When a rule loads, Forge rejects: `where` on a mode other than `forbid` or `advi
 - A Python environment, when found, is given to `ty server` as its active environment (`pythonExtension.activeEnvironment`: the interpreter and its prefix), so ty never takes the Python first on `PATH`.
 - A project without `node_modules/typescript` at its root gets the note `the TypeScript types engine needs the project's TypeScript installed (node_modules/typescript); the rules that ask for types are not checked`. A missing ty gets `the Python types engine needs ty: <why>; the rules that ask for types are not checked`.
 - **Installed packages without typing are Any.** ty infers the types of an installed package that ships no typing (PEP 561: no `py.typed`, no `.pyi`, no `<name>-stubs` installed) from its source, which rejects correct code on libraries with runtime magic. When ty is one executable and the environment is found, Forge lists the environment's untyped modules (a package, a module, or a namespace package by portion such as `google.cloud`; the first site directory holding a name wins) and leaves out the modules ty resolves without the environment (the standard library stubs ty bundles, the project's own code: asked from the pinned ty with a probe file and an empty environment). The questions' server gets that list, less the packages the active rules' `where` conditions name, as `analysis.replace-imports-with-any` (`<name>` and `<name>.**`) in its inline configuration; a rule must see the declarations of the package it asks about. The edit-time diagnostics (15.5) come from a second `ty server` that gets the whole list, as `ty check` would. Nothing is written into the project's configuration. A list that cannot be computed is a note: `the packages without typing could not be listed (<why>); ty checks them as it infers them`.
-- `forge.yaml` `python: {untyped-packages: any | source}` chooses: `any` (the default) gives the engine the list above; `source` lists nothing (the probe does not run), so both of the engine's servers infer those packages from their source. It never changes `ty check`.
+- `forge.yaml` `python: {untyped-packages: any | source}` chooses: `any` (the default) gives the types engine the list above; `source` lists nothing (the probe does not run), so both of the types engine's servers infer those packages from their source. It never changes `ty check`.
 
 ### 15.3 The daemon
 
@@ -71,7 +71,7 @@ When a rule loads, Forge rejects: `where` on a mode other than `forbid` or `advi
 | `changed` | `paths` (repository-relative) | nothing; a dependency or configuration file restarts the servers (below) |
 | `types` | `lang`, `matches` (file, rule, line, bindings with byte offsets and text, `where`) | `verdicts`: per match `holds`, `fails` or `unchecked` with `why` |
 | `diagnostics` | `lang`, `files` (path and base copy), `warnings` | `diagnostics`: those the change added (15.5) |
-| `check` | `lang`, `files` (the changed files: path and base copy) | `diagnostics`: the errors of the changed files and those the change caused in the files importing them (15.8); `error` when the engine cannot settle it |
+| `check` | `lang`, `files` (the changed files: path and base copy) | `diagnostics`: the errors of the changed files and those the change caused in the files importing them (15.8); `error` when the types engine cannot settle it |
 | `restart` | | the servers stop; the next question starts them |
 | `stop` | | answered once the servers have exited |
 
@@ -163,7 +163,7 @@ A rule may mix `type` and `declared` conditions on different metavariables.
 2. **Object literal keys**, which TypeScript checks but never reports: a name in a key's position holds when the server documents the property as deprecated (tsserver's `quickinfo` kind modifiers; the language server's hover, which renders the tag as `*@deprecated*`) and its definition is not the name itself.
 3. A declaration is never a use.
 
-Only TypeScript's engine answers it; Python's deprecations are ty's own `deprecated` rule (`python/no-deprecated`).
+Only TypeScript's types engine answers it; Python's deprecations are ty's own `deprecated` rule (`python/no-deprecated`).
 
 ### 15.8 The change's typecheck
 

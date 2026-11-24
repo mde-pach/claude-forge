@@ -21,11 +21,11 @@
 //! | PreToolUse         | `*`                                          | `agents`                  | 30 s    |                  |
 //! | PostToolUse        | [`AGENT_TOOL`]                               | `agents`                  | 30 s    |                  |
 //! | SubagentStart      | [`FORGE_AGENTS`]                             | `agents`                  | 30 s    |                  |
-//! | SubagentStop       | [`FORGE_AGENTS`]                             | `agents`                  | 600 s   |                  |
+//! | SubagentStop       | [`FORGE_AGENTS`]                             | `agents`                  | 30 s    |                  |
 //!
-//! The `agents` entries run Forge's own agents (the workflow steps and the reviewer, native
-//! subagents): the gate while a step is pending matches every tool, the others the Agent call and
-//! the two agents' start and end.
+//! The `agents` entries run Forge's own agent, the reviewer (a native subagent): its own calls
+//! (every tool: no edits, nothing past its time), the main agent's Agent call, and the reviewer's
+//! start and end. UserPromptSubmit has 10 s: it may ask the capability engine (§20.3, 1.5 s).
 //!
 //! User level: PreToolUse `Bash` → `user-pre-tool-use` (180 s, `onFailure: block`), PreToolUse
 //! [`FILE_TOOLS`] → `user-pre-tool-use` (180 s: the internals refusal), PermissionRequest → `user-permission-request` (180 s), Notification
@@ -93,8 +93,8 @@ pub const EDITS_AND_BASH: &str = "Edit|Write|MultiEdit|NotebookEdit|Bash|mcp__se
 /// The Agent tool (`Task` in older Claude Code).
 pub const AGENT_TOOL: &str = "Agent|Task";
 
-/// Forge's own agents (`forge_hooks::agents`).
-pub const FORGE_AGENTS: &str = "quality-workflow-step|quality-reviewer";
+/// Forge's own agent (`forge_hooks::agents`).
+pub const FORGE_AGENTS: &str = "quality-reviewer";
 
 /// The reviewer's calls at user level: its start (the Agent call) and its own read-only tools.
 pub const REVIEW_TOOLS: &str =
@@ -109,9 +109,8 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "UserPromptSubmit",
         matcher: None,
-        // the first-prompt workflows, the spec step among them (session_workflows.rs: 1740 s at
-        // most)
-        commands: &[cmd("user-prompt-submit", 1800)],
+        // the turn snapshot, and the capability engine's one bounded request (§20.3)
+        commands: &[cmd("user-prompt-submit", 10)],
     },
     HookGroup {
         event: "PreToolUse",
@@ -172,8 +171,7 @@ pub const PROJECT_HOOKS: &[HookGroup] = &[
     HookGroup {
         event: "SubagentStop",
         matcher: Some(FORGE_AGENTS),
-        // putting the repository back and starting the next step
-        commands: &[cmd("agents", 600)],
+        commands: &[cmd("agents", 30)],
     },
 ];
 
@@ -300,7 +298,7 @@ mod tests {
                 .find(|g| g.event == event && g.commands.iter().any(|c| c.event == hook))
                 .map(|g| g.matcher)
         };
-        // the gate holds every tool of the main agent
+        // every call of the reviewer: no edits, nothing past its time
         assert_eq!(at(PROJECT_HOOKS, "PreToolUse", "agents"), Some(Some("*")));
         assert_eq!(
             at(PROJECT_HOOKS, "PostToolUse", "agents"),

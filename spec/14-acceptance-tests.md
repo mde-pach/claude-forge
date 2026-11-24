@@ -1,6 +1,6 @@
 ## 14. Acceptance tests
 
-`cargo test --workspace` is the acceptance suite. It is hermetic: no network, and no tool from the machine unless a test says it needs one and skips with a printed reason when it is absent. `SPECS.md` maps each section to the test files that cover it; each chapter ends with its own list.
+`cargo test --workspace` is the acceptance suite. It is hermetic: no network, and no tool from the machine unless a test says it needs one and skips with a printed reason when it is absent. Every test that selects capabilities runs on a scripted capability engine (`forge_capabilities::Scripted`) or a fake one on localhost; only the capabilities' examples (§20.8) meet the real engine, opted in with `FORGE_TEST_JEV=1` and in the weekly upstream job. `SPECS.md` maps each section to the test files that cover it; each chapter ends with its own list.
 
 ### 14.1 Pack examples
 
@@ -30,7 +30,7 @@ On a sample: an edited owned file makes `apply` stop without `--force`; `--dry-r
 ### 14.4 Budgets and agent text
 
 - Each hook's budget has a test (§8.11).
-- Every agent-facing text the tests produce (rules files, findings, deny and ask reasons, Stop reasons) is checked for Forge's internals with `forge_core::internals::find` (§1, principle 6).
+- Every agent-facing text the tests produce (rules files, findings, deny and ask reasons, Stop reasons, the capabilities given) is checked for Forge's internals with `forge_core::internals::find` (§1, principle 6).
 
 ### 14.5 Generated spec tables
 

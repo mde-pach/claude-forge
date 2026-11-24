@@ -164,6 +164,9 @@ pub fn apply(flags: &Flags, probe: &dyn ToolProbe) -> Result<u8, Error> {
     }
     write(&ctx, &ch)?;
     install_agents()?;
+    if ctx.level == Level::User {
+        super::engine_setup::offer(flags)?;
+    }
     if ctx.level == Level::Project {
         provision(&ctx);
         serena_ready(&ctx)?;
@@ -340,9 +343,9 @@ fn serena_plugin_off(base: &std::path::Path) {
     }
 }
 
-/// Forge's own agents (the workflow step and the reviewer) in Claude Code's user config
-/// directory, with `FORGE_REVIEW_MODEL` as their model when it is set and `FORGE_REVIEW_EFFORT` as
-/// their effort (else medium); rewritten when they differ.
+/// Forge's own agent, the reviewer, in Claude Code's user config directory, with
+/// `FORGE_REVIEW_MODEL` as its model when it is set and `FORGE_REVIEW_EFFORT` as its effort (else
+/// medium); rewritten when it differs. The former step agent's file is removed.
 fn install_agents() -> Result<(), Error> {
     let dir = super::claude_config_dir()?;
     let model = std::env::var("FORGE_REVIEW_MODEL").ok();

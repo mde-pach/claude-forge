@@ -73,6 +73,9 @@ pub struct HookCache {
     /// The rules files the lock records (`.claude/rules/…`): what the agent was given.
     #[serde(default)]
     pub rules_files: Vec<String>,
+    /// The active capabilities (§20.2, gate 1), by id.
+    #[serde(default)]
+    pub capabilities: Vec<forge_packs::model::Capability>,
 }
 
 impl HookCache {
@@ -231,11 +234,17 @@ fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache
             .chain(set.local_rules.iter())
     };
     let by_lock = || -> Vec<&Rule> { all().filter(|r| lock.rules.contains_key(&r.id)).collect() };
-    let (active, (python_pm, js_pm)) = match source.repo {
-        None => (by_lock(), (None, None)),
+    let caps_by_lock = || -> Vec<forge_packs::model::Capability> {
+        lock.capabilities
+            .keys()
+            .filter_map(|id| set.capability(id).cloned())
+            .collect()
+    };
+    let (active, (python_pm, js_pm), capabilities) = match source.repo {
+        None => (by_lock(), (None, None), Vec::new()),
         Some(repo) => match plan_now(repo, &set) {
-            Err(_) => (by_lock(), pm_facts(repo)),
-            Ok((now, facts)) => {
+            Err(_) => (by_lock(), pm_facts(repo), caps_by_lock()),
+            Ok((now, facts, caps)) => {
                 // the rules of the packs the lock records, and the local rules: the lock's
                 let decided: Vec<&str> = set
                     .packs
@@ -249,7 +258,7 @@ fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache
                     .filter(|r| now.contains(&r.id))
                     .filter(|r| lock.rules.contains_key(&r.id) || !decided.contains(&r.id.as_str()))
                     .collect();
-                (active, facts)
+                (active, facts, caps)
             }
         },
     };
@@ -265,6 +274,7 @@ fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache
         rules: active.iter().map(|r| r.id.clone()).collect(),
         python_pm,
         js_pm,
+        capabilities,
         ..HookCache::default()
     })
 }
@@ -273,7 +283,11 @@ fn rebuild(source: &Source, lock: &forge_render::lock::Lock) -> Option<HookCache
 type PmFacts = (Option<String>, Option<String>);
 
 /// The rule ids a plan of `repo` as it is now selects, and the root's package-manager facts.
-fn plan_now(repo: &Path, set: &forge_packs::PackSet) -> Result<(Vec<String>, PmFacts), String> {
+/// What a plan of the repository as it is now selects: the active rule ids, the root's facts,
+/// and the active capabilities.
+type Now = (Vec<String>, PmFacts, Vec<forge_packs::model::Capability>);
+
+fn plan_now(repo: &Path, set: &forge_packs::PackSet) -> Result<Now, String> {
     let config = forge_packs::load_project_config(repo).map_err(|e| e.to_string())?;
     let sel = forge_check::select::project(repo, set, config.as_ref())?;
     let fact = |name| sel.facts.root.fact(name).map(str::to_owned);
@@ -287,6 +301,7 @@ fn plan_now(repo: &Path, set: &forge_packs::PackSet) -> Result<(Vec<String>, PmF
             fact(forge_detect::FACT_PYTHON_PM),
             fact(forge_detect::FACT_JS_PM),
         ),
+        sel.plan.capabilities.clone(),
     ))
 }
 

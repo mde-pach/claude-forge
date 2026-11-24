@@ -58,6 +58,12 @@ jobs:
         env:
           FORGE_TEST_ENGINE: "1"
         run: cargo test --locked -p forge-cli --test check engine_examples -- --nocapture
+      - name: Capability examples against the real capability engine
+        if: ${{ !cancelled() }}
+        env:
+          FORGE_TEST_JEV: "1"
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: cargo test --locked -p forge-cli --test forge_test capability_examples_against_the_real_engine -- --nocapture
 
   report:
     name: open an issue on failure

@@ -116,14 +116,19 @@ impl Catalog {
     }
 }
 
-/// `name → version` for every pinned tool, plus `python`: what `forge apply` writes into
-/// `forge.lock`'s `[tools]` table.
+/// The capability engine's model (§20.3): a versioned id, never an alias, so its answers change
+/// only with Forge. Nothing is downloaded for it; it is pinned with the tools.
+pub const CAPABILITY_MODEL: &str = "jev-1.14.0";
+
+/// `name → version` for every pinned tool, plus `python` and the capability engine's model
+/// (`jev`): what `forge apply` writes into `forge.lock`'s `[tools]` table.
 pub fn lock_pins() -> BTreeMap<String, String> {
     let mut m: BTreeMap<String, String> = TOOLS
         .iter()
         .map(|t| (t.name.to_owned(), t.version.to_owned()))
         .collect();
     m.insert("python".to_owned(), TOOLS_PYTHON.to_owned());
+    m.insert("jev".to_owned(), CAPABILITY_MODEL.to_owned());
     m
 }
 

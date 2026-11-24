@@ -36,7 +36,7 @@ Project level:
 | Claude Code event | Matcher | `forge hook` event | Timeout | Options |
 |---|---|---|---|---|
 | SessionStart | `startup\|resume\|clear\|compact` | `session-start` | 10 s | |
-| UserPromptSubmit | | `user-prompt-submit` | 1800 s | |
+| UserPromptSubmit | | `user-prompt-submit` | 10 s | |
 | PreToolUse | `Bash` | `pre-tool-use` | 180 s | `onFailure: "block"` |
 | PreToolUse | `Read\|Edit\|Write\|MultiEdit\|NotebookEdit\|Grep\|Glob\|mcp__serena__.*` | `pre-tool-use` | 180 s | |
 | PostToolUse | `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|mcp__serena__.*` | `post-tool-use` | 60 s | |
@@ -49,8 +49,8 @@ Project level:
 | SessionEnd | | `session-end` | 10 s | |
 | PreToolUse | `*` | `agents` | 30 s | |
 | PostToolUse | `Agent\|Task` | `agents` | 30 s | |
-| SubagentStart | `quality-workflow-step\|quality-reviewer` | `agents` | 30 s | |
-| SubagentStop | `quality-workflow-step\|quality-reviewer` | `agents` | 600 s | |
+| SubagentStart | `quality-reviewer` | `agents` | 30 s | |
+| SubagentStop | `quality-reviewer` | `agents` | 30 s | |
 
 User level:
 
@@ -65,7 +65,7 @@ User level:
 | SubagentStart | `quality-reviewer` | `user-agents` | 30 s | |
 | SubagentStop | `quality-reviewer` | `user-agents` | 30 s | |
 
-- The `agents` entries run Forge's own agents (§8.13).
+- The `agents` entries run Forge's reviewer (§8.13).
 - The `user-` events answer from the user-level setup's own rules, so a project with both setups runs each once.
 - The 180 s timeouts leave room for a reviewer when nobody is there to answer an ask (§9.5); the usual answer takes milliseconds.
 - `onFailure: "block"` on the Bash guard makes a crash or a missing binary block the command (§2.3). The wrapper of §7.4 exits 0 when Forge is not installed, so a teammate without Forge is not blocked.
@@ -114,7 +114,9 @@ When Forge is missing, the person sees the SessionStart message once (a synchron
 - `~/.claude/settings.json`: the user-level packs' permission and sandbox entries, the owned `ask` (§7.2) and the user hook entries (§7.3);
 - `~/.claude/forge-user.lock`: its lock (§12). The launcher does not read it: a user-level setup pins no Forge version for repositories.
 
-**Forge's agents.** `forge apply`, at either level, also writes Forge's two agent definitions into the user config directory, `agents/quality-workflow-step.md` and `agents/quality-reviewer.md` (§8.13), with `FORGE_REVIEW_MODEL` as their model when it is set and `FORGE_REVIEW_EFFORT` as their effort (else `medium`), rewriting them when they differ and saying so ("forge: wrote its agents in …"). They are machine state, like the provisioned tools: no lock records them.
+**Forge's agent.** `forge apply`, at either level, also writes Forge's reviewer's definition into the user config directory, `agents/quality-reviewer.md` (§8.13), with `FORGE_REVIEW_MODEL` as its model when it is set and `FORGE_REVIEW_EFFORT` as its effort (else `medium`), rewriting it when it differs and saying so ("forge: wrote its agents in …"), and removes the files of former agents of Forge's. It is machine state, like the provisioned tools: no lock records it.
+
+**The capability engine.** `forge apply --user` also sets up the capability engine on this machine (§20.3): once, it shows what each request sends and asks for consent (`--capability-engine` consents without a terminal), then stores the key. Neither is written in `~/.claude`.
 
 The user level writes no rules files; ast-grep, check and grep targets are project-level only (a warning when a user-level pack has one).
 

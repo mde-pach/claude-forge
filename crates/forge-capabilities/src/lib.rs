@@ -6,9 +6,18 @@
 //! and **relevant** (the capability engine says so, per prompt).
 
 pub mod available;
+pub mod digest;
+pub mod engine;
+pub mod examples;
+pub mod jev;
 pub mod log;
+pub mod machine;
+pub mod render;
+pub mod setup;
 
 pub use available::{Availability, available};
+pub use digest::{Digest, Places, digest};
+pub use engine::{Candidate, Decision, Engine, EngineError, Scripted};
 
 /// Creates `dir` and its parents, readable by the user only (mode 0700, §8.3).
 pub(crate) fn private_dir(dir: &std::path::Path) -> bool {

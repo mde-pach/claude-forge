@@ -80,7 +80,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
           {
             "type": "command",
             "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'",
-            "timeout": 1800
+            "timeout": 10
           }
         ]
       }
@@ -210,7 +210,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
     ],
     "SubagentStart": [
       {
-        "matcher": "quality-workflow-step|quality-reviewer",
+        "matcher": "quality-reviewer",
         "hooks": [
           {
             "type": "command",
@@ -222,12 +222,12 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
     ],
     "SubagentStop": [
       {
-        "matcher": "quality-workflow-step|quality-reviewer",
+        "matcher": "quality-reviewer",
         "hooks": [
           {
             "type": "command",
             "command": "sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'",
-            "timeout": 600
+            "timeout": 30
           }
         ]
       }
@@ -482,6 +482,7 @@ condor = "0.3.0"
 editorconfig-checker = "4.0.2"
 gitleaks = "8.30.1"
 hadolint = "2.15.1"
+jev = "jev-1.14.0"
 kube-linter = "0.8.3"
 kubeconform = "0.8.0"
 lockfile-lint = "5.1.0"
@@ -583,7 +584,7 @@ json = '''{"matcher":"startup|resume|clear|compact","hooks":[{"type":"command","
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.UserPromptSubmit"
-json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":1800}]}"""
+json = """{"hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook user-prompt-submit'","timeout":10}]}"""
 
 [[settings]]
 file = ".claude/settings.json"
@@ -638,12 +639,12 @@ json = """{"matcher":"Agent|Task","hooks":[{"type":"command","command":"sh -c 'c
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.SubagentStart"
-json = """{"matcher":"quality-workflow-step|quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
+json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
 
 [[settings]]
 file = ".claude/settings.json"
 path = "hooks.SubagentStop"
-json = """{"matcher":"quality-workflow-step|quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":600}]}"""
+json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
 
 [[settings]]
 file = ".mcp.json"

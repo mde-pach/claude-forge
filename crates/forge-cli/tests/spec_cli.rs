@@ -94,6 +94,8 @@ impl Sandbox {
             None => cmd.env_remove("CLAUDE_CONFIG_DIR"),
         };
         cmd.env_remove("CLAUDECODE");
+        cmd.env_remove("TYPESAFE_API_KEY");
+        cmd.env_remove("FORGE_CAPABILITIES");
         cmd.args(args)
             .current_dir(dir)
             .env("PATH", self.path())
@@ -509,6 +511,7 @@ fn status_json_keys_and_tool_versions() {
             "switched_off",
             "deprecated",
             "capabilities",
+            "capability_engine",
             "inactive_capabilities",
             "audits",
             "missing_tools",
@@ -1188,7 +1191,6 @@ fn the_agent_cannot_run_forge() {
     let mut hook = Command::new(env!("CARGO_BIN_EXE_forge"))
         .args(["hook", "user-prompt-submit"])
         .current_dir(&s.repo)
-        .env("FORGE_SPEC", "off")
         .env("HOME", &s.home)
         .env("FORGE_HOME", &s.forge_home)
         .env("FORGE_NO_DOWNLOAD", "1")
@@ -1383,7 +1385,7 @@ fn capabilities_in_status_explain_diff_and_dump() {
 
     let st = s.ok(&["status"]);
     assert!(
-        st.contains("\nCapabilities:\n  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times\n  acme/web: on-demand, available here; selected for 0 of 0 prompts, loaded 0 times\n  acme/gated: not active (its when does not hold in this repository)\n"),
+        st.contains("\nCapabilities (capabilities are off on this machine: nobody consented to the capability engine (forge apply --user asks)):\n  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times\n  acme/web: on-demand, available here; selected for 0 of 0 prompts, loaded 0 times\n  acme/gated: not active (its when does not hold in this repository)\n"),
         "{st}"
     );
     assert!(st.contains("\n  acme/off: we have our own"), "{st}");
@@ -1397,6 +1399,12 @@ fn capabilities_in_status_explain_diff_and_dump() {
         "ruff is not installed on this machine"
     );
     assert_eq!(js["inactive_capabilities"][0]["id"], "acme/gated");
+    assert!(
+        js["capability_engine"]
+            .as_str()
+            .unwrap()
+            .contains("nobody consented")
+    );
 
     let out = s.ok(&["explain", "acme/web"]);
     assert!(
@@ -1441,4 +1449,76 @@ fn capabilities_in_status_explain_diff_and_dump() {
         st.contains("  capability acme/web changed since the last apply"),
         "{st}"
     );
+}
+
+// §20.3: `forge apply --user` asks once per machine for consent to the capability engine, naming
+// what is sent; `--capability-engine` consents without a terminal. The key comes from
+// TYPESAFE_API_KEY in apply's environment and is stored in the user-level state (mode 0600).
+// Without consent, capabilities stay off and apply goes on.
+#[test]
+fn the_capability_engine_is_set_up_at_apply_user() {
+    use std::os::unix::fs::PermissionsExt;
+    let s = Sandbox::new(PY);
+    let out = s.ok(&["apply", "--user", "--yes"]);
+    assert!(
+        out.contains("forge: capabilities: On each prompt that has capabilities to offer"),
+        "{out}"
+    );
+    assert!(
+        out.contains("never a file's content, a command's arguments or a tool's output"),
+        "{out}"
+    );
+    assert!(
+        out.contains("forge: capabilities stay off on this machine"),
+        "{out}"
+    );
+    let dir = s.forge_home.join("state/user/capabilities");
+    assert!(!dir.join("consent").exists());
+    let run = |extra: &[&str], key: Option<&str>| {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_forge"));
+        cmd.args(["apply", "--user", "--yes"])
+            .args(extra)
+            .current_dir(&s.repo)
+            .env("PATH", s.path())
+            .env("HOME", &s.home)
+            .env("FORGE_HOME", &s.forge_home)
+            .env("FORGE_NO_DOWNLOAD", "1")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env_remove("CLAUDECODE")
+            .env_remove("CLAUDE_CONFIG_DIR")
+            .env_remove("XDG_STATE_HOME")
+            .env_remove("XDG_CACHE_HOME")
+            .env_remove("TYPESAFE_API_KEY")
+            .stdin(Stdio::null());
+        if let Some(k) = key {
+            cmd.env("TYPESAFE_API_KEY", k);
+        }
+        let o = cmd.output().unwrap();
+        assert!(o.status.success(), "{}", stderr(&o));
+        stdout(&o)
+    };
+    let out = run(&["--capability-engine"], Some("sk-test-1"));
+    assert!(
+        out.contains("forge: consent to the capability engine recorded on this machine"),
+        "{out}"
+    );
+    assert!(
+        out.contains("forge: the capability engine's key is stored for this machine"),
+        "{out}"
+    );
+    assert!(
+        !out.contains("sk-test-1"),
+        "the key is never printed: {out}"
+    );
+    let key = dir.join("key");
+    assert_eq!(std::fs::read_to_string(&key).unwrap(), "sk-test-1\n");
+    assert_eq!(
+        std::fs::metadata(&key).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    // asked once: the next apply says nothing of it; another key in the environment replaces it
+    let out = run(&[], None);
+    assert!(!out.contains("capabilit"), "{out}");
+    run(&[], Some("sk-test-2"));
+    assert_eq!(std::fs::read_to_string(&key).unwrap(), "sk-test-2\n");
 }

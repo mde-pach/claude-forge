@@ -55,6 +55,7 @@ One table in forge-tools (`catalog.rs`) pins every tool Forge provisions. A pin 
 | oasdiff | 1.33.0 | release asset, `https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | editorconfig-checker | 4.0.2 | release asset, `https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v4.0.2/` | pinned sha256 per platform: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64` |
 | python | 3.12 | a uv-managed Python, for the PyPI tools | uv's own checks |
+| jev | jev-1.14.0 | the capability engine's model (§20.3), named in each request; nothing is downloaded | none |
 <!-- end generated -->
 
 Platform keys are `uname -s`-`uname -m`: `Linux-x86_64`, `Linux-aarch64`, `Darwin-arm64`, `Darwin-x86_64`. On musl Linux (a `/lib/ld-musl-*` loader) the `-musl` key is looked up first; only Bun has musl builds. A platform without an asset gets the note `Forge has no pinned <tool> <version> for <platform>; the checks that use it are skipped.`

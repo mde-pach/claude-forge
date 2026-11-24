@@ -173,7 +173,14 @@ pub fn run(event: &str, launcher_notes: Vec<forge_launcher::Note>) -> ExitCode {
     let _ = std::io::stdin().lock().read_to_end(&mut stdin);
     let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("claude-forge"));
     let checker = HookChecker { exe: exe.clone() };
+    let engine = forge_capabilities::machine::Machine::new(
+        home.clone(),
+        std::env::var(forge_capabilities::machine::URL_VAR)
+            .ok()
+            .filter(|u| !u.is_empty()),
+    );
     let rt = Runtime {
+        capabilities: &engine,
         home,
         env: Env::from_process(),
         checker: &checker,

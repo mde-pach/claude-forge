@@ -561,7 +561,8 @@ pub struct AstGrepTarget {
     pub constraints: Option<Map<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub utils: Option<Map<String, Value>>,
-    /// Engine capabilities on metavariables (§15.1); `forbid` and `advise` only.
+    /// Code questions on metavariables, answered by the types engine (§15.1); `forbid` and
+    /// `advise` only.
     #[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
     #[schemars(extend("minProperties" = 1, "propertyNames" = {"pattern": "^[A-Z][A-Z0-9_]*$"}))]
     pub where_: Option<IndexMap<String, WhereCondition>>,

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use forge_tools::catalog::{Source, TOOLS, TOOLS_PYTHON};
+use forge_tools::catalog::{CAPABILITY_MODEL, Source, TOOLS, TOOLS_PYTHON};
 
 const BEGIN: &str = "<!-- generated: tool pins (crates/forge-tools/tests/spec_pins.rs; FORGE_BLESS=1 rewrites it) -->";
 const END: &str = "<!-- end generated -->";
@@ -59,6 +59,9 @@ fn table() -> String {
     }
     out.push_str(&format!(
         "| python | {TOOLS_PYTHON} | a uv-managed Python, for the PyPI tools | uv's own checks |\n"
+    ));
+    out.push_str(&format!(
+        "| jev | {CAPABILITY_MODEL} | the capability engine's model (§20.3), named in each request; nothing is downloaded | none |\n"
     ));
     out
 }
