@@ -1,0 +1,7 @@
+id: php
+description: PHP projects.
+level: project
+detect:
+  # a Composer project; else, a project of plain PHP files of its own (WordPress themes and plugins)
+  files_any: [composer.json]
+  sources_any: ["**/*.php"]

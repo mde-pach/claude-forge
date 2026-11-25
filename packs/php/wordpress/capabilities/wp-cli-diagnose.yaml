@@ -1,0 +1,24 @@
+# Procedure after woocommerce-performance, https://github.com/finsilabs/awesome-ecommerce-skills
+# (skills/platform-woocommerce/woocommerce-performance), MIT License,
+# Copyright (c) 2026 awesome-ecommerce-skills contributors: measuring with WP-CLI and Query Monitor.
+id: php/wordpress/wp-cli-diagnose
+description: Finding why a WordPress or WooCommerce site is slow with WP-CLI and Query Monitor, before changing it.
+relevant:
+  - The task investigates or improves the speed of a WordPress or WooCommerce site.
+deliver: on-demand
+text: |
+  Measure on a development copy of the site before optimising. Run WP-CLI from the WordPress root (`wp --path=<dir>` otherwise; `ddev wp`, `lando wp` or `docker compose exec` where the project wraps it).
+
+  1. What runs: `wp plugin list --status=active`, `wp theme list --status=active`.
+  2. Caches: `wp cache type` (an object cache or the default); with the Redis Object Cache plugin, `wp redis status`.
+  3. Autoloaded options, loaded on every request: `wp db query "SELECT option_name, LENGTH(option_value) AS size FROM $(wp db prefix)options WHERE autoload IN ('yes','on') ORDER BY size DESC LIMIT 20"`.
+  4. WooCommerce: `wp wc hpos status` (whether orders use the custom order tables and are in sync); `wp cron event list` for overdue or piling events.
+  5. Slow queries per page: with Query Monitor active (`wp plugin is-active query-monitor`; on a development copy, `wp plugin install query-monitor --activate`), load the page as a logged-in admin and read its Queries panel sorted by time, its duplicate queries and the component that runs them.
+  6. Change one thing, then repeat the same measurement and compare.
+examples:
+  selected:
+    - "Our WooCommerce shop pages take 6 seconds to load, find out why."
+    - "Speed up the WordPress admin, it got slow after we installed a few plugins."
+  not_selected:
+    - "Add a custom field for the product's country of origin."
+    - "Change the footer text of the theme."

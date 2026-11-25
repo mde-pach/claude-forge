@@ -1,0 +1,6 @@
+id: php/laravel
+description: Laravel applications, run through artisan.
+level: project
+detect:
+  content_any:
+    - {files: [composer.json], pattern: "\"laravel/framework\"\\s*:"}

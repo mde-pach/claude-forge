@@ -1,0 +1,6 @@
+id: php/mcp
+description: Model Context Protocol servers written with the PHP SDK.
+level: project
+detect:
+  content_any:
+    - {files: [composer.json], pattern: "\"(mcp/sdk|php-mcp/server|logiscape/mcp-sdk-php)\"\\s*:"}
