@@ -1,6 +1,7 @@
 //! Every pack rule whose check calls one of this crate's builtins: its examples hold when the
 //! builtin runs on them, in a fixture repository with the context the checker builds (a turn:
-//! the changed files, their base copies, the added lines; lint attribution to added lines).
+//! the changed files, their base copies, the added lines; lint attribution to the files the
+//! change touched, §10.4).
 //!
 //! A builtin that needs a pinned tool which is not installed writes a note: its examples are
 //! counted as not run, never as passed. `FORGE_TEST_INSTALL_TOOLS=1` installs the pinned tools

@@ -44,8 +44,8 @@ keywords = ["pcsk_"]
 
 /// `forge_gitleaks`: each secret the pinned gitleaks finds in the in-scope files, scanned as
 /// copies with Forge's config only (the project's .gitleaks.toml, .gitleaksignore and inline
-/// gitleaks:allow comments do not apply), as `path:line rule: description`, redacted. The
-/// checker keeps those on added lines.
+/// gitleaks:allow comments do not apply), as `path:line rule: description`, redacted. In a
+/// file the change touched, every one counts, one already there too (§10.4).
 pub struct Gitleaks(pub Arc<Options>);
 
 impl CheckBuiltin for Gitleaks {

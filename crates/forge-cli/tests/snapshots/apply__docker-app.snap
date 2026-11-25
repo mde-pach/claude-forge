@@ -1,5 +1,6 @@
 ---
 source: crates/forge-cli/tests/apply.rs
+assertion_line: 234
 expression: s.snapshot()
 ---
 === .claude/rules/forge-code.md
@@ -237,7 +238,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "d8b57b96255566b0b6995e3607ae81dd6bd3a6547bd696f410a87af413091e3d"
+rule_set = "0fd3cf4895b68a429d10110eb95d29e3415abce1e6cb0a50c06f0c4ea9cdaa12"
 
 [rules]
 "code/no-versioned-duplicates" = "8579216d8466fffdbb48bdf8765eec422d989785c15a7f2f16d83f1363c0486e"
@@ -384,7 +385,7 @@ rule_set = "d8b57b96255566b0b6995e3607ae81dd6bd3a6547bd696f410a87af413091e3d"
 "python/weak-crypto" = "a3c4aafd0fb3a2d2774de0249306bb24ecda5e7fb54dad93e587c112318e1e48"
 "python/with-suffix-dot" = "f35796f1f4dbb25a47fcbefd36295b3de2d3f499f39683dc9e4940ff937ca6f2"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
-"secrets/gitleaks" = "a720487cdf467fff0191303e4d0e3768de1b99091bc6ee7524b2a502565c59e5"
+"secrets/gitleaks" = "4c69fff36191e53e0af4a48811d9d45007e28f12f12fa5d7459229f8077bc33f"
 "secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
 "supply-chain/audit-ignore-ratchet" = "82a2babb74414d41b371004b17f3bdf779527c67debfe682963c7c1442cea2c6"
 "supply-chain/insecure-download" = "e1f9edbbfa16c6ab1204560b746fb3406d8e53a13ec114b326242bc948953d3c"

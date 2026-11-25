@@ -137,9 +137,10 @@ impl Repo {
     }
 }
 
-/// The findings of a lint-stage check as the checker attributes them: a line naming a location
-/// counts on an added line (`path:0`: in a changed file); when some name locations and none
-/// counts, the check passes; when none names one, all count.
+/// The findings of a lint-stage check as the checker attributes them (§10.4): a line naming a
+/// location counts when its file is one the change touched, whatever the line, an old finding
+/// too; when some name locations and none counts, the check passes; when none names one, all
+/// count.
 pub fn attribute(lines: &[String], repo: &Repo) -> Vec<String> {
     let loc = regex::Regex::new(r"^([^\s:(]+):([0-9]+)").unwrap();
     let mut named = false;
@@ -147,16 +148,7 @@ pub fn attribute(lines: &[String], repo: &Repo) -> Vec<String> {
     for l in lines {
         let Some(c) = loc.captures(l) else { continue };
         named = true;
-        let p = &c[1];
-        let n: u32 = c[2].parse().unwrap();
-        let whole = matches!(repo.added.get(p), Some(Added::Whole));
-        let counts = whole
-            || if n == 0 {
-                repo.changed.iter().any(|x| x == p)
-            } else {
-                repo.added.get(p).is_some_and(|a| a.contains(n))
-            };
-        if counts {
+        if repo.changed.iter().any(|x| x == &c[1]) {
             hit.push(l.clone());
         }
     }
