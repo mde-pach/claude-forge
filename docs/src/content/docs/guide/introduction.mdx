@@ -8,7 +8,7 @@ Forge is a single binary, `claude-forge` (also installed as `forge`). It reads *
 ## What you get
 
 - **User level**, once per machine: permissions that keep Claude away from secrets and history-destroying git commands, and the Bash sandbox. See [User level](../user-level/).
-- **Project level**, for the stack Forge detects: context Claude reads, a guard on Bash commands, feedback after every edit, a background type check, a check when Claude stops that sends it back to work if something is wrong, and the same check in your pre-commit hook and CI. The [lifecycle](../../lifecycle/) walks through each step.
+- **Project level**, for the stack Forge detects: context Claude reads, a guard on Bash commands, feedback after every edit, a background type check, a check when Claude stops that sends it back to work if something is wrong, and the same check in your pre-commit hook and CI. [Capabilities](../capabilities/) reach Claude only on the prompts whose task needs them. The [lifecycle](../../lifecycle/) walks through each step.
 
 ## What lives where
 

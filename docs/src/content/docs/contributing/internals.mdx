@@ -13,8 +13,9 @@ Forge is one Rust binary, built from the Cargo workspace in `crates/`:
 | `forge-guard` | Bash command parsing (tree-sitter-bash) and the structural guard matcher |
 | `forge-check` | the change set, ast-grep and grep targets, the tool adapters (`crates/forge-check/adapters/*.yaml`), stages, ratchets |
 | `forge-builtins-*`, `forge-helpers` | the checks packs call by name (`forge_hadolint`, `forge_ratchet`, …) |
-| `forge-engine` | the types engine: LSP clients for ty and TypeScript, a per-repository daemon |
-| `forge-hooks` | `claude-forge hook <event>`: the guard, snapshots, post-edit, Stop, the reviewer |
+| `forge-engine` | the types engine (§15, code questions): LSP clients for ty and TypeScript, a per-repository daemon |
+| `forge-capabilities` | capabilities: availability, the capability engine (its trait and the Jev client), the digest of the task, the text Claude reads, the log |
+| `forge-hooks` | `claude-forge hook <event>`: the guard, snapshots, post-edit, Stop, the reviewer, capabilities on each prompt |
 | `forge-tools`, `forge-home` | provisioning of uv and the pinned tools; the cache and state layout |
 | `forge-launcher`, `forge-cli` | the launcher (runs the locked version) and the commands |
 

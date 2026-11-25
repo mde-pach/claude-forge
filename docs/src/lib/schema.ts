@@ -9,6 +9,7 @@ export type Piece =
   | "context"
   | "session-start"
   | "turn-start"
+  | "capabilities"
   | "guard"
   | "permission"
   | "sandbox"
@@ -27,6 +28,7 @@ export const PIECES: Record<Piece, { label: string; at: string; infra?: true }> 
   "session-start": { label: "hook session-start", at: "SessionStart", infra: true },
   context: { label: ".claude/rules/forge-*.md", at: "InstructionsLoaded" },
   "turn-start": { label: "hook user-prompt-submit (snapshot)", at: "UserPromptSubmit", infra: true },
+  capabilities: { label: "hook user-prompt-submit (capabilities)", at: "UserPromptSubmit" },
   guard: { label: "hook pre-tool-use (guard)", at: "PreToolUse" },
   "bash-snapshot": { label: "hook pre-tool-use (snapshot)", at: "PreToolUse", infra: true },
   permission: { label: "permission rules", at: "PermissionRequest" },
@@ -81,7 +83,7 @@ export const FLOW: Row[] = [
   { ev: "SessionStart", sub: "startup · resume · clear · compact · fork", pieces: ["session-start"], core: true },
   { ev: "InstructionsLoaded", sub: "CLAUDE.md and .claude/rules loaded", pieces: ["context"] },
   { open: "turn", label: "per turn · each prompt" },
-  { ev: "UserPromptSubmit", sub: "your prompt, before Claude sees it", pieces: ["turn-start"], core: true },
+  { ev: "UserPromptSubmit", sub: "your prompt, before Claude sees it", pieces: ["turn-start", "capabilities"], core: true },
   { ev: "UserPromptExpansion", sub: "slash command expands to a prompt" },
   { open: "retry" },
   { open: "loop", label: "agentic loop · each tool call" },

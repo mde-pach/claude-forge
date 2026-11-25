@@ -22,7 +22,7 @@ const run = (args: string[]) => execFileSync(bin, args, { cwd: root, encoding: "
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "packs.json"), run(["packs", "dump", "--json"]));
 
-const COMMANDS = ["init", "apply", "diff", "status", "explain", "remove", "check", "packs dump", "packs lint"];
+const COMMANDS = ["init", "apply", "diff", "status", "explain", "remove", "check", "test", "use", "packs dump", "packs lint"];
 const cli = [{ command: "", help: run(["--help"]) }, ...COMMANDS.map((c) => ({ command: c, help: run([...c.split(" "), "--help"]) }))];
 writeFileSync(join(out, "cli.json"), JSON.stringify(cli, null, 2));
 console.log(`docs data: ${out} (from ${bin})`);

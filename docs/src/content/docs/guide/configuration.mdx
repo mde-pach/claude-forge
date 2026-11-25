@@ -20,7 +20,7 @@ accept:                           # a config change the ratchet reported, made o
     reason: Migrating the legacy API client; back to error by Q3.
 ```
 
-A rule you don't want is disabled with a reason.
+A rule you don't want is disabled with a reason; so is a [capability](../capabilities/), by its id.
 
 `accept` answers the config ratchet (`python/config-ratchet`, `typescript/config-ratchet`): when a tool config is loosened (a lint rule lowered, a strict flag removed, a path excluded, a coverage threshold lowered), the check fails at Stop, at pre-commit and in CI with one line per setting. Copying that line into `accept` with a reason records the change as deliberate. The file format is in [Schemas](../../reference/schemas/#forge).
 
@@ -51,9 +51,10 @@ files:
 
 - `.forge/packs/<id>/` holds a pack in the same layout as the built-in ones (`pack.yaml`, `rules/*.yaml`). See [Writing packs](../../contributing/writing-packs/).
 - `.forge/rules/*.yaml` holds standalone rules in the same format. A local rule whose `id` equals a pack rule's id replaces it; a new id adds a rule.
+- `.forge/capabilities/*.yaml` holds standalone [capabilities](../capabilities/), replacing or adding to the packs' ones the same way.
 
 Rules have no parameters; a local rule of the same id is how you adapt one: copy the rule from its pack page into `.forge/rules/<name>.yaml` and change it, for example add `"!path/to/file.ts"` to `scope.files` to exempt a file. `claude-forge packs lint --repo .` reports the content lints on your local packs and rules.
 
 ## YAML
 
-Pack files, rule files and `forge.yaml` are read with a strict YAML parser: no anchors, aliases or tags, and duplicate keys are rejected.
+Pack files, rule files, capability files and `forge.yaml` are read with a strict YAML parser: no anchors, aliases or tags, and duplicate keys are rejected.

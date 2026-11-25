@@ -1,0 +1,65 @@
+---
+title: Capabilities
+description: What a capability is, how it reaches Claude only when the task needs it, and what leaves your machine.
+---
+
+A **capability** is something Claude is able to use, or should use, for some tasks: a browser to check a page, a way of working the project expects. Generic text in Claude's context enforces nothing and can push it the wrong way, so Forge never puts a capability there by default. It gives one to Claude only when the task at hand needs it.
+
+A capability enforces nothing and grants nothing. What must hold is a rule; what Claude may do is Claude Code's permissions and sandbox.
+
+## How a capability reaches Claude
+
+Three gates, each with one owner:
+
+1. **Active**: its pack is active in the repository and its `when` holds (the same conditions as a pack's context: dependencies, files, facts, packs). `forge.yaml` can disable it.
+2. **Available**: the pinned tools it needs are installed on this machine. An unavailable capability is never offered here; `forge status` says why.
+3. **Relevant**: on each prompt, the **capability engine** reads a short digest of the task and decides which capabilities it needs.
+
+A selected capability comes with your prompt, once per session. It is delivered one of two ways, chosen by its file:
+
+- `inject`: its text, as it is;
+- `on-demand`: one line with its name and description, and the command that prints its text:
+
+```text
+Available if the task turns out to need them:
+- web-browser: A persistent web browser, helpful to simulate a real user or do testing. To use it, run: claude-forge use web-browser
+```
+
+`claude-forge use <name>` is the one Forge command Claude runs. It only prints the capability's text, writes nothing, and runs inside the sandbox; `forge apply` adds the permission entry that lets it run without asking you.
+
+A prompt's capabilities stay under 8,000 characters: injected texts that do not fit become on-demand lines for that prompt, and `forge status` notes which. After `/compact`, the session start gives the current turn's capabilities again, since Claude Code drops text a hook added.
+
+## What leaves your machine
+
+The capability engine is TypeSafe's Jev (`api.typesafe.ai`, model `jev-1.14.0`, pinned by each Forge version). On a prompt that has capabilities to offer, Forge makes one request, bounded to 1.5 s, holding:
+
+- the prompt's first 8,000 characters;
+- Claude's last answer's first 2,000 characters;
+- the last turn's newest 30 tool calls, each as the tool and its file (relative to the repository), or a command's program and subcommand (`git commit`, `pytest`);
+- the capabilities' relevance statements.
+
+Never a file's content, a command's arguments or a tool's output. Nothing is sent from a repository without capabilities, or when every one was already given this session.
+
+## Setting it up
+
+`forge apply --user` shows what is sent and asks for your consent, once per machine (`--capability-engine` consents without a terminal). It then takes the key from `TYPESAFE_API_KEY` in its environment, or asks for it with the input hidden. Both are kept in Forge's user-level state with private permissions, never in a repository; hooks never read the key from Claude's environment. A later `forge apply --user` with another `TYPESAFE_API_KEY` replaces the key.
+
+Without consent or a key, capabilities are off on this machine and nothing is sent. `FORGE_CAPABILITIES=off` turns them off everywhere.
+
+When the engine cannot answer (no network, a timeout, a rate limit), the prompt goes on without capabilities and `forge status` keeps a note. Claude never sees these failures.
+
+## Seeing what happens
+
+`forge status` lists each active capability with its delivery, whether it is available here, and how often it was selected and loaded, and says whether the engine is on here:
+
+```text
+Capabilities (capability engine: on, on this machine (jev-1.14.0)):
+  acme/web-browser: on-demand, available here; selected for 3 of 12 prompts, loaded 1 times
+  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times
+```
+
+`forge explain <capability id>` prints its file and its state here. Every decision and load is logged in the repository's state directory (`capabilities.log`).
+
+## Your own capabilities
+
+A capability is a YAML file: `.forge/capabilities/<name>.yaml`, or `capabilities/<name>.yaml` in a local pack. See [Writing packs](../../contributing/writing-packs/#capabilities) for the format, and run `forge test` to check its examples against the engine.

@@ -30,6 +30,7 @@ function sidebar(): SidebarItem[] {
         { label: "Getting started", link: "/guide/getting-started/" },
         { label: "Configuration", link: "/guide/configuration/" },
         { label: "User level", link: "/guide/user-level/" },
+        { label: "Capabilities", link: "/guide/capabilities/" },
       ],
     },
     {

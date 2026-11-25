@@ -25,6 +25,7 @@ packs/
 | `pack.yaml` | `id` (its path), `description`, `level`, optional `detect`, `requires`, `context` and `tool_off` — [schema](../../reference/schemas/#pack). `detect` is any one of: `always: true`, `files_any`, `deps_any`, `library_any`, `content_any` (a line of a literal config file matches a pattern), `yaml_keys` (a YAML file's first document has these top-level keys), `sources_any` (a source file of the project's own, outside vendored, generated and virtual-environment directories), `facts_any` (a project fact has one of the values: `python.pm: [poetry]`) |
 | `rules/<name>.yaml` | one rule each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#rule) |
 | `init/` | optional templates for `forge init` |
+| `capabilities/<name>.yaml` | one [capability](../../guide/capabilities/) each; its id is `<pack id>/<name>` — [schema](../../reference/schemas/#capability) |
 | `<child>/` | sub-packs |
 
 ## Context
@@ -39,6 +40,31 @@ context:
     text: "Tests assert behaviour: never weaken, remove or skip an assertion to make a test pass.\n"
     when: {packs: [python/pytest]}
 ```
+
+## Capabilities
+
+A capability is something Claude can use when a task needs it (see [Capabilities](../../guide/capabilities/)). Context is for norms every session of the project needs; a capability is for what only some tasks do.
+
+```yaml
+id: typescript/nextjs/web-browser
+description: A persistent web browser, helpful to simulate a real user or do testing.
+relevant:                  # read by the capability engine, never by Claude; any one true selects it
+  - The task may involve something a person sees or does in a web page.
+threshold: 0.3             # optional, 0 to 1
+deliver: on-demand         # inject | on-demand
+text: |                    # what Claude gets
+  …
+when: {deps: [{ecosystem: npm, name: next, version: ">=15"}]}   # optional, as a context item's
+needs: {tools: [<pinned tool>]}                                  # optional
+examples:
+  selected: ["Fix this issue in this nextjs project"]
+  not_selected: ["Bump the version in package.json"]
+```
+
+- `relevant` statements are single-line and positive, about "the task": the engine reads each one against a digest of the prompt and the last turn. The content lints flag a negated or multi-line one.
+- `deliver` is the file's choice. `inject` puts the text in the prompt's context, so keep it short (the lints flag more than 1,500 characters); `on-demand` gives one line and Claude loads the text with `claude-forge use <name>` when it needs it.
+- `description` and `text` are agent-facing: the same lints as context apply, and they never name Forge's internals. The one Forge command they may name is `claude-forge use`, though Forge writes that line itself.
+- `threshold` is set only with examples on both sides to justify it. `forge test` runs `examples` against the capability engine on your machine, each as a first prompt.
 
 ## The rule file
 
@@ -82,7 +108,7 @@ A check that verifies generated code (`graphql-codegen --check`, `wrangler types
 A rule never hard-codes where a tool keeps its files. `scope.files`, `when_changed`, check commands and a where `module` name a **file role** instead: `scope: {language: python, files: ["@django-migrations"]}`, `"!@python-tests"` to leave tests out, `forge_role @alembic-migrations "$f"` in a helper, `forge_role_files @adr` to list a role's files, `module: "@wrangler-types"` for a type a generated file declares. `forge apply` replaces each role by its effective patterns (Forge's defaults, the tool's declarative config, the project's `forge.yaml`), so the rule follows a project that moved its tests or migrations without a local copy of the rule. A role Forge does not know fails when the rule is loaded; the roles are listed in SPECS §15.4, and a new one is added there and in `crates/forge-packs/src/roles.rs`. Rule examples are written where Forge's defaults put the role's files.
 
 
-## Asking the engine: types
+## Asking the types engine: code questions
 
 A rule must never decide on names the project chose: `session.query()` is not a SQLAlchemy call because the receiver is called `session`, and a rename should neither hide a match nor create one. When a match depends on **what** an expression is, ask the engine with `where` on the ast-grep target, and say what the type must be, not how to find it:
 

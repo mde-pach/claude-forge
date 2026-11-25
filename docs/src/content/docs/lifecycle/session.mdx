@@ -5,17 +5,21 @@ description: Session start, tool calls and edits.
 
 ## Session start
 
-At startup, resume, `/clear` and `/compact`, `claude-forge hook session-start` puts Forge's uv on Claude's PATH (through `CLAUDE_ENV_FILE`), downloads the locked Forge version and tools when they are missing, and starts the types engine in the background. Claude Code loads each active pack's context from `.claude/rules/forge-<pack>.md`.
+At startup, resume, `/clear` and `/compact`, `claude-forge hook session-start` puts Forge's uv on Claude's PATH (through `CLAUDE_ENV_FILE`), downloads the locked Forge version and tools when they are missing, and starts the types engine in the background. Claude Code loads each active pack's context from `.claude/rules/forge-<pack>.md`. After `/compact`, the session start also gives the current turn's capabilities again.
+
+## Your prompt
+
+When you send a prompt, `claude-forge hook user-prompt-submit` snapshots the working tree for the Stop check, and gives Claude the [capabilities](../../guide/capabilities/) the capability engine selects for the task: each active, available one, once per session, as its text or as one line naming `claude-forge use <name>`. With none to offer, nothing is asked.
 
 ## Tool call
 
 Before a tool runs, Claude Code applies the permissions Forge appended (`deny` refuses, `ask` asks you) and, at user level, runs Bash in the sandbox. For Bash commands, `claude-forge hook pre-tool-use` parses the command line into simple commands (following `sh -c`, `eval`, `env -S`, `find -exec`, `xargs`, `cd`) and matches the guard rules structurally: quoted arguments and heredoc bodies are data, so `git commit -m "remove chmod 777"` is not a `chmod`. A refusal reaches Claude with a neutral reason.
 
-The same hook refuses reads and edits of Forge's cache and state, which nothing points Claude to.
+The same hook refuses reads and edits of Forge's cache and state, which nothing points Claude to, and any run of Forge's command line but `claude-forge use` (an on-demand capability's text) and `forge test`.
 
 ### When nobody can answer an ask
 
-In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it unseen. Forge sends the ask to an **independent reviewer** instead: a fresh `claude -p` that sees only the action and the turn's request, may read the repository, and runs without hooks, MCP servers or the agent's conversation. A rule that asks can carry the one question the reviewer answers (`review:`). Every verdict is logged in the repository's state directory.
+In an autonomous run (`claude -p`, the Agent SDK, the GitHub Action) nobody is there to answer an ask, and Claude Code denies it unseen. Forge sends the ask to an **independent reviewer** instead: a subagent of the session, with a fresh context, that sees only the action, the turn's request and the files the turn created or changed, may read the repository, and cannot edit it or see the agent's conversation. Claude starts it, but Forge writes what it is told. A rule that asks can carry the one question the reviewer answers (`review:`). Every verdict is logged in the repository's state directory.
 
 | `FORGE_ASK_REVIEW` | Reviews asks |
 |---|---|
