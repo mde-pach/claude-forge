@@ -232,15 +232,21 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "c14b9ce05e46c5a37dfd5db12b9acb7a2c49c9defdc60b037a8a8abb1f2c4d8a"
+rule_set = "23932c8c58f95851d27fbb050c0a4abf8d9c7742b080499ba0d55f7087d29c4c"
 
 [rules]
+"code/no-debug-tags-left" = "8979498f322478ae394c2dd584ba35d5e8b6b6f4d939857c8c6e9c056b95d14a"
+"code/no-ease-in-ui" = "bb955698c2fdecbc857e766335c5686cc470f9e64d7eaccea443ee8f55d92e21"
+"code/no-scale-zero-entrance" = "bff9419289744add76cfa9e6feae4f9f23fdced57545c90d595c4e41a5157933"
+"code/no-transition-all" = "d82b806b51130f30f8cc7c55eacdea69eca86036831c664508dd2300e5b8f7ac"
 "code/no-versioned-duplicates" = "8579216d8466fffdbb48bdf8765eec422d989785c15a7f2f16d83f1363c0486e"
+"code/stryker-output-ignored" = "5871d4793baf4cc1d06e2235ac07645c439fe08e02d2e0d91252085a8bef99dc"
 "git/editorconfig" = "5f159212fc254d1df24941f9e9c7f715373216d27c005332d729d0abc6af5b8c"
 "git/generated-files" = "cc2f555bfd1478b12528ee59ecb236102e3e93ea1a85a5abeb4be978a29e5105"
 "git/large-files" = "8db4e3c59cb1f2d2d83bf5cdadbb0ac7ba4cde3eb0f3622ce31c666d198499eb"
 "git/no-build-artifacts" = "7d8e8486b779e76f5b65b761c9e5a074db4c4a3a3da5ecdd195a79f64274b151"
 "git/no-conflict-markers" = "e1769e9d0b267c4d916b2358659269b3db45edfa4e7a92c7855fca6ce74c22a7"
+"git/no-token-in-remote-url" = "8f28e0331f33ac40779b4a53deac64b8475070835479e5158fa79e707bef503f"
 "secrets/env-not-committed" = "4a814ca96ec22adebaec76f08066a09ccfe8d60b2c070426833e64b040bebbbc"
 "secrets/gitleaks" = "4c69fff36191e53e0af4a48811d9d45007e28f12f12fa5d7459229f8077bc33f"
 "secrets/no-credential-files" = "4c91bb35eec60f6c6e61d2d136af4bae36e36aad4b115a56e23dbe6bba5806a5"
@@ -345,7 +351,17 @@ rule_set = "c14b9ce05e46c5a37dfd5db12b9acb7a2c49c9defdc60b037a8a8abb1f2c4d8a"
 "typescript/verbatim-imports" = "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8"
 
 [capabilities]
-"code/reproduce-first" = "48d61a6c92a583771a978669bf16b81c262954c9354c5cf4540db528b3703202"
+"code/change-impact" = "a2c4e29365abd59f6699c75c9952864dd1e029e95c5dc2adbec3a497efeeac98"
+"code/duplicate-intent" = "ac9437ff8bd908a51daca49a6d1933d33af5a8540b28e174afe381f4b450a83a"
+"code/flaky-test" = "15fbf5c30e0d460dd91da6d56c541fc94e6abfc4ee21bc77daec980d5f663679"
+"code/http-check" = "fc32a2fc3c15613d95df36eb0dec31e15ea23cd3691ff2c7f942954307010954"
+"code/pr-review-comments" = "066aaf50e0ca5e2c3b99652e649eeacbea57bd33f4215a20a9b21812dfe3cb71"
+"code/prototype" = "46b372edf1fba8abe715d7a8afd088c2db3db5b4113f82a16545c2be3ca76548"
+"code/reproduce-first" = "b5fac336430938b827f020a65fe40286acbfa81356c408024ca1a87bedb16094"
+"code/test-first" = "a294c49f4fcceef50c45f3368eb680ca961612f84a3d09cf848b8c0ab4335cb7"
+"code/test-strength" = "aa48297826b5e4095bfd96b92a6d04fc31174d62caea4325964903b7078a55f9"
+"code/variant-analysis" = "909b53a21c743ff21681d5f7bf69977673d5416fae785f86c53e099606daab56"
+"typescript/page-performance" = "5501de76a328bfc69bc4fb808787e2f77e23a2086295a1e5088c7a2c6ffc42b4"
 
 [files]
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"

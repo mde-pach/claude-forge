@@ -67,6 +67,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/no-object-literal-assertion` | No type assertion on an object or array literal ({ … } as T, [x] as T[]); it hides missing and misspelled fields. Annotate the variable, use satisfies T, or pass a type argument; as const and an empty [] are fine. | typescript | ast-grep forbid |
 | `typescript/no-other-pm` | Dependencies are managed with the project's package manager (the js.pm fact: packageManager, else the lock file); installing with another one (npm, pnpm, Yarn or Bun) asks. | any | guard ask: check `js-pm` |
 | `typescript/no-proto` | No __proto__; use Object.getPrototypeOf, Object.setPrototypeOf or Object.create. | typescript | tool biome `lint/suspicious/noProto` |
+| `typescript/no-removed-ts-options` | No tsconfig option TypeScript 6 deprecates and 7 removes: target es3/es5, downlevelIteration, moduleResolution node/node10/classic (use bundler or nodenext), baseUrl (paths resolve from the tsconfig), outFile, module amd/umd/system. | any: `tsconfig*.json`, `**/tsconfig*.json`, `jsconfig*.json`, `**/jsconfig*.json` | grep forbid `"(downlevelIteration\|baseUrl\|outFile)"[[:space:]]*:\|"target"[[:space:]]*:[[:space:]]*"es[35]"\|"moduleResolution"[[:space:]]*:[[:space:]]*"(node\|node10\|classic)"\|"module"[[:space:]]*:[[:space:]]*"(amd\|umd\|system)"` (ignoring case)<br>applies where `typescript >=6.0.0` (npm) declared |
 | `typescript/no-secrets` | No API keys, tokens or private keys in code. Read them from the environment. | typescript | tool biome `lint/security/noSecrets` |
 | `typescript/no-shadow` | No variable shadows one of an enclosing scope: an edit made later to the inner one is easily meant for the outer one. Rename one of them. | typescript | tool biome `lint/suspicious/noShadow`<br>tool eslint `@typescript-eslint/no-shadow` |
 | `typescript/no-stub` | No stub left behind. A throw of "Not implemented" (or "TODO", "unimplemented"), or a named function or method with an empty body, is a stub; overload signatures, interfaces and constructors with parameter properties are not. | typescript: `!**/*.d.ts` | ast-grep forbid |
@@ -92,6 +93,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/typecheck` | The project passes tsc. | typescript | check typecheck: `forge_do tsc typecheck-incremental "$(forge_state_file tsc.tsbuildinfo)"` |
 | `typescript/unchecked-index` | Indexed access can be undefined (noUncheckedIndexedAccess); check the element before using it. | typescript | tool tsc `TS18048` |
 | `typescript/verbatim-imports` | Imports and re-exports used only as types are written import type / export type, so type stripping and isolated transpilers drop them instead of importing a module that has no such value at run time. | typescript | tool biome `lint/style/useImportType`<br>tool biome `lint/style/useExportType` |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/page-performance` | Measuring a web page's load performance with Lighthouse and reading which resources slow it down. | on-demand | The task is to make a web page load faster or to find why it loads slowly.<br>The task is about a page's Core Web Vitals, such as LCP, CLS or INP. | wherever its pack is |
 
 ### typescript/ai
 
@@ -126,6 +131,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/angular/no-bypass-sanitizer` | No DomSanitizer.bypassSecurityTrustHtml, Script, Style, Url or ResourceUrl: they turn off Angular's XSS protection for that value. Bind the value and let Angular sanitise it. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
 | `typescript/angular/typecheck` | The Angular compiler type-checks the templates: ngc -p <tsconfig> --noEmit for each tsconfig of file role @angular-tsconfig (each angular.json project's build tsConfig, else tsconfig.app.json); tsc does not read templates. | any: `**/*.ts`, `**/*.html` | check typecheck: a shell script calling `forge_do ngc typecheck`, `forge_role_files` |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/angular/generate` | Creating Angular components, services and other building blocks with the Angular CLI's generators. | on-demand | The task adds an Angular component, service, directive, pipe, guard or other building block. | wherever its pack is |
+
 ### typescript/anthropic
 
 Anthropic TypeScript SDK.
@@ -140,19 +149,23 @@ Child of `typescript`: active only where it is.
 
 ### typescript/apollo
 
-Apollo Server (CSRF prevention, error responses).
+Apollo Server and Apollo Client (CSRF prevention, error responses, imports, client lifetime).
 
-Detected by: a dependency on `@apollo/server` (npm).
+Detected by: a dependency on one of `@apollo/server` (npm), `@apollo/client` (npm).
 Child of `typescript`: active only where it is.
 
 Context (in `.claude/rules/forge-*.md`, §7):
 
-- Apollo Server: `csrfPrevention` stays on (no `csrfPrevention: false`), and `includeStacktraceInErrorResponses` is never set to a literal `true`.
+- (when `@apollo/server *` (npm) declared) Apollo Server: `csrfPrevention` stays on (no `csrfPrevention: false`), and `includeStacktraceInErrorResponses` is never set to a literal `true`.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `typescript/apollo/client-not-in-render` | An ApolloClient is created once, at module scope (or once per request on the server), not inside a component or a useState / useMemo / useRef initializer: a client made while rendering is rebuilt on remount and loses its cache. Create it outside the component and pass it to ApolloProvider. | typescript | ast-grep forbid (where `$N`: types engine, §15)<br>applies where `@apollo/client >=3.0.0` (npm) declared |
 | `typescript/apollo/csrf-prevention` | No csrfPrevention: false in new ApolloServer({...}): it re-opens CSRF through simple GET and POST requests that browsers send cross-site without a preflight. | typescript | ast-grep forbid (where `$N`: types engine, §15) |
+| `typescript/apollo/graphql-error` | A resolver reports an error meant for the client with GraphQLError and an extensions.code (BAD_USER_INPUT, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND): a plain Error reaches the client as INTERNAL_SERVER_ERROR. Keep a plain Error only for unexpected failures. | typescript: `**/*`, `!@ts-tests` | ast-grep advise<br>advice, never blocks |
+| `typescript/apollo/no-legacy-server-imports` | Apollo Server 5 code imports from @apollo/server, not from the legacy apollo-server / apollo-server-* packages or @apollo/server/express4 (removed in v5): the Express middleware comes from @as-integrations/express5 (or @as-integrations/express4). | typescript | ast-grep forbid<br>applies where `@apollo/server >=5.0.0` (npm) declared |
 | `typescript/apollo/no-stacktrace` | No literal includeStacktraceInErrorResponses: true in new ApolloServer({...}): error responses then carry server stack traces in every environment, production included. | typescript | ast-grep forbid (where `$N`: types engine, §15) |
+| `typescript/apollo/react-imports` | Apollo Client 4 exports its React API from @apollo/client/react: import useQuery, useMutation, useSuspenseQuery, ApolloProvider and the other hooks from there, not from @apollo/client. | typescript | ast-grep forbid<br>applies where `@apollo/client >=4.0.0` (npm) declared |
 
 ### typescript/astro
 
@@ -174,12 +187,23 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/astro/action-input-schema` | An Astro action whose handler reads its input declares an input schema: without input, the handler gets unvalidated JSON or raw FormData typed as unknown. Add input: z.object({...}) (also for a form action). | typescript | ast-grep forbid |
 | `typescript/astro/check` | The project passes astro check (types in .astro files). | any: `**/*.astro`, `**/*.ts`, `**/*.tsx` | check typecheck: a shell script calling `forge_do astro check` |
 | `typescript/astro/collection-schema` | A content collection loaded with glob(), file() or an inline loader declares a schema: without one, entry data is untyped and unvalidated at build time. Add schema: z.object({...}). | typescript | ast-grep forbid |
+| `typescript/astro/content-config-location` | Content collections are declared in src/content.config.ts, not src/content/config.ts (the legacy location Astro 6 refuses): move the file there. | any | check lint: `! git ls-files 'src/content/config.*' \| grep .` (when `src/content/**` or `src/content.config.*` changes)<br>applies where `astro >=5.0.0` (npm) declared |
 | `typescript/astro/no-astro-glob` | No Astro.glob(): it is deprecated in Astro 5 and removed in 6. Use getCollection() for content, or import.meta.glob() with { eager: true } for other files. | any: `**/*.astro` | grep forbid `Astro\.glob[[:space:]]*(<[^>]*>)?[[:space:]]*\(`<br>applies where `astro >=5.0.0` (npm) declared |
+| `typescript/astro/no-astrojs-tailwind` | No @astrojs/tailwind with Tailwind CSS 4: the integration supports Tailwind 3 only. Remove it and add the @tailwindcss/vite plugin under vite.plugins in astro.config, with @import "tailwindcss" in the global CSS. | any: `package.json` | check lint: a shell script calling `forge_pkg_deps` (when `package.json` changes)<br>applies where `tailwindcss >=4.0.0` (npm) declared |
+| `typescript/astro/no-entry-render` | Content entries render with render(entry) imported from astro:content (const { Content } = await render(entry)), not entry.render(), which content-layer collections do not have. | any: `src/**/*.astro`, `src/**/*.ts`, `src/**/*.tsx`, `src/**/*.js` | grep forbid `\{[^}]*(Content\|headings\|remarkPluginFrontmatter)[^}]*\}[[:space:]]*=[[:space:]]*await[[:space:]]+[A-Za-z_$][A-Za-z0-9_$.]*\.render\([[:space:]]*\)`<br>applies where `astro >=5.0.0` (npm) declared |
+| `typescript/astro/no-hybrid-output` | No output: 'hybrid' in astro.config: Astro 5 removed it. The default static output already allows on-demand pages; mark them with export const prerender = false (with an adapter), or use output: 'server'. | any: `astro.config.*` | grep forbid `output[[:space:]]*:[[:space:]]*['"]hybrid['"]`<br>applies where `astro >=5.0.0` (npm) declared |
 | `typescript/astro/no-secret-in-client-script` | A non-PUBLIC_ variable from import.meta.env is never passed to a client island's props (client:*) or into define:vars: both are written into the page's HTML, so the secret ships to every visitor. Use the secret on the server and pass only its result, or use a PUBLIC_ variable for values meant for the browser. | any: `**/*.astro` | grep forbid `(client:[a-z]+\|define:vars).*import\.meta\.env\.([CE-LNOQRT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|A([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-SU-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|T([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|_([0-9A-OQ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|P([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-EG-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|F([0-9A-HJ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9A-WYZ_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|X([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))))))))))))\|B([0-9B-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|A([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|_([0-9A-TV-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|U([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-KM-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|L([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)))))))))\|D([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-UW-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|V([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|M([0-9A-NP-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|O([0-9A-CE-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|D([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)))))\|P([0-9A-QSTV-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-NP-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|O([0-9A-CE-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|D([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|U([0-9AC-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|B([0-9A-KM-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|L([0-9A-HJ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9ABD-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|C([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)))))))\|S([0-9A-HJ-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9A-SU-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|T([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|S([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)))))\|import\.meta\.env\.([CE-LNOQRT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|A([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-SU-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|T([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|_([0-9A-OQ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|P([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-EG-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|F([0-9A-HJ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9A-WYZ_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|X([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))))))))))))\|B([0-9B-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|A([0-9A-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|S([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|_([0-9A-TV-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|U([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-KM-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|L([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)))))))))\|D([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-UW-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|V([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|M([0-9A-NP-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|O([0-9A-CE-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|D([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)))))\|P([0-9A-QSTV-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-NP-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|O([0-9A-CE-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|D([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|U([0-9AC-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|B([0-9A-KM-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|L([0-9A-HJ-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9ABD-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|C([0-9A-Za-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)))))))\|S([0-9A-HJ-RT-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|I([0-9A-SU-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|T([0-9A-DF-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|E([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))\|S([0-9A-QS-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$)\|([^A-Za-z0-9_]\|$)\|R([0-9A-Z_a-z][A-Za-z0-9_]*([^A-Za-z0-9_]\|$))))).*client:[a-z]+` |
 | `typescript/astro/no-set-html` | No set:html in .astro files; it injects unescaped HTML. Render the content as text or sanitise it in a component. | any: `**/*.astro` | grep forbid `set:html[[:space:]]*=` |
+| `typescript/astro/no-view-transitions` | No <ViewTransitions />: Astro 5 renamed it <ClientRouter /> (import { ClientRouter } from "astro:transitions") and Astro 6 removed the old name. | any: `**/*.astro` | grep forbid `<ViewTransitions([[:space:]/>]\|$)\|[{,[:space:]]ViewTransitions[[:space:]]*[},].*astro:transitions`<br>applies where `astro >=5.0.0` (npm) declared |
+| `typescript/astro/on-demand-prerender` | In a static Astro site, a page or endpoint that reads the request (Astro.cookies, Astro.request headers, method or body, a POST/PUT/PATCH/DELETE handler) exports const prerender = false: a prerendered page reads it once at build time, with no real request. | any: `src/pages/**` | check lint: a shell script of 9 lines (when `src/pages/**` or `astro.config.*` changes) |
 | `typescript/astro/server-island-fallback` | A server island (server:defer) with no children renders nothing until it loads, so the page jumps. Give it placeholder content: <Component server:defer><div slot="fallback">…</div></Component>. | any: `**/*.astro` | grep advise `server:defer([^>]*/>\|[^>]*>[[:space:]]*</)`<br>advice, never blocks |
 | `typescript/astro/use-astro-env` | Astro 5 reads environment variables through astro:env: declare each one in env.schema in astro.config with envField, then import it from astro:env/server (or astro:env/client), so it is typed and validated at startup, instead of reading import.meta.env. | typescript: `src/**`, `!@ts-tests` | ast-grep advise<br>applies where `astro >=5.0.0` (npm) declared<br>advice, never blocks |
 | `typescript/astro/use-astro-image` | A local image in an .astro file (a relative src, or an imported image's .src) goes through <Image /> or <Picture /> from astro:assets, which sizes, optimises and lazy-loads it; a plain <img> ships the original file and shifts the layout. | any: `**/*.astro` | grep advise `<img[[:space:]][^>]*src=("\.\.?/\|'\.\.?/\|"/src/\|'/src/\|\{[A-Za-z_$][A-Za-z0-9_$]*\.src\})`<br>advice, never blocks |
+| `typescript/astro/zod-from-astro-zod` | Astro 6 imports z from astro/zod, not from astro:content or astro:schema (both deprecated): import { z } from "astro/zod". | typescript | ast-grep forbid<br>applies where `astro >=6.0.0` (npm) declared |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/astro/verify` | Checking an Astro change type-checks, builds and renders, with astro check, astro build and astro preview. | on-demand | The task changes the code, templates or configuration of an Astro site. | wherever its pack is |
 
 ### typescript/astro/react
 
@@ -213,6 +237,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/aws-cdk/context-committed` | cdk.context.json is not git-ignored in a CDK app (cdk.json present); CDK caches context lookups there, and it is committed so synth stays deterministic. | any | check lint: a shell script of 1 lines (when `.gitignore`, `**/.gitignore` or `cdk.json` changes) |
 | `typescript/aws-cdk/nag-suppressions` | A changed file does not add cdk-nag suppressions (NagSuppressions.add…Suppressions calls, also under an import alias); fix the finding instead. | typescript | ast-grep no-increase |
 | `typescript/aws-cdk/removal-policy-destroy` | RemovalPolicy.DESTROY and autoDeleteObjects: true in a Bucket's props: they let cdk destroy (or a replacement) delete the data; keep them to throwaway stacks. | typescript | ast-grep advise (where `$E`, `$B`: types engine, §15)<br>advice, never blocks |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/aws-cdk/pulumi-migration` | Moving an AWS CDK app to Pulumi from its synthesized templates, until the Pulumi preview shows no change. | on-demand | The task is to migrate an AWS CDK app or stack to Pulumi. | wherever its pack is |
 
 ### typescript/aws-lambda
 
@@ -322,6 +350,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/bun/text-lockfile` | No binary bun.lockb; Bun's lock file is the text bun.lock, which reviews and merges read (bun install --save-text-lockfile --frozen-lockfile, then delete bun.lockb). | any | check lint: a shell script of 2 lines (when `**/bun.lockb` or `**/package.json` changes) |
 | `typescript/bun/trusted-deps` | No new trustedDependencies entries in package.json: each one lets that package run its install scripts. The user trusts packages, not Claude. | any | check lint: `forge_trusted_deps` (when `**/package.json` changes) |
 
+### typescript/clerk
+
+Clerk authentication in web and mobile apps.
+
+Detected by: a dependency on one of `@clerk/nextjs` (npm), `@clerk/clerk-react` (npm), `@clerk/react` (npm), `@clerk/react-router` (npm), `@clerk/remix` (npm), `@clerk/tanstack-react-start` (npm), `@clerk/astro` (npm), `@clerk/vue` (npm), `@clerk/nuxt` (npm), `@clerk/express` (npm), `@clerk/fastify` (npm), `@clerk/backend` (npm), `@clerk/clerk-js` (npm), `@clerk/expo` (npm), `@clerk/clerk-expo` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/clerk/clerk-e2e-auth` | Signing in to a Clerk app from Playwright or Cypress with Clerk's testing helpers, to drive or test its signed-in pages. | on-demand | The task drives the app in a browser, or tests it end to end, on pages that need a signed-in user.<br>The task writes or fixes end-to-end tests that sign in or sign up, or that fail at signing in. | wherever its pack is |
+
 ### typescript/cloudflare-workers
 
 Cloudflare Workers projects (wrangler).
@@ -392,6 +433,8 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/drizzle/no-query-in-loop` | A Drizzle query (a QueryPromise: select, insert, update, delete, db.query.*.findMany / findFirst) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (inArray, a join, with: relations) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
 | `typescript/drizzle/no-sql-raw` | No sql.raw() (also under an import alias of drizzle-orm's sql) built from a template with ${} or a concatenation, directly or through a variable declared from one in the same function or module; the sql`...` tag binds values as parameters (sql.identifier() for names). | typescript | ast-grep forbid |
 | `typescript/drizzle/ownership-scope` | A Drizzle query selects, updates or deletes by .where(eq(table.id, id)) with an id taken from the request (route params, searchParams, form data), without the owner in the condition and without comparing the record's owner afterwards: any signed-in user can then read or change anyone's row by changing the id (IDOR). Scope it with and(eq(table.id, id), eq(table.userId, currentUserId)) (or the tenant's column), or check the row's owner before using it. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep advise (where `$EQ`, `$G`: types engine, §15)<br>advice, never blocks |
+| `typescript/drizzle/v1-relations` | On drizzle-orm 1.x relations are declared once with defineRelations(schema, (r) => ({ ... })) from drizzle-orm; relations() is not exported there any more (only drizzle-orm/_relations keeps it, for the legacy query API). | typescript | ast-grep forbid<br>applies where `drizzle-orm >=1.0.0-beta.0` (npm) declared |
+| `typescript/drizzle/v1-validators` | On drizzle-orm 1.x the schema validators ship with the ORM: import createInsertSchema / createSelectSchema from drizzle-orm/zod (or drizzle-orm/valibot, /typebox, /arktype), not from the separate drizzle-zod package. | typescript | ast-grep forbid<br>applies where `drizzle-orm >=1.0.0-beta.0` (npm) declared |
 | `typescript/drizzle/write-with-where` | A Drizzle delete(table) or update(table).set(…) on a database or transaction is chained with .where(…); without it every row of the table is deleted or updated. | typescript | ast-grep forbid (where `$DB`: types engine, §15) |
 
 ### typescript/effect
@@ -410,6 +453,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/effect/no-run-inside-gen` | No Effect.runPromise / runSync / runFork (or their Exit / With variants) inside an Effect.gen generator: a nested runtime breaks interruption, context and tracing; compose with yield* instead. | typescript | ast-grep forbid |
 | `typescript/effect/no-throw-in-gen` | No throw directly in an Effect.gen generator (nested non-generator functions aside): a thrown error becomes a defect, not a typed failure; use yield* Effect.fail(...) with a tagged error. | typescript | ast-grep forbid |
+
+### typescript/electron
+
+Electron desktop apps.
+
+Detected by: a dependency on `electron` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/electron/electron-cdp-drive` | Driving the Electron app under development through its Chrome DevTools port, to see and use its windows as a person does. | on-demand | The task changes what a window of the desktop app shows or how a person interacts with it.<br>The task reproduces or checks a bug in the desktop app's interface. | wherever its pack is |
 
 ### typescript/elysia
 
@@ -445,6 +501,20 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/eslint/no-eslint-env` | No /* eslint-env */ comments; flat config ignores them (ESLint 10 reports them as errors). Declare globals in the config's languageOptions.globals. | typescript | grep forbid `/\*[[:space:]]*eslint-env` |
 | `typescript/eslint/ts-version` | The typescript package that typescript-eslint resolves has the compiler API (TypeScript below 6.1); TypeScript 7 ships none, so typescript-eslint cannot parse with it. | any | check lint: a shell script of 17 lines (when `**/package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock` or `bun.lock` changes) |
 | `typescript/eslint/type-checked` | typescript-eslint's type-aware rules that Biome has no equivalent for are errors: no any flowing through assignments, calls, member access, returns and arguments; return await in try; no unbound methods, misused spreads, array delete or for-in over arrays; template expressions, promise rejections and catch callbacks typed; no unnecessary assertions or conditions; no object literal assertions. They need parserOptions.projectService and TypeScript 6 or older. | typescript | tool eslint `@typescript-eslint/no-unsafe-assignment`<br>tool eslint `@typescript-eslint/no-unsafe-call`<br>tool eslint `@typescript-eslint/no-unsafe-member-access`<br>tool eslint `@typescript-eslint/no-unsafe-return`<br>tool eslint `@typescript-eslint/no-unsafe-argument`<br>tool eslint `@typescript-eslint/return-await`<br>tool eslint `@typescript-eslint/unbound-method`<br>tool eslint `@typescript-eslint/no-misused-spread`<br>tool eslint `@typescript-eslint/no-array-delete`<br>tool eslint `@typescript-eslint/no-for-in-array`<br>tool eslint `@typescript-eslint/restrict-template-expressions`<br>tool eslint `@typescript-eslint/prefer-promise-reject-errors`<br>tool eslint `@typescript-eslint/use-unknown-in-catch-callback-variable`<br>tool eslint `@typescript-eslint/no-unnecessary-type-assertion`<br>tool eslint `@typescript-eslint/no-unnecessary-condition`<br>tool eslint `@typescript-eslint/consistent-type-assertions` |
+
+### typescript/expo
+
+Expo apps (React Native with the Expo SDK).
+
+Detected by: a dependency on `expo` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/expo/agent-cli` | Reading an Expo project's SDK state and its SDK-versioned docs with Expo's agent CLI, and running the app, in Expo Go when it can. | on-demand | The task adds or changes screens, navigation, native modules or packages of an Expo app.<br>The task uses an Expo SDK API or library whose behaviour depends on the SDK version. | wherever its pack is |
+| `typescript/expo/expo-sdk-bump` | Upgrading the Expo SDK with the Expo CLI, then reading which packages it changed and checking the project with expo-doctor. | on-demand | The task upgrades the Expo SDK, or the React Native version an Expo app uses. | wherever its pack is |
 
 ### typescript/express
 
@@ -537,8 +607,22 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/hono/cors-credentials-wildcard` | cors() with credentials true names its allowed origins. A function that returns the origin it is given (alone or with a ?? / \|\| fallback, as an expression or a return) lets any site make credentialed requests; origin "*" with credentials is refused by browsers. | typescript | ast-grep forbid<br>deprecated: replaced by `typescript/cors-credentials-wildcard` |
+| `typescript/hono/jwt-alg` | Hono's jwt() middleware names the algorithm it accepts, jwt({ secret, alg: "HS256" }): without alg, a token signed with another algorithm than the key is meant for may be accepted (algorithm confusion), and current Hono requires it. | typescript | ast-grep forbid (where `$F`: types engine, §15) |
 | `typescript/hono/no-raw-interpolation` | No raw() from hono/html (also under an import alias) given a template with ${}, a concatenation or a variable declared from one in the same function or module: raw() inserts its text unescaped (XSS); the html`...` tag escapes values. | typescript | ast-grep forbid |
 | `typescript/hono/validate-input` | Hono handlers read the body and query through a validator middleware (zValidator, validator) and c.req.valid(), or pass the read straight to a schema (Schema.parse(await c.req.json()), safeParse, parseAsync, valibot's parse(Schema, …)); not c.req.json(), parseBody(), formData(), query() or queries() whose result is used unvalidated. The request may come from c.req or a destructured ({ req }) parameter. | typescript | ast-grep forbid |
+
+### typescript/inngest
+
+Inngest functions, events and their durable steps.
+
+Detected by: a dependency on `inngest` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/inngest/inngest-dev-server` | Running Inngest functions on the local dev server, sending them events and reading their runs, steps and outputs. | on-demand | The task adds or changes an Inngest function, its steps, its triggers or its flow control.<br>The task debugs an Inngest function that fails, retries or is stuck. | wherever its pack is |
 
 ### typescript/jest
 
@@ -553,6 +637,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `typescript/jest/await-async-expect` | An expect(promise).resolves / .rejects assertion is awaited or returned (await expect(p).rejects.toThrow(...)): otherwise the test ends before it settles and passes whatever the promise does. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep forbid |
 | `typescript/jest/config-file` | Claude asks you before editing the Jest config (test paths, coverage thresholds, setup files). | any | permission ask `Edit(**/jest.config.*)` |
 | `typescript/jest/no-conditional-expect` | Assertions run on every path of a test: no expect() only in a catch block, a .catch() callback or one branch of an if, where the test passes without asserting anything. Assert the outcome directly (await expect(p).rejects.toThrow(NotFound), expect(() => f()).toThrow(NotFound)), assert the condition first (expect(r.success).toBe(true)) and then branch, or count the assertions (expect.assertions(1)). | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep forbid |
 | `typescript/jest/no-exit-zero` | Test, setup and mock files never call process.exit(0): the run reports success whatever the tests did. | typescript: `@ts-tests`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/jest.setup.*`, `!@e2e-tests` | ast-grep forbid |
@@ -649,6 +734,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/library/deprecation-shim` | A name exported by a package entry point (package.json exports, main, module, types, mapped from dist/ to src/; export * followed through relative modules) in the base is still exported, and a name that became an alias of another export (export const old = renamed, export { renamed as old }) carries a /** @deprecated */ JSDoc comment on that export. A major version bump does not allow a removal by itself: removing a name is the user's decision: ask them. | typescript: `!@ts-tests`, `!@e2e-tests` | check lint: `forge_helper bun public_api.mjs removed` (when `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.js`, `**/*.mjs` or `package.json` changes) |
 | `typescript/library/exports-map` | A published package (not private) declares its entry points in package.json exports, not only main, module or types; reported where main, module or types is added. | any: `**/package.json` | check lint: a shell script of 25 lines |
 
+### typescript/mastra
+
+Mastra agents, tools and workflows.
+
+Detected by: a dependency on one of `@mastra/core` (npm), `mastra` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/mastra/mastra-dev-studio` | Running Mastra agents and workflows locally, through the dev server's API and Studio or a short script, and reading their results. | on-demand | The task adds or changes a Mastra agent, tool or workflow.<br>The task debugs a Mastra agent or workflow that fails or answers wrongly. | wherever its pack is |
+
 ### typescript/mcp
 
 Model Context Protocol servers (TypeScript SDK).
@@ -662,7 +760,13 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `typescript/mcp/no-new-v1-sdk` | A package that starts using the MCP TypeScript SDK depends on the v2 packages (@modelcontextprotocol/server, @modelcontextprotocol/client), not on the v1 @modelcontextprotocol/sdk; packages already on v1 keep it until they migrate. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
 | `typescript/mcp/stdio-no-stdout` | A file that imports StdioServerTransport (@modelcontextprotocol/sdk/server/stdio.js or @modelcontextprotocol/server) writes nothing to stdout: no console.log / info / debug, no process.stdout.write; stdout carries the JSON-RPC stream and any print corrupts it. Log with console.error (stderr). | typescript | ast-grep forbid |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/mcp/inspect` | Calling a TypeScript MCP server's tools the way a client would, with the MCP Inspector's command-line mode. | on-demand | The task adds, changes or debugs the tools, resources or prompts of an MCP server written in TypeScript or JavaScript. | wherever its pack is |
+| `typescript/mcp/sdk-v2-codemod` | Moving code from the MCP TypeScript SDK 1 to 2 with its codemod, then finishing what it marks. | on-demand | The task is to upgrade or migrate a project from version 1 to version 2 of the MCP TypeScript SDK. | `@modelcontextprotocol/sdk <2.0.0` (npm) declared |
 
 ### typescript/mikro-orm
 
@@ -703,6 +807,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/mongoose/no-where-operator` | No $where in a query passed to a Mongoose model or query, and no .$where(): it runs JavaScript on the database server (injection, denial of service) and is deprecated in MongoDB 8; use query operators or $expr. | typescript | ast-grep forbid (where `$M`: types engine, §15) |
 | `typescript/mongoose/update-pipeline` | Mongoose 9 rejects an update pipeline (an array) in updateOne, updateMany, findOneAndUpdate or findByIdAndUpdate unless the call passes { updatePipeline: true } or the app sets mongoose.set("updatePipeline", true); pass the option, or check the global setting. | typescript | ast-grep advise (where `$M`: types engine, §15)<br>applies where `mongoose >=9.0.0` (npm) declared<br>advice, never blocks |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/mongoose/query-plan` | Reading how MongoDB runs a query (its plan, the index used, keys and documents examined) with explain. | on-demand | The task is to make a MongoDB query faster or to find why it is slow.<br>The task adds or changes a MongoDB index. | wherever its pack is |
+
 ### typescript/msw
 
 Mock Service Worker (msw) in tests.
@@ -737,10 +845,12 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `typescript/nestjs/config-get-or-throw` | A secret read from ConfigService (a key naming a secret, password, token, API key or private key) uses getOrThrow(), not get(): get() returns undefined for a missing variable and the app starts with an empty secret. | typescript: `**/*`, `!@ts-tests` | ast-grep forbid (where `$C`: types engine, §15) |
 | `typescript/nestjs/dto-is-class` | A parameter decorated @Body(), @Query() or @Param() (from @nestjs/common, without a pipe argument) is typed with a DTO class: no type, any, unknown, object, an inline object type or Record<…> reaches the handler unvalidated, since ValidationPipe validates class types only. | typescript | ast-grep forbid |
 | `typescript/nestjs/dto-not-type-import` | The type of a @Body(), @Query() or @Param() parameter (from @nestjs/common) is not imported with import type / { type X }: a type-only import erases the class from design:paramtypes, and ValidationPipe then validates nothing. Import the DTO as a value. | typescript | ast-grep forbid |
 | `typescript/nestjs/express-path-syntax` | On Nest 11's Express platform (path-to-regexp 8), route paths in @Get/@Post/.../@All() and in forRoutes() have no unnamed * (write *splat or {*splat}) and no ?, +, !, (, ), [ or ] (an optional segment is {...}): Nest converts the old syntax with a warning, Express 5 itself rejects it. | typescript | ast-grep advise (where `$D`, `$C`: types engine, §15)<br>applies where `@nestjs/platform-express >=11.0.0` (npm) declared<br>advice, never blocks |
 | `typescript/nestjs/http-exception` | A method of a @Controller() class (from @nestjs/common) throws an HttpException subclass (NotFoundException, BadRequestException, …), not a plain Error, which becomes a generic 500. An Error thrown inside a try block is not concerned: it is caught there. | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/nestjs/same-major` | The NestJS core packages (@nestjs/common, core, testing, microservices, websockets and the platform-* adapters) in one package.json are on the same major version: mixed majors load two copies of the DI container and fail at runtime. Upgrade them together. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` (when `**/package.json` changes) |
 | `typescript/nestjs/validate-nested-type` | A property decorated @ValidateNested() (class-validator) also has @Type(() => X) (class-transformer); without it the nested value stays a plain object and is not validated. | typescript | ast-grep forbid |
 | `typescript/nestjs/validation-pipe-forbid-non-whitelisted` | new ValidationPipe({...}) sets forbidNonWhitelisted: true, so a request with undeclared fields is rejected (400) instead of silently stripped. | typescript | ast-grep advise (where `$N`: types engine, §15)<br>advice, never blocks |
 | `typescript/nestjs/validation-pipe-whitelist` | new ValidationPipe({...}) sets whitelist: true; without it, body fields the DTO does not declare (role, isAdmin) reach the handler (mass assignment). | typescript | ast-grep forbid (where `$N`: types engine, §15) |
@@ -777,6 +887,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/nextjs/internal-link` | An <a href="/…"> to a page of the app reloads the whole document. Use next/link's <Link href="/…">, which navigates on the client and prefetches the route. API routes, files (/report.pdf) and download links stay <a>. | tsx | ast-grep advise<br>advice, never blocks |
 | `typescript/nextjs/mutation-revalidates` | A Server Action that writes through Prisma or Drizzle also refreshes what the user sees: without updateTag(), revalidateTag(), revalidatePath(), refresh() or a redirect(), cached pages keep showing the old data. Call updateTag(tag) (read-your-writes) or revalidatePath(path) after the write. | typescript: `!@ts-tests`, `!@e2e-tests` | ast-grep advise (where `$CALL`, `$DB`: types engine, §15)<br>advice, never blocks |
 | `typescript/nextjs/next-font` | Google Fonts are not loaded with a <link href="https://fonts.googleapis.com/css…"> in JSX: it is a render-blocking request to a third party at every visit. Use next/font/google (const inter = Inter({ subsets: ["latin"] }) and inter.className), which self-hosts the font at build time. | tsx | ast-grep forbid |
+| `typescript/nextjs/no-dynamic-io` | next.config does not set experimental.dynamicIO: Next.js 16 replaced it with the top-level cacheComponents: true, and next build stops on the old key. | typescript: `next.config.*` | ast-grep forbid<br>applies where `next >=16.0.0` (npm) declared |
 | `typescript/nextjs/no-ignore-build-errors` | next.config does not set typescript.ignoreBuildErrors: true; next build would ship code that does not type-check. Fix the errors. | typescript: `next.config.*` | ast-grep forbid |
 | `typescript/nextjs/no-img-element` | No <img> in a Next.js app: use next/image, which sizes, lazy-loads and optimises the image (LCP and layout shift). | tsx | tool biome `lint/performance/noImgElement`<br>tool eslint `@next/next/no-img-element` |
 | `typescript/nextjs/no-inline-action-secret-closure` | An inline 'use server' function does not use a token, secret, API key or password from the component around it: the values a Server Action closes over are sent to the browser (encrypted) and back with every call. Read the secret inside the action (from process.env or the server-side session) instead of closing over it. | typescript | ast-grep advise<br>advice, never blocks |
@@ -804,6 +915,12 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/nextjs/server-action-validate-input` | A Server Action's FormData or object argument comes straight from the client (anyone can POST any value; TypeScript types do not exist at runtime), and this action parses nothing. Validate it with a schema before use (Schema.safeParse(Object.fromEntries(formData)), parse, parseAsync, valibot's parse(Schema, …)), then use the parsed value. | typescript: `!@ts-tests`, `!@e2e-tests` | ast-grep advise<br>advice, never blocks |
 | `typescript/nextjs/stable-cache-imports` | Import cacheLife and cacheTag from next/cache, not unstable_cacheLife or unstable_cacheTag (to be removed; no @deprecated tag shows it). | typescript | ast-grep forbid |
 | `typescript/nextjs/update-tag-actions-only` | updateTag() and refresh() from next/cache work only in a Server Action; called while rendering a page or layout, in a route handler or in the proxy, they throw. Call them in a 'use server' function; a route handler uses revalidateTag(tag, "max") instead. | typescript: `app/**/{page,layout,template,default,loading,not-found,route}.*`, `src/app/**/{page,layout,template,default,loading,not-found,route}.*`, `{proxy,middleware}.*`, `src/{proxy,middleware}.*` | ast-grep forbid<br>applies where `next >=16` (npm) declared |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/nextjs/bundle-analyze` | Measuring what JavaScript each Next.js route sends to the browser with next analyze, before and after a change. | on-demand | The task is to reduce the JavaScript a Next.js app sends to the browser or its bundle size.<br>The task is to find which modules or dependencies make a Next.js route's client bundle large. | `next >=16.4.0` (npm) declared |
+| `typescript/nextjs/cache-components-adoption` | Turning on cacheComponents in a Next.js app route by route, with the instant-false codemod and next dev. | on-demand | The task is to enable or adopt Cache Components (cacheComponents) in a Next.js app.<br>The task moves Next.js routes onto Cache Components, such as removing their opt-outs from it. | `next >=16.3.0` (npm) declared |
+| `typescript/nextjs/dev-check` | Asking a running next dev server for its compile errors, runtime errors, logs and routes through /_next/mcp. | on-demand | The task changes a Next.js app's pages, layouts, components, server actions or route handlers.<br>The task is to find why a Next.js page or route errors at runtime. | `next >=16.3.0` (npm) declared |
 
 ### typescript/nextjs/cache-components
 
@@ -920,6 +1037,22 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/npm/release-age-command` | Claude asks before turning npm's release-age cooldown off for a command (--min-release-age=0); a package that must update sooner goes in min-release-age-exclude. | any | guard ask: command `{option_values: {--min-release-age: ^0*$}}` |
 | `typescript/npm/release-age` | npm installs only versions published at least 3 days ago (.npmrc min-release-age=3 or more), and package.json requires npm 11.10 or later (devEngines.packageManager or packageManager), which is the first npm to read it; a compromised release is caught before it lands. Packages that must update sooner go in min-release-age-exclude. A change is held only to the settings it made missing or weak. | any | check lint: `forge_npm_cooldown` (when `.npmrc` or `package.json` changes) |
 
+### typescript/nx
+
+Nx workspaces, their projects, targets, generators and plugins.
+
+Detected by: a dependency on `nx` (npm); or a file matching `nx.json`.
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/nx/nx-cloud-ci-status` | Reading the branch's Nx Cloud CI run, its failed tasks and their self-healing fix suggestion, to get the branch green. | on-demand | The task gets a branch's failing CI run on Nx Cloud to pass.<br>The task needs to know why a CI run of the Nx workspace failed. | wherever its pack is |
+| `typescript/nx/nx-generate` | Scaffolding apps, libraries and framework support in the Nx workspace with its plugins and generators, after a dry run. | on-demand | The task creates a new app, library or component in the Nx workspace.<br>The task adds support for a framework or tool to the Nx workspace. | wherever its pack is |
+| `typescript/nx/nx-import-repo` | Bringing another repository's code and history into the Nx workspace with nx import, then checking and completing what it produced. | on-demand | The task moves another repository, or part of one, into the Nx workspace. | wherever its pack is |
+| `typescript/nx/nx-workspace-inspect` | Asking Nx which projects and targets exist, how a target is configured, and which projects depend on a library. | on-demand | The task runs, adds or changes a target of a project in the Nx workspace, such as build, test, lint or serve.<br>The task needs to know which projects depend on a library, or which targets a project has. | wherever its pack is |
+
 ### typescript/openapi
 
 Clients generated from an OpenAPI document (openapi-typescript, orval, @hey-api/openapi-ts) stay in sync with it.
@@ -997,9 +1130,11 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/playwright/no-test-edits` | Changing an end-to-end test that existed at the start of the turn (anything in it, formatting aside, the pages it visits and its control flow included), or removing it, needs approval; adding tests is fine. Edits ask when made, unapproved changes are blocked at Stop. | typescript: `@e2e-tests` | check lint: `forge_test_edits` |
 | `typescript/playwright/no-wait-for-timeout` | No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL. | typescript: `@e2e-tests`, `**/*.spec.*` | ast-grep forbid |
 | `typescript/playwright/run` | End-to-end tests pass. | any | check test: `forge_do playwright test` (when `@e2e-tests` or `playwright.config.*` changes) |
+| `typescript/playwright/web-first-assertions` | Assert on the locator with a web-first matcher, which retries until it holds (await expect(locator).toBeVisible(), .toHaveText(), .toBeChecked(), .toHaveValue(), .toHaveCount()), not on a value read once (expect(await locator.isVisible()).toBe(true)), which races the page. | typescript: `@e2e-tests`, `**/*.spec.*` | ast-grep forbid (where `$X`: types engine, §15) |
 
 | Capability (§20) | Description | Delivered | Relevant when | Active when |
 |---|---|---|---|---|
+| `typescript/playwright/accessibility-check` | Checking a web page for accessibility problems with axe-core in the project's Playwright, and by keyboard. | on-demand | The task is to audit or fix a web page's accessibility, such as WCAG conformance, screen reader support or keyboard use. | wherever its pack is |
 | `typescript/playwright/browser-check` | Checking what a web page shows and does by driving it in a headless browser with the project's Playwright. | on-demand | The task changes what a web page shows or how a person interacts with it.<br>The task needs a web page's behaviour checked in a browser. | wherever its pack is |
 
 ### typescript/pnpm
@@ -1067,9 +1202,11 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/prisma/db-push` | Commands that change a database outside migrations need confirmation. | any | guard ask: command `{name: prisma, sub: [db, push\|execute]}` or `{name: prisma, sub: [migrate, deploy]}` |
 | `typescript/prisma/destructive-migration` | A new Prisma migration does not drop a column or table (a SQLite table redefinition that leaves columns out included) unless the user approved that drop: ask them first, and drop only after a deploy in which no code reads it (expand and contract). | any: `prisma/migrations/**/migration.sql` | check migration: a shell script calling `forge_prisma_drops` (when `prisma/migrations/**` changes) |
 | `typescript/prisma/generated-client-import` | Import the Prisma client from the generator output path, not @prisma/client. | typescript | ast-grep forbid<br>applies where `prisma >=7.0.0` (npm) declared |
+| `typescript/prisma/generator-output` | A prisma-client generator block sets output (output = "../src/generated/prisma"): the generator writes no client into node_modules, and the code imports it from that path. | any | check lint: a shell script of 7 lines (when `**/*.prisma` changes) |
 | `typescript/prisma/migration-lint` | New migrations do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); Squawk lints the SQL. | any: `prisma/migrations/**/migration.sql` | check migration: `forge_squawk_files $(git ls-files 'prisma/migrations/*/migration.sql' \| sort \| tail -n 1)` (when `prisma/migrations/**` changes) |
 | `typescript/prisma/migration-present` | Schema changes come with a migration (not in a db push workflow - no prisma/migrations and a package.json script running prisma db push). | any | check migration: a shell script calling `forge_do prisma migrations-check` (when `prisma/schema.prisma` changes; needs a local database) |
 | `typescript/prisma/no-float-money` | A Prisma model field holding money (named price, amount, total, subtotal, tax, fee, balance or cost) is not a Float: a double cannot store most cents exactly, so sums drift. Use Decimal (with @db.Decimal(precision, scale)) or an Int of minor units (priceCents Int). | any: `**/*.prisma` | grep forbid `^[[:space:]]*([a-z][A-Za-z0-9]*(Price\|Amount\|Subtotal\|Total\|Tax\|Fee\|Balance\|Cost)s?\|([A-Za-z][A-Za-z0-9]*_)?(price\|amount\|subtotal\|total\|tax\|fee\|balance\|cost)s?)[[:space:]]+Float([?[]\|[[:space:]]\|$)` |
+| `typescript/prisma/no-metrics-preview` | No "metrics" in previewFeatures: Prisma 7 removed the metrics feature. Read pool metrics from the driver adapter's pool, or count queries with a Client Extension. | any: `**/*.prisma` | grep forbid `previewFeatures[[:space:]]*=.*"metrics"`<br>applies where `prisma >=7.0.0` (npm) declared |
 | `typescript/prisma/no-middleware` | No Prisma middleware ($use). Use Client Extensions. | typescript | ast-grep forbid |
 | `typescript/prisma/no-network-in-transaction` | An interactive transaction callback ($transaction(async (tx) => ...)) makes no HTTP calls: the global fetch / $fetch, or a function or method of axios, got, ky, ofetch, node-fetch or undici imported in the file; call them before or after the transaction. | typescript | ast-grep forbid |
 | `typescript/prisma/no-query-in-loop` | A Prisma query whose result type is PrismaPromise (findMany, count, aggregate, groupBy, the *Many methods) is not awaited inside a loop body (for, for…of, for…in, while, do) or an async .map / .forEach / .flatMap callback; one query per item is N round trips. Fetch the rows in one query (include, in, a relation filter) or batch them. | typescript | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
@@ -1094,8 +1231,30 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `typescript/pulumi/component-register-outputs` | A ComponentResource's constructor ends with this.registerOutputs({ ... }) (an empty object when it exports nothing): without it the component never completes, and its outputs are missing from the stack. | typescript | ast-grep forbid |
+| `typescript/pulumi/config-secret` | A secret stored in stack config is set with --secret (pulumi config set --secret dbPassword ...), so it is encrypted in Pulumi.<stack>.yaml instead of committed as plain text. | any | guard deny: command `{name: pulumi, sub: [config, set], args_any: ['/(?i)(password\|passwd\|secret\|token\|api[-_]?key\|private[-_]?key\|credential)/'], flags_none: [--secret, --plaintext]}` |
+| `typescript/pulumi/esc-env-add` | Linking a Pulumi ESC environment to a stack (pulumi config env add) changes the credentials and config every deployment of that stack uses: it needs the user's confirmation. | any | guard ask: command `{name: pulumi, sub: [config, env, add\|init\|rm]}` |
+| `typescript/pulumi/esc-open` | pulumi env open prints an ESC environment's secrets in clear text into the session: run the command that needs them through pulumi env run <env> -- <command> instead, or ask the user first. | any | guard ask: command `{name: [pulumi, esc], sub: [env, open]}` |
 | `typescript/pulumi/no-output-in-string` | An Output<T> is not put in a template literal or concatenated with a string: it is a promise-like value, so the text gets "Calling [toString] on an [Output<T>] is not supported" instead of the value. Use pulumi.interpolate`…`, pulumi.concat(…) or output.apply((v) => …). | typescript | ast-grep forbid (where `$E`: types engine, §15) |
+| `typescript/pulumi/no-resource-in-apply` | No resource created inside an .apply() callback: preview cannot see it, it may never be created when the value is unknown, and its dependencies are lost. Pass the Output to the resource's arguments directly (or use pulumi.all / pulumi.interpolate). | typescript | ast-grep forbid (where `$N`: types engine, §15) |
 | `typescript/pulumi/protect-ratchet` | A changed file keeps its protect: true resource options (their count does not decrease): removing protection is the step before deleting a resource; that change is the user's to make. | typescript | grep no-decrease `(^\|[^A-Za-z0-9_$])protect[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_$]\|$)` |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/pulumi/preview` | Seeing what a Pulumi program change would create, update, replace or delete, with pulumi preview. | on-demand | The task changes a Pulumi program's resources, their properties or the stack configuration. | wherever its pack is |
+
+### typescript/puppeteer
+
+Puppeteer, headless Chrome scripted from Node.js.
+
+Detected by: a dependency on one of `puppeteer` (npm), `puppeteer-core` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/puppeteer/puppeteer-drive` | Checking what a web page shows and does with a short headless Chrome script using the project's Puppeteer. | on-demand | The task needs a web page's behaviour or rendering checked in a browser.<br>The task reproduces a bug that happens in the browser. | wherever its pack is |
 
 ### typescript/react
 
@@ -1119,6 +1278,9 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/react/compiler-rules` | Components and hooks pass React Compiler's checks: no setState called synchronously in an effect (derive the value while rendering), no ref read or written while rendering, no impure call (Date.now(), Math.random()) while rendering. | tsx | tool biome `lint/nursery/useReactCompiler` |
 | `typescript/react/hooks-rules` | Hooks run at the top level of a component or hook, and effects list every dependency they read. | tsx | tool biome `lint/correctness/useHookAtTopLevel`<br>tool biome `lint/correctness/useExhaustiveDependencies` |
 | `typescript/react/image-size` | An <img> without width and height attributes shifts the layout when it loads (CLS). Give it its intrinsic width and height; CSS can still scale it. | tsx | ast-grep advise<br>advice, never blocks |
+| `typescript/react/lazy-state-init` | useState(compute()) runs compute() on every render and throws the result away after the first: pass the function, useState(() => compute()), when the initial value is costly to build (parsing, reading storage, building a large structure). | typescript | ast-grep advise<br>advice, never blocks |
+| `typescript/react/no-context-provider` | In React 19 a context is rendered as its own provider, <ThemeContext value={theme}>, not <ThemeContext.Provider value={theme}> (to be deprecated). | tsx | ast-grep forbid (where `$X`: types engine, §15) |
+| `typescript/react/no-create-react-app` | No new react-scripts (Create React App) dependency: CRA is deprecated and unmaintained. Start a React app with a framework (Next.js, React Router) or Vite. | any: `**/package.json` | check lint: a shell script calling `forge_pkg_deps` |
 | `typescript/react/no-dangerous-html` | No dangerouslySetInnerHTML. Render text as children, or a sanitizing Markdown component. | tsx | tool biome `lint/security/noDangerouslySetInnerHtml`<br>ast-grep forbid |
 | `typescript/react/no-deprecated-types` | No imports React's types mark @deprecated (ElementRef, MutableRefObject, LegacyRef, ...). Use the replacement the deprecation names. Biome reads the tags from node_modules, and only from real directories (not pnpm's symlinks). | tsx | tool biome `lint/suspicious/noDeprecatedImports`<br>deprecated: replaced by `typescript/no-deprecated` |
 | `typescript/react/no-effect-notify-parent` | An effect whose only job is to call a parent's callback (onChange(value)) runs a render late and can loop. Call the callback in the event handler that changed the value. | tsx | ast-grep advise<br>advice, never blocks |
@@ -1127,13 +1289,20 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/react/no-leaked-render` | No {items.length && <X />} in JSX: when the length is 0, React renders the 0 (and React Native crashes on it). Compare instead: {items.length > 0 && <X />}, or use a ternary. | tsx | ast-grep forbid |
 | `typescript/react/no-locale-dependent-render` | toLocaleString(), toLocaleDateString() and toLocaleTimeString() without a locale, or a date without a timeZone option, format differently on the server and in the browser: a server-rendered component then fails hydration. Pass an explicit locale and timeZone, or format in an effect. | tsx | ast-grep advise<br>advice, never blocks |
 | `typescript/react/no-manual-memo-with-compiler` | The project compiles components with React Compiler, which memoizes them itself: new useMemo, useCallback and memo() only add noise. Leave them out, unless a value must stay the same reference for an effect's dependencies. | tsx | ast-grep advise (where `$F`: types engine, §15)<br>applies where `babel-plugin-react-compiler >=1.0.0` (npm) declared<br>advice, never blocks |
+| `typescript/react/no-manual-start-view-transition` | A file using React's <ViewTransition> does not call document.startViewTransition() itself: React starts the transition for updates in startTransition, useDeferredValue or Suspense, and a manual call races it. | typescript | ast-grep forbid |
 | `typescript/react/no-nested-components` | No component defined inside another component, and no function that defines and returns a component or hook (a factory): each render or call makes a new component type, which remounts. | tsx | tool biome `lint/correctness/noNestedComponentDefinitions`<br>tool biome `lint/nursery/noComponentHookFactories` |
 | `typescript/react/no-prop-assign` | Props are never assigned to (props.x = ...): they are read-only, and a mutation breaks rendering and memoization. Derive a local value instead. | tsx | tool biome `lint/correctness/noReactPropAssignments` |
 | `typescript/react/no-prop-types` | No propTypes or defaultProps assignments. React 19 ignores them on function components; use types and default parameters. | tsx | ast-grep forbid |
+| `typescript/react/passive-listeners` | A touchstart, touchmove or wheel listener that does not call preventDefault() is registered with { passive: true }, so the browser can scroll without waiting for it. | typescript | ast-grep advise<br>advice, never blocks |
 | `typescript/react/stable-default-props` | Destructured props do not default to an object, array or function literal ({ items = [] }): it is a new value on every render, which defeats memo and re-runs effects. Hoist the default to a module constant. | tsx | tool biome `lint/nursery/noReactObjectTypeAsDefaultProp` |
 | `typescript/react/stable-keys` | List keys are stable ids, never the array index. | tsx | tool biome `lint/suspicious/noArrayIndexKey` |
 | `typescript/react/use-action-state` | Form action state comes from useActionState in react, not useFormState from react-dom. | tsx | ast-grep forbid |
 | `typescript/react/use-sync-external-store` | An effect that subscribes to a browser value (window resize, online/offline, storage, visibilitychange, a matchMedia change) and copies it into state renders a stale value first and tears under concurrent rendering. Read it with useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot). | tsx | ast-grep advise<br>advice, never blocks |
+| `typescript/react/view-transition-reduced-motion` | A project animating with React's <ViewTransition> has a prefers-reduced-motion rule for its ::view-transition-* animations in its CSS (@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none } }). | any | check lint: a shell script of 5 lines (when `**/*.tsx`, `**/*.jsx`, `**/*.css` or `**/*.scss` changes) |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/react/react-19-upgrade` | Upgrading a codebase from React 18 to 19 with the React and types codemods, then reading their diff. | on-demand | The task is to upgrade React from version 18 to version 19. | `react <19.0.0` (npm) declared |
 
 ### typescript/react/react-hook-form
 
@@ -1160,6 +1329,33 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/react/zustand/stable-selector` | A zustand store hook's selector does not return a new object or array literal (useStore((s) => ({ a: s.a })), (s) => [s.a, s.b]): zustand 5 compares with Object.is, so every render gets a new value and the component re-renders until React gives up (Maximum update depth exceeded). Select one value per call or wrap the selector in useShallow(). | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+### typescript/react-email
+
+Email templates written with React Email.
+
+Detected by: a dependency on one of `react-email` (npm), `@react-email/components` (npm), `@react-email/render` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/react-email/email-preview` | Previewing React Email templates in the dev server, or rendering one to HTML and plain text, to see what the email shows. | on-demand | The task builds or changes an email template.<br>The task debugs how an email renders or what it contains. | wherever its pack is |
+
+### typescript/react-native
+
+React Native apps.
+
+Detected by: a dependency on `react-native` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/react-native/rn-measure` | Measuring a React Native app's bundle size, renders and startup before and after an optimisation. | on-demand | The task makes a React Native app faster, smoother or smaller.<br>The task investigates slow screens, dropped frames, slow startup or a large bundle in a React Native app. | wherever its pack is |
+| `typescript/react-native/rn-upgrade-helper-diff` | Upgrading React Native by reading the official template's diff between the current and the target version and applying it. | on-demand | The task upgrades the React Native version of an app. | wherever its pack is |
 
 ### typescript/react-router
 
@@ -1193,6 +1389,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/redis/no-keys` | No KEYS command on a Redis client (client.keys(pattern) / client.KEYS(…)): it walks the whole keyspace in O(N) and blocks the server; iterate with scanStream() / scanIterator() / SCAN. | typescript | ast-grep forbid (where `$C`: types engine, §15) |
 
+### typescript/remotion
+
+Videos made with Remotion, React compositions rendered to video.
+
+Detected by: a dependency on one of `remotion` (npm), `@remotion/cli` (npm).
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/remotion/remotion-render-still` | Rendering stills or a few frames of a Remotion composition with the Remotion CLI and looking at them. | on-demand | The task makes or changes a Remotion composition, a scene or its animation.<br>The task needs to see what a Remotion video shows at given frames. | wherever its pack is |
+
 ### typescript/resend
 
 Resend email SDK.
@@ -1207,6 +1416,22 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/resend/check-error` | The result of resend.emails.send(…) / resend.batch.send(…) is used (const { data, error } = await …, then error handled), not discarded: Resend returns errors instead of throwing, so a failed send is otherwise silent. | typescript | ast-grep forbid (where `$R`: types engine, §15) |
+| `typescript/resend/no-batch-attachments` | resend.batch.send() takes no attachments and no scheduledAt: send those emails one by one with resend.emails.send(). | typescript | ast-grep forbid (where `$R`: types engine, §15) |
+| `typescript/resend/server-only` | A 'use client' module does not import resend: the Resend API refuses browser requests (no CORS) and the API key would ship in the bundle. Send from a Server Action or a route handler. | typescript | ast-grep forbid |
+
+### typescript/shadcn
+
+UI built from shadcn/ui components copied into the project.
+
+Detected by: a line matching `ui\.shadcn\.com/schema\|^\s*"tailwind"\s*:\s*\{` in a file matching `components.json`, `*/components.json`, `*/*/components.json`.
+Child of `typescript`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/shadcn/shadcn-project-context` | Reading the project's shadcn configuration, installed components and component docs with the shadcn CLI, and adding components with it. | on-demand | The task adds or changes a UI component or control, such as a form field, a dialog, a menu or a table.<br>The task fixes how a UI component looks or behaves. | wherever its pack is |
+| `typescript/shadcn/shadcn-upstream-diff` | Updating shadcn components from upstream while keeping local edits, by reading the CLI's dry run and per-file diffs first. | on-demand | The task updates shadcn components to their upstream version, or applies a new preset or style to them. | wherever its pack is |
 
 ### typescript/solid
 
@@ -1255,11 +1480,17 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/stripe/api-idempotency-key` | A Stripe call that moves money (paymentIntents, charges, refunds, transfers, payouts or subscriptions .create) passes request options with an idempotencyKey: a retried request (a job retry, a timeout, a double submit) otherwise charges, refunds or pays out twice. Pass { idempotencyKey } as the second argument, derived from the operation it performs (the order or refund id), never a fresh random value. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep forbid (where `$S`: types engine, §15) |
+| `typescript/stripe/no-charges-api` | New payments go through PaymentIntents (stripe.paymentIntents.create) or Checkout Sessions, not the legacy Charges API (stripe.charges.create), which cannot handle 3D Secure / SCA authentication. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
 | `typescript/stripe/no-client-price` | The amount or unit_amount given to a Stripe create or update call comes from the request (its JSON or form body, its query): a client can then pay what it chooses. Look the price up on the server (the product in the database, or a Stripe Price id) and send only the item and quantity from the client. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep advise (where `$S`: types engine, §15)<br>advice, never blocks |
 | `typescript/stripe/no-created-ordering` | A Stripe event's created timestamp is not compared to order or deduplicate events: Stripe does not deliver events in order, and created has a one-second resolution, so several events share it. Deduplicate on event.id, and for the current state of an object read it back from the API (or compare the object's own fields) instead of trusting event order. | typescript: `**/*`, `!@ts-tests` | ast-grep forbid (where `$E`: types engine, §15) |
+| `typescript/stripe/no-payment-method-types` | Stripe calls do not pass payment_method_types (except card_present / interac_present for Terminal): leave it out so the payment methods enabled in the Dashboard apply (dynamic payment methods), or use automatic_payment_methods. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
 | `typescript/stripe/webhook-idempotent` | A Stripe webhook handler that verifies the event with webhooks.constructEvent / constructEventAsync never reads the event's id: Stripe delivers an event more than once, so a handler that is not idempotent fulfils an order or credits an account twice. Record event.id as processed (a unique row written in the same transaction as the effect) and skip an id already seen. | typescript: `**/*`, `!@ts-tests` | ast-grep advise (where `$S`: types engine, §15)<br>advice, never blocks |
 | `typescript/stripe/webhook-raw-body` | The payload given to stripe.webhooks.constructEvent / constructEventAsync is the raw request body (text or Buffer), not JSON.stringify(…), await req.json() or a variable declared from one in the same function: the signature is computed over the exact bytes Stripe sent, so a re-serialised body never verifies. | typescript | ast-grep forbid (where `$S`: types engine, §15) |
 | `typescript/stripe/webhook-verify-signature` | A Stripe event is not taken from the parsed request body (await req.json(), req.body or JSON.parse(…) typed as Stripe.Event): anyone can post a forged event to the endpoint. Read the raw body and verify it with stripe.webhooks.constructEvent / constructEventAsync and the endpoint's signing secret. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep forbid |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/stripe/webhooks-local` | Sending real Stripe test events to a local webhook handler with the Stripe CLI. | on-demand | The task builds, changes or debugs a Stripe webhook handler. | wherever its pack is |
 
 ### typescript/svelte
 
@@ -1282,6 +1513,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/svelte/no-debug-tags` | No {@debug} tag is left in a .svelte file: it pauses the browser's devtools on every update. | any: `**/*.svelte` | tool biome `lint/nursery/noSvelteAtDebugTags` |
 | `typescript/svelte/runes-only` | Svelte components use runes, not legacy syntax that silently switches the component to legacy mode: no export let ($props()), $: ($derived / $effect), on:event (onevent), <slot> or $$slots ({@render}), $$props / $$restProps, createEventDispatcher (callback props), beforeUpdate / afterUpdate ($effect.pre / $effect), svelte/legacy. | any: `**/*.svelte` | grep forbid `^[[:space:]]*\$:[[:space:]]\|^[[:space:]]*export[[:space:]]+let[[:space:]]\|[[:space:]]on:[a-zA-Z]+[\|=>[:space:]]\|<slot([[:space:]/>]\|$)\|\$\$(slots\|props\|restProps)\|createEventDispatcher\|(beforeUpdate\|afterUpdate)[[:space:]]*[,}(]\|['"]svelte/legacy['"]` |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/svelte/docs` | Reading the current Svelte and SvelteKit documentation and checking a component with the Svelte team's CLI. | on-demand | The task writes or changes Svelte components or SvelteKit code using APIs whose current form needs checking. | wherever its pack is |
+
 ### typescript/svelte/kit
 
 SvelteKit configuration.
@@ -1292,9 +1527,12 @@ Child of `typescript/svelte`: active only where it is.
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/svelte/kit/external-redirect` | SvelteKit 3: redirect() to a literal http(s):// URL passes a third argument ({ external: true } or an allowlist of origins); without it SvelteKit 3 throws on an external location. | typescript | ast-grep forbid (where `$F`: types engine, §15)<br>applies where `@sveltejs/kit >=3.0.0` (npm) declared |
+| `typescript/svelte/kit/load-returns-serializable` | A server load (+page.server.ts, +layout.server.ts) returns data devalue can serialize: no functions and no class instances (Date, Map, Set, URL, RegExp and BigInt are fine). Return plain data, and keep behaviour in the component or a universal load. | typescript: `**/+page.server.ts`, `**/+layout.server.ts`, `**/+page.server.js`, `**/+layout.server.js` | ast-grep forbid |
 | `typescript/svelte/kit/no-app-stores` | No imports of $app/stores (deprecated since SvelteKit 2.12, removed in 3): use page, navigating and updated from $app/state. | any: `**/*.svelte`, `**/*.ts`, `**/*.js`, `**/*.mts`, `**/*.mjs` | grep forbid `(from\|import)[[:space:]]*\(?[[:space:]]*["']\$app/stores["']`<br>applies where `@sveltejs/kit >=2.12.0` (npm) declared |
 | `typescript/svelte/kit/no-csrf-off` | svelte.config does not turn off SvelteKit's CSRF protection: no csrf.checkOrigin: false, no "*" in csrf.trustedOrigins. Name the trusted origins. | typescript: `svelte.config.*` | ast-grep forbid |
 | `typescript/svelte/kit/no-env-modules` | No imports of $env/static/private, $env/static/public, $env/dynamic/private or $env/dynamic/public on SvelteKit 3 (deprecated): import from $app/env/private or $app/env/public. | any: `**/*.svelte`, `**/*.ts`, `**/*.js`, `**/*.mts`, `**/*.mjs` | grep forbid `(from\|import)[[:space:]]*\(?[[:space:]]*["']\$env/(static\|dynamic)/(private\|public)["']`<br>applies where `@sveltejs/kit >=3.0.0` (npm) declared |
+| `typescript/svelte/kit/no-module-state-from-request` | Server code does not keep per-request data (cookies, locals, the user, the session) in a module-level variable: a server module is shared by every request, so the next request reads another user's data. Keep it in event.locals or return it from load. | typescript: `**/hooks.server.ts`, `**/hooks.server.js`, `**/+*.server.ts`, `**/+*.server.js`, `**/lib/server/**` | ast-grep forbid |
+| `typescript/svelte/kit/no-shared-module-state` | A shared module (src/lib) does not export mutable module-level state (export let, or a $state object) that components write per user: on the server one module instance serves every request, so one user's data leaks into another's page. Put such state in a context (setContext) or pass it from load. | typescript: `src/lib/**`, `!src/lib/server/**`, `!@ts-tests` | ast-grep advise<br>advice, never blocks |
 
 ### typescript/t3-env
 
@@ -1328,7 +1566,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/tailwind/apply-reference` | A .vue, .svelte or .astro file, or a CSS module, that uses @apply also has @reference (or @import "tailwindcss"): Tailwind 4 builds these stylesheets on their own, and @apply fails with 'Cannot apply unknown utility class'. | any: `**/*.vue`, `**/*.svelte`, `**/*.astro`, `**/*.module.css` | check lint: a shell script of 8 lines |
 | `typescript/tailwind/config-referenced` | A tailwind.config.js, .ts, .mjs or .cjs at the root is loaded by a CSS file with @config: Tailwind 4 ignores it otherwise, without a word. Add @config, or move the theme to @theme and delete the file. | any: `tailwind.config.*`, `**/*.css` | check lint: a shell script of 7 lines (when `tailwind.config.*` or `**/*.css` changes) |
+| `typescript/tailwind/no-double-wrapped-color` | A CSS variable that already holds a full color (--primary: hsl(220 90% 56%) or oklch(...)) is used as var(--primary), not wrapped again in hsl(var(--primary)), which makes an invalid color. | any: `**/*.css`, `**/*.pcss`, `**/*.scss` | check lint: a shell script of 20 lines (when `**/*.css`, `**/*.pcss` or `**/*.scss` changes) |
 | `typescript/tailwind/no-removed-utilities` | No Tailwind 3 utilities removed in v4, which generate nothing: *-opacity-N (bg-black/50), flex-shrink-* and flex-grow-* (shrink-*, grow-*), overflow-ellipsis (text-ellipsis), decoration-slice and decoration-clone (box-decoration-*). | any: `**/*.tsx`, `**/*.jsx`, `**/*.vue`, `**/*.svelte`, `**/*.astro`, `**/*.html`, `**/*.css` | grep forbid `(^\|[^a-zA-Z0-9-])((bg\|text\|border\|divide\|ring\|placeholder)-opacity-[0-9]+\|flex-(shrink\|grow)(-[0-9]+)?\|overflow-ellipsis\|decoration-(slice\|clone))([^a-zA-Z0-9:-]\|$)` |
+| `typescript/tailwind/no-tailwind-directives` | Tailwind CSS 4 is loaded with @import "tailwindcss", not the v3 directives @tailwind base, @tailwind components and @tailwind utilities. | any: `**/*.css`, `**/*.pcss`, `**/*.scss`, `**/*.vue`, `**/*.svelte`, `**/*.astro` | grep forbid `^[[:space:]]*@tailwind[[:space:]]+(base\|components\|utilities\|variants\|screens)` |
+| `typescript/tailwind/plugin-directive` | A Tailwind CSS 4 plugin (@tailwindcss/typography, @tailwindcss/forms, daisyui, ...) is loaded in the CSS with @plugin "<name>", not with @import (which imports nothing usable) or a plugins entry in a tailwind.config no CSS loads. | any: `**/*.css`, `**/*.pcss`, `**/*.scss` | grep forbid `^[[:space:]]*@import[[:space:]]+(url\()?['"](@tailwindcss/(typography\|forms\|aspect-ratio\|container-queries\|line-clamp)\|daisyui\|tailwindcss-animate\|tailwind-scrollbar\|flowbite/plugin)['"]` |
 
 ### typescript/tanstack-router
 
@@ -1377,7 +1618,9 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/testing-library/lint` | In ESLint projects, eslint-plugin-testing-library's rules are errors: async queries are awaited, waitFor callbacks have no side effects, findBy instead of waitFor + getBy, queries through screen, no unnecessary act(), no DOM node access. | typescript: `@ts-tests` | tool eslint `testing-library/await-async-queries`<br>tool eslint `testing-library/no-wait-for-side-effects`<br>tool eslint `testing-library/prefer-find-by`<br>tool eslint `testing-library/prefer-screen-queries`<br>tool eslint `testing-library/no-unnecessary-act`<br>tool eslint `testing-library/no-node-access` |
 | `typescript/testing-library/no-container-queries` | A test queries what the user sees through screen (getByRole, getByLabelText, getByText), not render()'s container with querySelector / querySelectorAll: a CSS selector ties the test to the markup and passes for elements no user can reach. | typescript: `@ts-tests` | ast-grep advise (where `$R`: types engine, §15)<br>advice, never blocks |
+| `typescript/testing-library/no-empty-wait-for` | waitFor() is given an assertion to retry (await waitFor(() => expect(...).toBe(...))), not an empty callback, which passes at once and only waits a tick. Wait for what the test expects, or use a findBy query. | typescript: `@ts-tests` | ast-grep forbid |
 | `typescript/testing-library/no-hooks-lib` | No imports from @testing-library/react-hooks (React 16 and 17 only); renderHook comes from @testing-library/react. | typescript | ast-grep forbid |
+| `typescript/testing-library/no-manual-cleanup` | Tests do not import or call Testing Library's cleanup(): it runs after each test on its own with Jest and Vitest globals (Vitest without globals: import @testing-library/react/vitest or set globals: true). | typescript: `@ts-tests`, `**/setupTests.*`, `**/vitest.setup.*`, `**/jest.setup.*` | tool eslint `testing-library/no-manual-cleanup`<br>ast-grep forbid |
 
 ### typescript/trpc
 
@@ -1414,6 +1657,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/turbo/no-env-loose-flag` | Claude asks before running turbo with --env-mode=loose; it hides which variables a task needs (declare them in env or passThroughEnv instead), and a cached result may then depend on variables turbo does not hash. | any | guard ask: command `{name: turbo, flags_any: [--env-mode=loose], value_flags: [--env-mode]}` |
 | `typescript/turbo/no-env-loose` | turbo.json keeps the strict env mode (no "envMode": "loose"): in loose mode tasks see every variable and the cache ignores the undeclared ones. | any: `**/turbo.json` | grep forbid `"envMode"[[:space:]]*:[[:space:]]*"loose"` |
 | `typescript/turbo/tasks-key` | turbo.json declares its tasks under tasks; Turborepo 2 rejects the old pipeline key. | any: `**/turbo.json` | grep forbid `"pipeline"[[:space:]]*:` |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/turbo/bundled-docs` | Reading the Turborepo documentation shipped with the installed turbo, which matches its version. | on-demand | The task changes Turborepo configuration, task pipelines, caching or filters.<br>The task changes how a Turborepo monorepo runs in CI. | `turbo >=2.11.5` (npm) declared |
 
 ### typescript/typeorm
 
@@ -1489,6 +1736,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/vitest/no-conditional-expect` | Assertions run on every path of a test: no expect() only in a catch block, a .catch() callback or one branch of an if, where the test passes without asserting anything. Assert the outcome directly (await expect(p).rejects.toThrow(), expect(() => f()).toThrow()), or assert the condition first (expect(r.success).toBe(true)) and then branch. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep forbid |
 | `typescript/vitest/no-exit-zero` | Test, setup and mock files never call process.exit(0): the run reports success whatever the tests did. | typescript: `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/__mocks__/**`, `**/test-utils.*`, `**/test-helpers.*`, `**/vitest.setup.*`, `!e2e/**` | ast-grep forbid |
 | `typescript/vitest/no-fewer-expects` | Assertions are not removed from tests. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-decrease |
+| `typescript/vitest/no-jest-api` | A Vitest test uses vi (vi.fn(), vi.mock(), vi.spyOn(), vi.useFakeTimers()), not the jest object, which Vitest does not define. | typescript: `@ts-tests`, `**/vitest.setup.*`, `**/setupTests.*` | ast-grep forbid |
 | `typescript/vitest/no-matcher-override` | expect.extend does not redefine a built-in matcher (toBe, toEqual, toStrictEqual, toMatchObject, toThrow, …): every assertion using it would then pass. Give a custom matcher its own name. The receiver is Vitest's expect by its type, whatever it is called. | typescript: `@ts-tests`, `**/vitest.setup.*`, `**/__mocks__/**` | ast-grep forbid (where `$E`: types engine, §15) |
 | `typescript/vitest/no-mock-increase` | A test file may not gain mocks: vi.mock, vi.doMock, vi.spyOn, vi.fn, also through an import alias (import { vi as v }); test through the real code or a fake at the boundary. vi.stubEnv and vi.stubGlobal are not counted: they set configuration for a test, like pytest's monkeypatch. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-increase |
 | `typescript/vitest/no-new-skip` | Tests are not skipped, made conditional, left as todo or focused with .only. | typescript: `@ts-tests`, `!@e2e-tests` | ast-grep no-increase |
@@ -1599,10 +1847,9 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `typescript/zod/error-param` | Zod 4 custom messages use the single error parameter ({ error }), not message, required_error, invalid_type_error or errorMap. | typescript | ast-grep forbid<br>applies where `zod >=4.0.0` (npm) declared |
+| `typescript/zod/function-input-output` | Zod 4 function schemas take their arguments and result in one call, z.function({ input: [z.string()], output: z.number() }), then .implement(fn); the z.function().args().returns() chain is gone. | typescript | ast-grep forbid (where `$F`: types engine, §15)<br>applies where `zod >=4.0.0` (npm) declared |
 | `typescript/zod/no-coerce-boolean` | No z.coerce.boolean(): it applies Boolean(), so every non-empty string, "false" and "0" included, parses as true (an env var or a query flag set to false turns the feature on). Parse string flags with z.stringbool() (Zod 4), or with z.enum(["true", "false"]).transform((v) => v === "true") on Zod 3. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
+| `typescript/zod/no-deep-partial` | Zod 4 has no .deepPartial(). Make the nested fields optional where they are declared, or apply .partial() to each nested object schema. | typescript | ast-grep forbid (where `$S`: types engine, §15)<br>applies where `zod >=4.0.0` (npm) declared |
 | `typescript/zod/no-loose-request-schema` | A Zod schema that parses request input (a JSON or form body, search params) keeps unknown keys (.passthrough(), z.looseObject() or .catchall(…)): the parsed object then carries any field the client adds, and spreading it into a database write lets the client set role, ownerId or price (mass assignment). Use z.object() (it strips unknown keys) or z.strictObject() / .strict() to reject them. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep advise (where `$CALL`, `$R`, `$FD`: types engine, §15)<br>advice, never blocks |
+| `typescript/zod/record-key-value` | Zod 4's z.record() takes the key schema and the value schema, z.record(z.string(), z.number()); the one-argument form is gone. Use z.partialRecord() for optional enum keys. | typescript | ast-grep forbid (where `$F`: types engine, §15)<br>applies where `zod >=4.0.0` (npm) declared |
 | `typescript/zod/v4-string-formats` | Zod 4 string formats are top-level (z.email(), z.uuid(), z.iso.datetime()), not z.string().email(). | typescript | ast-grep forbid (where `$S`: types engine, §15) |
-
-| Capability (§20) | Description | Delivered | Relevant when | Active when |
-|---|---|---|---|---|
-| `typescript/zod/zod-4` | Zod 4's API beyond the basics, what changed since Zod 3 and the schema types it added. | on-demand | The task writes or changes Zod schemas, or validates data with Zod.<br>The task upgrades Zod from version 3 to version 4. | `zod >=4.0.0` (npm) declared |

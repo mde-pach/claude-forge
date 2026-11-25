@@ -129,6 +129,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/weak-crypto` | No insecure cipher (ARC4, Blowfish, IDEA, ...) or ECB mode, and no RSA/DSA key under 2048 bits or EC curve under 224 bits with the cryptography package. | python | tool ruff `S304`<br>tool ruff `S305`<br>tool ruff `S505` |
 | `python/with-suffix-dot` | Path.with_suffix() gets a suffix with its dot (".txt"). | python | tool ruff `PTH210` |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/profile` | Measuring where Python code spends time or memory with cProfile, py-spy and tracemalloc, before optimising it. | on-demand | The task is to make Python code faster or use less memory.<br>The task is to find why Python code is slow or uses too much memory. | wherever its pack is |
+
 ### python/airflow
 
 Apache Airflow DAGs.
@@ -138,8 +142,13 @@ Child of `python`: active only where it is.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
-| `python/airflow/airflow3` | No Airflow 2 API that Airflow 3 removed, moved or deprecated (ruff AIR301, AIR302, AIR303, AIR311, AIR312: days_ago, schedule_interval, execution_date, DummyOperator, airflow.operators.* now in the standard provider, airflow.models / airflow.decorators names now in airflow.sdk), and no direct metadata-database session (airflow.settings.Session, provide_session, create_session): Airflow 3 tasks reach the database only through the Task SDK and the API server. | python | tool ruff `AIR301`<br>tool ruff `AIR302`<br>tool ruff `AIR303`<br>tool ruff `AIR311`<br>tool ruff `AIR312`<br>tool ruff `TID251`<br>applies where `apache-airflow >=3.0.0` (PyPI) declared |
+| `python/airflow/airflow3` | No Airflow 2 API that Airflow 3 removed, moved or deprecated (ruff AIR301, AIR302, AIR303, AIR311, AIR312: days_ago, schedule_interval, execution_date, DummyOperator, airflow.operators.* now in the standard provider, airflow.models / airflow.decorators names now in airflow.sdk), and no direct metadata-database access (airflow.settings.Session, airflow.settings.engine, provide_session, create_session): Airflow 3 tasks reach the database only through the Task SDK and the API server. | python | tool ruff `AIR301`<br>tool ruff `AIR302`<br>tool ruff `AIR303`<br>tool ruff `AIR311`<br>tool ruff `AIR312`<br>tool ruff `TID251`<br>applies where `apache-airflow >=3.0.0` (PyPI) declared |
+| `python/airflow/confirm-dag-trigger` | Triggering a DAG run (af runs trigger, af runs trigger-wait, airflow dags trigger, astro dev run dags trigger) asks the user first: the run executes the tasks against the connections it is configured with, which can write to real systems. | any | guard ask: command `{name: af, sub: [runs, trigger\|trigger-wait]}` or `{name: airflow, sub: [dags, trigger]}` or `{name: astro, sub: [dev, run, dags, trigger]}` or `{name: astro, sub: [run]}` |
 | `python/airflow/dag-schedule` | Every DAG() and @dag states schedule= (ruff AIR002), schedule=None included: the default changed between Airflow versions (None in Airflow 3), so an implicit schedule silently changes on upgrade. | python | tool ruff `AIR002` |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/airflow/dag-test` | Running an Airflow DAG or one task locally and reading the task logs, to check a DAG change works. | on-demand | The task adds or changes an Airflow DAG or operator.<br>The task is to find why an Airflow DAG or task fails. | wherever its pack is |
 
 ### python/anthropic
 
@@ -199,6 +208,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/celery/no-result-get-in-task` | A task does not wait for another task's result (.get(), .wait() or .join() on the AsyncResult of .delay(), .apply_async(), AsyncResult() or a called group/chord/chain): it holds a worker while waiting and can deadlock the pool; Celery refuses it unless disable_sync_subtasks=False, which is rejected too. Chain the tasks or use a chord callback. | python | ast-grep forbid |
 | `python/celery/no-sqlalchemy-model-args` | A task's arguments (.delay(…), .s(…), .si(…), apply_async(args=…, kwargs=…)) are not SQLAlchemy mapped instances: they are serialized at send time, detached from their session and stale when the worker runs. Pass the primary key and load the row in the task. | python | ast-grep forbid (where `$T`, `$A`: types engine, §15)<br>applies where `sqlalchemy >=2.0` (PyPI) declared |
 
+### python/dagster
+
+Dagster data pipelines, their assets, jobs and schedules.
+
+Detected by: a dependency on one of `dagster` (PyPI), `dagster-dg-cli` (PyPI).
+Child of `python`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/dagster/dg-defs` | Listing the Dagster project's definitions and materializing an asset locally with the dg CLI. | on-demand | The task adds or changes a Dagster asset, job, schedule, sensor or resource.<br>The task debugs a Dagster asset or job that fails or produces wrong data. | wherever its pack is |
+
 ### python/django
 
 Django models, migrations and ORM queries.
@@ -218,8 +240,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `python/django/allowed-hosts-wildcard` | ALLOWED_HOSTS does not contain "*" outside development and test settings: it turns off Django's Host header check, which keeps forged hosts out of password-reset links and cache keys. List the domains the site serves (a DisallowedHost error means one is missing). | python: `@django-settings`, `!**/settings/dev*.py`, `!**/settings/local*.py`, `!**/settings/test*.py`, `!**/settings_dev*.py`, `!**/settings_local*.py`, `!**/settings_test*.py` | ast-grep forbid |
 | `python/django/applied-migrations` | Django migrations already on the default branch (file role @django-migrations) are not modified or deleted; they may already be applied, so a change goes in a new migration (makemigrations). A migration this branch added and that is not merged yet may still be edited. | any | check migration: `forge_applied_migrations @django-migrations` |
 | `python/django/async-orm` | Inside an async def, the ORM is used through its async API: asave() / adelete() / arefresh_from_db() on a model, aget() / afirst() / acount() / aexists() / acreate() / aupdate() / … on a QuerySet or manager, async for over a QuerySet. The sync calls raise SynchronousOnlyOperation when they run; wrap sync code in sync_to_async. | python | ast-grep forbid (where `$R`: types engine, §15) |
+| `python/django/cors-allow-all` | django-cors-headers does not allow every origin (CORS_ALLOW_ALL_ORIGINS = True, CORS_ORIGIN_ALLOW_ALL = True) outside development and test settings: any website can then read the API's responses from a visitor's browser. List the origins in CORS_ALLOWED_ORIGINS (or CORS_ALLOWED_ORIGIN_REGEXES). | python: `@django-settings`, `!**/settings/dev*.py`, `!**/settings/local*.py`, `!**/settings/test*.py`, `!**/settings_dev*.py`, `!**/settings_local*.py`, `!**/settings_test*.py` | ast-grep forbid |
 | `python/django/csrf-exempt` | No @csrf_exempt and no csrf_exempt(view): turning off CSRF protection is the user's decision. Ask them (is the endpoint authenticated by something other than cookies, such as a signed webhook?). | python | ast-grep forbid |
 | `python/django/flake8-django` | ruff's flake8-django checks: no null=True on string fields (DJ001), no locals() as template context (DJ003), ModelForm lists its fields instead of exclude or "__all__" (DJ006, DJ007: new model fields would become editable), @receiver is the outermost decorator (DJ013: otherwise the handler is not connected). | python | tool ruff `DJ001`<br>tool ruff `DJ003`<br>tool ruff `DJ006`<br>tool ruff `DJ007`<br>tool ruff `DJ013` |
 | `python/django/mailers-setting` | From Django 6.1, the email backend is configured in MAILERS, not the EMAIL_BACKEND / EMAIL_HOST / EMAIL_PORT / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD / EMAIL_USE_TLS / EMAIL_USE_SSL / EMAIL_TIMEOUT / EMAIL_FILE_PATH / EMAIL_SSL_CERTFILE / EMAIL_SSL_KEYFILE settings, which are deprecated. | python: `@django-settings` | ast-grep forbid<br>applies where `django >=6.1` (PyPI) declared |
@@ -233,6 +257,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/django/no-mark-safe` | No mark_safe() or @mark_safe on text that is not a constant (ruff S308): a value marked safe is not escaped, so user input in it is cross-site scripting. Build HTML with format_html(), which escapes its arguments. | python | tool ruff `S308` |
 | `python/django/no-raw-sql-format` | QuerySet.extra() and RawSQL() take no SQL built at run time (ruff S610, S611): pass constant SQL with %s placeholders and params, or use annotate() and filter() with expressions. SQL strings built with f-strings, .format(), % or + anywhere, a variable passed to .raw() or cursor.execute() included, are python/no-sql-format (ruff S608). | python: `!@django-migrations` | tool ruff `S610`<br>tool ruff `S611` |
 | `python/django/no-template-unescape` | No \|safe or \|safeseq filter and no {% autoescape off %} in a Django template: the value is printed unescaped, so user input in it is cross-site scripting. Build the HTML in Python with format_html(), or keep autoescaping. | any: `@django-templates` | grep advise `\\|[[:space:]]*safe(seq)?([^A-Za-z_]\|$)\|\{%-?[[:space:]]*autoescape[[:space:]]+off`<br>advice, never blocks |
+| `python/django/production-settings` | Production settings modules (settings/prod*.py, settings_prod*.py) never set DEBUG = True, which shows tracebacks, settings and SQL to any visitor, nor an empty ALLOWED_HOSTS, with which every request fails with 400 once DEBUG is off. Read DEBUG from the environment with a False default, and list the served domains. | python: `**/settings/prod*.py`, `**/settings_prod*.py`, `**/prod_settings.py`, `**/production_settings.py` | ast-grep forbid |
 | `python/django/queryset-len` | len(queryset) loads every row to count them; when the rows are not used afterwards, queryset.count() asks the database for the number (a SELECT COUNT(*)). | python | ast-grep advise (where `$Q`: types engine, §15)<br>advice, never blocks |
 | `python/django/storages-setting` | File and static storage backends are set in STORAGES ({"default": {…}, "staticfiles": {…}}), not DEFAULT_FILE_STORAGE or STATICFILES_STORAGE: Django 5.1 removed those settings and ignores them in silence, so uploads and collectstatic fall back to the local file system. | python: `@django-settings` | ast-grep forbid<br>applies where `django >=4.2` (PyPI) declared |
 | `python/django/user-model-ref` | Relations to users name settings.AUTH_USER_MODEL, not django.contrib.auth.models.User nor the string "auth.User" (a hard-coded User breaks once the project has a custom user model). | python | ast-grep forbid (where `$F`, `$U`: types engine, §15) |
@@ -288,6 +313,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/fastapi/basic-auth-compare-digest` | HTTP Basic credentials (HTTPBasicCredentials.username / .password) are compared with secrets.compare_digest, never == or !=, which leak through timing how much of the value matched. | python | ast-grep forbid (where `$C`: types engine, §15) |
 | `python/fastapi/bounded-pagination` | A page-size query parameter (limit, page_size, per_page, size, max_results) has an upper bound: Query(le=100) (or lt=). Without one a client asks for every row in one request, which loads the whole table into memory. Clamp it with le= on the Query. | python | ast-grep forbid (where `$F`: types engine, §15) |
 | `python/fastapi/cors-credentials-wildcard` | CORS never combines allow_origins=["*"] with allow_credentials=True. List the allowed origins. | python | ast-grep forbid |
+| `python/fastapi/cors-explicit-origins` | CORSMiddleware lists the origins allowed (allow_origins=["https://app.example.com"]) rather than "*", unless the API is public and reads no cookies or credentials: with "*", any website can call it from a visitor's browser. | python | ast-grep advise<br>advice, never blocks |
 | `python/fastapi/deprecated-params` | No FastAPI parameters deprecated only at run time. Query/Path/Header/Cookie/Body/Form/File take pattern= (not regex=) and examples= or openapi_examples= (not example=); FastAPI() takes no root_path= (pass --root-path to fastapi run or uvicorn). | python | ast-grep forbid (where `$F`, `$APP`: types engine, §15) |
 | `python/fastapi/input-extra-forbid` | A request-body model (a BaseModel subclass named *Create, *Update, *Patch, *In or *Request) sets model_config = ConfigDict(extra="forbid"): by default Pydantic drops unknown fields in silence, so a misspelled field is accepted and ignored instead of returning 422. | python | ast-grep advise (where `$B`: types engine, §15)<br>advice, never blocks |
 | `python/fastapi/no-debug-true` | No FastAPI(debug=True) or Starlette(debug=True) outside tests: debug mode returns tracebacks (code, settings, local values) to any client that triggers an error. | python: `!**/tests/**`, `!**/test_*.py`, `!**/*_test.py`, `!**/conftest.py` | ast-grep forbid (where `$C`: types engine, §15) |
@@ -330,6 +356,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `python/flask/sqlalchemy/no-model-query` | No legacy Model.query on Flask-SQLAlchemy models: use db.session.execute(db.select(User)...), db.session.scalars(...), db.session.get(User, id), db.get_or_404(User, id) or db.paginate(db.select(User)). | python | ast-grep forbid (where `$M`: types engine, §15) |
 
+### python/google-adk
+
+Agents built with Google's Agent Development Kit (ADK).
+
+Detected by: a dependency on `google-adk` (PyPI).
+Child of `python`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/google-adk/adk-eval` | Running the ADK agent's evaluation sets and reading their scores before and after changing it. | on-demand | The task changes an ADK agent's behaviour, such as its instructions, tools, sub-agents or model.<br>The task adds or changes an ADK evaluation set. | wherever its pack is |
+
 ### python/huggingface
 
 Hugging Face model and dataset loading.
@@ -339,8 +378,14 @@ Child of `python`: active only where it is.
 
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
+| `python/huggingface/no-huggingface-cli` | Scripts, Dockerfiles, CI and commands use the hf CLI (hf auth login, hf download, hf upload), not huggingface-cli: huggingface_hub 0.34 replaced it and 1.0 removed it. | any: `**/*.sh`, `**/*.bash`, `**/Dockerfile`, `**/Dockerfile.*`, `**/*.Dockerfile`, `**/Containerfile`, `**/Makefile`, `**/*.mk`, `**/justfile`, `**/Justfile`, `.github/workflows/*.yml`, `.github/workflows/*.yaml`, `.gitlab-ci.yml`, `**/*.py`, `**/*.ipynb` | grep forbid `(^\|[^A-Za-z0-9_.-])huggingface-cli([^A-Za-z0-9_-]\|$)`<br>guard deny: command `{name: huggingface-cli}`<br>applies where `huggingface-hub >=0.34.0` (PyPI) declared |
+| `python/huggingface/no-literal-hf-token` | A Hugging Face token is never written on the command line (--token hf_…): it lands in the shell history and the session transcript. Leave it in the HF_TOKEN environment variable, or ask the user to run hf auth login. | any | guard deny: command `{name: [hf, huggingface-cli], option_values: {--token: '^hf_[A-Za-z0-9]'}}` or `{name: [hf, huggingface-cli], arg_regex: '^--token=hf_[A-Za-z0-9]'}` |
 | `python/huggingface/no-pickle-weights` | No use_safetensors=False: it loads the pickled .bin weights even when safetensors exist, and unpickling runs any code the file holds. Leave the default, which prefers safetensors. | python | ast-grep forbid |
 | `python/huggingface/no-trust-remote-code` | trust_remote_code=True (from_pretrained, pipeline, load_dataset, SentenceTransformer, vLLM) runs Python from the model or dataset repository. Prefer a model that does not need it; otherwise pin the revision= that was reviewed. | python | ast-grep advise<br>advice, never blocks |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/huggingface/hub-inspect` | Looking at a Hugging Face Hub model or dataset (its files, config, splits and real rows) before writing code for it. | on-demand | The task writes or changes code for a named public dataset or pretrained model, such as one on the Hugging Face Hub.<br>The task needs to know what a Hub repository, model or dataset contains. | wherever its pack is |
 
 ### python/import-linter
 
@@ -371,6 +416,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `python/jupyter/no-outputs` | Notebooks are committed without outputs or execution counts (nbformat's output_type and a non-null execution_count): outputs carry data, credentials and large blobs into the history. Clear them (jupyter nbconvert --clear-output --inplace, or nbstripout). | any: `**/*.ipynb` | grep forbid `"(output_type\|execution_count)"[[:space:]]*:[[:space:]]*("\|[0-9])` |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/jupyter/run-notebook` | Running a notebook top to bottom headless and reading its cell outputs and errors. | on-demand | The task creates or edits a Jupyter notebook.<br>The task is to find why a notebook fails or gives wrong output. | wherever its pack is |
 
 ### python/langchain
 
@@ -464,6 +513,12 @@ Child of `python`: active only where it is.
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `python/mcp/dns-rebinding-protection` | An MCP HTTP server keeps DNS rebinding protection: no TransportSecuritySettings(enable_dns_rebinding_protection=False), which lets any web page the user opens reach a local server. List allowed_hosts and allowed_origins instead. | python | ast-grep forbid (where `$CALL`: types engine, §15) |
+| `python/mcp/no-fastmcp` | mcp 2 has no mcp.server.fastmcp (importing it raises ModuleNotFoundError): FastMCP is now MCPServer, from mcp.server.mcpserver import MCPServer. | python | ast-grep forbid<br>applies where `mcp >=2.0.0` (PyPI) declared |
+| `python/mcp/no-mcperror-in-tool` | An MCPServer tool reports a failure it expects by raising ToolError (from mcp.server.mcpserver.exceptions), not MCPError: MCPError is a protocol error, so the client gets a JSON-RPC error instead of a tool result with is_error=True that the model can read and act on. | python | ast-grep forbid (where `$E`, `$S`: types engine, §15)<br>applies where `mcp >=2.0.0` (PyPI) declared |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/mcp/inspect` | Calling a Python MCP server's tools the way a client would, with the MCP Inspector's command-line mode. | on-demand | The task adds, changes or debugs the tools, resources or prompts of an MCP server written in Python. | wherever its pack is |
 
 ### python/msgspec
 
@@ -629,6 +684,10 @@ Child of `python`: active only where it is.
 |---|---|---|---|
 | `python/prefect/no-removed-v2-api` | No Prefect 2 API that Prefect 3 removed or moved (from Prefect's own migration table): Deployment.build_from_flow (use flow.deploy() or flow.serve()), the S3 / GCS / Azure / GitHub filesystem blocks (use the prefect-aws, prefect-gcp, prefect-azure, prefect-github blocks), agents and infrastructure blocks (use workers), and the moved names (load_flow_from_flow_run, variables.get, pause_flow_run / resume_flow_run / suspend_flow_run, prefect.client.get_client). | python | tool ruff `TID251`<br>applies where `prefect >=3.0.0` (PyPI) declared |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/prefect/runs` | Running a Prefect flow and reading its flow runs and their logs with the prefect CLI. | on-demand | The task adds or changes a Prefect flow, task or deployment.<br>The task is to find why a Prefect flow run fails. | wherever its pack is |
+
 ### python/psycopg
 
 psycopg 3 connections, cursors and pools.
@@ -674,6 +733,7 @@ Child of `python/pydantic`: active only where it is.
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `python/pydantic/settings/no-load-dotenv` | Settings read .env through SettingsConfigDict(env_file=...), not dotenv.load_dotenv(): pydantic-settings reads the file itself, and load_dotenv() also copies it into os.environ for the whole process. | python | tool ruff `TID251` |
+| `python/pydantic/settings/no-scattered-getenv` | Application code reads configuration from the project's pydantic-settings class, not os.getenv / os.environ: a setting read in place has no type, no validation at startup and no single list of what the app needs. Add a field to the settings class and use it. | python: `!**/settings.py`, `!**/settings/**`, `!**/config.py`, `!**/config/**`, `!**/conf.py`, `!**/tests/**`, `!**/test_*.py`, `!**/*_test.py`, `!**/conftest.py`, `!**/manage.py`, `!**/scripts/**`, `!**/migrations/**`, `!**/alembic/**`, `!**/noxfile.py`, `!**/setup.py` | ast-grep advise<br>advice, never blocks |
 
 ### python/pyjwt
 
@@ -689,6 +749,19 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `python/pyjwt/jwt-verify` | jwt.decode() names the accepted algorithms (algorithms=[...], never "none") and keeps the signature check: no options={"verify_signature": False}, no verify=False. | python | ast-grep forbid (where `$J`: types engine, §15) |
+
+### python/pyspark
+
+PySpark jobs and Spark DataFrames.
+
+Detected by: a dependency on one of `pyspark` (PyPI), `databricks-connect` (PyPI).
+Child of `python`: active only where it is.
+
+No rules of its own.
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/pyspark/spark-explain` | Reading a Spark job's physical plan and its stages for shuffles, skew and spills before tuning it. | on-demand | The task makes a Spark job or query faster, or makes it use less memory.<br>The task investigates why a Spark job is slow, runs out of memory or spills to disk. | wherever its pack is |
 
 ### python/pytest
 
@@ -720,6 +793,10 @@ Child of `python`: active only where it is.
 | `python/pytest/raises-single-statement` | A pytest.raises block holds only the statement expected to raise: the setup goes before it, or an earlier statement raising the same exception passes the test. | python: `@python-tests`, `!**/conftest.py` | tool ruff `PT012` |
 | `python/pytest/run` | Tests pass. | python | check test: `forge_do pytest test` (timeout 300 s) |
 | `python/pytest/untested-change` | A turn that changes application code also adds or updates a test, or says why none is needed; advisory, it blocks Stop once per turn. | python: `**/*.py`, `!@python-tests`, `!**/tests/**`, `!@django-migrations`, `!@alembic-migrations` | check lint: `forge_advise forge_untested_change`<br>advice, never blocks |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/pytest/coverage-gaps` | Finding the lines of a Python module that no test runs, with pytest-cov. | on-demand | The task asks which code is left uncovered by tests, or to raise test coverage.<br>The task asks to add tests for untested code. | wherever its pack is |
 
 ### python/pytest/asyncio
 
@@ -753,8 +830,14 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | Rule | Description | Scope | Enforced by |
 |---|---|---|---|
 | `python/redis/aclose` | An asyncio Redis client is closed with await r.aclose(), not r.close(): close() is deprecated through redis' own decorator, which the type checker does not read. | python | ast-grep forbid (where `$R`: types engine, §15) |
+| `python/redis/blocking-timeout` | Blocking pops (blpop, brpop, bzpopmin, bzpopmax, brpoplpush) pass a timeout above 0: timeout 0, the default, blocks for ever, so the worker never notices a shutdown or a dead connection. Pass timeout=<seconds> and loop. | python | ast-grep forbid (where `$R`: types engine, §15) |
+| `python/redis/client-per-request` | A request handler does not create a Redis client (Redis(...), Redis.from_url(...)): each one opens its own connection pool, so every request pays a new connection and idle ones pile up on the server. Create one client at startup (the app's lifespan, a module-level client or a dependency returning it) and reuse it. | python | ast-grep advise (where `$F`: types engine, §15)<br>advice, never blocks |
 | `python/redis/no-aioredis` | No aioredis: it is unmaintained (merged into redis-py 4.2); use redis.asyncio. | python | tool ruff `TID251` |
 | `python/redis/no-keys` | Application code does not call KEYS (r.keys(pattern)): it walks every key and blocks Redis while it runs. Iterate with scan_iter(match=pattern). | python | ast-grep forbid (where `$R`: types engine, §15) |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `python/redis/diagnose` | Finding slow commands, memory pressure and client problems on a Redis server with redis-cli. | on-demand | The task is to find why Redis is slow, uses too much memory, or refuses or drops connections. | wherever its pack is |
 
 ### python/sentry
 
@@ -949,6 +1032,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `python/uv/lock-sync` | uv.lock matches pyproject.toml; a stale lock is updated with uv lock. | any | check codegen: `forge_uv_lock` (when `pyproject.toml` or `uv.lock` changes) |
 | `python/uv/no-pip` | Dependencies are added with uv add and the environment is uv's; Claude asks before other package managers (poetry, pipenv, pdm, conda) or a hand-made virtualenv. | any | guard ask: command `{name: [poetry, pdm], sub: [add\|install]}` or `{name: pipenv, sub: [install]}` or `{name: [conda, mamba, micromamba], sub: [install]}` or `{name: [venv, virtualenv]}` |
 | `python/uv/no-requirements-txt` | Claude asks you before writing or editing requirements*.txt in a uv project; dependencies go through uv add, and uv export writes a requirements file for consumers that need one. | any | permission ask `Write(**/requirements*.txt)`<br>permission ask `Edit(**/requirements*.txt)` |
+| `python/uv/no-venv-activate` | Commands run in the project's environment through uv run <command> (uv run pytest, uv run python -m app), not after sourcing .venv/bin/activate: each shell command starts afresh, and uv run also syncs the environment with uv.lock first. | any | guard deny: command `{name: [source, .], arg_regex: '(^\|/)bin/activate(\.[a-z]+)?$'}` |
 
 ### python/uvicorn
 
