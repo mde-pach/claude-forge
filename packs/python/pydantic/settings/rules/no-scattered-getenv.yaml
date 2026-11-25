@@ -1,0 +1,23 @@
+id: python/pydantic/settings/no-scattered-getenv
+description: "Application code reads configuration from the project's pydantic-settings class, not os.getenv / os.environ: a setting read in place has no type, no validation at startup and no single list of what the app needs. Add a field to the settings class and use it."
+scope: {language: python, files: ["!**/settings.py", "!**/settings/**", "!**/config.py", "!**/config/**", "!**/conf.py", "!**/tests/**", "!**/test_*.py", "!**/*_test.py", "!**/conftest.py", "!**/manage.py", "!**/scripts/**", "!**/migrations/**", "!**/alembic/**", "!**/noxfile.py", "!**/setup.py"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      any:
+        - {kind: call, pattern: "os.getenv($$$)"}
+        - {kind: call, pattern: "os.environ.get($$$)"}
+        - kind: call
+          pattern: "getenv($$$)"
+          inside: {kind: module, stopBy: end, has: {kind: import_from_statement, all: [{has: {field: module_name, regex: "^os$"}}, {has: {field: name, regex: "^getenv$"}}]}}
+        - {kind: subscript, pattern: "os.environ[$K]", not: {inside: {kind: assignment, field: left}}}
+examples:
+  match:
+    - "import os\n\n\ndef db_url() -> str:\n    return os.getenv(\"DATABASE_URL\", \"\")\n"
+    - "from os import getenv\n\nTIMEOUT = int(getenv(\"TIMEOUT\", \"10\"))\n"
+    - "import os\n\nREGION = os.environ[\"AWS_REGION\"]\n"
+  no_match:
+    - "from app.settings import settings\n\n\ndef db_url() -> str:\n    return settings.database_url\n"
+    - "import os\n\nos.environ[\"TZ\"] = \"UTC\"\n"
+    - "def getenv(name: str) -> str:\n    return name\n\n\nMODE = getenv(\"MODE\")\n"

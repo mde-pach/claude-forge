@@ -1,0 +1,80 @@
+id: python/mcp/no-mcperror-in-tool
+description: "An MCPServer tool reports a failure it expects by raising ToolError (from mcp.server.mcpserver.exceptions), not MCPError: MCPError is a protocol error, so the client gets a JSON-RPC error instead of a tool result with is_error=True that the model can read and act on."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: raise_statement
+      has: {kind: call, has: {field: function, pattern: $E}}
+      inside:
+        kind: decorated_definition
+        stopBy: end
+        has:
+          kind: decorator
+          has:
+            stopBy: end
+            kind: attribute
+            regex: "\\.tool$"
+            has: {field: object, pattern: $S}
+    where:
+      E: {declared: {package: mcp, name: MCPError}}
+      S: {type: {package: mcp, name: MCPServer}}
+when:
+  deps: [{ecosystem: pypi, name: mcp, version: ">=2.0.0"}]
+examples:
+  deps: [{ecosystem: pypi, name: mcp, version: "2.3.0"}]
+  match:
+    - |
+      from mcp import MCPError
+      from mcp.server.mcpserver import MCPServer
+
+      server = MCPServer("shop")
+
+
+      @server.tool()
+      def order(order_id: int) -> str:
+          if order_id < 0:
+              raise MCPError(-32602, "order_id must be positive")
+          return str(order_id)
+    - |
+      from mcp.server.mcpserver import MCPServer
+      from mcp.shared.exceptions import MCPError as ProtocolError
+
+      app = MCPServer("shop")
+
+
+      @app.tool(name="refund")
+      async def refund(order_id: int) -> str:
+          raise ProtocolError(-32603, "refunds are closed")
+  no_match:
+    - |
+      from mcp.server.mcpserver import MCPServer
+      from mcp.server.mcpserver.exceptions import ToolError
+
+      server = MCPServer("shop")
+
+
+      @server.tool()
+      def order(order_id: int) -> str:
+          if order_id < 0:
+              raise ToolError("order_id must be positive")
+          return str(order_id)
+    - |
+      from mcp import MCPError
+
+
+      def check(code: int) -> None:
+          if code:
+              raise MCPError(code, "failed")
+    # a subclass the SDK passes on to the client on purpose
+    - |
+      from mcp.server.mcpserver import MCPServer
+      from mcp.shared.exceptions import UrlElicitationRequiredError
+
+      server = MCPServer("shop")
+
+
+      @server.tool()
+      def pay(order_id: int) -> str:
+          raise UrlElicitationRequiredError([])

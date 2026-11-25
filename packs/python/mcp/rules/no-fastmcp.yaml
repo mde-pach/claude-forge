@@ -1,0 +1,22 @@
+id: python/mcp/no-fastmcp
+description: "mcp 2 has no mcp.server.fastmcp (importing it raises ModuleNotFoundError): FastMCP is now MCPServer, from mcp.server.mcpserver import MCPServer."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - {kind: import_from_statement, has: {field: module_name, regex: "^mcp\\.server\\.fastmcp(\\.|$)"}}
+        - {kind: import_from_statement, all: [{has: {field: module_name, regex: "^mcp\\.server$"}}, {has: {field: name, regex: "^fastmcp($|[[:space:]])"}}]}
+        - {kind: import_statement, has: {field: name, regex: "^mcp\\.server\\.fastmcp(\\.|$|[[:space:]])"}}
+when:
+  deps: [{ecosystem: pypi, name: mcp, version: ">=2.0.0"}]
+examples:
+  match:
+    - "from mcp.server.fastmcp import FastMCP\n\nmcp = FastMCP(\"shop\")\n"
+    - "from mcp.server.fastmcp.prompts import base\n"
+    - "from mcp.server import fastmcp\n"
+    - "import mcp.server.fastmcp as fm\n"
+  no_match:
+    - "from mcp.server.mcpserver import MCPServer\n\nmcp = MCPServer(\"shop\")\n"
+    - "from fastmcp import FastMCP\n\nmcp = FastMCP(\"shop\")\n"

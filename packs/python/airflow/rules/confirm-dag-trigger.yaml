@@ -1,0 +1,25 @@
+id: python/airflow/confirm-dag-trigger
+description: "Triggering a DAG run (af runs trigger, af runs trigger-wait, airflow dags trigger, astro dev run dags trigger) asks the user first: the run executes the tasks against the connections it is configured with, which can write to real systems."
+review: "Did the user ask for this DAG to be run, or agree to it, and is the Airflow it targets a local or test deployment? Deny a run the user did not ask for."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command:
+      - {name: af, sub: [runs, 'trigger|trigger-wait']}
+      - {name: airflow, sub: [dags, trigger]}
+      - {name: astro, sub: [dev, run, dags, trigger]}
+      - {name: astro, sub: [run]}
+examples:
+  match:
+    - "af runs trigger-wait etl_orders --timeout 300"
+    - "af runs trigger etl_orders"
+    - "airflow dags trigger etl_orders -c '{\"day\": \"2026-11-01\"}'"
+    - "astro dev run dags trigger etl_orders"
+    - "astro run etl_orders"
+  no_match:
+    - "af dags errors"
+    - "af runs diagnose etl_orders manual__2026"
+    - "airflow dags list"
+    - "airflow dags list-runs etl_orders"
+    - "astro dev parse"

@@ -1,0 +1,19 @@
+id: python/django/allowed-hosts-wildcard
+description: "ALLOWED_HOSTS does not contain \"*\" outside development and test settings: it turns off Django's Host header check, which keeps forged hosts out of password-reset links and cache keys. List the domains the site serves (a DisallowedHost error means one is missing)."
+scope: {language: python, files: ["@django-settings", "!**/settings/dev*.py", "!**/settings/local*.py", "!**/settings/test*.py", "!**/settings_dev*.py", "!**/settings_local*.py", "!**/settings_test*.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: assignment}, {kind: augmented_assignment}]
+      all:
+        - has: {field: left, kind: identifier, regex: "^ALLOWED_HOSTS$"}
+        - has: {field: right, any: [{kind: list}, {kind: tuple}], has: {kind: string, regex: "^[rRuU]?[\"']\\*[\"']$"}}
+examples:
+  match:
+    - "DEBUG = False\nALLOWED_HOSTS = [\"*\"]\n"
+    - "ALLOWED_HOSTS = [\"shop.example.com\"]\nALLOWED_HOSTS += ['*']\n"
+  no_match:
+    - "ALLOWED_HOSTS = [\"shop.example.com\", \".shop.example.com\"]\n"
+    - "import os\n\nALLOWED_HOSTS = os.environ[\"ALLOWED_HOSTS\"].split(\",\")\n"
+    - "CSP_IMG_SRC = [\"*\"]\n"

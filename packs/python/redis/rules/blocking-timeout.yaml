@@ -1,0 +1,31 @@
+id: python/redis/blocking-timeout
+description: "Blocking pops (blpop, brpop, bzpopmin, bzpopmax, brpoplpush) pass a timeout above 0: timeout 0, the default, blocks for ever, so the worker never notices a shutdown or a dead connection. Pass timeout=<seconds> and loop."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call
+      any:
+        - pattern: "$R.$M($K)"
+        - pattern: "$R.$M($K, 0)"
+        - pattern: "$R.$M($K, timeout=0)"
+        - pattern: "$R.$M($K, timeout=None)"
+        - pattern: "$R.brpoplpush($S, $D)"
+        - pattern: "$R.brpoplpush($S, $D, 0)"
+        - pattern: "$R.brpoplpush($S, $D, timeout=0)"
+    constraints:
+      M: {regex: "^(blpop|brpop|bzpopmin|bzpopmax)$"}
+    where:
+      R: {type: {package: redis, name: [Redis, StrictRedis, RedisCluster, Pipeline]}}
+examples:
+  deps: [{ecosystem: pypi, name: redis, version: "8.1.0"}]
+  match:
+    - "import redis\n\nr = redis.Redis()\nitem = r.blpop([\"jobs\"])\n"
+    - "from redis.asyncio import Redis\n\n\nasync def next_job(r: Redis):\n    return await r.brpop([\"jobs\"], timeout=0)\n"
+    - "import redis\n\nr = redis.Redis()\nr.brpoplpush(\"jobs\", \"working\")\n"
+  no_match:
+    - "import redis\n\nr = redis.Redis()\nitem = r.blpop([\"jobs\"], timeout=5)\n"
+    - "import redis\n\nr = redis.Redis()\nr.brpoplpush(\"jobs\", \"working\", timeout=5)\n"
+    - "import redis\n\nr = redis.Redis()\nitem = r.brpop([\"jobs\"], 5)\n"
+    - "class Queue:\n    def blpop(self, keys):\n        return keys\n\n\nq = Queue()\nq.blpop([\"jobs\"])\n"

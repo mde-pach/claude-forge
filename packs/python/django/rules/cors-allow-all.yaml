@@ -1,0 +1,18 @@
+id: python/django/cors-allow-all
+description: "django-cors-headers does not allow every origin (CORS_ALLOW_ALL_ORIGINS = True, CORS_ORIGIN_ALLOW_ALL = True) outside development and test settings: any website can then read the API's responses from a visitor's browser. List the origins in CORS_ALLOWED_ORIGINS (or CORS_ALLOWED_ORIGIN_REGEXES)."
+scope: {language: python, files: ["@django-settings", "!**/settings/dev*.py", "!**/settings/local*.py", "!**/settings/test*.py", "!**/settings_dev*.py", "!**/settings_local*.py", "!**/settings_test*.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      all:
+        - has: {field: left, kind: identifier, regex: "^(CORS_ALLOW_ALL_ORIGINS|CORS_ORIGIN_ALLOW_ALL)$"}
+        - has: {field: right, kind: "true"}
+examples:
+  match:
+    - "CORS_ALLOW_ALL_ORIGINS = True\n"
+    - "CORS_ORIGIN_ALLOW_ALL = True\n"
+  no_match:
+    - "CORS_ALLOWED_ORIGINS = [\"https://shop.example.com\"]\nCORS_ALLOW_ALL_ORIGINS = False\n"
+    - "import os\n\nCORS_ALLOW_ALL_ORIGINS = os.environ.get(\"CORS_ALLOW_ALL\") == \"1\"\n"

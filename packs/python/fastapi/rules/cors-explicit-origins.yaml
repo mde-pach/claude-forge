@@ -1,0 +1,20 @@
+id: python/fastapi/cors-explicit-origins
+description: "CORSMiddleware lists the origins allowed (allow_origins=[\"https://app.example.com\"]) rather than \"*\", unless the API is public and reads no cookies or credentials: with \"*\", any website can call it from a visitor's browser."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      any:
+        - pattern: "$APP.add_middleware(CORSMiddleware, $$$)"
+        - pattern: "Middleware(CORSMiddleware, $$$)"
+      has: {stopBy: end, kind: keyword_argument, regex: "^allow_origins[[:space:]]*=[[:space:]]*[\\[(][[:space:]]*[\"']\\*[\"'][[:space:]]*,?[[:space:]]*[\\])]$"}
+      not: {has: {stopBy: end, kind: keyword_argument, regex: "^allow_credentials[[:space:]]*=[[:space:]]*True$"}}
+examples:
+  match:
+    - "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI()\napp.add_middleware(CORSMiddleware, allow_origins=[\"*\"], allow_methods=[\"*\"])\n"
+    - "from starlette.middleware import Middleware\nfrom starlette.middleware.cors import CORSMiddleware\n\nmiddleware = [Middleware(CORSMiddleware, allow_origins=['*'])]\n"
+  no_match:
+    - "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI()\napp.add_middleware(CORSMiddleware, allow_origins=[\"https://shop.example.com\"])\n"
+    - "from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI()\napp.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_credentials=True)\n"
