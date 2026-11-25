@@ -1,0 +1,6 @@
+id: dart/flutter
+description: Flutter applications and packages.
+level: project
+detect:
+  content_any:
+    - {files: ["**/pubspec.yaml"], pattern: "^\\s+sdk:\\s*[\"']?flutter[\"']?\\s*(#.*)?$"}

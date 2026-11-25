@@ -1,0 +1,23 @@
+# Adapted from flutter-setup-localization, https://github.com/flutter/skills (skills/flutter-setup-localization),
+# BSD 3-Clause License, Copyright 2026 The Flutter Authors: its generate-and-read loop for ARB files.
+id: dart/flutter/gen-l10n
+description: Regenerating a Flutter app's localizations from its ARB files and reading the generated accessors.
+relevant:
+  - The task adds or changes text shown to users of a Flutter app.
+  - The task adds or changes a translation or a supported language of a Flutter app.
+deliver: on-demand
+text: |
+  Localized strings live in the ARB files; Dart code reads them through generated accessors.
+
+  1. Read `l10n.yaml` for `arb-dir`, `template-arb-file` and `output-class` (defaults: `lib/l10n`, `app_en.arb`, `AppLocalizations`).
+  2. Add the key to the template ARB with its `@key` description (and `placeholders` for `{name}` values), then to each other locale's ARB.
+  3. `flutter gen-l10n` (also run by `flutter pub get` when `pubspec.yaml` has `generate: true`). Read its output: it names the ARB file and key of a syntax error, a placeholder mismatch or an untranslated message.
+  4. Open the generated class (the `output-dir` in `l10n.yaml`, else `.dart_tool/flutter_gen/gen_l10n/`) to see the getter or method signature, and use it: `AppLocalizations.of(context)!.<key>`.
+  5. `flutter analyze` and the tests.
+examples:
+  selected:
+    - "Add a 'Forgot password?' link label to the login screen in English and French."
+    - "Add German as a supported language."
+  not_selected:
+    - "Change the login button's color to the brand blue."
+    - "Fix the crash when the user list is empty."
