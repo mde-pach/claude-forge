@@ -1,0 +1,20 @@
+id: typescript/vitest/no-jest-api
+description: "A Vitest test uses vi (vi.fn(), vi.mock(), vi.spyOn(), vi.useFakeTimers()), not the jest object, which Vitest does not define."
+scope: {language: typescript, files: ["@ts-tests", "**/vitest.setup.*", "**/setupTests.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, kind: member_expression, has: {field: object, regex: "^jest$"}}
+      inside:
+        stopBy: end
+        kind: program
+        has: {kind: import_statement, has: {field: source, regex: "^[\"']vitest[\"']$"}}
+examples:
+  match:
+    - "import { describe, expect, it } from \"vitest\";\n\ndescribe(\"cart\", () => {\n  it(\"calls back\", () => {\n    const cb = jest.fn();\n    cb();\n    expect(cb).toHaveBeenCalled();\n  });\n});\n"
+    - "import { test } from \"vitest\";\n\njest.mock(\"./api\");\ntest(\"x\", () => {});\n"
+  no_match:
+    - "import { describe, expect, it, vi } from \"vitest\";\n\ndescribe(\"cart\", () => {\n  it(\"calls back\", () => {\n    const cb = vi.fn();\n    cb();\n    expect(cb).toHaveBeenCalled();\n  });\n});\n"
+    - "import { jest, test } from \"@jest/globals\";\n\njest.mock(\"./api\");\ntest(\"x\", () => {});\n"
