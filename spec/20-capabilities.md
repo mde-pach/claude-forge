@@ -1,6 +1,6 @@
 ## 20. Capabilities
 
-A **capability** is something the agent is able to use or should use: a tool on this machine, a way of working the project expects. Context does not enforce anything, and generic text can push the agent the wrong way, so nothing generic is placed in the agent's context: a capability reaches the agent only when the task at hand needs it. A capability enforces nothing and grants nothing (§1): whatever must hold stays a rule. A capability is not a Claude Code skill: Forge writes no skill and never touches `.claude/skills`.
+A **capability** is something the agent can do: a tool or a procedure it runs for some tasks, to find something out or to do the task, which no check decides. Knowledge and constraints are rules (§6), not capabilities. Context does not enforce anything, and generic text can push the agent the wrong way, so nothing generic is placed in the agent's context: a capability reaches the agent only when the task at hand needs it. A capability enforces nothing and grants nothing (§1): whatever must hold stays a rule. A capability is not a Claude Code skill: Forge writes no skill and never touches `.claude/skills`.
 
 Pack `context` items and the rules files (§5.4, §7.1) are not capabilities: they depend on what is active in the project and are given to every session.
 

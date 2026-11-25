@@ -9,13 +9,9 @@ deliver: inject
 text: |
   This project manages its database schema with Atlas; `atlas.hcl` names its environments (`env "<name>"`) and where the desired schema comes from.
 
-  1. Change the schema at its source: the schema files or the ORM models the environment reads. The database itself is never edited by hand.
+  1. Change the schema at its source: the schema files or the ORM models the environment reads.
   2. Generate the migration: `atlas migrate diff --env <env> <name>`, with an environment of `atlas.hcl` and a name saying what changes (`add_orders_paid`).
   3. Read the generated SQL in the migrations directory before going on: it is what will run.
-  4. Validate the directory: `atlas migrate validate --env <env>`.
-  5. Run the project's tests.
-
-  A migration that was already applied is never changed: a change is a new migration. After editing a migration that was not applied yet, `atlas migrate hash --env <env>` rewrites `atlas.sum`, which only Atlas writes.
 examples:
   selected:
     - "Add a paid_at timestamp column to the orders table."
