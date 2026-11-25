@@ -1,0 +1,40 @@
+# From typescript (TerminalSkills), https://github.com/TerminalSkills/skills/blob/HEAD/skills/typescript/SKILL.md (Apache-2.0)
+id: typescript/library/types-condition-first
+description: "In package.json exports, a conditions object lists \"types\" first: TypeScript takes the first condition that matches, so a \"types\" after \"import\", \"require\" or \"default\" is never read and the package's types do not resolve."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _tf=''
+      for _f in ${FORGE_FILES:-$(git ls-files -- package.json '*/package.json')}; do
+        [ -f "$_f" ] || continue
+        _tf="$_tf$(bun --no-install -e '
+          const f = process.argv[1], t = require("fs").readFileSync(f, "utf8");
+          let pkg; try { pkg = JSON.parse(t); } catch { process.exit(0); }
+          if (!pkg || typeof pkg.exports !== "object" || pkg.exports === null) process.exit(0);
+          const line = t.slice(0, Math.max(0, t.indexOf("\"exports\""))).split("\n").length;
+          const late = [];
+          const walk = (v, at) => {
+            if (!v || typeof v !== "object" || Array.isArray(v)) return;
+            const keys = Object.keys(v);
+            if (keys.includes("types") && keys[0] !== "types" && !keys[0].startsWith(".")) late.push(at || ".");
+            for (const k of keys) walk(v[k], k.startsWith(".") ? k : at);
+          };
+          walk(pkg.exports, "");
+          if (late.length) console.log(`${f}:${line} exports ${[...new Set(late)].join(", ")}: put the "types" condition first in its conditions object, before import, require and default`);
+        ' "$_f")
+      "
+      done
+      _tf=$(printf '%s' "$_tf" | grep .)
+      [ -z "$_tf" ] || { printf '%s\n' "$_tf"; false; }
+examples:
+  match:
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"exports\": {\n    \".\": {\"import\": \"./dist/index.js\", \"types\": \"./dist/index.d.ts\"}\n  }\n}\n"}
+    # a nested condition: the import branch's own types come after its default
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"exports\": {\n    \"./utils\": {\"import\": {\"default\": \"./dist/utils.mjs\", \"types\": \"./dist/utils.d.mts\"}}\n  }\n}\n"}
+  no_match:
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"exports\": {\n    \".\": {\"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\"}\n  }\n}\n"}
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"exports\": {\n    \".\": {\"import\": {\"types\": \"./dist/index.d.mts\", \"default\": \"./dist/index.mjs\"}, \"require\": {\"types\": \"./dist/index.d.cts\", \"default\": \"./dist/index.cjs\"}}\n  }\n}\n"}
+    # no conditions at all
+    - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"exports\": \"./dist/index.js\"\n}\n"}

@@ -78,10 +78,10 @@ Only the text outside the generated markers of this file is written by hand.
 | [terraform](terraform.md) | project | 1 | 13 |
 | [testcontainers](testcontainers.md) | project | 1 | 1 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
-| [typescript](typescript.md) | project | 89 | 483 |
+| [typescript](typescript.md) | project | 89 | 484 |
 | [windmill](windmill.md) | project | 1 | 0 |
 
-233 packs, 925 rules.
+233 packs, 926 rules.
 <!-- /generated:packs -->
 
 ### Tests

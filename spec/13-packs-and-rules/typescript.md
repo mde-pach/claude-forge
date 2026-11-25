@@ -733,6 +733,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 |---|---|---|---|
 | `typescript/library/deprecation-shim` | A name exported by a package entry point (package.json exports, main, module, types, mapped from dist/ to src/; export * followed through relative modules) in the base is still exported, and a name that became an alias of another export (export const old = renamed, export { renamed as old }) carries a /** @deprecated */ JSDoc comment on that export. A major version bump does not allow a removal by itself: removing a name is the user's decision: ask them. | typescript: `!@ts-tests`, `!@e2e-tests` | check lint: `forge_helper bun public_api.mjs removed` (when `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.js`, `**/*.mjs` or `package.json` changes) |
 | `typescript/library/exports-map` | A published package (not private) declares its entry points in package.json exports, not only main, module or types; reported where main, module or types is added. | any: `**/package.json` | check lint: a shell script of 25 lines |
+| `typescript/library/types-condition-first` | In package.json exports, a conditions object lists "types" first: TypeScript takes the first condition that matches, so a "types" after "import", "require" or "default" is never read and the package's types do not resolve. | any: `**/package.json` | check lint: a shell script of 22 lines |
 
 ### typescript/mastra
 
