@@ -1,0 +1,6 @@
+id: k6
+description: Load and performance tests written for Grafana k6.
+level: project
+detect:
+  content_any:
+    - {files: ["**/*.js", "**/*.ts", "**/*.mjs"], pattern: "^\\s*import\\s+.*\\s+from\\s+[\"']k6(/[a-z0-9/-]+)?[\"']"}

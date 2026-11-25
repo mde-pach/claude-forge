@@ -1,0 +1,14 @@
+id: grafana
+description: Grafana dashboards as code and the Grafana observability stack (Loki, Alloy).
+level: project
+detect:
+  files_any: ["**/grafana.ini", "**/provisioning/dashboards/*.yaml", "**/provisioning/dashboards/*.yml", "**/*.alloy", "**/loki-config.yaml", "**/loki-config.yml", "**/loki.yaml"]
+  deps_any:
+    - {ecosystem: pypi, name: grafanalib}
+    - {ecosystem: pypi, name: grafana-foundation-sdk}
+    - {ecosystem: npm, name: "@grafana/grafana-foundation-sdk"}
+  content_any:
+    - {files: ["**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml"], pattern: "^\\s*image:\\s*[\"']?(docker\\.io/)?grafana/(grafana|grafana-oss|grafana-enterprise|loki|alloy|promtail)\\b"}
+    - {files: ["**/dashboards/**/*.json", "**/grafana/**/*.json"], pattern: "^\\s*\"schemaVersion\"\\s*:\\s*[0-9]+"}
+    - {files: ["**/*.jsonnet", "**/*.libsonnet"], pattern: "grafonnet"}
+    - {files: ["**/*.tf"], pattern: "^\\s*resource\\s+\"grafana_(dashboard|folder)\""}

@@ -1,0 +1,22 @@
+# Adapted from dashboarding, https://github.com/grafana/skills (skills/grafana-core/dashboarding),
+# Apache License 2.0, Copyright 2026 Grafana Labs: pushing the dashboard through the HTTP API and reading it back.
+id: grafana/dashboard-roundtrip
+description: Loading a dashboard's JSON into a Grafana instance through its HTTP API and reading it back, to see that Grafana accepts and renders it.
+relevant:
+  - The task creates or changes a Grafana dashboard, its panels, queries or variables.
+deliver: on-demand
+text: |
+  A dashboard JSON is right when Grafana accepts it and its panels return data. Check it on a Grafana you may write to:
+
+  1. A Grafana: the one the person names, with a service account token (`GRAFANA_URL`, `GRAFANA_TOKEN`); else a throwaway local one, `docker run -d --rm --name grafana-check -p 3000:3000 grafana/grafana` (user `admin`, password `admin`; use `-u admin:admin` instead of the token below). Never push to a shared instance without the person's word.
+  2. Push: `jq '{dashboard: (. + {id: null}), overwrite: true}' dash.json | curl -s -X POST -H "Authorization: Bearer $GRAFANA_TOKEN" -H 'Content-Type: application/json' "$GRAFANA_URL/api/dashboards/db" -d @-`. Read the answer: `status: success` with `uid` and `version`, or the error (a duplicate uid, an invalid panel).
+  3. Read it back: `curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" "$GRAFANA_URL/api/dashboards/uid/<uid>" | jq '.dashboard'` and compare with what you wrote: Grafana migrates old schemas and drops what it does not know.
+  4. Check a panel's query returns data: `POST $GRAFANA_URL/api/ds/query` with the panel's `targets` and `{"from": "now-1h", "to": "now"}`, or open `$GRAFANA_URL/d/<uid>` in a browser and look.
+  5. Keep the JSON file the project versions as the source; stop the local container (`docker stop grafana-check`) when done.
+examples:
+  selected:
+    - "Create a Grafana dashboard for the checkout service's latency and error rate."
+    - "Add a namespace dropdown variable to the cluster overview dashboard."
+  not_selected:
+    - "Add a Prometheus counter for failed logins in the auth service."
+    - "Upgrade the Grafana Helm chart version."
