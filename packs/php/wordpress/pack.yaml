@@ -1,0 +1,10 @@
+id: php/wordpress
+description: WordPress sites, themes and plugins, WooCommerce among them.
+level: project
+detect:
+  files_any: [wp-config.php, wp-config-sample.php, wp-cli.yml]
+  content_any:
+    - {files: [composer.json], pattern: "\"(johnpbloch/wordpress|roots/wordpress|wpackagist-(plugin|theme)/[^\"]+)\"\\s*:"}
+    # a plugin's or a theme's header
+    - {files: ["*.php", "*/*.php"], pattern: "^\\s*\\*?\\s*Plugin Name:"}
+    - {files: [style.css, "*/style.css"], pattern: "^\\s*\\*?\\s*Theme Name:"}

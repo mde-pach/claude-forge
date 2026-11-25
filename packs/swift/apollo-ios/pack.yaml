@@ -1,0 +1,7 @@
+id: swift/apollo-ios
+description: Apollo iOS, the GraphQL client, and its Swift code generation.
+level: project
+detect:
+  files_any: [apollo-codegen-config.json, "**/apollo-codegen-config.json"]
+  content_any:
+    - {files: [Package.swift, "**/Package.swift", Podfile], pattern: "apollographql/apollo-ios|pod ['\"]Apollo['\"/]"}

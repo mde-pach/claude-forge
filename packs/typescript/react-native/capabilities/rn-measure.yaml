@@ -1,0 +1,23 @@
+# Procedure after react-native-best-practices, https://github.com/callstackincubator/agent-skills
+# (skills/react-native-best-practices), MIT License, Copyright (c) 2026 Callstack Incubator:
+# measuring before and after an optimisation.
+id: typescript/react-native/rn-measure
+description: Measuring a React Native app's bundle size, renders and startup before and after an optimisation.
+relevant:
+  - The task makes a React Native app faster, smoother or smaller.
+  - The task investigates slow screens, dropped frames, slow startup or a large bundle in a React Native app.
+deliver: on-demand
+text: |
+  Measure first, change one thing, measure again the same way.
+
+  1. Bundle size: `npx react-native bundle --entry-file index.js --platform ios --dev false --minify true --bundle-output /tmp/main.jsbundle --sourcemap-output /tmp/main.jsbundle.map` (Expo: `npx expo export --platform ios --dump-sourcemap`), then `ls -l` the bundle and `npx source-map-explorer /tmp/main.jsbundle --no-border-checks` for what takes the space. Record the size.
+  2. Renders and frames: with the app running in development on a simulator, profile the interaction in React Native DevTools (`j` in Metro opens it; Profiler tab, record, interact, stop): read the slowest commits and the components that re-render. Where `agent-device` is installed, `agent-device react-devtools profile start`, drive the interaction, then `profile stop`, `profile slow --limit 5` and `profile rerenders --limit 5` give the same from the command line. The Perf Monitor (Dev Menu) shows the JS and UI thread FPS.
+  3. Startup: measure cold starts of a release build (`react-native-performance` marks, or the time to the first screen over several launches), not of a development build.
+  4. After the change, repeat the same measurement on the same device and build type, and compare the numbers.
+examples:
+  selected:
+    - "Scrolling the feed drops frames on Android, make it smooth."
+    - "Our JS bundle grew to 9 MB, bring it down."
+  not_selected:
+    - "Add a settings screen with a dark mode toggle."
+    - "Fix the crash when the camera permission is denied."

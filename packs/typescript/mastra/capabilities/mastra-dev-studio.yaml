@@ -1,0 +1,23 @@
+# Procedure after the mastra skill, https://github.com/TerminalSkills/skills (skills/mastra),
+# Apache License 2.0: exercising agents and workflows with the local dev server.
+id: typescript/mastra/mastra-dev-studio
+description: Running Mastra agents and workflows locally, through the dev server's API and Studio or a short script, and reading their results.
+relevant:
+  - The task adds or changes a Mastra agent, tool or workflow.
+  - The task debugs a Mastra agent or workflow that fails or answers wrongly.
+deliver: on-demand
+text: |
+  Run what changed and read its result. Agents call their model: the provider's key (`OPENAI_API_KEY`, ...) comes from the project's `.env`.
+
+  1. Start the dev server in the background: `npx mastra dev` (or the project's `dev` script). It serves Studio and the API on http://localhost:4111; its log lists build errors.
+  2. An agent: `curl -s -X POST http://localhost:4111/api/agents/<agent id>/generate -H 'content-type: application/json' -d '{"messages": [{"role": "user", "content": "<prompt>"}]}'`, then read `text` and the tool calls it made.
+  3. A workflow: `curl -s -X POST http://localhost:4111/api/workflows/<workflow id>/start-async -H 'content-type: application/json' -d '{"inputData": { ... }}'`, then read `status` (`success`, `failed`, `suspended`, ...) and each step's output; the result is valid only when `status` is `success`.
+  4. Without the server, a script run with `npx tsx`: `const run = await mastra.getWorkflow("<key>").createRun(); const result = await run.start({ inputData })`, printing `result.status` and `result.result` (or the failing step's error).
+  5. Studio (the same URL in a browser) shows the traces: each model call, tool call and step. Stop the dev server at the end.
+examples:
+  selected:
+    - "Add a weather tool to the support agent and check it calls it for weather questions."
+    - "The onboarding workflow ends with status failed at the enrich step, fix it."
+  not_selected:
+    - "Explain the difference between Mastra agents and workflows."
+    - "Upgrade eslint to version 9."

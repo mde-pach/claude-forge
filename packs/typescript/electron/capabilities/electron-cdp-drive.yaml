@@ -1,0 +1,23 @@
+# Procedure after the electron skill of agent-browser, https://github.com/vercel-labs/agent-browser
+# (skill-data/electron), Apache License 2.0: driving the app through its DevTools port.
+id: typescript/electron/electron-cdp-drive
+description: Driving the Electron app under development through its Chrome DevTools port, to see and use its windows as a person does.
+relevant:
+  - The task changes what a window of the desktop app shows or how a person interacts with it.
+  - The task reproduces or checks a bug in the desktop app's interface.
+deliver: on-demand
+text: |
+  Electron windows are Chromium pages: start the app with a DevTools port and connect a browser driver to it.
+
+  1. Start it in the background with the port: the project's dev script with the flag passed to Electron (`npx electron . --remote-debugging-port=9222`, or the dev script's own way to pass Electron arguments); wait until `curl -s http://127.0.0.1:9222/json/version` answers. An already running instance must be quit first.
+  2. Connect: with agent-browser (`npx agent-browser connect 9222`), `agent-browser snapshot -i` lists the interactive elements with refs; act with `agent-browser click @e5` and `agent-browser fill @e3 "text"`, snapshot again after each action, and `agent-browser screenshot out.png` to look. `agent-browser tab` lists the windows and webviews, `agent-browser tab <n>` switches.
+  3. With the project's Playwright instead: `const browser = await chromium.connectOverCDP('http://127.0.0.1:9222')`, then `browser.contexts()[0].pages()` are the windows (or `_electron.launch({ args: ['.'] })` to start the app from the test).
+  4. Read the renderer's console (`page.on('console', ...)`) and the main process's output in the dev script's log.
+  5. Stop the app at the end.
+examples:
+  selected:
+    - "The Save button in the settings window does nothing, check it in the running app."
+    - "Make sure the new tray menu opens the preferences window."
+  not_selected:
+    - "Configure electron-builder to sign the macOS build."
+    - "Upgrade Electron to version 33."

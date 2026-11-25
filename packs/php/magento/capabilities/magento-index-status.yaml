@@ -1,0 +1,26 @@
+# Procedure after magento-indexing-caching, https://github.com/finsilabs/awesome-ecommerce-skills
+# (skills/platform-magento/magento-indexing-caching), MIT License,
+# Copyright (c) 2026 awesome-ecommerce-skills contributors: reading and rebuilding indexes and caches.
+id: php/magento/magento-index-status
+description: Checking Magento's indexers and caches with bin/magento, and rebuilding only what is stale.
+relevant:
+  - The task debugs a Magento store that shows stale or wrong data, such as prices, stock, categories or search results.
+  - The task investigates why Magento pages are slow.
+deliver: on-demand
+text: |
+  Read the state of the indexers and caches before changing code: stale data is often an index or a cache, not a bug.
+
+  1. `bin/magento indexer:status`: each indexer's state (`Ready`, `Reindex required`, `Processing`) and its backlog; `bin/magento indexer:show-mode` says which run on save and which on schedule.
+  2. A scheduled indexer needs cron: check `bin/magento cron:run --group index` runs cleanly and read `var/log/magento.cron.log`, and `bin/magento indexer:show-changelog` for its pending changes.
+  3. Rebuild only what step 1 flagged: `bin/magento indexer:reindex <indexer>` (`catalog_product_price`, `cataloginventory_stock`, `catalogsearch_fulltext`, ...), then run step 1 again.
+  4. Caches: `bin/magento cache:status`; clean the types involved with `bin/magento cache:clean <type>` (`config`, `layout`, `block_html`, `full_page`) rather than `cache:flush`, which empties shared backends too.
+  5. Reload the page and compare. For slowness, see whether the full-page cache answers (`curl -sI <url>`, an `X-Magento-Cache-Debug: HIT` header in developer mode).
+
+  Run them as the project does when it has a wrapper (`warden env exec php-fpm bin/magento ...`, `ddev magento ...`).
+examples:
+  selected:
+    - "The new special prices don't show on the category pages even though they're saved in the admin."
+    - "Product pages got very slow since yesterday's import, investigate."
+  not_selected:
+    - "Add a new field to the checkout shipping address form."
+    - "Write a plugin that changes how the product name is rendered."

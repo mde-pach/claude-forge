@@ -1,0 +1,6 @@
+id: hyperframes
+description: HyperFrames video projects, compositions written in HTML and rendered to video.
+level: project
+detect:
+  files_any: [hyperframes.json, "*/hyperframes.json"]
+  deps_any: [{ecosystem: npm, name: hyperframes}, {ecosystem: npm, name: "@hyperframes/cli"}]

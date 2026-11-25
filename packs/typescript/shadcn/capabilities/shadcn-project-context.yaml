@@ -1,0 +1,24 @@
+# Procedure after the shadcn skill, https://github.com/shadcn-ui/ui (skills/shadcn), MIT License,
+# Copyright (c) 2023 shadcn: reading the project's configuration and the components' docs, then
+# adding components with the CLI.
+id: typescript/shadcn/shadcn-project-context
+description: Reading the project's shadcn configuration, installed components and component docs with the shadcn CLI, and adding components with it.
+relevant:
+  - The task adds or changes a UI component or control, such as a form field, a dialog, a menu or a table.
+  - The task fixes how a UI component looks or behaves.
+deliver: on-demand
+text: |
+  The CLI knows the project's setup and each component's API. Run it with the project's package runner: `npx shadcn@latest`, `pnpm dlx shadcn@latest` or `bunx --bun shadcn@latest`.
+
+  1. Project: `shadcn info --json` gives the style, the base (`radix` or `base`), the Tailwind setup, the import aliases (where `ui` components live) and the installed components. Use those aliases in imports.
+  2. Is there a component for it: `shadcn search <query>` (the configured registries too) and `shadcn view <item>` to read one before installing.
+  3. Its API and examples: `shadcn docs <component> [<component> ...]` prints the URLs of its documentation, examples and API reference; read them.
+  4. Add it: `shadcn add <component>`; read the files it wrote, and in components from community registries rewrite imports that do not match the project's aliases.
+  5. Run the type check and look at the result in the browser.
+examples:
+  selected:
+    - "Add a date picker to the booking form."
+    - "The dialog closes when I click inside the combobox, fix it."
+  not_selected:
+    - "Add a Prisma model for bookings."
+    - "Write a unit test for the price formatter."

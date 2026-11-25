@@ -1,0 +1,11 @@
+id: solana
+description: Solana programs (Anchor, native, Pinocchio) and their clients.
+level: project
+detect:
+  files_any: [Anchor.toml, "**/Anchor.toml"]
+  deps_any:
+    - {ecosystem: npm, name: "@solana/web3.js"}
+    - {ecosystem: npm, name: "@solana/kit"}
+    - {ecosystem: npm, name: "@coral-xyz/anchor"}
+  content_any:
+    - {files: [Cargo.toml, "**/Cargo.toml"], pattern: "^[ \\t]*(anchor-lang|solana-program|pinocchio)[ \\t]*="}

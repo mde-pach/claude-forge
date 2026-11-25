@@ -1,0 +1,24 @@
+# Procedure after inngest-agent-evals, https://github.com/inngest/inngest-skills
+# (skills/inngest-agent-evals), Apache License 2.0: running functions on the local dev server
+# and reading their runs.
+id: typescript/inngest/inngest-dev-server
+description: Running Inngest functions on the local dev server, sending them events and reading their runs, steps and outputs.
+relevant:
+  - The task adds or changes an Inngest function, its steps, its triggers or its flow control.
+  - The task debugs an Inngest function that fails, retries or is stuck.
+deliver: on-demand
+text: |
+  See the function run, step by step, on Inngest's local dev server.
+
+  1. Start the app's server (its `dev` script) in the background, then the dev server pointed at the app's serve endpoint: `npx inngest-cli@latest dev -u http://localhost:<port>/api/inngest` in the background. Its UI is on http://localhost:8288; its log says when the app is synced and lists the functions it found. A function missing there is not passed to `serve()`.
+  2. Trigger it: `curl -s -X POST http://localhost:8288/e/dev -d '{"name": "<event name>", "data": { ... }}'` answers with the event ids; or the function's Invoke button in the UI.
+  3. Read the run: `curl -s http://localhost:8288/v1/events/<event id>/runs` gives each run's status and output; the UI's Runs page shows the trace, each step's input, output, retries and error. For an AI step, read its prompt, response and scores there.
+  4. Fix and trigger again with the same event; for a cron function, use Invoke.
+  5. Stop the dev server and the app at the end.
+examples:
+  selected:
+    - "Add an Inngest function that sends a welcome email two days after the user.signup event."
+    - "Our sync-orders Inngest function keeps retrying step 2, figure out why."
+  not_selected:
+    - "Explain how Inngest concurrency keys work."
+    - "Rename the user.signup event in the docs."

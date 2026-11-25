@@ -1,0 +1,23 @@
+# Procedure after the neon-postgres skill, https://github.com/neondatabase/agent-skills
+# (skills/neon-postgres), Apache License 2.0: testing a migration on a branch of production.
+id: neon/neon-branch-migration-test
+description: Trying a schema migration on a throwaway Neon branch of production before it reaches production.
+relevant:
+  - The task adds or changes a database migration that will run on a Neon database.
+  - The task needs to check how a schema change behaves on production-like data.
+deliver: on-demand
+text: |
+  A Neon branch is a copy-on-write clone of a branch's data: try the migration there, then drop it. The `neon` CLI (`npx neonctl` where it is not installed) reads the project from the git-ignored `.neon` file, else takes `--project-id <id>`.
+
+  1. Create the branch from production: `neon branches create --name migration-test-<name> --parent <production branch>` (`neon branches list` names the branches).
+  2. Get its direct connection string: `neon connection-string migration-test-<name>`. Its host has no `-pooler` suffix: that is the direct connection a migration runs over.
+  3. Run the project's migration command with that string as the database URL, only for that command (`DATABASE_URL='<string>' npx prisma migrate deploy`, `alembic upgrade head`, ...).
+  4. Inspect the result: `psql '<string>' -c '\d <table>'`, row counts, and the queries the change affects (`EXPLAIN ANALYZE`). Run the app's tests against it when they take a database URL.
+  5. Delete the branch: `neon branches delete migration-test-<name>`.
+examples:
+  selected:
+    - "Add a NOT NULL column with a default to the invoices table and make sure the migration works on real data."
+    - "Write the migration that splits users.full_name into first_name and last_name."
+  not_selected:
+    - "Switch the serverless functions to the pooled connection string."
+    - "Add a loading spinner to the dashboard."

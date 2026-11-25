@@ -1,0 +1,25 @@
+# Procedure after the ADK documentation's evaluation guide, https://google.github.io/adk-docs/evaluate/
+# (https://github.com/google/adk-docs, Apache License 2.0): running the agent's eval sets.
+id: python/google-adk/adk-eval
+description: Running the ADK agent's evaluation sets and reading their scores before and after changing it.
+relevant:
+  - The task changes an ADK agent's behaviour, such as its instructions, tools, sub-agents or model.
+  - The task adds or changes an ADK evaluation set.
+deliver: on-demand
+text: |
+  An ADK agent's eval sets measure its behaviour: run them before the change, to know the baseline, and after.
+
+  1. Find them: `*.evalset.json` or `*.test.json` files, usually next to the agent or under `tests/`, with an optional `test_config.json` beside them holding the criteria (`tool_trajectory_avg_score`, `response_match_score` and their thresholds).
+  2. Run one: `adk eval <agent package dir> <path>.evalset.json --config_file_path <test_config.json> --print_detailed_results` (through the project's environment, `uv run adk eval ...`). A set takes `:<case id>,<case id>` after its path to run only some cases.
+  3. Read the result per case: each metric's score against its threshold, and for a failure the expected and actual tool calls and final response.
+  4. Where the project runs them under pytest (`AgentEvaluator.evaluate(...)` in a test), run that test instead.
+  5. Compare with the baseline: a fixed case passing and no other case dropping.
+
+  Evals call the agent's model: they need its credentials (`GOOGLE_API_KEY` or Vertex AI settings in the agent's `.env`).
+examples:
+  selected:
+    - "Change the travel agent's instructions so it always confirms the dates before booking."
+    - "Add a currency conversion tool to our ADK agent."
+  not_selected:
+    - "Explain how ADK sessions store state."
+    - "Update the README's setup instructions."

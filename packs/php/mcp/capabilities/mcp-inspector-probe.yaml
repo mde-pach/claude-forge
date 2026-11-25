@@ -1,0 +1,25 @@
+# Procedure after php-mcp-server-generator, https://github.com/github/awesome-copilot
+# (skills/php-mcp-server-generator), MIT License, Copyright GitHub, Inc.: testing the server
+# with the MCP Inspector, here in its command-line mode.
+id: php/mcp/mcp-inspector-probe
+description: Calling the PHP MCP server's tools, resources and prompts through the MCP Inspector's command line and reading its answers.
+relevant:
+  - The task adds or changes a tool, resource or prompt of the project's MCP server.
+  - The task needs to check what the MCP server answers to a client.
+deliver: on-demand
+text: |
+  Talk to the server as a client does, with the MCP Inspector's command-line mode (`npx @modelcontextprotocol/inspector --cli`, Node.js needed). It starts the server over stdio, sends one request, prints the JSON answer and stops the server.
+
+  1. List what the server offers: `npx @modelcontextprotocol/inspector --cli php server.php --method tools/list` (use the project's entry point instead of `server.php`). Check each tool's name, description and `inputSchema`.
+  2. Call a tool: `... --method tools/call --tool-name <name> --tool-arg key=value --tool-arg other=1`. Read `content` and `isError`; call it once with bad arguments too.
+  3. Resources and prompts: `--method resources/list`, `--method resources/read --uri <uri>`, `--method prompts/list`, `--method prompts/get --prompt-name <name>`.
+  4. A server over HTTP: start it in the background, then pass its URL instead of the command (`... --cli http://localhost:8080/mcp --transport http --method tools/list`), and stop it after.
+
+  Anything the server writes to stdout other than protocol messages breaks stdio: an answer that fails to parse often means a stray `echo` or warning.
+examples:
+  selected:
+    - "Add a search_orders tool to our MCP server and make sure it works."
+    - "Claude Desktop shows no tools from our PHP MCP server, figure out why."
+  not_selected:
+    - "Add a README section on how to install the MCP server in Claude Desktop."
+    - "Upgrade PHPUnit to version 11."

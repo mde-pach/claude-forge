@@ -1,0 +1,23 @@
+# Procedure after spark-optimization, https://github.com/wshobson/agents
+# (plugins/data-engineering/skills/spark-optimization), MIT License, Copyright (c) 2024 Seth Hobson:
+# reading the plan and the stages before tuning.
+id: python/pyspark/spark-explain
+description: Reading a Spark job's physical plan and its stages for shuffles, skew and spills before tuning it.
+relevant:
+  - The task makes a Spark job or query faster, or makes it use less memory.
+  - The task investigates why a Spark job is slow, runs out of memory or spills to disk.
+deliver: on-demand
+text: |
+  Find where the time goes before changing anything.
+
+  1. The plan: `df.explain(mode="formatted")` on the DataFrame the job writes. Each `Exchange` is a shuffle; a `SortMergeJoin` against a small table could be a `BroadcastHashJoin`; a `FileScan` lists its `PushedFilters` and `PartitionFilters` (empty ones read everything).
+  2. Run the job on a representative input with the Spark UI open (http://localhost:4040 while a local session runs; the history server or the cluster's UI otherwise). In Stages, compare the median and max task duration and input: a max far above the median is skew. Spill (memory, disk) and GC time show memory pressure.
+  3. Skew by key: `df.groupBy("<key>").count().orderBy(F.desc("count")).show(10)`; data per partition: `df.groupBy(F.spark_partition_id()).count().show()`.
+  4. Change one thing (a broadcast hint, a filter moved before the join, repartitioning on the key, AQE skew-join settings), then compare the plan and the stage times again on the same input.
+examples:
+  selected:
+    - "The nightly PySpark aggregation job went from 20 minutes to 2 hours, make it fast again."
+    - "Our join between events and users keeps running out of executor memory."
+  not_selected:
+    - "Add a new column with the user's country to the events DataFrame."
+    - "Write unit tests for the date parsing UDF."

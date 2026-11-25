@@ -1,0 +1,24 @@
+# Procedure after confluent-cloud-flink-sql, https://github.com/confluentinc/agent-skills
+# (skills/confluent-cloud-flink-sql), Apache License 2.0: its verification loop.
+id: confluent-flink/flink-explain
+description: Checking a Flink SQL statement on Confluent Cloud with EXPLAIN, then running it and reading its status and output with the confluent CLI.
+relevant:
+  - The task writes or changes a Flink SQL statement or query.
+  - The task investigates a Flink statement that fails, is stuck or produces wrong output.
+deliver: on-demand
+text: |
+  Confluent Cloud's Flink SQL differs from Apache Flink's: check each statement on the real service. The `confluent` CLI must be logged in (`confluent login`) with the environment, compute pool and Kafka cluster (the database) known (`confluent flink compute-pool list`, `confluent environment list`).
+
+  1. Look at the tables it reads: in `confluent flink shell --compute-pool <id> --environment <env>`, `SHOW TABLES;` and `DESCRIBE <table>;` (`DESCRIBE EXTENDED` for the watermark and the options).
+  2. `EXPLAIN <statement>;` in the shell: parse and type errors, and the plan, without running anything.
+  3. Running it creates resources (DDL creates a topic and a schema subject) and consumes CFUs: state the name, the SQL and its target to the person first, then `confluent flink statement create <name> --sql "$(cat <file>.sql)" --compute-pool <id> --database <cluster> --environment <env> --wait`.
+  4. Status: `confluent flink statement describe <name>` (`RUNNING`, `COMPLETED`, `FAILED` with its message); a statement `PENDING` for long, or failing: `confluent flink statement exception list <name>`.
+  5. Output: `confluent kafka topic consume <sink topic> --cluster <id> --from-beginning --value-format <avro|jsonschema|protobuf|string>`, matching the sink's `value.format`; stop it after the first rows.
+  6. Delete a statement made only to test: `confluent flink statement delete <name>`.
+examples:
+  selected:
+    - "Write a Flink SQL statement that joins orders with shipments within one hour and writes the result to a new topic."
+    - "Our Flink statement on Confluent Cloud is stuck in PENDING, find out why."
+  not_selected:
+    - "Explain the difference between tumbling and hopping windows."
+    - "Increase the retention of the orders topic to 14 days."

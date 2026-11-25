@@ -1,0 +1,26 @@
+# Procedure after linkerd-patterns, https://github.com/wshobson/agents
+# (plugins/cloud-infrastructure/skills/linkerd-patterns), MIT License, Copyright (c) Seth Hobson:
+# its health checks and live traffic views, rewritten as a debugging procedure.
+id: kubernetes/linkerd/linkerd-check
+description: Checking the Linkerd mesh and a workload's live traffic with the linkerd CLI.
+relevant:
+  - The task debugs or checks the traffic, mTLS or policies between workloads in a Linkerd mesh.
+  - The task checks in the running cluster whether a workload is meshed by Linkerd or its traffic uses mTLS.
+deliver: on-demand
+text: |
+  To see what the mesh really does, ask the cluster with the `linkerd` CLI (its current `kubectl` context).
+
+  1. Health: `linkerd check`, then `linkerd check --proxy -n <namespace>` for the workload's namespace. Each failed item names the component and a hint.
+  2. Is the workload meshed: `linkerd viz stat deploy -n <namespace>` lists each deployment's meshed pods, success rate, requests per second and latency percentiles. A `-` or `0/N` meshed means no proxy was injected.
+  3. Who talks to whom, and over mTLS: `linkerd viz edges deploy -n <namespace>`; an edge without an identity is not secured.
+  4. Per route: `linkerd viz routes deploy/<name> -n <namespace>`; live requests: `linkerd viz top deploy/<name> -n <namespace>`, or `linkerd viz tap deploy/<name> --to deploy/<other>` to read individual requests and their status (stop it with Ctrl-C, or give it `--max-rps` and a timeout).
+  5. After a change, apply it and repeat steps 1 and 2 on the same workload to compare.
+
+  The `viz` commands need the viz extension (`linkerd viz check`).
+examples:
+  selected:
+    - "Requests from checkout to payments fail with 503 since we enabled the Linkerd authorization policy, find out why."
+    - "Check whether the orders deployment is actually meshed and whether its calls to the db proxy use mTLS."
+  not_selected:
+    - "Add a linkerd.io/inject annotation to the new worker deployment's template."
+    - "Bump the nginx image tag in the frontend deployment."

@@ -1,0 +1,5 @@
+id: python/dagster
+description: Dagster data pipelines, their assets, jobs and schedules.
+level: project
+detect:
+  deps_any: [{ecosystem: pypi, name: dagster}, {ecosystem: pypi, name: dagster-dg-cli}]

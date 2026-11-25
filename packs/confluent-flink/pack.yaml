@@ -1,0 +1,8 @@
+id: confluent-flink
+description: Flink SQL statements run on Confluent Cloud.
+level: project
+detect:
+  # Terraform that manages Flink statements or compute pools, or SQL using Confluent Cloud's registry formats
+  content_any:
+    - {files: ["**/*.tf"], pattern: "^\\s*resource\\s+\"confluent_flink_(statement|compute_pool)\""}
+    - {files: ["**/*.sql"], pattern: "'(key|value)\\.format'\\s*=\\s*'(avro|json|proto)-registry'"}

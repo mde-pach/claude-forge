@@ -1,0 +1,22 @@
+# Procedure after Laravel Boost, https://github.com/laravel/boost, MIT License,
+# Copyright (c) Taylor Otwell: its last-error and log tools, done with the files and artisan.
+id: php/laravel/laravel-logs-errors
+description: Finding the error behind a failing Laravel request in the application's logs.
+relevant:
+  - The task debugs a Laravel request, job or command that fails or returns an error.
+deliver: on-demand
+text: |
+  The exception and its stack trace are in Laravel's log, not in the response.
+
+  1. Find the log: `config/logging.php` and `LOG_CHANNEL` in `.env` say where it goes. The default is `storage/logs/laravel.log`; the `daily` channel writes `storage/logs/laravel-YYYY-MM-DD.log` (`ls -t storage/logs | head`).
+  2. Reproduce the failure (the request with `curl -i`, the command, the job), then read the newest entries: `tail -n 200 storage/logs/laravel.log`. An entry starts with `[date] <env>.ERROR:` followed by the message and the `#0 ...` trace; the first frame in `app/` is usually where to look.
+  3. To watch while reproducing, run `tail -f` on it in the background, or `php artisan pail` where Pail is installed, and stop it after.
+  4. A queued job's failure is also in `php artisan queue:failed`.
+  5. In the browser, the console and network panels hold front-end errors; read them with the project's browser tooling when the request starts there.
+examples:
+  selected:
+    - "Submitting the checkout form returns a 500, find out what is failing."
+    - "The SendInvoiceEmail job keeps failing on the queue, why?"
+  not_selected:
+    - "Add a log line when a user changes their password."
+    - "Configure the daily log channel to keep 14 days of logs."

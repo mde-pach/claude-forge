@@ -1,0 +1,24 @@
+# Procedure after clerk-testing, https://github.com/clerk/skills (skills/clerk-testing), whose
+# repository states no license: written from scratch after it and Clerk's testing guides
+# (https://clerk.com/docs/guides/development/testing/overview).
+id: typescript/clerk/clerk-e2e-auth
+description: Signing in to a Clerk app from Playwright or Cypress with Clerk's testing helpers, to drive or test its signed-in pages.
+relevant:
+  - The task drives the app in a browser, or tests it end to end, on pages that need a signed-in user.
+  - The task writes or fixes end-to-end tests that sign in or sign up, or that fail at signing in.
+deliver: on-demand
+text: |
+  Clerk blocks automated browsers unless they carry a testing token; `@clerk/testing` provides it and signs in without the UI. It needs development keys (`pk_test_...`, `sk_test_...`, or `CLERK_TESTING_TOKEN`) in the test environment, and a test user (an email with `+clerk_test`, code `424242`, works without real mail).
+
+  1. Install it as a dev dependency if absent: `@clerk/testing`.
+  2. Playwright: in a global setup, `await clerkSetup()` (from `@clerk/testing/playwright`), then a setup project that calls `await setupClerkTestingToken({ page })`, opens a page that loads Clerk, signs in with `await clerk.signIn({ page, signInParams: { strategy: 'password', identifier, password } })`, and saves `await page.context().storageState({ path: 'playwright/.clerk/user.json' })`. Tests reuse it with `test.use({ storageState: 'playwright/.clerk/user.json' })`.
+  3. Cypress: `addClerkCommands({ Cypress, cy })` in the support file and `clerkSetup()` in the config; then `cy.clerkSignIn({ strategy: 'password', identifier, password })` before visiting.
+  4. A test of the sign-in UI itself calls `setupClerkTestingToken` before navigating, then waits for Clerk's components (`page.waitForSelector('[data-clerk-component]')`).
+  5. Run the tests with the project's runner and read the failures; a 401 or a bot-detection error means the token or keys are missing.
+examples:
+  selected:
+    - "Write a Playwright test that checks the billing page shows the user's current plan."
+    - "Our e2e tests fail because they can't get past the sign-in page."
+  not_selected:
+    - "Add a sign-out button to the navbar."
+    - "Protect the /admin route with Clerk middleware."

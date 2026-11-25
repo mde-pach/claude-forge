@@ -1,0 +1,26 @@
+# Procedure after swift-mcp-server-generator, https://github.com/github/awesome-copilot
+# (skills/swift-mcp-server-generator), MIT License, Copyright GitHub, Inc.: testing the built
+# server with the MCP Inspector, here in its command-line mode.
+id: swift/mcp/mcp-inspector-probe
+description: Calling the Swift MCP server's tools, resources and prompts through the MCP Inspector's command line and reading its answers.
+relevant:
+  - The task adds or changes a tool, resource or prompt of the project's MCP server.
+  - The task needs to check what the MCP server answers to a client.
+deliver: on-demand
+text: |
+  Talk to the built server as a client does, with the MCP Inspector's command-line mode (`npx @modelcontextprotocol/inspector --cli`, Node.js needed). It starts the server over stdio, sends one request, prints the JSON answer and stops the server.
+
+  1. Build it: `swift build`, and find the executable with `swift build --show-bin-path` (`<that path>/<product>`).
+  2. List what it offers: `npx @modelcontextprotocol/inspector --cli <bin path>/<product> --method tools/list`. Check each tool's name, description and `inputSchema`.
+  3. Call a tool: `... --method tools/call --tool-name <name> --tool-arg key=value --tool-arg other=1`. Read `content` and `isError`; call it once with bad arguments too.
+  4. Resources and prompts: `--method resources/list`, `--method resources/read --uri <uri>`, `--method prompts/list`, `--method prompts/get --prompt-name <name>`.
+  5. A server over HTTP: start it in the background, pass its URL instead of the command (`... --cli http://localhost:8080/mcp --transport http --method tools/list`), and stop it after.
+
+  The server's logs go to stderr; anything printed on stdout other than protocol messages breaks stdio.
+examples:
+  selected:
+    - "Add a list_reminders tool to our Swift MCP server and make sure it works."
+    - "Claude Desktop shows no tools from our Swift MCP server, figure out why."
+  not_selected:
+    - "Write the README section on installing the server."
+    - "Update the swift-tools-version in Package.swift to 6.0."

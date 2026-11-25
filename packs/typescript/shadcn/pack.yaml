@@ -1,0 +1,7 @@
+id: typescript/shadcn
+description: UI built from shadcn/ui components copied into the project.
+level: project
+detect:
+  # the shadcn CLI's configuration
+  content_any:
+    - {files: [components.json, "*/components.json", "*/*/components.json"], pattern: "ui\\.shadcn\\.com/schema|^\\s*\"tailwind\"\\s*:\\s*\\{"}

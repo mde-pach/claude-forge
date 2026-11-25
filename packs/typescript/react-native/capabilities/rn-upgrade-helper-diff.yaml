@@ -1,0 +1,23 @@
+# Procedure after upgrading-react-native, https://github.com/callstackincubator/agent-skills
+# (skills/upgrading-react-native), MIT License, Copyright (c) 2026 Callstack Incubator:
+# applying the template diff between the two versions.
+id: typescript/react-native/rn-upgrade-helper-diff
+description: Upgrading React Native by reading the official template's diff between the current and the target version and applying it.
+relevant:
+  - The task upgrades the React Native version of an app.
+deliver: on-demand
+text: |
+  The changes an upgrade needs in the native and config files are the changes between the two versions' app templates.
+
+  1. Versions: the current one from `node_modules/react-native/package.json` (`version`), the target from `npm view react-native version` or the task. In an Expo app the Expo SDK chooses the version: upgrade the SDK instead.
+  2. Fetch the template diff: `curl -fL -o /tmp/rn.diff "https://raw.githubusercontent.com/react-native-community/rn-diff-purge/diffs/diffs/<current>..<target>.diff"` (a 404 means one version has no release in rn-diff-purge: use the nearest patch versions). `grep -n '^diff --git' /tmp/rn.diff` lists the files.
+  3. Apply each file's hunks by hand, with the app's own names (`RnDiffApp` and `com.rndiffapp` in the diff are the app's name and package): `package.json` versions, `android/` Gradle files, `ios/Podfile` and the AppDelegate, Metro and Babel config.
+  4. Install: the package manager's install, then `cd ios && bundle exec pod install` (or `pod install`).
+  5. Read the release notes of each version in between for breaking API changes in the libraries used, then build both platforms (`npx react-native run-android`, `run-ios`, or the project's scripts) and run the tests.
+examples:
+  selected:
+    - "Upgrade React Native from 0.76 to 0.78."
+    - "Bump react-native to the latest version and fix the native build."
+  not_selected:
+    - "Add a new screen to the navigation stack."
+    - "Explain the new architecture in React Native."

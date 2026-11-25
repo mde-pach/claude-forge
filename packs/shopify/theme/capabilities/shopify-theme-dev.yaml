@@ -1,0 +1,24 @@
+# Procedure after shopify-theme-development, https://github.com/finsilabs/awesome-ecommerce-skills
+# (skills/platform-shopify/shopify-theme-development), MIT License,
+# Copyright (c) 2026 awesome-ecommerce-skills contributors: previewing the theme and checking it.
+id: shopify/theme/shopify-theme-dev
+description: Previewing the Shopify theme locally with the Shopify CLI and checking its sections and blocks in the theme editor.
+relevant:
+  - The task adds or changes a Shopify theme's sections, blocks, snippets or templates.
+  - The task debugs how a Shopify theme page renders.
+deliver: on-demand
+text: |
+  See the theme render with real store data, with the Shopify CLI.
+
+  1. Lint first: `shopify theme check` reports Liquid syntax errors, missing translations and schema problems per file and line.
+  2. Serve: `shopify theme dev --store <store>.myshopify.com` in the background, with its output kept in a log. It uploads the theme as a development theme and prints a local preview URL (http://127.0.0.1:9292), a shareable preview link and a theme editor link. It hot-reloads on save.
+  3. Look at the page in a browser the project can drive, at the URL of the template the change is on (`/products/<handle>`, `/collections/<handle>`). An `Liquid error` in the page or the log names the file and line.
+  4. In the theme editor link, add the section or block to a template and change its settings, to check its `{% schema %}` (settings, blocks, presets) works as intended.
+  5. Stop the dev server at the end.
+examples:
+  selected:
+    - "Add a testimonials section with configurable blocks to the theme."
+    - "The featured collection section shows 'Liquid error' on the home page, fix it."
+  not_selected:
+    - "Explain how Shopify metafields work."
+    - "Add a new webhook handler to our Shopify app."

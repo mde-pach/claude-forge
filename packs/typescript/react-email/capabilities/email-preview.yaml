@@ -1,0 +1,22 @@
+# Procedure after react-email, https://github.com/resend/resend-skills (skills/react-email),
+# MIT License, Copyright (c) 2026 Resend: previewing templates and reading their rendered HTML.
+id: typescript/react-email/email-preview
+description: Previewing React Email templates in the dev server, or rendering one to HTML and plain text, to see what the email shows.
+relevant:
+  - The task builds or changes an email template.
+  - The task debugs how an email renders or what it contains.
+deliver: on-demand
+text: |
+  Look at the email as it is sent: its rendered HTML, not its components.
+
+  1. Render one template with sample props, in a short `.tsx` script run with `npx tsx`: `const html = await render(<Welcome name="Ada" url="https://example.com" />, { pretty: true })` and `await render(..., { plainText: true })` (from `@react-email/render` or `@react-email/components`); write both to files and read them: the links, the text, the inline styles.
+  2. Or start the preview server in the background: the project's `email` script, else `npx email dev --dir <templates dir> --port 3000`; each template is a page at http://localhost:3000, with its HTML and plain-text tabs. Look at it in a browser the project can drive, at desktop and mobile widths. Stop it after.
+  3. A template without `PreviewProps` renders without data in the preview: set `Template.PreviewProps = { ... }` with realistic values.
+  4. All templates at once: `npx email export --dir <templates dir> --outDir out --pretty`, then read the files in `out/`.
+examples:
+  selected:
+    - "Build a password reset email with a button and a fallback link."
+    - "The order confirmation email shows an empty total, find out why."
+  not_selected:
+    - "Switch the email provider from SendGrid to Resend."
+    - "Add a newsletter signup checkbox to the registration form."

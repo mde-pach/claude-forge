@@ -1,0 +1,7 @@
+id: php/magento
+description: Magento 2 and Adobe Commerce stores.
+level: project
+detect:
+  files_any: [bin/magento, app/etc/config.php]
+  content_any:
+    - {files: [composer.json], pattern: "\"magento/(product-community-edition|product-enterprise-edition|magento2-base|framework)\"\\s*:"}

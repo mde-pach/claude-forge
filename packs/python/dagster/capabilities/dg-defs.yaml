@@ -1,0 +1,24 @@
+# Procedure after dagster-expert, https://github.com/dagster-io/skills
+# (plugins/dagster/skills/dagster-expert), Apache License 2.0: the dg CLI's listing and launching.
+id: python/dagster/dg-defs
+description: Listing the Dagster project's definitions and materializing an asset locally with the dg CLI.
+relevant:
+  - The task adds or changes a Dagster asset, job, schedule, sensor or resource.
+  - The task debugs a Dagster asset or job that fails or produces wrong data.
+deliver: on-demand
+text: |
+  Ask Dagster what it loads and run what changed, locally. Run `dg` through the project's environment (`uv run dg ...` in a uv project).
+
+  1. `uv run dg check defs`: the definitions load, or the error that stops them.
+  2. `uv run dg list defs --json`: the assets, jobs, schedules, sensors and resources Dagster sees, with their keys, groups and dependencies. A new definition missing here is not wired into the `Definitions`.
+  3. Materialize: `uv run dg launch --assets <asset key>` (a selection works too: `--assets "key:orders*"`, `--assets "+<key>"` with its upstream), or `uv run dg launch --job <job>`; add `--partition <key>` for a partitioned asset. Read the run's log for the step that failed and the asset's output.
+  4. Look at the result where the asset writes it (the table, the file), and run the project's tests.
+
+  `uv run dg dev` starts the local UI on http://localhost:3000 when run history or the asset graph is needed; run it in the background and stop it after.
+examples:
+  selected:
+    - "Add a daily_revenue asset that aggregates the orders asset by day."
+    - "The customers asset fails to materialize since the schema change, fix it."
+  not_selected:
+    - "Explain the difference between Dagster schedules and sensors."
+    - "Bump pandas to 2.2 in pyproject.toml."

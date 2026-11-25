@@ -1,0 +1,23 @@
+# Procedure after netlify-database, https://github.com/netlify/context-and-tools
+# (skills/netlify-database), MIT License, Copyright (c) 2025 Netlify: the local database commands.
+id: netlify/database/netlify-db-local
+description: Applying Netlify Database migrations to the local database and querying it with the Netlify CLI.
+relevant:
+  - The task adds or changes a Netlify Database migration.
+  - The task writes or debugs a query against the project's Netlify Database.
+deliver: on-demand
+text: |
+  Try a migration or a query on the local database before it ships (deploys apply migrations themselves; locally nothing does). The commands are the Netlify CLI's (`npx netlify` where it is not installed, version 26 or later).
+
+  1. Start the local database: `netlify dev` in the background (it starts a local Postgres with the dev server); stop it when done.
+  2. Create a migration with its correct name: `netlify database migrations new -d "<purpose>"`, then write `migration.sql` in the directory it created under `netlify/database/migrations/`.
+  3. Apply it: `netlify database migrations apply`, then `netlify database status --json` and read the applied and pending migrations.
+  4. Check the result: `netlify database connect --query "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '<table>'" --json`, and run the queries the change serves the same way, reading the returned rows.
+  5. To start over locally: `netlify database reset` (the local database only).
+examples:
+  selected:
+    - "Add a status column to the orders table in our Netlify database."
+    - "The function's SELECT on posts returns no rows locally, find out why."
+  not_selected:
+    - "Add a redirect from /blog to /posts in netlify.toml."
+    - "Explain how deploy previews get their own database branch."

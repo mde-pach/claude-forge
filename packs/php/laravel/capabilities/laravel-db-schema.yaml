@@ -1,0 +1,24 @@
+# Procedure after Laravel Boost, https://github.com/laravel/boost, MIT License,
+# Copyright (c) Taylor Otwell: its database-schema tool, done with artisan's own commands.
+id: php/laravel/laravel-db-schema
+description: Reading the Laravel app's real database tables, columns and indexes with artisan before writing a migration or a query.
+relevant:
+  - The task adds or changes a Laravel migration.
+  - The task writes or debugs a database query, or needs to know a table's columns or indexes.
+deliver: on-demand
+text: |
+  Read the schema the app's database really has, rather than inferring it from old migrations.
+
+  1. `php artisan db:show` (add `--counts` for row counts): the connection, the database and its tables. `php artisan migrate:status` lists the migrations run and pending.
+  2. `php artisan db:table <table>`: its columns with their types, nullability and defaults, its indexes and its foreign keys. Do this for each table the change touches.
+  3. Write the migration or query with those names. After `php artisan migrate`, run `db:table` again on the changed tables and compare.
+  4. To check a query, run it in the app: `php artisan tinker --execute="dump(App\Models\Order::where('status', 'paid')->toRawSql());"`, then once more with `->get()` or `->count()` to read the result.
+
+  Use the project's way of running PHP when it has one (`./vendor/bin/sail artisan ...`, `docker compose exec app php artisan ...`).
+examples:
+  selected:
+    - "Add a nullable shipped_at column and an index on status to the orders table."
+    - "The query for overdue invoices in InvoiceRepository is slow, check what indexes the table has."
+  not_selected:
+    - "Translate the validation messages on the registration form into French."
+    - "Add a new Blade component for the pricing card."

@@ -1,0 +1,24 @@
+# Procedure after puppeteer-skill, https://github.com/LambdaTest/agent-skills (puppeteer-skill),
+# MIT License, Copyright (c) 2025 TestMu AI / LambdaTest: a short headless script to look at a page.
+id: typescript/puppeteer/puppeteer-drive
+description: Checking what a web page shows and does with a short headless Chrome script using the project's Puppeteer.
+relevant:
+  - The task needs a web page's behaviour or rendering checked in a browser.
+  - The task reproduces a bug that happens in the browser.
+deliver: on-demand
+text: |
+  Look at the page as Chrome renders it, with the project's Puppeteer.
+
+  1. Start the app's server in the background with its own script when the page is local, and wait until its port answers.
+  2. Write a short script (`check.mjs`, run with `node`): `const browser = await puppeteer.launch(); const page = await browser.newPage();`, then register listeners before navigating: `page.on('console', (m) => console.log(m.type(), m.text()))`, `page.on('pageerror', (e) => console.log('pageerror', e.message))`, `page.on('requestfailed', (r) => console.log('failed', r.url()))`.
+  3. `await page.goto(url, { waitUntil: 'networkidle0' })`, then wait for what the page loads: `await page.waitForSelector('<selector>', { visible: true })`.
+  4. Look: `await page.screenshot({ path: 'page.png', fullPage: true })` and read the image; read text with `await page.$eval('<selector>', (el) => el.textContent)`.
+  5. Act as a person does (`page.click`, `page.type`, `page.select`), then wait and look again.
+  6. `await browser.close()` in a `finally`, and stop the server you started.
+examples:
+  selected:
+    - "The export button stopped working on the reports page, reproduce it in the browser."
+    - "Check that the pricing page renders all three plans on a 375px wide viewport."
+  not_selected:
+    - "Add a unit test for the price formatting function."
+    - "Rename the reports module to analytics."

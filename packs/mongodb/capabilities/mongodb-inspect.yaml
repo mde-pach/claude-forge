@@ -1,0 +1,26 @@
+# Procedure after mongodb-natural-language-querying and mongodb-search-and-ai,
+# https://github.com/mongodb/agent-skills (skills/mongodb-natural-language-querying,
+# skills/mongodb-search-and-ai), Apache License 2.0: reading a collection's real indexes, fields
+# and documents before writing a query or a search pipeline, then running it.
+id: mongodb/mongodb-inspect
+description: Reading a MongoDB collection's indexes, fields and sample documents, and running a query against it, before relying on it.
+relevant:
+  - The task writes or debugs a MongoDB query or aggregation pipeline against a real database.
+  - The task adds or tunes an Atlas Search or Vector Search index or query.
+deliver: on-demand
+text: |
+  Ground a query in the collection as it is, read-only. With the MongoDB MCP server connected, use its tools; otherwise run the same reads in `mongosh "<connection string>"`.
+
+  1. Indexes: `collection-indexes` (`db.<coll>.getIndexes()`); for Atlas Search and Vector Search indexes, `db.<coll>.getSearchIndexes()`. Note which fields each covers.
+  2. Fields and types: `collection-schema` with `sampleSize: 50`, or `db.<coll>.aggregate([{ $sample: { size: 50 } }])` and read the documents.
+  3. A few real documents: `find` with `limit: 4` (`db.<coll>.find().limit(4)`), to see the exact field names, nesting and value formats.
+  4. Write the query with those names. Run it with `find` or `aggregate`, read the results, and for a non-search query read `explain` (`db.<coll>.find(...).explain("executionStats")`): `IXSCAN` uses an index, `COLLSCAN` reads every document.
+  5. For a search pipeline, check that its first stage (`$search`, `$vectorSearch`) names an index from step 1, then run it and compare the results and scores with what the task expects; revise and run again.
+examples:
+  selected:
+    - "Write the aggregation that returns each customer's total spend over the last 30 days from our orders collection."
+    - "Add semantic search over product descriptions with Atlas Vector Search."
+    - "This find() on users returns nothing even though the documents are there, figure out why."
+  not_selected:
+    - "Explain the difference between embedding and referencing documents in MongoDB."
+    - "Rename the getUser function to findUser everywhere."

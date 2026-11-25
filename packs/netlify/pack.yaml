@@ -1,0 +1,10 @@
+id: netlify
+description: Sites and functions deployed on Netlify.
+level: project
+detect:
+  files_any: [netlify.toml]
+  deps_any:
+    - {ecosystem: npm, name: netlify-cli}
+    - {ecosystem: npm, name: "@netlify/functions"}
+    - {ecosystem: npm, name: "@netlify/edge-functions"}
+    - {ecosystem: npm, name: "@netlify/database"}

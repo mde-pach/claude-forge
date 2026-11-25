@@ -1,0 +1,23 @@
+# Procedure after Laravel Boost, https://github.com/laravel/boost, MIT License,
+# Copyright (c) Taylor Otwell: its tinker tool, done with artisan.
+id: php/laravel/laravel-tinker
+description: Running PHP code inside the Laravel application with tinker to check how its models, queries and configuration behave.
+relevant:
+  - The task needs to find out how the app behaves at run time, such as what its models, relations or queries return or which configuration values it uses.
+deliver: on-demand
+text: |
+  Ask the running app instead of reasoning from the code: `php artisan tinker --execute="<php>"` boots the application, runs the code once and exits.
+
+  1. Print what you need with `dump()`: `php artisan tinker --execute="dump(config('queue.default'));"`, `dump(App\Models\User::first()?->roles->pluck('name'));`, `dump(app(App\Services\Pricing::class)->quote(3));`.
+  2. For a query, read its SQL with `->toRawSql()`, then its result with `->get()`, `->count()` or `->first()`.
+  3. Code that writes goes in a transaction rolled back after reading the result: `DB::beginTransaction(); ...; dump(...); DB::rollBack();`.
+  4. Quote for the shell: double quotes around the code, single quotes inside it, `\$` for a PHP variable.
+
+  `php artisan route:list --path=<prefix>` and `php artisan about` answer the routing and environment questions without code. Use the project's way of running PHP when it has one (`./vendor/bin/sail artisan ...`).
+examples:
+  selected:
+    - "Find out why $user->subscription returns null for users that do have a subscription row."
+    - "Which mail driver does the app actually use in this environment? Check it."
+  not_selected:
+    - "Write a feature test for the password reset flow."
+    - "Rename the Customer model to Client."
