@@ -1,0 +1,16 @@
+id: typescript/nextjs/no-dynamic-io
+description: "next.config does not set experimental.dynamicIO: Next.js 16 replaced it with the top-level cacheComponents: true, and next build stops on the old key."
+scope: {language: typescript, files: ["next.config.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?dynamicIO[\"']?$"}
+        - inside: {kind: object, inside: {kind: pair, has: {field: key, regex: "^[\"']?experimental[\"']?$"}}}
+when:
+  deps: [{ecosystem: npm, name: next, version: ">=16.0.0"}]
+examples:
+  match: ["import type { NextConfig } from \"next\";\n\nconst nextConfig: NextConfig = {\n  experimental: { dynamicIO: true },\n};\nexport default nextConfig;\n", "module.exports = { experimental: { \"dynamicIO\": true, typedRoutes: true } };\n"]
+  no_match: ["import type { NextConfig } from \"next\";\n\nconst nextConfig: NextConfig = {\n  cacheComponents: true,\n  experimental: { typedEnv: true },\n};\nexport default nextConfig;\n", "export default { env: { dynamicIO: \"1\" } };\n"]

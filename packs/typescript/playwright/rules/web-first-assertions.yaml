@@ -1,0 +1,33 @@
+id: typescript/playwright/web-first-assertions
+description: "Assert on the locator with a web-first matcher, which retries until it holds (await expect(locator).toBeVisible(), .toHaveText(), .toBeChecked(), .toHaveValue(), .toHaveCount()), not on a value read once (expect(await locator.isVisible()).toBe(true)), which races the page."
+scope: {language: typescript, files: ["@e2e-tests", "**/*.spec.*"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^expect(\\.soft)?$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: await_expression
+              has:
+                kind: call_expression
+                has:
+                  field: function
+                  kind: member_expression
+                  all:
+                    - has: {field: property, regex: "^(isVisible|isHidden|isEnabled|isDisabled|isChecked|isEditable|textContent|innerText|inputValue|getAttribute|count|title|url)$"}
+                    - has: {field: object, pattern: $X}
+    where:
+      X: {type: {package: playwright-core, name: [Locator, Page, Frame]}}
+examples:
+  deps: [{ecosystem: npm, name: "@playwright/test", version: "1.57.0"}]
+  match:
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"shows the banner\", async ({ page }) => {\n  await page.goto(\"/\");\n  expect(await page.getByRole(\"banner\").isVisible()).toBe(true);\n});\n"
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"counts items\", async ({ page }) => {\n  const items = page.locator(\"li\");\n  expect(await items.count()).toBe(3);\n  expect(await page.title()).toBe(\"Shop\");\n});\n"
+  no_match:
+    - "import { expect, test } from \"@playwright/test\";\n\ntest(\"shows the banner\", async ({ page }) => {\n  await page.goto(\"/\");\n  await expect(page.getByRole(\"banner\")).toBeVisible();\n  await expect(page.locator(\"li\")).toHaveCount(3);\n  await expect(page).toHaveTitle(\"Shop\");\n});\n"
+    - "import { expect, test } from \"@playwright/test\";\n\nconst cart = { count: async () => 3 };\n\ntest(\"counts\", async () => {\n  expect(await cart.count()).toBe(3);\n});\n"
