@@ -1,0 +1,13 @@
+id: github-actions/ai-action-wildcard-users
+description: "An AI agent action does not let any GitHub user trigger it (allowed_non_write_users: \"*\", allow-users: \"*\"): anyone can then steer it with an issue or comment while it holds the job's token and secrets. List the users or teams allowed."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*(allowed_non_write_users|allow-users)[[:space:]]*:[[:space:]]*[\"']?\\*[\"']?[[:space:]]*(#.*)?$"
+examples:
+  match:
+    - files: {.github/workflows/claude.yml: "jobs:\n  claude:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          allowed_non_write_users: \"*\"\n"}
+    - files: {.github/workflows/codex.yml: "jobs:\n  fix:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: openai/codex-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          allow-users: '*'\n"}
+  no_match:
+    - files: {.github/workflows/claude.yml: "jobs:\n  claude:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          allowed_non_write_users: \"alice,bob\"\n"}
