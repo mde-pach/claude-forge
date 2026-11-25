@@ -1,0 +1,15 @@
+id: typescript/astro/no-astrojs-tailwind
+description: "No @astrojs/tailwind with Tailwind CSS 4: the integration supports Tailwind 3 only. Remove it and add the @tailwindcss/vite plugin under vite.plugins in astro.config, with @import \"tailwindcss\" in the global CSS."
+scope: {language: any, files: [package.json]}
+enforce:
+  - target: check
+    stage: lint
+    run: "forge_pkg_deps package.json | awk -F '\\t' '$2 == \"@astrojs/tailwind\" { print \"package.json: \" $1 \" has @astrojs/tailwind, which supports Tailwind 3 only\"; f = 1 } END { exit f }'"
+    when_changed: [package.json]
+when:
+  deps: [{ecosystem: npm, name: tailwindcss, version: ">=4.0.0"}]
+examples:
+  match:
+    - files: {package.json: "{\"name\": \"site\", \"dependencies\": {\"astro\": \"^5.14.0\", \"tailwindcss\": \"^4.1.0\", \"@astrojs/tailwind\": \"^6.0.0\"}}\n"}
+  no_match:
+    - files: {package.json: "{\"name\": \"site\", \"dependencies\": {\"astro\": \"^5.14.0\", \"tailwindcss\": \"^4.1.0\", \"@tailwindcss/vite\": \"^4.1.0\"}}\n"}

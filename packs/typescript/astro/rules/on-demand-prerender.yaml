@@ -1,0 +1,25 @@
+id: typescript/astro/on-demand-prerender
+description: "In a static Astro site, a page or endpoint that reads the request (Astro.cookies, Astro.request headers, method or body, a POST/PUT/PATCH/DELETE handler) exports const prerender = false: a prerendered page reads it once at build time, with no real request."
+scope: {language: any, files: ["src/pages/**"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      if grep -qE "output[[:space:]]*:[[:space:]]*['\"]server['\"]" /dev/null $(git ls-files 'astro.config.*'); then return 0; fi
+      _bad=0
+      for _f in $(git ls-files 'src/pages/*.astro' 'src/pages/*.ts' 'src/pages/*.js'); do
+        grep -qE 'Astro\.(cookies|request\.(headers|method|formData|json|text))|export[[:space:]]+(const|async[[:space:]]+function|function)[[:space:]]+(POST|PUT|PATCH|DELETE)[^A-Za-z0-9_]' "$_f" || continue
+        grep -qE 'export[[:space:]]+const[[:space:]]+prerender[[:space:]]*=[[:space:]]*false' "$_f" && continue
+        echo "$_f:1 reads the request but is prerendered: add export const prerender = false"
+        _bad=1
+      done
+      [ "$_bad" = 0 ]
+    when_changed: ["src/pages/**", "astro.config.*"]
+examples:
+  match:
+    - files: {src/pages/account.astro: "---\nconst session = Astro.cookies.get(\"session\");\n---\n<p>{session?.value}</p>\n"}
+    - files: {src/pages/api/subscribe.ts: "export const POST = async ({ request }: { request: Request }) => {\n  const body = await request.formData();\n  return new Response(String(body.get(\"email\")));\n};\n"}
+  no_match:
+    - files: {src/pages/account.astro: "---\nexport const prerender = false;\nconst session = Astro.cookies.get(\"session\");\n---\n<p>{session?.value}</p>\n"}
+    - files: {src/pages/index.astro: "---\nconst title = \"Home\";\n---\n<h1>{title}</h1>\n"}
+    - files: {astro.config.mjs: "import { defineConfig } from \"astro/config\";\nexport default defineConfig({ output: \"server\" });\n", src/pages/account.astro: "---\nconst session = Astro.cookies.get(\"session\");\n---\n<p>{session?.value}</p>\n"}

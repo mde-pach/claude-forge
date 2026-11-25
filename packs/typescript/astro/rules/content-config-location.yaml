@@ -1,0 +1,12 @@
+id: typescript/astro/content-config-location
+description: "Content collections are declared in src/content.config.ts, not src/content/config.ts (the legacy location Astro 6 refuses): move the file there."
+scope: {language: any}
+enforce:
+  - {target: check, stage: lint, run: "! git ls-files 'src/content/config.*' | grep .", when_changed: ["src/content/**", "src/content.config.*"]}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - files: {src/content/config.ts: "import { defineCollection } from \"astro:content\";\n\nexport const collections = { blog: defineCollection({}) };\n"}
+  no_match:
+    - files: {src/content.config.ts: "import { defineCollection } from \"astro:content\";\n\nexport const collections = { blog: defineCollection({}) };\n", src/content/blog/hello.md: "---\ntitle: Hello\n---\n"}

@@ -1,0 +1,14 @@
+id: typescript/astro/no-view-transitions
+description: "No <ViewTransitions />: Astro 5 renamed it <ClientRouter /> (import { ClientRouter } from \"astro:transitions\") and Astro 6 removed the old name."
+scope: {language: any, files: ["**/*.astro"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "<ViewTransitions([[:space:]/>]|$)|[{,[:space:]]ViewTransitions[[:space:]]*[},].*astro:transitions"}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - "---\nimport { ViewTransitions } from \"astro:transitions\";\n---\n<head>\n  <ViewTransitions />\n</head>\n"
+    - "<head><ViewTransitions/></head>\n"
+  no_match:
+    - "---\nimport { ClientRouter } from \"astro:transitions\";\n---\n<head>\n  <ClientRouter />\n</head>\n"
+    - "<main transition:name=\"hero\"><h1>View transitions</h1></main>\n"

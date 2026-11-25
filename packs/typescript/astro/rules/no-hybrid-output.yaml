@@ -1,0 +1,13 @@
+id: typescript/astro/no-hybrid-output
+description: "No output: 'hybrid' in astro.config: Astro 5 removed it. The default static output already allows on-demand pages; mark them with export const prerender = false (with an adapter), or use output: 'server'."
+scope: {language: any, files: ["astro.config.*"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "output[[:space:]]*:[[:space:]]*['\"]hybrid['\"]"}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - "import { defineConfig } from \"astro/config\";\nimport node from \"@astrojs/node\";\n\nexport default defineConfig({\n  output: \"hybrid\",\n  adapter: node({ mode: \"standalone\" }),\n});\n"
+  no_match:
+    - "import { defineConfig } from \"astro/config\";\nimport node from \"@astrojs/node\";\n\nexport default defineConfig({\n  output: \"server\",\n  adapter: node({ mode: \"standalone\" }),\n});\n"
+    - "import { defineConfig } from \"astro/config\";\n\nexport default defineConfig({ site: \"https://example.com\" });\n"

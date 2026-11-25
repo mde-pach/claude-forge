@@ -1,0 +1,14 @@
+id: typescript/astro/no-entry-render
+description: "Content entries render with render(entry) imported from astro:content (const { Content } = await render(entry)), not entry.render(), which content-layer collections do not have."
+scope: {language: any, files: ["src/**/*.astro", "src/**/*.ts", "src/**/*.tsx", "src/**/*.js"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "\\{[^}]*(Content|headings|remarkPluginFrontmatter)[^}]*\\}[[:space:]]*=[[:space:]]*await[[:space:]]+[A-Za-z_$][A-Za-z0-9_$.]*\\.render\\([[:space:]]*\\)"}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=5.0.0"}]
+examples:
+  match:
+    - "---\nconst { post } = Astro.props;\nconst { Content } = await post.render();\n---\n<Content />\n"
+    - "---\nconst { Content, headings } = await Astro.props.entry.render();\n---\n<Content />\n"
+  no_match:
+    - "---\nimport { render } from \"astro:content\";\nconst { post } = Astro.props;\nconst { Content } = await render(post);\n---\n<Content />\n"
+    - "---\nconst html = await view.render(data);\n---\n<div set:html={html} />\n"

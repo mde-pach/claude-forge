@@ -1,0 +1,21 @@
+id: typescript/astro/zod-from-astro-zod
+description: "Astro 6 imports z from astro/zod, not from astro:content or astro:schema (both deprecated): import { z } from \"astro/zod\"."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: import_specifier
+          has: {field: name, regex: "^z$"}
+          inside: {stopBy: end, kind: import_statement, has: {field: source, regex: "^[\"']astro:content[\"']$"}}
+        - {kind: import_statement, has: {field: source, regex: "^[\"']astro:schema[\"']$"}}
+when:
+  deps: [{ecosystem: npm, name: astro, version: ">=6.0.0"}]
+examples:
+  match:
+    - "import { defineCollection, z } from \"astro:content\";\n\nexport const collections = { blog: defineCollection({ schema: z.object({ title: z.string() }) }) };\n"
+    - "import { z } from \"astro:schema\";\n\nexport const Input = z.object({ email: z.email() });\n"
+  no_match:
+    - "import { defineCollection } from \"astro:content\";\nimport { z } from \"astro/zod\";\n\nexport const collections = { blog: defineCollection({ schema: z.object({ title: z.string() }) }) };\n"
+    - "import { z } from \"zod\";\n\nexport const S = z.string();\n"
