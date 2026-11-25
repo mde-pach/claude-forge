@@ -1835,7 +1835,18 @@ impl Sandbox {
         // the built-in capabilities are disabled: these tests are about the fixture ones
         let config = self.root.join("forge.yaml");
         let text = std::fs::read_to_string(&config).unwrap_or_else(|_| "forge: \"0.6\"\n".into());
-        let off = "  - id: code/reproduce-first\n    reason: the tests' own capabilities only\n";
+        let set = forge_packs::load_builtin(forge_packs::Options::default()).unwrap();
+        let off: String = set
+            .packs
+            .values()
+            .flat_map(|p| &p.capabilities)
+            .map(|c| {
+                format!(
+                    "  - id: {}\n    reason: the tests' own capabilities only\n",
+                    c.id
+                )
+            })
+            .collect();
         let text = match text.find("disable:\n") {
             Some(i) => format!("{}{off}{}", &text[..i + 9], &text[i + 9..]),
             None => format!("{text}disable:\n{off}"),
@@ -1980,7 +1991,7 @@ fn no_request_without_candidates() {
     assert_eq!(out, Output::silent());
     assert!(off.requests().is_empty());
     // a repository with no capability of its own is asked about the built-in ones that apply
-    // (here only the `code` pack's)
+    // (the `code` pack's, and those of its stack's packs), in one request
     let bare = Sandbox::new(&[]);
     let builtin = forge_capabilities::Scripted::answering(&[]);
     bare.prompt_with(
@@ -1990,10 +2001,11 @@ fn no_request_without_candidates() {
         "Fix the crash on empty input",
         None,
     );
-    assert_eq!(
-        builtin.requests(),
-        [["code/reproduce-first#0", "code/reproduce-first#1"]]
-    );
+    let asked = builtin.requests();
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    for key in ["code/reproduce-first#0", "code/reproduce-first#1"] {
+        assert!(asked[0].iter().any(|k| k == key), "{key} in {asked:?}");
+    }
 }
 
 // The engine's failures never reach the agent and never hold the prompt: nothing is selected.

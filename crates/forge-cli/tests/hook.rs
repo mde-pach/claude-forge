@@ -767,7 +767,7 @@ fn capabilities_through_the_real_client() {
         .unwrap();
     assert!(
         context
-            .starts_with("Check pages in the browser.\n\nA fix you cannot reproduce is a guess."),
+            .starts_with("Check pages in the browser.\n\nWhen fixing a reported bug, prove you found the real cause"),
         "{context}"
     );
     let req = requests.recv_timeout(Duration::from_secs(5)).unwrap();

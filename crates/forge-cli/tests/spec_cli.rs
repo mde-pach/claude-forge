@@ -1385,9 +1385,15 @@ fn capabilities_in_status_explain_diff_and_dump() {
 
     let st = s.ok(&["status"]);
     assert!(
-        st.contains("\nCapabilities (capabilities are off on this machine: nobody consented to the capability engine (forge apply --user asks)):\n  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times\n  acme/web: on-demand, available here; selected for 0 of 0 prompts, loaded 0 times\n  code/reproduce-first: inject, available here; selected for 0 of 0 prompts, loaded 0 times\n  acme/gated: not active (its when does not hold in this repository)\n"),
+        st.contains("\nCapabilities (capabilities are off on this machine: nobody consented to the capability engine (forge apply --user asks)):\n  acme/linted: inject, not available here: ruff is not installed on this machine; selected for 0 of 0 prompts, loaded 0 times\n  acme/web: on-demand, available here; selected for 0 of 0 prompts, loaded 0 times\n"),
         "{st}"
     );
+    for line in [
+        "\n  code/reproduce-first: inject, available here; selected for 0 of 0 prompts, loaded 0 times\n",
+        "\n  acme/gated: not active (its when does not hold in this repository)\n",
+    ] {
+        assert!(st.contains(line), "{line:?} in {st}");
+    }
     assert!(st.contains("\n  acme/off: we have our own"), "{st}");
     let js: serde_json::Value = serde_json::from_str(&s.ok(&["status", "--json"])).unwrap();
     assert_eq!(js["capabilities"][1]["id"], "acme/web");
@@ -1664,14 +1670,18 @@ fn a_capabilitys_when_and_pack_decide_whether_it_is_active() {
             .map(|c| c["id"].as_str().unwrap().to_string())
             .collect()
     };
-    // the built-in `code` pack's capability applies here too
+    // the local pack's capabilities whose when holds; the built-in `code` pack's apply here too
+    let active = ids("capabilities");
     assert_eq!(
-        ids("capabilities"),
-        [
-            "acme/on-pyproject",
-            "acme/on-python",
-            "code/reproduce-first"
-        ]
+        active
+            .iter()
+            .filter(|i| i.starts_with("acme/"))
+            .collect::<Vec<_>>(),
+        ["acme/on-pyproject", "acme/on-python"]
+    );
+    assert!(
+        active.iter().any(|i| i == "code/reproduce-first"),
+        "{active:?}"
     );
     assert_eq!(
         ids("inactive_capabilities"),
