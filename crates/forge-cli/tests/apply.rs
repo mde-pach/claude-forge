@@ -220,6 +220,59 @@ impl Sandbox {
     }
 }
 
+/// A sample's uv.lock is uv's own lock of its pyproject.toml: `uv lock --check` passes offline,
+/// with an empty cache. A hand-written lock would make Forge relock it in every session run on a
+/// copy. Skipped without uv on PATH (CI installs it).
+#[test]
+fn samples_uv_locks_match_their_manifests() {
+    let Some(uv) = std::env::var_os("PATH").and_then(|p| {
+        std::env::split_paths(&p)
+            .map(|d| d.join("uv"))
+            .find(|f| f.is_file())
+    }) else {
+        eprintln!("skipped: uv is not on PATH");
+        return;
+    };
+    let mut checked = 0;
+    for name in SAMPLES {
+        let dir = repo_root().join("fixtures/samples").join(name);
+        if !dir.join("uv.lock").is_file() {
+            continue;
+        }
+        // a uv older than the sample's required-version cannot read it
+        let pyproject = std::fs::read_to_string(dir.join("pyproject.toml")).unwrap();
+        let needs = pyproject
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("required-version = \">="))
+            .map(|v| version(v.trim_end_matches('"')));
+        let have = Command::new(&uv).arg("--version").output().unwrap();
+        let have = String::from_utf8_lossy(&have.stdout);
+        let have = version(have.split_whitespace().nth(1).unwrap_or("0"));
+        if needs.is_some_and(|n| have < n) {
+            eprintln!("skipped {name}: uv on PATH is older than its required-version");
+            continue;
+        }
+        let cache = tempfile::tempdir().unwrap();
+        let out = Command::new(&uv)
+            .args(["lock", "--check", "--offline", "--no-python-downloads"])
+            .current_dir(&dir)
+            .env("UV_CACHE_DIR", cache.path())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{name}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        checked += 1;
+    }
+    eprintln!("{checked} samples' uv.lock checked");
+}
+
+fn version(v: &str) -> Vec<u64> {
+    v.split('.').map(|p| p.parse().unwrap_or(0)).collect()
+}
+
 #[test]
 fn samples_match_their_snapshots() {
     for name in SAMPLES {
