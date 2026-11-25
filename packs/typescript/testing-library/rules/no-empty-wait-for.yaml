@@ -1,0 +1,23 @@
+id: typescript/testing-library/no-empty-wait-for
+description: "waitFor() is given an assertion to retry (await waitFor(() => expect(...).toBe(...))), not an empty callback, which passes at once and only waits a tick. Wait for what the test expects, or use a findBy query."
+scope: {language: typescript, files: ["@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(waitFor|waitForElementToBeRemoved)$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              any: [{kind: arrow_function}, {kind: function_expression}]
+              has: {field: body, kind: statement_block, regex: "^\\{[[:space:]]*\\}$"}
+examples:
+  match:
+    - "import { render, waitFor } from \"@testing-library/react\";\n\ntest(\"loads\", async () => {\n  render(<Cart />);\n  await waitFor(() => {});\n});\n"
+    - "await waitFor(function () {});\n"
+  no_match:
+    - "import { render, screen, waitFor } from \"@testing-library/react\";\n\ntest(\"loads\", async () => {\n  render(<Cart />);\n  await waitFor(() => {\n    expect(screen.getByText(\"Total\")).toBeInTheDocument();\n  });\n});\n"
+    - "await waitFor(() => expect(spy).toHaveBeenCalled());\n"

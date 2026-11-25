@@ -1,0 +1,21 @@
+id: typescript/testing-library/no-manual-cleanup
+description: "Tests do not import or call Testing Library's cleanup(): it runs after each test on its own with Jest and Vitest globals (Vitest without globals: import @testing-library/react/vitest or set globals: true)."
+scope: {language: typescript, files: ["@ts-tests", "**/setupTests.*", "**/vitest.setup.*", "**/jest.setup.*"]}
+enforce:
+  - target: tool
+    tool: eslint
+    expects: "testing-library/no-manual-cleanup"
+    snippet: "\"rules\": {\"testing-library/no-manual-cleanup\": \"error\"}"
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^cleanup$"}
+      inside: {stopBy: end, kind: import_statement, has: {field: source, regex: "^[\"']@testing-library/[a-z-]+[\"']$"}}
+examples:
+  match:
+    - "import { cleanup, render } from \"@testing-library/react\";\n\nafterEach(() => {\n  cleanup();\n});\n"
+    - "import { cleanup } from '@testing-library/react-native';\n\nafterEach(cleanup);\n"
+  no_match:
+    - "import { render, screen } from \"@testing-library/react\";\n\ntest(\"renders\", () => {\n  render(<Cart />);\n  expect(screen.getByText(\"Total\")).toBeTruthy();\n});\n"
+    - "import { cleanup } from \"./db\";\n\nafterEach(cleanup);\n"
