@@ -1,0 +1,21 @@
+id: typescript/resend/server-only
+description: "A 'use client' module does not import resend: the Resend API refuses browser requests (no CORS) and the API key would ship in the bundle. Send from a Server Action or a route handler."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_statement
+      has: {field: source, regex: "^[\"']resend[\"']$"}
+      inside:
+        kind: program
+        has:
+          nthChild: 1
+          kind: expression_statement
+          has: {kind: string, regex: "^[\"']use client[\"']$"}
+examples:
+  match:
+    - "\"use client\";\n\nimport { Resend } from \"resend\";\n\nexport const resend = new Resend(\"re_123\");\n"
+  no_match:
+    - "\"use server\";\n\nimport { Resend } from \"resend\";\n\nexport const resend = new Resend(process.env.RESEND_API_KEY);\n"
+    - "\"use client\";\n\nimport { sendWelcome } from \"./actions\";\n\nexport const onSubmit = () => sendWelcome();\n"

@@ -1,0 +1,22 @@
+id: typescript/resend/no-batch-attachments
+description: "resend.batch.send() takes no attachments and no scheduledAt: send those emails one by one with resend.emails.send()."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      has: {field: key, regex: "^[\"']?(attachments|scheduledAt)[\"']?$"}
+      inside:
+        stopBy: end
+        kind: arguments
+        inside: {kind: call_expression, pattern: $R.batch.send($$$)}
+    where:
+      R: {type: {package: resend, name: Resend}}
+examples:
+  deps: [{ecosystem: npm, name: resend, version: "6.32.1"}]
+  match:
+    - "import { Resend } from \"resend\";\n\nconst resend = new Resend(\"re_123\");\n\nexport async function invoices(to: string[], pdf: Buffer) {\n  return resend.batch.send(to.map((t) => ({ from: \"billing@example.com\", to: t, subject: \"Invoice\", text: \"Attached\", attachments: [{ filename: \"invoice.pdf\", content: pdf }] })) as never);\n}\n"
+    - "import { Resend } from \"resend\";\n\nexport function later(resend: Resend) {\n  return resend.batch.send([{ from: \"a@example.com\", to: \"b@example.com\", subject: \"Hi\", text: \"Hi\", scheduledAt: \"in 1 hour\" }] as never);\n}\n"
+  no_match:
+    - "import { Resend } from \"resend\";\n\nconst resend = new Resend(\"re_123\");\n\nexport async function invoice(to: string, pdf: Buffer) {\n  await resend.batch.send([{ from: \"a@example.com\", to, subject: \"Hi\", text: \"Hi\" }]);\n  return resend.emails.send({ from: \"billing@example.com\", to, subject: \"Invoice\", text: \"Attached\", attachments: [{ filename: \"invoice.pdf\", content: pdf }] });\n}\n"
