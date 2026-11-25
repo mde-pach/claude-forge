@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert_eq!(r[0].verdict, ExampleVerdict::Pass);
         assert!(
-            matches!(&r[1].verdict, ExampleVerdict::Fail { why } if why.contains("selected for \"Bump it\" (values 0.90, threshold 0.3)"))
+            matches!(&r[1].verdict, ExampleVerdict::Fail { why } if why.contains("selected for \"Bump it\" (values 0.90, threshold 0.6)"))
         );
         assert_eq!(r[1].label(), "a/web capability no_match example 1");
         let off = Scripted::failing(EngineError::Off);
