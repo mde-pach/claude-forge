@@ -1,0 +1,21 @@
+id: python/huggingface/no-huggingface-cli
+description: "Scripts, Dockerfiles, CI and commands use the hf CLI (hf auth login, hf download, hf upload), not huggingface-cli: huggingface_hub 0.34 replaced it and 1.0 removed it."
+scope: {language: any, files: ["**/*.sh", "**/*.bash", "**/Dockerfile", "**/Dockerfile.*", "**/*.Dockerfile", "**/Containerfile", "**/Makefile", "**/*.mk", "**/justfile", "**/Justfile", ".github/workflows/*.yml", ".github/workflows/*.yaml", ".gitlab-ci.yml", "**/*.py", "**/*.ipynb"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "(^|[^A-Za-z0-9_.-])huggingface-cli([^A-Za-z0-9_-]|$)"
+  - target: guard
+    decision: deny
+    command: {name: huggingface-cli}
+when:
+  deps: [{ecosystem: pypi, name: huggingface-hub, version: ">=0.34.0"}]
+examples:
+  match:
+    - files: {scripts/fetch.sh: "#!/bin/sh\nhuggingface-cli download acme/model --local-dir models/\n"}
+    - files: {Dockerfile: "FROM python:3.13-slim\nRUN huggingface-cli download acme/model\n"}
+    - "huggingface-cli login --token \"$HF_TOKEN\""
+  no_match:
+    - files: {scripts/fetch.sh: "#!/bin/sh\nhf download acme/model --local-dir models/\n"}
+    - "hf auth whoami"
+    - files: {scripts/fetch.sh: "#!/bin/sh\nexport HUGGINGFACE_HUB_CACHE=/cache\n"}

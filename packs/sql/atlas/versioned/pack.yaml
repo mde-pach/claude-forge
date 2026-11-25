@@ -1,0 +1,5 @@
+id: sql/atlas/versioned
+description: Atlas with versioned migrations (a migration block in atlas.hcl).
+level: project
+detect:
+  content_any: [{files: [atlas.hcl], pattern: "^\\s*migration\\s*\\{"}]

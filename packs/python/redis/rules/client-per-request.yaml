@@ -1,0 +1,96 @@
+id: python/redis/client-per-request
+description: "A request handler does not create a Redis client (Redis(...), Redis.from_url(...)): each one opens its own connection pool, so every request pays a new connection and idle ones pile up on the server. Create one client at startup (the app's lifespan, a module-level client or a dependency returning it) and reuse it."
+scope: {language: python}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call
+      has: {field: function, pattern: $F}
+      inside:
+        kind: decorated_definition
+        stopBy: end
+        has:
+          kind: decorator
+          has:
+            kind: call
+            has:
+              field: function
+              kind: attribute
+              regex: "\\.(get|post|put|patch|delete|head|options|route|api_route|websocket)$"
+    where:
+      F: {declared: {package: redis, name: [Redis, StrictRedis, RedisCluster, from_url]}}
+examples:
+  deps: [{ecosystem: pypi, name: redis, version: "8.1.0"}]
+  match:
+    - |
+      from fastapi import FastAPI
+      from redis.asyncio import Redis
+
+      app = FastAPI()
+
+
+      @app.get("/cart")
+      async def cart(cart_id: str) -> str:
+          r = Redis(host="localhost")
+          return str(r)
+    - |
+      from fastapi import FastAPI
+      from redis import Redis
+
+      app = FastAPI()
+
+
+      @app.get("/a")
+      def a() -> str:
+          r = Redis(host="localhost")
+          return str(r.incr("a"))
+    - |
+      from fastapi import FastAPI
+      from redis.asyncio import Redis
+
+      app = FastAPI()
+
+
+      @app.get("/b")
+      def b() -> str:
+          r = Redis(host="localhost")
+          return str(r)
+    - |
+      from flask import Flask
+      from redis import Redis
+
+      app = Flask(__name__)
+
+
+      @app.route("/hits")
+      def hits() -> str:
+          r = Redis.from_url("redis://localhost:6379/0")
+          return str(r.incr("hits"))
+  no_match:
+    - |
+      from flask import Flask
+      from redis import Redis
+
+      app = Flask(__name__)
+      r = Redis.from_url("redis://localhost:6379/0")
+
+
+      @app.route("/hits")
+      def hits() -> str:
+          return str(r.incr("hits"))
+    - |
+      from fastapi import FastAPI
+      from redis import Redis
+
+      app = FastAPI()
+      client = Redis()
+
+
+      def get_redis() -> Redis:
+          return client
+
+
+      @app.get("/hits")
+      def hits() -> int:
+          return int(get_redis().incr("hits"))

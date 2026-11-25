@@ -1,0 +1,16 @@
+id: sql/atlas/versioned/no-schema-apply
+description: "This project changes its database schema through versioned migrations, so atlas schema apply (which changes a database straight to the desired schema, outside the migrations directory) asks first. Generate a migration with atlas migrate diff and apply it with atlas migrate apply."
+review: "Does the user's request ask to apply the schema directly to this database (for example a throwaway local or dev database), rather than through a migration? Deny it otherwise."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: atlas, sub: [schema, apply]}
+examples:
+  match:
+    - "atlas schema apply --env local --auto-approve"
+    - "atlas schema apply -u \"postgres://app@localhost:5432/shop?sslmode=disable\" --to file://schema.sql"
+  no_match:
+    - "atlas migrate diff --env local add_orders_paid"
+    - "atlas migrate apply --env local"
+    - "atlas schema inspect --env local"

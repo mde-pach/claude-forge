@@ -7,6 +7,8 @@ examples:
   match:
     - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n"}
       files: {supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, paid boolean);\n"}
+    - head: {atlas.hcl: "env \"local\" {\n  src = \"file://schema.sql\"\n  migration {\n    dir = \"file://db/migrations\"\n  }\n}\n", db/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n", db/migrations/atlas.sum: "h1:abc=\n20260101000000_init.sql h1:def=\n"}
+      files: {db/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY, paid boolean);\n"}
   no_match:
     - head: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260101000000_init.sql: "CREATE TABLE orders (id bigint PRIMARY KEY);\n"}
       files: {supabase/migrations/20260102000000_paid.sql: "ALTER TABLE orders ADD COLUMN paid boolean;\n"}

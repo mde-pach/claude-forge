@@ -1,0 +1,13 @@
+id: terraform/no-literal-state-passphrase
+description: "An OpenTofu state encryption key provider never holds its passphrase as a literal: anyone who reads the code can then decrypt the state. Pass it in a variable (passphrase = var.state_passphrase, set through TF_VAR_state_passphrase or TF_ENCRYPTION) or use a KMS key provider."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "^[[:space:]]*passphrase[[:space:]]*=[[:space:]]*\"([^\"$]|\\$[^{])"
+examples:
+  match:
+    - "terraform {\n  encryption {\n    key_provider \"pbkdf2\" \"main\" {\n      passphrase = \"correct-horse-battery-staple\"\n    }\n  }\n}\n"
+  no_match:
+    - "variable \"state_passphrase\" {\n  type      = string\n  sensitive = true\n}\n\nterraform {\n  encryption {\n    key_provider \"pbkdf2\" \"main\" {\n      passphrase = var.state_passphrase\n    }\n  }\n}\n"
+    - "terraform {\n  encryption {\n    key_provider \"pbkdf2\" \"main\" {\n      passphrase = \"${var.state_passphrase}\"\n    }\n  }\n}\n"

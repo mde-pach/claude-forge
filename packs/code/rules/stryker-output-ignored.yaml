@@ -1,0 +1,27 @@
+id: code/stryker-output-ignored
+description: "A project with a StrykerJS config ignores its working directory and reports in .gitignore (.stryker-tmp/ and reports/mutation/): Stryker copies the whole project into .stryker-tmp on every run."
+scope: {language: any, files: ["stryker.conf.*", "stryker.config.*", ".gitignore"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      found=0
+      for c in stryker.config.mjs stryker.config.js stryker.config.cjs stryker.config.json stryker.conf.mjs stryker.conf.js stryker.conf.cjs stryker.conf.json; do
+        [ -f "$c" ] || continue
+        for d in .stryker-tmp reports/mutation; do
+          if ! git check-ignore -q --no-index "$d/x"; then
+            echo "$c:1 $d/ is not in .gitignore: add it, Stryker writes there on every run."
+            found=1
+          fi
+        done
+        break
+      done
+      [ "$found" = 0 ]
+    when_changed: ["stryker.conf.*", "stryker.config.*", ".gitignore"]
+examples:
+  match:
+    - files: {stryker.config.mjs: "export default { testRunner: \"vitest\" };\n", .gitignore: "node_modules/\n"}
+    - files: {stryker.config.json: "{\"testRunner\": \"jest\"}\n", .gitignore: "node_modules/\n.stryker-tmp/\n"}
+  no_match:
+    - files: {stryker.config.mjs: "export default { testRunner: \"vitest\" };\n", .gitignore: "node_modules/\n.stryker-tmp/\nreports/mutation/\n"}
+    - files: {.gitignore: "node_modules/\n"}

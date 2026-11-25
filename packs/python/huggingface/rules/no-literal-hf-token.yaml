@@ -1,0 +1,18 @@
+id: python/huggingface/no-literal-hf-token
+description: "A Hugging Face token is never written on the command line (--token hf_…): it lands in the shell history and the session transcript. Leave it in the HF_TOKEN environment variable, or ask the user to run hf auth login."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    command:
+      - {name: [hf, huggingface-cli], option_values: {--token: '^hf_[A-Za-z0-9]'}}
+      - {name: [hf, huggingface-cli], arg_regex: '^--token=hf_[A-Za-z0-9]'}
+examples:
+  match:
+    - "hf auth login --token hf_AbCdEf123456"
+    - "hf upload acme/model ./out --token=hf_AbCdEf123456"
+    - "huggingface-cli login --token hf_AbCdEf123456"
+  no_match:
+    - "hf auth login --token \"$HF_TOKEN\""
+    - "hf download acme/model"
+    - "hf auth whoami"

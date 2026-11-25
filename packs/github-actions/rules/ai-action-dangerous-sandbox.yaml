@@ -1,0 +1,16 @@
+id: github-actions/ai-action-dangerous-sandbox
+description: "A workflow does not run an AI coding agent (claude-code-action, codex, gemini-cli) with its sandbox or permission checks off (danger-full-access, --yolo, --dangerously-skip-permissions, Bash(*), safety-strategy: unsafe): text an attacker controls in an issue, PR or file can then run any command with the job's secrets. Allow the specific tools and commands the job needs."
+scope: {language: any, files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "danger-full-access|--yolo([^A-Za-z0-9_-]|$)|--dangerously-skip-permissions|Bash\\(\\*\\)|safety-strategy[\"']?[[:space:]]*:[[:space:]]*[\"']?unsafe"
+examples:
+  match:
+    - files: {.github/workflows/codex.yml: "jobs:\n  fix:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: openai/codex-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          sandbox: danger-full-access\n"}
+    - files: {.github/workflows/claude.yml: "jobs:\n  claude:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          claude_args: --allowedTools \"Bash(*)\"\n"}
+    - files: {.github/workflows/gemini.yml: "jobs:\n  triage:\n    runs-on: ubuntu-latest\n    steps:\n      - run: gemini --yolo -p \"Triage this issue\"\n"}
+    - files: {.github/workflows/codex.yml: "jobs:\n  fix:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: openai/codex-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          safety-strategy: unsafe\n"}
+  no_match:
+    - files: {.github/workflows/codex.yml: "jobs:\n  fix:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: openai/codex-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          sandbox: workspace-write\n          safety-strategy: drop-sudo\n"}
+    - files: {.github/workflows/claude.yml: "jobs:\n  claude:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v1\n        with:\n          claude_args: --allowedTools \"Bash(npm test),Read\"\n"}

@@ -1,0 +1,16 @@
+id: python/uv/no-venv-activate
+description: "Commands run in the project's environment through uv run <command> (uv run pytest, uv run python -m app), not after sourcing .venv/bin/activate: each shell command starts afresh, and uv run also syncs the environment with uv.lock first."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    command: {name: [source, .], arg_regex: '(^|/)bin/activate(\.[a-z]+)?$'}
+examples:
+  match:
+    - "source .venv/bin/activate && pytest -q"
+    - ". .venv/bin/activate; python -m app"
+    - "source venv/bin/activate.fish"
+  no_match:
+    - "uv run pytest -q"
+    - "source ~/.nvm/nvm.sh && nvm use"
+    - "cat .venv/bin/activate"

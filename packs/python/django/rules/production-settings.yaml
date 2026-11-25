@@ -1,0 +1,23 @@
+id: python/django/production-settings
+description: "Production settings modules (settings/prod*.py, settings_prod*.py) never set DEBUG = True, which shows tracebacks, settings and SQL to any visitor, nor an empty ALLOWED_HOSTS, with which every request fails with 400 once DEBUG is off. Read DEBUG from the environment with a False default, and list the served domains."
+scope: {language: python, files: ["**/settings/prod*.py", "**/settings_prod*.py", "**/prod_settings.py", "**/production_settings.py"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment
+      inside: {kind: expression_statement, stopBy: neighbor, inside: {kind: module, stopBy: neighbor}}
+      any:
+        - all:
+            - has: {field: left, kind: identifier, regex: "^DEBUG$"}
+            - has: {field: right, kind: "true"}
+        - all:
+            - has: {field: left, kind: identifier, regex: "^ALLOWED_HOSTS$"}
+            - has: {field: right, any: [{kind: list, regex: "^\\[[[:space:]]*\\]$"}, {kind: tuple, regex: "^\\([[:space:]]*\\)$"}]}
+examples:
+  match:
+    - files: {shop/settings/production.py: "from .base import *  # noqa: F403\n\nDEBUG = True\nALLOWED_HOSTS = [\"shop.example.com\"]\n"}
+    - files: {shop/settings/prod.py: "from .base import *  # noqa: F403\n\nDEBUG = False\nALLOWED_HOSTS = []\n"}
+  no_match:
+    - files: {shop/settings/production.py: "import os\n\nfrom .base import *  # noqa: F403\n\nDEBUG = os.environ.get(\"DJANGO_DEBUG\") == \"1\"\nALLOWED_HOSTS = [\"shop.example.com\"]\n"}
+    - files: {shop/settings/dev.py: "from .base import *  # noqa: F403\n\nDEBUG = True\nALLOWED_HOSTS = []\n"}
