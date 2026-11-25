@@ -1,0 +1,6 @@
+id: rust/mcp
+description: Model Context Protocol servers written with the Rust SDK (rmcp).
+level: project
+detect:
+  content_any:
+    - {files: [Cargo.toml, "**/Cargo.toml"], pattern: "^[ \\t]*(rmcp[ \\t]*=|\\[(workspace\\.)?dependencies\\.rmcp\\])"}

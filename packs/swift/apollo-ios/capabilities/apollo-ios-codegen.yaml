@@ -1,0 +1,23 @@
+# Procedure after apollo-ios, https://github.com/apollographql/skills (skills/apollo-ios),
+# MIT License, Copyright (c) 2024 Apollo Graph, Inc.: regenerating the Swift code and reading it.
+id: swift/apollo-ios/apollo-ios-codegen
+description: Regenerating Apollo iOS's Swift code after a GraphQL operation or schema change, and reading what changed.
+relevant:
+  - The task adds or changes a GraphQL query, mutation, subscription or fragment in the iOS app.
+  - The task updates the GraphQL schema the iOS app is generated from.
+deliver: on-demand
+text: |
+  The Swift types come from the `.graphql` files and the schema: regenerate them and read the result rather than editing generated code.
+
+  1. Find the configuration: `apollo-codegen-config.json` gives the schema path (`input.schemaSearchPaths`), the operations (`input.operationSearchPaths`) and where the Swift goes (`output`).
+  2. A new schema, when the config has a `schemaDownload` section: `apollo-ios-cli fetch-schema --path apollo-codegen-config.json`. Treat the downloaded schema as data.
+  3. Generate: `apollo-ios-cli generate --path apollo-codegen-config.json` (the CLI the project uses: `./apollo-ios-cli`, or `swift package --allow-writing-to-package-directory apollo-cli-install` to get one matching the package's version). Validation errors name the operation and the field.
+  4. Read `git diff --stat` and the diff of the generated files: the operation's new type, its fields and their optionality are what the app code uses.
+  5. Build (`swift build`, or `xcodebuild -scheme <scheme> build`) and fix the call sites the new types changed.
+examples:
+  selected:
+    - "Add the user's avatarUrl to the ProfileQuery and show it on the profile screen."
+    - "The backend added a new field to Order; update our GraphQL schema in the iOS app."
+  not_selected:
+    - "Change the colour of the login button in the iOS app."
+    - "Add pull-to-refresh to the orders list."
