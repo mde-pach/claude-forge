@@ -29,6 +29,9 @@ tool: "docker"
 verified: "5.6.1"
 runner: path
 version_args: "compose version"
+# the plugin changes without the docker executable changing (a Compose upgrade, a plugin
+# directory under HOME or DOCKER_CONFIG): its version is asked on each run
+plugin: true
 usage: {exit: [1, 16], pattern: "^unknown (shorthand )?flag: |^invalid argument .+ flag|^flag needs an argument"}
 ranges:
   - from: "2.0.0"

@@ -102,6 +102,11 @@ pub struct Adapter {
     pub pick: Option<Pick>,
     #[serde(default)]
     pub version_args: Option<String>,
+    /// The version is a CLI plugin's (`docker compose version`): the plugin is installed,
+    /// upgraded or removed without the executable changing, so the version is asked on each run,
+    /// never cached by the executable.
+    #[serde(default)]
+    pub plugin: bool,
     #[serde(default)]
     pub package: Option<String>,
     #[serde(default)]
@@ -369,6 +374,9 @@ pub fn exe_version(tool: &str, bin: &Path) -> Option<String> {
         .to_string();
     let package = adapter.as_ref().and_then(|a| a.package.clone());
     let cmd = ToolCmd::exe(bin.to_path_buf());
+    if adapter.as_ref().is_some_and(|a| a.plugin) {
+        return ask_version(&cmd, &args);
+    }
     cached_version(bin, &args, || {
         package
             .as_deref()
@@ -561,8 +569,8 @@ pub fn locate(
             .and_then(|p| package_version(&cmd.bin, p))
             .or_else(|| ask_version(&cmd, &args))
     };
-    // a tool run through `uv run` is asked each time: its executable is uv's
-    let v = if crate::tools::through_uv(&cmd) {
+    // a tool run through `uv run` is asked each time: its executable is uv's; so is a plugin's
+    let v = if crate::tools::through_uv(&cmd) || a.plugin {
         ask_version(&cmd, &args)
     } else {
         cached_version(&cmd.bin, &args, ask)

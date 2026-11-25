@@ -610,3 +610,24 @@ fn a_machine_s_ruff_never_stands_for_the_project_s() {
     assert_eq!(cmd.bin, tools.pinned);
     assert_eq!(version, "0.17.1");
 }
+
+// §16: a CLI plugin's version (`docker compose`) is asked on each run, never kept by the docker
+// executable: the plugin changes, or goes, while the executable stays the same.
+#[test]
+fn a_plugins_version_is_asked_each_run() {
+    forge_home();
+    let d = tempfile::tempdir().unwrap();
+    let said = d.path().join("said");
+    let docker = d.path().join("docker");
+    std::fs::write(&docker, format!("#!/bin/sh\ncat '{}'\n", said.display())).unwrap();
+    std::fs::set_permissions(&docker, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let version = || forge_check::adapters::exe_version("docker", &docker);
+    std::fs::write(&said, "Docker Compose version v2.40.3\n").unwrap();
+    assert_eq!(version().as_deref(), Some("2.40.3"));
+    // the plugin upgraded
+    std::fs::write(&said, "Docker Compose version v2.41.0\n").unwrap();
+    assert_eq!(version().as_deref(), Some("2.41.0"));
+    // the plugin removed (another HOME, an uninstall): docker knows no compose command
+    std::fs::write(&said, "docker: unknown command: docker compose\n").unwrap();
+    assert_eq!(version(), None);
+}
