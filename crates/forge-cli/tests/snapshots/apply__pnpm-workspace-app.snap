@@ -1,5 +1,6 @@
 ---
 source: crates/forge-cli/tests/apply.rs
+assertion_line: 234
 expression: s.snapshot()
 ---
 === .claude/rules/forge-code.md
@@ -242,7 +243,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
 # Generated file: do not edit.
 forge = "<forge version>"
 claude_code_min = "2.1.295"
-rule_set = "4242e3f91da1a7309fab06d0a006ab29b497a33354da8a8262b0ac14d5e5a8d4"
+rule_set = "9231ddefd3634362dadff62a45d081020f3c2749b092cb934751a43857db4714"
 
 [rules]
 "code/no-versioned-duplicates" = "8579216d8466fffdbb48bdf8765eec422d989785c15a7f2f16d83f1363c0486e"
@@ -332,7 +333,7 @@ rule_set = "4242e3f91da1a7309fab06d0a006ab29b497a33354da8a8262b0ac14d5e5a8d4"
 "typescript/pnpm/lock-sync" = "99b267165e381c9ba01c2a718b3e4aafc91bb035853a7e686ab507bbc24dcd43"
 "typescript/pnpm/overrides" = "bbecdfd782e520460a3341eb196b50be72ca29ea758840ab699f24c1b8383745"
 "typescript/pnpm/release-age" = "0c4d1c9566c14eb84141f54b36908137eabd66bd1fe046a63bffcd63b914cb79"
-"typescript/pnpm/settings-location" = "f25e8fd2c0b4ae1646ac76a684d2b8fba4817cda7019e0fff5a073eb9a354411"
+"typescript/pnpm/settings-location" = "f6c3bcef4daaa8ae30aee10ea685c5598ebb49429d45210c73b3f75d5db78ae8"
 "typescript/pnpm/workspace-protocol" = "44df17683751a0941f912453062d83267b86a602fe7034343c36d48f351cad77"
 "typescript/postmessage-origin" = "9a3e7264a3eb2d45f3e4ece3e34406a6e2239c8b85f63a2f6022ee58ce742c1c"
 "typescript/strict-function-types" = "7c8945ced7b73b7738f9a5bf3eb864c5cdb35c1eb55b7c3ad606b1db3b6a8263"
