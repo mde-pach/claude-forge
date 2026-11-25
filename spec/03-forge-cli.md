@@ -113,6 +113,6 @@ Drift lines: `<path> modified since the last apply`; `<path> is not a forge file
 - Launcher decisions, exec, loop marker, notes: `crates/forge-launcher/src/{lib,note,policy}.rs` (unit); `crates/forge-launcher/tests/exec.rs`.
 - Lock reading by the launcher: `crates/forge-launcher/src/lock.rs` (unit); `crates/forge-launcher/tests/lock_differential.rs`.
 - Repository root discovery: `crates/forge-home/src/lib.rs` (unit).
-- `forge test`: `crates/forge-cli/tests/forge_test.rs` (local rules and a local pack: pass, fail, skip, with and without `CLAUDECODE`), `crates/forge-cli/tests/check.rs::check_examples` (`--builtin --json`), `::engine_examples` (`--builtin --engine --json`, with `FORGE_TEST_ENGINE=1`: it installs the examples' dependencies).
+- `forge test`: `crates/forge-cli/tests/forge_test.rs` (local rules and a local pack: pass, fail, skip, with and without `CLAUDECODE`; advice catching a `match` example and not failing a `no_match` one: `::advice_catches_a_match_and_does_not_fail_a_no_match`), `crates/forge-cli/tests/check.rs::check_examples` (`--builtin --json`), `::engine_examples` (`--builtin --engine --json`, with `FORGE_TEST_ENGINE=1`: it installs the examples' dependencies).
 - `forge check`: §10.
 - `forge packs lint`: `crates/forge-packs/tests/lints.rs`.

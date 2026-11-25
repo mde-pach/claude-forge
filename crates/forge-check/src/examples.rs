@@ -6,8 +6,8 @@
 //!   examples are skipped, with a note; [`typed`] runs them all through the types engine.
 //! - check: each code example (a file at a path in the rule's scope) or fixture (`head`
 //!   committed, then `files`) is a turn of a fresh git repository, checked with the rule alone
-//!   (a format stage checks the whole tree): a `match` example must give the rule a finding, a
-//!   `no_match` one none. A run whose notes say the rule did not run (a missing tool, not
+//!   (a format stage checks the whole tree): a `match` example must give the rule a finding
+//!   (advice counts), a `no_match` one none that fails the check (advice may be given). A run whose notes say the rule did not run (a missing tool, not
 //!   enforced here…) is a skip carrying that note.
 
 use std::collections::BTreeMap;
@@ -203,8 +203,8 @@ impl Turn {
     }
 }
 
-/// What the checker does with one example: the rule's findings' agent texts, and the notes
-/// about the rule.
+/// What the checker does with one example: the rule's findings' agent texts, whether one of them
+/// blocks (is not advice), and the notes about the rule.
 fn check_one(
     rule: &Rule,
     set: &PackSet,
@@ -213,7 +213,7 @@ fn check_one(
     exe: &Path,
     tools: &Arc<dyn ToolResolver>,
     project: Option<&Project>,
-) -> Result<(Vec<String>, Vec<Note>), String> {
+) -> Result<(Vec<String>, bool, Vec<Note>), String> {
     let (mut head, changed): (BTreeMap<String, String>, BTreeMap<String, String>) = match ex {
         Example::Code(code) => (
             BTreeMap::new(),
@@ -226,7 +226,7 @@ fn check_one(
                 .unwrap_or_default(),
             f.files.clone().into_iter().collect(),
         ),
-        Example::Command(_) => return Ok((Vec::new(), Vec::new())),
+        Example::Command(_) => return Ok((Vec::new(), false, Vec::new())),
     };
     // the examples' project (its manifest, tsconfig), under the example's own files
     if let Some(p) = project {
@@ -285,20 +285,23 @@ fn check_one(
     ) {
         let _ = std::fs::remove_dir_all(home.repo_state_dir(&id));
     }
-    let texts = o
+    let ours: Vec<&forge_core::Finding> = o
         .report
         .findings
         .iter()
         .filter(|f| f.rule == rule.id)
-        .map(|f| f.agent_text())
         .collect();
+    let blocks = ours
+        .iter()
+        .any(|f| f.severity != forge_core::Severity::Advice);
+    let texts = ours.iter().map(|f| f.agent_text()).collect();
     let notes = o
         .report
         .notes
         .into_iter()
         .filter(|n| n.rule.as_deref() == Some(rule.id.as_str()))
         .collect();
-    Ok((texts, notes))
+    Ok((texts, blocks, notes))
 }
 
 /// The rule's check target on its code and fixture examples, each a turn of its own repository
@@ -337,8 +340,13 @@ pub fn check(
                     .for_rule(&rule.id),
                 },
             ),
-            Ok((texts, notes)) => {
-                let found = !texts.is_empty();
+            Ok((texts, blocks, notes)) => {
+                // a match example is caught by any finding, advice too ("advice at Stop"); a
+                // no_match one fails only when it fails the check ("advice, not a failure")
+                let found = match kind {
+                    ExampleKind::Match => !texts.is_empty(),
+                    ExampleKind::NoMatch => blocks,
+                };
                 let notes: Vec<&Note> = notes.iter().collect();
                 let verdict = match (kind, found) {
                     (ExampleKind::Match, true) | (ExampleKind::NoMatch, false) => {
@@ -481,7 +489,7 @@ pub fn typed(
                     Err(e) => ExampleVerdict::Fail {
                         why: format!("the example could not run: {e}"),
                     },
-                    Ok((_, notes)) if !notes.is_empty() => ExampleVerdict::Fail {
+                    Ok((_, _, notes)) if !notes.is_empty() => ExampleVerdict::Fail {
                         why: format!(
                             "the types engine did not decide: {}",
                             notes
@@ -491,7 +499,7 @@ pub fn typed(
                                 .join("; ")
                         ),
                     },
-                    Ok((texts, _)) => match (kind, texts.is_empty()) {
+                    Ok((texts, _, _)) => match (kind, texts.is_empty()) {
                         (ExampleKind::Match, true) => ExampleVerdict::Fail {
                             why: "the rule reported nothing".into(),
                         },
