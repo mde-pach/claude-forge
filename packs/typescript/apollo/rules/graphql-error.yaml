@@ -1,0 +1,20 @@
+id: typescript/apollo/graphql-error
+description: "A resolver reports an error meant for the client with GraphQLError and an extensions.code (BAD_USER_INPUT, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND): a plain Error reaches the client as INTERNAL_SERVER_ERROR. Keep a plain Error only for unexpected failures."
+scope: {language: typescript, files: ["**/*", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: throw_statement
+      has: {kind: new_expression, has: {field: constructor, regex: "^Error$"}}
+      inside:
+        stopBy: end
+        kind: pair
+        has: {field: key, regex: "^[\"']?(Query|Mutation|Subscription)[\"']?$"}
+examples:
+  match:
+    - "export const resolvers = {\n  Query: {\n    user: (_: unknown, args: { id: string }) => {\n      if (!args.id) throw new Error(\"id is required\");\n      return { id: args.id };\n    },\n  },\n};\n"
+    - "export const resolvers = {\n  Mutation: {\n    async deletePost() {\n      throw new Error(\"not allowed\");\n    },\n  },\n};\n"
+  no_match:
+    - "import { GraphQLError } from \"graphql\";\n\nexport const resolvers = {\n  Query: {\n    user: (_: unknown, args: { id: string }) => {\n      if (!args.id) throw new GraphQLError(\"id is required\", { extensions: { code: \"BAD_USER_INPUT\" } });\n      return { id: args.id };\n    },\n  },\n};\n"
+    - "export function parse(s: string) {\n  if (!s) throw new Error(\"empty\");\n  return s;\n}\n"

@@ -1,0 +1,19 @@
+id: typescript/no-removed-ts-options
+description: "No tsconfig option TypeScript 6 deprecates and 7 removes: target es3/es5, downlevelIteration, moduleResolution node/node10/classic (use bundler or nodenext), baseUrl (paths resolve from the tsconfig), outFile, module amd/umd/system."
+scope: {language: any, files: ["tsconfig*.json", "**/tsconfig*.json", "jsconfig*.json", "**/jsconfig*.json"]}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "\"(downlevelIteration|baseUrl|outFile)\"[[:space:]]*:|\"target\"[[:space:]]*:[[:space:]]*\"es[35]\"|\"moduleResolution\"[[:space:]]*:[[:space:]]*\"(node|node10|classic)\"|\"module\"[[:space:]]*:[[:space:]]*\"(amd|umd|system)\""
+when:
+  deps: [{ecosystem: npm, name: typescript, version: ">=6.0.0"}]
+examples:
+  match:
+    - "{\n  \"compilerOptions\": {\n    \"target\": \"ES5\",\n    \"strict\": true\n  }\n}\n"
+    - "{\n  \"compilerOptions\": {\n    \"baseUrl\": \".\",\n    \"paths\": {\"@/*\": [\"src/*\"]}\n  }\n}\n"
+    - "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"downlevelIteration\": true}}\n"
+    - "{\"compilerOptions\": {\"module\": \"umd\", \"outFile\": \"dist/app.js\"}}\n"
+  no_match:
+    - "{\n  \"compilerOptions\": {\n    \"target\": \"es2022\",\n    \"module\": \"nodenext\",\n    \"moduleResolution\": \"nodenext\",\n    \"paths\": {\"@/*\": [\"./src/*\"]}\n  }\n}\n"
+    - "{\"compilerOptions\": {\"moduleResolution\": \"node16\", \"module\": \"node16\", \"target\": \"esnext\", \"outDir\": \"dist\"}}\n"

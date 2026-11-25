@@ -1,0 +1,23 @@
+id: typescript/apollo/react-imports
+description: "Apollo Client 4 exports its React API from @apollo/client/react: import useQuery, useMutation, useSuspenseQuery, ApolloProvider and the other hooks from there, not from @apollo/client."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: import_specifier}, {kind: export_specifier}]
+      has: {field: name, regex: "^(ApolloProvider|ApolloConsumer|getApolloContext|useApolloClient|useQuery|useLazyQuery|useMutation|useSubscription|useReactiveVar|useFragment|useSuspenseQuery|useBackgroundQuery|useSuspenseFragment|useLoadableQuery|useQueryRefHandlers|useReadQuery|skipToken|createQueryPreloader)$"}
+      inside:
+        stopBy: end
+        any: [{kind: import_statement}, {kind: export_statement}]
+        has: {field: source, regex: "^[\"']@apollo/client[\"']$"}
+when:
+  deps: [{ecosystem: npm, name: "@apollo/client", version: ">=4.0.0"}]
+examples:
+  match:
+    - "import { gql, useQuery } from \"@apollo/client\";\n"
+    - "import { ApolloClient, ApolloProvider, InMemoryCache } from \"@apollo/client\";\n"
+    - "export { useMutation as useWrite } from \"@apollo/client\";\n"
+  no_match:
+    - "import { ApolloClient, gql, InMemoryCache } from \"@apollo/client\";\nimport { ApolloProvider, useQuery } from \"@apollo/client/react\";\n"
+    - "import { useQuery } from \"@tanstack/react-query\";\n"

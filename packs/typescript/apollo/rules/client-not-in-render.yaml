@@ -1,0 +1,37 @@
+id: typescript/apollo/client-not-in-render
+description: "An ApolloClient is created once, at module scope (or once per request on the server), not inside a component or a useState / useMemo / useRef initializer: a client made while rendering is rebuilt on remount and loses its cache. Create it outside the component and pass it to ApolloProvider."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: new_expression
+      pattern: $N
+      any:
+        # a hook initializer
+        - inside:
+            stopBy: end
+            kind: call_expression
+            has: {field: function, regex: "^(React\\.)?(useState|useMemo|useRef|useCallback)$"}
+        # a component's body: a function whose name starts with a capital
+        - inside:
+            stopBy: end
+            any:
+              - {kind: function_declaration, has: {field: name, regex: "^[A-Z]"}}
+              - kind: variable_declarator
+                all:
+                  - has: {field: name, regex: "^[A-Z]"}
+                  - has: {field: value, any: [{kind: arrow_function}, {kind: function_expression}]}
+    where:
+      N: {type: {package: "@apollo/client", name: ApolloClient}}
+when:
+  deps: [{ecosystem: npm, name: "@apollo/client", version: ">=3.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: "@apollo/client", version: "4.3.8"}, {ecosystem: npm, name: graphql, version: "16.14.2"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}]
+  match:
+    - "import { ApolloClient, HttpLink, InMemoryCache } from \"@apollo/client\";\n\nexport function App() {\n  const client = new ApolloClient({ link: new HttpLink({ uri: \"/graphql\" }), cache: new InMemoryCache() });\n  return client;\n}\n"
+    - "import { ApolloClient, HttpLink, InMemoryCache } from \"@apollo/client\";\nimport { useState } from \"react\";\n\nexport const useClient = () => useState(() => new ApolloClient({ link: new HttpLink({ uri: \"/graphql\" }), cache: new InMemoryCache() }))[0];\n"
+  no_match:
+    - "import { ApolloClient, HttpLink, InMemoryCache } from \"@apollo/client\";\n\nexport const client = new ApolloClient({ link: new HttpLink({ uri: \"/graphql\" }), cache: new InMemoryCache() });\n\nexport function App() {\n  return client;\n}\n"
+    - "import { ApolloClient, HttpLink, InMemoryCache } from \"@apollo/client\";\n\nexport function makeClient(uri: string) {\n  return new ApolloClient({ link: new HttpLink({ uri }), cache: new InMemoryCache() });\n}\n"
+    - "import { InMemoryCache } from \"@apollo/client\";\n\nexport function Panel() {\n  const cache = new InMemoryCache();\n  return cache;\n}\n"

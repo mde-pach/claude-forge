@@ -1,0 +1,21 @@
+id: typescript/apollo/no-legacy-server-imports
+description: "Apollo Server 5 code imports from @apollo/server, not from the legacy apollo-server / apollo-server-* packages or @apollo/server/express4 (removed in v5): the Express middleware comes from @as-integrations/express5 (or @as-integrations/express4)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any:
+        - kind: import_statement
+        - {kind: export_statement, has: {field: source, kind: string}}
+      has: {field: source, regex: "^[\"'](apollo-server(-[a-z0-9-]+)?|@apollo/server/express4)(/.*)?[\"']$"}
+when:
+  deps: [{ecosystem: npm, name: "@apollo/server", version: ">=5.0.0"}]
+examples:
+  match:
+    - "import { expressMiddleware } from \"@apollo/server/express4\";\n"
+    - "import { ApolloServer, gql } from \"apollo-server-express\";\n"
+    - "export { ApolloServer } from \"apollo-server\";\n"
+  no_match:
+    - "import { ApolloServer } from \"@apollo/server\";\nimport { expressMiddleware } from \"@as-integrations/express5\";\n"
+    - "import { startStandaloneServer } from \"@apollo/server/standalone\";\n"
