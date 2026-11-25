@@ -1,0 +1,23 @@
+id: git/no-token-in-remote-url
+description: "A git remote URL carries no credentials (https://user:token@host, https://<token>@host, ?token=): git stores the URL in .git/config in clear text and prints it in its output. Authenticate through a credential helper (gh auth setup-git, git credential-manager) or SSH."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    command:
+      - {name: git, sub: ['clone|fetch|pull|push|ls-remote|submodule'], arg_regex: '^https?://([^/@:[:space:]]*:[^/@[:space:]]+|(gh[pousr]_|github_pat_|glpat-|\$)[^/@:[:space:]]*)@|[?&](access_|private_)?token='}
+      - {name: git, sub: [remote, 'add|set-url'], arg_regex: '^https?://([^/@:[:space:]]*:[^/@[:space:]]+|(gh[pousr]_|github_pat_|glpat-|\$)[^/@:[:space:]]*)@|[?&](access_|private_)?token='}
+examples:
+  match:
+    - "git clone https://x-access-token:ghp_abc123@github.com/acme/shop.git"
+    - "git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/acme/shop.git"
+    - "git remote add upstream https://ghp_abc123@github.com/acme/shop.git"
+    - "git push https://bot:glpat-xyz@gitlab.com/acme/shop.git HEAD:main"
+    - "git clone 'https://dev.azure.com/acme/shop/_git/shop?token=abc'"
+  no_match:
+    - "git clone https://github.com/acme/shop.git"
+    - "git remote add upstream git@github.com:acme/shop.git"
+    - "git remote set-url origin ssh://git@gitlab.com/acme/shop.git"
+    - "git push origin main"
+    - "git log --author=me@example.com"
+    - "git clone https://alice@bitbucket.org/acme/shop.git"

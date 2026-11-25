@@ -1,0 +1,17 @@
+id: git/dco/signoff
+description: "Commits in this repository carry a Developer Certificate of Origin sign-off: commit with git commit -s (--signoff), which adds the Signed-off-by trailer of the configured git user."
+scope: {language: any}
+enforce:
+  - target: guard
+    decision: deny
+    command: {name: git, sub: [commit], flags_none: [-s, --signoff, --amend]}
+examples:
+  match:
+    - "git commit -m \"Fix the cart total\""
+    - "git commit -am 'Fix the cart total'"
+  no_match:
+    - "git commit -s -m \"Fix the cart total\""
+    - "git commit -sm 'Fix the cart total'"
+    - "git commit --signoff -m \"Fix the cart total\""
+    - "git commit --amend --no-edit"
+    - "git status"

@@ -1,0 +1,7 @@
+id: git/dco
+description: A repository whose contributions need a Developer Certificate of Origin sign-off.
+level: project
+detect:
+  files_any: [.github/dco.yml]
+  content_any:
+    - {files: ["CONTRIBUTING*", ".github/CONTRIBUTING*", "docs/CONTRIBUTING*"], pattern: "Developer Certificate of Origin|Signed-off-by:"}
