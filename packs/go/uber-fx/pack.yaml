@@ -1,0 +1,6 @@
+id: go/uber-fx
+description: Go applications wired with Uber's fx dependency injection.
+level: project
+detect:
+  content_any:
+    - {files: ["**/go.mod"], pattern: "go\\.uber\\.org/fx\\s"}

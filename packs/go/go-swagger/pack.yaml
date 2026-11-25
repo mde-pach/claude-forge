@@ -1,0 +1,7 @@
+id: go/go-swagger
+description: Go servers and clients generated from a Swagger 2.0 spec with go-swagger.
+level: project
+detect:
+  content_any:
+    - {files: ["**/go.mod"], pattern: "github\\.com/go-swagger/go-swagger\\s"}
+    - {files: ["**/*.go"], pattern: "^//go:generate\\s+.*swagger\\s+generate\\s"}

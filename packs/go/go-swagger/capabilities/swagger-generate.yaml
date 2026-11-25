@@ -1,0 +1,22 @@
+# Procedure after https://arxiv.org/abs/2603.15401 (its go-swagger task), written from scratch.
+id: go/go-swagger/swagger-generate
+description: Regenerating go-swagger code from the spec and reading what changed.
+relevant:
+  - The task changes a Swagger spec that go-swagger generates Go code from.
+  - The task adds or changes an endpoint of a go-swagger server or client.
+deliver: on-demand
+text: |
+  The generated Go code follows the spec; change the spec, then regenerate.
+
+  1. Find how the project generates: a `//go:generate swagger generate ...` line, a Makefile target or a script. Use that exact command, so the flags (`-f`, `-A`, `-t`, `--exclude-main`) stay the same.
+  2. Validate the spec first: `swagger validate <spec>` (or `go run github.com/go-swagger/go-swagger/cmd/swagger@<the project's version> validate <spec>`).
+  3. Regenerate (`go generate ./...` when the line exists), then `git diff --stat` and read the generated diff: new operations under `restapi/operations/`, changed models under `models/`, client methods under `client/`.
+  4. Implement the new handlers where the project wires them (`configure_<name>.go`, which generation keeps), and never edit the other generated files by hand.
+  5. `go build ./... && go test ./...`.
+examples:
+  selected:
+    - "Add a GET /orders/{id} endpoint to the swagger spec and implement it."
+    - "Make the email field required on the User model in swagger.yaml."
+  not_selected:
+    - "Fix the database query in the existing order handler."
+    - "Write a README section about the API's authentication."

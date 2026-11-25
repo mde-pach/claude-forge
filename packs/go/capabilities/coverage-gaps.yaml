@@ -1,0 +1,24 @@
+# Adapted from golang-testing, https://github.com/samber/cc-skills-golang (skills/golang-testing),
+# MIT License: its coverage profile as a gap finder.
+id: go/coverage-gaps
+description: Finding the Go code no test executes, from a coverage profile.
+relevant:
+  - The task is to add tests for Go code or find what the tests leave untested.
+deliver: on-demand
+text: |
+  To see which Go code no test runs:
+
+  1. `go test -coverprofile=coverage.out -coverpkg=./... ./...` (narrow both to the packages you changed when the suite is large).
+  2. `go tool cover -func=coverage.out` lists each function with its coverage; sort or `grep` for the files you changed and read the functions below 100%.
+  3. For the uncovered lines themselves, `go tool cover -html=coverage.out -o coverage.html` and open the file, or read `coverage.out`: each line is `file:startLine.col,endLine.col statements count`, and a count of 0 is a block no test ran.
+  4. Write tests for the uncovered branches that matter (errors, edge cases), run step 1 again and compare.
+  5. Delete `coverage.out` and `coverage.html` at the end.
+
+  Coverage shows code that ran, not that its result was checked.
+examples:
+  selected:
+    - "Write tests for the new rate limiter package, cover the error paths."
+    - "Which parts of internal/billing have no tests?"
+  not_selected:
+    - "Rename the Config struct's Timeout field to RequestTimeout."
+    - "The CI coverage badge in the README shows the wrong color, fix the badge URL."

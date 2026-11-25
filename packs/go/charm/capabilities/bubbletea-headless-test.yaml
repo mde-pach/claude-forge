@@ -1,0 +1,22 @@
+# Adapted from charmed-bubbletea, https://github.com/tpscloud/charmedimsure (skills/charmed-bubbletea),
+# MIT License: its message-driven unit tests and headless program runs.
+id: go/charm/bubbletea-headless-test
+description: Checking a Bubble Tea model's behaviour without a terminal, by sending it messages and running the program headless.
+relevant:
+  - The task changes how a Bubble Tea terminal program reacts to keys, messages or window sizes.
+  - The task changes what a Bubble Tea terminal program renders.
+deliver: on-demand
+text: |
+  A Bubble Tea program cannot be watched in a terminal from here; check it in tests instead.
+
+  1. Update logic: in a `_test.go`, build the model, call `Update` with constructed messages (`tea.KeyPressMsg{Code: 'j'}` in v2, `tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}` in v1, `tea.WindowSizeMsg{Width: 80, Height: 24}`) and assert on the returned model and on the command (`cmd == nil`, or run `cmd()` and inspect the message it returns).
+  2. Rendering: call `View()` after the messages and assert on the text, with ANSI styling stripped (`github.com/charmbracelet/x/ansi`'s `ansi.Strip`).
+  3. The whole program: `tea.NewProgram(m, tea.WithInput(strings.NewReader("jjq")), tea.WithOutput(&buf), tea.WithWindowSize(80, 24))` (v2; in v1, send a `tea.WindowSizeMsg` with `p.Send`), run it with a timeout (`context.WithTimeout` and `tea.WithContext`) so a missing quit cannot hang the test, then check the final model `Run` returns.
+  4. `go test ./...`.
+examples:
+  selected:
+    - "Pressing j in the list view should move the cursor down, it skips an item."
+    - "The status bar overflows when the terminal is narrow, fix it."
+  not_selected:
+    - "Bump bubbletea to v2 in go.mod and fix the import paths."
+    - "Add a --config flag to the CLI's main command."

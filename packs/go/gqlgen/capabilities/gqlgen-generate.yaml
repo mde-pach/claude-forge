@@ -1,0 +1,22 @@
+# Adapted from golang-graphql, https://github.com/samber/cc-skills-golang (skills/golang-graphql),
+# MIT License: its regenerate-after-schema-change step.
+id: go/gqlgen/gqlgen-generate
+description: Regenerating gqlgen code after a GraphQL schema change and filling in the resolver stubs.
+relevant:
+  - The task changes a GraphQL schema of a gqlgen server.
+  - The task adds or changes a GraphQL query, mutation, type or field in Go.
+deliver: on-demand
+text: |
+  After editing the `.graphqls` files, let gqlgen generate the Go side:
+
+  1. Run the project's generator: `go generate ./...` when a `//go:generate` line calls gqlgen, else `go run github.com/99designs/gqlgen generate` (`go tool gqlgen generate` when it is a `tool` in `go.mod`). `gqlgen.yml` says where each file goes.
+  2. Read its errors: a schema error names the file and line; an autobind mismatch names the Go type.
+  3. `git diff --stat`, then open the resolver files: each new field has a stub that panics (`panic(fmt.Errorf("not implemented: ..."))`); implement each one. Generated files (`generated.go`, `models_gen.go`) are never edited by hand.
+  4. `go build ./... && go test ./...`, and for a new query, run it against the server once (the playground, or `curl -s localhost:8080/query -H 'Content-Type: application/json' -d '{"query":"{ ... }"}'`).
+examples:
+  selected:
+    - "Add a cancelOrder mutation to the GraphQL API."
+    - "Expose the user's avatarUrl field in the schema."
+  not_selected:
+    - "Speed up the orders resolver, it queries the database once per item."
+    - "Describe in docs how clients authenticate to the GraphQL endpoint."

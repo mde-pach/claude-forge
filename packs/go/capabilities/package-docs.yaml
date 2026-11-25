@@ -1,0 +1,24 @@
+# Adapted from golang-pkg-go-dev, https://github.com/samber/cc-skills-golang (skills/golang-pkg-go-dev),
+# and charmed-bubbles, https://github.com/tpscloud/charmedimsure (skills/charmed-bubbles), both MIT License:
+# reading a Go module's API and versions from the toolchain, without the godig client they use.
+id: go/package-docs
+description: Reading a Go dependency's real API, versions and known vulnerabilities with go doc, go list and govulncheck.
+relevant:
+  - The task writes new code that uses a library's components, types or functions.
+  - The task is to add, choose or upgrade a Go module dependency.
+deliver: on-demand
+text: |
+  To read the API of the version this module really resolves, ask the toolchain instead of recalling it:
+
+  1. Which version is used: `go list -m <module>`; which exist: `go list -m -versions <module>`; the latest: `go list -m <module>@latest`.
+  2. A package's API at the resolved version: `go doc <import path>` (its exported names), `go doc <import path>.<Symbol>` (one type or function, with its methods), `go doc -all <import path>` for everything. For a module not yet required, `go get <module>@<version>` first.
+  3. Vulnerabilities of the build: `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`; it reports only the vulnerable symbols the code reaches.
+  4. Read the module's source in the module cache when the docs are not enough: `go list -m -f '{{.Dir}}' <module>`.
+  5. After changing a dependency: `go mod tidy`, then build and run the tests.
+examples:
+  selected:
+    - "Use the bubbles textinput component for the search field."
+    - "Upgrade github.com/jackc/pgx to the latest v5 and fix any API changes."
+  not_selected:
+    - "Fix the off-by-one in our own pagination helper."
+    - "Explain in the README which Go version the project needs."

@@ -1,0 +1,25 @@
+# Adapted from golang-benchmark and golang-performance, https://github.com/samber/cc-skills-golang
+# (skills/golang-benchmark, skills/golang-performance), MIT License: their before/after
+# measurement with benchstat and profiles, rewritten as one procedure.
+id: go/bench-compare
+description: Measuring a Go performance change with repeated benchmarks, benchstat and pprof profiles.
+relevant:
+  - The task is to make Go code faster or use less memory.
+  - The task needs a performance difference between two versions of Go code measured.
+deliver: on-demand
+text: |
+  To know whether a change made Go code faster, measure before and after on the same machine and toolchain.
+
+  1. Find or write a benchmark for the hot path (`func BenchmarkX(b *testing.B)`, with `for b.Loop()` on Go 1.24 and later).
+  2. Before the change: `go test -run '^$' -bench 'BenchmarkX' -benchmem -count=10 ./pkg/... > old.txt`. Run benchmarks one at a time, never in parallel with other work.
+  3. To see where the time goes, profile the same benchmark: `-cpuprofile cpu.prof` or `-memprofile mem.prof`, then `go tool pprof -top cpu.prof` (`-sample_index=alloc_space` for allocations). For blocking and scheduling, `-trace trace.out` and `go tool trace trace.out`.
+  4. After the change, the same command into `new.txt`, then `go run golang.org/x/perf/cmd/benchstat@latest old.txt new.txt`.
+  5. Read the delta and its p-value: `~` means no significant difference; a change is real only when benchstat reports it, for `sec/op`, `B/op` and `allocs/op`.
+  6. Delete the profiles and result files when done, or keep the benchstat output for the commit message.
+examples:
+  selected:
+    - "This JSON encoder is too slow, optimize it and show the improvement."
+    - "Did my change to the parser regress performance? Compare it with main."
+  not_selected:
+    - "Add a benchmark file skeleton to the repo's README instructions."
+    - "Fix the nil pointer panic in the HTTP handler."

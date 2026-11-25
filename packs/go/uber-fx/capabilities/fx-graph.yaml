@@ -1,0 +1,22 @@
+# Adapted from golang-uber-fx, https://github.com/samber/cc-skills-golang (skills/golang-uber-fx),
+# MIT License: its event logger and graph visualisation for startup problems.
+id: go/uber-fx/fx-graph
+description: Seeing an fx application's dependency graph and startup events to find a missing provider or a wrong startup order.
+relevant:
+  - The task is to find why an fx application fails to start or a dependency is missing.
+  - The task adds or changes an fx module, provider or lifecycle hook.
+deliver: on-demand
+text: |
+  To see how fx wires the application:
+
+  1. Validate the graph without running anything: in a test, `if err := fx.ValidateApp(<the app's options>...); err != nil { t.Fatal(err) }`. The error names the missing type and the constructor that needs it.
+  2. Startup events: add `fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} })` and run the app; it prints each `PROVIDE`, `INVOKE` and `OnStart`/`OnStop` hook in order, with how long each hook ran.
+  3. The whole graph: invoke `func(g fx.DotGraph) { os.WriteFile("fx.dot", []byte(g), 0o644) }` (or `fx.VisualizeError(err)` after a failed `fx.New`), then read the edges in `fx.dot` (`dot -Tsvg fx.dot -o fx.svg` when Graphviz is installed).
+  4. Remove the logger and graph code you added only to look, and stop the app.
+examples:
+  selected:
+    - "The app panics at startup with missing type *sql.DB, fix the wiring."
+    - "Add a Kafka consumer module to the fx app and make sure it starts after the database."
+  not_selected:
+    - "Fix the SQL syntax error in the user repository's query."
+    - "Explain in the docs why we use fx for dependency injection."

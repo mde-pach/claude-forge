@@ -1,0 +1,23 @@
+# Adapted from golang-refactoring, https://github.com/samber/cc-skills-golang (skills/golang-refactoring),
+# MIT License: its tool-driven, behaviour-preserving rewrites (gopls, gofmt -r).
+id: go/mechanical-rewrite
+description: Renaming and rewriting Go code across packages with gopls and gofmt -r instead of editing each file.
+relevant:
+  - The task renames or moves a Go identifier used in many files or packages.
+  - The task applies the same mechanical change to many places in Go code.
+deliver: on-demand
+text: |
+  For a change repeated across many Go files, let the tools rewrite the code:
+
+  1. Rename a type, function, field or method everywhere it is used, comments and other packages included: `go run golang.org/x/tools/gopls@latest rename -w path/file.go:<line>:<column> NewName` (the position of the identifier, 1-based). gopls refuses a rename that would break the build; read why instead of renaming by hand.
+  2. Rewrite an expression pattern: `gofmt -r 'a.Foo(b) -> a.Bar(b, nil)' -l -w ./...` (single lowercase letters are wildcards). Run it first without `-w` and read the diff it prints with `-d`.
+  3. Apply the toolchain's own fixers: `go fix ./...` (and, on Go 1.26 and later, the `//go:fix inline` directives it applies).
+  4. Check what the tools missed: `grep -rn OldName` for struct tags, templates, reflection and strings, which no tool rewrites.
+  5. `go build ./... && go vet ./... && go test ./...`.
+examples:
+  selected:
+    - "Rename the UserStore interface to UserRepository across all packages."
+    - "Replace every call of log.Printf with our logger.Infof throughout the codebase."
+  not_selected:
+    - "Add a new Delete method to the UserStore interface and implement it."
+    - "Why is the name UserStore used here? Explain the design."

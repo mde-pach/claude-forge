@@ -1,0 +1,25 @@
+# Adapted from golang-troubleshooting and golang-concurrency, https://github.com/samber/cc-skills-golang
+# (skills/golang-troubleshooting, skills/golang-concurrency), MIT License: their race detector,
+# goroutine dump and pprof steps, rewritten as one procedure.
+id: go/runtime-debug
+description: Finding the cause of a Go crash, data race, hang, goroutine leak or memory growth with the race detector, goroutine dumps and pprof.
+relevant:
+  - The task is to find why a Go program crashes, hangs, deadlocks or has a data race.
+  - The task is to find why a Go program leaks goroutines or its memory keeps growing.
+deliver: on-demand
+text: |
+  To see what a Go program is really doing:
+
+  1. Races: `go test -race -count=1 ./...` (or `go run -race` / `go build -race`). Each report gives the two conflicting accesses with their goroutine stacks.
+  2. Crashes: run with `GOTRACEBACK=all` so the panic prints every goroutine's stack, not only the failing one.
+  3. Hangs and leaks: in a running program with `net/http/pprof` imported (or a test you add it to), `curl -s 'localhost:6060/debug/pprof/goroutine?debug=2'` prints every goroutine with its state and how long it has waited; many goroutines parked on the same channel or lock line is the leak. Without an HTTP server, send `SIGQUIT` (`kill -QUIT <pid>`) for the same dump. Take two dumps a while apart and compare the counts.
+  4. Memory: `go tool pprof -top http://localhost:6060/debug/pprof/heap` (`-sample_index=inuse_space`), twice, and compare what grew; `-base first.pb.gz` shows the difference.
+  5. To stop at a line and inspect values: `go run github.com/go-delve/delve/cmd/dlv@latest test ./pkg -- -test.run TestX`, then `break file.go:42`, `continue`, `goroutines`, `print x`.
+  6. Stop every program and server you started.
+examples:
+  selected:
+    - "Our Go service's memory grows until it's OOM-killed, find the leak."
+    - "The worker pool deadlocks under load sometimes, figure out why."
+  not_selected:
+    - "Add a context timeout parameter to the fetch function."
+    - "Write documentation explaining how our worker pool is designed."
