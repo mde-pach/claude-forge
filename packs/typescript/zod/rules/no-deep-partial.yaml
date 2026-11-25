@@ -1,0 +1,27 @@
+id: typescript/zod/no-deep-partial
+description: Zod 4 has no .deepPartial(). Make the nested fields optional where they are declared, or apply .partial() to each nested object schema.
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^deepPartial$"}
+          - has: {field: object, pattern: $S}
+    # the receiver is a Zod 4 object schema, not a project helper with a deepPartial() method
+    where:
+      S: {type: {module: zod/v4, name: ZodObject}}
+when:
+  deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}]
+  match:
+    - "import { z } from \"zod\";\n\nconst User = z.object({ name: z.string(), address: z.object({ city: z.string() }) });\nexport const Patch = User.deepPartial();\n"
+    - "import * as zod from \"zod\";\n\nexport const Patch = zod.object({ a: zod.object({ b: zod.number() }) }).deepPartial();\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nconst Address = z.object({ city: z.string() });\nexport const Patch = z.object({ name: z.string(), address: Address.partial() }).partial();\n"
+    - "const form = { deepPartial: (): object => ({}) };\n\nexport const p = form.deepPartial();\n"

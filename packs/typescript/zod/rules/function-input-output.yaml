@@ -1,0 +1,27 @@
+id: typescript/zod/function-input-output
+description: "Zod 4 function schemas take their arguments and result in one call, z.function({ input: [z.string()], output: z.number() }), then .implement(fn); the z.function().args().returns() chain is gone."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^(args|returns)$"}
+          - has: {field: object, pattern: $F}
+    # the receiver is a Zod 4 function schema
+    where:
+      F: {type: {module: zod/v4, name: ZodFunction}}
+when:
+  deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}]
+  match:
+    - "import { z } from \"zod\";\n\nexport const Add = z.function().args(z.number(), z.number()).returns(z.number());\n"
+    - "import { z } from \"zod\";\n\nconst base = z.function();\nexport const Greet = base.returns(z.string());\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nexport const Add = z.function({ input: [z.number(), z.number()], output: z.number() });\nexport const add = Add.implement((a, b) => a + b);\n"
+    - "const cli = { args: (...a: string[]) => a };\n\nexport const argv = cli.args(\"--help\");\n"

@@ -1,0 +1,25 @@
+id: typescript/zod/record-key-value
+description: "Zod 4's z.record() takes the key schema and the value schema, z.record(z.string(), z.number()); the one-argument form is gone. Use z.partialRecord() for optional enum keys."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, pattern: $F}
+        - has: {field: arguments, kind: arguments, not: {has: {nthChild: 2}}}
+    # the callee is Zod 4's record(), however it was imported
+    where:
+      F: {declared: {module: zod/v4, name: record}}
+when:
+  deps: [{ecosystem: npm, name: zod, version: ">=4.0.0"}]
+examples:
+  deps: [{ecosystem: npm, name: zod, version: "4.1.12"}]
+  match:
+    - "import { z } from \"zod\";\n\nexport const Scores = z.record(z.number());\n"
+    - "import * as zod from \"zod\";\n\nexport const Tags = zod.object({ tags: zod.record(zod.string()) });\n"
+  no_match:
+    - "import { z } from \"zod\";\n\nexport const Scores = z.record(z.string(), z.number());\n"
+    - "import { z } from \"zod\";\n\nexport const Flags = z.partialRecord(z.enum([\"a\", \"b\"]), z.boolean());\n"
+    - "const log = { record: (event: string): string => event };\n\nexport const r = log.record(\"start\");\n"
