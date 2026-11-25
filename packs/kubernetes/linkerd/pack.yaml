@@ -1,0 +1,10 @@
+id: kubernetes/linkerd
+description: Linkerd, the service mesh the Kubernetes manifests run in.
+level: project
+detect:
+  # a manifest that injects the proxy or declares a Linkerd policy resource
+  content_any:
+    - files: ["**/*.yaml", "**/*.yml"]
+      pattern: "linkerd\\.io/inject:"
+    - files: ["**/*.yaml", "**/*.yml"]
+      pattern: "^apiVersion:[ \\t]*[\"']?(policy|split|multicluster)\\.linkerd\\.io/"
