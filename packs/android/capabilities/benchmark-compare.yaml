@@ -1,0 +1,24 @@
+# Adapted from android-benchmark-comparison, https://github.com/chrisbanes/skills (skills/android-benchmark-comparison),
+# Apache License 2.0: its repeated, order-balanced comparison of configurations.
+id: android/benchmark-compare
+description: Comparing Android build or runtime configurations with repeated, order-balanced Macrobenchmark runs and their traces.
+relevant:
+  - The task compares the performance of two or more configurations, builds or code versions of an Android app.
+  - The task chooses a default setting from measured Android performance results.
+deliver: on-demand
+text: |
+  A ranking from one run on one device is noise until it repeats.
+
+  1. Write down the configurations, the benchmark (`@Test` methods in the `macrobenchmark` module), the metric (`frameDurationCpuMs`, `timeToInitialDisplayMs`) and the number of repetitions before running.
+  2. Note the device state: `adb shell getprop ro.product.model`, `adb shell dumpsys battery`, `adb shell dumpsys thermalservice`; keep the device plugged in, the screen on, nothing else running.
+  3. Run each configuration with `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest` (pass the configuration as an instrumentation argument, `-Pandroid.testInstrumentationRunnerArguments.<name>=<value>`), in a balanced order (A B B A), and repeat.
+  4. Keep the raw results: `build/outputs/connected_android_test_additional_output/` holds the JSON (every iteration's values) and the `.perfetto-trace` files. Check every configuration ran every iteration; a failed or missing run is reported, not dropped.
+  5. Compare from the unrounded per-iteration values: the median and the spread of each, and whether the order holds across the repetitions. When it reverses, open the traces of the measured intervals (ui.perfetto.dev, or `trace_processor`) for thermal throttling, CPU placement or contention before choosing.
+  6. Restore any device setting you changed (CPU affinity, performance mode) and check it is restored.
+examples:
+  selected:
+    - "Is the app faster with R8 full mode or without? Benchmark both on the Pixel."
+    - "Pick the default image cache size based on scroll jank measurements."
+  not_selected:
+    - "Add a Macrobenchmark module skeleton to the Gradle settings."
+    - "Fix the crash when rotating the settings screen."

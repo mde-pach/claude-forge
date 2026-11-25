@@ -1,0 +1,7 @@
+id: java/kafka-streams
+description: Kafka Streams applications.
+level: project
+detect:
+  content_any:
+    - {files: ["**/pom.xml"], pattern: "<artifactId>kafka-streams</artifactId>"}
+    - {files: ["**/build.gradle", "**/build.gradle.kts", "**/libs.versions.toml"], pattern: "org\\.apache\\.kafka[:\"'].*kafka-streams|kafka-streams[\"']?\\s*[:=]"}

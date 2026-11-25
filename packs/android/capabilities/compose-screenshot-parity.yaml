@@ -1,0 +1,22 @@
+# Adapted from migrate-xml-views-to-jetpack-compose, https://github.com/android/skills
+# (jetpack-compose/migration/migrate-xml-views-to-jetpack-compose), Apache License 2.0: its baseline screenshot before migrating and comparison after.
+id: android/compose-screenshot-parity
+description: Keeping an XML layout's look when migrating it to Jetpack Compose, by comparing screenshots before and after.
+relevant:
+  - The task migrates an Android XML layout or View to Jetpack Compose.
+deliver: on-demand
+text: |
+  To show the Compose version looks like the XML one, capture both and compare.
+
+  1. Before changing anything, take a baseline of the XML screen: reuse the project's screenshot tests (Roborazzi: `./gradlew recordRoborazziDebug`; Paparazzi: `./gradlew recordPaparazziDebug`), else write a minimal instrumented test that opens the screen and saves `UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(file)`, and pull the file with `adb pull`.
+  2. Write the composable with a `@Preview` at the same size and data as the baseline.
+  3. Render it: with the Compose Preview Screenshot Testing plugin, a `@PreviewTest` preview in `src/screenshotTest` and `./gradlew updateDebugScreenshotTest`; with Roborazzi or Paparazzi, a test that renders the composable; the images land under `build/` (the plugin's reference directory).
+  4. Open the baseline and the new image side by side and compare layout, spacing, alignment, sizes and colors, ignoring text content. Fix the differences and render again.
+  5. Once it matches, swap the XML for the composable and run the screen's tests.
+examples:
+  selected:
+    - "Migrate fragment_profile.xml to a Compose screen."
+    - "Convert the custom RatingView to a composable without changing how it looks."
+  not_selected:
+    - "Add a new settings screen in Compose."
+    - "Fix the wrong padding in the Compose checkout screen."

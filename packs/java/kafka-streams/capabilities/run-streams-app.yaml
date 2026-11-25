@@ -1,0 +1,24 @@
+# Adapted from kafka-streams-programming, https://github.com/confluentinc/agent-skills
+# (skills/kafka-streams-programming), Apache License 2.0: its rule of running
+# the app against a real broker and watching it reach RUNNING.
+id: java/kafka-streams/run-streams-app
+description: Running a Kafka Streams application against a local broker and watching it reach RUNNING and process records.
+relevant:
+  - The task builds or changes a Kafka Streams topology or its configuration.
+  - The task is to find why a stream processing application is stuck, fails or stops processing.
+deliver: on-demand
+text: |
+  A topology that compiles and passes `TopologyTestDriver` tests can still fail at startup; run it.
+
+  1. Unit level first: `TopologyTestDriver` tests (with `statestore.cache.max.bytes=0` for deterministic output), `./gradlew test` or `mvn test`.
+  2. A broker: the project's `docker compose up -d` (Kafka, and Schema Registry when the serdes need it), wait until `docker compose ps` shows them healthy, and create the input and output topics (`kafka-topics --bootstrap-server localhost:9092 --create --topic <t>` inside the broker container).
+  3. Start the app in the background with its logs in a file (`./gradlew run > app.log 2>&1 &`, or `mvn exec:java`), and wait for `State transition from REBALANCING to RUNNING` in `app.log` (half a minute). Without it, read the stack trace there: a missing class, a serde or a topic error.
+  4. Produce a few records to the input topic (`kafka-console-producer`) and read the output topic (`kafka-console-consumer --from-beginning --property print.key=true`), and compare with what the topology should emit.
+  5. Stop the app, then `docker compose down`.
+examples:
+  selected:
+    - "Add a windowed count of page views per user to the streams topology."
+    - "The streams app is stuck in REBALANCING after the upgrade, find out why."
+  not_selected:
+    - "Write a plain Kafka producer that sends order events."
+    - "Explain in the docs what a KTable is."

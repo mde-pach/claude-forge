@@ -1,0 +1,22 @@
+# Procedure after https://github.com/JetBrains/skills (dependency-conflict-resolver, gradle-kotlin-dsl-doctor),
+# written from scratch.
+id: kotlin/gradle/build-diagnose
+description: Finding why a Gradle build fails or resolves the wrong library version, from Gradle's own reports.
+relevant:
+  - The task is to fix a failing Gradle build or build script.
+  - The task is to find why a JVM program gets the wrong version of a library, such as a NoSuchMethodError or a ClassNotFoundException.
+deliver: on-demand
+text: |
+  Let Gradle say where the build goes wrong:
+
+  1. Which phase fails: `./gradlew help --stacktrace`. A failure here is in `settings.gradle.kts` (plugin management, included builds, repositories) or in a build script's configuration; one that appears only with a task (`./gradlew build`) is in that task. The first `Caused by:` and the script file and line it names are the place to fix.
+  2. Script compilation errors (`Unresolved reference`, a type mismatch in a `.gradle.kts`): read the line Gradle names; `./gradlew buildEnvironment` lists the plugins and versions the scripts compile against.
+  3. Which version of a library wins: `./gradlew :<module>:dependencies --configuration runtimeClasspath` shows the tree, `a -> b` where conflict resolution upgraded it and `(c)` a constraint; `./gradlew :<module>:dependencyInsight --dependency <group:artifact> --configuration runtimeClasspath` shows every request for it and why the selected version won.
+  4. Fix at the source the insight names (a version catalog entry in `gradle/libs.versions.toml`, a platform/BOM, a constraint), then run step 3 again to see the new selection, then the build and tests.
+examples:
+  selected:
+    - "The build fails in settings.gradle.kts after adding the version catalog, fix it."
+    - "We get NoSuchMethodError from okhttp at runtime, figure out which version is on the classpath."
+  not_selected:
+    - "Add a unit test for the PriceCalculator class."
+    - "Rename the app module's package from com.acme.old to com.acme.app."

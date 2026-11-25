@@ -1,0 +1,23 @@
+# Adapted from kotlin-mcp-server-generator, https://github.com/github/awesome-copilot
+# (skills/kotlin-mcp-server-generator), MIT License: testing the built server with the MCP Inspector.
+id: kotlin/mcp/inspector-probe
+description: Calling a Kotlin MCP server's tools through the MCP Inspector's command line to read their real responses.
+relevant:
+  - The task adds or changes a tool, resource or prompt of an MCP server.
+  - The task is to fix or check what an MCP server's tool returns.
+deliver: on-demand
+text: |
+  To see what the server really answers, call it as a client would:
+
+  1. Build a runnable server: `./gradlew installDist` (run `build/install/<name>/bin/<name>`), or the project's fat-jar task (`./gradlew shadowJar`, then `java -jar build/libs/<name>-all.jar`).
+  2. For a stdio server, list its tools with the Inspector's CLI mode: `npx -y @modelcontextprotocol/inspector --cli <the run command> --method tools/list`. Read each tool's name, description and input schema.
+  3. Call one: `npx -y @modelcontextprotocol/inspector --cli <the run command> --method tools/call --tool-name <tool> --tool-arg key=value`. Read the result's content and `isError`; try a bad argument too.
+  4. Resources and prompts: `--method resources/list`, `--method resources/read --uri <uri>`, `--method prompts/list`.
+  5. For a server over HTTP (SSE or streamable HTTP), start it in the background and pass its URL instead of the command (`--transport http` for streamable HTTP); stop it at the end.
+examples:
+  selected:
+    - "Add a search_issues tool to our MCP server and make sure it returns results."
+    - "The get_weather tool returns an empty result, debug it."
+  not_selected:
+    - "Upgrade the Kotlin version in the Gradle build."
+    - "Write a README section about installing the server in Claude Desktop."
