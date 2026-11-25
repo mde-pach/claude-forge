@@ -1,0 +1,24 @@
+# Adapted from using-dbt-for-analytics-engineering, https://github.com/dbt-labs/dbt-agent-skills
+# (skills/dbt/skills/using-dbt-for-analytics-engineering), Apache License 2.0, Copyright 2026 dbt Labs:
+# validating models on real rows with dbt show while building them.
+id: dbt/dbt-show
+description: Checking a dbt model's real output rows with dbt show while writing or changing it.
+relevant:
+  - The task adds or changes a dbt model or its SQL transformation.
+  - The task is to find why a dbt model returns wrong, missing or duplicated rows.
+deliver: on-demand
+text: |
+  Read the data, not only the SQL: `dbt show` compiles a model or query and prints its rows without building anything.
+
+  1. Before writing SQL, look at the inputs: read the sources' and upstream models' YAML for their columns, then `dbt show --select <upstream model> --limit 10`, or an inline query: `dbt show --inline "select col, count(*) from {{ ref('stg_orders') }} group by 1" --limit 20`.
+  2. Check assumptions with inline queries: the grain (`select id, count(*) ... group by 1 having count(*) > 1`), nulls, the values of a status column, join keys that do not match.
+  3. After each change: `dbt show --select <model> --limit 20` and read the rows and column names against what the model should produce; a CTE can be checked alone by selecting from it in `--inline`.
+  4. Then build and test the model and what depends on it: `dbt build --select <model>+`, and read each failing test's name and the rows it returns (`dbt show --inline` with the test's compiled SQL from `target/compiled/`).
+  5. Keep `--limit` small and select only the columns you need on large tables.
+examples:
+  selected:
+    - "Add a customer lifetime value column to the dim_customers model."
+    - "fct_orders has duplicate rows since yesterday's change, fix it."
+  not_selected:
+    - "Upgrade dbt-core to 1.9 in requirements.txt."
+    - "Write the docs block describing the finance models."
