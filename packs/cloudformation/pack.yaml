@@ -1,0 +1,9 @@
+id: cloudformation
+description: AWS CloudFormation and SAM templates.
+level: project
+detect:
+  files_any: ["**/samconfig.toml"]
+  content_any:
+    - {files: ["**/*.yaml", "**/*.yml", "**/*.template"], pattern: "^AWSTemplateFormatVersion:"}
+    - {files: ["**/*.json", "**/*.template"], pattern: "^\\s*\"AWSTemplateFormatVersion\"\\s*:"}
+    - {files: ["**/*.yaml", "**/*.yml"], pattern: "^Transform:\\s*[\"']?AWS::Serverless"}

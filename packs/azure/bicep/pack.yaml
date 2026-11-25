@@ -1,0 +1,7 @@
+id: azure/bicep
+description: Azure infrastructure as Bicep or ARM templates, deployed with the Azure CLI or azd.
+level: project
+detect:
+  files_any: ["**/*.bicep", "**/*.bicepparam"]
+  content_any:
+    - {files: ["**/*.json"], pattern: "\"\\$schema\"\\s*:\\s*\"https?://schema\\.management\\.azure\\.com/schemas/[^\"]*[dD]eploymentTemplate\\.json"}
