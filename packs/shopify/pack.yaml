@@ -1,0 +1,6 @@
+id: shopify
+description: Shopify apps, their extensions and Functions, and Shopify themes.
+level: project
+detect:
+  # an app's or an extension's configuration, or a theme's layout
+  files_any: [shopify.app.toml, "shopify.app.*.toml", "**/shopify.extension.toml", layout/theme.liquid, "*/layout/theme.liquid"]

@@ -1,0 +1,24 @@
+# Procedure after hyperframes and hyperframes-cli, https://github.com/heygen-com/hyperframes
+# (skills/hyperframes, skills/hyperframes-cli), Apache License 2.0: checking, snapshotting,
+# previewing and rendering a composition to see what it shows.
+id: hyperframes/hyperframes-preview-render
+description: Seeing what a HyperFrames composition shows, with the CLI's checks, frame snapshots, preview server and draft render.
+relevant:
+  - The task makes or edits a HyperFrames video composition, a scene or its animation.
+  - The task needs to see what a HyperFrames video looks like at given times, or to render it.
+deliver: on-demand
+text: |
+  The frames are the only way to see the video: look at them after each change. `npx hyperframes <command> --help` gives each command's flags; most take `--json` (Node.js 22 and FFmpeg needed).
+
+  1. Read the project: `npx hyperframes compositions` and `npx hyperframes timeline --json` (what plays when).
+  2. Check: `npx hyperframes lint` while writing, then `npx hyperframes check --json`; fix its errors first (layout and contrast audits only run once lint passes; each finding has a `Fix:` line).
+  3. Look: `npx hyperframes snapshot --at 1.5,4,8` (or `--range START,END`, `--composition <id>` for one scene) and read the PNGs under `.hyperframes/artifacts/snapshots/`. With several scenes, snapshot a midpoint of each; missing or unstyled content there is a mount problem.
+  4. Preview: `npx hyperframes preview --background`, check its URL answers (`curl -sI`), and give the URL to the person when they review it themselves.
+  5. Render when asked for a file: `npx hyperframes render --quality draft -o out.mp4` while iterating (`looks` or `delivery` for the final). Check the file: `ffprobe -v error -show_entries format=duration:stream=width,height out.mp4` against the composition's `data-duration`, `data-width` and `data-height`.
+examples:
+  selected:
+    - "Make the title card fade in over the first second and slide the logo in from the left."
+    - "Render a draft of the product launch video so I can check the timing."
+  not_selected:
+    - "Write the narration script for the onboarding video as a text file."
+    - "Add a GitHub Actions workflow that runs the unit tests."

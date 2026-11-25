@@ -1,0 +1,23 @@
+# Procedure after the windmill skill, https://github.com/TerminalSkills/skills (skills/windmill),
+# Apache License 2.0: previewing locally and dry-running the sync before deploying.
+id: windmill/wmill-preview
+description: Running a Windmill script or flow from the local files with the wmill CLI, and seeing what a sync would deploy, without deploying.
+relevant:
+  - The task writes or changes a Windmill script or flow.
+  - The task debugs a Windmill script or flow that fails or returns the wrong result.
+deliver: on-demand
+text: |
+  Run the local code on the workspace's workers without deploying it. The `wmill` CLI (`npx windmill-cli` where it is not installed) uses the workspace `wmill workspace` has selected.
+
+  1. After changing a script's imports or its `main` signature: `wmill generate-metadata`, which refreshes its `.script.yaml` schema and lock file.
+  2. Script: `wmill script preview <path> -d '<json args>'` (the path without extension, `f/ops/disk_report`), with the arguments `main` takes. Read its result and logs.
+  3. Flow: `wmill lint` validates the flow, schedule and trigger YAML; `wmill flow preview <path> -d '<json inputs>'` runs it, step by step, from the local `flow.yaml`.
+  4. Fix and preview again until the result is the expected one, with an input for each case the task names.
+  5. What a deploy would change: `wmill sync push --dry-run` lists the items it would create, update or delete; check only the intended paths are in it. `wmill sync push` itself deploys.
+examples:
+  selected:
+    - "Write a Windmill script that posts the daily sales total to Slack."
+    - "The nightly_import flow fails at the transform step, find out why."
+  not_selected:
+    - "Explain how Windmill workers and worker groups work."
+    - "Rename the README to README.md."

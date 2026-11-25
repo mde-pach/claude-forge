@@ -1,0 +1,28 @@
+# Procedure after shopify-app-development and shopify-checkout-extensions,
+# https://github.com/finsilabs/awesome-ecommerce-skills (skills/platform-shopify/shopify-app-development,
+# skills/platform-shopify/shopify-checkout-extensions), MIT License,
+# Copyright (c) 2026 awesome-ecommerce-skills contributors: running the app against a dev store.
+id: shopify/shopify-app-dev
+description: Running the Shopify app, its extensions and Functions against a development store with the Shopify CLI, and exercising them.
+relevant:
+  - The task changes an app's pages, its webhook handlers or its OAuth flow.
+  - The task builds or changes a checkout or theme extension, or a Function such as a discount, shipping or payment customization.
+when: {files: [shopify.app.toml, "shopify.app.*.toml"]}
+deliver: on-demand
+text: |
+  See the app work in a development store, with the project's Shopify CLI (`npm run dev` or `npx shopify app dev`, as `package.json` says).
+
+  1. Scaffold an extension or a Function with `shopify app generate extension --template <type> --name <name>`, so it gets its `shopify.extension.toml`.
+  2. Serve: `shopify app dev` in the background with its output kept in a log; it builds the app and every extension, tunnels it and installs it on the dev store (it needs a logged-in Partner account and a dev store; `--store <store>.myshopify.com` picks one). Read the log for the build errors and the preview URL.
+  3. Exercise it: open the preview URL (the admin page, or the checkout with the extension), in a browser the project can drive. Each change rebuilds; read the log again.
+  4. A Function, without a store: `shopify app function run --path extensions/<name> --input input.json` runs it on a sample input and prints its output; `shopify app function replay` replays a real run from the store's logs.
+  5. Webhooks: `shopify app webhook trigger --topic <topic> --address <your endpoint> --api-version <version>` sends a test delivery; read the handler's log.
+  6. Stop the dev server at the end.
+examples:
+  selected:
+    - "Add a checkout UI extension that shows a gift message field."
+    - "The orders/create webhook handler never runs, debug it."
+    - "Write a discount Function that gives 10% off to wholesale customers."
+  not_selected:
+    - "Explain what Shopify app scopes are."
+    - "Bump the Polaris package to the latest version."

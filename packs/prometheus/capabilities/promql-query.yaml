@@ -1,0 +1,25 @@
+# Procedure after promql, https://github.com/grafana/skills (skills/grafana-core/promql),
+# Apache License 2.0, and promql-cli, https://github.com/samber/cc-skills (skills/promql-cli),
+# MIT License, Copyright (c) 2026 Samuel Berthe: running PromQL against the live backend.
+id: prometheus/promql-query
+description: Running PromQL against the Prometheus-compatible backend to see which metrics and labels exist and what an expression returns.
+relevant:
+  - The task writes or changes a PromQL expression in an alert, a recording rule or a dashboard.
+  - The task needs to know which metrics or labels exist, or what values a metric has.
+deliver: on-demand
+text: |
+  Check an expression on the real data before writing it into a rule or a panel. Set `PROM` to the backend's base URL (Prometheus, Mimir, Thanos, VictoriaMetrics), with `-u <user>:<token>` on each `curl` where it needs auth.
+
+  1. Does the metric exist, with which labels: `curl -sG --data-urlencode 'match[]=<metric>' "$PROM/api/v1/series" | jq '.data | length, .data[0]'`; all names: `curl -s "$PROM/api/v1/label/__name__/values" | jq '.data[]'`; a label's values: `.../api/v1/label/<label>/values`.
+  2. Run the expression now: `curl -sG --data-urlencode "query=<expr>" "$PROM/api/v1/query" | jq '.status, (.data.result | length), .data.result[:3]'`. `error` names the syntax problem; zero series means nothing matches.
+  3. Over time: `/api/v1/query_range` with `start`, `end` (Unix seconds) and `step`, to see the expression would have fired when it should.
+  4. For a recording rule, run its source expression and then its recorded name, and compare the values. Rule files check offline with `promtool check rules <file>`.
+
+  `promql-cli` does the same where it is installed and configured: `promql '<expr>'`, `promql '<expr>' --start 1h`, `promql metrics`, `promql labels <metric>`.
+examples:
+  selected:
+    - "Add an alert when the 5xx error rate of the api job goes above 2% for 10 minutes."
+    - "Which metrics does the payments service expose for queue depth? I want to graph it."
+  not_selected:
+    - "Add a /metrics endpoint to the Express app."
+    - "Raise the scrape interval of the node exporter job to 30s."

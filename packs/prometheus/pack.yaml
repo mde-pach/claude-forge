@@ -1,0 +1,11 @@
+id: prometheus
+description: Prometheus metrics, PromQL alerting and recording rules.
+level: project
+detect:
+  files_any: ["**/prometheus.yml", "**/prometheus.yaml"]
+  # an application that exposes Prometheus metrics
+  deps_any: [{ecosystem: npm, name: prom-client}, {ecosystem: pypi, name: prometheus-client}]
+  content_any:
+    # a Prometheus rule file, or a PrometheusRule resource
+    - {files: ["**/*.yaml", "**/*.yml"], pattern: "^kind:[ \\t]*[\"']?PrometheusRule[\"']?[ \\t]*$"}
+    - {files: ["**/*.rules.yml", "**/*.rules.yaml", "**/rules/*.yml", "**/rules/*.yaml", "**/alerts/*.yml", "**/alerts/*.yaml"], pattern: "^[ \\t]*-?[ \\t]*(alert|record):[ \\t]*\\S"}

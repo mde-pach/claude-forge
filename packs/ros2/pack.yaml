@@ -1,0 +1,8 @@
+id: ros2
+description: ROS 2 packages, nodes and launch files.
+level: project
+detect:
+  # an ament package manifest, or a ROS 2 Python launch file
+  content_any:
+    - {files: ["**/package.xml"], pattern: "<(buildtool_depend|depend|build_depend|exec_depend)>(ament_cmake|ament_python|rclcpp|rclpy)</"}
+  files_any: ["**/*.launch.py"]

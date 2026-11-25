@@ -1,0 +1,24 @@
+# Procedure after solana-dev, https://github.com/solana-foundation/solana-dev-skill
+# (skills/solana-dev), MIT License, Copyright (c) 2026: Surfpool as the local network.
+id: solana/solana-mainnet-fork
+description: Running the program against a local Surfpool network that forks mainnet, sending it transactions and reading their logs.
+relevant:
+  - The task reproduces or checks how a Solana program behaves against real mainnet accounts or programs.
+  - The task debugs a Solana transaction that fails or behaves unexpectedly.
+deliver: on-demand
+text: |
+  Surfpool runs a local network that fetches mainnet accounts the first time they are read, so a program can be exercised against real state without deploying anywhere. `NO_DNA=1` before each command turns off their interactive prompts.
+
+  1. Build: `NO_DNA=1 anchor build` (or `cargo build-sbf`).
+  2. Start the network in the background: `NO_DNA=1 surfpool start --ci > surfpool.log 2>&1 &` (`--rpc-url <url>` for another source than mainnet). It serves RPC on http://127.0.0.1:8899 and deploys the workspace's programs; read the log to see them deployed.
+  3. Send the transactions the task is about, from the project's tests or scripts pointed at that RPC URL (`anchor test --skip-local-validator`, a client script with `--url http://127.0.0.1:8899`).
+  4. Read what happened: `solana confirm -v <signature> --url http://127.0.0.1:8899` prints the program logs, the compute units used and the error; `solana logs --url http://127.0.0.1:8899` streams them live (stop it after).
+  5. Set up state instead of long setup transactions with Surfpool's `surfnet_*` RPC cheatcodes (account and token balances, time travel), as the project's tests do or as its documentation lists.
+  6. Stop the network at the end (`kill %1`, or the PID).
+examples:
+  selected:
+    - "Our swap instruction fails with 'custom program error: 0x1771' when it CPIs into the real Raydium pool, reproduce it."
+    - "Check that the vault program works with the real USDC mint and token accounts."
+  not_selected:
+    - "Explain what a PDA is."
+    - "Rename the initialize instruction to create_vault."

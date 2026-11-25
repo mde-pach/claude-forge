@@ -1,0 +1,25 @@
+# Procedure after ros2-engineering-skills, https://github.com/dbwls99706/ros2-engineering-skills
+# (SKILL.md, its launch supervisor), Apache License 2.0, and the ros2 skill of
+# https://github.com/arpitg1304/robotics-agent-skills (skills/ros2), Apache License 2.0:
+# launching the system, reading its output and comparing the topics' QoS.
+id: ros2/ros2-inspect-running
+description: Launching a ROS 2 system in the background, reading its output, and inspecting its nodes, topics and QoS.
+relevant:
+  - The task needs to observe a running ROS 2 system, such as its launch output, nodes or topics.
+  - The task debugs ROS 2 messages that a subscriber misses, or a topic that stays silent.
+deliver: on-demand
+text: |
+  Look at the system running rather than at its code. Source the workspace first in each shell (`source install/setup.bash` after `colcon build`).
+
+  1. Launch in the background with the output kept, in simulation or with the mock hardware the project provides: `ros2 launch <package> <file>.launch.py > launch.log 2>&1 & echo $! > launch.pid`. Wait a few seconds, then read `launch.log`: `[ERROR]`, `process has died` and the exit code name the node that failed.
+  2. What runs: `ros2 node list`, and `ros2 node info /<node>` for its publishers, subscribers, services and parameters. `ros2 doctor --report` summarises the setup.
+  3. Data on a topic: `ros2 topic list -t`, `ros2 topic hz /<topic>` (stop it with Ctrl-C or `timeout 10`), `ros2 topic echo /<topic> --once`.
+  4. A subscriber that gets nothing: `ros2 topic info /<topic> --verbose` lists each publisher's and subscriber's QoS. A `RELIABLE` subscriber gets nothing from a `BEST_EFFORT` publisher, nor a `TRANSIENT_LOCAL` subscriber from a `VOLATILE` publisher; also compare the topic names and types exactly.
+  5. Stop the launch: `kill -INT $(cat launch.pid)`, then check `ros2 node list` is empty.
+examples:
+  selected:
+    - "The planner node never receives the /map topic even though map_server is running, find out why."
+    - "Launch the navigation stack in simulation and check that all nodes come up."
+  not_selected:
+    - "Add a parameter for the maximum speed to the controller node's code."
+    - "Write a README section explaining the package layout."
