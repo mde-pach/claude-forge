@@ -1,0 +1,23 @@
+# Procedure after nx-import, https://github.com/nrwl/nx-ai-agents-config (skills/nx-import),
+# MIT License, Copyright (c) 2017-2026 Narwhal Technologies Inc.: importing a repository and
+# checking what the import produced.
+id: typescript/nx/nx-import-repo
+description: Bringing another repository's code and history into the Nx workspace with nx import, then checking and completing what it produced.
+relevant:
+  - The task moves another repository, or part of one, into the Nx workspace.
+deliver: on-demand
+text: |
+  `nx import` copies a source repository's directory with its git history; what it leaves undone has to be read and completed. Run Nx through the package manager (`npx nx`, `pnpm nx`); `nx import --help` lists the flags of the installed version.
+
+  1. Choose the destination following the workspace's layout (its `apps/`, `libs/` or `packages/`), then import: `nx import <source repo URL or path> <destination dir> --source=<dir in the source> --ref=<branch>` (add `--no-interactive` before Nx 22.6, giving every flag).
+  2. Read what it brought: `git log --oneline -5 -- <destination dir>`, `git status`, and the new projects in `nx show projects`.
+  3. Remove the stale copies it may bring (`<dest>/node_modules`, `<dest>/pnpm-lock.yaml`, `<dest>/pnpm-workspace.yaml`), then compare the source's root `package.json` and `nx.json` with the workspace's: root dependencies, `targetDefaults`, `namedInputs` and plugin settings are not merged.
+  4. Workspace globs: `pnpm-workspace.yaml` (or `workspaces`) gets the destination directory itself; replace it with globs for its packages (`<dest>/*`) and reinstall.
+  5. `nx sync --yes` (if typecheck still fails, `nx reset`, then `nx sync --yes` again), then run the imported projects' targets: `nx run-many -t lint test build -p <projects>`.
+examples:
+  selected:
+    - "Import the billing-service repo into our monorepo under apps/, keeping its git history."
+    - "Move the packages/ui folder from the old design-system repo into this Nx workspace."
+  not_selected:
+    - "Create a new library for shared date utilities."
+    - "Explain the difference between a monorepo and a polyrepo."

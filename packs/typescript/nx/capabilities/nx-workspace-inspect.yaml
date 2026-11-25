@@ -1,0 +1,24 @@
+# Procedure after nx-run-tasks, https://github.com/nrwl/nx-ai-agents-config (skills/nx-run-tasks),
+# MIT License, Copyright (c) 2017-2026 Narwhal Technologies Inc., and nx-workspace-patterns,
+# https://github.com/wshobson/agents (plugins/developer-essentials/skills/nx-workspace-patterns),
+# MIT License, Copyright (c) 2024 Seth Hobson: asking Nx for the projects, their targets and the graph.
+id: typescript/nx/nx-workspace-inspect
+description: Asking Nx which projects and targets exist, how a target is configured, and which projects depend on a library.
+relevant:
+  - The task runs, adds or changes a target of a project in the Nx workspace, such as build, test, lint or serve.
+  - The task needs to know which projects depend on a library, or which targets a project has.
+deliver: on-demand
+text: |
+  Nx infers many targets from plugins, so `project.json` and `package.json` scripts do not show them all: ask Nx. Run it through the package manager (`npx nx`, `pnpm nx`, `yarn nx`).
+
+  1. Projects: `nx show projects` (`--type app|lib`, `--projects 'tag:scope:*'` to filter).
+  2. One project's targets: `nx show project <name> --json`; read `targets`: each one's `executor` or `command`, `options`, `configurations`, `dependsOn`, `inputs` and `outputs`. Run a target with `nx run <project>:<target>[:<configuration>]`.
+  3. Who depends on what: `nx graph --file=graph.json` writes the project graph without opening a browser; in `graph.dependencies`, the projects listing the changed library as `target` are its dependents (`jq '[.graph.dependencies[][] | select(.target == "<lib>") | .source]' graph.json`). `nx graph --focus=<lib> --file=focus.json` keeps only its neighbourhood.
+  4. What a change affects: `nx show projects --affected --base=<base branch>`, then `nx affected -t test lint build --base=<base branch>` to run their checks.
+examples:
+  selected:
+    - "Which projects use the shared-auth library? I'm about to change its exports."
+    - "Add a typecheck step to the api project's build target."
+  not_selected:
+    - "Fix the typo in the dashboard header component."
+    - "Explain what Nx caching is."

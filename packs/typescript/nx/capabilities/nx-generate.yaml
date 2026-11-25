@@ -1,0 +1,24 @@
+# Procedure after nx-generate and nx-plugins, https://github.com/nrwl/nx-ai-agents-config
+# (skills/nx-generate, skills/nx-plugins), MIT License, Copyright (c) 2017-2026 Narwhal Technologies Inc.:
+# finding the plugin and the generator, then a dry run before generating.
+id: typescript/nx/nx-generate
+description: Scaffolding apps, libraries and framework support in the Nx workspace with its plugins and generators, after a dry run.
+relevant:
+  - The task creates a new app, library or component in the Nx workspace.
+  - The task adds support for a framework or tool to the Nx workspace.
+deliver: on-demand
+text: |
+  Scaffold with the workspace's generators, and see where the files land before writing them. Run Nx through the package manager (`npx nx`, `pnpm nx`, `yarn nx`).
+
+  1. Plugins: `nx list` shows the installed ones and those that can be added; `nx add <plugin>` (`nx add @nx/react`) installs one at the workspace's Nx version and runs its init generator.
+  2. Generators of a plugin: `nx list <plugin>`; a generator's options: `nx g <plugin>:<generator> --help`.
+  3. Look at how existing projects are laid out (`nx show projects`, their directories and tags) and choose the same directory, naming and options.
+  4. Dry run: `nx g <plugin>:<generator> --directory=<dir> <options> --dry-run --no-interactive` lists the files it would create or change. Adjust the options until the list matches the layout.
+  5. Generate without `--dry-run` (keep `--no-interactive`), read the generated files, then run the new project's targets (`nx run-many -t lint test build -p <name>`).
+examples:
+  selected:
+    - "Create a new shared UI library for the design system components."
+    - "Add React support to the workspace and scaffold an admin app."
+  not_selected:
+    - "Fix the failing unit test in the payments library."
+    - "Explain the difference between apps and libs in Nx."

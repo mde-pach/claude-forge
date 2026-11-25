@@ -1,0 +1,24 @@
+# Procedure after expo-upgrade, https://github.com/expo/skills (plugins/expo/skills/expo-upgrade),
+# MIT License, Copyright (c) 2025-present 650 Industries, Inc. (aka Expo): upgrading through the
+# Expo CLI and reading what it changed.
+id: typescript/expo/expo-sdk-bump
+description: Upgrading the Expo SDK with the Expo CLI, then reading which packages it changed and checking the project with expo-doctor.
+relevant:
+  - The task upgrades the Expo SDK, or the React Native version an Expo app uses.
+deliver: on-demand
+text: |
+  Let Expo choose the versions: each SDK pins React Native and its own packages.
+
+  1. Note the current state: `npx expo --version`, the `expo` version in `package.json`, and a clean `git status`.
+  2. Upgrade: `npx expo install expo@^<target>.0.0` (or `expo@latest`), then `npx expo install --fix` to move every Expo-managed package to the version the new SDK expects.
+  3. Read what changed: `git diff package.json` (`react-native`, `react`, the `expo-*` packages, and packages it moved across a major version) and the lock file's summary.
+  4. Check: `npx expo-doctor` and fix what it reports; then the SDK's release notes for removed or moved APIs used in the code (`grep` for each).
+  5. With `ios/` or `android/` in the repository (no Continuous Native Generation), regenerate them: `npx expo prebuild --clean`, and read the native diff.
+  6. Clear caches and start the app: `npx expo start --clear` in the background, and run the tests.
+examples:
+  selected:
+    - "Upgrade the app to the latest Expo SDK."
+    - "Move us from Expo SDK 52 to 53 and fix whatever breaks."
+  not_selected:
+    - "Add a camera screen with expo-camera."
+    - "Fix the layout of the profile screen on small phones."

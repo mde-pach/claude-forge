@@ -1,0 +1,24 @@
+# Procedure after monitor-ci, https://github.com/nrwl/nx-ai-agents-config (skills/monitor-ci),
+# MIT License, Copyright (c) 2017-2026 Narwhal Technologies Inc.: reading the branch's Nx Cloud
+# CI run and its self-healing fix.
+id: typescript/nx/nx-cloud-ci-status
+description: Reading the branch's Nx Cloud CI run, its failed tasks and their self-healing fix suggestion, to get the branch green.
+relevant:
+  - The task gets a branch's failing CI run on Nx Cloud to pass.
+  - The task needs to know why a CI run of the Nx workspace failed.
+deliver: on-demand
+text: |
+  Nx Cloud knows which tasks failed in the branch's CI pipeline and may have a verified fix for them.
+
+  1. With the Nx MCP server connected: its `ci_information` tool, for the current branch, gives the pipeline execution's status, its failed tasks with their logs, and the self-healing fix's status and short link. Ask it for the fields you need (`select`) to keep the answer small.
+  2. Without it: `gh pr checks` (or the CI provider's view) gives the Nx Cloud run's link; `nx show projects --affected` and the CI log name the failed tasks.
+  3. A self-healing fix that is ready and verified: read its diff, then apply it with `npx nx-cloud apply-locally <short link>` and push, or through the MCP tool `update_self_healing_fix` with its apply action.
+  4. Otherwise, reproduce each failed task locally (`nx run <project>:<target>`), fix it and run it again, then push.
+  5. Poll the new run's status the same way, every few minutes, until it passes or fails again; a failure in an unchanged task can be the environment (rerun it once).
+examples:
+  selected:
+    - "CI is red on my branch, get it green."
+    - "Nx Cloud says the e2e tasks failed on this PR, find out why and fix it."
+  not_selected:
+    - "Add a new lint target to the web project."
+    - "Explain how Nx Cloud remote caching works."

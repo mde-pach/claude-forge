@@ -1,0 +1,24 @@
+# Procedure after remotion-render, https://github.com/remotion-dev/skills (skills/remotion-render),
+# whose repository states no license: written from scratch after it and Remotion's CLI
+# documentation (https://www.remotion.dev/docs/cli).
+id: typescript/remotion/remotion-render-still
+description: Rendering stills or a few frames of a Remotion composition with the Remotion CLI and looking at them.
+relevant:
+  - The task makes or changes a Remotion composition, a scene or its animation.
+  - The task needs to see what a Remotion video shows at given frames.
+deliver: on-demand
+text: |
+  Look at frames instead of guessing from the code. Each command takes the composition's id: without it the CLI asks interactively.
+
+  1. List the compositions with their size, fps and duration: `npx remotion compositions`.
+  2. One frame: `npx remotion still <composition id> out/frame.png --frame=<n>` (frame = seconds × fps), with `--props='{"title": "Hello"}'` or `--props=./props.json` for input props. Read the PNG.
+  3. Several frames in one call: `npx remotion render <composition id> out/frames --sequence --frames=0-90 --every-nth-frame=15 --image-format=png`, or a short range as video: `npx remotion render <composition id> out/clip.mp4 --frames=60-120`.
+  4. Check the moments the change is about (the start and end of an animation, each scene's middle), fix, and render the same frames again to compare.
+  5. The full video when asked: `npx remotion render <composition id> out/video.mp4`.
+examples:
+  selected:
+    - "Make the subtitle slide up from the bottom in the intro scene."
+    - "The logo is cut off at the end of the outro, fix it."
+  not_selected:
+    - "Set up a Lambda function to render videos on AWS."
+    - "Write the README section on running Remotion Studio."

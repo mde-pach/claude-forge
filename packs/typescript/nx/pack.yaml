@@ -1,0 +1,6 @@
+id: typescript/nx
+description: Nx workspaces, their projects, targets, generators and plugins.
+level: project
+detect:
+  files_any: [nx.json]
+  deps_any: [{ecosystem: npm, name: nx}]

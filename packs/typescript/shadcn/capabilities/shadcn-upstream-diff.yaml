@@ -1,0 +1,22 @@
+# Procedure after the shadcn skill, https://github.com/shadcn-ui/ui (skills/shadcn), MIT License,
+# Copyright (c) 2023 shadcn: its updating-components workflow.
+id: typescript/shadcn/shadcn-upstream-diff
+description: Updating shadcn components from upstream while keeping local edits, by reading the CLI's dry run and per-file diffs first.
+relevant:
+  - The task updates shadcn components to their upstream version, or applies a new preset or style to them.
+deliver: on-demand
+text: |
+  The components are copies the project may have edited: see what upstream changed before replacing anything. Run the CLI with the project's package runner (`npx shadcn@latest`, `pnpm dlx shadcn@latest`).
+
+  1. Which files an update touches: `shadcn add <component> --dry-run`.
+  2. For each file: `shadcn add <component> --diff <file>` shows upstream against the local copy.
+  3. A file with no local edits can be replaced as it is (`shadcn add <component> --overwrite`, once the person agrees to overwriting). A file with local edits: read it, apply the upstream changes from the diff by hand, and keep the local ones.
+  4. `shadcn info --json` lists the installed components, to go through each one the same way.
+  5. Run the type check and look at the components in the browser.
+examples:
+  selected:
+    - "Update our shadcn button and dialog to the latest upstream versions without losing our custom variants."
+    - "Pull the upstream fixes for the shadcn components we use."
+  not_selected:
+    - "Add a new shadcn tooltip component to the header."
+    - "Upgrade Tailwind CSS to version 4."
