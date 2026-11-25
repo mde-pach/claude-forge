@@ -1,0 +1,23 @@
+# Adapted from kubernetes-helm, https://github.com/TerminalSkills/skills (skills/kubernetes-helm),
+# Apache License 2.0, Copyright 2025 Terminal Skills; and the helm validator of tekhne,
+# https://github.com/pantheon-org/tekhne (skills/ci-cd/helm/validator), MIT License, Copyright (c) 2026 pantheon-org.
+id: kubernetes/helm/render
+description: Reading what a Helm chart renders for given values, and what an upgrade would change.
+relevant:
+  - The task changes a Helm chart's templates or values.
+  - The task is to debug what a Helm chart renders or why an install or upgrade fails.
+deliver: on-demand
+text: |
+  1. Render: `helm template <release> <chart-dir> -f <values-file> --output-dir /tmp/rendered` (add `--set` and the namespace the release uses), and read the files for the objects you changed.
+  2. Check: `helm lint <chart-dir> -f <values-file>`; a template error names the file and line.
+  3. Show one template only: `helm template … --show-only templates/<file>.yaml`; `--debug` prints the YAML even when it does not parse.
+  4. Against a cluster (read-only, check `kubectl config current-context`): `helm install <release> <chart-dir> -f <values-file> --dry-run=server --debug` validates against the API server; with the helm-diff plugin, `helm diff upgrade <release> <chart-dir> -f <values-file>` shows what an upgrade would change.
+
+  Remove the rendered directory when done.
+examples:
+  selected:
+    - "The chart renders an empty env block when I set extraEnv, debug the template."
+    - "Add a podDisruptionBudget to the chart, toggled by values."
+  not_selected:
+    - "Upgrade the cluster's Kubernetes version."
+    - "Write a Dockerfile for the api."

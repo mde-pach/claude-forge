@@ -1,0 +1,22 @@
+# Procedure after gh-fix-ci, https://github.com/openai/skills (skills/.curated/gh-fix-ci),
+# written here from scratch (the repository states no license).
+id: github-actions/ci-failure-logs
+description: Reading the failing GitHub Actions job's logs with gh and reproducing the failing step locally.
+relevant:
+  - The task is to fix a failing CI check, workflow run or GitHub Actions job.
+  - The task reports an error or failure seen in CI.
+deliver: on-demand
+text: |
+  1. Find the failing run: `gh pr checks <pr>` for a pull request's checks (each with its run URL), or `gh run list --branch <branch> --limit 5` for a branch.
+  2. Read only the failed steps: `gh run view <run-id> --log-failed`. For a long log, keep the end of each failed step and search it for `error`, `FAIL`, `Traceback` or the exit code.
+  3. Find the step's command in `.github/workflows/<file>` (its `run:`, its `env:`, the matrix entry that failed) and run that command locally with the same tool versions.
+  4. Once it fails locally the same way, fix it and rerun the command; then push and watch the new run with `gh run watch <run-id>`.
+
+  A failure that does not happen locally often comes from what CI has and the machine lacks: a secret, a service container, an OS in the matrix, a cache.
+examples:
+  selected:
+    - "The test job on my PR is red, fix it."
+    - "CI fails on main since the last merge with a lint error, can you look?"
+  not_selected:
+    - "Add a GitHub Actions workflow that runs the tests on every push."
+    - "The tests fail on my machine with a KeyError in parse_config, fix it."

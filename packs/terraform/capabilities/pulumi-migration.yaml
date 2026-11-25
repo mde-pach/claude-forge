@@ -1,0 +1,21 @@
+# Adapted from pulumi-terraform-to-pulumi, https://github.com/pulumi/agent-skills
+# (migration/skills/pulumi-terraform-to-pulumi), Apache License 2.0.
+id: terraform/pulumi-migration
+description: Moving a Terraform or OpenTofu project and its state to Pulumi, until the Pulumi preview shows no change.
+relevant:
+  - The task is to migrate Terraform or OpenTofu infrastructure to Pulumi.
+deliver: on-demand
+text: |
+  1. Create the Pulumi project in its own directory, with no resources, and a stack: `pulumi new <template>`, empty the program, `pulumi up` once so the stack has state.
+  2. Get the Terraform state: a local `terraform.tfstate`, or `terraform state pull > terraform.tfstate` (`tofu state pull`) for a remote backend.
+  3. Translate it: `pulumi plugin run terraform-migrate -- stack --from <terraform dir> --to <pulumi dir> --out /tmp/pulumi-state.json --plugins /tmp/required-providers.json`. It refreshes the Terraform state, so it needs the provider credentials.
+  4. Add the providers listed in `/tmp/required-providers.json`, at those versions, as project dependencies (`npm install @pulumi/aws@<version>`, `uv add pulumi-aws==<version>`).
+  5. Import the state: `pulumi stack import --file /tmp/pulumi-state.json`.
+  6. Write the program from the Terraform code, with the resource types and names of the state file, and run `pulumi preview` until it shows no create, update, replace or delete.
+examples:
+  selected:
+    - "Migrate our Terraform AWS setup to Pulumi in TypeScript."
+    - "Convert the infra/ OpenTofu modules and their state to a Pulumi stack."
+  not_selected:
+    - "Add an S3 bucket for logs to the Terraform config."
+    - "Upgrade the AWS provider in Terraform to version 6."
