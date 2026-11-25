@@ -1,0 +1,23 @@
+# Adapted from firestore-rules-creation, https://github.com/firebase/agent-skills (skills/firestore-rules-creation),
+# Apache License 2.0: proving security rules with emulator tests that act as different users.
+id: firebase/firestore/rules-test
+description: Testing Firestore security rules on the emulator by reading and writing as different users.
+relevant:
+  - The task creates or changes Firestore security rules.
+  - The task changes who may read or write which Firestore documents.
+deliver: on-demand
+text: |
+  Rules are right only when a test shows each user gets exactly what they should.
+
+  1. Add `@firebase/rules-unit-testing` as a dev dependency, and a test file using the project's runner (Vitest, Jest or Mocha).
+  2. Set up: `const env = await initializeTestEnvironment({ projectId: 'demo-rules', firestore: { rules: readFileSync('firestore.rules', 'utf8') } })`; seed documents with `env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'posts/p1'), {...}) })`; `await env.clearFirestore()` between tests.
+  3. Act as each kind of user: `env.authenticatedContext('alice', { admin: false }).firestore()`, `env.unauthenticatedContext().firestore()`, and assert with `await assertSucceeds(getDoc(...))` and `await assertFails(setDoc(...))`.
+  4. Cover the attacks, not only the happy path: another user's document, a field they must not set (`role: 'admin'`), a missing or wrongly typed field, an oversized value, an update that changes the owner.
+  5. Run with the emulator around the suite: `npx -y firebase-tools@latest emulators:exec --only firestore "npm test"`. A failing `assertFails` means the rules let it through: fix the rules and run again.
+examples:
+  selected:
+    - "Write Firestore rules so users can only edit their own profile documents."
+    - "Lock down the orders collection so customers can't change the price field."
+  not_selected:
+    - "Add a composite index for querying orders by status and date."
+    - "Show the user's orders list on the account page."

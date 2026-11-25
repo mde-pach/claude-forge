@@ -1,0 +1,23 @@
+# Adapted from firebase-remote-config-basics, https://github.com/firebase/agent-skills
+# (skills/firebase-remote-config-basics), Apache License 2.0: reading the live
+# template and its versions before changing it.
+id: firebase/remote-config-get
+description: Reading a Firebase project's live Remote Config template, its parameters and conditions, and its version history.
+relevant:
+  - The task adds, changes or reads a feature flag or Remote Config parameter.
+deliver: on-demand
+text: |
+  The template in Firebase, not the code's defaults, decides what users get. Read it first (with `npx -y firebase-tools@latest`, or the project's `firebase`; `firebase use` says which project):
+
+  1. `firebase remoteconfig:get -o remote_config.json` writes the live template: `parameters` (each `defaultValue` and `conditionalValues`), `parameterGroups`, `conditions` (with their `expression`), and the `version`.
+  2. `firebase remoteconfig:versions:list --limit 10` shows who changed it and when; `firebase remoteconfig:get -v <version> -o old.json` gets an older one to compare with `diff`.
+  3. Compare the parameters the code reads (`getValue('<key>')`, `getBoolean`, its in-app defaults) with the template: a key missing from one side, or a type the code does not expect, is the bug.
+  4. A change is written to a template file for the person to review and publish (`firebase deploy --only remoteconfig`, with `"remoteconfig": {"template": "<file>"}` in `firebase.json`); rolling back is `firebase remoteconfig:rollback -v <version>`, also theirs to run.
+  5. Delete `remote_config.json` unless the project keeps the template in the repository.
+examples:
+  selected:
+    - "Add a remote config flag to turn the new checkout on for 10% of users."
+    - "Why does the app still show the old banner? Check the Remote Config values."
+  not_selected:
+    - "Add Firebase Analytics events for the checkout steps."
+    - "Explain what Remote Config conditions are in the docs."
