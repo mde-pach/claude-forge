@@ -1,0 +1,22 @@
+id: typescript/react/passive-listeners
+description: "A touchstart, touchmove or wheel listener that does not call preventDefault() is registered with { passive: true }, so the browser can scroll without waiting for it."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: "^addEventListener$"}}
+        - has:
+            field: arguments
+            all:
+              - has: {nthChild: 1, kind: string, regex: "^[\"'](touchstart|touchmove|wheel|mousewheel)[\"']$"}
+              - not: {has: {nthChild: 3}}
+examples:
+  match:
+    - "export function track(el: HTMLElement, onMove: (e: TouchEvent) => void) {\n  el.addEventListener(\"touchmove\", onMove);\n}\n"
+    - "window.addEventListener('wheel', () => console.log(\"wheel\"));\n"
+  no_match:
+    - "export function track(el: HTMLElement, onMove: (e: TouchEvent) => void) {\n  el.addEventListener(\"touchmove\", onMove, { passive: true });\n  el.addEventListener(\"click\", () => {});\n}\n"
+    - "window.addEventListener(\"wheel\", (e) => e.preventDefault(), { passive: false });\n"

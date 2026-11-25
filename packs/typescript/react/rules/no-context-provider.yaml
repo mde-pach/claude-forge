@@ -1,0 +1,24 @@
+id: typescript/react/no-context-provider
+description: "In React 19 a context is rendered as its own provider, <ThemeContext value={theme}>, not <ThemeContext.Provider value={theme}> (to be deprecated)."
+scope: {language: tsx}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: jsx_opening_element}, {kind: jsx_self_closing_element}]
+      has:
+        field: name
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^Provider$"}
+          - has: {field: object, pattern: $X}
+    # the object is a React context, not a library component with a Provider member
+    where:
+      X: {type: {package: react, name: Context}}
+examples:
+  deps: [{ecosystem: npm, name: react, version: "19.2.0"}, {ecosystem: npm, name: "@types/react", version: "19.2.2"}]
+  match:
+    - "import { createContext, type ReactNode } from \"react\";\n\nexport const Theme = createContext(\"light\");\n\nexport function App({ children }: { children: ReactNode }) {\n  return <Theme.Provider value=\"dark\">{children}</Theme.Provider>;\n}\n"
+  no_match:
+    - "import { createContext, type ReactNode } from \"react\";\n\nexport const Theme = createContext(\"light\");\n\nexport function App({ children }: { children: ReactNode }) {\n  return <Theme value=\"dark\">{children}</Theme>;\n}\n"
+    - "import type { ReactNode } from \"react\";\n\nconst Store = { Provider: ({ children }: { children: ReactNode; value: string }) => <>{children}</> };\n\nexport function App({ children }: { children: ReactNode }) {\n  return <Store.Provider value=\"x\">{children}</Store.Provider>;\n}\n"

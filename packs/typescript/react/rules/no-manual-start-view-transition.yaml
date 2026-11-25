@@ -1,0 +1,23 @@
+id: typescript/react/no-manual-start-view-transition
+description: "A file using React's <ViewTransition> does not call document.startViewTransition() itself: React starts the transition for updates in startTransition, useDeferredValue or Suspense, and a manual call races it."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has: {field: function, regex: "^document\\.startViewTransition$"}
+      inside:
+        stopBy: end
+        kind: program
+        has:
+          kind: import_statement
+          all:
+            - has: {field: source, regex: "^[\"']react[\"']$"}
+            - has: {stopBy: end, kind: import_specifier, has: {field: name, regex: "^(unstable_)?ViewTransition$"}}
+examples:
+  match:
+    - "import { ViewTransition, useState } from \"react\";\n\nexport function useToggle() {\n  const [open, setOpen] = useState(false);\n  return () => document.startViewTransition(() => setOpen(!open));\n}\nexport { ViewTransition };\n"
+  no_match:
+    - "import { ViewTransition, startTransition, useState } from \"react\";\n\nexport function useToggle() {\n  const [open, setOpen] = useState(false);\n  return () => startTransition(() => setOpen(!open));\n}\nexport { ViewTransition };\n"
+    - "export function swap(update: () => void) {\n  document.startViewTransition(update);\n}\n"

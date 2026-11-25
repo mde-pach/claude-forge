@@ -1,0 +1,24 @@
+id: typescript/react/no-create-react-app
+description: "No new react-scripts (Create React App) dependency: CRA is deprecated and unmaintained. Start a React app with a framework (Next.js, React Router) or Vite."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _cra=''
+      for _f in $FORGE_FILES; do
+        forge_pkg_deps "$FORGE_TMP/base/$_f" > "$FORGE_TMP/cra.then"
+        _cra="$_cra$(forge_pkg_deps "$_f" | awk -F '\t' -v f="$_f" '
+          FILENAME == ARGV[1] { had[$2] = 1; next }
+          $2 == "react-scripts" && !had[$2] { printf "%s: %s adds react-scripts (Create React App)\n", f, $1 }' "$FORGE_TMP/cra.then" -)
+      "
+      done
+      _cra=$(printf '%s' "$_cra" | grep .)
+      [ -z "$_cra" ] || { printf '%s\n' "$_cra"; false; }
+examples:
+  match:
+    - files: {package.json: "{\"name\": \"web\", \"dependencies\": {\"react\": \"^19.2.0\", \"react-dom\": \"^19.2.0\", \"react-scripts\": \"5.0.1\"}}\n"}
+  no_match:
+    - files: {package.json: "{\"name\": \"web\", \"dependencies\": {\"react\": \"^19.2.0\", \"react-dom\": \"^19.2.0\"}, \"devDependencies\": {\"vite\": \"^7.1.0\"}}\n"}
+    - head: {package.json: "{\"name\": \"web\", \"dependencies\": {\"react\": \"^19.2.0\", \"react-scripts\": \"5.0.1\"}}\n"}
+      files: {package.json: "{\"name\": \"web\", \"dependencies\": {\"react\": \"^19.2.0\", \"react-scripts\": \"5.0.1\", \"zod\": \"4.1.12\"}}\n"}

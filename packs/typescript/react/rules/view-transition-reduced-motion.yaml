@@ -1,0 +1,19 @@
+id: typescript/react/view-transition-reduced-motion
+description: "A project animating with React's <ViewTransition> has a prefers-reduced-motion rule for its ::view-transition-* animations in its CSS (@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none } })."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _vt=$(git ls-files '*.tsx' '*.jsx' | xargs grep -lE "import[[:space:]]*\{[^}]*ViewTransition[^}]*\}[[:space:]]*from[[:space:]]*['\"]react['\"]" /dev/null | head -n 1)
+      [ -n "$_vt" ] || return 0
+      git ls-files '*.css' '*.scss' | xargs grep -l 'prefers-reduced-motion' /dev/null | xargs grep -l 'view-transition' /dev/null | grep -q . && return 0
+      echo "$_vt:1 uses <ViewTransition>, and no stylesheet turns its animations off under prefers-reduced-motion"
+      false
+    when_changed: ["**/*.tsx", "**/*.jsx", "**/*.css", "**/*.scss"]
+examples:
+  match:
+    - files: {src/App.tsx: "import { ViewTransition } from \"react\";\n\nexport const App = () => <ViewTransition><main /></ViewTransition>;\n", src/index.css: "main { margin: 0; }\n"}
+  no_match:
+    - files: {src/App.tsx: "import { ViewTransition } from \"react\";\n\nexport const App = () => <ViewTransition><main /></ViewTransition>;\n", src/index.css: "@media (prefers-reduced-motion: reduce) {\n  ::view-transition-group(*),\n  ::view-transition-old(*),\n  ::view-transition-new(*) {\n    animation: none !important;\n  }\n}\n"}
+    - files: {src/App.tsx: "import { useState } from \"react\";\n\nexport const App = () => <main>{String(useState(0)[0])}</main>;\n"}

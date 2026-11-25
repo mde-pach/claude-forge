@@ -1,0 +1,22 @@
+id: typescript/react/lazy-state-init
+description: "useState(compute()) runs compute() on every render and throws the result away after the first: pass the function, useState(() => compute()), when the initial value is costly to build (parsing, reading storage, building a large structure)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: call_expression
+      all:
+        - has: {field: function, regex: "^(React\\.)?useState$"}
+        - has:
+            field: arguments
+            has:
+              nthChild: 1
+              kind: call_expression
+              not: {has: {field: function, regex: "^(Boolean|Number|String|Symbol|use[A-Z][A-Za-z0-9]*)$"}}
+examples:
+  match:
+    - "import { useState } from \"react\";\n\nexport function Editor() {\n  const [doc] = useState(JSON.parse(localStorage.getItem(\"doc\") ?? \"{}\"));\n  return doc;\n}\n"
+    - "import * as React from \"react\";\n\nexport function Grid() {\n  const [cells] = React.useState(buildCells(1000));\n  return cells;\n}\n"
+  no_match:
+    - "import { useState } from \"react\";\n\nexport function Editor() {\n  const [doc] = useState(() => JSON.parse(localStorage.getItem(\"doc\") ?? \"{}\"));\n  const [n] = useState(0);\n  const [on] = useState(Boolean(doc));\n  return [doc, n, on];\n}\n"
