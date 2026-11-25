@@ -1,0 +1,24 @@
+id: typescript/pulumi/component-register-outputs
+description: "A ComponentResource's constructor ends with this.registerOutputs({ ... }) (an empty object when it exports nothing): without it the component never completes, and its outputs are missing from the stack."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: class_declaration
+      all:
+        - has: {kind: class_heritage, has: {kind: extends_clause, regex: "ComponentResource([[:space:]]*<.*>)?$"}}
+        - has:
+            field: body
+            has: {kind: method_definition, has: {field: name, regex: "^constructor$"}}
+        - not:
+            has:
+              stopBy: end
+              kind: call_expression
+              has: {field: function, regex: "^this\\.registerOutputs$"}
+examples:
+  match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nexport class Site extends pulumi.ComponentResource {\n  readonly url: pulumi.Output<string>;\n\n  constructor(name: string, opts?: pulumi.ComponentResourceOptions) {\n    super(\"acme:web:Site\", name, {}, opts);\n    this.url = pulumi.output(\"https://example.com\");\n  }\n}\n"
+  no_match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nexport class Site extends pulumi.ComponentResource {\n  readonly url: pulumi.Output<string>;\n\n  constructor(name: string, opts?: pulumi.ComponentResourceOptions) {\n    super(\"acme:web:Site\", name, {}, opts);\n    this.url = pulumi.output(\"https://example.com\");\n    this.registerOutputs({ url: this.url });\n  }\n}\n"
+    - "export class Cache extends Map<string, string> {\n  constructor() {\n    super();\n  }\n}\n"

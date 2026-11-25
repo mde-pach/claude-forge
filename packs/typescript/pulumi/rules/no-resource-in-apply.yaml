@@ -1,0 +1,25 @@
+id: typescript/pulumi/no-resource-in-apply
+description: "No resource created inside an .apply() callback: preview cannot see it, it may never be created when the value is unknown, and its dependencies are lost. Pass the Output to the resource's arguments directly (or use pulumi.all / pulumi.interpolate)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: new_expression
+      pattern: $N
+      inside:
+        stopBy: end
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        inside:
+          kind: arguments
+          inside:
+            kind: call_expression
+            has: {field: function, kind: member_expression, has: {field: property, regex: "^apply$"}}
+    where:
+      N: {type: {package: "@pulumi/pulumi", name: Resource}}
+examples:
+  deps: [{ecosystem: npm, name: "@pulumi/pulumi", version: "3.268.0"}]
+  match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nclass Bucket extends pulumi.CustomResource {\n  constructor(name: string, args: { region: pulumi.Input<string> }) {\n    super(\"acme:storage:Bucket\", name, args);\n  }\n}\n\nconst region = pulumi.output(\"eu-west-1\");\nexport const bucket = region.apply((r) => new Bucket(`logs-${r}`, { region: r }));\n"
+  no_match:
+    - "import * as pulumi from \"@pulumi/pulumi\";\n\nclass Bucket extends pulumi.CustomResource {\n  constructor(name: string, args: { region: pulumi.Input<string> }) {\n    super(\"acme:storage:Bucket\", name, args);\n  }\n}\n\nconst region = pulumi.output(\"eu-west-1\");\nexport const bucket = new Bucket(\"logs\", { region });\nexport const label = region.apply((r) => new Date().toISOString() + r);\n"

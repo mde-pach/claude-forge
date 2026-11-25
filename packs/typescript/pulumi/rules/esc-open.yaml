@@ -1,0 +1,11 @@
+id: typescript/pulumi/esc-open
+description: "pulumi env open prints an ESC environment's secrets in clear text into the session: run the command that needs them through pulumi env run <env> -- <command> instead, or ask the user first."
+scope: {language: any}
+review: "Does this task need the decrypted values printed, rather than passed to a command with pulumi env run?"
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: [pulumi, esc], sub: ['env', open]}
+examples:
+  match: ["pulumi env open acme/aws-prod", "esc env open acme/dev --format json"]
+  no_match: ["pulumi env run acme/aws-prod -- aws s3 ls", "pulumi env get acme/dev"]

@@ -1,0 +1,11 @@
+id: typescript/pulumi/esc-env-add
+description: "Linking a Pulumi ESC environment to a stack (pulumi config env add) changes the credentials and config every deployment of that stack uses: it needs the user's confirmation."
+scope: {language: any}
+review: "Did the user ask to link this exact ESC environment to this stack?"
+enforce:
+  - target: guard
+    decision: ask
+    command: {name: pulumi, sub: [config, env, 'add|init|rm']}
+examples:
+  match: ["pulumi config env add acme/aws-prod --yes", "pulumi config env rm acme/aws-dev"]
+  no_match: ["pulumi config env ls", "pulumi config get aws:region"]
