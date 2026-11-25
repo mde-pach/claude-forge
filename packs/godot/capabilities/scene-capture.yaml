@@ -1,0 +1,23 @@
+# Adapted from godot-control-layout, https://github.com/ziva-sh/godot-skills (skills/godot-control-layout), MIT License,
+# and godot-lighting-environment, https://github.com/laurentvv/godot-skill-quality (skills/godot-lighting-environment),
+# MIT License: capturing the same views at several window sizes or before and after a change, and comparing them.
+id: godot/scene-capture
+description: Capturing screenshots of a Godot scene at several window sizes, or from the same views before and after a change, to compare them.
+relevant:
+  - The task changes a game's user interface layout, menus or HUD.
+  - The task changes a scene's lighting, environment, materials or other visual settings.
+deliver: on-demand
+text: |
+  To see what the scene looks like, render it and look at the images.
+
+  1. Write a capture script (`tools/capture.gd`, extends `SceneTree`): instantiate the scene, place the camera at fixed views (or none, for UI), wait a few dozen frames (`await process_frame`) so effects settle, then `root.get_texture().get_image().save_png("user://shot_<name>.png")` and `quit()`.
+  2. Run it with a renderer, not `--headless` (headless renders nothing): `godot --path . --resolution 1280x720 --script res://tools/capture.gd`. For UI, run it at several sizes (`1280x720`, `1920x1080`, `800x600`, a portrait size) to catch clipping and overlap; `--rendering-method gl_compatibility` when there is no GPU.
+  3. The files land in the project's user directory (`OS.get_user_data_dir()`, printed by the script); open them and compare: cut-off or overlapping controls, zero-sized nodes; for lighting, the same views before and after each change, side by side.
+  4. Change one setting at a time and capture again; delete the capture script and images when done unless the project keeps them.
+examples:
+  selected:
+    - "The inventory screen gets cut off on smaller windows, fix it."
+    - "The village scene looks flat, improve the lighting."
+  not_selected:
+    - "Add a save system that writes the player's progress to disk."
+    - "Fix the enemy AI getting stuck on corners."
