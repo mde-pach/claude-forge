@@ -2156,3 +2156,194 @@ fn the_use_command_is_let_through_and_its_load_logged() {
         "deny"
     );
 }
+
+// A capability `forge.yaml` disables is never asked about.
+#[test]
+fn a_disabled_capability_is_never_offered() {
+    let s = Sandbox::new(&[]);
+    std::fs::write(
+        s.root.join("forge.yaml"),
+        "forge: \"0.6\"\ndisable:\n  - id: acme/web\n    reason: we have our own\n",
+    )
+    .unwrap();
+    s.with_capabilities(&[
+        ("web", capability("web", "inject", WEB, "")),
+        ("db", capability("db", "inject", DB, "")),
+    ]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9), (DB, 0.9)]);
+    let out = s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(engine.requests(), [["acme/db#0"]]);
+    assert_eq!(context(&out), "Use the db when the task needs it.");
+}
+
+// A capability that needs a pinned tool is offered once the tool is installed in Forge's cache.
+#[test]
+fn a_capability_whose_tool_is_installed_is_offered() {
+    use std::os::unix::fs::PermissionsExt;
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[(
+        "web",
+        capability("web", "inject", WEB, "needs: {tools: [uv]}\n"),
+    )]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert!(engine.requests().is_empty(), "uv is not installed yet");
+    let dir = s
+        .home
+        .tool_dir("uv", forge_tools::catalog::UV_VERSION)
+        .unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
+    for exe in ["uv", "uvx"] {
+        std::fs::write(dir.join(exe), "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(dir.join(exe), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let out = s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(context(&out), "Use the web when the task needs it.");
+}
+
+// Claude Code's own messages delivered as prompts (a subagent's report, a background task's end)
+// ask the engine nothing.
+#[test]
+fn claude_codes_own_messages_ask_nothing() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[("web", capability("web", "inject", WEB, ""))]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    for msg in [
+        "<agent-message from=\"a1\">\nthe report\n</agent-message>",
+        "<task-notification>\nbuild done\n</task-notification>",
+    ] {
+        assert_eq!(
+            s.prompt_with(&engine, s.caps_env(), "s1", msg, None),
+            Output::silent()
+        );
+    }
+    assert!(engine.requests().is_empty());
+}
+
+// A prompt that continues the turn (sent before Claude stopped) adds its capabilities to the
+// turn's: a compaction gives both again.
+#[test]
+fn a_prompt_continuing_the_turn_adds_to_its_capabilities() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[
+        ("web", capability("web", "inject", WEB, "")),
+        ("db", capability("db", "inject", DB, "")),
+    ]);
+    let first = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    s.prompt_with(&first, s.caps_env(), "s1", "Fix the login page", None);
+    let then = forge_capabilities::Scripted::answering(&[(DB, 0.9)]);
+    let out = s.prompt_with(&then, s.caps_env(), "s1", "and store the visits", None);
+    assert_eq!(context(&out), "Use the db when the task needs it.");
+    let compact = s.run_with(
+        &Fake::default(),
+        &then,
+        s.caps_env(),
+        Vec::new(),
+        "session-start",
+        json!({"hook_event_name": "SessionStart", "source": "compact", "session_id": "s1"}),
+    );
+    assert!(
+        context(&compact).ends_with(
+            "\n\nUse the web when the task needs it.\n\nUse the db when the task needs it."
+        ),
+        "{}",
+        context(&compact)
+    );
+}
+
+// A capability whose line cannot fit within 8,000 characters is left out of the prompt, not
+// marked given, and the person gets a note naming it.
+#[test]
+fn a_capability_that_cannot_fit_is_left_out_with_a_note() {
+    let s = Sandbox::new(&[]);
+    let long = format!(
+        "id: acme/huge\ndescription: {}\nrelevant:\n  - {WEB}\ndeliver: on-demand\ntext: t\n",
+        "d".repeat(8100)
+    );
+    s.with_capabilities(&[
+        ("huge", long),
+        ("web", capability("web", "inject", WEB, "")),
+    ]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.9)]);
+    let out = s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(context(&out), "Use the web when the task needs it.");
+    assert!(
+        s.notes()
+            .iter()
+            .any(|n| n.text.starts_with("Capabilities left out of a prompt")
+                && n.text.contains("acme/huge")),
+        "{:?}",
+        s.notes()
+    );
+    // not given: asked again on the next prompt
+    s.prompt_with(&engine, s.caps_env(), "s1", "another page", None);
+    assert_eq!(engine.requests()[1], ["acme/huge#0"]);
+}
+
+// The hooks read the active capabilities through their cache of the active rules: a capability
+// file added without a new `forge apply` is offered once the lock changes, as the rules are.
+// When the repository cannot be planned (an invalid forge.yaml), the lock's capabilities are
+// the active ones.
+#[test]
+fn the_active_capabilities_follow_the_hooks_cache() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[("web", capability("web", "inject", WEB, ""))]);
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.0), (DB, 0.0)]);
+    s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    std::fs::write(
+        s.root.join(".forge/packs/acme/capabilities/db.yaml"),
+        capability("db", "inject", DB, ""),
+    )
+    .unwrap();
+    s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(
+        engine.requests()[1],
+        ["acme/web#0"],
+        "the cache is unchanged"
+    );
+    // apply rewrites the lock: the cache follows
+    let mut lock_text = lock(&[]);
+    lock_text.push_str("\n[capabilities]\n\"acme/web\" = \"h\"\n");
+    std::fs::write(s.root.join("forge.lock"), &lock_text).unwrap();
+    s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(engine.requests()[2], ["acme/db#0", "acme/web#0"]);
+    // a repository that cannot be planned: the lock's capabilities
+    std::fs::write(s.root.join("forge.yaml"), "forge: [not a version]\n").unwrap();
+    lock_text.push_str("# changed\n");
+    std::fs::write(s.root.join("forge.lock"), &lock_text).unwrap();
+    s.prompt_with(&engine, s.caps_env(), "s1", "a page", None);
+    assert_eq!(engine.requests()[3], ["acme/web#0"]);
+}
+
+// `forge use <name>`, where `forge` is this tooling (here a path to it), is let through and
+// logged as `claude-forge use` is; the rest of its command line is refused.
+#[test]
+fn the_use_command_through_the_forge_name() {
+    let s = Sandbox::new(&[]);
+    s.with_capabilities(&[(
+        "web-browser",
+        capability("web-browser", "on-demand", WEB, ""),
+    )]);
+    let bin = s.base.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::write(bin.join("claude-forge"), "#!/bin/sh\n").unwrap();
+    std::os::unix::fs::symlink(bin.join("claude-forge"), bin.join("forge")).unwrap();
+    let forge = bin.join("forge").display().to_string();
+    let f = Fake::default();
+    let out = s.run(
+        &f,
+        "pre-tool-use",
+        bash(&format!("{forge} use web-browser"), "f1"),
+    );
+    assert!(!out.stdout.contains("\"deny\""), "{}", out.stdout);
+    let log = std::fs::read_to_string(s.state().join("capabilities.log")).unwrap();
+    assert!(log.contains("\tload\tacme/web-browser\n"), "{log}");
+    assert_eq!(
+        decision(&s.run(&f, "pre-tool-use", bash(&format!("{forge} check"), "f2"))).0,
+        "deny"
+    );
+    // a name that is no capability here is let through and logs nothing
+    s.run(&f, "pre-tool-use", bash("claude-forge use nothing", "f3"));
+    let log = std::fs::read_to_string(s.state().join("capabilities.log")).unwrap();
+    assert_eq!(log.matches("\tload\t").count(), 1, "{log}");
+}

@@ -244,3 +244,34 @@ fn capability_lints() {
     );
     assert_eq!(negated.line, Some(4));
 }
+
+// The agent-text lints read a capability's description and text as they read context: a text
+// cut by a YAML comment, and a text claiming a tool enforces something.
+#[test]
+fn context_lints_apply_to_capability_text() {
+    let r = repo(&[
+        (".forge/packs/acme/pack.yaml", PACK),
+        (
+            ".forge/packs/acme/capabilities/cut.yaml",
+            "id: acme/cut\ndescription: A browser for pages # and more\nrelevant:\n  - The task involves a page.\ndeliver: on-demand\ntext: Pages are linted by the browser.\n",
+        ),
+    ]);
+    let set = load(r.path()).unwrap();
+    let mut kinds: Vec<LintKind> = set.findings.iter().map(|f| f.lint).collect();
+    kinds.sort();
+    assert_eq!(
+        kinds,
+        [LintKind::CutByComment, LintKind::EnforcementClaim],
+        "{:#?}",
+        set.findings
+    );
+    // `claude-forge use` is the one phrase of Forge's a capability may name
+    let r = repo(&[
+        (".forge/packs/acme/pack.yaml", PACK),
+        (
+            ".forge/packs/acme/capabilities/ok.yaml",
+            "id: acme/ok\ndescription: A browser.\nrelevant:\n  - The task involves a page.\ndeliver: inject\ntext: Load the browser's guide with claude-forge use web-browser when needed.\n",
+        ),
+    ]);
+    assert!(load(r.path()).unwrap().findings.is_empty());
+}

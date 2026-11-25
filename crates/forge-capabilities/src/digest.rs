@@ -346,4 +346,41 @@ mod tests {
         assert_eq!(d.recent_actions[0].target.as_deref(), Some("f10.py"));
         assert_eq!(d.previous_answer.unwrap().len(), ANSWER_MAX);
     }
+
+    // Serena's `relative_path` and NotebookEdit's `notebook_path` are targets; the compaction
+    // summary is no prompt and no answer; a prompt given as text blocks starts a turn.
+    #[test]
+    fn other_targets_and_records() {
+        let lines = [
+            r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"first"}]}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/work/repo/old.py"}}]}}"#,
+            r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"second"}]}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"b","name":"mcp__serena__find_symbol","input":{"relative_path":"app/cart.py","name_path":"total"}}]}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"c","name":"NotebookEdit","input":{"notebook_path":"/work/repo/nb/a.ipynb","new_source":"SECRET"}}]}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done here."}]}}"#,
+            r#"{"type":"system","subtype":"compact_boundary"}"#,
+            r#"{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"This session is being continued. SECRET summary"}}"#,
+        ];
+        let dir = tempfile::tempdir().unwrap();
+        let t = dir.path().join("t.jsonl");
+        std::fs::write(&t, lines.join("\n")).unwrap();
+        let d = digest("next", Some(&t), &places());
+        let shown: Vec<String> = d
+            .recent_actions
+            .iter()
+            .map(|a| format!("{} {}", a.tool, a.target.as_deref().unwrap_or("-")))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                "mcp__serena__find_symbol app/cart.py",
+                "NotebookEdit nb/a.ipynb"
+            ]
+        );
+        assert_eq!(d.previous_answer.as_deref(), Some("Done here."));
+        assert!(!serde_json::to_string(&d).unwrap().contains("SECRET"));
+        // a transcript that is not there: the request alone
+        let d = digest("next", Some(&dir.path().join("missing.jsonl")), &places());
+        assert!(d.previous_answer.is_none() && d.recent_actions.is_empty());
+    }
 }

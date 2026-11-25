@@ -37,6 +37,32 @@ fn read_hidden() -> Option<String> {
         .filter(|k| !k.is_empty())
 }
 
+/// The person at the terminal, as the setup talks to them: what they answer, and what they type
+/// as the key (unechoed). `None`: no terminal.
+pub trait Person {
+    fn answer(&mut self, question: &str) -> String;
+    fn secret(&mut self, question: &str) -> Option<String>;
+}
+
+/// The terminal on stdin, when there is one.
+struct Terminal;
+
+impl Person for Terminal {
+    fn answer(&mut self, question: &str) -> String {
+        print!("{question}");
+        let _ = std::io::stdout().flush();
+        let mut line = String::new();
+        let _ = std::io::stdin().lock().read_line(&mut line);
+        line
+    }
+
+    fn secret(&mut self, question: &str) -> Option<String> {
+        print!("{question}");
+        let _ = std::io::stdout().flush();
+        read_hidden()
+    }
+}
+
 /// Asks for consent when this machine has none, then for the key when there is none (or
 /// `TYPESAFE_API_KEY` names another). Declined, or without a terminal and without
 /// `--capability-engine`: capabilities stay off here, and apply goes on.
@@ -45,56 +71,173 @@ pub fn offer(flags: &Flags) -> Result<(), Error> {
         return Ok(());
     }
     let home = Home::from_env().map_err(|e| Error::new(format!("forge: {e}")))?;
-    let terminal = std::io::stdin().is_terminal();
-    if !setup::has_consent(&home) {
-        println!("forge: capabilities: {}", setup::DISCLOSURE);
-        let yes = if flags.capability_engine {
-            true
-        } else if terminal {
-            print!("forge: send this to the capability engine on this machine? [y/N] ");
-            let _ = std::io::stdout().flush();
-            let mut line = String::new();
-            let _ = std::io::stdin().lock().read_line(&mut line);
-            matches!(line.trim().to_lowercase().as_str(), "y" | "yes")
-        } else {
-            false
-        };
-        if !yes {
-            println!(
-                "forge: capabilities stay off on this machine (re-run forge apply --user, or add --capability-engine, to consent)"
-            );
-            return Ok(());
-        }
-        setup::record_consent(&home)
-            .map_err(|e| Error::new(format!("forge: cannot record the consent: {e}")))?;
-        println!("forge: consent to the capability engine recorded on this machine");
+    let env_key = std::env::var(KEY_VAR).ok();
+    let mut terminal = Terminal;
+    let person: Option<&mut dyn Person> = if std::io::stdin().is_terminal() {
+        Some(&mut terminal)
+    } else {
+        None
+    };
+    for line in setup_engine(&home, flags.capability_engine, env_key.as_deref(), person)? {
+        println!("{line}");
     }
-    let from_env = std::env::var(KEY_VAR)
-        .ok()
+    Ok(())
+}
+
+/// The setup itself: the lines it prints for the person, in order.
+pub fn setup_engine(
+    home: &Home,
+    consent_flag: bool,
+    env_key: Option<&str>,
+    mut person: Option<&mut dyn Person>,
+) -> Result<Vec<String>, Error> {
+    let mut out = Vec::new();
+    if !setup::has_consent(home) {
+        out.push(format!("forge: capabilities: {}", setup::DISCLOSURE));
+        let yes = consent_flag
+            || person.as_deref_mut().is_some_and(|p| {
+                matches!(
+                    p.answer("forge: send this to the capability engine on this machine? [y/N] ")
+                        .trim()
+                        .to_lowercase()
+                        .as_str(),
+                    "y" | "yes"
+                )
+            });
+        if !yes {
+            out.push("forge: capabilities stay off on this machine (re-run forge apply --user, or add --capability-engine, to consent)".into());
+            return Ok(out);
+        }
+        setup::record_consent(home)
+            .map_err(|e| Error::new(format!("forge: cannot record the consent: {e}")))?;
+        out.push("forge: consent to the capability engine recorded on this machine".into());
+    }
+    let from_env = env_key
         .map(|k| k.trim().to_string())
         .filter(|k| !k.is_empty());
-    let stored = setup::key(&home);
+    let stored = setup::key(home);
     let key = match (from_env, &stored) {
-        (Some(k), Some(s)) if k == *s => return Ok(()),
+        (Some(k), Some(s)) if k == *s => return Ok(out),
         (Some(k), _) => Some(k),
-        (None, Some(_)) => return Ok(()),
-        (None, None) if terminal => {
-            print!(
-                "forge: the capability engine's API key (https://console.typesafe.ai/keys; not echoed): "
-            );
-            let _ = std::io::stdout().flush();
-            read_hidden()
-        }
-        (None, None) => None,
+        (None, Some(_)) => return Ok(out),
+        (None, None) => person.and_then(|p| {
+            p.secret("forge: the capability engine's API key (https://console.typesafe.ai/keys; not echoed): ")
+                .map(|k| k.trim().to_string())
+                .filter(|k| !k.is_empty())
+        }),
     };
     let Some(key) = key else {
-        println!(
+        out.push(format!(
             "forge: capabilities stay off on this machine: no key (set {KEY_VAR} and re-run forge apply --user)"
-        );
-        return Ok(());
+        ));
+        return Ok(out);
     };
-    setup::store_key(&home, &key)
+    setup::store_key(home, &key)
         .map_err(|e| Error::new(format!("forge: cannot store the key: {e}")))?;
-    println!("forge: the capability engine's key is stored for this machine");
-    Ok(())
+    out.push("forge: the capability engine's key is stored for this machine".into());
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A person who answers `answer` and types `key`, recording the questions.
+    struct Scripted {
+        answer: &'static str,
+        key: Option<&'static str>,
+        asked: Vec<String>,
+    }
+
+    impl Person for Scripted {
+        fn answer(&mut self, q: &str) -> String {
+            self.asked.push(q.to_string());
+            format!("{}\n", self.answer)
+        }
+        fn secret(&mut self, q: &str) -> Option<String> {
+            self.asked.push(q.to_string());
+            self.key.map(str::to_string)
+        }
+    }
+
+    fn home() -> (tempfile::TempDir, Home) {
+        let d = tempfile::tempdir().unwrap();
+        let h = Home::new(d.path().join("c"), d.path().join("s"));
+        (d, h)
+    }
+
+    // At the terminal: the disclosure, then the question; a yes records the consent and asks
+    // for the key, typed unechoed; a no, or no answer, keeps capabilities off.
+    #[test]
+    fn consent_and_key_at_the_terminal() {
+        let (_d, h) = home();
+        let mut p = Scripted {
+            answer: "y",
+            key: Some(" sk-typed \n"),
+            asked: Vec::new(),
+        };
+        let out = setup_engine(&h, false, None, Some(&mut p)).unwrap();
+        assert!(out[0].starts_with("forge: capabilities: On each prompt"));
+        assert_eq!(
+            p.asked[0],
+            "forge: send this to the capability engine on this machine? [y/N] "
+        );
+        assert!(p.asked[1].contains("not echoed"));
+        assert_eq!(setup::key(&h).as_deref(), Some("sk-typed"));
+        assert_eq!(setup::state(&h), setup::State::On);
+        // asked once: nothing more on the next apply
+        let mut again = Scripted {
+            answer: "y",
+            key: None,
+            asked: Vec::new(),
+        };
+        assert!(
+            setup_engine(&h, false, None, Some(&mut again))
+                .unwrap()
+                .is_empty()
+        );
+        assert!(again.asked.is_empty());
+
+        for answer in ["n", "", "maybe"] {
+            let (_d, h) = home();
+            let mut p = Scripted {
+                answer,
+                key: Some("k"),
+                asked: Vec::new(),
+            };
+            let out = setup_engine(&h, false, None, Some(&mut p)).unwrap();
+            assert!(
+                out.last().unwrap().contains("capabilities stay off"),
+                "{answer:?}"
+            );
+            assert_eq!(p.asked.len(), 1, "no key is asked after a no");
+            assert_eq!(setup::state(&h), setup::State::NoConsent);
+        }
+    }
+
+    // Consent given, no key typed and none in the environment: off for want of a key. The
+    // environment's key wins over typing it.
+    #[test]
+    fn the_key_from_the_environment_or_nowhere() {
+        let (_d, h) = home();
+        let mut p = Scripted {
+            answer: "yes",
+            key: None,
+            asked: Vec::new(),
+        };
+        let out = setup_engine(&h, false, None, Some(&mut p)).unwrap();
+        assert!(out.last().unwrap().contains("no key (set TYPESAFE_API_KEY"));
+        assert_eq!(setup::state(&h), setup::State::NoKey);
+        let mut p = Scripted {
+            answer: "y",
+            key: Some("typed"),
+            asked: Vec::new(),
+        };
+        setup_engine(&h, false, Some("sk-env"), Some(&mut p)).unwrap();
+        assert!(
+            p.asked.is_empty(),
+            "consented already, and the key came from the environment"
+        );
+        assert_eq!(setup::key(&h).as_deref(), Some("sk-env"));
+    }
 }

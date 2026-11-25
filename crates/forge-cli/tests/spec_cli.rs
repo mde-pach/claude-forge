@@ -1619,3 +1619,92 @@ fn the_use_command_prints_a_capabilitys_text() {
     }
     assert_eq!(state(&s.forge_home), before, "use writes nothing");
 }
+
+// A capability's `when` is a context item's: dependencies, files, facts and packs, judged on the
+// repository. A standalone capability of a known pack that is not active is ignored with a
+// warning, and explain says its pack is not active.
+#[test]
+fn a_capabilitys_when_and_pack_decide_whether_it_is_active() {
+    let s = Sandbox::new(PY);
+    s.write(
+        ".forge/packs/acme/pack.yaml",
+        "id: acme\ndescription: Acme's conventions.\nlevel: project\ndetect: {always: true}\n",
+    );
+    for (name, when) in [
+        ("on-python", "when: {packs: [python]}\n"),
+        ("on-pyproject", "when: {facts: {python.pm: pyproject}}\n"),
+        (
+            "on-fastapi",
+            "when: {deps: [{ecosystem: pypi, name: fastapi, version: \">=0.100\"}]}\n",
+        ),
+        ("on-docker", "when: {packs: [docker]}\n"),
+    ] {
+        s.write(
+            &format!(".forge/packs/acme/capabilities/{name}.yaml"),
+            &capability(&format!("acme/{name}"), "on-demand", when),
+        );
+    }
+    s.write(
+        ".forge/capabilities/up.yaml",
+        &capability("docker/compose-up", "on-demand", ""),
+    );
+    let out = s.forge(&["apply", "--yes"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert!(
+        stderr(&out).contains("capability docker/compose-up is ignored"),
+        "{}",
+        stderr(&out)
+    );
+    let js: serde_json::Value = serde_json::from_str(&s.ok(&["status", "--json"])).unwrap();
+    let ids = |key: &str| -> Vec<String> {
+        js[key]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(ids("capabilities"), ["acme/on-pyproject", "acme/on-python"]);
+    assert_eq!(
+        ids("inactive_capabilities"),
+        ["acme/on-docker", "acme/on-fastapi"]
+    );
+    let out = s.ok(&["explain", "docker/compose-up"]);
+    assert!(
+        out.contains("\nNot active here: pack docker is not active."),
+        "{out}"
+    );
+}
+
+// The workflow step agent is gone, and with it the sandbox entry an earlier Forge wrote at user
+// level for its temp files: apply takes it out of ~/.claude/settings.json and the user lock.
+#[test]
+fn apply_user_takes_out_the_former_step_directory() {
+    let s = Sandbox::new(PY);
+    s.ok(&["apply", "--user", "--yes"]);
+    let settings_path = s.home.join(".claude/settings.json");
+    let lock_path = s.home.join(".claude/forge-user.lock");
+    let mut v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
+    v["sandbox"]["filesystem"]["allowWrite"] = serde_json::json!(["/tmp/forge-steps"]);
+    std::fs::write(&settings_path, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    let lock = std::fs::read_to_string(&lock_path).unwrap();
+    let file = lock
+        .lines()
+        .find_map(|l| l.strip_prefix("file = "))
+        .expect("the lock records settings")
+        .to_string();
+    std::fs::write(
+        &lock_path,
+        format!("{lock}\n[[settings]]\nfile = {file}\npath = \"sandbox.filesystem.allowWrite\"\nvalue = \"/tmp/forge-steps\"\n"),
+    )
+    .unwrap();
+    s.ok(&["apply", "--user", "--yes"]);
+    let after = std::fs::read_to_string(&settings_path).unwrap();
+    assert!(!after.contains("/tmp/forge-steps"), "{after}");
+    assert!(
+        !std::fs::read_to_string(&lock_path)
+            .unwrap()
+            .contains("/tmp/forge-steps")
+    );
+}

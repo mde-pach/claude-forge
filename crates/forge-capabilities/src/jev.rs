@@ -277,4 +277,29 @@ mod tests {
             Err(EngineError::Environment(_))
         ));
     }
+
+    // An answer keeps only noul values between 0 and 1; a body that is not JSON is a failure.
+    #[test]
+    fn what_an_answer_keeps() {
+        let v = read_answer(&json!({"answers": {
+            "a#0": {"type": "noul", "noul": 0.5},
+            "a#1": {"type": "noul", "noul": 1.5},
+            "a#2": {"type": "noul", "noul": -0.1},
+            "a#3": {"type": "noul", "noul": "0.9"},
+            "a#4": {"type": "noul"},
+        }}));
+        assert_eq!(v, BTreeMap::from([("a#0".to_string(), 0.5)]));
+        assert!(read_answer(&json!({"model": "x"})).is_empty());
+        let (url, _rx) = serve(200, "<html>busy</html>", Duration::ZERO);
+        let got = Jev::new("k".into(), "m", &url).values(&digest(), &[("a#0".into(), "S.")]);
+        assert!(
+            matches!(got, Err(EngineError::Failure(ref e)) if e.contains("not JSON")),
+            "{got:?}"
+        );
+        // no question: no request
+        assert_eq!(
+            Jev::new("k".into(), "m", "http://127.0.0.1:1").values(&digest(), &[]),
+            Ok(BTreeMap::new())
+        );
+    }
 }
