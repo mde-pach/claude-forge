@@ -1,0 +1,23 @@
+# Adapted from rover, https://github.com/apollographql/skills (skills/rover), MIT License, Copyright (c) 2024 Apollo
+# Graph, Inc.: composing the supergraph locally with rover dev and querying the router it runs.
+id: graphql/apollo-federation/rover-dev
+description: Composing the supergraph locally with rover dev and querying it end to end, to check a federated change.
+relevant:
+  - The task changes a subgraph's schema, entities or resolvers in a federated GraphQL graph.
+  - The task needs a federated query checked end to end across subgraphs.
+deliver: on-demand
+text: |
+  To see a federated change work across subgraphs:
+
+  1. Start the subgraphs you changed (their own dev scripts), in the background, and note their URLs.
+  2. Compose and run: `rover dev --supergraph-config supergraph.yaml` (each subgraph's `routing_url` and `schema.file` or `subgraph_url` in it), in the background with its output in a file. Rover composes and starts a local router on `http://localhost:4000`; composition errors (a missing `@key`, conflicting field types, an unresolvable entity) are printed with the subgraph and field. It recomposes when a schema file changes.
+  3. Query through the router: `curl -s http://localhost:4000 -H 'Content-Type: application/json' -d '{"query":"{ ... }"}'` with a query that crosses subgraphs (an entity field resolved by another subgraph), and read `data` and `errors` (each error's `extensions.service` names the subgraph).
+  4. Before pushing a schema: `rover subgraph check <graph@variant> --name <subgraph> --schema <file>` when the person has a GraphOS key; it reports composition and operation-breaking changes.
+  5. Stop rover and the subgraphs you started.
+examples:
+  selected:
+    - "Add a reviews field to the Product entity from the reviews subgraph."
+    - "The federated query for order with its user returns null for user, fix it."
+  not_selected:
+    - "Write a README for the products subgraph."
+    - "Bump the Node version in the products subgraph's Dockerfile."

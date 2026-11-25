@@ -1,0 +1,6 @@
+id: graphql/apollo-mcp-server
+description: Apollo MCP Server, exposing GraphQL operations as MCP tools.
+level: project
+detect:
+  content_any:
+    - {files: ["**/Dockerfile", "**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml", "**/*.yaml", "**/*.yml", ".mcp.json", "**/package.json", "**/Makefile"], pattern: "apollographql/apollo-mcp-server|\\bapollo-mcp-server\\b|rover\\s+dev\\b.*--mcp"}

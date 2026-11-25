@@ -1,0 +1,11 @@
+id: graphql/apollo-federation
+description: Federated GraphQL supergraphs composed with Apollo Rover.
+level: project
+detect:
+  files_any: ["**/supergraph.yaml", "**/supergraph-config.yaml"]
+  deps_any:
+    - {ecosystem: npm, name: "@apollo/subgraph"}
+    - {ecosystem: npm, name: "@apollo/gateway"}
+    - {ecosystem: npm, name: "@apollo/rover"}
+  content_any:
+    - {files: ["**/*.graphql", "**/*.graphqls"], pattern: "@link\\(\\s*url:\\s*\"https://specs\\.apollo\\.dev/federation/"}

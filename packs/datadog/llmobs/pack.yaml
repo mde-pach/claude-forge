@@ -1,0 +1,8 @@
+id: datadog/llmobs
+description: LLM applications traced with Datadog LLM Observability.
+level: project
+detect:
+  content_any:
+    - {files: ["**/*.py"], pattern: "\\bLLMObs\\b"}
+    - {files: ["**/*.ts", "**/*.js", "**/*.mjs"], pattern: "\\.llmobs\\b"}
+    - {files: ["**/Dockerfile", "**/*.yaml", "**/*.yml", ".env.example"], pattern: "\\bDD_LLMOBS_ENABLED\\b"}

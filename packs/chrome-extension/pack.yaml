@@ -1,0 +1,10 @@
+id: chrome-extension
+description: Chrome and Chromium browser extensions (Manifest V3), plain or built with CRXJS, WXT or Plasmo.
+level: project
+detect:
+  content_any:
+    - {files: ["manifest.json", "src/manifest.json", "public/manifest.json", "extension/manifest.json"], pattern: "^\\s*\"manifest_version\"\\s*:\\s*3\\b"}
+  deps_any:
+    - {ecosystem: npm, name: "@crxjs/vite-plugin"}
+    - {ecosystem: npm, name: wxt}
+    - {ecosystem: npm, name: plasmo}

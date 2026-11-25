@@ -1,0 +1,25 @@
+# Adapted from expo-overview and expo-native-ui, https://github.com/expo/skills
+# (plugins/expo/skills/expo-overview, plugins/expo/skills/expo-native-ui), MIT License, Copyright (c) 2025-present 650 Industries, Inc.:
+# reading the project's SDK state and SDK-versioned docs with Expo's agent CLI, and running the app in Expo Go first.
+id: typescript/expo/agent-cli
+description: Reading an Expo project's SDK state and its SDK-versioned docs with Expo's agent CLI, and running the app, in Expo Go when it can.
+relevant:
+  - The task adds or changes screens, navigation, native modules or packages of an Expo app.
+  - The task uses an Expo SDK API or library whose behaviour depends on the SDK version.
+deliver: on-demand
+text: |
+  Use Expo's agent CLI (`npx --yes @expo/agent-cli@latest <command>`; `--help` lists its commands, and the "Expo CLI" group takes `npx expo` commands unchanged).
+
+  1. Project state: `npx --yes @expo/agent-cli@latest status` gives the SDK version, whether the project runs in Expo Go, and whether a change needs a native rebuild. Committed `ios/` and `android/` directories mean a prebuild or bare project.
+  2. Docs for this SDK, not `latest`: `npx --yes @expo/agent-cli@latest docs:search "<query>"`; on the web, the version-pinned pages (`https://docs.expo.dev/versions/v<sdk>.0.0/sdk/<module>/`).
+  3. Packages: `npx --yes @expo/agent-cli@latest install <pkg>` picks the version that matches the SDK.
+  4. Run it: in Expo Go first, `npx --yes @expo/agent-cli@latest start` (in the background); `npx --yes @expo/agent-cli@latest navigate /<route>` opens a route. Only when `status` says Expo Go cannot run it (local native modules, a native library Expo Go lacks), stop that server (`dev:stop`) and build a development client with `npx --yes @expo/agent-cli@latest dev --ios --dev-client` (or `--android`).
+  5. Read the dev server's output for bundling and runtime errors, and stop it at the end (`dev:stop`).
+  If the agent CLI itself fails, run the same `npx expo` command directly.
+examples:
+  selected:
+    - "Add a settings screen with a native-looking switch to the Expo app."
+    - "Use expo-camera to scan QR codes on the checkout screen."
+  not_selected:
+    - "Fix the date formatting bug in the utils module's unit test."
+    - "Update the app's privacy policy text in the README."

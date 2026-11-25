@@ -1,0 +1,7 @@
+id: azure
+description: Azure infrastructure and applications (Bicep and ARM templates, the Azure Developer CLI, Static Web Apps).
+level: project
+detect:
+  files_any: ["**/*.bicep", "**/*.bicepparam", "azure.yaml", "**/staticwebapp.config.json", "**/swa-cli.config.json"]
+  content_any:
+    - {files: ["**/*.json"], pattern: "\"\\$schema\"\\s*:\\s*\"https?://schema\\.management\\.azure\\.com/schemas/[^\"]*[dD]eploymentTemplate\\.json"}

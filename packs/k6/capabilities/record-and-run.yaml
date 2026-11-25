@@ -1,0 +1,22 @@
+# Adapted from k6-perf-test-website, https://github.com/grafana/skills (skills/grafana-k6/k6-perf-test-website),
+# Apache License 2.0, Copyright 2026 Grafana Labs: recording real user journeys into k6 scripts, proving them
+# functional, then running them under load and reading the results.
+id: k6/record-and-run
+description: Turning real user journeys into k6 scripts, checking them as functional tests, then running them under load and reading the thresholds and metrics.
+relevant:
+  - The task writes or changes a load, stress or performance test of a website or API.
+  - The task is to measure how a website or API behaves under load.
+deliver: on-demand
+text: |
+  1. Record the journey instead of guessing its requests: drive it once in a browser with a HAR capture (Playwright: `browser.newContext({ recordHar: { path: 'journey.har' } })`, or the browser's DevTools export), then `npx har-to-k6 journey.har -o journey.js`. Remove third-party hosts and static assets, and replace recorded tokens and ids with values the script extracts (`res.json('token')`).
+  2. For page metrics, a `k6/browser` scenario (`import { browser } from 'k6/browser'`, `options.scenarios.<name>.options.browser.type = 'chromium'`) beside the protocol one, with one browser user.
+  3. Prove it works first: `k6 run --vus 1 --iterations 1 journey.js`, and read the `checks` (all must pass) and the HTTP statuses; a load test of failing requests measures nothing.
+  4. Then the load: stages and `thresholds` (`http_req_duration: ['p(95)<500']`, `http_req_failed: ['rate<0.01']`) in `options`, and `k6 run journey.js` (`--summary-export summary.json` for the numbers). Read which thresholds failed, the p95 and p99 of `http_req_duration` per request (`tags: { name: ... }`), `http_req_failed` and, for browsers, `browser_web_vital_lcp`.
+  5. Load only targets the person named, never production without their word. Stop any local server you started.
+examples:
+  selected:
+    - "Write a k6 load test for the login and search flow of our site."
+    - "Find out how many concurrent users the checkout API handles before p95 goes over 1s."
+  not_selected:
+    - "Add a Prometheus metric for request latency to the API."
+    - "Fix the failing unit test in the search service."

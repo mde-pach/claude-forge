@@ -1,0 +1,23 @@
+# Adapted from loki, https://github.com/grafana/skills (skills/grafana-lgtm/loki), Apache License 2.0,
+# Copyright Grafana Labs: querying logs with LogQL through Loki's HTTP API or logcli.
+id: grafana/loki-query
+description: Searching a service's logs with LogQL through Loki's HTTP API or logcli.
+relevant:
+  - The task is to find the cause of an error or a behaviour seen in a running service's logs.
+  - The task needs logs from Loki read, filtered or counted.
+deliver: on-demand
+text: |
+  To read the service's real logs from Loki (its URL from the person or the project's config, `LOKI_ADDR`; Grafana Cloud also needs the user and token):
+
+  1. Which labels exist: `curl -s "$LOKI_ADDR/loki/api/v1/labels"` and `curl -s "$LOKI_ADDR/loki/api/v1/label/app/values"`, so the selector matches the service's real labels.
+  2. Lines: `curl -sG "$LOKI_ADDR/loki/api/v1/query_range" --data-urlencode 'query={app="api"} |= "error"' --data-urlencode 'since=1h' --data-urlencode 'limit=200' | jq -r '.data.result[].values[][1]'`. Or with logcli: `logcli query --since=1h --limit=200 '{app="api"} |= "error"'`.
+  3. Narrow with LogQL: `| json` or `| logfmt` to parse, then filter on fields (`| status >= 500`, `| trace_id="..."`); `!= "healthcheck"` to drop noise.
+  4. Count over time to see when it started: `sum by (level) (count_over_time({app="api"} | json [5m]))` with `query_range` and a `step`.
+  5. Keep the time range as small as the question allows; quote the queries you ran with what they returned.
+examples:
+  selected:
+    - "The payments worker keeps failing in staging, check its logs in Loki."
+    - "How many timeout errors did the API log in the last hour?"
+  not_selected:
+    - "Add structured JSON logging to the API."
+    - "Configure the Loki retention period in the Helm values."

@@ -1,0 +1,6 @@
+id: go/grpc
+description: gRPC servers and clients in Go.
+level: project
+detect:
+  content_any:
+    - {files: ["**/go.mod"], pattern: "google\\.golang\\.org/grpc\\s"}

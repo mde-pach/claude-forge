@@ -1,0 +1,22 @@
+# Adapted from dd-monitors, https://github.com/datadog-labs/agent-skills (dd-monitors), MIT License:
+# listing and inspecting monitors with the pup CLI to find noisy or ownerless ones.
+id: datadog/monitor-audit
+description: Listing and inspecting a service's Datadog monitors with the pup CLI, to find noisy, muted or ownerless ones.
+relevant:
+  - The task adds, changes or reviews alerting or monitors for a service.
+deliver: on-demand
+text: |
+  To see the alerting as it is in Datadog, not only as the code describes it:
+
+  1. `pup --version`; if it is missing or a command answers with an auth error, ask the person to install it or run `pup auth login`, and stop there.
+  2. List: `pup monitors list --tags "service:<svc>"` (or `team:<team>`). Each monitor has its `id`, `name`, `query`, `overall_state` and `tags`.
+  3. Inspect one: `pup monitors get <id>`, for its thresholds, evaluation window, notification handles in the message, and renotify settings.
+  4. Find the problems with `jq`: monitors without an owner tag (`pup monitors list | jq '.data[] | select(.tags | any(startswith("team:")) | not) | {id, name}'`), those alerting or muted for long (`overall_state`, `overall_state_modified`), and those notifying nobody (no `@` handle in the message).
+  5. Change monitors where the project defines them (Terraform `datadog_monitor`, JSON files applied with `pup monitors create --file`), and compare with step 3 after the person applies them.
+examples:
+  selected:
+    - "Our on-call gets paged all night by the disk monitors, clean them up."
+    - "Make sure every monitor for the payments service has an owner and a runbook."
+  not_selected:
+    - "Search the logs for why the payments service failed last night."
+    - "Install the Datadog agent in the Docker image."

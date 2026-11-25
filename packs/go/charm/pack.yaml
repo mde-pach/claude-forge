@@ -1,0 +1,6 @@
+id: go/charm
+description: Terminal user interfaces built with Charm's Bubble Tea, Bubbles and Lip Gloss.
+level: project
+detect:
+  content_any:
+    - {files: ["**/go.mod"], pattern: "^\\s*(require\\s+)?(charm\\.land/bubbletea|github\\.com/charmbracelet/bubbletea)(/v[0-9]+)?\\s"}

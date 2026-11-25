@@ -1,0 +1,7 @@
+id: kubernetes/flux
+description: Flux GitOps repositories (Kustomizations, HelmReleases and their sources).
+level: project
+detect:
+  files_any: ["**/flux-system/gotk-components.yaml"]
+  content_any:
+    - {files: ["**/*.yaml", "**/*.yml"], pattern: "^apiVersion:[ \\t]*[\"']?(kustomize|helm|source|notification|image)\\.toolkit\\.fluxcd\\.io/"}

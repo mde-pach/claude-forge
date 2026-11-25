@@ -1,0 +1,22 @@
+# Adapted from godot-scene-organization, https://github.com/ziva-sh/godot-skills (skills/godot-scene-organization),
+# MIT License: rescanning the project after files move outside the editor.
+id: godot/reimport
+description: Rescanning a Godot project headless after moving, renaming or adding files outside the editor, so its UID and class caches follow.
+relevant:
+  - The task moves or renames files or folders of a Godot project.
+  - The task adds or renames a GDScript class_name.
+deliver: on-demand
+text: |
+  Godot finds files through caches in `.godot/` that only the editor's scan updates; after changing files from the shell:
+
+  1. Move each script or shader together with its `.uid` file (`player.gd` and `player.gd.uid`), and resources with their `.import` file.
+  2. Rescan: `godot --headless --path . --import` (the binary may be `godot4`). It rebuilds the UID cache and the global class cache, and imports new assets.
+  3. Read its output for `Failed loading resource` or broken dependency errors: a scene still pointing at an old `res://` path that has no UID must be updated in the `.tscn` (`[ext_resource ... path="res://..."]`).
+  4. Check the scripts: `godot --headless --path . --check-only --script res://<script>.gd` per changed script (it does not load autoloads, so an autoload name reports not found there), and run the main scene headless once (`godot --headless --path . --quit-after 120`) to see load errors.
+examples:
+  selected:
+    - "Move all enemy scripts into a scripts/enemies folder."
+    - "Rename the Player class to PlayerCharacter everywhere."
+  not_selected:
+    - "Make the enemy patrol between two points."
+    - "Change the jump sound effect."

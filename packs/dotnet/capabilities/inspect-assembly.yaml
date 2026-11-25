@@ -1,0 +1,22 @@
+# Procedure after https://github.com/richlander/dotnet-inspect (skills/metadata), written from scratch.
+id: dotnet/inspect-assembly
+description: Reading what a built .NET assembly or NuGet package really contains (its types, members, references and metadata) with dotnet-inspect.
+relevant:
+  - The task needs to know what a compiled .NET assembly or NuGet package contains or references.
+  - The task is to find why a .NET type or member is missing, duplicated or bound to the wrong assembly at run time.
+deliver: on-demand
+text: |
+  To read the compiled output instead of guessing from the sources, run `dotnet-inspect` through `dnx` (.NET 10 SDK and later; on older SDKs, `dotnet tool exec`):
+
+  1. Its commands: `dnx dotnet-inspect -y -- --help`. Point it at a built file (`bin/<Configuration>/<tfm>/<Name>.dll`) or a package.
+  2. The metadata tables present and their row counts: `dnx dotnet-inspect -y -- library <Name>.dll -S @Metadata --count`.
+  3. One table, as rows to read or filter: `dnx dotnet-inspect -y -- library <Name>.dll -S "Metadata: TypeDef" --jsonl` (also `MethodDef`, `TypeRef`, `MemberRef`, `AssemblyRef`, `CustomAttribute`); `--columns "Name,Namespace,ResolutionScope"` keeps a few columns and `--rows 100..199` a range.
+  4. What to look for: a type or member missing from `TypeDef`/`MethodDef` (it was not compiled in), an `AssemblyRef` with an unexpected version (the binding to fix), a `TypeRef` resolving to a different assembly than you thought.
+  5. Rebuild and inspect again after the change.
+examples:
+  selected:
+    - "Our plugin fails with TypeLoadException at runtime, check what the built DLL actually references."
+    - "Does the published NuGet package still contain the internal Legacy namespace?"
+  not_selected:
+    - "Add a new endpoint to the orders controller."
+    - "Rename the Customer class to Client in the domain project."

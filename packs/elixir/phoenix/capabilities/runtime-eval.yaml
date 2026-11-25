@@ -1,0 +1,23 @@
+# Adapted from tidewave-integration, https://github.com/oliver-kriska/claude-elixir-phoenix
+# (plugins/elixir-phoenix/skills/tidewave-integration), MIT License: asking the running app instead of
+# reading its code, through Tidewave when the project has it.
+id: elixir/phoenix/runtime-eval
+description: Evaluating code, reading logs and querying the database inside the running Phoenix app, through Tidewave or Mix.
+relevant:
+  - The task is to find out how a running Phoenix application behaves, what state it holds or what its database contains.
+  - The task is to find the cause of a runtime error in a Phoenix application.
+deliver: on-demand
+text: |
+  Ask the running application instead of reading its code (in development only, never against production data).
+
+  1. With `{:tidewave, ...}` in `mix.exs` and the dev server running (`mix phx.server`, in the background), the app serves Tidewave's MCP endpoint at `http://localhost:4000/tidewave/mcp`. When the session has its tools (`project_eval`, `get_logs`, `execute_sql_query`, `get_ecto_schemas`, `get_source_location`, `get_docs`), use them; else list them with `curl -s http://localhost:4000/tidewave/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'` and call one with `"method":"tools/call","params":{"name":"project_eval","arguments":{"code":"..."}}`.
+  2. Without Tidewave: evaluate in the project with `mix run -e 'IO.inspect(MyApp.Accounts.get_user!(1))'` (it starts the app; `--no-start` when it must not), read `log/dev.log` or the server's output for logs, and query with `mix run -e 'MyApp.Repo.query!("select ...") |> IO.inspect'`.
+  3. Before SQL, read the schemas (`get_ecto_schemas`, or the `schema` blocks) for the real table and column names; keep to `SELECT`.
+  4. Stop the server you started.
+examples:
+  selected:
+    - "Why does the dashboard show zero active users? Check what the app actually has in the database."
+    - "The checkout LiveView raises a KeyError in dev, investigate it."
+  not_selected:
+    - "Add a new Phoenix context for invoices."
+    - "Rename the Accounts context's functions to match our naming convention."

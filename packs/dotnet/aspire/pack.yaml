@@ -1,0 +1,6 @@
+id: dotnet/aspire
+description: .NET Aspire application hosts and their resources.
+level: project
+detect:
+  content_any:
+    - {files: ["**/*.csproj"], pattern: "Aspire\\.AppHost\\.Sdk|\"Aspire\\.Hosting\\.AppHost\""}

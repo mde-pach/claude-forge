@@ -1,0 +1,24 @@
+# Adapted from android-native-dev, https://github.com/MiniMax-AI/skills (skills/android-native-dev),
+# MIT License: its build-variant listing and install-and-launch steps.
+id: android/run-on-device
+description: Building an Android variant, installing it on an emulator or device, launching it and reading its logs and screen.
+relevant:
+  - The task is to find why an app crashes or misbehaves.
+  - The task needs an app's screen or behaviour checked on a device or emulator.
+deliver: on-demand
+text: |
+  To see the change in the running app:
+
+  1. Pick the variant: `./gradlew tasks --group=build` lists `assemble<Flavor><BuildType>`; use a debug variant.
+  2. Find a target: `adb devices`. With none, list the emulators (`emulator -list-avds`) and start one in the background (`emulator -avd <name> -no-window -no-audio &`), then `adb wait-for-device`.
+  3. Install: `./gradlew install<Variant>` (or `adb install -r app/build/outputs/apk/<flavor>/<type>/app-<...>.apk`), then launch: `adb shell am start -n <applicationId>/<activity>` (`adb shell cmd package resolve-activity --brief <applicationId>` names the launcher activity).
+  4. Read the logs: `adb logcat -c` before launching, then `adb logcat -d --pid=$(adb shell pidof -s <applicationId>)`, or `adb logcat -d '*:E'` for crashes (`AndroidRuntime` holds the stack trace).
+  5. Look at the screen: `adb exec-out screencap -p > screen.png` and open it; interact with `adb shell input tap <x> <y>` and `adb shell input text '<text>'`; `adb shell uiautomator dump /dev/tty` prints the view tree with each element's bounds.
+  6. Stop what you started: `adb shell am force-stop <applicationId>`, and `adb emu kill` for an emulator you launched.
+examples:
+  selected:
+    - "The app crashes when opening the camera screen on Android 14, find out why."
+    - "Check that the new dark theme looks right on the device."
+  not_selected:
+    - "Update the README with the Android build requirements."
+    - "Bump the Kotlin Gradle plugin version in libs.versions.toml."

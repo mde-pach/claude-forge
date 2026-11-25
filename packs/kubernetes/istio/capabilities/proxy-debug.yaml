@@ -1,0 +1,24 @@
+# Adapted from istio-traffic-management, https://github.com/wshobson/agents
+# (plugins/cloud-infrastructure/skills/istio-traffic-management), MIT License: checking the routes and endpoints
+# the sidecar really applied.
+id: kubernetes/istio/proxy-debug
+description: Checking the routing, endpoints and policies an Istio proxy really applied, with istioctl analyze and proxy-config.
+relevant:
+  - The task changes Istio routing or traffic policy, such as a VirtualService, DestinationRule, Gateway or AuthorizationPolicy.
+  - The task is to find why traffic in a service mesh fails, or is routed, split or retried differently from its configuration.
+deliver: on-demand
+text: |
+  The YAML is what was asked; the proxy's config is what happens. On the cluster the person gave access to:
+
+  1. Before applying: `istioctl analyze -f <files>` (or `-n <namespace>` for what is live) reports misreferenced hosts, missing subsets and conflicting rules.
+  2. Routes a workload's proxy uses: `istioctl proxy-config routes deploy/<app> -n <ns>` (`-o json` for match rules, weights, retries and timeouts); for a gateway, the gateway's deployment.
+  3. Where traffic can go: `istioctl proxy-config endpoints deploy/<app> -n <ns> --cluster 'outbound|<port>|<subset>|<host>'`; an empty or `UNHEALTHY` list is why a subset gets nothing. `istioctl proxy-config clusters` lists the subsets the DestinationRules made.
+  4. Whether the config reached the proxies: `istioctl proxy-status` (`SYNCED` or `STALE`); policies for one pod: `istioctl x describe pod <pod> -n <ns>`.
+  5. Watch requests: `istioctl proxy-config log deploy/<app> --level debug` temporarily, then read `kubectl logs deploy/<app> -c istio-proxy`, and set the level back to `info` when done.
+examples:
+  selected:
+    - "Send 10% of traffic to reviews v2 and check the split is actually applied."
+    - "Requests to the payments service get 503 after adding the DestinationRule, debug it."
+  not_selected:
+    - "Install Istio on a new cluster with the demo profile."
+    - "Add a readiness probe to the payments Deployment."

@@ -1,0 +1,24 @@
+# Adapted from azure-deployment-preflight, https://github.com/github/awesome-copilot
+# (skills/azure-deployment-preflight), MIT License: its build-then-what-if preflight.
+id: azure/bicep/what-if
+description: Previewing what a Bicep or ARM deployment would change in Azure with what-if, before deploying it.
+relevant:
+  - The task changes infrastructure templates that will be deployed to the cloud.
+  - The task needs the changes a deployment would make previewed or validated before it runs.
+  - The task asks which cloud resources an infrastructure change would create, modify, replace or delete.
+deliver: on-demand
+text: |
+  To see what the template would do before it is deployed:
+
+  1. Compile: `az bicep build --file <main>.bicep --stdout > /dev/null` (or `bicep build`); read the errors and warnings it prints with their line numbers.
+  2. With `azure.yaml` at the root (azd): `azd provision --preview` (add `--environment <env>`), which prints each resource it would create, modify or delete.
+  3. Otherwise run what-if at the template's scope (`targetScope`): `az deployment group what-if --resource-group <rg> --template-file <main>.bicep --parameters <file>.bicepparam --validation-level Provider`; `az deployment sub what-if --location <loc> ...` for a subscription; `mg` and `tenant` likewise. `--validation-level ProviderNoRbac` when you lack write permission.
+  4. Read the result per resource: `+ Create`, `~ Modify` (with each property's old and new value), `- Delete`, `x NoEffect`; a delete or a replace you did not intend is the template's fault, not the preview's.
+  5. What-if needs `az login` and the target resource group; if the person has not given them, stop after step 1 and say which command they can run.
+examples:
+  selected:
+    - "Add a storage account with a private endpoint to main.bicep, and check what it will change."
+    - "Will changing the SKU in the App Service plan module recreate the plan?"
+  not_selected:
+    - "Explain what the network module in our Bicep files does."
+    - "Fix the failing unit test in the API project."

@@ -1,0 +1,23 @@
+# Adapted from aspire, https://github.com/github/awesome-copilot (skills/aspire), MIT License: running the
+# AppHost to see resource state and logs, with Aspire's testing host for a check that runs headless.
+id: dotnet/aspire/apphost-run
+description: Running an Aspire AppHost to see whether its resources start and connect, from its output and from a testing-host check.
+relevant:
+  - The task is to find why a service of an Aspire application fails to start or to reach another resource.
+  - The task changes how an Aspire AppHost wires its projects, containers or connection strings.
+deliver: on-demand
+text: |
+  To see the wiring as it runs:
+
+  1. Start it in the background with its output in a file: `aspire run > apphost.log 2>&1 &` (or `dotnet run --project <AppHost>.csproj`). It prints the dashboard URL; container resources need Docker or Podman running.
+  2. Read `apphost.log` for resources that fail to start, and each project's own console output, which the AppHost forwards; a missing connection string or a port conflict shows there with the resource name.
+  3. For a check you can repeat and assert on, use the testing host (`Aspire.Hosting.Testing`) in a test project: `var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.<AppHost>>(); await using var app = await builder.BuildAsync(); await app.StartAsync(); await app.ResourceNotifications.WaitForResourceHealthyAsync("<resource>");` then `var http = app.CreateHttpClient("<resource>");` and call an endpoint.
+  4. `dotnet test`, read which resource did not become healthy, fix the AppHost (`WithReference`, `WaitFor`, endpoint names) and run again.
+  5. Stop the AppHost you started (its containers stop with it).
+examples:
+  selected:
+    - "The api project can't connect to Redis when run through the AppHost, fix the wiring."
+    - "Add a Postgres resource to the AppHost and make the worker wait for it."
+  not_selected:
+    - "Add a new field to the order DTO."
+    - "Write docs on how to deploy the app to Azure Container Apps."

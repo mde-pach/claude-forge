@@ -1,0 +1,22 @@
+# Adapted from argo-knowledge, https://github.com/redhat-developer/agentic-skills (skills/gitops/argo-knowledge),
+# MIT License: reading the cluster's installed Argo CRDs before writing manifests for it.
+id: kubernetes/argocd/cluster-crds
+description: Reading which Argo CD and Argo Rollouts kinds, versions and fields the target cluster really serves, before writing manifests for it.
+relevant:
+  - The task writes or changes Argo CD or Argo Rollouts manifests for a specific cluster.
+deliver: on-demand
+text: |
+  Fields and kinds differ between Argo CD and operator versions; ask the cluster (with the access the person gave; `kubectl config current-context` first):
+
+  1. Kinds and versions served: `kubectl api-resources --api-group=argoproj.io` (and `kubectl get crd -o name | grep argoproj.io` for the CRDs installed).
+  2. Fields of one: `kubectl explain application.spec.syncPolicy --api-version=argoproj.io/v1alpha1` (`--recursive` for the whole subtree); the same for `applicationset`, `appproject`, `rollout`.
+  3. On OpenShift GitOps, which CRDs the operator owns and its version: `kubectl get csv -n openshift-gitops-operator -o json | jq '.items[] | {name: .metadata.name, version: .spec.version, owned: [.spec.customresourcedefinitions.owned[].name]}'`.
+  4. The Argo CD version: `kubectl get deploy -n argocd argocd-server -o jsonpath='{.spec.template.spec.containers[0].image}'` (the namespace where it runs).
+  5. Write the manifests with those kinds and fields, and check them with `kubectl apply --dry-run=server -f <file>`.
+examples:
+  selected:
+    - "Write a Rollout with a canary strategy for the checkout service on our OpenShift cluster."
+    - "Create an ApplicationSet for the prod cluster using the matrix generator."
+  not_selected:
+    - "Explain what Argo CD is to the new team members."
+    - "Fix the typo in the checkout service's Deployment labels."

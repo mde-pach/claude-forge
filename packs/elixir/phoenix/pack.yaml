@@ -1,0 +1,6 @@
+id: elixir/phoenix
+description: Phoenix web applications (controllers, LiveView, Ecto).
+level: project
+detect:
+  content_any:
+    - {files: ["**/mix.exs"], pattern: "\\{:phoenix(_live_view)?,"}

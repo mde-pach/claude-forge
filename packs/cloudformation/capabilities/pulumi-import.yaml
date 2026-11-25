@@ -1,0 +1,22 @@
+# Adapted from cloudformation-to-pulumi, https://github.com/pulumi/agent-skills (migration/skills/cloudformation-to-pulumi),
+# Apache License 2.0: its stack inventory and import-then-preview-until-no-changes loop.
+id: cloudformation/pulumi-import
+description: Migrating a deployed CloudFormation stack to Pulumi by importing its resources and previewing until Pulumi sees no change.
+relevant:
+  - The task migrates infrastructure from CloudFormation or SAM to Pulumi.
+deliver: on-demand
+text: |
+  A migration is done when Pulumi manages the stack's existing resources and `pulumi preview` shows no change.
+
+  1. Inventory the deployed stack: `aws cloudformation list-stack-resources --stack-name <stack>` (each resource's logical id, type and physical id) and `aws cloudformation get-template --stack-name <stack> --template-stage Processed` (the template after its transforms and macros).
+  2. Write the Pulumi program, one resource per stack resource, with the same logical names; `aws-native` matches CloudFormation types one to one, `aws` is the usual choice.
+  3. Import each resource: `pulumi import <type token> <name> <import id>` (the physical id, or the form the resource's import docs give), or all of them with `pulumi import --file import.json`. Nested stacks are imported per child stack.
+  4. `pulumi preview --diff` and read each resource's diff: every update, replace, create or delete is a property the code does not match yet. Fix the code and preview again until it reports no changes.
+  5. Nothing is deployed and the stack stays: never run `pulumi up` or `aws cloudformation delete-stack` unless the person asks (a stack is removed with `DeletionPolicy: Retain` on every resource first).
+examples:
+  selected:
+    - "Migrate the orders-api CloudFormation stack to Pulumi Python without downtime."
+    - "Port our SAM template to Pulumi and adopt the existing Lambda and DynamoDB table."
+  not_selected:
+    - "Add an SQS queue to the CloudFormation template."
+    - "Why does our CloudFormation deploy fail with a rollback?"

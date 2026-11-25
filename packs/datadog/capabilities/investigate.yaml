@@ -1,0 +1,23 @@
+# Adapted from dd-logs and dd-apm, https://github.com/datadog-labs/agent-skills (dd-logs, dd-apm),
+# MIT License: searching production logs and traces with the pup CLI.
+id: datadog/investigate
+description: Searching a service's production logs, traces and APM stats in Datadog with the pup CLI.
+relevant:
+  - The task is to find the cause of an error, an outage or slowness seen in production.
+  - The task needs production logs, traces or request metrics of a service read.
+deliver: on-demand
+text: |
+  To see what production is really doing, query Datadog with `pup` (Datadog's CLI; it prints JSON).
+
+  1. `pup --version`; if it is missing or a command answers with an auth error, ask the person to install it or run `pup auth login`, and stop there.
+  2. Logs: `pup logs search --query="service:<svc> status:error" --from=1h --limit 100`; narrow with facets (`@http.status_code:>=500`, `env:prod`, a request id). Count and group: `pup logs aggregate --query="service:<svc> status:error" --from=1h --compute=count --group-by=@error.kind`; recurring messages: `pup logs patterns --query="service:<svc> status:error" --pattern-field=message --from=1h`.
+  3. Services and their health: `pup apm services list --env <env> --from 1h --to now`, then `pup apm services stats --env <env> --from 1h --to now` for each one's hits, errors and latency.
+  4. Traces: `pup traces search --query "service:<svc> status:error" --from 1h`, or `@duration:>1000ms` for slow ones, `@http.url:/api/<path>` for one endpoint; read the spans' errors, durations and the downstream service that took the time.
+  5. Compare the time the problem started with deploys (`version:` tag) and widen `--from` only as needed. Quote the queries you ran with what they returned.
+examples:
+  selected:
+    - "Checkout has been throwing 500s since this morning's deploy, find out why."
+    - "The /search endpoint got slow in prod, which downstream call is the problem?"
+  not_selected:
+    - "Add the Datadog tracer to the new worker service."
+    - "Rename the DD_SERVICE value in the Helm chart."

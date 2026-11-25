@@ -1,0 +1,23 @@
+# Adapted from level-design, https://github.com/gamedev-skills/awesome-gamedev-agent-skills
+# (skills/disciplines/level-design), Apache License 2.0: measuring the real player scene with a headless script.
+id: godot/headless-measure
+description: Measuring gameplay values (jump reach, speed, timings) by running the game's real scenes in a headless Godot script.
+relevant:
+  - The task designs or changes a level's layout, gaps, platforms or distances.
+  - The task tunes or checks movement, physics or timing values of a game.
+deliver: on-demand
+text: |
+  Measure the game, do not compute it from the exported variables: run the real scenes headless and print the numbers.
+
+  1. Write a tool script that extends `SceneTree` (in `tools/`, outside the shipped scenes): in `_initialize()`, add a test floor (`StaticBody2D` with a `WorldBoundaryShape2D`, or a 3D plane), instantiate the real player scene, and drive it with `Input.action_press(&"<action>")`; wait frames with `await physics_frame`.
+  2. Record what you need each physics frame (the highest point, the distance until it lands, the time), then `print()` it and `quit()`.
+  3. Run it: `godot --headless --path . --script res://tools/<name>.gd` (the Godot binary may be `godot4` or a path the project's docs give). Physics runs headless; nothing is rendered.
+  4. Compare the printed values with the level: gaps narrower than the measured reach, ledges lower than the jump height, with a margin. Change the level or the tuning, and run the script again after every change.
+  5. Run it again a few times when the movement uses randomness or variable frame timing.
+examples:
+  selected:
+    - "Make sure every gap in level 3 can actually be jumped."
+    - "Tune the player's jump so it clears three tiles at full speed."
+  not_selected:
+    - "Add a main menu with Play and Quit buttons."
+    - "Replace the player's sprite with the new art."

@@ -1,0 +1,6 @@
+id: java
+description: Java and other JVM projects built with Maven or Gradle.
+level: project
+detect:
+  files_any: ["**/pom.xml", "**/build.gradle", "**/build.gradle.kts", "**/settings.gradle", "**/settings.gradle.kts"]
+  sources_any: ["**/*.java"]

@@ -1,0 +1,6 @@
+id: azure/static-web-apps
+description: Azure Static Web Apps, run locally with the SWA CLI.
+level: project
+detect:
+  files_any: ["**/staticwebapp.config.json", "**/swa-cli.config.json"]
+  deps_any: [{ecosystem: npm, name: "@azure/static-web-apps-cli"}]

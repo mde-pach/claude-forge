@@ -1,0 +1,7 @@
+id: graphql
+description: GraphQL schemas and operations, and the Apollo GraphOS tooling around them (Rover, Router, MCP Server).
+level: project
+detect:
+  files_any: ["**/*.graphql", "**/*.graphqls", "**/*.gql", "**/supergraph.yaml", "**/supergraph-config.yaml", "**/router.yaml", "**/router.yml"]
+  content_any:
+    - {files: ["**/Dockerfile", "**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml", "**/*.yaml", "**/*.yml", ".mcp.json"], pattern: "apollographql/(router|apollo-mcp-server)|\\bapollo-mcp-server\\b"}

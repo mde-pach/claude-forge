@@ -1,0 +1,7 @@
+id: kotlin/mcp
+description: Model Context Protocol servers written with the Kotlin MCP SDK.
+level: project
+detect:
+  content_any:
+    - {files: ["**/build.gradle.kts", "**/build.gradle"], pattern: "io\\.modelcontextprotocol(:|\\.)kotlin-sdk"}
+    - {files: ["**/libs.versions.toml"], pattern: "io\\.modelcontextprotocol(:|\\.)kotlin-sdk"}

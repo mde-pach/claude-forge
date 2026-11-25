@@ -1,0 +1,12 @@
+id: firebase
+description: Firebase projects (firebase.json, the Firebase SDKs and the Firebase CLI).
+level: project
+detect:
+  files_any: ["firebase.json", ".firebaserc", "**/firebase.json"]
+  deps_any:
+    - {ecosystem: npm, name: firebase}
+    - {ecosystem: npm, name: firebase-admin}
+    - {ecosystem: npm, name: firebase-functions}
+    - {ecosystem: npm, name: firebase-tools}
+    - {ecosystem: pypi, name: firebase-admin}
+    - {ecosystem: pypi, name: firebase-functions}

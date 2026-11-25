@@ -1,0 +1,22 @@
+# Adapted from argo-repo-audit, https://github.com/redhat-developer/agentic-skills (skills/gitops/argo-repo-audit),
+# MIT License: mapping a GitOps repository's Applications and what each one deploys, without its discover script.
+id: kubernetes/argocd/render-applications
+description: Mapping an Argo CD repository's Applications, ApplicationSets and projects, and rendering the manifests each one deploys.
+relevant:
+  - The task reviews or changes an Argo CD GitOps repository, its Applications, ApplicationSets or overlays.
+deliver: on-demand
+text: |
+  To know what the repository really deploys:
+
+  1. Inventory: `grep -rlE '^kind:\s*(Application|ApplicationSet|AppProject)\b' --include='*.y*ml' .`, then for each Application read `spec.source` (or `sources`): `repoURL`, `path`, `targetRevision`, and `helm`, `kustomize` or `directory` settings; `spec.destination` (cluster, namespace); `spec.project`; `syncPolicy`. For an ApplicationSet, read its generators to list the Applications it makes (a `git` directory generator: the directories matching its `path`).
+  2. Render each source in this repository the way Argo CD would: Kustomize, `kubectl kustomize <path>` (or `kustomize build`); Helm, `helm template <release> <path> -n <namespace> -f <each valueFiles entry> --set <each parameter>`; a plain directory, its YAML files (`recurse` when set).
+  3. Read the rendered output for what the change touches: the kinds, names and namespaces each Application will create, and duplicates across Applications (the same resource from two Applications fights on every sync).
+  4. Check what each project allows (`sourceRepos`, `destinations`, `clusterResourceWhitelist`) against what its Applications render.
+  5. With cluster access the person gave, `argocd app diff <app> --local <path>` shows the live difference; otherwise stop at the rendered manifests.
+examples:
+  selected:
+    - "Add the payments service to the staging environment in our Argo CD repo."
+    - "Review this GitOps repo: which apps deploy into the monitoring namespace?"
+  not_selected:
+    - "Fix the bug in the payments service's retry logic."
+    - "Write a Dockerfile for the payments service."

@@ -1,0 +1,21 @@
+# Procedure after https://github.com/flutter/skills (app size analysis), written from scratch.
+id: dart/flutter/size-analysis
+description: Measuring what makes a Flutter build large, package by package, with --analyze-size.
+relevant:
+  - The task is to reduce the size of an app's build or download.
+  - The task needs an app's build size measured, explained or compared.
+deliver: on-demand
+text: |
+  To see where a Flutter build's size goes:
+
+  1. Build with the analysis for one platform: `flutter build apk --analyze-size --target-platform android-arm64` (also `appbundle`, `ios`, `macos`, `linux`, `windows`; the web has no `--analyze-size`).
+  2. Read the summary it prints: the native code, assets and Dart AOT size per package and library. It also writes a JSON breakdown (its path is printed) with the full tree.
+  3. Make the change, build again the same way and compare the totals and the packages that moved. `--split-debug-info=<dir>` and `--obfuscate` change the size too, so compare like with like.
+  4. The JSON opens in DevTools (`dart devtools --appSizeBase=<file>.json`) for a person to browse; for the comparison, the printed summaries are enough.
+examples:
+  selected:
+    - "Our Android APK grew to 60 MB, find out what's taking the space."
+    - "Did removing the charts package make the iOS build smaller?"
+  not_selected:
+    - "Make the home screen load faster on startup."
+    - "Compress the PNG screenshots in the docs folder."

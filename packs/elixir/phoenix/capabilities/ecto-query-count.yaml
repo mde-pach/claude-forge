@@ -1,0 +1,23 @@
+# Adapted from n1-check, https://github.com/oliver-kriska/claude-elixir-phoenix
+# (plugins/elixir-phoenix/skills/n1-check), MIT License: its N+1 patterns, found from the queries a request really runs.
+id: elixir/phoenix/ecto-query-count
+description: Counting the Ecto queries a Phoenix page, LiveView or controller action really runs, to find N+1 loading.
+relevant:
+  - The task is to find why a page or endpoint is slow, or which database queries it runs.
+  - The task is to find or fix N+1 database queries.
+deliver: on-demand
+text: |
+  To see the queries one request runs, read Ecto's query log instead of guessing from the code:
+
+  1. Pick or write a test that renders the page (`get(conn, ~p"/orders")`, or `live(conn, ~p"/orders")` for a LiveView) with enough rows to show a loop (three or more).
+  2. In that test, collect each query with a telemetry handler: `:telemetry.attach("count-queries", [:my_app, :repo, :query], fn _, _, meta, _ -> send(self(), {:query, meta.source, meta.query}) end, nil)` (the event is the repo's `telemetry_prefix`, by default the app and repo names), and detach it in `on_exit`. Or run the dev server with the repo's `log: :debug` and read the `QUERY OK source="..."` lines `mix phx.server` prints for one request.
+  3. Read the list: the same `SELECT ... WHERE id = $1` (or `= ANY($1)` per row) repeated once per item, one `source` for each row of the parent, is the N+1. Its stack is in the log line with `stacktrace: true` in the repo config.
+  4. Fix where the data is loaded (a `Repo.preload`, a `preload:` in the query, a join), run the test again and compare the count; assert on it (`assert length(queries) <= 3`) to keep it fixed.
+  5. Remove the handler or the debug log you added only to look.
+examples:
+  selected:
+    - "The orders index LiveView is slow with many orders, find what queries it runs."
+    - "Fix the N+1 on the posts page where each comment loads its author."
+  not_selected:
+    - "Add a migration that creates the comments table."
+    - "Change the posts page layout to two columns."

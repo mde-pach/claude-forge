@@ -1,0 +1,22 @@
+# Adapted from gitops-knowledge, https://github.com/fluxcd/agent-skills (skills/gitops-knowledge),
+# Apache License 2.0: inventorying the repository, rendering Kustomizations
+# locally and validating the manifests.
+id: kubernetes/flux/build-and-validate
+description: Inventorying a Flux repository, rendering each Kustomization as Flux would and validating the manifests against their schemas.
+relevant:
+  - The task writes or changes Flux manifests, Kustomizations, HelmReleases or overlays in a GitOps repository.
+  - The task is to find why a Kubernetes overlay or deployed configuration differs from what is expected.
+deliver: on-demand
+text: |
+  1. Layout first: `flux schema discover` (the `schema` plugin: `flux plugin install schema` once) lists the clusters, Kustomizations, HelmReleases and sources and where they live; without it, `grep -rlE 'toolkit\.fluxcd\.io' --include='*.y*ml' .` and read each Kustomization's `spec.path`, `sourceRef` and `dependsOn`.
+  2. Render a Kustomization as Flux would, with its substitutions: `flux build kustomization <name> --path <dir> --kustomization-file <file with that Kustomization> --dry-run` (`--dry-run` keeps it off the cluster). Read the output for the resources and the values `postBuild.substitute` puts in.
+  3. A HelmRelease renders with `helm template <name> <chart> -f <values>`, its `values` and `valuesFrom` merged; check the chart version against the `HelmRepository` or `OCIRepository` it names.
+  4. Validate: `flux schema validate <dir> --verbose` (CRDs included), fix and run again until clean. With the CLI missing, `kubectl kustomize <dir>` at least shows overlays build.
+  5. With cluster access the person gave, `flux diff kustomization <name> --path <dir>` shows what would change live.
+examples:
+  selected:
+    - "Add a HelmRelease for ingress-nginx to the production cluster in our Flux repo."
+    - "The staging overlay doesn't apply the new replica count, find out why."
+  not_selected:
+    - "Explain the difference between Flux and Argo CD."
+    - "Fix the null pointer in the api service's handler."

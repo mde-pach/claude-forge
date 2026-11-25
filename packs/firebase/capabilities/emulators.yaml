@@ -1,0 +1,24 @@
+# Adapted from firebase-basics, https://github.com/firebase/agent-skills (skills/firebase-basics),
+# Apache License 2.0: reading the project's configuration with the CLI and
+# exercising the app against the local emulators.
+id: firebase/emulators
+description: Reading a Firebase project's active project and app config with the CLI and running the app against the local emulators.
+relevant:
+  - The task sets up, configures or connects an app to a Firebase project.
+  - The task needs Firebase functions, auth, storage or database behaviour tried locally.
+deliver: on-demand
+text: |
+  Use the project's `firebase-tools` (`npx firebase` when it is a dependency, else `npx -y firebase-tools@latest`).
+
+  1. Which project: `firebase use` prints the active alias and project id from `.firebaserc`; `firebase login:list` shows whether anyone is logged in (if not, the person runs `firebase login`; the emulators need no login).
+  2. An app's SDK config: `firebase apps:list`, then `firebase apps:sdkconfig WEB <appId>` (or `ANDROID`, `IOS`) prints the values the client initializes with; compare with the app's config file.
+  3. Run against the emulators: `firebase emulators:start --only auth,firestore,functions` (the ones `firebase.json` configures) in the background, or `firebase emulators:exec --only <...> "<test command>"` to run a test suite and stop them after. The client connects with `connectAuthEmulator`, `connectFirestoreEmulator`, `connectFunctionsEmulator` (Admin SDK: `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` and the like).
+  4. Read the emulator output for function logs and errors; the Emulator UI at `http://127.0.0.1:4000` lists the data. Seed and keep data with `--import ./seed --export-on-exit`.
+  5. Stop the emulators you started. Deploys (`firebase deploy`) are the person's to run.
+examples:
+  selected:
+    - "Connect the web app to our Firebase project's auth and check sign-in works locally."
+    - "The onUserCreate cloud function doesn't fire, test it locally."
+  not_selected:
+    - "Change the color of the sign-in button."
+    - "Explain the difference between Firestore and Realtime Database."

@@ -1,0 +1,23 @@
+# Adapted from azure-static-web-apps, https://github.com/github/awesome-copilot (skills/azure-static-web-apps),
+# MIT License: its local emulator run of the frontend and API together.
+id: azure/static-web-apps/swa-local
+description: Running an Azure Static Web App locally with the SWA CLI emulator, frontend, API, routes and auth together.
+relevant:
+  - The task changes routing, navigation fallback, headers or authentication of a Static Web App.
+  - The task changes the API functions of a Static Web App or how the frontend calls them.
+deliver: on-demand
+text: |
+  The SWA emulator serves the frontend, the API and `staticwebapp.config.json` together, as Azure would.
+
+  1. Read `swa-cli.config.json` for the app's settings (`appLocation`, `apiLocation`, `outputLocation`, `appDevserverUrl`, `run`); with one, `npx @azure/static-web-apps-cli start` (or `npx swa start <config name>`) uses them.
+  2. Without one: `npx @azure/static-web-apps-cli start <output dir or dev server URL> --api-location api` (`--run "npm run dev"` to start the dev server too). Run it in the background and wait for `http://localhost:4280`.
+  3. Check routes and fallbacks: `curl -si http://localhost:4280/<path>` and read the status, `Location` and headers that `routes` and `navigationFallback` produce.
+  4. Check roles: the emulator's mock login at `http://localhost:4280/.auth/login/github` (any provider) sets a user with the roles you enter; with `curl`, send the `x-ms-client-principal` header (base64 JSON with `userRoles`) to call a protected route, and `/.auth/me` shows the current user.
+  5. API calls go through `http://localhost:4280/api/<function>`, as in Azure. Stop the emulator at the end.
+examples:
+  selected:
+    - "Protect /admin so only the admin role can reach it, and check it works."
+    - "The /api/orders function returns 404 locally when called from the frontend, fix it."
+  not_selected:
+    - "Change the font of the landing page heading."
+    - "Write the GitHub Actions badge into the README."

@@ -1,0 +1,21 @@
+# Adapted from golang-grpc, https://github.com/samber/cc-skills-golang (skills/golang-grpc),
+# MIT License: its in-memory bufconn tests, with a grpcurl call against a running server.
+id: go/grpc/grpc-call
+description: Calling a Go gRPC service, in a bufconn test or with grpcurl, to see its real status codes and responses.
+relevant:
+  - The task changes what a gRPC method or interceptor does or returns.
+  - The task needs a gRPC service's behaviour checked by calling it.
+deliver: on-demand
+text: |
+  To see what a gRPC method really answers:
+
+  1. In a test, over the full stack without a network: `lis := bufconn.Listen(1 << 20)`, register the service on a `grpc.NewServer(<the production interceptors>)`, `go srv.Serve(lis)`, and dial it with `grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }), grpc.WithTransportCredentials(insecure.NewCredentials()))`. Assert on the response and on `status.Code(err)` for the error cases.
+  2. Against a running server: start it in the background, then `go run github.com/fullstorydev/grpcurl/cmd/grpcurl@latest -plaintext localhost:<port> list` (needs server reflection; else add `-proto <file>.proto -import-path <dir>`), `... describe <service>`, and `... -d '{"id":"1"}' -H 'authorization: Bearer <token>' localhost:<port> <package.Service/Method>`. grpcurl prints the response, or the status code and message.
+  3. Stop the server and `srv.Stop()` in tests.
+examples:
+  selected:
+    - "GetUser should return NOT_FOUND instead of INTERNAL when the user is missing."
+    - "Add an auth interceptor that rejects calls without a token and check it works."
+  not_selected:
+    - "Reorganize the .proto files into a versioned directory layout."
+    - "Update the README with the list of RPC methods."

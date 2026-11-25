@@ -1,0 +1,22 @@
+# Adapted from pulumi-arm-to-pulumi, https://github.com/pulumi/agent-skills (migration/skills/pulumi-arm-to-pulumi),
+# Apache License 2.0: its import-then-preview-until-no-changes loop.
+id: azure/bicep/pulumi-import
+description: Migrating deployed Azure resources from ARM or Bicep to Pulumi by importing them and previewing until Pulumi sees no change.
+relevant:
+  - The task migrates infrastructure from ARM templates or Bicep to Pulumi.
+deliver: on-demand
+text: |
+  A migration is done when Pulumi manages the existing resources and `pulumi preview` shows no change.
+
+  1. Inventory what is deployed, not only what the template says: `az resource list --resource-group <rg> -o table`, and `az resource show --ids <id>` for each resource's actual properties.
+  2. Write the Pulumi program with `azure-native` resources matching the template; `pulumi convert --from arm <template>.json` (after `az bicep build` for Bicep) gives a first draft to correct.
+  3. Import each existing resource into the stack: `pulumi import azure-native:<module>:<Type> <name> <Azure resource id>`, or all at once with `pulumi import --file import.json`. Keep the resource names the program uses.
+  4. `pulumi preview --diff` and read each resource's diff: every `~ update`, `+- replace`, `+ create` or `- delete` is a property the code does not match yet. Fix the code, not the cloud, and preview again until it reports no changes.
+  5. Nothing is deployed: never run `pulumi up` or delete the ARM deployment unless the person asks.
+examples:
+  selected:
+    - "Move our Bicep-managed resource group to Pulumi TypeScript without recreating anything."
+    - "Convert the ARM template in infra/ to Pulumi and import the existing resources."
+  not_selected:
+    - "Add a new Key Vault to main.bicep."
+    - "Explain the difference between Bicep and Terraform."

@@ -1,0 +1,7 @@
+id: go/gqlgen
+description: GraphQL servers generated with gqlgen.
+level: project
+detect:
+  files_any: ["**/gqlgen.yml", "**/gqlgen.yaml"]
+  content_any:
+    - {files: ["**/go.mod"], pattern: "github\\.com/99designs/gqlgen\\s"}

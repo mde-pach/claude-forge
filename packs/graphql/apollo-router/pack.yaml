@@ -1,0 +1,7 @@
+id: graphql/apollo-router
+description: Apollo Router (GraphOS Router) configuration for federated GraphQL.
+level: project
+detect:
+  content_any:
+    - {files: ["**/router.yaml", "**/router.yml"], pattern: "^(supergraph|cors|headers|authentication|authorization|telemetry|include_subgraph_errors|traffic_shaping|coprocessor|rhai|plugins|health_check|sandbox|homepage|apq|limits|override_subgraph_url):"}
+    - {files: ["**/Dockerfile", "**/compose*.yaml", "**/compose*.yml", "**/docker-compose*.yaml", "**/docker-compose*.yml", "**/*.yaml", "**/*.yml"], pattern: "ghcr\\.io/apollographql/router"}

@@ -1,0 +1,22 @@
+# Adapted from godot-render-performance, https://github.com/laurentvv/godot-skill-quality (skills/godot-render-performance),
+# MIT License: switching rendering features one at a time and reading the measured frame time of each.
+id: godot/render-bench
+description: Finding which rendering feature costs a Godot scene its frame time, by switching features one at a time and measuring.
+relevant:
+  - The task is to improve a game's frame rate or rendering performance.
+deliver: on-demand
+text: |
+  Find the expensive feature by measuring, not by guessing:
+
+  1. Write a bench script that loads the full scene at a fixed camera view, waits for it to settle (a hundred frames: SDFGI, TAA and shader compilation take time), then for each feature turns only it off (shadows, SDFGI, SSAO, SSR, glow, volumetric fog, MSAA, a heavy node's visibility) and averages a few hundred frames of measured render time: `RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)`, then `RenderingServer.viewport_get_measured_render_time_cpu(rid)` and `..._gpu(rid)` each frame. Print one line per feature with its milliseconds, then `quit()`.
+  2. Run it with the real renderer, not `--headless`, at the target resolution: `godot --path . --resolution 1920x1080 --script res://tools/bench.gd` (or as a scene: `godot --path . res://tools/bench.tscn`). Repeat the run to see the noise.
+  3. The feature whose removal saves the most is the one to tune: lower its sub-settings (shadow map size and distance, SDFGI cascades, MSAA samples) before removing it, and measure again.
+  4. Compare GPU and CPU time: when CPU time dominates, the cost is scripts, physics or draw calls, not shading.
+  5. Delete the bench script unless the project keeps it.
+examples:
+  selected:
+    - "The forest level runs at 25 fps on my laptop, find what's slow."
+    - "Get the game to hold 60 fps on the Steam Deck."
+  not_selected:
+    - "Add a graphics quality option to the settings menu."
+    - "Fix the player falling through the floor."

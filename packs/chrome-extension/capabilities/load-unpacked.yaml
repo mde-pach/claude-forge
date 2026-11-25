@@ -1,0 +1,24 @@
+# Adapted from chrome-extension and crxjs, https://github.com/samber/cc-skills (skills/chrome-extension, skills/crxjs),
+# MIT License: loading the built extension in Chromium to exercise it, service-worker termination included.
+id: chrome-extension/load-unpacked
+description: Loading the built extension into Chromium with Playwright to exercise its popup, content scripts and service worker.
+relevant:
+  - The task changes what a browser extension's popup, options page, content script or service worker does.
+  - The task is to reproduce or check a browser extension's behaviour in the browser.
+deliver: on-demand
+text: |
+  To see what the extension really does, load it into a browser and drive it.
+
+  1. Build it: the project's `build` script (CRXJS and WXT write `dist/` or `.output/chrome-mv3/`); for HMR while iterating, the `dev` script also writes a loadable directory. Use the directory holding the built `manifest.json`.
+  2. Launch Chromium with it, in a short Playwright script: `const ctx = await chromium.launchPersistentContext('', { channel: 'chromium', args: ['--disable-extensions-except=' + dir, '--load-extension=' + dir] })` (`channel: 'chromium'` runs headless with extensions; install it once with `npx playwright install chromium`).
+  3. Find the extension: `const sw = ctx.serviceWorkers()[0] ?? await ctx.waitForEvent('serviceworker')`; its id is `new URL(sw.url()).host`. Read its console with `sw.on('console', m => console.log(m.text()))` and evaluate in it with `sw.evaluate(...)`.
+  4. Popup and options: `page.goto('chrome-extension://' + id + '/<popup path from the manifest>')`. Content scripts: open a page their `matches` cover and check the DOM they change, with `page.on('console', ...)` for their logs.
+  5. Termination: the service worker is stopped after 30 s idle; force it with `const cdp = await ctx.newCDPSession(page); await cdp.send('ServiceWorker.enable'); await cdp.send('ServiceWorker.stopAllWorkers')`, then trigger an event and check the state survived (it must come from `chrome.storage`).
+  6. Close the context and stop any dev server you started.
+examples:
+  selected:
+    - "The popup's toggle doesn't persist after the browser is idle for a while, fix it."
+    - "Make the content script highlight prices on product pages and check it works."
+  not_selected:
+    - "Write the Chrome Web Store listing description."
+    - "Bump the version number in manifest.json for the release."

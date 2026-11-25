@@ -1,0 +1,22 @@
+# Adapted from dotnet-upgrade, https://github.com/github/awesome-copilot (skills/dotnet-upgrade), MIT License:
+# its classify, order-by-dependency, upgrade-and-verify sequence, with the SDK's own commands.
+id: dotnet/framework-upgrade
+description: Upgrading a .NET solution's target framework project by project, in dependency order, reading each build's errors and package reports.
+relevant:
+  - The task upgrades the target framework or .NET version of a solution or project.
+deliver: on-demand
+text: |
+  Upgrade from the leaves of the project graph up, and let each build say what breaks.
+
+  1. Inventory: each project's `TargetFramework(s)` (`grep -rn "<TargetFramework" --include=*.csproj .`), its SDK style, and `packages.config` projects (to move to `PackageReference` first). `global.json` pins the SDK.
+  2. Order: `dotnet list <project> reference` for each project; upgrade the projects nothing else depends on last, the libraries first.
+  3. Per project: change the target framework, then `dotnet restore` and `dotnet build -warnaserror-` and read the errors and the new warnings: `NU1xxx` (a package without a compatible version), `CS0618`/`SYSLIB` (obsolete APIs, with the replacement in the message).
+  4. Packages: `dotnet list package --outdated` and `dotnet list package --vulnerable --include-transitive`; raise only the packages the build or the report asks for.
+  5. `dotnet test` after each project, then the next one. Update the SDK in `global.json`, Dockerfiles and CI (`actions/setup-dotnet`, `UseDotNet@2`) at the end.
+examples:
+  selected:
+    - "Upgrade the solution from net6.0 to net8.0."
+    - "Move our class libraries to .NET 9 and fix whatever breaks."
+  not_selected:
+    - "Add Serilog logging to the API project."
+    - "Bump Newtonsoft.Json to the latest patch version."

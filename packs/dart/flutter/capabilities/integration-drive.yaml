@@ -1,0 +1,24 @@
+# Adapted from flutter-add-integration-test, https://github.com/flutter/skills (skills/flutter-add-integration-test),
+# BSD 3-Clause License, Copyright 2026 The Flutter Authors: its inspect-the-tree-then-drive loop, with
+# flutter test instead of the Dart MCP server's tools.
+id: dart/flutter/integration-drive
+description: Driving a Flutter app through its widget tree in an integration test to reproduce a UI behaviour.
+relevant:
+  - The task changes how a Flutter screen behaves when a person taps, types or scrolls.
+  - The task is to write an integration test or reproduce a bug in a Flutter app's user interface.
+deliver: on-demand
+text: |
+  To see what the app really does, drive it from a test instead of reading the widgets' code.
+
+  1. Once: `flutter pub add 'dev:integration_test:{"sdk":"flutter"}'`, and a test in `integration_test/` with `IntegrationTestWidgetsFlutterBinding.ensureInitialized()`.
+  2. Look before acting: pump the app (`await tester.pumpWidget(const MyApp()); await tester.pumpAndSettle();`), then `debugDumpApp()` prints the widget tree with its `Key`s, texts and types. Take the finders from it: `find.byKey(const Key('email'))`, `find.text('Sign in')`, `find.byType(ListView)`.
+  3. Act and assert: `await tester.enterText(finder, 'a@b.c')`, `await tester.tap(finder)`, `await tester.scrollUntilVisible(finder, 300)`, then `await tester.pumpAndSettle()` and `expect(find.text('Welcome'), findsOneWidget)`.
+  4. Run it on a device: `flutter devices`, then `flutter test integration_test/app_test.dart -d <device>` (a desktop target such as `macos` or `linux` needs no emulator); for the web, `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_test.dart -d chrome`.
+  5. Stop any emulator or app you started.
+examples:
+  selected:
+    - "Tapping Save on the profile screen doesn't show the confirmation snackbar, reproduce and fix it."
+    - "Write an integration test for the onboarding flow."
+  not_selected:
+    - "Bump the http package to the latest version."
+    - "Change the app's launcher icon."

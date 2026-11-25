@@ -1,0 +1,23 @@
+# Adapted from firebase-firestore, https://github.com/firebase/agent-skills (skills/firebase-firestore),
+# Apache License 2.0: listing the project's databases and reading each one's edition
+# before writing for it.
+id: firebase/firestore/database-inspect
+description: Listing a Firebase project's Firestore databases and reading each one's edition, mode and location.
+relevant:
+  - The task adds or changes Firestore data models, queries, indexes or database setup.
+deliver: on-demand
+text: |
+  What a query or index may use depends on the database it runs on. Read it first:
+
+  1. `npx -y firebase-tools@latest firestore:databases:list` lists the project's databases (`(default)` and any named ones); `firebase use` says which project.
+  2. `npx -y firebase-tools@latest firestore:databases:get <database-id>` shows its `type` (Native or Datastore mode), `edition` (Standard or Enterprise), `locationId` and settings such as point-in-time recovery and delete protection.
+  3. Match the code to it: the SDK must target that database (`getFirestore(app, '<database-id>')` for a named one), and Enterprise databases support query features and indexing that Standard ones do not; check the edition before relying on one.
+  4. Existing indexes: `npx -y firebase-tools@latest firestore:indexes --database <id>`, against `firestore.indexes.json`.
+  5. Creating or deleting a database is the person's decision; ask them, with the location (`firestore:locations`).
+examples:
+  selected:
+    - "Add a Firestore query listing a user's orders by date, with the index it needs."
+    - "Model chat messages in Firestore for the new messaging feature."
+  not_selected:
+    - "Fix the typo in the orders page title."
+    - "Write security rules tests for the posts collection."

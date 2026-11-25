@@ -1,0 +1,21 @@
+# Adapted from dart-collect-coverage, https://github.com/dart-lang/skills (skills/dart-collect-coverage),
+# BSD 3-Clause License, Copyright 2012 the Dart project authors: its coverage run and lcov reading.
+id: dart/coverage-gaps
+description: Finding the Dart or Flutter code no test executes, from an lcov coverage report.
+relevant:
+  - The task is to add tests for existing code or find what the tests leave untested.
+deliver: on-demand
+text: |
+  To see which lines no test runs:
+
+  1. Flutter: `flutter test --coverage` writes `coverage/lcov.info`. Plain Dart: add the tool once (`dart pub add dev:coverage`), then `dart run coverage:test_with_coverage` (in a workspace, name the test directories after `--`).
+  2. Read `coverage/lcov.info`: each file starts with `SF:<path>`, each `DA:<line>,<hits>` with `hits` 0 is a line no test ran, and `LH`/`LF` give the lines hit and found. List the zero lines of the files you changed, e.g. `awk -F'[:,]' '/^SF:/{f=$2} /^DA:/ && $3==0 {print f":"$2}' coverage/lcov.info | grep lib/<file>`.
+  3. Write tests for the uncovered branches that matter, run step 1 again and compare.
+  4. Delete `coverage/` unless the project keeps it.
+examples:
+  selected:
+    - "Add tests for the cart repository, cover its error handling."
+    - "What parts of lib/src/parser.dart do our tests not reach?"
+  not_selected:
+    - "Rename the CartItem class to LineItem."
+    - "The README's coverage badge is broken, fix its link."

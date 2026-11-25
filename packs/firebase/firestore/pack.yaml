@@ -1,0 +1,9 @@
+id: firebase/firestore
+description: Cloud Firestore databases, their security rules and indexes.
+level: project
+detect:
+  files_any: ["**/firestore.rules", "**/firestore.indexes.json"]
+  content_any:
+    - {files: ["**/firebase.json"], pattern: "^\\s*\"firestore\"\\s*:"}
+    - {files: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs"], pattern: "from\\s+[\"'](firebase/firestore|firebase-admin/firestore|@google-cloud/firestore)[\"']"}
+    - {files: ["**/*.py"], pattern: "^\\s*from\\s+firebase_admin\\s+import\\s+.*\\bfirestore\\b"}
