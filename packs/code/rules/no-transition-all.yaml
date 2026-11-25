@@ -1,0 +1,16 @@
+id: code/no-transition-all
+description: "Transitions name the properties they animate (transition: transform 200ms, opacity 200ms; Tailwind transition-transform, transition-opacity), not all: all animates every property that changes, layout ones included, off the GPU."
+scope: {language: any, files: ["**/*.{css,scss,sass,less,ts,tsx,js,jsx,vue,svelte,astro,html}"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "transition(-property)?[\"']?[[:space:]]*:[[:space:]]*[\"'`]?all([^A-Za-z0-9_-]|$)|(^|[^A-Za-z0-9_-])transition-all([^A-Za-z0-9_-]|$)"
+examples:
+  match:
+    - ".card {\n  transition: all 300ms ease;\n}\n"
+    - "export const Card = () => <div className=\"rounded transition-all duration-300\" />;\n"
+    - "export const style = { transition: \"all 0.3s\" };\n"
+  no_match:
+    - ".card {\n  transition: transform 200ms ease-out, opacity 200ms ease-out;\n}\n"
+    - "export const Card = () => <div className=\"rounded transition-transform duration-200\" />;\n"
+    - ".card {\n  transition: allow 1s;\n}\n"

@@ -1,0 +1,14 @@
+id: code/no-debug-tags-left
+description: "Temporary debug instrumentation tagged [DEBUG-…] is removed before the work is done: grep for the tag and delete every tagged line."
+scope: {language: any, files: ["**/*.{py,pyi,ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,go,rs,rb,java,kt,swift,php,cs,c,h,cc,cpp,hpp,sh,ex,exs,scala,dart,lua}"]}
+enforce:
+  - target: grep
+    mode: forbid
+    pattern: "\\[DEBUG-[A-Za-z0-9_-]+\\]"
+examples:
+  match:
+    - "console.log(\"[DEBUG-a4f2] cart total\", total);\n"
+    - "logger.info(\"[DEBUG-7c1e] retry=%s\", retry)\n"
+  no_match:
+    - "logger.debug(\"cart total %s\", total)\n"
+    - "const level = \"[DEBUG]\";\n"

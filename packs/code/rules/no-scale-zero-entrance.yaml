@@ -1,0 +1,15 @@
+id: code/no-scale-zero-entrance
+description: "Animations do not start from scale(0): nothing in the real world appears from nothing. Start from scale(0.9) to scale(0.97) with opacity 0, and scale popovers from their trigger with transform-origin."
+scope: {language: any, files: ["**/*.{css,scss,sass,less,ts,tsx,js,jsx,vue,svelte,astro,html}"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "scale\\([[:space:]]*0[[:space:]]*\\)|scale[\"']?[[:space:]]*:[[:space:]]*0([^.0-9]|$)"
+examples:
+  match:
+    - "@keyframes pop {\n  from {\n    transform: scale(0);\n  }\n}\n"
+    - "export const Pop = () => <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} />;\n"
+  no_match:
+    - "@keyframes pop {\n  from {\n    transform: scale(0.95);\n    opacity: 0;\n  }\n}\n"
+    - "export const Pop = () => <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} />;\n"
+    - ".icon {\n  transform: scale(1.05);\n}\n"

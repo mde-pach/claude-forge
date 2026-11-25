@@ -1,0 +1,16 @@
+id: code/no-ease-in-ui
+description: "UI transitions do not use ease-in: it starts slowly, so the element lags at the moment the user watches it. Use ease-out or a custom cubic-bezier for elements entering, leaving or responding to input."
+scope: {language: any, files: ["**/*.{css,scss,sass,less,ts,tsx,js,jsx,vue,svelte,astro,html}"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "(^|[^A-Za-z0-9_-])ease-in([^A-Za-z0-9_-]|$)|[\"']easeIn[\"']"
+examples:
+  match:
+    - ".menu {\n  transition: opacity 200ms ease-in;\n}\n"
+    - "export const Menu = () => <div className=\"transition-opacity duration-200 ease-in\" />;\n"
+    - "export const fade = { transition: { duration: 0.2, ease: \"easeIn\" } };\n"
+  no_match:
+    - ".menu {\n  transition: opacity 200ms ease-out;\n}\n"
+    - ".menu {\n  transition: transform 300ms ease-in-out;\n}\n"
+    - "export const fade = { transition: { duration: 0.2, ease: \"easeInOut\" } };\n"
