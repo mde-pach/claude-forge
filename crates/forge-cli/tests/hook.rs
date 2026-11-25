@@ -761,9 +761,14 @@ fn capabilities_through_the_real_client() {
     );
     assert!(out.status.success());
     let v: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(
-        v["hookSpecificOutput"]["additionalContext"],
-        "Check pages in the browser."
+    // the fixture's capability, then the built-in `code` pack's, in pack-id order
+    let context = v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        context
+            .starts_with("Check pages in the browser.\n\nA fix you cannot reproduce is a guess."),
+        "{context}"
     );
     let req = requests.recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(req.starts_with("POST /v1/systemone "), "{req}");

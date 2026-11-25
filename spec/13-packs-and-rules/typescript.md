@@ -998,6 +998,10 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/playwright/no-wait-for-timeout` | No fixed waits (waitForTimeout). Wait for a condition with a web-first assertion or waitForURL. | typescript: `@e2e-tests`, `**/*.spec.*` | ast-grep forbid |
 | `typescript/playwright/run` | End-to-end tests pass. | any | check test: `forge_do playwright test` (when `@e2e-tests` or `playwright.config.*` changes) |
 
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/playwright/browser-check` | Checking what a web page shows and does by driving it in a headless browser with the project's Playwright. | on-demand | The task changes what a web page shows or how a person interacts with it.<br>The task needs a web page's behaviour checked in a browser. | wherever its pack is |
+
 ### typescript/pnpm
 
 pnpm is the package manager.
@@ -1598,3 +1602,7 @@ Context (in `.claude/rules/forge-*.md`, §7):
 | `typescript/zod/no-coerce-boolean` | No z.coerce.boolean(): it applies Boolean(), so every non-empty string, "false" and "0" included, parses as true (an env var or a query flag set to false turns the feature on). Parse string flags with z.stringbool() (Zod 4), or with z.enum(["true", "false"]).transform((v) => v === "true") on Zod 3. | typescript | ast-grep forbid (where `$CALL`: types engine, §15) |
 | `typescript/zod/no-loose-request-schema` | A Zod schema that parses request input (a JSON or form body, search params) keeps unknown keys (.passthrough(), z.looseObject() or .catchall(…)): the parsed object then carries any field the client adds, and spreading it into a database write lets the client set role, ownerId or price (mass assignment). Use z.object() (it strips unknown keys) or z.strictObject() / .strict() to reject them. | typescript: `**/*`, `!@ts-tests`, `!@e2e-tests` | ast-grep advise (where `$CALL`, `$R`, `$FD`: types engine, §15)<br>advice, never blocks |
 | `typescript/zod/v4-string-formats` | Zod 4 string formats are top-level (z.email(), z.uuid(), z.iso.datetime()), not z.string().email(). | typescript | ast-grep forbid (where `$S`: types engine, §15) |
+
+| Capability (§20) | Description | Delivered | Relevant when | Active when |
+|---|---|---|---|---|
+| `typescript/zod/zod-4` | Zod 4's API beyond the basics, what changed since Zod 3 and the schema types it added. | on-demand | The task writes or changes Zod schemas, or validates data with Zod.<br>The task upgrades Zod from version 3 to version 4. | `zod >=4.0.0` (npm) declared |

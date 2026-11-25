@@ -1,0 +1,27 @@
+# The text is repro-first's rules, https://github.com/sjh9714/skill-receipts (skills/repro-first),
+# MIT License, Copyright (c) 2026 sjh9714; measured there with and without it and against
+# a same-length placebo text.
+id: code/reproduce-first
+description: Fixing a reported bug by reproducing it with a failing test first, then fixing its cause.
+relevant:
+  - The task is to fix a reported bug, an error or a crash.
+  - The task reports code that gives a wrong result or behaves differently from what is expected.
+deliver: inject
+text: |
+  A fix you cannot reproduce is a guess. When fixing a reported bug, prove you found the real cause, before and after the change:
+
+  1. Reproduce first. Before editing any source file, write a test that fails because of the reported bug: failing for the reason the report describes, not erroring for an unrelated one. Run it and watch it fail.
+  2. Locate the cause, not the symptom. Trace the failing value to where it is computed wrong. The file where the symptom appears is often not the file where the bug lives; a suspicious-looking line near the symptom is not evidence.
+  3. State the mechanism. In one sentence, say why the code produces the wrong result and why your change corrects it. Until you can, the bug is not found.
+  4. Fix minimally, at the cause. Change only what the mechanism requires: no refactoring, renaming, reformatting or "improving" anything else while fixing, and never deleting or bypassing the feature to make the symptom disappear.
+  5. Keep the repro test. It stays in the suite as the regression guard; after the fix it passes, along with every pre-existing test.
+  6. Touch nothing unrelated. A file that is not part of the cause or the repro test stays exactly as it was.
+examples:
+  selected:
+    - "The cart total is wrong when the same discount code is applied twice. Fix it."
+    - "Uploading an empty file returns a 500 error instead of a validation message; please fix."
+    - "test_parse_dates fails on CI since yesterday with a KeyError, can you look?"
+  not_selected:
+    - "Add a CSV export to the orders page."
+    - "Rename the utils module to helpers across the project."
+    - "Write a README section explaining how to run the project locally."

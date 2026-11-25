@@ -1832,6 +1832,15 @@ impl Sandbox {
         for (name, text) in caps {
             std::fs::write(dir.join(format!("capabilities/{name}.yaml")), text).unwrap();
         }
+        // the built-in capabilities are disabled: these tests are about the fixture ones
+        let config = self.root.join("forge.yaml");
+        let text = std::fs::read_to_string(&config).unwrap_or_else(|_| "forge: \"0.6\"\n".into());
+        let off = "  - id: code/reproduce-first\n    reason: the tests' own capabilities only\n";
+        let text = match text.find("disable:\n") {
+            Some(i) => format!("{}{off}{}", &text[..i + 9], &text[i + 9..]),
+            None => format!("{text}disable:\n{off}"),
+        };
+        std::fs::write(&config, text).unwrap();
         sh(&self.root, "git add -A && git commit -qm caps");
     }
 
@@ -1941,10 +1950,21 @@ fn no_request_without_candidates() {
     let out = s.prompt_with(&off, s.env(), "s3", "a page", None);
     assert_eq!(out, Output::silent());
     assert!(off.requests().is_empty());
-    // a repository without capabilities asks nothing
+    // a repository with no capability of its own is asked about the built-in ones that apply
+    // (here only the `code` pack's)
     let bare = Sandbox::new(&[]);
-    bare.prompt_with(&off, bare.caps_env(), "s1", "a page", None);
-    assert!(off.requests().is_empty());
+    let builtin = forge_capabilities::Scripted::answering(&[]);
+    bare.prompt_with(
+        &builtin,
+        bare.caps_env(),
+        "s1",
+        "Fix the crash on empty input",
+        None,
+    );
+    assert_eq!(
+        builtin.requests(),
+        [["code/reproduce-first#0", "code/reproduce-first#1"]]
+    );
 }
 
 // The engine's failures never reach the agent and never hold the prompt: nothing is selected.

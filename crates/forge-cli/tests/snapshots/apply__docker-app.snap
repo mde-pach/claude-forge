@@ -53,6 +53,7 @@ Keystores, private keys and auth files (`*.p12`, `*.pfx`, `*.jks`, `*.key`, `id_
       "Write(**/setup.cfg)"
     ],
     "allow": [
+      "Bash(claude-forge use *)",
       "mcp__serena"
     ]
   },
@@ -395,6 +396,9 @@ rule_set = "d8b57b96255566b0b6995e3607ae81dd6bd3a6547bd696f410a87af413091e3d"
 "supply-chain/no-tls-disable-command" = "d3ca763d26bdfd1a436c249e76fb0606a1fc2f644aaa39f110d362bd44fa6972"
 "supply-chain/vuln-audit" = "3400baa659e7a6d94b236ef8e299a13e1938189f31dc62f95e0c1a9012bf1a59"
 
+[capabilities]
+"code/reproduce-first" = "48d61a6c92a583771a978669bf16b81c262954c9354c5cf4540db528b3703202"
+
 [files]
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
 ".claude/rules/forge-docker-compose.md" = "fdfc306630228c3d36cb5a7470c73833a78314afa80a8a88b30702116c42cbb6"
@@ -581,6 +585,11 @@ json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh
 file = ".claude/settings.json"
 path = "hooks.SubagentStop"
 json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.allow"
+value = "Bash(claude-forge use *)"
 
 [[settings]]
 file = ".mcp.json"

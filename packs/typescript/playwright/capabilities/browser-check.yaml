@@ -1,0 +1,27 @@
+# Adapted from webapp-testing, https://github.com/anthropics/skills (skills/webapp-testing),
+# Apache License 2.0, Copyright 2026 Anthropic, PBC: its reconnaissance-then-action method, for the project's own Playwright
+# (the original ships helper scripts this does not).
+id: typescript/playwright/browser-check
+description: Checking what a web page shows and does by driving it in a headless browser with the project's Playwright.
+relevant:
+  - The task changes what a web page shows or how a person interacts with it.
+  - The task needs a web page's behaviour checked in a browser.
+deliver: on-demand
+text: |
+  To see what a page really does, drive it with the project's Playwright instead of reading its code.
+
+  1. Start the app's development server in the background with the project's own script (the `dev` or `start` script of `package.json`), and wait until its port answers.
+  2. Write a short script or test that opens the page. On an app that loads data after rendering, wait for it to settle (`await page.waitForLoadState('networkidle')`) before the first look.
+  3. Look before acting: take a screenshot (`await page.screenshot({ path: 'page.png', fullPage: true })`), read the rendered HTML (`await page.content()`) or list the elements by role (`await page.getByRole('button').all()`).
+  4. Take the selectors from what the page rendered, then act and assert with them: `getByRole`, `getByLabel`, `getByText`, and web-first assertions (`await expect(locator).toBeVisible()`).
+  5. When the page misbehaves, read the browser's side: `page.on('console', (m) => console.log(m.type(), m.text()))` and `page.on('requestfailed', (r) => console.log(r.url()))`.
+  6. Run headless, close the browser at the end, and stop the server you started.
+
+  A static HTML file can be opened directly (`page.goto('file://' + path)`), with no server.
+examples:
+  selected:
+    - "The login button does nothing when I click it, check it in the browser."
+    - "Make sure the new checkout page shows the order summary on mobile widths."
+  not_selected:
+    - "Add a database index on orders.created_at."
+    - "Bump the TypeScript version to 5.9."

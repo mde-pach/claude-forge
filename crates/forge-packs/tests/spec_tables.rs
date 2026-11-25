@@ -414,6 +414,34 @@ fn render_pack(out: &mut String, set: &PackSet, p: &Pack) {
         }
         out.push('\n');
     }
+    if !p.capabilities.is_empty() {
+        let _ = writeln!(
+            out,
+            "| Capability (§20) | Description | Delivered | Relevant when | Active when |"
+        );
+        let _ = writeln!(out, "|---|---|---|---|---|");
+        for c in &p.capabilities {
+            let relevant: Vec<String> = c
+                .relevant
+                .iter()
+                .map(|r| r.trim().replace('|', "\\|"))
+                .collect();
+            let when = c
+                .when
+                .as_ref()
+                .map_or_else(|| "wherever its pack is".to_string(), when_text);
+            let _ = writeln!(
+                out,
+                "| {} | {} | {} | {} | {} |",
+                code(&c.id),
+                c.description.trim().replace('|', "\\|"),
+                c.deliver,
+                relevant.join("<br>"),
+                when.replace('|', "\\|")
+            );
+        }
+        out.push('\n');
+    }
     let mut children: Vec<&Pack> = p.children.iter().filter_map(|c| set.packs.get(c)).collect();
     children.sort_by(|a, b| a.id.cmp(&b.id));
     for c in children {

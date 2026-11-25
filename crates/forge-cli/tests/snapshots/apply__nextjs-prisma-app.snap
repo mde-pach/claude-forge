@@ -88,6 +88,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
       "Edit(**/vitest.config.*)"
     ],
     "allow": [
+      "Bash(claude-forge use *)",
       "mcp__serena"
     ]
   },
@@ -496,6 +497,11 @@ rule_set = "f238650ed2709d318e50dc47406ac12db78a527ea581395920e8f9b68979a445"
 "typescript/zod/no-loose-request-schema" = "32339c8ebc9bcc24bf0e927aee3552e7b133a004cb0d97573c4810ce4b96b220"
 "typescript/zod/v4-string-formats" = "7e7373a687ac781f4dc75661e0f5bd51b89998d46d4e836055620fc965723f57"
 
+[capabilities]
+"code/reproduce-first" = "48d61a6c92a583771a978669bf16b81c262954c9354c5cf4540db528b3703202"
+"typescript/playwright/browser-check" = "401349dc9f3a8fb7da739d97ec1fdfe48f3cddf1ae6b7b6a46d4374cdc011604"
+"typescript/zod/zod-4" = "0df517464db66a3c54c1b2093d8a5e11f0dab4dbfea3d5a204c0887d6458f545"
+
 [files]
 ".claude/rules/forge-code.md" = "811c6c64164031ad945f1ddfdf01c3344224206bb409a73401e1f8295aec861a"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
@@ -725,6 +731,11 @@ json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh
 file = ".claude/settings.json"
 path = "hooks.SubagentStop"
 json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.allow"
+value = "Bash(claude-forge use *)"
 
 [[settings]]
 file = ".mcp.json"

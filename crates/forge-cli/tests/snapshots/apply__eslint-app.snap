@@ -47,6 +47,7 @@ Type-only imports and re-exports use `import type` / `export type`. `JSON.parse`
       "Edit(**/turbo.json)"
     ],
     "allow": [
+      "Bash(claude-forge use *)",
       "mcp__serena"
     ]
   },
@@ -342,6 +343,9 @@ rule_set = "5456bdc5475d2d425ff108b023a39fe8fa4a61e14c40677b1b17ffce26196de3"
 "typescript/unchecked-index" = "c8a32a9a463d933695100cbee6ec896fc7bb41bad7d252871fd371ae78801755"
 "typescript/verbatim-imports" = "b0731ddbedb5576baf1a87916537e5e5dff375c563addc184d4bd0c91d3c4bc8"
 
+[capabilities]
+"code/reproduce-first" = "48d61a6c92a583771a978669bf16b81c262954c9354c5cf4540db528b3703202"
+
 [files]
 ".claude/rules/forge-code.md" = "b1ddea99271ac2b8f0419f0d0c89232573c9ee29093ae41f8d33abbb06104c9f"
 ".claude/rules/forge-secrets.md" = "ed4ada1a3c08ba09dc61b53f67b4b7dd06d880ecf82409d553bedf685c1bc44a"
@@ -552,6 +556,11 @@ json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh
 file = ".claude/settings.json"
 path = "hooks.SubagentStop"
 json = """{"matcher":"quality-reviewer","hooks":[{"type":"command","command":"sh -c 'command -v claude-forge >/dev/null 2>&1 || exit 0; exec claude-forge hook agents'","timeout":30}]}"""
+
+[[settings]]
+file = ".claude/settings.json"
+path = "permissions.allow"
+value = "Bash(claude-forge use *)"
 
 [[settings]]
 file = ".mcp.json"

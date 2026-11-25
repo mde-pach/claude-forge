@@ -1,0 +1,26 @@
+# Adapted from db-schema-mgmt, https://github.com/rotemtam-tessl/hello-harbor (skills/db-schema-mgmt),
+# Apache License 2.0: rewritten for any Atlas project (the original is one Go/GORM repository's).
+id: sql/atlas-migrations
+description: Changing a database schema managed by Atlas, through generated versioned migrations.
+relevant:
+  - The task changes the database schema, such as a table, a column, an index or a constraint.
+  - The task adds or changes a database migration.
+when: {files: ["atlas.hcl", "**/atlas.hcl"]}
+deliver: inject
+text: |
+  This project manages its database schema with Atlas; `atlas.hcl` names its environments (`env "<name>"`) and where the desired schema comes from.
+
+  1. Change the schema at its source: the schema files or the ORM models the environment reads. The database itself is never edited by hand.
+  2. Generate the migration: `atlas migrate diff --env <env> <name>`, with an environment of `atlas.hcl` and a name saying what changes (`add_orders_paid`).
+  3. Read the generated SQL in the migrations directory before going on: it is what will run.
+  4. Validate the directory: `atlas migrate validate --env <env>`.
+  5. Run the project's tests.
+
+  A migration that was already applied is never changed: a change is a new migration. After editing a migration that was not applied yet, `atlas migrate hash --env <env>` rewrites `atlas.sum`, which only Atlas writes.
+examples:
+  selected:
+    - "Add a paid_at timestamp column to the orders table."
+    - "We need an index on users.email, queries are slow."
+  not_selected:
+    - "Fix the typo in the signup page title."
+    - "Speed up the CSV export by streaming rows."
