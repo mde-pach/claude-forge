@@ -1,0 +1,6 @@
+id: kubernetes/argocd
+description: Argo CD GitOps repositories (Applications, ApplicationSets, AppProjects) and Argo Rollouts.
+level: project
+detect:
+  content_any:
+    - {files: ["**/*.yaml", "**/*.yml"], pattern: "^kind:[ \\t]*[\"']?(Application|ApplicationSet|AppProject|Rollout)[\"']?[ \\t]*(#.*)?$"}

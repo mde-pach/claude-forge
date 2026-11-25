@@ -1,0 +1,6 @@
+id: kubernetes/istio
+description: Istio service mesh configuration (traffic routing, security and telemetry resources).
+level: project
+detect:
+  content_any:
+    - {files: ["**/*.yaml", "**/*.yml"], pattern: "^apiVersion:[ \\t]*[\"']?(networking|security|telemetry|extensions)\\.istio\\.io/"}
