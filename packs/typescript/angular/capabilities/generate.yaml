@@ -1,0 +1,18 @@
+# Procedure after the Angular CLI's documentation, https://angular.dev/cli/generate, written here from scratch.
+id: typescript/angular/generate
+description: Creating Angular components, services and other building blocks with the Angular CLI's generators.
+relevant:
+  - The task adds an Angular component, service, directive, pipe, guard or other building block.
+deliver: on-demand
+text: |
+  1. Generate it with the project's CLI: `npx ng generate component <path/name>` (also `service`, `directive`, `pipe`, `guard`, `interceptor`, `resolver`, `interface`). Add `--project <name>` in a workspace with several projects, and `--dry-run` first to see the files it would write.
+  2. The workspace's `angular.json` (`schematics`) sets the defaults (standalone, style language, prefix); keep them unless the task says otherwise.
+  3. Read the generated files, then write the logic in them; the generated `.spec.ts` is the place for its test.
+  4. Build or test once (`npx ng build`, `npx ng test --watch=false`) to see the new piece compiles where it is used.
+examples:
+  selected:
+    - "Add a user-profile component that shows the user's avatar and name."
+    - "Create a service that fetches the orders from the API."
+  not_selected:
+    - "Fix the change detection bug in the existing user-profile component."
+    - "Upgrade the project to the next Angular major version."

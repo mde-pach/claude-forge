@@ -1,0 +1,22 @@
+# Adapted from next-bundle-optimizer, https://github.com/vercel/next.js (skills/next-bundle-optimizer),
+# MIT License, Copyright (c) 2025 Vercel, Inc.
+id: typescript/nextjs/bundle-analyze
+description: Measuring what JavaScript each Next.js route sends to the browser with next analyze, before and after a change.
+relevant:
+  - The task is to reduce the JavaScript a Next.js app sends to the browser or its bundle size.
+  - The task is to find which modules or dependencies make a Next.js route's client bundle large.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: next, version: ">=16.4.0"}]}
+text: |
+  1. Capture a baseline from the app directory: `npx next analyze --output --snapshot before` (it builds and saves the analysis without serving it; `next analyze --help` lists the options). Add `--route <route>` only to look at one route.
+  2. Export it: `set -o pipefail; npx next analyze export --snapshot before | gzip > /tmp/analyze-before.jsonl.gz`. One JSON record per line.
+  3. The record types are described by the installed schema: `node -p "require.resolve('next/analyze/graph-v1.schema.json')"`. Stream the export (`gzip -dc …`) into a small script that sums client output per route and per module, rather than reading it whole.
+  4. Rank the largest client modules, find who imports them (the schema's edges), and pick one change: a lazy `import()` for what waits for interaction, a lighter dependency, moving work to the server.
+  5. Capture and export `after` the same way and compare the same measure for the same routes, and check the page still behaves the same; report both measures.
+examples:
+  selected:
+    - "Our Next.js dashboard ships 900 KB of JavaScript, cut it down."
+    - "Find out which dependency makes the /editor route's client bundle so big."
+  not_selected:
+    - "Add a chart to the dashboard page."
+    - "The dashboard API route is slow, speed up its database query."

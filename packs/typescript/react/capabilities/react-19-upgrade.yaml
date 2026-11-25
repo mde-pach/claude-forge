@@ -1,0 +1,21 @@
+# Adapted from react, https://github.com/TerminalSkills/skills (skills/react),
+# Apache License 2.0, Copyright 2025 Terminal Skills; the codemods are the React team's.
+id: typescript/react/react-19-upgrade
+description: Upgrading a codebase from React 18 to 19 with the React and types codemods, then reading their diff.
+relevant:
+  - The task is to upgrade React from version 18 to version 19.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: react, version: "<19.0.0"}]}
+text: |
+  1. Start from a clean working tree. Upgrade first to the latest React 18.3, run the app and the tests, and read the deprecation warnings it prints.
+  2. Upgrade the packages: `react`, `react-dom` and, with TypeScript, `@types/react` and `@types/react-dom` to 19.
+  3. Run the code codemods: `npx codemod@latest react/19/migration-recipe` (`ReactDOM.render` to `createRoot`, string refs, `propTypes` and `defaultProps` on functions, `act` from `react`).
+  4. With TypeScript, the types codemods: `npx types-react-codemod@latest preset-19 ./src`.
+  5. Read `git diff` file by file, then type-check and run the tests and the app; fix what is left by hand (React 19's upgrade guide lists the removed APIs: https://react.dev/blog/2024/04/25/react-19-upgrade-guide).
+examples:
+  selected:
+    - "Upgrade the app to React 19."
+    - "Move us from React 18 to 19 and fix the breaking changes."
+  not_selected:
+    - "Use the new useOptimistic hook in the like button."
+    - "Upgrade react-router to version 7."

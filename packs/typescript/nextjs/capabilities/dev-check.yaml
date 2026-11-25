@@ -1,0 +1,24 @@
+# Adapted from next-dev-loop, https://github.com/vercel/next.js (skills/next-dev-loop),
+# MIT License, Copyright (c) 2025 Vercel, Inc.: its /_next/mcp half, with curl.
+id: typescript/nextjs/dev-check
+description: Asking a running next dev server for its compile errors, runtime errors, logs and routes through /_next/mcp.
+relevant:
+  - The task changes a Next.js app's pages, layouts, components, server actions or route handlers.
+  - The task is to find why a Next.js page or route errors at runtime.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: next, version: ">=16.3.0"}]}
+text: |
+  `next dev` (with Turbopack) answers MCP requests at `/_next/mcp` about the running app.
+
+  1. Start `next dev` in the background (the project's `dev` script) and read its port from its first lines.
+  2. List what it can tell: `curl -s http://localhost:<port>/_next/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`.
+  3. Call a tool the same way, with `"method":"tools/call","params":{"name":"<tool>","arguments":{}}`: `get_routes` for the route map, `get_compilation_issues` after an edit, `get_errors` for the server and browser errors Next.js saw, `get_logs` for its log.
+  4. After each edit: compilation issues, then load the page (`curl`, or a browser for what it renders and does), then the errors.
+  5. Stop the server you started. Leave `.next` in place while it runs.
+examples:
+  selected:
+    - "The /settings page throws a hydration error, fix it."
+    - "Add a server action that saves the user's theme preference, and check it works."
+  not_selected:
+    - "Upgrade Next.js to the latest version."
+    - "Write a README section on how to deploy the app to Vercel."

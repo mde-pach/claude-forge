@@ -1,0 +1,19 @@
+# Procedure after astro-sites-manager, https://github.com/fabricioctelles/skills (skills/astro-sites-manager),
+# Apache License 2.0: with Astro's standard commands.
+id: typescript/astro/verify
+description: Checking an Astro change type-checks, builds and renders, with astro check, astro build and astro preview.
+relevant:
+  - The task changes the code, templates or configuration of an Astro site.
+deliver: on-demand
+text: |
+  1. Type-check templates and content: `npx astro check`. It reports errors in `.astro` files and content collection schemas that `tsc` does not see.
+  2. Build: `npx astro build`. It renders every static page, so a page that throws while rendering fails here with its path.
+  3. Look at the result: `npx astro preview` in the background (port 4321 unless configured), then `curl -s http://localhost:4321/<path>` for the HTML of the page you changed, or open it in a browser. For behaviour that only exists in development (hot reload, a dev-only integration), `npx astro dev` instead.
+  4. Stop the server you started.
+examples:
+  selected:
+    - "Add a tags page to the blog that lists posts by tag."
+    - "The blog's RSS feed broke after the content collection change, fix it."
+  not_selected:
+    - "Write the copy for the about page in docs/about-draft.md."
+    - "Explain the difference between Astro islands and React Server Components."

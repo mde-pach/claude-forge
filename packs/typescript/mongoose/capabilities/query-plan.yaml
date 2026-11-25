@@ -1,0 +1,22 @@
+# Adapted from mongodb-query-optimizer, https://github.com/mongodb/agent-skills (skills/mongodb-query-optimizer),
+# Apache License 2.0: with mongosh and Mongoose instead of the MongoDB MCP server.
+id: typescript/mongoose/query-plan
+description: Reading how MongoDB runs a query (its plan, the index used, keys and documents examined) with explain.
+relevant:
+  - The task is to make a MongoDB query faster or to find why it is slow.
+  - The task adds or changes a MongoDB index.
+deliver: on-demand
+text: |
+  On a development database with realistic data:
+
+  1. See the collection's indexes: `mongosh "<uri>" --eval 'db.<collection>.getIndexes()'`.
+  2. Explain the query as the code sends it (same filter, sort, projection): `mongosh "<uri>" --eval 'db.<collection>.find(<filter>).sort(<sort>).explain("executionStats")'`, or from the code, `await Model.find(filter).sort(sort).explain('executionStats')`; for an aggregation, `db.<collection>.explain("executionStats").aggregate(<pipeline>)`.
+  3. Read `queryPlanner.winningPlan`: `COLLSCAN` is a full scan, `IXSCAN` names the index, a `SORT` stage sorts in memory. Compare `executionStats.totalKeysExamined` and `totalDocsExamined` with `nReturned`: far above it, the index does not fit the query (equality fields first, then the sort, then ranges).
+  4. Add or change the index in the schema (`schema.index(...)`), create it on the development database, rerun the same explain, and report both.
+examples:
+  selected:
+    - "The orders list query in Mongo takes seconds for big customers, speed it up."
+    - "Add an index on users for the lookup by email and tenant."
+  not_selected:
+    - "Add a phoneNumber field to the User schema."
+    - "Fix the validation error when saving an order without items."
