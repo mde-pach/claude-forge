@@ -1,0 +1,18 @@
+id: typescript/drizzle/v1-validators
+description: "On drizzle-orm 1.x the schema validators ship with the ORM: import createInsertSchema / createSelectSchema from drizzle-orm/zod (or drizzle-orm/valibot, /typebox, /arktype), not from the separate drizzle-zod package."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      any: [{kind: import_statement}, {kind: export_statement}]
+      has: {field: source, regex: "^[\"']drizzle-(zod|valibot|typebox|arktype)[\"']$"}
+when:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: ">=1.0.0-beta.0"}]
+examples:
+  match:
+    - "import { createInsertSchema } from \"drizzle-zod\";\n"
+    - "export { createSelectSchema } from 'drizzle-valibot';\n"
+  no_match:
+    - "import { createInsertSchema } from \"drizzle-orm/zod\";\n"
+    - "import { z } from \"zod\";\n"

@@ -1,0 +1,19 @@
+id: typescript/drizzle/v1-relations
+description: "On drizzle-orm 1.x relations are declared once with defineRelations(schema, (r) => ({ ... })) from drizzle-orm; relations() is not exported there any more (only drizzle-orm/_relations keeps it, for the legacy query API)."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: import_specifier
+      has: {field: name, regex: "^relations$"}
+      inside: {stopBy: end, kind: import_statement, has: {field: source, regex: "^[\"']drizzle-orm[\"']$"}}
+when:
+  deps: [{ecosystem: npm, name: drizzle-orm, version: ">=1.0.0-beta.0"}]
+examples:
+  match:
+    - "import { relations } from \"drizzle-orm\";\nimport { users, posts } from \"./schema\";\n\nexport const usersRelations = relations(users, ({ many }) => ({ posts: many(posts) }));\n"
+    - "import { eq, relations as rel } from \"drizzle-orm\";\n"
+  no_match:
+    - "import { defineRelations } from \"drizzle-orm\";\nimport * as schema from \"./schema\";\n\nexport const relations = defineRelations(schema, (r) => ({ users: { posts: r.many.posts() } }));\n"
+    - "import { relations } from \"drizzle-orm/_relations\";\n"
