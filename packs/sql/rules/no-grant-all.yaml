@@ -1,0 +1,15 @@
+id: sql/no-grant-all
+description: "A migration does not grant every privilege on every object of a schema (GRANT ALL [PRIVILEGES] ON ALL TABLES / SEQUENCES / FUNCTIONS IN SCHEMA): the role gets DELETE, TRUNCATE and the rest on tables created later too. Grant the privileges the role needs on the objects it uses (GRANT SELECT, INSERT ON orders TO app)."
+scope: {language: any, files: ["@sql-migrations"]}
+enforce:
+  - target: grep
+    mode: forbid
+    ignore_case: true
+    pattern: "grant[[:space:]]+all([[:space:]]+privileges)?[[:space:]]+on[[:space:]]+all[[:space:]]+(tables|sequences|functions|routines|procedures)[[:space:]]+in[[:space:]]+schema"
+examples:
+  match:
+    - files: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260102000000_grants.sql: "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app;\n"}
+    - files: {db/migration/V3__grants.sql: "grant all on all sequences in schema public to app;\n", flyway.conf: "flyway.locations=filesystem:db/migration\n"}
+  no_match:
+    - files: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260102000000_grants.sql: "GRANT SELECT, INSERT, UPDATE ON orders TO app;\nGRANT USAGE ON SEQUENCE orders_id_seq TO app;\n"}
+    - files: {supabase/config.toml: "project_id = \"shop\"\n", supabase/migrations/20260102000000_grants.sql: "GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO analyst;\n"}
