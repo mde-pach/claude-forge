@@ -37,8 +37,12 @@ examples:
   match:
     - files: {package.json: "{\n  \"name\": \"shop\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
     - files: {.npmrc: "registry=https://registry.npmjs.org/\nshamefully-hoist=true\n"}
+    # a file the change touched counts whole, its old findings too (§10.4)
+    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
+      files: {package.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.1.0\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
   no_match:
     - files: {package.json: "{\n  \"name\": \"shop\",\n  \"engines\": {\"pnpm\": \">=11\"},\n  \"devDependencies\": {\"pnpm\": \"11.1.0\"}\n}\n"}
     - files: {.npmrc: "registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n"}
-    - head: {package.json: "{\n  \"name\": \"shop\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
-      files: {package.json: "{\n  \"name\": \"shop\",\n  \"version\": \"1.1.0\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
+    # an untouched package's old finding is not the change's
+    - head: {packages/old/package.json: "{\n  \"name\": \"old\",\n  \"pnpm\": {\n    \"overrides\": {\"lodash\": \"4.17.21\"}\n  }\n}\n"}
+      files: {packages/new/package.json: "{\n  \"name\": \"new\",\n  \"version\": \"1.0.0\"\n}\n"}

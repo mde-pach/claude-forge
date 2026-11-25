@@ -33,8 +33,12 @@ enforce:
 examples:
   match:
     - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\"\n}\n"}
+    # a file the change touched counts whole, its old findings too (§10.4)
+    - head: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
+      files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.1.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
   no_match:
     - files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\",\n  \"exports\": {\".\": {\"types\": \"./dist/index.d.ts\", \"default\": \"./dist/index.js\"}}\n}\n"}
     - files: {package.json: "{\n  \"name\": \"internal\",\n  \"private\": true,\n  \"main\": \"./src/index.ts\"\n}\n"}
-    - head: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
-      files: {package.json: "{\n  \"name\": \"acme\",\n  \"version\": \"1.1.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
+    # an untouched package's old finding is not the change's
+    - head: {packages/old/package.json: "{\n  \"name\": \"old\",\n  \"version\": \"1.0.0\",\n  \"main\": \"./dist/index.js\"\n}\n"}
+      files: {packages/new/package.json: "{\n  \"name\": \"new\",\n  \"version\": \"1.0.0\",\n  \"exports\": {\".\": \"./dist/index.js\"}\n}\n"}

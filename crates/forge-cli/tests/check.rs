@@ -737,17 +737,33 @@ fn the_js_cooldowns_block_only_what_the_change_broke() {
     );
 }
 
+/// The minimal PATH, then the directories holding `bun`, `uv` and `uvx` on the caller's PATH.
+fn path_with_runners() -> String {
+    let mut dirs: Vec<std::path::PathBuf> = std::env::split_paths(PATH).collect();
+    for tool in ["bun", "uv", "uvx"] {
+        let found = std::env::var_os("PATH")
+            .into_iter()
+            .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+            .find(|d| d.join(tool).is_file());
+        if let Some(d) = found.filter(|d| !dirs.contains(d)) {
+            dirs.push(d);
+        }
+    }
+    std::env::join_paths(dirs).unwrap().into_string().unwrap()
+}
+
 /// Every built-in rule example behaves as declared, through `forge test --builtin` (the guard,
 /// the ast-grep and grep patterns, the check stages on fixtures): a `match` example is caught, a
 /// `no_match` example passes. Examples whose tool or builtin is not available are skipped, as
-/// the results' structure says.
+/// the results' structure says. Bun and uv, which CI installs for the pack examples' checks,
+/// are kept from the caller's PATH: without them those examples never run.
 #[test]
 fn check_examples() {
     let home = tempfile::tempdir().unwrap();
     let out = Command::new(exe())
         .args(["test", "--builtin", "--json"])
         .current_dir(home.path())
-        .env("PATH", PATH)
+        .env("PATH", path_with_runners())
         .env("FORGE_HOME", home.path())
         .env("FORGE_NO_DOWNLOAD", "1")
         .env_remove("VIRTUAL_ENV")
