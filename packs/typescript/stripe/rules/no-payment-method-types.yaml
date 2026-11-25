@@ -1,0 +1,36 @@
+id: typescript/stripe/no-payment-method-types
+description: "Stripe calls do not pass payment_method_types (except card_present / interac_present for Terminal): leave it out so the payment methods enabled in the Dashboard apply (dynamic payment methods), or use automatic_payment_methods."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: pair
+      all:
+        - has: {field: key, regex: "^[\"']?payment_method_types[\"']?$"}
+        - not: {has: {field: value, has: {stopBy: end, kind: string, regex: "^[\"'](card_present|interac_present)[\"']$"}}}
+        - inside:
+            stopBy: end
+            kind: arguments
+            inside:
+              kind: call_expression
+              has:
+                field: function
+                kind: member_expression
+                has:
+                  field: object
+                  kind: member_expression
+                  any:
+                    # stripe.checkout.sessions.create first: the shorter form would bind stripe.checkout
+                    - has: {field: object, kind: member_expression, has: {field: object, pattern: $S}}
+                    - has: {field: object, pattern: $S}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function pay(orderId: string) {\n  return stripe.paymentIntents.create({ amount: 1000, currency: \"eur\", payment_method_types: [\"card\"] }, { idempotencyKey: orderId });\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function checkout(stripe: Stripe) {\n  return stripe.checkout.sessions.create({ mode: \"payment\", payment_method_types: [\"card\", \"ideal\"], success_url: \"https://example.com/ok\" });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function pay(orderId: string) {\n  return stripe.paymentIntents.create({ amount: 1000, currency: \"eur\", automatic_payment_methods: { enabled: true } }, { idempotencyKey: orderId });\n}\n"
+    - "import Stripe from \"stripe\";\n\nexport async function terminal(stripe: Stripe, orderId: string) {\n  return stripe.paymentIntents.create({ amount: 1000, currency: \"eur\", payment_method_types: [\"card_present\"], capture_method: \"manual\" }, { idempotencyKey: orderId });\n}\n"

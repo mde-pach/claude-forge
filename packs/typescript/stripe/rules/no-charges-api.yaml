@@ -1,0 +1,23 @@
+id: typescript/stripe/no-charges-api
+description: "New payments go through PaymentIntents (stripe.paymentIntents.create) or Checkout Sessions, not the legacy Charges API (stripe.charges.create), which cannot handle 3D Secure / SCA authentication."
+scope: {language: typescript}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: {field: property, regex: "^create$"}
+          - has: {field: object, kind: member_expression, all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: "^charges$"}}]}
+    where:
+      S: {type: {package: stripe, name: Stripe}}
+examples:
+  deps: [{ecosystem: npm, name: stripe, version: "23.0.0"}]
+  match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function pay(source: string) {\n  return stripe.charges.create({ amount: 1000, currency: \"eur\", source }, { idempotencyKey: \"order-1\" });\n}\n"
+  no_match:
+    - "import Stripe from \"stripe\";\n\nconst stripe = new Stripe(\"sk_test\");\n\nexport async function pay(orderId: string) {\n  const intent = await stripe.paymentIntents.create({ amount: 1000, currency: \"eur\" }, { idempotencyKey: orderId });\n  const charges = await stripe.charges.list({ payment_intent: intent.id });\n  return charges.data;\n}\n"
+    - "const ledger = { charges: { create: (n: number) => n } };\n\nexport const c = ledger.charges.create(1);\n"
