@@ -1,0 +1,6 @@
+id: netlify/database
+description: Netlify Database, the Postgres database Netlify provisions, and its migrations.
+level: project
+detect:
+  deps_any: [{ecosystem: npm, name: "@netlify/database"}]
+  files_any: ["netlify/database/migrations/**"]

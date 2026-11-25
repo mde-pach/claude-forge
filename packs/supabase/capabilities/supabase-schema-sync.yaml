@@ -1,0 +1,26 @@
+# Procedure after the supabase skill, https://github.com/supabase/agent-skills (skills/supabase),
+# MIT License, Copyright (c) 2026 Supabase: iterating on the local database, then generating
+# and checking the migration.
+id: supabase/supabase-schema-sync
+description: Changing the Supabase schema on the local stack, then generating the migration from it and checking the migration list.
+relevant:
+  - The task changes the Supabase database schema, such as a table, a column, a policy, a function or a trigger.
+  - The task adds or fixes a Supabase migration.
+when: {files: [supabase/config.toml, "*/supabase/config.toml"]}
+deliver: on-demand
+text: |
+  Iterate on the local database, then let the CLI write the migration. Use the project's CLI (`npx supabase` where it is a dev dependency). The CLI changes between versions: `supabase <group> <command> --help` lists a command's flags before using one.
+
+  1. `supabase status`: the local stack runs (else `supabase start`), with its database URL.
+  2. With declarative schemas (`supabase/schemas/` exists, or `schema_paths` in `config.toml`), edit those files and run `supabase db diff -f <name>` to generate the migration; skip to step 5.
+  3. Otherwise, try the change on the local database directly, as many times as needed: `supabase db query "<sql>"` (CLI 2.79 and later), else `psql "$(supabase status -o env | sed -n 's/^DB_URL=//p' | tr -d '"')" -c "<sql>"`.
+  4. Generate the migration from what the database now has: `supabase db pull <descriptive name> --local --yes`.
+  5. Read the generated file in `supabase/migrations/`: it is what will run. Then `supabase migration list --local` shows it applied locally, and `supabase db advisors` (CLI 2.81.3 and later) reports security and performance problems to fix.
+  6. Replay from scratch to be sure it applies: `supabase db reset` (the local database only), then run the project's tests.
+examples:
+  selected:
+    - "Add a profiles table linked to auth.users with row level security."
+    - "Create a migration that adds an index on posts.created_at."
+  not_selected:
+    - "Call the get_feed RPC from the React feed component."
+    - "Explain what Supabase Realtime does."

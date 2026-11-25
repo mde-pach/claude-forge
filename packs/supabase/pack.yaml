@@ -1,0 +1,10 @@
+id: supabase
+description: Supabase projects, their local stack, database migrations and client libraries.
+level: project
+detect:
+  files_any: [supabase/config.toml, "*/supabase/config.toml"]
+  deps_any:
+    - {ecosystem: npm, name: "@supabase/supabase-js"}
+    - {ecosystem: npm, name: "@supabase/ssr"}
+    - {ecosystem: npm, name: supabase}
+    - {ecosystem: pypi, name: supabase}

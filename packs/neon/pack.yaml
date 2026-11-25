@@ -1,0 +1,12 @@
+id: neon
+description: Neon serverless Postgres, its branches and its CLI.
+level: project
+detect:
+  deps_any:
+    - {ecosystem: npm, name: "@neondatabase/serverless"}
+    - {ecosystem: npm, name: "@neondatabase/neon-js"}
+    - {ecosystem: npm, name: "@neon/config"}
+    - {ecosystem: npm, name: neonctl}
+  # a sample environment file pointing at a Neon database
+  content_any:
+    - {files: [.env.example, .env.sample, .env.template], pattern: "\\.neon\\.tech"}

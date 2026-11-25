@@ -1,0 +1,13 @@
+id: mongodb
+description: MongoDB databases, used through a driver or an ODM.
+level: project
+detect:
+  deps_any:
+    - {ecosystem: npm, name: mongodb}
+    - {ecosystem: npm, name: mongoose}
+    - {ecosystem: npm, name: "@typegoose/typegoose"}
+    - {ecosystem: pypi, name: pymongo}
+    - {ecosystem: pypi, name: motor}
+    - {ecosystem: pypi, name: mongoengine}
+    - {ecosystem: pypi, name: beanie}
+    - {ecosystem: pypi, name: odmantic}
