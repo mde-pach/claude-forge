@@ -1,0 +1,21 @@
+id: typescript/prisma/generator-output
+description: "A prisma-client generator block sets output (output = \"../src/generated/prisma\"): the generator writes no client into node_modules, and the code imports it from that path."
+scope: {language: any}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      awk '
+        FNR == 1 { gen = 0 }
+        /^[[:space:]]*generator[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\{/ { gen = 1; line = FNR; pc = 0; out = 0; next }
+        gen && /^[[:space:]]*provider[[:space:]]*=[[:space:]]*"prisma-client"/ { pc = 1 }
+        gen && /^[[:space:]]*output[[:space:]]*=/ { out = 1 }
+        gen && /^[[:space:]]*\}/ { if (pc && !out) { printf "%s:%d generator with provider \"prisma-client\" has no output\n", FILENAME, line; bad = 1 } gen = 0 }
+        END { exit bad }' /dev/null $(git ls-files '*.prisma')
+    when_changed: ["**/*.prisma"]
+examples:
+  match:
+    - files: {prisma/schema.prisma: "generator client {\n  provider = \"prisma-client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n"}
+  no_match:
+    - files: {prisma/schema.prisma: "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n"}
+    - files: {prisma/schema.prisma: "generator erd {\n  provider = \"prisma-erd-generator\"\n}\n"}

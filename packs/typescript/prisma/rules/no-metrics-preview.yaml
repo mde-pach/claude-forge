@@ -1,0 +1,12 @@
+id: typescript/prisma/no-metrics-preview
+description: "No \"metrics\" in previewFeatures: Prisma 7 removed the metrics feature. Read pool metrics from the driver adapter's pool, or count queries with a Client Extension."
+scope: {language: any, files: ["**/*.prisma"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "previewFeatures[[:space:]]*=.*\"metrics\""}
+when:
+  deps: [{ecosystem: npm, name: prisma, version: ">=7.0.0"}]
+examples:
+  match:
+    - "generator client {\n  provider        = \"prisma-client\"\n  output          = \"../src/generated/prisma\"\n  previewFeatures = [\"metrics\"]\n}\n"
+  no_match:
+    - "generator client {\n  provider        = \"prisma-client\"\n  output          = \"../src/generated/prisma\"\n  previewFeatures = [\"relationJoins\"]\n}\n"
