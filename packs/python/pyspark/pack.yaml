@@ -1,0 +1,5 @@
+id: python/pyspark
+description: PySpark jobs and Spark DataFrames.
+level: project
+detect:
+  deps_any: [{ecosystem: pypi, name: pyspark}, {ecosystem: pypi, name: databricks-connect}]
