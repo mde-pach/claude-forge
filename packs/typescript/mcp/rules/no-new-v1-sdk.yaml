@@ -1,0 +1,27 @@
+id: typescript/mcp/no-new-v1-sdk
+description: "A package that starts using the MCP TypeScript SDK depends on the v2 packages (@modelcontextprotocol/server, @modelcontextprotocol/client), not on the v1 @modelcontextprotocol/sdk; packages already on v1 keep it until they migrate."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _v1=''
+      for _f in $FORGE_FILES; do
+        forge_pkg_deps "$FORGE_TMP/base/$_f" > "$FORGE_TMP/v1.then"
+        _v1="$_v1$(forge_pkg_deps "$_f" | awk -F '\t' -v f="$_f" '
+          FILENAME == ARGV[1] { had[$2] = 1; next }
+          $2 == "@modelcontextprotocol/sdk" && !had[$2] { printf "%s: %s adds @modelcontextprotocol/sdk (v1)\n", f, $1 }' "$FORGE_TMP/v1.then" -)
+      "
+      done
+      _v1=$(printf '%s' "$_v1" | grep .)
+      [ -z "$_v1" ] || { printf '%s\n' "$_v1"; false; }
+examples:
+  match:
+    - head: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+      files: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"zod\": \"4.1.12\", \"@modelcontextprotocol/sdk\": \"^1.32.2\"}}\n"}
+    - files: {packages/mcp/package.json: "{\"name\": \"mcp\", \"dependencies\": {\"@modelcontextprotocol/sdk\": \"^1.32.2\"}}\n"}
+  no_match:
+    - head: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"zod\": \"4.1.12\"}}\n"}
+      files: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"zod\": \"4.1.12\", \"@modelcontextprotocol/server\": \"^2.4.0\"}}\n"}
+    - head: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"@modelcontextprotocol/sdk\": \"^1.20.0\"}}\n"}
+      files: {package.json: "{\"name\": \"tools\", \"dependencies\": {\"@modelcontextprotocol/sdk\": \"^1.32.2\", \"zod\": \"4.1.12\"}}\n"}

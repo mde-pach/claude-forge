@@ -1,0 +1,27 @@
+id: typescript/jest/await-async-expect
+description: "An expect(promise).resolves / .rejects assertion is awaited or returned (await expect(p).rejects.toThrow(...)): otherwise the test ends before it settles and passes whatever the promise does."
+scope: {language: typescript, files: ["@ts-tests", "!@e2e-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: expression_statement
+      has:
+        kind: call_expression
+        has:
+          field: function
+          kind: member_expression
+          has:
+            stopBy: end
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^(resolves|rejects)$"}
+              - has: {field: object, kind: call_expression, has: {field: function, regex: "^expect$"}}
+examples:
+  match:
+    - "test(\"rejects a missing user\", () => {\n  expect(load(\"nobody\")).rejects.toThrow(\"not found\");\n});\n"
+    - "test(\"loads\", async () => {\n  expect(load(\"ada\")).resolves.not.toBeNull();\n});\n"
+  no_match:
+    - "test(\"rejects a missing user\", async () => {\n  await expect(load(\"nobody\")).rejects.toThrow(\"not found\");\n});\n"
+    - "test(\"loads\", () => {\n  return expect(load(\"ada\")).resolves.toEqual({ name: \"ada\" });\n});\n"
+    - "test(\"sync\", () => {\n  expect(add(1, 2)).toBe(3);\n});\n"

@@ -1,0 +1,28 @@
+id: typescript/nestjs/same-major
+description: "The NestJS core packages (@nestjs/common, core, testing, microservices, websockets and the platform-* adapters) in one package.json are on the same major version: mixed majors load two copies of the DI container and fail at runtime. Upgrade them together."
+scope: {language: any, files: ["**/package.json"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      _mm=''
+      for _f in $FORGE_FILES; do
+        _mm="$_mm$(forge_pkg_deps "$_f" | awk -F '\t' -v f="$_f" '
+          $2 ~ /^@nestjs\/(common|core|testing|microservices|websockets|platform-[a-z.-]+)$/ {
+            v = $3; sub(/^[^0-9]*/, "", v); sub(/[^0-9].*$/, "", v)
+            if (v == "") next
+            if (first == "") { first = v; fname = $2 }
+            else if (v != first) { printf "%s: %s is on major %s, %s on major %s\n", f, $2, v, fname, first; exit }
+          }')
+      "
+      done
+      _mm=$(printf '%s' "$_mm" | grep .)
+      [ -z "$_mm" ] || { printf '%s\n' "$_mm"; false; }
+    when_changed: ["**/package.json"]
+examples:
+  match:
+    - files: {package.json: "{\"name\": \"api\", \"dependencies\": {\"@nestjs/common\": \"^11.1.6\", \"@nestjs/core\": \"^11.1.6\", \"@nestjs/platform-express\": \"^10.4.19\"}}\n"}
+    - files: {apps/api/package.json: "{\"name\": \"api\", \"dependencies\": {\"@nestjs/common\": \"11.1.6\", \"@nestjs/core\": \"11.1.6\"}, \"devDependencies\": {\"@nestjs/testing\": \"~10.4.0\"}}\n"}
+  no_match:
+    - files: {package.json: "{\"name\": \"api\", \"dependencies\": {\"@nestjs/common\": \"^11.1.6\", \"@nestjs/core\": \"^11.1.6\", \"@nestjs/platform-express\": \"^11.1.6\", \"@nestjs/config\": \"^4.0.2\", \"@nestjs/swagger\": \"^11.2.0\"}, \"devDependencies\": {\"@nestjs/testing\": \"^11.1.6\"}}\n"}
+    - files: {package.json: "{\"name\": \"api\", \"dependencies\": {\"@nestjs/common\": \"workspace:*\", \"@nestjs/core\": \"^11.1.6\"}}\n"}

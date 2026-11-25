@@ -1,0 +1,31 @@
+id: typescript/nestjs/config-get-or-throw
+description: "A secret read from ConfigService (a key naming a secret, password, token, API key or private key) uses getOrThrow(), not get(): get() returns undefined for a missing variable and the app starts with an empty secret."
+scope: {language: typescript, files: ["**/*", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: {field: property, regex: "^get$"}
+              - has: {field: object, pattern: $C}
+        - has:
+            field: arguments
+            has: {nthChild: 1, kind: string, regex: "(?i)(secret|password|passwd|token|api_?key|private_?key)"}
+        # no default value given
+        - has: {field: arguments, not: {has: {nthChild: 2}}}
+    where:
+      C: {type: {package: "@nestjs/config", name: ConfigService}}
+examples:
+  deps: [{ecosystem: npm, name: "@nestjs/config", version: "4.0.2"}, {ecosystem: npm, name: "@nestjs/common", version: "11.1.6"}, {ecosystem: npm, name: rxjs, version: "7.8.2"}, {ecosystem: npm, name: reflect-metadata, version: "0.2.2"}]
+  match:
+    - "import { ConfigService } from \"@nestjs/config\";\n\nexport class AuthService {\n  constructor(private readonly config: ConfigService) {}\n\n  secret(): string | undefined {\n    return this.config.get<string>(\"JWT_SECRET\");\n  }\n}\n"
+    - "import { ConfigService } from \"@nestjs/config\";\n\nexport const stripeKey = (cfg: ConfigService) => cfg.get(\"STRIPE_API_KEY\");\n"
+  no_match:
+    - "import { ConfigService } from \"@nestjs/config\";\n\nexport class AuthService {\n  constructor(private readonly config: ConfigService) {}\n\n  secret(): string {\n    return this.config.getOrThrow<string>(\"JWT_SECRET\");\n  }\n}\n"
+    - "import { ConfigService } from \"@nestjs/config\";\n\nexport const port = (cfg: ConfigService) => cfg.get<number>(\"PORT\", 3000);\n"
+    - "const cache = new Map<string, string>();\n\nexport const t = cache.get(\"session_token\");\n"
