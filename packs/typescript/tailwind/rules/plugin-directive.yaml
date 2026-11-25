@@ -1,0 +1,8 @@
+id: typescript/tailwind/plugin-directive
+description: "A Tailwind CSS 4 plugin (@tailwindcss/typography, @tailwindcss/forms, daisyui, ...) is loaded in the CSS with @plugin \"<name>\", not with @import (which imports nothing usable) or a plugins entry in a tailwind.config no CSS loads."
+scope: {language: any, files: ["**/*.css", "**/*.pcss", "**/*.scss"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "^[[:space:]]*@import[[:space:]]+(url\\()?['\"](@tailwindcss/(typography|forms|aspect-ratio|container-queries|line-clamp)|daisyui|tailwindcss-animate|tailwind-scrollbar|flowbite/plugin)['\"]"}
+examples:
+  match: ["@import \"tailwindcss\";\n@import \"@tailwindcss/typography\";\n", "@import 'daisyui';\n"]
+  no_match: ["@import \"tailwindcss\";\n@plugin \"@tailwindcss/typography\";\n@plugin \"daisyui\";\n", "@import \"tw-animate-css\";\n"]

@@ -1,0 +1,8 @@
+id: typescript/tailwind/no-tailwind-directives
+description: "Tailwind CSS 4 is loaded with @import \"tailwindcss\", not the v3 directives @tailwind base, @tailwind components and @tailwind utilities."
+scope: {language: any, files: ["**/*.css", "**/*.pcss", "**/*.scss", "**/*.vue", "**/*.svelte", "**/*.astro"]}
+enforce:
+  - {target: grep, mode: forbid, pattern: "^[[:space:]]*@tailwind[[:space:]]+(base|components|utilities|variants|screens)"}
+examples:
+  match: ["@tailwind base;\n@tailwind components;\n@tailwind utilities;\n"]
+  no_match: ["@import \"tailwindcss\";\n\n@theme {\n  --color-brand: oklch(0.6 0.2 250);\n}\n"]

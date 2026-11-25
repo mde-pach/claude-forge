@@ -1,0 +1,33 @@
+id: typescript/tailwind/no-double-wrapped-color
+description: "A CSS variable that already holds a full color (--primary: hsl(220 90% 56%) or oklch(...)) is used as var(--primary), not wrapped again in hsl(var(--primary)), which makes an invalid color."
+scope: {language: any, files: ["**/*.css", "**/*.pcss", "**/*.scss"]}
+enforce:
+  - target: check
+    stage: lint
+    run: |
+      awk '
+        { line[FILENAME, FNR] = $0; n[FILENAME] = FNR }
+        END {
+          for (f in n) {
+            split("", defs)
+            for (i = 1; i <= n[f]; i++)
+              if (match(line[f, i], /--[A-Za-z0-9_-]+[[:space:]]*:[[:space:]]*(hsla?|rgba?|oklch|oklab|lab|lch|hwb|color)\(/)) {
+                d = substr(line[f, i], RSTART, RLENGTH); sub(/[[:space:]]*:.*/, "", d); defs[d] = 1
+              }
+            for (i = 1; i <= n[f]; i++) {
+              l = line[f, i]
+              while (match(l, /(hsla?|rgba?|oklch)\([[:space:]]*var\([[:space:]]*--[A-Za-z0-9_-]+/)) {
+                v = substr(l, RSTART, RLENGTH); sub(/.*var\([[:space:]]*/, "", v)
+                if (v in defs) { printf "%s:%d %s holds a full color: use var(%s)\n", f, i, v, v; bad = 1 }
+                l = substr(l, RSTART + RLENGTH)
+              }
+            }
+          }
+          exit bad
+        }' /dev/null $(git ls-files '*.css' '*.pcss' '*.scss')
+    when_changed: ["**/*.css", "**/*.pcss", "**/*.scss"]
+examples:
+  match:
+    - files: {src/app.css: "@import \"tailwindcss\";\n\n:root {\n  --primary: hsl(220 90% 56%);\n}\n\n@theme inline {\n  --color-primary: hsl(var(--primary));\n}\n"}
+  no_match:
+    - files: {src/app.css: "@import \"tailwindcss\";\n\n:root {\n  --primary: hsl(220 90% 56%);\n  --ring: 220 90% 56%;\n}\n\n@theme inline {\n  --color-primary: var(--primary);\n  --color-ring: hsl(var(--ring));\n}\n"}
