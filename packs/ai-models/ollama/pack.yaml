@@ -1,0 +1,7 @@
+id: ai-models/ollama
+description: Code that calls a local Ollama server (its Python or JavaScript client).
+level: project
+detect:
+  deps_any:
+    - {ecosystem: pypi, name: ollama}
+    - {ecosystem: npm, name: ollama}

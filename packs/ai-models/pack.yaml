@@ -1,5 +1,5 @@
 id: ai-models
-description: Code that calls hosted AI models (Anthropic, OpenAI, and the SDKs and frameworks built on them).
+description: Code that calls AI models (Anthropic, OpenAI, the SDKs and frameworks built on them, and a local Ollama server).
 level: project
 detect:
   deps_any:
@@ -16,3 +16,5 @@ detect:
     - {ecosystem: npm, name: "@ai-sdk/openai"}
     - {ecosystem: npm, name: "@langchain/anthropic"}
     - {ecosystem: npm, name: "@langchain/openai"}
+    - {ecosystem: pypi, name: ollama}
+    - {ecosystem: npm, name: ollama}
