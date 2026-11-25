@@ -1,0 +1,25 @@
+id: typescript/svelte/kit/no-module-state-from-request
+description: "Server code does not keep per-request data (cookies, locals, the user, the session) in a module-level variable: a server module is shared by every request, so the next request reads another user's data. Keep it in event.locals or return it from load."
+scope: {language: typescript, files: ["**/hooks.server.ts", "**/hooks.server.js", "**/+*.server.ts", "**/+*.server.js", "**/lib/server/**"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: assignment_expression
+      all:
+        - has: {field: left, kind: identifier, pattern: $X}
+        - has: {field: right, has: {stopBy: end, kind: member_expression, has: {field: property, regex: "^(cookies|locals|request|getClientAddress)$"}}}
+        - inside: {stopBy: end, any: [{kind: arrow_function}, {kind: function_declaration}, {kind: function_expression}, {kind: method_definition}]}
+        - inside:
+            stopBy: end
+            kind: program
+            has:
+              kind: lexical_declaration
+              regex: "^let[[:space:]]"
+              has: {kind: variable_declarator, has: {field: name, pattern: $X}}
+examples:
+  match:
+    - "import type { Handle } from \"@sveltejs/kit\";\n\nlet currentUser: string | undefined;\n\nexport const handle: Handle = async ({ event, resolve }) => {\n  currentUser = event.cookies.get(\"user\");\n  return resolve(event);\n};\n"
+  no_match:
+    - "import type { Handle } from \"@sveltejs/kit\";\n\nexport const handle: Handle = async ({ event, resolve }) => {\n  event.locals.user = event.cookies.get(\"user\");\n  return resolve(event);\n};\n"
+    - "let hits = 0;\n\nexport async function load() {\n  hits = hits + 1;\n  return { hits };\n}\n"

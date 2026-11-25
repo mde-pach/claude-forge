@@ -1,0 +1,21 @@
+id: typescript/svelte/kit/no-shared-module-state
+description: "A shared module (src/lib) does not export mutable module-level state (export let, or a $state object) that components write per user: on the server one module instance serves every request, so one user's data leaks into another's page. Put such state in a context (setContext) or pass it from load."
+scope: {language: typescript, files: ["src/lib/**", "!src/lib/server/**", "!@ts-tests"]}
+enforce:
+  - target: ast-grep
+    mode: advise
+    rule:
+      kind: export_statement
+      inside: {kind: program}
+      has:
+        kind: lexical_declaration
+        any:
+          - regex: "^let[[:space:]]"
+          - has: {kind: variable_declarator, has: {field: value, kind: call_expression, has: {field: function, regex: "^\\$state$"}}}
+examples:
+  match:
+    - "export let cart: string[] = [];\n"
+    - "export const session = $state({ user: null as string | null });\n"
+  no_match:
+    - "export const TAX_RATE = 0.2;\nexport function total(items: number[]) {\n  return items.reduce((a, b) => a + b, 0) * (1 + TAX_RATE);\n}\n"
+    - "import { getContext, setContext } from \"svelte\";\n\nexport function setCart() {\n  const cart = $state({ items: [] as string[] });\n  setContext(\"cart\", cart);\n  return cart;\n}\nexport const getCart = () => getContext(\"cart\");\n"

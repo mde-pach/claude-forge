@@ -1,0 +1,35 @@
+id: typescript/svelte/kit/load-returns-serializable
+description: "A server load (+page.server.ts, +layout.server.ts) returns data devalue can serialize: no functions and no class instances (Date, Map, Set, URL, RegExp and BigInt are fine). Return plain data, and keep behaviour in the component or a universal load."
+scope: {language: typescript, files: ["**/+page.server.ts", "**/+layout.server.ts", "**/+page.server.js", "**/+layout.server.js"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    utils:
+      # the object a load returns: `return {…}` in it, or an arrow body `=> ({…})`
+      load-fn:
+        any:
+          - {kind: function_declaration, has: {field: name, regex: "^load$"}}
+          - kind: variable_declarator
+            has: {field: name, regex: "^load$"}
+    rule:
+      kind: pair
+      all:
+        - has:
+            field: value
+            any:
+              - {kind: arrow_function}
+              - {kind: function_expression}
+              - {kind: new_expression, not: {has: {field: constructor, regex: "^(Date|Map|Set|URL|URLSearchParams|RegExp)$"}}}
+        - inside:
+            kind: object
+            any:
+              - inside: {kind: return_statement, inside: {stopBy: end, matches: load-fn}}
+              - inside: {kind: parenthesized_expression, inside: {kind: arrow_function, inside: {matches: load-fn}}}
+examples:
+  match:
+    - "export const load = async () => {\n  return { user: { name: \"ada\" }, greet: () => \"hi\" };\n};\n"
+    - "class Cart {\n  items: string[] = [];\n}\n\nexport async function load() {\n  return { cart: new Cart() };\n}\n"
+  no_match:
+    - "export const load = async () => {\n  return { user: { name: \"ada\" }, at: new Date(), tags: new Set([\"a\"]) };\n};\n"
+    - "export async function load() {\n  const items = [1, 2].map((n) => n * 2);\n  return { items };\n}\n"
+    - "export const actions = {\n  default: async () => ({ ok: true, run: () => 1 }),\n};\n"
