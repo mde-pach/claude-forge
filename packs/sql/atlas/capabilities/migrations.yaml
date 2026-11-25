@@ -1,11 +1,10 @@
 # Adapted from db-schema-mgmt, https://github.com/rotemtam-tessl/hello-harbor (skills/db-schema-mgmt),
 # Apache License 2.0: rewritten for any Atlas project (the original is one Go/GORM repository's).
-id: sql/atlas-migrations
+id: sql/atlas/migrations
 description: Changing a database schema managed by Atlas, through generated versioned migrations.
 relevant:
   - The task changes the database schema, such as a table, a column, an index or a constraint.
   - The task adds or changes a database migration.
-when: {files: ["atlas.hcl", "**/atlas.hcl"]}
 deliver: inject
 text: |
   This project manages its database schema with Atlas; `atlas.hcl` names its environments (`env "<name>"`) and where the desired schema comes from.

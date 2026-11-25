@@ -43,14 +43,14 @@ Only the text outside the generated markers of this file is written by hand.
 | [release](release.md) | project | 1 | 3 |
 | [safety](safety.md) | user | 1 | 35 |
 | [secrets](secrets.md) | project | 1 | 3 |
-| [sql](sql.md) | project | 1 | 3 |
+| [sql](sql.md) | project | 2 | 3 |
 | [supply-chain](supply-chain.md) | project | 1 | 9 |
 | [terraform](terraform.md) | project | 1 | 8 |
 | [testcontainers](testcontainers.md) | project | 1 | 1 |
 | [toolchain](toolchain.md) | project | 1 | 2 |
 | [typescript](typescript.md) | project | 78 | 433 |
 
-153 packs, 846 rules.
+154 packs, 846 rules.
 <!-- /generated:packs -->
 
 ### Tests

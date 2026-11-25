@@ -872,3 +872,21 @@ fn wildcards_never_reach_hidden_or_environment_directories() {
     let act = active_packs(&set, Level::Project, None, Some(&facts));
     assert!(!forge_detect::when_holds(&when, &[&facts.root], &act));
 }
+
+// Atlas has a pack of its own under sql: `atlas.hcl` activates both; a Flyway project gets sql
+// alone.
+#[test]
+fn atlas_has_its_own_pack() {
+    let builtin = |id: &str| id == "sql" || id.starts_with("sql/");
+    let got = active(&[("atlas.hcl", "env \"local\" {}\n")], None, builtin);
+    assert_eq!(got, ["sql", "sql/atlas"]);
+    let got = active(
+        &[(
+            "flyway.conf",
+            "flyway.url=jdbc:postgresql://localhost/app\n",
+        )],
+        None,
+        builtin,
+    );
+    assert_eq!(got, ["sql"]);
+}

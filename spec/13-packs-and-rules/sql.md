@@ -14,6 +14,15 @@ Detected by: a file matching `flyway.conf`, `flyway.toml`, `conf/flyway.conf`, `
 | `sql/migration-lint` | New or changed Postgres migrations of Flyway, Supabase, dbmate, sqitch and Atlas (file role @sql-migrations) do not break the running app during a deploy (no column or table renames, type changes, new required columns or DROP DATABASE); a finding is fixed, not silenced with squawk-ignore comments or excluded_rules. | any: `@sql-migrations` | check migration: `forge_squawk_role @sql-migrations` (when `@sql-migrations` changes) |
 | `sql/sqlfluff` | Changed .sql files pass the project's sqlfluff lint when the project configures it (.sqlfluff, [tool.sqlfluff] in pyproject.toml, [sqlfluff] in setup.cfg or tox.ini: the dialect and rules are the project's). | any: `**/*.sql` | check lint: `forge_sqlfluff` (when `**/*.sql`, `.sqlfluff`, `pyproject.toml`, `setup.cfg` or `tox.ini` changes)<br>applies where `sqlfluff >=2` (PyPI) declared |
 
+### sql/atlas
+
+Atlas, the project's database schema and migration tool.
+
+Detected by: a file matching `atlas.hcl`.
+Child of `sql`: active only where it is.
+
+No rules of its own.
+
 | Capability (§20) | Description | Delivered | Relevant when | Active when |
 |---|---|---|---|---|
-| `sql/atlas-migrations` | Changing a database schema managed by Atlas, through generated versioned migrations. | inject | The task changes the database schema, such as a table, a column, an index or a constraint.<br>The task adds or changes a database migration. | a file matches `atlas.hcl`, `**/atlas.hcl` |
+| `sql/atlas/migrations` | Changing a database schema managed by Atlas, through generated versioned migrations. | inject | The task changes the database schema, such as a table, a column, an index or a constraint.<br>The task adds or changes a database migration. | wherever its pack is |
