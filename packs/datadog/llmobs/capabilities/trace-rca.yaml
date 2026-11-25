@@ -1,0 +1,23 @@
+# Adapted from agent-observability-trace-rca, https://github.com/datadog-labs/agent-skills
+# (agent-observability/agent-observability-trace-rca), MIT License: finding failing LLM spans and their
+# errors and evaluations with the pup CLI.
+id: datadog/llmobs/trace-rca
+description: Finding why an LLM application fails in production from its Datadog LLM Observability spans, errors and evaluations.
+relevant:
+  - The task is to find why an LLM application or agent gives bad answers or fails in production.
+deliver: on-demand
+text: |
+  To find the cause in the production traces of the LLM app (`ml_app`, the name the app reports to LLM Observability):
+
+  1. `pup --version`; if it is missing or a command answers with an auth error, ask the person to install it or run `pup auth login`, and stop there.
+  2. Failing spans: `pup llm-obs spans search --query '@ml_app:<app> @status:error' --from 7d --limit 50 --summary`. Always filter by `@ml_app:` inside `--query`. For quality failures instead of errors, search the evaluations' failing values the app records.
+  3. Group them by error type or by the span (tool, retrieval, LLM call) where they fail, and take a few of each group.
+  4. One trace in full: `pup llm-obs spans get-trace --trace-id <id> --include-tree`, then `pup llm-obs spans get-details --trace-id <id> --span-ids <s1>,<s2>` and `pup llm-obs spans get-content --trace-id <id> --span-id <s> --field input` (or `output`, `metadata`) to read the prompt, tool arguments and output where it went wrong.
+  5. Name the cause per group with the trace ids as evidence, then find the code or prompt that produces it.
+examples:
+  selected:
+    - "Our support agent started giving wrong refund amounts in prod, find out why from the traces."
+    - "Lots of tool-call failures in the RAG app this week, what's the root cause?"
+  not_selected:
+    - "Add LLM Observability tracing to the new summarizer service."
+    - "Write an eval dataset for the support agent."

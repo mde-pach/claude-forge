@@ -1,0 +1,15 @@
+id: datadog
+description: Services monitored with Datadog (its tracers, agent configuration or monitors as code).
+level: project
+detect:
+  deps_any:
+    - {ecosystem: pypi, name: ddtrace}
+    - {ecosystem: pypi, name: datadog}
+    - {ecosystem: npm, name: dd-trace}
+    - {ecosystem: npm, name: "@datadog/browser-rum"}
+  files_any: ["**/datadog.yaml", "**/datadog.yml"]
+  content_any:
+    - {files: ["**/go.mod"], pattern: "github\\.com/DataDog/dd-trace-go|gopkg\\.in/DataDog/dd-trace-go"}
+    - {files: ["**/pom.xml", "**/build.gradle", "**/build.gradle.kts"], pattern: "com\\.datadoghq"}
+    - {files: ["**/*.tf"], pattern: "^\\s*resource\\s+\"datadog_"}
+    - {files: ["**/Dockerfile", "**/*.yaml", "**/*.yml"], pattern: "\\bDD_(SERVICE|ENV|AGENT_HOST|TRACE_AGENT_URL|API_KEY|SITE)\\b"}
