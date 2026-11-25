@@ -1,0 +1,22 @@
+# Procedure after variant-analysis, https://github.com/trailofbits/skills (plugins/variant-analysis),
+# written here from scratch (the original is CC BY-SA 4.0).
+id: code/variant-analysis
+description: Finding the other places where a known bug or vulnerability occurs, from one instance.
+relevant:
+  - The task is to find or fix other occurrences of a bug or vulnerability already found in one place.
+deliver: on-demand
+text: |
+  Start from the known instance and widen the search one step at a time:
+
+  1. Write down what makes the instance a bug: the call, the missing check, the data that reaches it.
+  2. Write a search that matches exactly that instance and nothing else: a structural pattern with ast-grep (`ast-grep run -p '<pattern>' -l <lang>`), or `rg` for text.
+  3. Generalise one element at a time (the variable name, then the argument, then the function among its siblings) and read every hit after each step. Stop widening when the hits stop being plausible.
+  4. For each hit, check whether the conditions of step 1 hold there (the input can reach it, the check is missing) and sort it: confirmed, not reachable, already guarded.
+  5. Fix the confirmed ones the way the first was fixed, and report the search patterns with the counts, so the search can be run again.
+examples:
+  selected:
+    - "We found a SQL injection in the orders search; check whether the same mistake exists elsewhere."
+    - "This null deref crashed in parse_header; find every other parser with the same bug."
+  not_selected:
+    - "Fix the SQL injection in the orders search."
+    - "Add input validation to the new signup endpoint."

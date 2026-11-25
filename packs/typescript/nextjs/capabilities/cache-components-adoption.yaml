@@ -1,0 +1,22 @@
+# Adapted from next-cache-components-adoption, https://github.com/vercel/next.js
+# (skills/next-cache-components-adoption), MIT License, Copyright (c) 2025 Vercel, Inc.
+id: typescript/nextjs/cache-components-adoption
+description: Turning on cacheComponents in a Next.js app route by route, with the instant-false codemod and next dev.
+relevant:
+  - The task is to enable or adopt Cache Components (cacheComponents) in a Next.js app.
+  - The task moves Next.js routes onto Cache Components, such as removing their opt-outs from it.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: next, version: ">=16.3.0"}]}
+text: |
+  1. List the route segment configs that fail a build with Cache Components: `grep -rnE '^export const (dynamic|revalidate|fetchCache)' app src/app` and translate each as Next.js's migration guide says (https://nextjs.org/docs/app/guides/migrating-to-cache-components); remove `experimental.dynamicIO`.
+  2. Set `cacheComponents: true` in `next.config`, then, on a clean working tree, opt every route out for now: `npx @next/codemod@latest cache-components-instant-false ./app` (it adds `export const instant = false` to pages and layouts).
+  3. Run `next build`. What still fails is request-time code at module or render level (`new Date()`, `Math.random()`, …): fix those by hand.
+  4. Then one route or feature at a time, top-down: remove its `instant = false`, run `next dev`, open the route, and read the overlay or the dev log for blocking errors (each links its fix). Wrap request-time reads in `<Suspense>`, or cache them with `'use cache'`. Check the page in the browser, then `next build --debug-build-paths="app/<path>/page.tsx"`.
+  5. Stop after each feature and say which routes are done and which still opt out.
+examples:
+  selected:
+    - "Enable cacheComponents in our Next.js app and migrate the routes."
+    - "Remove the instant = false opt-outs from the dashboard routes now that Cache Components is on."
+  not_selected:
+    - "Cache the product list fetch for an hour."
+    - "Upgrade Next.js from 15 to 16."

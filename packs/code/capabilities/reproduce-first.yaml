@@ -1,6 +1,8 @@
-# The text is repro-first's rules, https://github.com/sjh9714/skill-receipts (skills/repro-first),
+# The text is repro-first's procedure, without its scope rules, https://github.com/sjh9714/skill-receipts (skills/repro-first),
 # MIT License, Copyright (c) 2026 sjh9714; measured there with and without it and against
-# a same-length placebo text.
+# a same-length placebo text. Step 1's other ways to reproduce follow diagnosing-bugs,
+# https://github.com/mattpocock/skills (skills/engineering/diagnosing-bugs), MIT License, Copyright (c) 2026 Matt Pocock,
+# and systematic-debugging, https://github.com/obra/superpowers, MIT License, Copyright (c) 2025 Jesse Vincent.
 id: code/reproduce-first
 description: Fixing a reported bug by reproducing it with a failing test first, then fixing its cause.
 relevant:
@@ -8,14 +10,13 @@ relevant:
   - The task reports code that gives a wrong result or behaves differently from what is expected.
 deliver: inject
 text: |
-  A fix you cannot reproduce is a guess. When fixing a reported bug, prove you found the real cause, before and after the change:
+  When fixing a reported bug, prove you found the real cause, before and after the change:
 
-  1. Reproduce first. Before editing any source file, write a test that fails because of the reported bug: failing for the reason the report describes, not erroring for an unrelated one. Run it and watch it fail.
+  1. Reproduce first. Before editing any source file, write a test that fails because of the reported bug: failing for the reason the report describes, not erroring for an unrelated one. Run it and watch it fail. Where no test can reach it yet, a script or command that fails the same way serves; when the behaviour used to work, `git log -p` on the code involved, or `git bisect run <that command>`, finds the change that broke it.
   2. Locate the cause, not the symptom. Trace the failing value to where it is computed wrong. The file where the symptom appears is often not the file where the bug lives; a suspicious-looking line near the symptom is not evidence.
   3. State the mechanism. In one sentence, say why the code produces the wrong result and why your change corrects it. Until you can, the bug is not found.
-  4. Fix minimally, at the cause. Change only what the mechanism requires: no refactoring, renaming, reformatting or "improving" anything else while fixing, and never deleting or bypassing the feature to make the symptom disappear.
+  4. Fix it at the cause, where the mechanism says the value goes wrong.
   5. Keep the repro test. It stays in the suite as the regression guard; after the fix it passes, along with every pre-existing test.
-  6. Touch nothing unrelated. A file that is not part of the cause or the repro test stays exactly as it was.
 examples:
   selected:
     - "The cart total is wrong when the same discount code is applied twice. Fix it."

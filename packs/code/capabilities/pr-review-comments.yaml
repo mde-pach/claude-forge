@@ -1,0 +1,20 @@
+# Procedure after gh-address-comments, https://github.com/openai/skills (skills/.curated/gh-address-comments),
+# written here from scratch (the repository states no license).
+id: code/pr-review-comments
+description: Reading the unresolved review comments of the branch's GitHub pull request with gh, to address them.
+relevant:
+  - The task is to address review comments or feedback on a GitHub pull request.
+deliver: on-demand
+text: |
+  1. Find the branch's pull request: `gh pr view --json number,url,headRefName` (or `gh pr list --head <branch>`).
+  2. Fetch its review threads with their state, file and line (the REST API has no resolved flag):
+     `gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<number> -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:20){nodes{author{login} body}}}}}}}'`
+  3. Keep the threads with `isResolved: false`; an `isOutdated` one is on lines that changed since, so read the current code before acting on it. General review comments (not on a line) come from `gh pr view <number> --comments`.
+  4. List them numbered, each with its file, line, author and request, and address them one by one; say which you changed and which need the person's answer.
+examples:
+  selected:
+    - "Address the review comments on my PR."
+    - "The reviewer left feedback on pull request 412, go through it and fix what they asked."
+  not_selected:
+    - "Open a pull request for this branch."
+    - "Review the diff on this branch for bugs before I open the PR."

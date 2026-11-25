@@ -1,0 +1,22 @@
+# Adapted from python-performance-optimization, https://github.com/wshobson/agents
+# (plugins/python-development/skills/python-performance-optimization), MIT License, Copyright (c) 2024 Seth Hobson.
+id: python/profile
+description: Measuring where Python code spends time or memory with cProfile, py-spy and tracemalloc, before optimising it.
+relevant:
+  - The task is to make Python code faster or use less memory.
+  - The task is to find why Python code is slow or uses too much memory.
+deliver: on-demand
+text: |
+  Measure on a run that shows the problem, before changing code:
+
+  1. Time: `python -m cProfile -o /tmp/prof.out <script or -m module> …`, then `python -c "import pstats; pstats.Stats('/tmp/prof.out').sort_stats('cumulative').print_stats(25)"`. Read the functions with the largest cumulative time and their call counts.
+  2. A running process (a server, a worker): `py-spy top --pid <pid>`, or `py-spy record -o /tmp/profile.svg --pid <pid> --duration 30` for a flame graph; `py-spy dump --pid <pid>` shows where a stuck process is.
+  3. Memory: wrap the run with `tracemalloc` (`tracemalloc.start()`, then `tracemalloc.take_snapshot().statistics('lineno')[:15]`) to see the lines that allocate most.
+  4. Change the hot spot only, rerun the same measurement, and report both numbers.
+examples:
+  selected:
+    - "The nightly import script got three times slower, find where the time goes."
+    - "Our worker's memory grows until it is killed, find out what allocates."
+  not_selected:
+    - "Add type hints to the import script."
+    - "The import script crashes with a KeyError on empty rows, fix it."

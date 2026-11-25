@@ -1,0 +1,22 @@
+# Adapted from gitops-workflow, https://github.com/wshobson/agents
+# (plugins/kubernetes-operations/skills/gitops-workflow), MIT License, Copyright (c) 2024 Seth Hobson.
+id: kubernetes/manifest-diff
+description: Seeing what a manifest change would apply, by rendering it and diffing it against the cluster.
+relevant:
+  - The task changes Kubernetes manifests, a kustomization or chart values that a cluster deploys.
+  - The task asks what a manifest change would change on the cluster.
+deliver: on-demand
+text: |
+  1. Render what the change produces, before and after it (`git stash` or a worktree for the before): `kustomize build <dir>` (or `kubectl kustomize <dir>`), `helm template <release> <chart> -f <values>`. Diff the two renders and read every changed object, not only the file you edited.
+  2. With access to the cluster (read-only), compare with what runs:
+     - `kubectl diff -k <dir>` or `helm template … | kubectl diff -f -`;
+     - an Argo CD application: `argocd app diff <app> --local <dir>`;
+     - a Flux kustomization: `flux diff kustomization <name> --path <dir>`.
+  3. Check the diff holds only what the task asked for; a changed selector, name or immutable field means the object is replaced, not updated.
+examples:
+  selected:
+    - "Raise the api's memory limit in the kustomize overlay for prod and show me what it changes."
+    - "Move the ingress to the new class in the base manifests."
+  not_selected:
+    - "Explain what a kustomize overlay is."
+    - "The api pods keep restarting on staging, find out why."

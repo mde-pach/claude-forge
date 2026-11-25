@@ -1,0 +1,22 @@
+# Adapted from ollama, https://github.com/TerminalSkills/skills (skills/ollama),
+# Apache License 2.0, Copyright 2025 Terminal Skills: its local checks only.
+id: ai-models/ollama-check
+description: Checking code that calls a local Ollama server against the running server, with the ollama CLI and curl.
+relevant:
+  - The task builds, changes or debugs code that calls a local Ollama server or a model served by Ollama.
+deliver: on-demand
+text: |
+  1. Check the server answers and which models it has: `ollama list` (or `curl -s http://localhost:11434/api/tags`). A model the code names that is missing is fetched with `ollama pull <model>`; ask before pulling a large one.
+  2. Call it the way the code does, with streaming off so the answer is one JSON object:
+     - native API: `curl -s http://localhost:11434/api/chat -d '{"model":"<model>","messages":[{"role":"user","content":"Say hi"}],"stream":false}'`
+     - OpenAI-compatible API (an OpenAI client with `base_url` `http://localhost:11434/v1`): `curl -s http://localhost:11434/v1/chat/completions -H 'content-type: application/json' -d '{"model":"<model>","messages":[{"role":"user","content":"Say hi"}]}'`
+  3. Compare the answer's shape with what the code reads (`message.content` for the native API, `choices[0].message.content` for the OpenAI one), then run the code's own path once against the server.
+
+  A server at another address is set by `OLLAMA_HOST`; use the one the code uses.
+examples:
+  selected:
+    - "Our summariser calls Ollama with llama3 and returns empty strings, debug it."
+    - "Switch the chat client to a local Ollama model and make sure it works."
+  not_selected:
+    - "Switch the chat client from GPT-4o to Claude Sonnet."
+    - "Add a retry when the OpenAI API returns 429."

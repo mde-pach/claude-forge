@@ -1,0 +1,19 @@
+# Adapted from pulumi-best-practices, https://github.com/pulumi/agent-skills (pulumi/skills/pulumi-best-practices),
+# Apache License 2.0.
+id: typescript/pulumi/preview
+description: Seeing what a Pulumi program change would create, update, replace or delete, with pulumi preview.
+relevant:
+  - The task changes a Pulumi program's resources, their properties or the stack configuration.
+deliver: on-demand
+text: |
+  1. Pick the stack the change is for: `pulumi stack ls`, then `pulumi preview --stack <stack> --diff`. It needs the stack's backend and the provider credentials; it changes nothing.
+  2. Read the summary and each resource's line: `+` create, `~` update, `+-` or `-+` replace (a delete and a create: data and the resource's id are lost), `-` delete. `--diff` shows the properties behind each.
+  3. Check every change is one the task asked for. A replace usually comes from a changed name or an immutable property; renaming a resource in code is a replace unless it keeps its old identity with `aliases`.
+  4. Give the person the preview's summary and every replace or delete in it.
+examples:
+  selected:
+    - "Increase the RDS instance size in our Pulumi stack for prod."
+    - "Rename the logs bucket resource in the Pulumi program."
+  not_selected:
+    - "Explain what a Pulumi stack is."
+    - "Write a unit test for the tag helper in the infra package."

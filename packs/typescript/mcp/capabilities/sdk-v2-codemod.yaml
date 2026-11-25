@@ -1,0 +1,20 @@
+# Adapted from typescript-mcp-server-generator, https://github.com/github/awesome-copilot,
+# MIT License, Copyright GitHub, Inc.; the codemod is @modelcontextprotocol/codemod.
+id: typescript/mcp/sdk-v2-codemod
+description: Moving code from the MCP TypeScript SDK 1 to 2 with its codemod, then finishing what it marks.
+relevant:
+  - The task is to upgrade or migrate a project from version 1 to version 2 of the MCP TypeScript SDK.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: "@modelcontextprotocol/sdk", version: "<2.0.0"}]}
+text: |
+  1. Start from a clean working tree, so the codemod's changes are the whole diff.
+  2. Run `npx @modelcontextprotocol/codemod@latest v1-to-v2 .`. It rewrites imports to the v2 packages, renamed symbols (`McpError` to `ProtocolError`, …), `.tool()` to `registerTool`, `setRequestHandler(Schema, …)` to method strings, and `extra.*` to `ctx.*`; manifest changes are reported.
+  3. Read `git diff`, then find what it could not rewrite: `grep -rn '@mcp-codemod-error' .`. Each marker says what changed; fix each by hand, following the SDK's migration guide (https://ts.sdk.modelcontextprotocol.io/v2/migration/upgrade-to-v2), and remove the marker.
+  4. Update `package.json` to the v2 packages it reported, install, type-check and run the tests.
+examples:
+  selected:
+    - "Migrate our MCP server to version 2 of the TypeScript SDK."
+    - "Upgrade @modelcontextprotocol/sdk to v2 and fix whatever breaks."
+  not_selected:
+    - "Add a list_files tool to our MCP server."
+    - "Upgrade zod to the latest version."

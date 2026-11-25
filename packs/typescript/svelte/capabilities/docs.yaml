@@ -1,0 +1,18 @@
+# Procedure after the Svelte team's agent tools, @sveltejs/mcp (https://github.com/sveltejs/ai-tools),
+# written here from scratch.
+id: typescript/svelte/docs
+description: Reading the current Svelte and SvelteKit documentation and checking a component with the Svelte team's CLI.
+relevant:
+  - The task writes or changes Svelte components or SvelteKit code using APIs whose current form needs checking.
+deliver: on-demand
+text: |
+  1. List the documentation sections: `npx @sveltejs/mcp list-sections` (Svelte and SvelteKit, each with a title and the cases it covers).
+  2. Read the ones the task needs: `npx @sveltejs/mcp get-documentation "<section>,<section>"` (for example `"$state,$derived"`).
+  3. Check a component you wrote: `npx @sveltejs/mcp svelte-autofixer <path.svelte> --svelte-version <version from package.json>`. It reports compiler errors and suggestions; fix them and run it again until it reports none.
+examples:
+  selected:
+    - "Convert this Svelte 4 store-based component to runes."
+    - "Add a SvelteKit form action for the login form with progressive enhancement."
+  not_selected:
+    - "Fix the typo in the footer component's copyright text."
+    - "Upgrade the project's Vite version."

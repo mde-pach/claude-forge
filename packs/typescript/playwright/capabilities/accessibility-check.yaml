@@ -1,0 +1,22 @@
+# Procedure after claude-wcag-skill, https://github.com/84emllc/claude-wcag-skill, written here from scratch
+# (its license is not stated in a form GitHub reads): with axe-core and the project's Playwright.
+id: typescript/playwright/accessibility-check
+description: Checking a web page for accessibility problems with axe-core in the project's Playwright, and by keyboard.
+relevant:
+  - The task is to audit or fix a web page's accessibility, such as WCAG conformance, screen reader support or keyboard use.
+deliver: on-demand
+text: |
+  1. Start the app's development server in the background and wait until its port answers.
+  2. Add `@axe-core/playwright` as a dev dependency if the project lacks it, and write a short Playwright test that opens the page and runs `const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()`.
+  3. Read `results.violations`: each has an `id`, an `impact`, a `helpUrl`, and `nodes` with the selector and the failing HTML. Fix them at the component, the most severe first.
+  4. Keyboard pass in the same test: press `Tab` repeatedly and read `await page.evaluate(() => document.activeElement?.outerHTML)` each time; every control is reached, in a sensible order, with a visible focus, and `Escape` closes what opened.
+  5. Rerun until the violations you fixed are gone; close the browser and stop the server you started.
+
+  axe finds part of the problems only: say what was checked by hand and what was not.
+examples:
+  selected:
+    - "Make the signup form accessible, it fails WCAG AA."
+    - "Audit the dashboard for accessibility issues."
+  not_selected:
+    - "Add a signup form with email and password fields."
+    - "Translate the signup form into French."

@@ -1,0 +1,24 @@
+# Adapted from kubernetes-helm, https://github.com/TerminalSkills/skills (skills/kubernetes-helm),
+# Apache License 2.0, Copyright 2025 Terminal Skills: its workload debugging.
+id: kubernetes/pod-debug
+description: Finding why a workload crashes or misbehaves on a live cluster, with kubectl.
+relevant:
+  - The task is to find why a pod, deployment or job crashes, restarts or misbehaves on a cluster.
+deliver: on-demand
+text: |
+  Read the cluster, read-only, in the workload's namespace (`-n <ns>`; check the context first with `kubectl config current-context`):
+
+  1. `kubectl get pods -l <selector> -o wide`: status, restarts, node.
+  2. `kubectl describe pod <pod>`: the events at the end (image pull errors, failed probes, `OOMKilled`, unschedulable), each container's last state and exit code.
+  3. `kubectl logs <pod> -c <container>`, and `--previous` for the run that crashed.
+  4. `kubectl get events --sort-by=.lastTimestamp` for what happened around it; `kubectl top pod <pod>` against the limits for memory or CPU pressure.
+  5. To try the service itself: `kubectl port-forward <pod> <local>:<port>` in the background, then `curl localhost:<local>/…`; stop the forward afterwards.
+
+  Tie what you found to the manifest (image, env, probes, resources) and fix it there.
+examples:
+  selected:
+    - "The api deployment is in CrashLoopBackOff on staging, find out why."
+    - "Pods of the worker keep restarting every few minutes."
+  not_selected:
+    - "Add a readiness probe to the api deployment manifest."
+    - "Write a Helm chart for the worker."

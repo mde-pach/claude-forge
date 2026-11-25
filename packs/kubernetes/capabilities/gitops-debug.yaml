@@ -1,0 +1,29 @@
+# Procedure after argo-cluster-debug, https://github.com/redhat-developer/agentic-skills (skills/gitops/argo-cluster-debug),
+# MIT License, Copyright (c) 2026 The OpenShift Agent Skills authors; and gitops-cluster-debug,
+# https://github.com/fluxcd/agent-skills (skills/gitops-cluster-debug), Apache License 2.0: with their CLIs, not an MCP server.
+id: kubernetes/gitops-debug
+description: Finding why an Argo CD application or a Flux resource is out of sync, degraded or stuck on a live cluster.
+relevant:
+  - The task is to find why an Argo CD application or a Flux kustomization or Helm release fails to sync, reconcile or become healthy.
+deliver: on-demand
+text: |
+  Read the cluster, read-only; check the context first (`kubectl config current-context`).
+
+  Argo CD:
+  1. `argocd app get <app> --show-operation` (or `kubectl get application <app> -n argocd -o yaml`): sync status, health, the last operation's message and the resources that are `OutOfSync` or not `Healthy`.
+  2. `argocd app diff <app>` for what differs between Git and the cluster.
+  3. For a degraded resource, read it as a workload (`kubectl describe`, `kubectl logs`); for a failed sync, the controller's logs: `kubectl logs -n argocd deploy/argocd-repo-server` (rendering) or `statefulset/argocd-application-controller` (applying).
+
+  Flux:
+  1. `flux get all -A --status-selector ready=false`: the resources not ready, with their message.
+  2. `flux events --for <Kind>/<name> -n <ns>` and `flux logs --kind=<Kind> --name=<name> -n <ns>`.
+  3. `flux trace <object> --kind=<kind> --api-version=<group/version> -n <ns>` to find which Kustomization or HelmRelease manages a resource, and its source's revision.
+
+  Fix the cause in the repository's manifests; `argocd app sync <app>` or `flux reconcile <kind> <name>` applies it when the task asks for that.
+examples:
+  selected:
+    - "The payments app in Argo CD is stuck OutOfSync, figure out why."
+    - "Flux says the apps kustomization is not ready on the prod cluster."
+  not_selected:
+    - "Add a new Argo CD Application for the billing service."
+    - "Bump the nginx image tag in the deployment manifest."

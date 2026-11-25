@@ -1,0 +1,21 @@
+# Procedure after the API testing skill of https://github.com/LambdaTest/agent-skills,
+# MIT License, Copyright (c) 2025 TestMu AI / LambdaTest: with Schemathesis.
+id: openapi/contract-test
+description: Testing a running API against its OpenAPI document with Schemathesis, which generates requests from it.
+relevant:
+  - The task changes REST endpoints described by an OpenAPI document.
+  - The task asks whether an API matches its OpenAPI document.
+deliver: on-demand
+text: |
+  1. Start the API locally in the background and wait until it answers.
+  2. Run Schemathesis against it: `uvx schemathesis run <openapi file> --url http://localhost:<port>` (`--include-path <path>` to test only the changed endpoints; `--header 'Authorization: Bearer <token>'` when they need one).
+  3. Read each failure: it gives the request (as a `curl` line to replay) and the check it broke: a 5xx, a response that does not match the documented schema or status, a request the document allows but the server refuses.
+  4. Decide for each whether the code or the document is wrong, fix that one, and rerun on the same path.
+  5. Stop the server you started.
+examples:
+  selected:
+    - "Add a PATCH /orders/{id} endpoint and make sure it matches the OpenAPI spec."
+    - "Check whether our API still conforms to openapi.yaml after the refactor."
+  not_selected:
+    - "Fix the typo in the description of the /orders endpoint in openapi.yaml."
+    - "Generate TypeScript types from openapi.yaml."

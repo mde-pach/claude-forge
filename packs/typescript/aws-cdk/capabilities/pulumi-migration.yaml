@@ -1,0 +1,20 @@
+# Adapted from pulumi-cdk-to-pulumi, https://github.com/pulumi/agent-skills
+# (migration/skills/pulumi-cdk-to-pulumi), Apache License 2.0.
+id: typescript/aws-cdk/pulumi-migration
+description: Moving an AWS CDK app to Pulumi from its synthesized templates, until the Pulumi preview shows no change.
+relevant:
+  - The task is to migrate an AWS CDK app or stack to Pulumi.
+deliver: on-demand
+text: |
+  1. Ask which AWS account and region the stacks are deployed to; a synth in the wrong region gives the wrong template.
+  2. Synthesize: `npx cdk synth --quiet`. `cdk.out/manifest.json` lists the stacks; each `cdk.out/<stack>.template.json` lists its resources (logical id, type, properties). That is the inventory to rebuild.
+  3. Write the Pulumi program resource by resource from the templates and the CDK code (keep the CDK code's conditions and per-environment values); bundled assets (`NodejsFunction`, `bundling`) need their build step in the new program.
+  4. To keep the deployed resources, import them instead of creating them: `pulumi import <type> <name> <id>`, or the `import` resource option, with the ids from `aws cloudformation list-stack-resources --stack-name <stack>`.
+  5. Run `pulumi preview` and read the plan; change the program until it shows no create, update, replace or delete for the imported resources.
+examples:
+  selected:
+    - "Migrate our CDK app to Pulumi, keeping the existing resources."
+    - "Port the ApiStack from AWS CDK to a Pulumi TypeScript program."
+  not_selected:
+    - "Add an SQS queue to the ApiStack in CDK."
+    - "Upgrade aws-cdk-lib to the latest version."

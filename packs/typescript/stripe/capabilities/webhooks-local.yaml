@@ -1,0 +1,22 @@
+# Adapted from stripe-integration, https://github.com/finsilabs/awesome-ecommerce-skills
+# (skills/payments-checkout/stripe-integration), MIT License, Copyright (c) 2026 awesome-ecommerce-skills contributors.
+id: typescript/stripe/webhooks-local
+description: Sending real Stripe test events to a local webhook handler with the Stripe CLI.
+relevant:
+  - The task builds, changes or debugs a Stripe webhook handler.
+deliver: on-demand
+text: |
+  1. Start the app in the background and wait until it answers.
+  2. Forward test-mode events to the handler: `stripe listen --forward-to localhost:<port>/<webhook path>` in the background (`--events checkout.session.completed,invoice.paid` to limit them). It prints a signing secret `whsec_…`: run the app with it as the webhook secret it reads (for example `STRIPE_WEBHOOK_SECRET`), or the signature check fails.
+  3. Send an event: `stripe trigger <event>` (`stripe trigger --help` lists them). The listen output shows each delivery and the handler's status code.
+  4. Check what the handler did (its log, the database), and send the same event again with `stripe events resend <evt_id>`, to see how the handler takes a repeat.
+  5. Stop `stripe listen` and the app.
+
+  It needs a logged-in CLI (`stripe login`) on a test-mode account.
+examples:
+  selected:
+    - "Handle the invoice.payment_failed webhook and mark the subscription past due."
+    - "Our Stripe webhook returns 400 signature verification failed locally, fix it."
+  not_selected:
+    - "Add a pricing table with Stripe Checkout links."
+    - "Show the customer's invoices on the billing page."

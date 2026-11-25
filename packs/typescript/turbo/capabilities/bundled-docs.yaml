@@ -1,0 +1,22 @@
+# Adapted from turborepo, https://github.com/vercel/turborepo (skills/turborepo),
+# MIT License, Copyright (c) 2026 Vercel, Inc.
+id: typescript/turbo/bundled-docs
+description: Reading the Turborepo documentation shipped with the installed turbo, which matches its version.
+relevant:
+  - The task changes Turborepo configuration, task pipelines, caching or filters.
+  - The task changes how a Turborepo monorepo runs in CI.
+deliver: on-demand
+when: {deps: [{ecosystem: npm, name: turbo, version: ">=2.11.5"}]}
+text: |
+  The installed `turbo` package holds its own documentation, for exactly that version.
+
+  1. Find the package: `node -p "require('path').dirname(require.resolve('turbo/package.json'))"` (in a pnpm or Yarn workspace, run it where `turbo` is a dependency).
+  2. Read `<that directory>/docs/README.md`: an index of tasks to pages.
+  3. Read the page for the task before editing `turbo.json`, package scripts or the CI workflow, and follow the form it shows.
+examples:
+  selected:
+    - "Make the lint task in turbo.json depend on the build of internal packages."
+    - "Set up Turborepo remote caching in our GitHub Actions workflow."
+  not_selected:
+    - "Fix the failing unit test in the ui package."
+    - "Add a new React component to the ui package."

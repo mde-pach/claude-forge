@@ -1,0 +1,23 @@
+# Procedure after web-perf, https://github.com/cloudflare/skills (skills/web-perf), Apache License 2.0:
+# with the Lighthouse CLI instead of the Chrome DevTools MCP server.
+id: typescript/page-performance
+description: Measuring a web page's load performance with Lighthouse and reading which resources slow it down.
+relevant:
+  - The task is to make a web page load faster or to find why it loads slowly.
+  - The task is about a page's Core Web Vitals, such as LCP, CLS or INP.
+deliver: on-demand
+text: |
+  Measure a production build, not the dev server:
+
+  1. Build and serve it locally in the background (the project's `build`, then its `preview` or `start` script), and wait until it answers.
+  2. Run Lighthouse headless on the page: `npx lighthouse <url> --only-categories=performance --output=json --output-path=/tmp/lh.json --chrome-flags=--headless --quiet`.
+  3. Read the metrics: `jq '.audits | {lcp: .["largest-contentful-paint"].displayValue, cls: .["cumulative-layout-shift"].displayValue, tbt: .["total-blocking-time"].displayValue}' /tmp/lh.json`.
+  4. Read what costs them: `jq '[.audits[] | select(.score != null and .score < 0.9) | {id, title, displayValue}]' /tmp/lh.json` (render-blocking resources, unused JavaScript, the LCP element, layout shift culprits), and the `details.items` of each for the files involved.
+  5. Map each to its source (the bundler config, the import, the image or font), change one thing, and rerun steps 2 to 4 on the same URL; report both runs. Stop the server you started.
+examples:
+  selected:
+    - "The landing page has a 4 second LCP, find out what slows it down."
+    - "Lighthouse says our product page has bad CLS, fix it."
+  not_selected:
+    - "Add a hero image to the landing page."
+    - "Speed up the backend's orders endpoint, it takes 2 seconds."

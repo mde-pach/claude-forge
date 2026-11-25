@@ -1,0 +1,25 @@
+# Adapted from site-launch-checklist, https://github.com/samber/cc-skills (skills/site-launch-checklist),
+# MIT License, Copyright (c) 2026 Samuel Berthe: its HTTP probes only.
+id: code/http-check
+description: Checking what a running site answers over HTTP (headers, redirects, status codes, metadata, TLS) with curl.
+relevant:
+  - The task changes or needs checked the HTTP headers, redirects, status codes or caching a site sends.
+  - The task changes or needs checked a site's SEO metadata, robots.txt or sitemap.
+deliver: on-demand
+text: |
+  Ask the running site (a local server or a preview URL), not the code:
+
+  1. Headers and status: `curl -sI <url>`. Read the status, `location`, `cache-control`, and the security headers (`strict-transport-security`, `content-security-policy`, `x-content-type-options`, `referrer-policy`).
+  2. Redirects: `curl -sIL <url>` prints each hop; check `http://` to `https://` and the `www` variant go to the expected place in one hop.
+  3. Errors: `curl -s -o /dev/null -w '%{http_code}\n' <url>/no-such-page` answers 404, not 200.
+  4. Metadata: `curl -s <url>/robots.txt`, `curl -s <url>/sitemap.xml`, and in the page's HTML (`curl -s <url>`) the `<title>`, `<meta name="description">`, `<link rel="canonical">`, `og:` tags and `application/ld+json` blocks.
+  5. TLS, on a deployed host: `openssl s_client -connect <host>:443 -servername <host> </dev/null | openssl x509 -noout -dates -subject`.
+
+  Compare each answer with what the change should produce, and stop any server you started.
+examples:
+  selected:
+    - "Add HSTS and a content security policy to the app's responses and verify they are sent."
+    - "Check that /old-pricing redirects to /pricing with a 301."
+  not_selected:
+    - "Add a pricing page with three plans."
+    - "Write unit tests for the price formatting function."

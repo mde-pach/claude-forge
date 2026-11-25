@@ -1,0 +1,23 @@
+# Adapted from mysql, https://github.com/planetscale/database-skills (skills/mysql),
+# MIT License, Copyright (c) 2026 PlanetScale: for MySQL and PostgreSQL.
+id: sql/query-plan
+description: Reading a query's execution plan with EXPLAIN on a development database, to see how it runs and which index it uses.
+relevant:
+  - The task is to make a SQL query faster or to find why it is slow.
+  - The task adds or changes a database index.
+deliver: on-demand
+text: |
+  On a development database with realistic data:
+
+  1. Get the query as it runs, with real values (from the code, or the ORM's SQL log).
+  2. MySQL: `EXPLAIN FORMAT=TREE <query>`, or `EXPLAIN ANALYZE <query>` to run it and get real row counts and times. Look for `type: ALL` (a full table scan), `key: NULL`, `Using filesort` and `Using temporary`, and `rows` far above what is returned.
+  3. PostgreSQL: `EXPLAIN (ANALYZE, BUFFERS) <query>`. Look for `Seq Scan` on a large table, estimated rows far from actual, `Sort` or `Hash` spilling to disk, and the node where the time goes.
+  4. `ANALYZE` (`EXPLAIN ANALYZE`) runs the statement: wrap an `UPDATE` or `DELETE` in a transaction you roll back.
+  5. Add or change the index, rerun the same `EXPLAIN`, and report both plans.
+examples:
+  selected:
+    - "The orders search query takes 4 seconds on large accounts, speed it up."
+    - "Add an index for the reports query that filters by customer and created_at."
+  not_selected:
+    - "Add a created_at column to the reports table."
+    - "Rename the customer_id column to account_id in the queries."

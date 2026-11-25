@@ -1,0 +1,24 @@
+# Adapted from finding-duplicate-functions, https://github.com/obra/superpowers-lab
+# (skills/finding-duplicate-functions), MIT License, Copyright (c) 2025 Jesse Vincent; without its helper script.
+id: code/duplicate-intent
+description: Finding functions that do the same thing under different names, which a copy-paste detector misses.
+relevant:
+  - The task is to find functions or helpers that duplicate each other's purpose.
+  - The task is to consolidate duplicated helpers or utilities.
+deliver: on-demand
+text: |
+  Copy-paste detectors find copied text; functions written twice for the same purpose look different. To find those:
+
+  1. List the functions of the source tree with their file and first line, by the language server's workspace symbols or a search (`rg -n '^\s*(export )?(async )?(def|function|fn|func) '`).
+  2. Group them by domain from their names and modules: dates, strings, paths, validation, HTTP, money.
+  3. In each group, read the candidates' bodies and signatures and pair the ones whose intent is the same (the same input to the same output), whatever their names.
+  4. For each pair, check their callers and their tests, and say which one to keep and why (more callers, tested, more general).
+
+  Report the pairs with their files; merge them only when the task asks for it.
+examples:
+  selected:
+    - "I suspect we have several helpers that format dates the same way under different names; find them."
+    - "Audit the utils folder for functions that duplicate each other."
+  not_selected:
+    - "Add a helper that formats dates as ISO week numbers."
+    - "Rename formatDate to formatIsoDate across the project."

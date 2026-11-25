@@ -1,0 +1,22 @@
+# Procedure after python-mcp-server-generator, https://github.com/github/awesome-copilot
+# (skills/python-mcp-server-generator), MIT License, Copyright GitHub, Inc.: with the Inspector's CLI mode.
+id: python/mcp/inspect
+description: Calling a Python MCP server's tools the way a client would, with the MCP Inspector's command-line mode.
+relevant:
+  - The task adds, changes or debugs the tools, resources or prompts of an MCP server written in Python.
+deliver: on-demand
+text: |
+  Talk to the server over MCP instead of calling its functions directly:
+
+  1. List what it exposes: `npx @modelcontextprotocol/inspector --cli uv run <server.py> --method tools/list` (the command after `--cli` is how a client starts the server; `--method resources/list`, `prompts/list` for the rest). Read each tool's name, description and input schema as a model will.
+  2. Call a tool: `… --method tools/call --tool-name <name> --tool-arg <key>=<value>` (repeat `--tool-arg`; `--tool-args-json '{…}'` for nested input). Check the result's content and `isError`, and try one bad input.
+  3. A server over HTTP: start it in the background, then `npx @modelcontextprotocol/inspector --cli http://localhost:<port>/mcp --method tools/list`; stop it afterwards.
+
+  `--method tools/list --strict` reports input schemas that some clients cannot use.
+examples:
+  selected:
+    - "Add a search_tickets tool to our FastMCP server."
+    - "The MCP server's get_weather tool returns an error in Claude Desktop, debug it."
+  not_selected:
+    - "Add the GitHub MCP server to our Claude Code config."
+    - "Write unit tests for the ticket search query builder."

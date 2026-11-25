@@ -1,0 +1,23 @@
+# Procedure after jupyter-notebook, https://github.com/openai/skills (skills/.curated/jupyter-notebook),
+# written here from scratch (the repository states no license).
+id: python/jupyter/run-notebook
+description: Running a notebook top to bottom headless and reading its cell outputs and errors.
+relevant:
+  - The task creates or edits a Jupyter notebook.
+  - The task is to find why a notebook fails or gives wrong output.
+deliver: on-demand
+text: |
+  Run the notebook from a clean kernel, in order:
+
+  1. `jupyter nbconvert --to notebook --execute <nb>.ipynb --output /tmp/<nb>.executed.ipynb` (add `--ExecutePreprocessor.timeout=600` for long cells). It stops at the first cell that raises and prints the traceback with the cell's source.
+  2. Read the outputs of the executed copy: `jupyter nbconvert --to markdown /tmp/<nb>.executed.ipynb --stdout`, or with Python: `nbformat.read(path, as_version=4)` and each cell's `outputs`.
+  3. Fix the cell, rerun from the top: a notebook that only works when cells run out of order is not fixed.
+
+  Write the executed copy outside the repository unless the task asks for the outputs to be saved in the notebook.
+examples:
+  selected:
+    - "Add a cell to analysis.ipynb that plots revenue per month, and make sure the notebook still runs."
+    - "The churn notebook fails halfway with a NameError, fix it."
+  not_selected:
+    - "Add jupyterlab to the dev dependency group in pyproject.toml."
+    - "Explain what this pandas groupby does."

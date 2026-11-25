@@ -1,0 +1,23 @@
+# Procedure after testing-dags, https://github.com/astronomer/agents (skills/testing-dags),
+# Apache License 2.0, Copyright 2024 Astronomer, Inc.: with Airflow's own CLI instead of its af tool.
+id: python/airflow/dag-test
+description: Running an Airflow DAG or one task locally and reading the task logs, to check a DAG change works.
+relevant:
+  - The task adds or changes an Airflow DAG or operator.
+  - The task is to find why an Airflow DAG or task fails.
+deliver: on-demand
+text: |
+  1. Check the DAGs import: `airflow dags list-import-errors` (an Astro project: `astro dev parse`). A DAG with an import error is not loaded.
+  2. Look at its shape: `airflow tasks list <dag_id> --tree`.
+  3. Run the whole DAG once, in this process, without the scheduler: `airflow dags test <dag_id> <logical date>`. Each task's log is printed as it runs; read the first task that fails.
+  4. Run one task alone: `airflow tasks test <dag_id> <task_id> <logical date>` (it records no state), after fixing it or to see its output.
+  5. A failure on a deployed Airflow: `airflow tasks states-for-dag-run <dag_id> <run_id>` for which task failed, then its log in the logs directory or the UI, and reproduce it with step 4.
+
+  Run the project's DAG tests (`pytest tests/dags`, `astro dev pytest`) too.
+examples:
+  selected:
+    - "Add a task to the daily_sales DAG that uploads the report to S3, and check it runs."
+    - "The ingest DAG fails at the transform step every night, find out why."
+  not_selected:
+    - "Upgrade the project to Airflow 3."
+    - "Explain what an Airflow sensor is."

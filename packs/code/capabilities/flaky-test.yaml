@@ -1,0 +1,22 @@
+# Procedure after the flaky-test diagnosis of wio, https://github.com/workersio/skills (plugins/wio/skills/wio),
+# MIT License, Copyright (c) 2026 workers.io.
+id: code/flaky-test
+description: Finding why a test passes and fails on different runs, by rerunning it many ways and comparing.
+relevant:
+  - The task is about a test that fails only sometimes, or only in CI, or only with other tests.
+deliver: on-demand
+text: |
+  Make the failure happen on demand before changing anything:
+
+  1. Run the test alone, many times, and count the failures: `for i in $(seq 50); do <test command> || echo FAIL $i; done` (pytest: `pytest path::name --count 50` with pytest-repeat; Vitest/Jest: `--repeat`/a loop).
+  2. Run it with the rest of its file or suite, and in random order (`pytest -p random_order`, `vitest --sequence.shuffle`, `jest --randomize`). Failing only with others points to shared state: a global, a database row, a file, a mocked clock or module left behind by another test.
+  3. Run it under load or with a lower timeout (several workers, `-n 8`, a slower machine) to bring out timing: a missing `await`, a fixed sleep, an order of async events.
+  4. Read what differs between a failing and a passing run (time, order, seed, the other tests that ran) and name the cause before fixing it.
+  5. After the fix, rerun step 1's loop: no failure in 50 runs.
+examples:
+  selected:
+    - "test_checkout_flow fails about one run in ten on CI, figure out why."
+    - "This spec passes alone but fails when I run the whole suite."
+  not_selected:
+    - "test_checkout_flow fails since the last commit with an AttributeError, fix it."
+    - "Add retries to the HTTP client when the server returns 503."
