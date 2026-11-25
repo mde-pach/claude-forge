@@ -1,0 +1,13 @@
+id: terraform/no-dynamodb-lock
+description: "The s3 backend locks the state with use_lockfile = true (Terraform 1.11+, OpenTofu 1.10+), not a dynamodb_table, which Terraform deprecated and will remove; drop the table once every user of the state runs a version that has use_lockfile."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu", "**/*.tfbackend", "**/backend*.hcl"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "^[[:space:]]*dynamodb_table[[:space:]]*="
+examples:
+  match:
+    - "terraform {\n  backend \"s3\" {\n    bucket         = \"acme-state\"\n    key            = \"shop/terraform.tfstate\"\n    region         = \"eu-west-1\"\n    dynamodb_table = \"terraform-locks\"\n  }\n}\n"
+  no_match:
+    - "terraform {\n  backend \"s3\" {\n    bucket       = \"acme-state\"\n    key          = \"shop/terraform.tfstate\"\n    region       = \"eu-west-1\"\n    use_lockfile = true\n  }\n}\n"
+    - "resource \"aws_dynamodb_table\" \"orders\" {\n  name     = \"orders\"\n  hash_key = \"id\"\n}\n"

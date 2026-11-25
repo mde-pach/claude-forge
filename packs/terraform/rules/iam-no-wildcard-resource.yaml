@@ -1,0 +1,14 @@
+id: terraform/iam-no-wildcard-resource
+description: "An IAM policy statement names the resources it applies to (ARNs, or ARN patterns scoped to the project) rather than Resource = \"*\", except for actions that support no resource-level permissions (such as ec2:Describe*) and KMS key policies, where \"*\" means the key itself."
+scope: {language: any, files: ["**/*.tf", "**/*.tofu", "**/*.tf.json", "**/*policy*.json"]}
+enforce:
+  - target: grep
+    mode: advise
+    pattern: "[\"]?[Rr]esources?[\"]?[[:space:]]*[:=][[:space:]]*\\[?[[:space:]]*\"\\*\"[[:space:]]*\\]?[[:space:]]*,?[[:space:]]*(#.*)?$"
+examples:
+  match:
+    - "data \"aws_iam_policy_document\" \"read\" {\n  statement {\n    actions   = [\"s3:GetObject\"]\n    resources = [\"*\"]\n  }\n}\n"
+    - "resource \"aws_iam_policy\" \"read\" {\n  name = \"read\"\n  policy = jsonencode({\n    Version = \"2012-10-17\"\n    Statement = [{\n      Effect   = \"Allow\"\n      Action   = [\"s3:GetObject\"]\n      Resource = \"*\"\n    }]\n  })\n}\n"
+  no_match:
+    - "data \"aws_iam_policy_document\" \"read\" {\n  statement {\n    actions   = [\"s3:GetObject\"]\n    resources = [\"${aws_s3_bucket.assets.arn}/*\"]\n  }\n}\n"
+    - "data \"aws_iam_policy_document\" \"read\" {\n  statement {\n    actions   = [\"s3:GetObject\"]\n    resources = [aws_s3_bucket.assets.arn, \"${aws_s3_bucket.assets.arn}/*\"]\n  }\n}\n"

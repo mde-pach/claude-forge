@@ -1,0 +1,28 @@
+id: terraform/no-cancel-in-progress-apply
+description: "A workflow job that runs terraform (or tofu) apply or destroy does not set concurrency cancel-in-progress: true: a newer run cancels the apply midway, leaving the state locked and resources half changed. Keep the concurrency group and set cancel-in-progress: false, so runs queue."
+scope: {language: yaml, files: [".github/workflows/*.yml", ".github/workflows/*.yaml"]}
+enforce:
+  - target: ast-grep
+    mode: forbid
+    rule:
+      kind: block_mapping_pair
+      has: {field: key, regex: "^cancel-in-progress$"}
+      all:
+        - has: {field: value, regex: "^true$"}
+        - inside:
+            kind: block_mapping_pair
+            stopBy: end
+            has: {field: key, regex: "^concurrency$"}
+            inside:
+              kind: block_mapping
+              has:
+                stopBy: end
+                regex: "(terraform|tofu)([[:space:]]+-[^[:space:]]+)*[[:space:]]+(apply|destroy)([[:space:]]|$)"
+examples:
+  match:
+    - files: {.github/workflows/deploy.yml: "name: deploy\non: push\njobs:\n  apply:\n    runs-on: ubuntu-latest\n    concurrency:\n      group: terraform-prod\n      cancel-in-progress: true\n    steps:\n      - run: terraform -chdir=infra apply -auto-approve\n"}
+    - files: {.github/workflows/deploy.yml: "name: deploy\non: push\nconcurrency:\n  group: deploy-${{ github.ref }}\n  cancel-in-progress: true\njobs:\n  apply:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          tofu init\n          tofu apply -auto-approve\n"}
+  no_match:
+    - files: {.github/workflows/deploy.yml: "name: deploy\non: push\njobs:\n  apply:\n    runs-on: ubuntu-latest\n    concurrency:\n      group: terraform-prod\n      cancel-in-progress: false\n    steps:\n      - run: terraform apply -auto-approve\n"}
+    - files: {.github/workflows/ci.yml: "name: ci\non: pull_request\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    concurrency:\n      group: lint-${{ github.ref }}\n      cancel-in-progress: true\n    steps:\n      - run: terraform fmt -check\n  apply:\n    runs-on: ubuntu-latest\n    steps:\n      - run: terraform apply -auto-approve\n"}
+    - files: {.github/workflows/plan.yml: "name: plan\non: pull_request\nconcurrency:\n  group: plan-${{ github.ref }}\n  cancel-in-progress: true\njobs:\n  plan:\n    runs-on: ubuntu-latest\n    steps:\n      - run: terraform plan -out tfplan\n"}
