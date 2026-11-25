@@ -1,0 +1,19 @@
+# Adapted from apollo-router, https://github.com/apollographql/skills (skills/apollo-router), MIT License,
+# Copyright (c) 2024 Apollo Graph, Inc.: running the router with the changed config and sending requests to see its effect.
+id: graphql/apollo-router/router-dev
+description: Running Apollo Router locally with the changed router.yaml and sending requests to see what the configuration really does.
+relevant:
+  - The task changes the router's configuration, such as authentication, CORS, headers, caching, limits or telemetry.
+deliver: on-demand
+text: |
+  1. Validate first: `router config validate router.yaml` (the router binary, or the project's container image) reports unknown or misplaced keys for that router version; `router config upgrade router.yaml` shows what an older config becomes.
+  2. Run it: `router --dev --config router.yaml --supergraph supergraph.graphql` (from `rover supergraph compose --config supergraph.yaml > supergraph.graphql`), or `rover dev --supergraph-config supergraph.yaml --router-config router.yaml`; in the background, output to a file. `--dev` turns on hot reload, introspection and the sandbox: never use it for production settings.
+  3. Send requests that exercise the change and read the status and headers: CORS with `curl -si -X OPTIONS http://localhost:4000 -H 'Origin: https://app.example.com' -H 'Access-Control-Request-Method: POST'`; auth with and without `Authorization: Bearer <jwt>`; headers by reading what a subgraph receives (its log); limits with a deep or large query. The health check is `curl -s http://localhost:8088/health`.
+  4. Read the router log for config errors on reload and for each request's subgraph errors. Stop the router at the end.
+examples:
+  selected:
+    - "Enable JWT authentication on the router using our JWKS endpoint."
+    - "Forward the x-tenant-id header from clients to all subgraphs."
+  not_selected:
+    - "Add a new query to the accounts subgraph."
+    - "Bump the router image version in the Helm chart."

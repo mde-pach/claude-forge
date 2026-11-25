@@ -1,0 +1,21 @@
+# Adapted from apollo-mcp-server, https://github.com/apollographql/skills (skills/apollo-mcp-server), MIT License,
+# Copyright (c) 2024 Apollo Graph, Inc.: running the server from its config and calling its tools.
+id: graphql/apollo-mcp-server/mcp-run
+description: Running Apollo MCP Server from its config and calling its tools, to see which tools the GraphQL operations become and what they return.
+relevant:
+  - The task adds or changes the GraphQL operations or configuration that an MCP server exposes as tools.
+  - The task is to fix or check what an MCP tool returns.
+deliver: on-demand
+text: |
+  1. Read the config: `endpoint` (the GraphQL API), `operations` (local `.graphql` files, a collection, persisted queries or introspection), `introspection` (which of `introspect`, `search`, `validate`, `execute` are on), `transport`.
+  2. Make sure the GraphQL endpoint answers (start the API or `rover dev` in the background).
+  3. Start the server: `apollo-mcp-server ./config.yaml` (or the project's container), with `transport: {type: streamable_http, port: 8000}` to call it over HTTP; its log lists each tool it built from an operation and any operation that failed to parse or validate.
+  4. Call it as a client would: `npx -y @modelcontextprotocol/inspector --cli http://127.0.0.1:8000/mcp --transport http --method tools/list`, then `--method tools/call --tool-name <tool> --tool-arg key=value`; for a stdio config, pass the run command instead of the URL. With the introspection tools on, `validate` checks an operation against the schema before you add it.
+  5. Read each tool's input schema (from the operation's variables) and the result's `data` and `errors`. Stop the server at the end.
+examples:
+  selected:
+    - "Expose the searchProducts query as an MCP tool and check it works."
+    - "The get_order MCP tool returns an error about a missing variable, fix it."
+  not_selected:
+    - "Add a new field to the Product type in the products subgraph."
+    - "Write a blog post about our MCP server."

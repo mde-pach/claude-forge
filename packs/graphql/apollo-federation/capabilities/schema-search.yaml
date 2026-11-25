@@ -1,0 +1,22 @@
+# Adapted from rover, https://github.com/apollographql/skills (skills/rover), MIT License, Copyright (c) 2024 Apollo
+# Graph, Inc.: piping the fetched API schema into rover schema search and describe.
+id: graphql/apollo-federation/schema-search
+description: Finding types and fields in a GraphOS graph's schema with rover schema search and describe, without reading the whole schema.
+relevant:
+  - The task writes a new query, mutation or operation for an API.
+  - The task needs to find which type or field of a GraphQL schema holds some data.
+deliver: on-demand
+text: |
+  Query the schema instead of reading all of it:
+
+  1. Get the API schema and pipe it: `rover graph fetch <graph@variant> | rover schema search - "<keyword>"` lists the matching types and fields with their paths. Without a GraphOS key, pipe a local file instead: `cat supergraph.graphql | rover schema search - "<keyword>"` (or `rover supergraph compose --config supergraph.yaml | ...`).
+  2. One type or field with its arguments and neighbours: `rover graph fetch <graph@variant> | rover schema describe - --coord <Type.field> --depth 1`; without `--coord`, an overview of the root types.
+  3. Use `rover graph fetch` (the API schema) rather than `rover supergraph fetch`, whose output includes the federation internals (`join__`, `link__`).
+  4. Write the operation from the coordinates it found, then check it against the graph by running it (through the router, or `rover dev`).
+examples:
+  selected:
+    - "Write a query that gets a customer's last five orders with their shipping status."
+    - "Which field in our graph exposes the product's inventory count?"
+  not_selected:
+    - "Add a new inventory subgraph to the supergraph config."
+    - "Set up CORS on the router."
