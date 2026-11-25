@@ -24,7 +24,9 @@ fn holds_in(w: &ContextWhen, f: &DepFacts) -> bool {
         && (w.files.is_empty()
             || w.files.iter().any(|g| {
                 let re = glob_to_regex(g);
-                f.files.iter().any(|x| re.is_match(x).unwrap_or(false))
+                f.files
+                    .iter()
+                    .any(|x| crate::facts::reaches(g, x) && re.is_match(x).unwrap_or(false))
             }))
         && w.facts.iter().all(|(name, want)| {
             f.fact(name)

@@ -17,7 +17,7 @@ use crate::proc::{GIT_CAP, git, git_env};
 use crate::{Project, Runtime, snapshot, state};
 
 /// The mirror's directory of copies; a copy's path is this, then the real absolute path.
-const PREFIX: &str = "_outside";
+const PREFIX: &str = forge_detect::facts::OUTSIDE_DIR;
 
 /// The session's mirror (`<session>/outside`).
 fn dir(p: &Project) -> PathBuf {

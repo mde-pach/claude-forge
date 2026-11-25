@@ -825,3 +825,50 @@ fn builtin_detection_examples() {
     );
     assert!(!got.iter().any(|p| p == "typescript/library"), "{got:?}");
 }
+
+// §5.3: a detection glob's wildcards behave as a shell's (`ls *`): they never step into a hidden
+// directory (`.forge/`, `.claude/`, `.devcontainer/`) nor an installed-dependency or environment
+// directory left unignored (`venv/`, `node_modules/`). A glob that names one reaches it.
+#[test]
+fn wildcards_never_reach_hidden_or_environment_directories() {
+    let builtin = |id: &str| !id.starts_with("acme");
+    let compose = "services:\n  db:\n    image: postgres:17\n";
+    // decoys only: a local rule and a capability named like compose files, a worktree's copy, a
+    // devcontainer, an unignored virtualenv and node_modules
+    let decoys: &[(&str, &str)] = &[
+        ("app.py", "print(1)\n"),
+        (
+            ".forge/rules/compose-ports.yaml",
+            "id: acme/compose-ports\ndescription: Ports bind to the loopback.\nscope: {language: yaml, files: [\"**/compose*.yaml\"]}\nenforce: [{target: grep, mode: forbid, pattern: \"0\\\\.0\\\\.0\\\\.0\"}]\n",
+        ),
+        (
+            ".forge/capabilities/compose.yaml",
+            "id: acme/compose\ndescription: Compose.\nrelevant:\n  - The task runs services.\ndeliver: on-demand\ntext: t\n",
+        ),
+        (".claude/worktrees/w/compose.yaml", compose),
+        (".devcontainer/Dockerfile", "FROM python:3.12\n"),
+        ("venv/lib/python3.12/site-packages/x/compose.yaml", compose),
+        ("node_modules/x/openapi.yaml", "openapi: 3.1.0\n"),
+    ];
+    let got = active(decoys, None, builtin);
+    for id in ["docker", "docker/compose", "openapi"] {
+        assert!(!got.iter().any(|p| p == id), "{id} in {got:?}");
+    }
+    // the project's own files still count, a hidden directory a glob names too
+    let mut real = decoys.to_vec();
+    real.push(("deploy/compose.yaml", compose));
+    real.push((".github/workflows/ci.yml", "name: ci\non: push\njobs: {}\n"));
+    let got = active(&real, None, builtin);
+    for id in ["docker", "docker/compose", "github-actions"] {
+        assert!(got.iter().any(|p| p == id), "{id} not in {got:?}");
+    }
+    // a context item's `when.files` reads the same way
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), decoys);
+    let facts = read_project_facts(dir.path(), &files_of(dir.path())).unwrap();
+    let when: forge_packs::model::ContextWhen =
+        serde_json::from_value(json!({"files": ["**/compose*.yaml"]})).unwrap();
+    let set = forge_packs::load(Some(dir.path()), forge_packs::Options::default()).unwrap();
+    let act = active_packs(&set, Level::Project, None, Some(&facts));
+    assert!(!forge_detect::when_holds(&when, &[&facts.root], &act));
+}

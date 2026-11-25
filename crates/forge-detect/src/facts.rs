@@ -75,23 +75,26 @@ impl DepFacts {
         }
     }
 
-    /// A file of its own matches the glob.
+    /// A file of its own matches the glob (and the glob reaches it, [`reaches`]).
     pub fn has_files(&self, glob: &str) -> bool {
         self.memo(format!("f\0{glob}"), || {
             let re = glob_to_regex(glob);
-            self.files.iter().any(|f| re.is_match(f).unwrap_or(false))
+            self.files
+                .iter()
+                .any(|f| reaches(glob, f) && re.is_match(f).unwrap_or(false))
         })
     }
 
     /// A file matching one of the globs has a line matching the pattern (detect.content_any).
     pub fn contains(&self, globs: &[String], pattern: &str) -> bool {
         self.memo(format!("c\0{}\0{pattern}", globs.join("\0")), || {
-            let res: Vec<_> = globs.iter().map(|g| glob_to_regex(g)).collect();
+            let res: Vec<_> = globs.iter().map(|g| (g, glob_to_regex(g))).collect();
             let Ok(line) = fancy_regex::Regex::new(&format!("(?m){pattern}")) else {
                 return false;
             };
             self.files.iter().any(|f| {
-                res.iter().any(|re| re.is_match(f).unwrap_or(false))
+                res.iter()
+                    .any(|(g, re)| reaches(g, f) && re.is_match(f).unwrap_or(false))
                     && line.is_match(&self.read(f)).unwrap_or(false)
             })
         })
@@ -100,10 +103,13 @@ impl DepFacts {
     /// A file matching one of the globs outside vendored, generated and environment directories (detect.sources_any).
     pub fn sources(&self, globs: &[String]) -> bool {
         self.memo(format!("s\0{}", globs.join("\0")), || {
-            let res: Vec<_> = globs.iter().map(|g| glob_to_regex(g)).collect();
-            self.files
-                .iter()
-                .any(|f| !is_vendored(f) && res.iter().any(|re| re.is_match(f).unwrap_or(false)))
+            let res: Vec<_> = globs.iter().map(|g| (g, glob_to_regex(g))).collect();
+            self.files.iter().any(|f| {
+                !is_vendored(f)
+                    && res
+                        .iter()
+                        .any(|(g, re)| reaches(g, f) && re.is_match(f).unwrap_or(false))
+            })
         })
     }
 
@@ -113,6 +119,7 @@ impl DepFacts {
             self.files
                 .iter()
                 .filter(|f| f.ends_with(".yaml") || f.ends_with(".yml"))
+                .filter(|f| reaches("**/*.yaml", f))
                 .any(|f| {
                     let top = first_document_keys(&self.read(f));
                     keys.iter().all(|k| top.contains(k))
@@ -511,6 +518,52 @@ const VENDORED_DIRS: &[&str] = &[
     ".git",
 ];
 
+/// Where the outside mirror (§8.6) keeps its copy of a file the agent wrote outside the
+/// repository: `_outside/<absolute path>`.
+pub const OUTSIDE_DIR: &str = "_outside";
+
+/// Whether `glob`, as detection uses it, reaches `path`. A wildcard behaves as a shell's does
+/// (`ls *`): it never steps into a hidden directory (a name starting with `.`) nor names a hidden
+/// file, and neither does it step into installed dependencies, an environment or someone else's
+/// code (`node_modules`, `venv`, `site-packages`, `vendor`, `third_party`, `*.egg-info`, …). A glob reaches one only by naming it: `.github/workflows/*.yml`
+/// reaches `.github/`, `**/Dockerfile` does not reach `.devcontainer/Dockerfile`, and
+/// `**/compose*.yaml` neither `.forge/rules/compose-ports.yaml` nor an unignored
+/// `venv/lib/x/compose.yaml`. A hidden file is reached by a glob whose last segment starts with a
+/// `.` (`.env.*`, `.spectral.yaml`). Ignored files are not in the list at all.
+pub fn reaches(glob: &str, path: &str) -> bool {
+    // a copy in the outside mirror is a file the agent wrote outside the repository, wherever it
+    // was (`/tmp/.x/probe.py`): the rules follow the agent (§8.6), so only its name is judged
+    if let Some(abs) = path
+        .strip_prefix(OUTSIDE_DIR)
+        .and_then(|r| r.strip_prefix('/'))
+    {
+        let name = abs.rsplit('/').next().unwrap_or("");
+        return !name.starts_with('.')
+            || glob.rsplit('/').next().is_some_and(|l| l.starts_with('.'));
+    }
+    /// Installed dependencies, environments and other people's code. Not `build/`, `dist/` or
+    /// `env/`, which can hold the project's own config (`build/package/Dockerfile`).
+    const SHUT: &[&str] = &[
+        "node_modules",
+        "venv",
+        "virtualenv",
+        "site-packages",
+        "dist-packages",
+        "vendor",
+        "vendored",
+        "_vendor",
+        "third_party",
+        "third-party",
+        "__pycache__",
+    ];
+    let named: Vec<&str> = glob.split('/').collect();
+    let mut dirs: Vec<&str> = path.split('/').collect();
+    let name = dirs.pop().unwrap_or("");
+    let shut = |d: &str| d.starts_with('.') || SHUT.contains(&d) || d.ends_with(".egg-info");
+    dirs.iter().all(|d| !shut(d) || named.contains(d))
+        && (!name.starts_with('.') || named.last().is_some_and(|l| l.starts_with('.')))
+}
+
 /// A path inside a vendored, generated or environment directory, `.forge/` or `.claude/`, or
 /// a generated module (protobuf's `*_pb2.py`).
 pub fn is_vendored(path: &str) -> bool {
@@ -603,6 +656,49 @@ mod tests {
         );
         assert!(first_document_keys("- a\n- b\n").is_empty());
         assert!(first_document_keys("a: [b\n").is_empty());
+    }
+
+    #[test]
+    fn wildcards_reach_hidden_and_vendored_directories_only_by_name() {
+        // named: reached
+        assert!(reaches(
+            ".github/workflows/*.yml",
+            ".github/workflows/ci.yml"
+        ));
+        assert!(reaches(
+            "**/.github/workflows/*.yml",
+            "pkg/.github/workflows/ci.yml"
+        ));
+        assert!(reaches(".devcontainer/**", ".devcontainer/Dockerfile"));
+        assert!(reaches(".spectral.yaml", ".spectral.yaml"));
+        assert!(reaches(".env.*", ".env.local"));
+        assert!(reaches("node_modules/.bin/tsc", "node_modules/.bin/tsc"));
+        assert!(reaches("**/compose*.yaml", "deploy/compose.yaml"));
+        assert!(reaches("**/Dockerfile", "Dockerfile"));
+        // by a wildcard: not reached
+        assert!(!reaches(
+            "**/compose*.yaml",
+            ".forge/rules/compose-ports.yaml"
+        ));
+        assert!(!reaches(
+            "**/compose*.yaml",
+            ".forge/packs/acme/init/compose.yaml"
+        ));
+        assert!(!reaches("**/Dockerfile", ".devcontainer/Dockerfile"));
+        assert!(!reaches("**/Dockerfile", ".claude/worktrees/x/Dockerfile"));
+        assert!(!reaches("**/compose*.yaml", "venv/lib/x/compose.yaml"));
+        assert!(!reaches("**/package.json", "node_modules/x/package.json"));
+        assert!(!reaches("**/*.yml", ".pre-commit-config.yml"));
+        assert!(!reaches("**/pyproject.toml", "pkg.egg-info/pyproject.toml"));
+        // a copy in the outside mirror: judged by its name alone
+        assert!(reaches(
+            "**/*.py",
+            "_outside/private/var/.tmpAB12/scratch/stress.py"
+        ));
+        assert!(!reaches("**/*.py", "_outside/tmp/.hidden.py"));
+        // the project's own build and dist directories stay reachable
+        assert!(reaches("**/Dockerfile", "build/package/Dockerfile"));
+        assert!(reaches("**/compose*.yaml", "dist/compose.yaml"));
     }
 
     #[test]
