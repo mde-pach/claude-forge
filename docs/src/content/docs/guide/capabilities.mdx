@@ -36,7 +36,7 @@ The capability engine is TypeSafe's Jev (`api.typesafe.ai`, model `jev-1.14.0`, 
 - the prompt's first 8,000 characters;
 - Claude's last answer's first 2,000 characters;
 - the last turn's newest 30 tool calls, each as the tool and its file (relative to the repository), or a command's program and subcommand (`git commit`, `pytest`);
-- the capabilities' relevance statements.
+- the capabilities' relevance statements, with Forge's fixed wording that says what each part of the request is.
 
 Never a file's content, a command's arguments or a tool's output. Nothing is sent from a repository without capabilities, or when every one was already given this session.
 

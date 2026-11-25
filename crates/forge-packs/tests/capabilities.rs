@@ -73,9 +73,9 @@ fn a_pack_loads_its_capabilities() {
     assert_eq!(acme["capabilities"][0]["id"], "acme/web-browser");
 }
 
-// The threshold is 0.6 when the file sets none.
+// The threshold is 0.7 when the file sets none.
 #[test]
-fn the_default_threshold_is_six_tenths() {
+fn the_default_threshold_is_seven_tenths() {
     let r = repo(&[
         (".forge/packs/acme/pack.yaml", PACK),
         (
@@ -84,7 +84,7 @@ fn the_default_threshold_is_six_tenths() {
         ),
     ]);
     let set = load(r.path()).unwrap();
-    assert_eq!(set.packs["acme"].capabilities[0].threshold(), 0.6);
+    assert_eq!(set.packs["acme"].capabilities[0].threshold(), 0.7);
 }
 
 // A file its schema refuses, or whose id is not its place, stops the load, naming the file.

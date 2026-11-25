@@ -263,7 +263,7 @@ pub struct CapabilityExamples {
 }
 
 /// The selection threshold when a capability sets none (§20.3).
-pub const DEFAULT_THRESHOLD: f64 = 0.6;
+pub const DEFAULT_THRESHOLD: f64 = 0.7;
 
 /// A capability (§20): something the agent is able to use or should use, given to it only when
 /// the task at hand needs it. It enforces nothing and grants nothing. Its file as written plus
@@ -281,7 +281,7 @@ pub struct Capability {
     /// that holds selects the capability.
     #[schemars(length(min = 1), inner(length(min = 1)))]
     pub relevant: Vec<String>,
-    /// The engine's value at or above which a statement holds; 0.6 when absent.
+    /// The engine's value at or above which a statement holds; 0.7 when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub threshold: Option<f64>,

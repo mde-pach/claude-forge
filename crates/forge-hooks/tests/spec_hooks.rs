@@ -1926,23 +1926,25 @@ fn a_prompt_gets_the_selected_capabilities_once_per_session() {
     assert_eq!(context(&out), "Use the web when the task needs it.");
 }
 
-// Without a threshold of its own, a capability needs a value of at least 0.6: a vague prompt's
-// middling value (0.54, as Jev gave reproduce-first for "make sure the pricing page renders
-// correctly on mobile") gives nothing.
+// Without a threshold of its own, a capability needs a value of at least 0.7, TypeSafe's
+// starting point for a yes: a middling value (0.54, as Jev gave reproduce-first for "make sure
+// the pricing page renders correctly on mobile") gives nothing.
 #[test]
 fn a_middling_value_selects_nothing_by_default() {
     let s = Sandbox::new(&[]);
     s.with_capabilities(&[("web", capability("web", "inject", WEB, ""))]);
-    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.54)]);
-    let out = s.prompt_with(
-        &engine,
-        s.caps_env(),
-        "s1",
-        "Make sure it looks right",
-        None,
-    );
-    assert_eq!(out, Output::silent());
-    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.6)]);
+    for v in [0.54, 0.69] {
+        let engine = forge_capabilities::Scripted::answering(&[(WEB, v)]);
+        let out = s.prompt_with(
+            &engine,
+            s.caps_env(),
+            "s1",
+            "Make sure it looks right",
+            None,
+        );
+        assert_eq!(out, Output::silent(), "{v}");
+    }
+    let engine = forge_capabilities::Scripted::answering(&[(WEB, 0.7)]);
     let out = s.prompt_with(
         &engine,
         s.caps_env(),

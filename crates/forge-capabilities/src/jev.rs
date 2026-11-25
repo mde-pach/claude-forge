@@ -18,9 +18,15 @@ use crate::engine::{Engine, EngineError};
 pub const BASE_URL: &str = "https://api.typesafe.ai";
 /// The longest a prompt waits for the engine.
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
-/// The sentence each question's instructions start with: what "the task" is.
-pub const ABOUT: &str =
-    "The task: the request, read in the light of the previous answer and the recent actions.";
+/// The state's first field: who is talking to whom, and which field is the user's message.
+pub const SITUATION: &str = "A user is working with a coding agent in their repository. `user_message` is the user's latest message to the agent.";
+/// Each question's `task`: what "the task" in a capability's statements is.
+pub const TASK: &str = "What the user wants the agent to do now, from `user_message` (read with `agent_previous_answer` and `agent_recent_actions` when they are there).";
+/// Each question's criteria, the same for every statement: the statement must hold for what is
+/// asked now, not merely share its topic.
+pub const TRUE: &str = "The statement holds for what the user asks the agent to do now.";
+pub const FALSE: &str =
+    "What the user asks now is something else; at most it shares a topic with the statement.";
 
 pub struct Jev {
     key: String,
@@ -52,23 +58,41 @@ impl Jev {
         }
     }
 
-    /// The request body: the digest as the state, one noul question per statement.
+    /// The request body: the digest as the state, each part named for what it is (the user's
+    /// message, the agent's previous answer and recent actions) after the situation; one noul
+    /// question per statement, about what the user asks now.
     pub fn body(&self, digest: &Digest, questions: &[(String, &str)]) -> Value {
         let qs: Map<String, Value> = questions
             .iter()
             .map(|(k, s)| {
                 (
                     k.clone(),
-                    json!({"type": "noul", "instructions": {"about": ABOUT, "statement": s}}),
+                    json!({"type": "noul",
+                        "instructions": {"task": TASK, "statement": s},
+                        "criteria": {"true": TRUE, "false": FALSE}}),
                 )
             })
             .collect();
         json!({
             "model": self.model,
-            "state": digest,
+            "state": state(digest),
             "questions": qs,
         })
     }
+}
+
+/// The digest as Jev reads it.
+fn state(d: &Digest) -> Value {
+    let mut s = Map::new();
+    s.insert("situation".into(), json!(SITUATION));
+    s.insert("user_message".into(), json!(d.request));
+    if let Some(a) = &d.previous_answer {
+        s.insert("agent_previous_answer".into(), json!(a));
+    }
+    if !d.recent_actions.is_empty() {
+        s.insert("agent_recent_actions".into(), json!(d.recent_actions));
+    }
+    Value::Object(s)
 }
 
 /// The values of an answer, by question key; one that is missing or not a noul is left out.
@@ -204,8 +228,9 @@ mod tests {
         }
     }
 
-    // One request: the pinned model, the digest as the state, one noul question per statement
-    // keyed `<id>#<n>` with the fixed `about` sentence; the key in the Authorization header.
+    // One request: the pinned model, the digest as the state with its parts named, one noul
+    // question per statement keyed `<id>#<n>` with the fixed task and criteria; the key in the
+    // Authorization header.
     #[test]
     fn one_request_with_a_noul_question_per_statement() {
         let (url, req) = serve(
@@ -234,10 +259,28 @@ mod tests {
         let body: Value = serde_json::from_str(req.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(
             body,
-            json!({"model": "jev-1.14.0", "state": {"request": "Fix the login page"},
+            json!({"model": "jev-1.14.0",
+                "state": {"situation": SITUATION, "user_message": "Fix the login page"},
                 "questions": {
-                    "a/web#0": {"type": "noul", "instructions": {"about": ABOUT, "statement": "The task changes a page."}},
-                    "a/web#1": {"type": "noul", "instructions": {"about": ABOUT, "statement": "Other."}}}})
+                    "a/web#0": {"type": "noul", "instructions": {"task": TASK, "statement": "The task changes a page."},
+                        "criteria": {"true": TRUE, "false": FALSE}},
+                    "a/web#1": {"type": "noul", "instructions": {"task": TASK, "statement": "Other."},
+                        "criteria": {"true": TRUE, "false": FALSE}}}})
+        );
+        // a later prompt: the agent's previous answer and recent actions, named as such
+        let d = Digest {
+            request: "Do the same".into(),
+            previous_answer: Some("Fixed.".into()),
+            recent_actions: vec![crate::digest::Action {
+                tool: "Edit".into(),
+                target: Some("a.ts".into()),
+            }],
+        };
+        assert_eq!(
+            jev.body(&d, &[])["state"],
+            json!({"situation": SITUATION, "user_message": "Do the same",
+                "agent_previous_answer": "Fixed.",
+                "agent_recent_actions": [{"tool": "Edit", "target": "a.ts"}]})
         );
     }
 
