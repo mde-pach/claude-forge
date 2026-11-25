@@ -280,7 +280,7 @@ fn fake_engine() -> String {
                 }
             };
             let v: Value = serde_json::from_str(&text).unwrap_or_default();
-            let page = v["state"]["request"]
+            let page = v["state"]["user_message"]
                 .as_str()
                 .unwrap_or("")
                 .contains("page");
@@ -373,4 +373,62 @@ fn capability_examples_against_the_real_engine() {
     let out = forge_test(d.path(), home.path(), &[], false);
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("2 passed, 0 failed, 0 skipped"), "{text}");
+}
+
+// §6.5: for a check, advice catches a `match` example; a `no_match` example fails only on a
+// finding that fails the check, so one that gets advice (advice, not a failure) passes.
+#[test]
+fn advice_catches_a_match_and_does_not_fail_a_no_match() {
+    let d = tempfile::tempdir().unwrap();
+    assert!(
+        Command::new("git")
+            .args(["init", "-q", "-b", "main"])
+            .current_dir(d.path())
+            .status()
+            .unwrap()
+            .success()
+    );
+    let rule = |id: &str, run: &str| {
+        format!(
+            r#"id: acme/{id}
+description: "Prefer the new settings to the legacy ones."
+scope: {{language: any, files: ["config/*.ini"]}}
+enforce:
+  - {{target: check, stage: lint, run: "{run}"}}
+examples:
+  match:
+    - files: {{config/app.ini: "legacy = 1\n"}}
+  no_match:
+    - files: {{config/app.ini: "legacy = 1\nmodern = 1\n"}}
+"#
+        )
+    };
+    let check = "! grep -Hn legacy config/app.ini";
+    put(
+        d.path(),
+        ".forge/rules/advised.yaml",
+        &rule("advised", &format!("forge_advise sh -c '{check}'")),
+    );
+    put(
+        d.path(),
+        ".forge/rules/blocking.yaml",
+        &rule("blocking", check),
+    );
+    let home = tempfile::tempdir().unwrap();
+    let out = forge_test(d.path(), home.path(), &["--json"], false);
+    let lines: Vec<Value> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let verdict = |rule: &str, kind: &str| {
+        lines
+            .iter()
+            .find(|r| r["rule"] == rule && r["kind"] == kind)
+            .unwrap_or_else(|| panic!("{rule} {kind} in {lines:?}"))["verdict"]
+            .clone()
+    };
+    assert_eq!(verdict("acme/advised", "match"), "pass", "{lines:?}");
+    assert_eq!(verdict("acme/advised", "no_match"), "pass", "{lines:?}");
+    assert_eq!(verdict("acme/blocking", "match"), "pass", "{lines:?}");
+    assert_eq!(verdict("acme/blocking", "no_match"), "fail", "{lines:?}");
 }
