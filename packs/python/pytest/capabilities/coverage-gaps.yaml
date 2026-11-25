@@ -1,0 +1,19 @@
+# Adapted from pytest-coverage, https://github.com/github/awesome-copilot (skills/pytest-coverage),
+# MIT License, Copyright GitHub, Inc.
+id: python/pytest/coverage-gaps
+description: Finding the lines of a Python module that no test runs, with pytest-cov.
+relevant:
+  - The task asks which code is left uncovered by tests, or to raise test coverage.
+  - The task asks to add tests for untested code.
+deliver: on-demand
+text: |
+  1. Run the tests with coverage of the module (pytest-cov installed; with uv: `uv run --with pytest-cov pytest …`): `pytest --cov=<package.module> --cov-branch --cov-report=term-missing <tests>`. The `Missing` column lists the lines and branches (`12->15`) no test ran.
+  2. For a line-by-line view: `--cov-report=annotate:/tmp/cov_annotate`; in its files, lines starting with `!` were not run.
+  3. Write tests for the behaviours those lines implement, through the module's public functions, and rerun the same command until they are covered.
+examples:
+  selected:
+    - "Which parts of billing/invoice.py are untested? Add tests for them."
+    - "Get coverage of the parser module up, it is at 40%."
+  not_selected:
+    - "Fix the failing test in test_invoice.py."
+    - "Set up pytest for this project."

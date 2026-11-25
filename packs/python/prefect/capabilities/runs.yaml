@@ -1,0 +1,22 @@
+# Procedure after the prefect CLI skill of https://github.com/PrefectHQ/prefect-mcp-server,
+# MIT License, Copyright (c) 2026 Prefect Technologies, Inc.
+id: python/prefect/runs
+description: Running a Prefect flow and reading its flow runs and their logs with the prefect CLI.
+relevant:
+  - The task adds or changes a Prefect flow, task or deployment.
+  - The task is to find why a Prefect flow run fails.
+deliver: on-demand
+text: |
+  1. A flow runs as a plain script: `python <flow file>` calls it in this process, against the configured API (`prefect config view` shows which) or a temporary local one, and prints each task's logs.
+  2. Deployments and their runs: `prefect deployment ls`, then `prefect flow-run ls --flow-name <flow> --limit 5` with each run's state.
+  3. A failed run: `prefect flow-run inspect <run id>` for its state message and parameters, `prefect flow-run logs <run id>` for its logs; read the first task that failed.
+  4. Run a deployment as the scheduler would: `prefect deployment run '<flow>/<deployment>' --watch` (it needs a worker on the deployment's pool).
+
+  Reproduce the failing task locally with the same parameters before fixing it.
+examples:
+  selected:
+    - "The nightly sync flow failed in Prefect Cloud, find out why."
+    - "Add a retry to the extract task of the etl flow and check the flow still runs."
+  not_selected:
+    - "Explain the difference between a Prefect task and a flow."
+    - "Move the database URL into an environment variable in settings.py."

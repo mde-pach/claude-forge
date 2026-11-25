@@ -1,0 +1,24 @@
+# Adapted from hf-cli and huggingface-datasets, https://github.com/huggingface/skills,
+# Apache License 2.0.
+id: python/huggingface/hub-inspect
+description: Looking at a Hugging Face Hub model or dataset (its files, config, splits and real rows) before writing code for it.
+relevant:
+  - The task writes or changes code for a named public dataset or pretrained model, such as one on the Hugging Face Hub.
+  - The task needs to know what a Hub repository, model or dataset contains.
+deliver: on-demand
+text: |
+  Read the repository instead of guessing its layout:
+
+  1. A model: `hf models info <repo_id>` (files, tags, pipeline), and its config without the weights: `hf download <repo_id> config.json --local-dir /tmp/<name>`.
+  2. A dataset's subsets and splits: `curl -s 'https://datasets-server.huggingface.co/splits?dataset=<repo_id>'`.
+  3. Its real rows and column types: `curl -s 'https://datasets-server.huggingface.co/rows?dataset=<repo_id>&config=<config>&split=<split>&offset=0&length=5'`; `/info?dataset=<repo_id>` gives the features, `/size` the row counts.
+  4. A private or gated repository needs a token: `hf auth whoami` says whether one is set; pass it as `-H "Authorization: Bearer $HF_TOKEN"` to curl.
+
+  Write the code against the columns, splits and files you saw.
+examples:
+  selected:
+    - "Write a loader that turns the squad dataset into our QA format."
+    - "Which files does mistralai/Mistral-7B-v0.1 ship? I need to know if it has safetensors."
+  not_selected:
+    - "Write a function that tokenizes our QA examples with our existing tokenizer."
+    - "Speed up the training loop by enabling mixed precision."

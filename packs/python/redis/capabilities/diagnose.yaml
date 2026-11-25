@@ -1,0 +1,23 @@
+# Adapted from redis-observability, https://github.com/redis/agent-skills (skills/redis-observability),
+# MIT License, Copyright (c) 2026 Redis, Inc.
+id: python/redis/diagnose
+description: Finding slow commands, memory pressure and client problems on a Redis server with redis-cli.
+relevant:
+  - The task is to find why Redis is slow, uses too much memory, or refuses or drops connections.
+deliver: on-demand
+text: |
+  Ask the server, with read-only commands (`redis-cli -u <url>`, the URL of a development or staging server the app uses):
+
+  1. Slow commands: `SLOWLOG GET 10` (each entry: duration in microseconds, the command and its arguments). A `KEYS`, a large `SMEMBERS`/`HGETALL`/`LRANGE 0 -1` or a long Lua script blocks every client.
+  2. Memory: `INFO memory` (`used_memory_human`, `maxmemory`, `maxmemory_policy`, `mem_fragmentation_ratio`), `MEMORY DOCTOR`, and the largest keys with `redis-cli --bigkeys` (it scans, so it is slow on a big database).
+  3. Load and clients: `INFO stats` (`instantaneous_ops_per_sec`, `evicted_keys`, `rejected_connections`), `INFO clients` and `CLIENT LIST` for how many connections the app opens and how long they idle.
+  4. Latency seen from here: `redis-cli --latency`.
+
+  Tie what you found to the code that issues those commands or opens those connections.
+examples:
+  selected:
+    - "Requests that hit the Redis cache got slow this week, find out why."
+    - "Redis keeps evicting keys and memory is at the limit, what is using it?"
+  not_selected:
+    - "Cache the user profile in Redis for five minutes."
+    - "Switch the Redis client to the asyncio API."
