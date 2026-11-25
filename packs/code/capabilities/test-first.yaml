@@ -1,0 +1,26 @@
+# Adapted from test-driven-development, https://github.com/obra/superpowers (skills/test-driven-development),
+# MIT License, Copyright (c) 2025 Jesse Vincent; and tdd, https://github.com/mattpocock/skills
+# (skills/engineering/tdd), MIT License, Copyright (c) 2026 Matt Pocock: their red-green loop, in short.
+id: code/test-first
+description: Building a change test-first, one behaviour at a time, watching each test fail before writing the code.
+relevant:
+  - The task asks for the change to be developed test-first or with TDD.
+  - The task asks to write the tests before the implementation.
+deliver: on-demand
+text: |
+  Build the change one behaviour at a time:
+
+  1. Pick the next behaviour and the public entry point that exposes it (a function, an endpoint, a command), the one its callers use.
+  2. Write one test of that behaviour through that entry point.
+  3. Run only that test (`pytest path::test_name`, `npx vitest run path -t name`, the project's equivalent) and read the failure: it fails because the behaviour is missing, not on an import error, a typo or a missing fixture. Fix the test until it fails for that reason.
+  4. Write the smallest code that makes it pass, and run it again.
+  5. Run the whole suite, then go back to 1 for the next behaviour.
+
+  Keep the list of behaviours done and to do in your answer, with the command that showed each test red and then green.
+examples:
+  selected:
+    - "Use TDD to add a slugify helper that strips accents."
+    - "Write the tests first, then implement the retry policy for the HTTP client."
+  not_selected:
+    - "Add a slugify helper that strips accents."
+    - "Our test suite is slow, find out which tests take the longest."

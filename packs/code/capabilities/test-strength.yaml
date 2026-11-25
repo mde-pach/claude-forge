@@ -1,0 +1,29 @@
+# Procedure after the test-quality check of wio, https://github.com/workersio/skills (plugins/wio/skills/wio),
+# MIT License, Copyright (c) 2026 workers.io; fix-mutants, https://github.com/Amirault/fix-mutants,
+# MIT License, Copyright (c) 2026 Tony Amirault; mutation-testing, https://github.com/secondsky/claude-skills,
+# MIT License, Copyright (c) 2025 Claude Skills Maintainers; and https://github.com/citypaul/.dotfiles (mutation-testing).
+id: code/test-strength
+description: Finding out whether tests would catch a bug, by breaking the code on purpose or with a mutation tool.
+relevant:
+  - The task asks whether tests actually catch bugs, or to strengthen weak tests.
+  - The task involves mutation testing or surviving mutants.
+deliver: on-demand
+text: |
+  A test is worth keeping when it fails once the behaviour it covers breaks.
+
+  By hand, for one test:
+  1. Name the bug it should catch, and make that bug in the code (flip a condition, drop a step, return a constant).
+  2. Run the narrowest command that runs the test and check it fails, on an assertion.
+  3. Restore the code (`git diff` shows nothing left of the change) and rerun: it passes.
+
+  With a mutation tool, for changed code (start from a clean tree):
+  1. List the changed files: `git diff --name-only <base>...HEAD`.
+  2. Run the tool on them only: Stryker for JavaScript/TypeScript (`npx stryker run --mutate <files>`, `--incremental` on later runs), mutmut for Python (`mutmut run`, then `mutmut results` and `mutmut show <id>`).
+  3. For each surviving mutant, write a test through the public entry point that fails on the mutant, and rerun the tool on that file until it reports the mutant killed.
+examples:
+  selected:
+    - "Would our tests even notice if calculate_tax returned the wrong rate? Check."
+    - "Run mutation testing on the files this branch changed and kill the survivors."
+  not_selected:
+    - "Add a test for the new calculate_tax rounding rule."
+    - "The CI test job is red since this morning, fix it."

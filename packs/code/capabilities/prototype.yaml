@@ -1,0 +1,22 @@
+# Adapted from prototype, https://github.com/mattpocock/skills (skills/engineering/prototype),
+# MIT License, Copyright (c) 2026 Matt Pocock.
+id: code/prototype
+description: Answering a design question with a throwaway prototype before implementing it in the real code.
+relevant:
+  - The task asks to prototype, sketch or compare options for a design before building it.
+deliver: on-demand
+text: |
+  A prototype answers one question and is thrown away:
+
+  1. Write the question down: which states a model needs and how it moves between them, or which of two or three UI shapes works.
+  2. For a state model, write one standalone file (a single HTML page with a script, or a small script in the project's language) that holds the states and transitions and lets you trigger each one and see the result.
+  3. For a UI shape, add one throwaway route or page that renders each variant, switched by a URL parameter (`?variant=a`), using the project's components.
+  4. Run it with the project's own dev command, and look at each state or variant (in a browser, or by the script's output).
+  5. Report what each one showed and which answer you recommend; then delete the prototype unless the person wants to keep it.
+examples:
+  selected:
+    - "Before we build the onboarding wizard, prototype two layouts so I can compare them."
+    - "Sketch the state machine for the upload flow in a quick prototype first, so we can see the states."
+  not_selected:
+    - "Build the onboarding wizard from the approved design."
+    - "Fix the upload flow, it gets stuck in the processing state."

@@ -1,0 +1,23 @@
+# Procedure after differential-review, https://github.com/trailofbits/skills (plugins/differential-review),
+# written here from scratch (the original is CC BY-SA 4.0).
+id: code/change-impact
+description: Weighing the risk of a diff by who calls the changed code, its history and what tests cover it.
+relevant:
+  - The task is to review a diff, a branch or a pull request for its risk or impact.
+deliver: on-demand
+text: |
+  For each function or method the diff changes:
+
+  1. Find its callers: the language server's references, or `rg -n '\b<name>\('`. Many callers, or callers across modules, widen what the change can break.
+  2. Read the history of the changed lines: `git log -L <start>,<end>:<file>` and `git blame -L <start>,<end> <file>`. A recent fix there, or code that changes often, is a place where bugs were already found.
+  3. Find the tests that reach it (`rg` for its name in the test directories) and run them; a changed branch no test runs is untested.
+  4. Note what the code touches: authentication, authorisation, cryptography, money, deserialisation, external calls, a database migration. These raise the stakes of any mistake.
+
+  Report each changed function with its callers, its history, its tests and what it touches, the riskiest first.
+examples:
+  selected:
+    - "Review this PR for what it could break before we merge it."
+    - "How risky is the diff on this branch? It touches the auth middleware."
+  not_selected:
+    - "Fix the failing login test on this branch."
+    - "Write the PR description for this branch."
